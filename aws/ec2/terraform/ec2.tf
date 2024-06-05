@@ -1,0 +1,47 @@
+resource "aws_instance" "camunda" {
+  count         = var.instance_count
+  ami           = var.aws_ami
+  instance_type = var.aws_instance_type
+  subnet_id     = module.vpc.private_subnets[count.index]
+
+  vpc_security_group_ids = [
+    aws_security_group.allow_any_traffic_within_vpc.id,
+    aws_security_group.allow_remote_80_443.id
+  ]
+
+  associate_public_ip_address = false
+
+  key_name = aws_key_pair.main.key_name
+
+  root_block_device {
+    volume_size = 50
+    volume_type = "gp3"
+
+    # TODO: consider enabling in the future
+    # delete_on_termination = false
+    encrypted  = true
+    kms_key_id = aws_kms_key.main.arn
+  }
+
+  tags = {
+    Name = "camunda-instance-${count.index}"
+  }
+}
+
+resource "aws_instance" "bastion" {
+  ami           = var.aws_ami
+  instance_type = var.aws_instance_type_bastion
+  subnet_id     = module.vpc.public_subnets[0]
+
+  vpc_security_group_ids = [
+    aws_security_group.allow_ssh.id,
+  ]
+
+  associate_public_ip_address = true
+
+  key_name = aws_key_pair.main.key_name
+
+  tags = {
+    Name = "camunda-bastion"
+  }
+}
