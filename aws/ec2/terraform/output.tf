@@ -9,3 +9,7 @@ output "camunda_ips" {
 output "aws_opensearch_domain" {
   value = "https://${aws_opensearch_domain.opensearch_cluster.endpoint}"
 }
+
+output "alb_endpoint" {
+  value = aws_lb.main.dns_name
+}

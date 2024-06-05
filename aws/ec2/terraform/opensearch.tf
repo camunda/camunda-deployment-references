@@ -68,4 +68,9 @@ resource "aws_opensearch_domain" "opensearch_cluster" {
   ]
 }
 CONFIG
+
+  timeouts {
+    create = "2h"
+  }
+
 }
