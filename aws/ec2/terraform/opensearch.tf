@@ -1,4 +1,6 @@
 resource "aws_opensearch_domain" "opensearch_cluster" {
+  count = var.enable_opensearch ? 1 : 0
+
   domain_name    = "${var.prefix}-os-cluster"
   engine_version = "OpenSearch_2.5"
 

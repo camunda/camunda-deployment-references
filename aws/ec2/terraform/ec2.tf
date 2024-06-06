@@ -29,6 +29,8 @@ resource "aws_instance" "camunda" {
 }
 
 resource "aws_instance" "bastion" {
+  count = var.enable_jump_host ? 1 : 0
+
   ami           = var.aws_ami
   instance_type = var.aws_instance_type_bastion
   subnet_id     = module.vpc.public_subnets[0]

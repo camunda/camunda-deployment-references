@@ -34,6 +34,8 @@ resource "aws_lb_target_group_attachment" "main" {
 }
 
 resource "aws_lb" "main" {
+  count = var.enable_alb ? 1 : 0
+
   name               = "${var.prefix}-alb-8080"
   internal           = false
   load_balancer_type = "application"
@@ -45,7 +47,9 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_listener" "http_8080" {
-  load_balancer_arn = aws_lb.main.arn
+  count = var.enable_alb ? 1 : 0
+
+  load_balancer_arn = aws_lb.main[0].arn
   port              = "80"
   protocol          = "HTTP"
 

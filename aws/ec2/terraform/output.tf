@@ -1,15 +1,18 @@
+# converting array to string since bastion is always a single instance
 output "bastion_ip" {
-  value = aws_instance.bastion.public_ip
+  value = join("", aws_instance.bastion[*].public_ip)
 }
 
 output "camunda_ips" {
   value = [for instance in aws_instance.camunda : instance.private_ip]
 }
 
+# converting array to string since opensearch is always a single instance
 output "aws_opensearch_domain" {
-  value = "https://${aws_opensearch_domain.opensearch_cluster.endpoint}"
+  value = "https://${join("", aws_opensearch_domain.opensearch_cluster[*].endpoint)}"
 }
 
+# converting array to string since ALB is always a single instance
 output "alb_endpoint" {
-  value = aws_lb.main.dns_name
+  value = join("", aws_lb.main[*].dns_name)
 }
