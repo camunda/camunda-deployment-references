@@ -7,7 +7,7 @@ resource "aws_opensearch_domain" "opensearch_cluster" {
   vpc_options {
     subnet_ids = module.vpc.private_subnets
     security_group_ids = [
-      aws_security_group.allow_any_traffic_within_vpc.id,
+      aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
     ]
   }
 

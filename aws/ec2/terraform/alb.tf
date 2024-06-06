@@ -41,7 +41,7 @@ resource "aws_lb" "main" {
   load_balancer_type = "application"
   security_groups = [
     aws_security_group.allow_remote_80_443.id,
-    aws_security_group.allow_any_traffic_within_vpc.id,
+    aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
   ]
   subnets = module.vpc.public_subnets
 }

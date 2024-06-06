@@ -5,7 +5,7 @@ resource "aws_instance" "camunda" {
   subnet_id     = module.vpc.private_subnets[count.index]
 
   vpc_security_group_ids = [
-    aws_security_group.allow_any_traffic_within_vpc.id,
+    aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
     aws_security_group.allow_remote_80_443.id
   ]
 

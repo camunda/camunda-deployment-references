@@ -75,3 +75,9 @@ variable "opensearch_log_types" {
   default     = ["SEARCH_SLOW_LOGS", "INDEX_SLOW_LOGS", "ES_APPLICATION_LOGS"]
   description = "The types of logs to publish to CloudWatch Logs"
 }
+
+variable "pub_key_path" {
+  type        = string
+  description = "The path to the public key to use for the EC2 instances for SSH access"
+  default     = "~/.ssh/id_rsa.pub"
+}
