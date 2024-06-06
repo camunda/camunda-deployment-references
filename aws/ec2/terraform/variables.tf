@@ -56,3 +56,22 @@ variable "enable_alb" {
   default     = true
   description = "Enable the Application Load Balancer. If false, the ALB will not be created, e.g. if a user doesn't want to publicy expose the setup."
 }
+
+variable "enable_vpc_logging" {
+  type        = bool
+  default     = false
+  description = "Enable VPC flow logging to CloudWatch Logs"
+}
+
+variable "enable_opensearch_logging" {
+  type        = bool
+  default     = false
+  description = "Enable OpenSearch logging to CloudWatch Logs"
+}
+
+# Audit logs are only possible with advanced security options
+variable "opensearch_log_types" {
+  type        = list(string)
+  default     = ["SEARCH_SLOW_LOGS", "INDEX_SLOW_LOGS", "ES_APPLICATION_LOGS"]
+  description = "The types of logs to publish to CloudWatch Logs"
+}

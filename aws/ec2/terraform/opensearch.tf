@@ -54,6 +54,16 @@ resource "aws_opensearch_domain" "opensearch_cluster" {
   advanced_options = {
     "rest.action.multi.allow_explicit_index" = true
   }
+  dynamic "log_publishing_options" {
+    for_each = var.opensearch_log_types
+
+    content {
+      enabled = var.enable_opensearch_logging
+      # in case it's disabled, we provide a dummy ARN to avoid errors
+      cloudwatch_log_group_arn = var.enable_opensearch_logging ? join("", aws_cloudwatch_log_group.os_log_group[*].arn) : "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:doesnotexistbutrequired"
+      log_type                 = log_publishing_options.value
+    }
+  }
 
   access_policies = <<CONFIG
   {
@@ -75,4 +85,35 @@ CONFIG
     create = "2h"
   }
 
+}
+
+resource "aws_cloudwatch_log_group" "os_log_group" {
+  count = var.enable_opensearch && var.enable_opensearch_logging ? 1 : 0
+  name  = "${var.prefix}-os-logs"
+}
+
+data "aws_iam_policy_document" "os_logging_policy_document" {
+  count = var.enable_opensearch && var.enable_opensearch_logging ? 1 : 0
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["es.amazonaws.com"]
+    }
+
+    actions = [
+      "logs:PutLogEvents",
+      "logs:PutLogEventsBatch",
+      "logs:CreateLogStream",
+    ]
+
+    resources = ["arn:aws:logs:*"]
+  }
+}
+
+resource "aws_cloudwatch_log_resource_policy" "os_logging_policy" {
+  count           = var.enable_opensearch && var.enable_opensearch_logging ? 1 : 0
+  policy_name     = "${var.prefix}-os-logging-policy"
+  policy_document = join("", data.aws_iam_policy_document.os_logging_policy_document[*].json)
 }

@@ -26,8 +26,12 @@ module "vpc" {
   single_nat_gateway     = true
   one_nat_gateway_per_az = false
 
-  # create_flow_log_cloudwatch_iam_role = true
-  # create_flow_log_cloudwatch_log_group = true
+  create_flow_log_cloudwatch_iam_role  = var.enable_vpc_logging
+  create_flow_log_cloudwatch_log_group = var.enable_vpc_logging
+
+  flow_log_cloudwatch_log_group_kms_key_id        = var.enable_vpc_logging ? aws_kms_key.main.id : null
+  flow_log_cloudwatch_log_group_name_prefix       = var.enable_vpc_logging ? var.prefix : null
+  flow_log_cloudwatch_log_group_retention_in_days = var.enable_vpc_logging ? 30 : null
 
   tags = local.tags
 }
