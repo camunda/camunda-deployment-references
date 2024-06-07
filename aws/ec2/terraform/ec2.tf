@@ -1,6 +1,6 @@
 resource "aws_instance" "camunda" {
   count         = var.instance_count
-  ami           = var.aws_ami
+  ami           = var.aws_ami == "" ? data.aws_ami.debian.id : var.aws_ami
   instance_type = var.aws_instance_type
   subnet_id     = module.vpc.private_subnets[count.index]
 
@@ -17,10 +17,9 @@ resource "aws_instance" "camunda" {
     volume_size = 50
     volume_type = "gp3"
 
-    # TODO: consider enabling in the future
-    # delete_on_termination = false
-    encrypted  = true
-    kms_key_id = aws_kms_key.main.arn
+    delete_on_termination = var.delete_on_termination
+    encrypted             = true
+    kms_key_id            = aws_kms_key.main.arn
   }
 
   tags = {
@@ -31,7 +30,7 @@ resource "aws_instance" "camunda" {
 resource "aws_instance" "bastion" {
   count = var.enable_jump_host ? 1 : 0
 
-  ami           = var.aws_ami
+  ami           = var.aws_ami == "" ? data.aws_ami.debian.id : var.aws_ami
   instance_type = var.aws_instance_type_bastion
   subnet_id     = module.vpc.public_subnets[0]
 

@@ -1,12 +1,25 @@
 data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
 
-# TODO: Maybe retrieve the AMI from data source and just supply ubuntu / debian / aws
-# Hard coded AMIs disappear quite quickly
+data "aws_ami" "debian" {
+  most_recent = true
+  owners      = ["136693071363"] # Debian
+  filter {
+    name   = "name"
+    values = ["debian-12-*"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+}
+
+# It's recommended to pin the AMI as otherwise it will result in recreations and wipe everything.
 variable "aws_ami" {
   type        = string
-  description = "The AMI to use for the EC2 instances"
-  default     = "ami-0eb11ab33f229b26c" # Debian 12
+  description = "The AMI to use for the EC2 instances if empty, the latest Debian 12 AMI will be used"
+  default     = ""
 }
 
 variable "aws_instance_type" {
@@ -80,4 +93,10 @@ variable "pub_key_path" {
   type        = string
   description = "The path to the public key to use for the EC2 instances for SSH access"
   default     = "~/.ssh/id_rsa.pub"
+}
+
+variable "delete_on_termination" {
+  type        = bool
+  default     = true
+  description = "Delete the root volume on termination of an EC2 instance"
 }
