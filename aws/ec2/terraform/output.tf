@@ -17,6 +17,10 @@ output "alb_endpoint" {
   value = join("", aws_lb.main[*].dns_name)
 }
 
+output "nlb_endpoint" {
+  value = join("", aws_lb.grpc[*].dns_name)
+}
+
 output "aws_ami" {
   value       = data.aws_ami.debian.id
   description = "The AMI retrieved from AWS for the latest Debian 12 image. Make sure to once pin the aws_ami variable to avoid recreations."

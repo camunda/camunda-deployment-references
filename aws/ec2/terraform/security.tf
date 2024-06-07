@@ -113,3 +113,16 @@ resource "aws_security_group" "allow_ssh" {
     Name = "allow_ssh"
   }
 }
+
+resource "aws_security_group" "allow_remote_grpc" {
+  name        = "allow_remote_grpc"
+  description = "Allow remote gRPC traffic"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 26500
+    to_port     = 26500
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}

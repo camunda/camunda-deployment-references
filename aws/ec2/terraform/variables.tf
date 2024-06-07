@@ -70,6 +70,12 @@ variable "enable_alb" {
   description = "Enable the Application Load Balancer. If false, the ALB will not be created, e.g. if a user doesn't want to publicy expose the setup."
 }
 
+variable "enable_nlb" {
+  type        = bool
+  default     = true
+  description = "Enable the Network Load Balancer. If false, the NLB will not be created."
+}
+
 variable "enable_vpc_logging" {
   type        = bool
   default     = false
