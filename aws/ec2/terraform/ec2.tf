@@ -13,18 +13,83 @@ resource "aws_instance" "camunda" {
 
   key_name = aws_key_pair.main.key_name
 
+  # Contains the OS
   root_block_device {
-    volume_size = 50
+    volume_size = 10
     volume_type = "gp3"
 
-    delete_on_termination = var.delete_on_termination
+    delete_on_termination = true
     encrypted             = true
     kms_key_id            = aws_kms_key.main.arn
   }
 
+  user_data = <<-EOF
+    #!/bin/bash
+    # Retry mechanism to wait for the volume to be attached
+    device_name="/dev/nvme1n1"
+    mount_point="/camunda"
+    retries=10
+    while [ $retries -gt 0 ]; do
+      if lsblk | grep -q $(basename $device_name); then
+        echo "Device $device_name found"
+        break
+      else
+        echo "Waiting for $device_name to be attached..."
+        sleep 10
+        retries=$((retries - 1))
+      fi
+    done
+
+    if [ $retries -eq 0 ]; then
+      echo "Error: $device_name not found after waiting"
+      exit 1
+    fi
+
+    # Check if the device is already mounted
+    if ! mount | grep $mount_point > /dev/null; then
+      # Check if the filesystem exists
+      if ! file -s $device_name | grep ext4 > /dev/null; then
+        mkfs -t ext4 $device_name
+      fi
+      mkdir -p $mount_point
+      mount $device_name $mount_point
+      echo "$device_name $mount_point ext4 defaults,nofail 0 2" >> /etc/fstab
+    fi
+    chown admin:admin $mount_point
+  EOF
+
   tags = {
     Name = "camunda-instance-${count.index}"
   }
+}
+
+# Contains the Camunda data
+resource "aws_ebs_volume" "camunda" {
+  count = var.instance_count
+
+  availability_zone = module.vpc.azs[count.index]
+  size              = var.camunda_disk_size
+  type              = "gp3"
+  encrypted         = true
+  kms_key_id        = aws_kms_key.main.arn
+
+  tags = {
+    Name = "${var.prefix}-extra-volume-${count.index}"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+    prevent_destroy       = true
+  }
+}
+
+# Attach EBS Volume to EC2 Instance
+resource "aws_volume_attachment" "ebs_attachment" {
+  count = var.instance_count
+
+  device_name = "/dev/sdb"
+  volume_id   = aws_ebs_volume.camunda[count.index].id
+  instance_id = aws_instance.camunda[count.index].id
 }
 
 resource "aws_instance" "bastion" {

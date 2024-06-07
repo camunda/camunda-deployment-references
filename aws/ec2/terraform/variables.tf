@@ -19,7 +19,7 @@ data "aws_ami" "debian" {
 variable "aws_ami" {
   type        = string
   description = "The AMI to use for the EC2 instances if empty, the latest Debian 12 AMI will be used"
-  default     = ""
+  default     = "ami-0eb11ab33f229b26c"
 }
 
 variable "aws_instance_type" {
@@ -95,8 +95,8 @@ variable "pub_key_path" {
   default     = "~/.ssh/id_rsa.pub"
 }
 
-variable "delete_on_termination" {
-  type        = bool
-  default     = true
-  description = "Delete the root volume on termination of an EC2 instance"
+variable "camunda_disk_size" {
+  type        = number
+  default     = 50
+  description = "The size of the Camunda disk in GiB"
 }
