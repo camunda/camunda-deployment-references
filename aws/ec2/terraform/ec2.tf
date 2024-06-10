@@ -24,6 +24,7 @@ resource "aws_instance" "camunda" {
     kms_key_id            = aws_kms_key.main.arn
   }
 
+  # Automatically mounts the extra volume to keep Camunda separated from the OS
   user_data = <<-EOF
     #!/bin/bash
     # Retry mechanism to wait for the volume to be attached
@@ -64,7 +65,7 @@ resource "aws_instance" "camunda" {
   }
 }
 
-# Contains the Camunda data
+# Contains the Camunda data to have a separate lifecycle
 resource "aws_ebs_volume" "camunda" {
   count = var.instance_count
 
@@ -93,6 +94,7 @@ resource "aws_volume_attachment" "ebs_attachment" {
   instance_id = aws_instance.camunda[count.index].id
 }
 
+# Bastion host to access the instances within the private network without exposing those directly
 resource "aws_instance" "bastion" {
   count = var.enable_jump_host ? 1 : 0
 

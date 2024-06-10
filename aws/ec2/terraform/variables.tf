@@ -1,3 +1,7 @@
+################################################################
+#                         Data Sources                         #
+################################################################
+
 data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
 
@@ -15,42 +19,9 @@ data "aws_ami" "debian" {
   }
 }
 
-# It's recommended to pin the AMI as otherwise it will result in recreations and wipe everything.
-variable "aws_ami" {
-  type        = string
-  description = "The AMI to use for the EC2 instances if empty, the latest Debian 12 AMI will be used"
-  default     = "ami-0eb11ab33f229b26c"
-}
-
-variable "aws_instance_type" {
-  type        = string
-  description = "The instance type to use for the EC2 instances"
-  default     = "m5.xlarge"
-}
-
-variable "aws_instance_type_bastion" {
-  type        = string
-  description = "The instance type to use for the bastion host"
-  default     = "t2.nano"
-}
-
-variable "prefix" {
-  type        = string
-  description = "The prefix to use for all resources"
-  default     = "camunda"
-}
-
-variable "instance_count" {
-  type        = number
-  default     = 3
-  description = "The number of instances to create"
-}
-
-variable "cidr_blocks" {
-  type        = string
-  default     = "10.200.0.0/16"
-  description = "The CIDR block to use for the VPC"
-}
+################################################################
+#                        Feature Flags                         #
+################################################################
 
 variable "enable_jump_host" {
   type        = bool
@@ -88,11 +59,49 @@ variable "enable_opensearch_logging" {
   description = "Enable OpenSearch logging to CloudWatch Logs"
 }
 
-# Audit logs are only possible with advanced security options
-variable "opensearch_log_types" {
-  type        = list(string)
-  default     = ["SEARCH_SLOW_LOGS", "INDEX_SLOW_LOGS", "ES_APPLICATION_LOGS"]
-  description = "The types of logs to publish to CloudWatch Logs"
+################################################################
+#                        Global Options                        #
+################################################################
+
+variable "prefix" {
+  type        = string
+  description = "The prefix to use for names of resources"
+  default     = "camunda"
+}
+
+################################################################
+#                       Instance Options                       #
+################################################################
+
+variable "instance_count" {
+  type        = number
+  default     = 3
+  description = "The number of instances to create"
+}
+
+# It's recommended to pin the AMI as otherwise it will result in recreations and wipe everything.
+variable "aws_ami" {
+  type        = string
+  description = "The AMI to use for the EC2 instances if empty, the latest Debian 12 AMI will be used"
+  default     = "ami-0eb11ab33f229b26c"
+}
+
+variable "aws_instance_type" {
+  type        = string
+  description = "The instance type to use for the EC2 instances"
+  default     = "m5.xlarge"
+}
+
+variable "aws_instance_type_bastion" {
+  type        = string
+  description = "The instance type to use for the bastion host"
+  default     = "t2.nano"
+}
+
+variable "camunda_disk_size" {
+  type        = number
+  default     = 50
+  description = "The size of the Camunda disk in GiB"
 }
 
 variable "pub_key_path" {
@@ -101,8 +110,23 @@ variable "pub_key_path" {
   default     = "~/.ssh/id_rsa.pub"
 }
 
-variable "camunda_disk_size" {
-  type        = number
-  default     = 50
-  description = "The size of the Camunda disk in GiB"
+################################################################
+#                       Network Options                        #
+################################################################
+
+variable "cidr_blocks" {
+  type        = string
+  default     = "10.200.0.0/16"
+  description = "The CIDR block to use for the VPC"
+}
+
+################################################################
+#                      OpenSearch Options                      #
+################################################################
+
+# Audit logs are only possible with advanced security options
+variable "opensearch_log_types" {
+  type        = list(string)
+  default     = ["SEARCH_SLOW_LOGS", "INDEX_SLOW_LOGS", "ES_APPLICATION_LOGS"]
+  description = "The types of logs to publish to CloudWatch Logs"
 }

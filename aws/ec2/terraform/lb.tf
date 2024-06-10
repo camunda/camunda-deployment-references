@@ -1,3 +1,7 @@
+################################################################
+#             Application Load Balancer (WebApps)              #
+################################################################
+
 # Create a target group for the ALB - targeting port 8080
 # Operate / Tasklist WebApps
 resource "aws_lb_target_group" "main" {
@@ -33,6 +37,7 @@ resource "aws_lb_target_group_attachment" "main" {
   port             = 8080
 }
 
+# Application Load Balancer to expose the WebApps
 resource "aws_lb" "main" {
   count = var.enable_alb ? 1 : 0
 
@@ -59,7 +64,10 @@ resource "aws_lb_listener" "http_8080" {
   }
 }
 
-### Network Load Balancer for the Camunda gRPC endpoint
+################################################################
+#            Network Load Balancer (gRPC endpoint)             #
+################################################################
+
 resource "aws_lb_target_group" "grpc" {
   name     = "${var.prefix}-tg-grpc"
   port     = 26500
