@@ -1,7 +1,7 @@
 data "aws_availability_zones" "available" {}
 
 locals {
-  name = "camunda-vpc"
+  name = "${var.prefix}-vpc"
 
   vpc_cidr = var.cidr_blocks
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)

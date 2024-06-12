@@ -61,7 +61,7 @@ resource "aws_instance" "camunda" {
   EOF
 
   tags = {
-    Name = "camunda-instance-${count.index}"
+    Name = "${var.prefix}-instance-${count.index}"
   }
 }
 
@@ -111,6 +111,6 @@ resource "aws_instance" "bastion" {
   key_name = aws_key_pair.main.key_name
 
   tags = {
-    Name = "camunda-bastion"
+    Name = "${var.prefix}-bastion"
   }
 }
