@@ -26,8 +26,8 @@ resource "aws_opensearch_domain" "opensearch_cluster" {
     enabled                        = false
     internal_user_database_enabled = true
     master_user_options {
-      master_user_name     = "camunda"
-      master_user_password = "camundarocks123"
+      master_user_name     = var.opensearch_master_username
+      master_user_password = var.opensearch_master_password
     }
     anonymous_auth_enabled = false
   }
@@ -43,9 +43,9 @@ resource "aws_opensearch_domain" "opensearch_cluster" {
 
   ebs_options {
     ebs_enabled = true
-    volume_size = "50"
+    volume_size = var.opensearch_disk_size
     volume_type = "gp3"
-    throughput  = "125"
+    throughput  = var.opensearch_disk_throughput
   }
 
   snapshot_options {

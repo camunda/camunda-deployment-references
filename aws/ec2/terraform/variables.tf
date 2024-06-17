@@ -130,3 +130,29 @@ variable "opensearch_log_types" {
   default     = ["SEARCH_SLOW_LOGS", "INDEX_SLOW_LOGS", "ES_APPLICATION_LOGS"]
   description = "The types of logs to publish to CloudWatch Logs"
 }
+
+variable "opensearch_disk_size" {
+  type        = number
+  default     = 50
+  description = "The size of the OpenSearch disk in GiB"
+}
+
+variable "opensearch_disk_throughput" {
+  type        = number
+  default     = 125
+  description = "The throughput of the OpenSearch disk in MiB/s"
+}
+
+variable "opensearch_master_username" {
+  type        = string
+  default     = "camunda"
+  description = "The username of the OpenSearch master user"
+  sensitive   = true
+}
+
+variable "opensearch_master_password" {
+  type        = string
+  default     = "camundarocks123"
+  description = "The password of the OpenSearch master user"
+  sensitive   = true
+}

@@ -1,3 +1,6 @@
+locals {
+  camunda_extra_disk_name = "/dev/sdb"
+}
 resource "aws_instance" "camunda" {
   count         = var.instance_count
   ami           = var.aws_ami == "" ? data.aws_ami.debian.id : var.aws_ami
@@ -28,11 +31,14 @@ resource "aws_instance" "camunda" {
   user_data = <<-EOF
     #!/bin/bash
     # Retry mechanism to wait for the volume to be attached
-    device_name="/dev/nvme1n1"
+
+    device_name="${local.camunda_extra_disk_name}"
     mount_point="/camunda"
     retries=10
+
+    # Wait for the device to be attached
     while [ $retries -gt 0 ]; do
-      if lsblk | grep -q $(basename $device_name); then
+      if lsblk $device_name; then
         echo "Device $device_name found"
         break
       else
@@ -50,12 +56,17 @@ resource "aws_instance" "camunda" {
     # Check if the device is already mounted
     if ! mount | grep $mount_point > /dev/null; then
       # Check if the filesystem exists
-      if ! file -s $device_name | grep ext4 > /dev/null; then
+      if ! file -s -L $device_name | grep ext4 > /dev/null; then
         mkfs -t ext4 $device_name
       fi
       mkdir -p $mount_point
       mount $device_name $mount_point
-      echo "$device_name $mount_point ext4 defaults,nofail 0 2" >> /etc/fstab
+
+      # Add the device to /etc/fstab to persist the mount on restart
+      output=$(lsblk $device_name -o +UUID)
+      uuid=$(echo "$output" | awk '/nvme1n1/ {print $NF}')
+      echo "UUID=$uuid $mount_point ext4 defaults,nofail 0 2" >> /etc/fstab
+      systemctl daemon-reload
     fi
     chown admin:admin $mount_point
   EOF
@@ -89,7 +100,7 @@ resource "aws_ebs_volume" "camunda" {
 resource "aws_volume_attachment" "ebs_attachment" {
   count = var.instance_count
 
-  device_name = "/dev/sdb"
+  device_name = local.camunda_extra_disk_name
   volume_id   = aws_ebs_volume.camunda[count.index].id
   instance_id = aws_instance.camunda[count.index].id
 }
@@ -104,6 +115,7 @@ resource "aws_instance" "bastion" {
 
   vpc_security_group_ids = [
     aws_security_group.allow_ssh.id,
+    aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
   ]
 
   associate_public_ip_address = true
