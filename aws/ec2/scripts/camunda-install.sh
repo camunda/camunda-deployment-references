@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Example usage via jump host
-# ssh -A -J admin@3.68.92.82 admin@10.200.9.113 < ./camunda-install.sh
+# ssh -J admin@3.68.92.82 admin@10.200.9.113 < ./camunda-install.sh
 
 OPENJDK_VERSION=21
 CAMUNDA_VERSION=8.6.0-alpha2
@@ -34,8 +34,22 @@ fi
 
 # TODO: check if camunda exists if maybe put in different folder, otherwise download and unpack
 
+# Install Camunda 8
+
 curl -L https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_VERSION}.tar.gz -o ${MNT_DIR}/camunda.tar.gz
 
-mkdir ${MNT_DIR}/camunda
+mkdir -p ${MNT_DIR}/camunda
 tar -xzvf ${MNT_DIR}/camunda.tar.gz -C ${MNT_DIR}/camunda --strip-components=1
 rm -rf ${MNT_DIR}/camunda.tar.gz
+
+# Install Connectors
+
+# TODO: check if connectors exists if maybe put in different folder, otherwise download and unpack
+mkdir -p ${MNT_DIR}/connectors/
+
+curl -L https://repo1.maven.org/maven2/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_VERSION}/connector-runtime-bundle-${CAMUNDA_VERSION}-with-dependencies.jar -o ${MNT_DIR}/connectors/connectors.jar
+curl -L https://raw.githubusercontent.com/camunda/connectors/main/bundle/default-bundle/start.sh -o ${MNT_DIR}/connectors/start.sh
+chmod +x ${MNT_DIR}/connectors/start.sh
+
+# shellcheck disable=SC2016
+sed -i '$ s@.*@java ${JAVA_OPTS} -cp "'"${MNT_DIR}/connectors/*"'" "io.camunda.connector.runtime.app.ConnectorRuntimeApplication"@' "${MNT_DIR}/connectors/start.sh"

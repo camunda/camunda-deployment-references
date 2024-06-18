@@ -1,0 +1,8 @@
+CAMUNDA_OPERATE_CLIENT_URL=http://localhost:8080
+SERVER_PORT=9090
+ZEEBE_CLIENT_BROKER_GATEWAY-ADDRESS=localhost:26500
+ZEEBE_CLIENT_SECURITY_PLAINTEXT=true
+# Will be replaced with identity when ready
+# https://github.com/camunda/connectors/tree/main/connector-runtime#configuration-options
+CAMUNDA_OPERATE_CLIENT_USERNAME=demo
+CAMUNDA_OPERATE_CLIENT_PASSWORD=demo

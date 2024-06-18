@@ -25,12 +25,15 @@ total_ip_count=${#IPS[@]}
 for index in "${!IPS[@]}"; do
     ip=${IPS[$index]}
 
-    ssh -A -J "admin@${BASTION_IP}" "admin@${ip}" < camunda-install.sh
+    ssh -J "admin@${BASTION_IP}" "admin@${ip}" < camunda-install.sh
 
     echo "Attempting to connect to ${ip}"
     scp -o "ProxyJump=admin@${BASTION_IP}" camunda.service "admin@${ip}:${MNT_DIR}"
+    scp -o "ProxyJump=admin@${BASTION_IP}" connectors.service "admin@${ip}:${MNT_DIR}"
 
-    ssh -A -J "admin@${BASTION_IP}" "admin@${ip}" "sudo mv ${MNT_DIR}/camunda.service /etc/systemd/system/camunda.service"
+
+    ssh -J "admin@${BASTION_IP}" "admin@${ip}" "sudo mv ${MNT_DIR}/camunda.service /etc/systemd/system/camunda.service"
+    ssh -J "admin@${BASTION_IP}" "admin@${ip}" "sudo mv ${MNT_DIR}/connectors.service /etc/systemd/system/connectors.service"
 
     cp camunda-environment camunda-environment.tmp
 
@@ -65,9 +68,18 @@ for index in "${!IPS[@]}"; do
     scp -o "ProxyJump=admin@${BASTION_IP}" camunda-environment.tmp "admin@${ip}:${MNT_DIR}/camunda/config/camunda-environment"
     rm -rf camunda-environment.tmp
 
-    ssh -A -J "admin@${BASTION_IP}" "admin@${ip}" 'sudo systemctl daemon-reload'
-    ssh -A -J "admin@${BASTION_IP}" "admin@${ip}" 'sudo systemctl enable camunda.service'
-    ssh -A -J "admin@${BASTION_IP}" "admin@${ip}" 'sudo systemctl start camunda.service'
+    scp -o "ProxyJump=admin@${BASTION_IP}" connectors-environment "admin@${ip}:${MNT_DIR}/connectors/"
+
+    # Install and activate Camunda 8 Service
+    ssh -J "admin@${BASTION_IP}" "admin@${ip}" 'sudo systemctl daemon-reload'
+    ssh -J "admin@${BASTION_IP}" "admin@${ip}" 'sudo systemctl enable camunda.service'
+    ssh -J "admin@${BASTION_IP}" "admin@${ip}" 'sudo systemctl start camunda.service'
     # restarting the service in case the script is called twice with config changes
-    ssh -A -J "admin@${BASTION_IP}" "admin@${ip}" 'sudo systemctl restart camunda.service'
+    ssh -J "admin@${BASTION_IP}" "admin@${ip}" 'sudo systemctl restart camunda.service'
+
+    # Install and activate Connectors Service
+    ssh -J "admin@${BASTION_IP}" "admin@${ip}" 'sudo systemctl enable connectors.service'
+    ssh -J "admin@${BASTION_IP}" "admin@${ip}" 'sudo systemctl start connectors.service'
+    # restarting the service in case the script is called twice with config changes
+    ssh -J "admin@${BASTION_IP}" "admin@${ip}" 'sudo systemctl restart connectors.service'
 done
