@@ -1,9 +1,14 @@
 locals {
-  vpc_ports = [26500, 26501, 26502, 9600, 8080, 443]
+  // 2650x - Zeebe
+  // 9600 - Metrics endpoint
+  // 9090 - Connectors
+  // 8080 - Camunda WebUi
+  // 443 - HTTPS (e.g. OpenSearch)
+  vpc_ports = [26500, 26501, 26502, 9600, 9090, 8080, 443]
 }
 
 resource "aws_kms_key" "main" {
-  description             = "KMS key for encrypting EBS volumes and OpenSearch"
+  description             = "${var.prefix} - KMS key for encrypting EBS volumes and OpenSearch"
   deletion_window_in_days = 7
   enable_key_rotation     = true
 }
@@ -90,6 +95,30 @@ resource "aws_security_group" "allow_remote_80_443" {
   }
 }
 
+resource "aws_security_group" "allow_remote_9090" {
+  name        = "allow_remote_9090"
+  description = "Allow remote traffic on 9090 for the LB"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 9090
+    to_port     = 9090
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 9090
+    to_port     = 9090
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "allow_remote_9090"
+  }
+}
+
 resource "aws_security_group" "allow_ssh" {
   name        = "allow_ssh"
   description = "Allow SSH traffic"
@@ -124,5 +153,9 @@ resource "aws_security_group" "allow_remote_grpc" {
     to_port     = 26500
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "allow_remote_grpc"
   }
 }
