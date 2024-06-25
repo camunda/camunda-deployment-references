@@ -11,6 +11,7 @@ if [[ $SECURITY == 'true' ]]; then
         echo "Error: CA certificate file 'ca-authority.pem' not found in this path."
         echo "Please run the 'generate-self-signed-cert-authority.sh' script to generate the CA certificate."
         echo "Make sure to keep the certificates secure for future script runs."
+        echo "Alternatively set the SECURITY environment variable to 'false' to disable secure communication."
         exit 1
     fi
 
@@ -18,6 +19,7 @@ if [[ $SECURITY == 'true' ]]; then
         echo "Error: CA certificate file 'ca-authority.key' not found in this path."
         echo "Please run the 'generate-self-signed-cert-authority.sh' script to generate the CA certificate."
         echo "Make sure to keep the certificates secure for future script runs."
+        echo "Alternatively set the SECURITY environment variable to 'false' to disable secure communication."
         exit 1
     fi
 fi
@@ -111,15 +113,10 @@ for index in "${!IPS[@]}"; do
 
         echo "Configuring the environment variables for secure communication and writing to temporary camunda-environment file."
         {
-            # Broker to Broker communication
+            # Broker to Broker communication (including embedded Gateway)
             echo "ZEEBE_BROKER_NETWORK_SECURITY_ENABLED=\"true\""
             echo "ZEEBE_BROKER_NETWORK_SECURITY_CERTIFICATECHAINPATH=\"${MNT_DIR}/camunda/config/$index-chain.pem\""
             echo "ZEEBE_BROKER_NETWORK_SECURITY_PRIVATEKEYPATH=\"${MNT_DIR}/camunda/config/$index.key\""
-
-            # Broker to Gateway communication
-            echo "ZEEBE_GATEWAY_CLUSTER_SECURITY_ENABLED=\"true\""
-            echo "ZEEBE_GATEWAY_CLUSTER_SECURITY_CERTIFICATECHAINPATH=\"${MNT_DIR}/camunda/config/$index-chain.pem\""
-            echo "ZEEBE_GATEWAY_CLUSTER_SECURITY_PRIVATEKEYPATH=\"${MNT_DIR}/camunda/config/$index.key\""
 
             # Gateway to Client communication
             if [ -n "$GRPC_ENDPOINT" ]; then

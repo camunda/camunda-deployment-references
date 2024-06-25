@@ -41,7 +41,7 @@ resource "aws_lb_target_group_attachment" "main" {
 resource "aws_lb_target_group_attachment" "connectors" {
   depends_on       = [aws_instance.camunda]
   for_each         = { for idx, instance in aws_instance.camunda : idx => instance }
-  target_group_arn = aws_lb_target_group.main.arn
+  target_group_arn = aws_lb_target_group.connectors.arn
   target_id        = each.value.id
   port             = 9090
 }
@@ -54,7 +54,7 @@ resource "aws_lb_target_group" "connectors" {
   vpc_id   = module.vpc.vpc_id
 
   health_check {
-    path                = "/"
+    path                = "/actuator/health/"
     port                = "9090"
     protocol            = "HTTP"
     timeout             = 5
