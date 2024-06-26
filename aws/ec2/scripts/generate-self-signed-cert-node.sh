@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# This script is intended to generate self-signed certificates for secure communication between the brokers and the gateway.
+# It requires the previous creation of a certificate authority (CA) to sign the certificates.
+# Can be used for broker/broker and gateway/client communication.
+
 # Check if the number of arguments is 3 or 4
 # 3 intended for broker/broker broker/gateway communication
 # 4 intended for gateway/client communication

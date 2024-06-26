@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Creates a certificate authority (CA) that can be used to secure the cluster communication.
+
 # Generate a self-signed certificate authority for the domain cluster.local
 openssl req \
   -config <(printf "[req]\ndistinguished_name=dn\n[dn]\n[ext]\nbasicConstraints=CA:TRUE,pathlen:0") \
