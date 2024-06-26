@@ -153,6 +153,7 @@ Additionally, environment variables can be configured to overwrite the default f
 
 - `OPENJDK_VERSION`: The Temurin Java version.
 - `CAMUNDA_VERSION`: The Camunda 8 version.
+- `CAMUNDA_CONNECTORS_VERSION`: The Camunda 8 connectors version.
 
 ### Step 2: (Optional) Security
 

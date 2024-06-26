@@ -8,6 +8,7 @@
 
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
 CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.6.0-alpha2"}
+CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.6.0-alpha2.1"}
 MNT_DIR=${MNT_DIR:-"/camunda"}
 
 # Check that the operating system is Debian
@@ -35,7 +36,15 @@ if [[ ! "$JAVA_VERSION" =~ $OPENJDK_VERSION ]]; then
     exit 1
 fi
 
-# TODO: check if camunda exists if maybe put in different folder, otherwise download and unpack
+# TODO: Introduce update procedure for C8 and Connectors. Backup files, delete jars etc. Otherwise one can continue with the same procedure.
+# Configs will automatically be newly generated etc. based on this repo / customer changes.
+# The following may be enough already, will need proper Camunda alpha versions to test it.
+# Backup of data folder may be useless since the new version will migrate the database and render any older version usless.
+
+if [ -d "${MNT_DIR}/camunda/" ]; then
+    echo "Detected existing Camunda installation. Removing existing JARs and overwriting / recreating configuration files."
+    rm -rf "${MNT_DIR}/camunda/lib/"
+fi
 
 # Install Camunda 8
 
@@ -47,10 +56,9 @@ rm -rf "${MNT_DIR}/camunda.tar.gz"
 
 # Install Connectors
 
-# TODO: check if connectors exists if maybe put in different folder, otherwise download and unpack
 mkdir -p "${MNT_DIR}/connectors/"
 
-curl -L "https://repo1.maven.org/maven2/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_VERSION}/connector-runtime-bundle-${CAMUNDA_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
+curl -L "https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CAMUNDA_CONNECTORS_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
 curl -L https://raw.githubusercontent.com/camunda/connectors/main/bundle/default-bundle/start.sh -o "${MNT_DIR}/connectors/start.sh"
 chmod +x "${MNT_DIR}/connectors/start.sh"
 
