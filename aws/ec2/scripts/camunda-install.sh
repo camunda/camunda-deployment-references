@@ -7,7 +7,7 @@
 # ssh -J admin@3.68.92.82 admin@10.200.9.113 < ./camunda-install.sh
 
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
-CAMUNDA_VERSION=${MNT_DIR:-"8.6.0-alpha2"}
+CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.6.0-alpha2"}
 MNT_DIR=${MNT_DIR:-"/camunda"}
 
 # Check that the operating system is Debian
