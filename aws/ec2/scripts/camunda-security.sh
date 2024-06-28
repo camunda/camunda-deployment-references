@@ -1,20 +1,29 @@
 #!/bin/bash
+set -euo pipefail
+
+source ./helpers.sh
 
 # Optional feature, disabled by default and can be overwrittne witht the env var "SECURITY"
 # This script configures Camunda 8 to use TLS for secure communication between the brokers and the gateway.
 
+TMP_CERTS_DIR="./tmp-certs"
+
 # Configure secure communication via self-signed certificates
 echo "Generating certificates for broker/broker and broker/gateway communication."
-./generate-self-signed-cert-node.sh "${index}" "${index}" "${ip}"
-scp -o "ProxyJump=admin@${BASTION_IP}" "$index-chain.pem" "admin@${ip}:${MNT_DIR}/camunda/config/"
-scp -o "ProxyJump=admin@${BASTION_IP}" "$index.key" "admin@${ip}:${MNT_DIR}/camunda/config/"
+mkdir -p "${TMP_CERTS_DIR}"
+./generate-self-signed-cert-node.sh "${index}" "${index}" "${ip}" "${TMP_CERTS_DIR}"
+
+transfer_file "${TMP_CERTS_DIR}/${index}-chain.pem" "${MNT_DIR}/camunda/config/"
+transfer_file "${TMP_CERTS_DIR}/${index}.key" "${MNT_DIR}/camunda/config/"
 
 if [ -n "$GRPC_ENDPOINT" ]; then
     echo "Generating certificates for gateway/client communication."
-    ./generate-self-signed-cert-node.sh gateway $((index + total_ip_count)) 127.0.0.1 "$GRPC_ENDPOINT"
-    scp -o "ProxyJump=admin@${BASTION_IP}" "gateway-chain.pem" "admin@${ip}:${MNT_DIR}/camunda/config/"
-    scp -o "ProxyJump=admin@${BASTION_IP}" "gateway.key" "admin@${ip}:${MNT_DIR}/camunda/config/"
+    ./generate-self-signed-cert-node.sh gateway $((index + total_ip_count)) 127.0.0.1 "${TMP_CERTS_DIR}" "${GRPC_ENDPOINT}"
+    transfer_file "${TMP_CERTS_DIR}/gateway-chain.pem" "${MNT_DIR}/camunda/config/"
+    transfer_file "${TMP_CERTS_DIR}/gateway.key" "${MNT_DIR}/camunda/config/"
 fi
+
+rm -rf "${TMP_CERTS_DIR}"
 
 echo "Configuring the environment variables for secure communication and writing to temporary camunda-environment file."
 {
@@ -30,13 +39,3 @@ echo "Configuring the environment variables for secure communication and writing
         echo "ZEEBE_BROKER_GATEWAY_SECURITY_PRIVATEKEYPATH=\"${MNT_DIR}/camunda/config/gateway.key\""
     fi
 } >> camunda-environment.tmp
-
-# Certificate Cleanup
-rm -rf "$index-chain.pem"
-rm -rf "$index.csr"
-rm -rf "$index.pem"
-rm -rf "$index.key"
-rm -rf gateway-chain.pem
-rm -rf gateway.csr
-rm -rf gateway.pem
-rm -rf gateway.key

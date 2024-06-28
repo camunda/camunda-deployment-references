@@ -35,7 +35,7 @@ resource "aws_instance" "camunda" {
     # Retry mechanism to wait for the volume to be attached
 
     device_name="${local.camunda_extra_disk_name}"
-    mount_point="/camunda"
+    mount_point="/opt/camunda"
     retries=10
 
     # Wait for the device to be attached

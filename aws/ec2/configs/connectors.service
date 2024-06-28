@@ -5,8 +5,8 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-EnvironmentFile=/camunda/connectors/connectors-environment
-ExecStart=/camunda/connectors/start.sh
+EnvironmentFile=/opt/camunda/connectors/connectors-environment
+ExecStart=/opt/camunda/connectors/start.sh
 Restart=on-failure
 RestartSec=1
 User=admin

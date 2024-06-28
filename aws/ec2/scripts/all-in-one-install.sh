@@ -1,6 +1,5 @@
 #!/bin/bash
-
-# shellcheck disable=SC2034,SC1091
+set -euo pipefail
 
 # Enable secure cluster communication
 SECURITY=${SECURITY:-false}
@@ -51,7 +50,7 @@ if [ -z "$GRPC_ENDPOINT" ]; then
     GRPC_ENDPOINT=${GRPC_ENDPOINT:-""}
 fi
 
-MNT_DIR="/camunda"
+MNT_DIR="/opt/camunda"
 
 ips_list=""
 

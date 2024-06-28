@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # This script creates the dynamic config for the Camunda 8 environment.
 # This includes the Zeebe cluster configuration but also disabling non HA compatible features in Operate and Tasklist.

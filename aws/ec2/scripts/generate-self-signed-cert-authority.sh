@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Creates a certificate authority (CA) that can be used to secure the cluster communication.
 

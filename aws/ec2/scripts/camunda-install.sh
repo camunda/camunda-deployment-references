@@ -1,15 +1,16 @@
 #!/bin/bash
+set -euo pipefail
 
 # This script installs Java, Camunda 8 and Connectors on a remote server.
 # The script assumes that the remote server is running a Debian-based operating system.
 
 # Example usage via jump host
-# ssh -J admin@3.68.92.82 admin@10.200.9.113 < ./camunda-install.sh
+# ssh -J admin@BASTION_IP admin@CAMUNDA_IP < ./camunda-install.sh
 
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
 CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.6.0-alpha2"}
 CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.6.0-alpha2.1"}
-MNT_DIR=${MNT_DIR:-"/camunda"}
+MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 
 # Check that the operating system is Debian
 
