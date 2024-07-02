@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+USERNAME=${USERNAME:-"camunda"}
+MNT_DIR=${MNT_DIR:-"/opt/camunda"}
+
 # Optional feature, disabled by default and can be overwrittne witht the env var "CLOUDWATCH_ENABLED"
 # Install the CloudWatch agent on the EC2 instance and creates the necessary directories for the configuration files.
 
@@ -11,4 +14,4 @@ sudo dpkg -i -E ./amazon-cloudwatch-agent.deb
 
 rm -rf amazon-cloudwatch-agent.deb
 
-mkdir -p "${MNT_DIR}/cloudwatch"
+sudo -u "${USERNAME}" mkdir -p "${MNT_DIR}/cloudwatch"

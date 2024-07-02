@@ -4,6 +4,8 @@ set -euo pipefail
 # Enable secure cluster communication
 SECURITY=${SECURITY:-false}
 CLOUDWATCH_ENABLED=${CLOUDWATCH_ENABLED:-false}
+USERNAME=${USERNAME:-"camunda"}
+MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 
 echo "Secure cluster communication is set to: $SECURITY."
 echo "CloudWatch monitoring is set to: $CLOUDWATCH_ENABLED."

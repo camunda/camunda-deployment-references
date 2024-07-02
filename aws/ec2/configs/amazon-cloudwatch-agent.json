@@ -1,7 +1,7 @@
 {
   "agent": {
     "metrics_collection_interval": 60,
-    "run_as_user": "admin"
+    "run_as_user": "camunda"
   },
   "logs": {
     "logs_collected": {

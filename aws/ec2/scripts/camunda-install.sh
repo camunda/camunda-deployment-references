@@ -11,6 +11,8 @@ OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
 CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.6.0-alpha2"}
 CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.6.0-alpha2.1"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
+USERNAME=${USERNAME:-"camunda"}
+JAVA_OPTS="${JAVA_OPTS:- -Xmx512m}" # Default Java options, required to run commands as remote user
 
 # Check that the operating system is Debian
 
@@ -37,10 +39,27 @@ if [[ ! "$JAVA_VERSION" =~ $OPENJDK_VERSION ]]; then
     exit 1
 fi
 
+# Create extra user and group for Camunda
+if ! id -u "$USERNAME" &>/dev/null; then
+    sudo useradd -m "$USERNAME"
+fi
+
+if ! getent group "$USERNAME" &>/dev/null; then
+    sudo groupadd "$USERNAME"
+fi
+
+if id -nG "$USERNAME" | grep -qw "$USERNAME"; then
+    sudo usermod -aG "$USERNAME" "$USERNAME"
+fi
+
 # TODO: Introduce update procedure for C8 and Connectors. Backup files, delete jars etc. Otherwise one can continue with the same procedure.
 # Configs will automatically be newly generated etc. based on this repo / customer changes.
 # The following may be enough already, will need proper Camunda alpha versions to test it.
 # Backup of data folder may be useless since the new version will migrate the database and render any older version usless.
+
+sudo chown -R "${USERNAME}:${USERNAME}" "${MNT_DIR}/"
+
+sudo -u "${USERNAME}" bash <<EOF
 
 if [ -d "${MNT_DIR}/camunda/" ]; then
     echo "Detected existing Camunda installation. Removing existing JARs and overwriting / recreating configuration files."
@@ -65,3 +84,4 @@ chmod +x "${MNT_DIR}/connectors/start.sh"
 
 # shellcheck disable=SC2016
 sed -i '$ s@.*@java ${JAVA_OPTS} -cp "'"${MNT_DIR}/connectors/*"'" "io.camunda.connector.runtime.app.ConnectorRuntimeApplication"@' "${MNT_DIR}/connectors/start.sh"
+EOF

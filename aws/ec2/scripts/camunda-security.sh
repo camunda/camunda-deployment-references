@@ -13,14 +13,14 @@ echo "Generating certificates for broker/broker and broker/gateway communication
 mkdir -p "${TMP_CERTS_DIR}"
 ./generate-self-signed-cert-node.sh "${index}" "${index}" "${ip}" "${TMP_CERTS_DIR}"
 
-transfer_file "${TMP_CERTS_DIR}/${index}-chain.pem" "${MNT_DIR}/camunda/config/"
-transfer_file "${TMP_CERTS_DIR}/${index}.key" "${MNT_DIR}/camunda/config/"
+transfer_file "${TMP_CERTS_DIR}/${index}-chain.pem" "${MNT_DIR}/camunda/config/" "${index}-chain.pem"
+transfer_file "${TMP_CERTS_DIR}/${index}.key" "${MNT_DIR}/camunda/config/" "${index}.key"
 
 if [ -n "$GRPC_ENDPOINT" ]; then
     echo "Generating certificates for gateway/client communication."
     ./generate-self-signed-cert-node.sh gateway $((index + total_ip_count)) 127.0.0.1 "${TMP_CERTS_DIR}" "${GRPC_ENDPOINT}"
-    transfer_file "${TMP_CERTS_DIR}/gateway-chain.pem" "${MNT_DIR}/camunda/config/"
-    transfer_file "${TMP_CERTS_DIR}/gateway.key" "${MNT_DIR}/camunda/config/"
+    transfer_file "${TMP_CERTS_DIR}/gateway-chain.pem" "${MNT_DIR}/camunda/config/" "gateway-chain.pem"
+    transfer_file "${TMP_CERTS_DIR}/gateway.key" "${MNT_DIR}/camunda/config/" "gateway.key"
 fi
 
 rm -rf "${TMP_CERTS_DIR}"

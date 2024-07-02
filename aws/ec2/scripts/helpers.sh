@@ -1,14 +1,24 @@
 #!/bin/bash
 set -euo pipefail
 
-transfer_file() {
-  source="$1"
-  destination="$2"
+USERNAME=${USERNAME:-"camunda"}
 
+transfer_file() {
+  local source="$1"
+  local destination="$2"
+  local file_name="$3"
+
+# We cannot directly transfer file to the desition due to ownership issues
   sftp -J "admin@${BASTION_IP}" "admin@${ip}" <<EOF
-put "${source}" "${destination}"
+put "${source}"
 bye
 EOF
+
+echo "Changing ownership of file ${file_name}."
+remote_cmd "sudo chown ${USERNAME}:${USERNAME} ~/${file_name}"
+
+echo "Transferring file ${file_name} to final destination ${destination}."
+remote_cmd "sudo mv ~/${file_name} ${destination}"
 }
 
 remote_cmd() {
