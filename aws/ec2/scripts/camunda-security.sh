@@ -9,7 +9,7 @@ source ./helpers.sh
 TMP_CERTS_DIR="./tmp-certs"
 
 # Configure secure communication via self-signed certificates
-echo "Generating certificates for broker/broker and broker/gateway communication."
+echo "[INFO] Generating certificates for broker/broker and broker/gateway communication."
 mkdir -p "${TMP_CERTS_DIR}"
 ./generate-self-signed-cert-node.sh "${index}" "${index}" "${ip}" "${TMP_CERTS_DIR}"
 
@@ -17,7 +17,7 @@ transfer_file "${TMP_CERTS_DIR}/${index}-chain.pem" "${MNT_DIR}/camunda/config/"
 transfer_file "${TMP_CERTS_DIR}/${index}.key" "${MNT_DIR}/camunda/config/" "${index}.key"
 
 if [ -n "$GRPC_ENDPOINT" ]; then
-    echo "Generating certificates for gateway/client communication."
+    echo "[INFO] Generating certificates for gateway/client communication."
     ./generate-self-signed-cert-node.sh gateway $((index + total_ip_count)) 127.0.0.1 "${TMP_CERTS_DIR}" "${GRPC_ENDPOINT}"
     transfer_file "${TMP_CERTS_DIR}/gateway-chain.pem" "${MNT_DIR}/camunda/config/" "gateway-chain.pem"
     transfer_file "${TMP_CERTS_DIR}/gateway.key" "${MNT_DIR}/camunda/config/" "gateway.key"
@@ -25,7 +25,7 @@ fi
 
 rm -rf "${TMP_CERTS_DIR}"
 
-echo "Configuring the environment variables for secure communication and writing to temporary camunda-environment file."
+echo "[INFO] Configuring the environment variables for secure communication and writing to temporary camunda-environment file."
 {
     # Broker to Broker communication (including embedded Gateway)
     echo "ZEEBE_BROKER_NETWORK_SECURITY_ENABLED=\"true\""

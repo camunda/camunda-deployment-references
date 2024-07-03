@@ -14,10 +14,10 @@ put "${source}"
 bye
 EOF
 
-echo "Changing ownership of file ${file_name}."
+echo "[INFO] Changing ownership of file ${file_name}."
 remote_cmd "sudo chown ${USERNAME}:${USERNAME} ~/${file_name}"
 
-echo "Transferring file ${file_name} to final destination ${destination}."
+echo "[INFO] Transferring file ${file_name} to final destination ${destination}."
 remote_cmd "sudo mv ~/${file_name} ${destination}"
 }
 

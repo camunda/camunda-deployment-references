@@ -5,13 +5,13 @@ source ./helpers.sh
 
 # Copies the final configuration files to the EC2 instance and starts the Camunda 8 services.
 
-echo "Copying the configuration files to the remote server."
+echo "[INFO] Copying the configuration files to the remote server."
 transfer_file camunda-environment.tmp "${MNT_DIR}/camunda/config/camunda-environment" camunda-environment.tmp
 rm -rf camunda-environment.tmp
 
 transfer_file ../configs/connectors-environment "${MNT_DIR}/connectors/" connectors-environment
 
-echo "Installing the Camunda 8 systemd service on the remote server."
+echo "[INFO] Installing the Camunda 8 systemd service on the remote server."
 transfer_file ../configs/camunda.service "${MNT_DIR}" camunda.service
 transfer_file ../configs/connectors.service "${MNT_DIR}" connectors.service
 

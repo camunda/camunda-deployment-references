@@ -17,7 +17,7 @@ JAVA_OPTS="${JAVA_OPTS:- -Xmx512m}" # Default Java options, required to run comm
 # Check that the operating system is Debian
 
 if ! grep -q "ID=debian" /etc/os-release; then
-    echo "The operating system is not Debian."
+    echo "[FAIL] The operating system is not Debian."
     exit 1
 fi
 
@@ -34,7 +34,7 @@ JAVA_VERSION=$(java -version 2>&1 | awk -F[\"_] '/version/ {print $2}')
 
 # Check if the Java version matches the expected OpenJDK version
 if [[ ! "$JAVA_VERSION" =~ $OPENJDK_VERSION ]]; then
-    echo "Java version does not match the expected version."
+    echo "[FAIL] Java version does not match the expected version."
     echo "Expected: $OPENJDK_VERSION, but found: $JAVA_VERSION"
     exit 1
 fi
@@ -62,7 +62,7 @@ sudo chown -R "${USERNAME}:${USERNAME}" "${MNT_DIR}/"
 sudo -u "${USERNAME}" bash <<EOF
 
 if [ -d "${MNT_DIR}/camunda/" ]; then
-    echo "Detected existing Camunda installation. Removing existing JARs and overwriting / recreating configuration files."
+    echo "[INFO] Detected existing Camunda installation. Removing existing JARs and overwriting / recreating configuration files."
     rm -rf "${MNT_DIR}/camunda/lib/"
 fi
 

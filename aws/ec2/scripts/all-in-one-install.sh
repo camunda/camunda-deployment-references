@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -o pipefail
 
 # Enable secure cluster communication
 SECURITY=${SECURITY:-false}
@@ -7,13 +7,13 @@ CLOUDWATCH_ENABLED=${CLOUDWATCH_ENABLED:-false}
 USERNAME=${USERNAME:-"camunda"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 
-echo "Secure cluster communication is set to: $SECURITY."
-echo "CloudWatch monitoring is set to: $CLOUDWATCH_ENABLED."
+echo "[INFO] Secure cluster communication is set to: $SECURITY."
+echo "[INFO] CloudWatch monitoring is set to: $CLOUDWATCH_ENABLED."
 
 if [[ $SECURITY == 'true' ]]; then
-    echo "Checking that the CA certificate files are present in the current directory."
+    echo "[INFO] Checking that the CA certificate files are present in the current directory."
     if [ ! -f "ca-authority.pem" ]; then
-        echo "Error: CA certificate file 'ca-authority.pem' not found in this path."
+        echo "[FAIL] Error: CA certificate file 'ca-authority.pem' not found in this path."
         echo "Please run the 'generate-self-signed-cert-authority.sh' script to generate the CA certificate."
         echo "Make sure to keep the certificates secure for future script runs."
         echo "Alternatively set the SECURITY environment variable to 'false' to disable secure communication."
@@ -21,7 +21,7 @@ if [[ $SECURITY == 'true' ]]; then
     fi
 
     if [ ! -f "ca-authority.key" ]; then
-        echo "Error: CA certificate file 'ca-authority.key' not found in this path."
+        echo "[FAIL] Error: CA certificate file 'ca-authority.key' not found in this path."
         echo "Please run the 'generate-self-signed-cert-authority.sh' script to generate the CA certificate."
         echo "Make sure to keep the certificates secure for future script runs."
         echo "Alternatively set the SECURITY environment variable to 'false' to disable secure communication."
@@ -29,7 +29,7 @@ if [[ $SECURITY == 'true' ]]; then
     fi
 fi
 
-echo "Pulling information from the Terraform state file to configure the Camunda 8 environment."
+echo "[INFO] Pulling information from the Terraform state file to configure the Camunda 8 environment."
 IPS_JSON=$(terraform output -state ../terraform/terraform.tfstate -json camunda_ips)
 cleaned_str=$(echo "${IPS_JSON}" | tr -d '[]"')
 read -r -a IPS <<< "$(echo "${cleaned_str}" | tr ',' ' ')"
@@ -41,14 +41,14 @@ OPENSEARCH_URL=$(terraform output -state ../terraform/terraform.tfstate -raw aws
 GRPC_ENDPOINT=$(terraform output -state ../terraform/terraform.tfstate -raw nlb_endpoint)
 
 if [ -z "$OPENSEARCH_URL" ]; then
-    echo "No value found for OPENSEARCH_URL in the Terraform state file."
-    echo "Trying to overwrite the OPENSEARCH_URL with the equivalent environment variable."
+    echo "[INFO] No value found for OPENSEARCH_URL in the Terraform state file."
+    echo "[INFO] Trying to overwrite the OPENSEARCH_URL with the equivalent environment variable."
     OPENSEARCH_URL=${OPENSEARCH_URL:-""}
 fi
 
 if [ -z "$GRPC_ENDPOINT" ]; then
-    echo "No value found for GRPC_ENDPOINT in the Terraform state file."
-    echo "Trying to overwrite the GRPC_ENDPOINT with the equivalent environment variable."
+    echo "[INFO] No value found for GRPC_ENDPOINT in the Terraform state file."
+    echo "[INFO] Trying to overwrite the GRPC_ENDPOINT with the equivalent environment variable."
     GRPC_ENDPOINT=${GRPC_ENDPOINT:-""}
 fi
 
@@ -71,7 +71,7 @@ for index in "${!IPS[@]}"; do
 
     ssh -J "admin@${BASTION_IP}" "admin@${ip}" < camunda-install.sh
 
-    echo "Attempting to connect to ${ip} to configure the Camunda 8 environment."
+    echo "[INFO] Attempting to connect to ${ip} to configure the Camunda 8 environment."
 
     # Creates temporary dynamic config file
     source camunda-configure.sh
@@ -87,5 +87,15 @@ for index in "${!IPS[@]}"; do
     if [[ $CLOUDWATCH_ENABLED == 'true' ]]; then
         ssh -J "admin@${BASTION_IP}" "admin@${ip}" < cloudwatch-install.sh
         source cloudwatch-configure.sh
+    fi
+done
+
+for ip in "${IPS[@]}"; do
+    echo "[INFO] Doing final checks on the Camunda 8 environment on ${ip}."
+    ssh -J "admin@${BASTION_IP}" "admin@${ip}" < camunda-checks.sh
+    code=$?
+    if [[ "$code" -ne 0 ]]; then
+        echo "[FAIL] The Camunda 8 environment on ${ip} is not healthy."
+        exit 1
     fi
 done

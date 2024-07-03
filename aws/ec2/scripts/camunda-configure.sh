@@ -6,7 +6,7 @@ set -euo pipefail
 
 cp ../configs/camunda-environment camunda-environment.tmp
 
-echo "Configuring the environment variables for cluster communication, external DB usage and writing to temporary camunda-environment file."
+echo "[INFO] Configuring the environment variables for cluster communication, external DB usage and writing to temporary camunda-environment file."
 # Default configuration for 3 HA setup with OpenSearch as DB
 {
     echo "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS=\"${ips_list}\""
