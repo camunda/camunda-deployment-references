@@ -3,12 +3,13 @@ set -euo pipefail
 
 USERNAME=${USERNAME:-"camunda"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
+# renovate: datasource=docker depName=amazon/cloudwatch-agent
+CLOUDWATCH_VERSION="1.300040.0b650"
 
 # Optional feature, disabled by default and can be overwrittne witht the env var "CLOUDWATCH_ENABLED"
 # Install the CloudWatch agent on the EC2 instance and creates the necessary directories for the configuration files.
 
-# TODO: update the CloudWatch agent version via Renovate
-wget https://amazoncloudwatch-agent.s3.amazonaws.com/debian/amd64/1.300040.0b650/amazon-cloudwatch-agent.deb
+wget "https://amazoncloudwatch-agent.s3.amazonaws.com/debian/amd64/${CLOUDWATCH_VERSION}/amazon-cloudwatch-agent.deb"
 
 sudo dpkg -i -E ./amazon-cloudwatch-agent.deb
 

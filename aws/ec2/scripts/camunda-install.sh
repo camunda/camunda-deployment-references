@@ -7,6 +7,8 @@ set -euo pipefail
 # Example usage via jump host
 # ssh -J admin@BASTION_IP admin@CAMUNDA_IP < ./camunda-install.sh
 
+# The environment variables have to be set on remote host to be used in the script
+# or the default value has to be set here to take effect on the remote host.
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
 CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.6.0-alpha2"}
 CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.6.0-alpha2.1"}
@@ -15,7 +17,6 @@ USERNAME=${USERNAME:-"camunda"}
 JAVA_OPTS="${JAVA_OPTS:- -Xmx512m}" # Default Java options, required to run commands as remote user
 
 # Check that the operating system is Debian
-
 if ! grep -q "ID=debian" /etc/os-release; then
     echo "[FAIL] The operating system is not Debian."
     exit 1
@@ -52,7 +53,6 @@ if id -nG "$USERNAME" | grep -qw "$USERNAME"; then
     sudo usermod -aG "$USERNAME" "$USERNAME"
 fi
 
-# TODO: Introduce update procedure for C8 and Connectors. Backup files, delete jars etc. Otherwise one can continue with the same procedure.
 # Configs will automatically be newly generated etc. based on this repo / customer changes.
 # The following may be enough already, will need proper Camunda alpha versions to test it.
 # Backup of data folder may be useless since the new version will migrate the database and render any older version usless.

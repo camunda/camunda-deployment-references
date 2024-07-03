@@ -24,3 +24,13 @@ remote_cmd "sudo mv ~/${file_name} ${destination}"
 remote_cmd() {
   ssh -J "admin@${BASTION_IP}" "admin@${ip}" "$1"
 }
+
+check_tool_installed() {
+    local tool=$1
+    if command -v "$tool" &> /dev/null; then
+        echo "[OK] $tool is installed."
+    else
+        echo "[FAIL] $tool is not installed."
+        exit 1
+    fi
+}

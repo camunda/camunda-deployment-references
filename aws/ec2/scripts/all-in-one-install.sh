@@ -1,11 +1,19 @@
 #!/bin/bash
 set -o pipefail
 
+source ./helpers.sh
+
 # Enable secure cluster communication
 SECURITY=${SECURITY:-false}
 CLOUDWATCH_ENABLED=${CLOUDWATCH_ENABLED:-false}
 USERNAME=${USERNAME:-"camunda"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
+BROKER_PORT=${BROKER_PORT:-26502}
+
+check_tool_installed "ssh"
+check_tool_installed "openssl"
+check_tool_installed "sftp"
+check_tool_installed "terraform"
 
 echo "[INFO] Secure cluster communication is set to: $SECURITY."
 echo "[INFO] CloudWatch monitoring is set to: $CLOUDWATCH_ENABLED."
@@ -35,7 +43,6 @@ cleaned_str=$(echo "${IPS_JSON}" | tr -d '[]"')
 read -r -a IPS <<< "$(echo "${cleaned_str}" | tr ',' ' ')"
 
 BASTION_IP=$(terraform output -state ../terraform/terraform.tfstate -raw bastion_ip)
-BROKER_PORT=26502
 
 OPENSEARCH_URL=$(terraform output -state ../terraform/terraform.tfstate -raw aws_opensearch_domain)
 GRPC_ENDPOINT=$(terraform output -state ../terraform/terraform.tfstate -raw nlb_endpoint)
