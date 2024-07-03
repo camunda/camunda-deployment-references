@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
+# Executed on remote host, defaults should be set here or env vars preconfigured on remote host
 USERNAME=${USERNAME:-"camunda"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 # renovate: datasource=docker depName=amazon/cloudwatch-agent

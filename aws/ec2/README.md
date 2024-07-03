@@ -28,6 +28,7 @@ Before you begin, ensure you have the following installed:
 ### Scripts
 
 - `all-in-one-install.sh`: The main script that calls up all other scripts to install all required dependencies and configures Camunda 8.
+- `camunda-checks.sh`: Checks that services are running and endpoints reachable on the remote machines.
 - `camunda-configure.sh`: Creates the configuration file Camunda 8 via env variables as a lot of values are dynamic.
 - `camunda-install.sh`: Installs Camunda 8, Connectors, and required dependencies (Java).
 - `camunda-security.sh`: (Optional) Configures secure cluster communication via TLS by using self-signed certs.
@@ -141,6 +142,8 @@ terraform destroy
 Confirm the action by typing `yes` when prompted.
 
 ### Scripts
+
+The following scripts `camunda-install`, `camunda-checks`, `cloudwatch-install` are executed on the remote machines and environment variables have to be either set prior on the machines or the default value defined within the script as they will not take on the values of the host machine.
 
 ### Step 1: Consider optional features
 

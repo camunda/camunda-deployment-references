@@ -7,8 +7,7 @@ set -euo pipefail
 # Example usage via jump host
 # ssh -J admin@BASTION_IP admin@CAMUNDA_IP < ./camunda-install.sh
 
-# The environment variables have to be set on remote host to be used in the script
-# or the default value has to be set here to take effect on the remote host.
+# Executed on remote host, defaults should be set here or env vars preconfigured on remote host
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
 CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.6.0-alpha2"}
 CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.6.0-alpha2.1"}

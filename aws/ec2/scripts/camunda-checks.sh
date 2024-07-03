@@ -1,6 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
+# Executed on remote host
 SCRIPT_STATUS_OUTPUT=0
 
 check_service() {
