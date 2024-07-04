@@ -19,8 +19,8 @@ Before you begin, ensure you have the following installed:
 ### Configs
 
 - `amazon-cloudwatch-agent.json`: The configuration file for the optional CloudWatch agent to export Camunda 8 logs and prometheus metrics.
-- `camunda.service`: Systemd service to autostart and restart Camunda 9.
-- `camunda-environment`: The base configuration for Camunda 9, which is dynamically extended to include proper node ids and ips. Can be extended by the user.
+- `camunda.service`: Systemd service to autostart and restart Camunda 8.
+- `camunda-environment`: The base configuration for Camunda 8, which is dynamically extended to include proper node ids and ips. Can be extended by the user.
 - `connectors.service`: Systemd service to autostart and restart the Connectors.
 - `connectors-environment`: The configuration for Connectors, can be extended by users.
 -` prometheus.yaml`: The optional prometheus scraping config required for CloudWatch.
