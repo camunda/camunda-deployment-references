@@ -13,6 +13,8 @@ resource "aws_instance" "camunda" {
     aws_security_group.allow_remote_grpc.id,
   ]
 
+  iam_instance_profile = aws_iam_instance_profile.cloudwatch_instance_profile.name
+
   associate_public_ip_address = false
 
   key_name = aws_key_pair.main.key_name
@@ -33,7 +35,7 @@ resource "aws_instance" "camunda" {
     # Retry mechanism to wait for the volume to be attached
 
     device_name="${local.camunda_extra_disk_name}"
-    mount_point="/camunda"
+    mount_point="/opt/camunda"
     retries=10
 
     # Wait for the device to be attached
