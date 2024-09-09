@@ -5,7 +5,7 @@ set -euo pipefail
 USERNAME=${USERNAME:-"camunda"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 # renovate: datasource=docker depName=amazon/cloudwatch-agent
-CLOUDWATCH_VERSION="1.300044.0b793"
+CLOUDWATCH_VERSION="1.300045.1b823"
 
 # Optional feature, disabled by default and can be overwrittne witht the env var "CLOUDWATCH_ENABLED"
 # Install the CloudWatch agent on the EC2 instance and creates the necessary directories for the configuration files.
