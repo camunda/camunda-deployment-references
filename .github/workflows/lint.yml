@@ -1,0 +1,14 @@
+---
+name: lint
+
+on:
+    workflow_dispatch:
+    pull_request:
+    push:
+        branches: [main]
+
+jobs:
+    lint:
+        uses: camunda/infraex-common-config/.github/workflows/lint-global.yml@feature/auto-update-renovate-doc
+        # TODO: pin the version on main
+        secrets: inherit

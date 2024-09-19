@@ -27,3 +27,14 @@ repos:
   hooks:
   - id: renovate-config-validator
     args: ["--strict"]
+
+- repo: https://github.com/adrienverge/yamllint
+  rev: v1.35.1
+  hooks:
+      - id: yamllint
+        args: [-c, .yamllint.yaml]
+
+- repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
+  rev: 0.2.3
+  hooks:
+      - id: yamlfmt
