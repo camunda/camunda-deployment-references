@@ -59,6 +59,12 @@ variable "enable_opensearch_logging" {
   description = "Enable OpenSearch logging to CloudWatch Logs"
 }
 
+variable "generate_ssh_key_pair" {
+  type        = bool
+  default     = false
+  description = "Generate an SSH key pair for the EC2 instances over the use of pub_key_path. Meant for testing purposes / temp environments."
+}
+
 ################################################################
 #                        Global Options                        #
 ################################################################
@@ -83,13 +89,13 @@ variable "instance_count" {
 variable "aws_ami" {
   type        = string
   description = "The AMI to use for the EC2 instances if empty, the latest Debian 12 AMI will be used"
-  default     = "ami-0eb11ab33f229b26c"
+  default     = ""
 }
 
 variable "aws_instance_type" {
   type        = string
   description = "The instance type to use for the EC2 instances"
-  default     = "m5.xlarge"
+  default     = "m6i.xlarge"
 }
 
 variable "aws_instance_type_bastion" {

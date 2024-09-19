@@ -25,3 +25,8 @@ output "aws_ami" {
   value       = data.aws_ami.debian.id
   description = "The AMI retrieved from AWS for the latest Debian 12 image. Make sure to once pin the aws_ami variable to avoid recreations."
 }
+
+output "private_key" {
+  value     = join("", tls_private_key.testing[*].private_key_pem)
+  sensitive = true
+}
