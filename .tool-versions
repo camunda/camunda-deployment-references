@@ -1,0 +1,7 @@
+pre-commit 3.8.0
+
+python 3.12.6
+
+terraform 1.9.5
+
+tflint 0.53.0
