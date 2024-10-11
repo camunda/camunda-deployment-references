@@ -30,3 +30,8 @@ output "private_key" {
   value     = join("", tls_private_key.testing[*].private_key_pem)
   sensitive = true
 }
+
+output "public_key" {
+  value     = join("", tls_private_key.testing[*].public_key_openssh)
+  sensitive = true
+}

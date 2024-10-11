@@ -45,7 +45,8 @@ check_service_running() {
     fi
 }
 
-check_service localhost:8080
+check_service localhost:8080/operate
+check_service localhost:8080/tasklist
 check_service localhost:9600/actuator/health
 check_service localhost:9090/actuator/health
 

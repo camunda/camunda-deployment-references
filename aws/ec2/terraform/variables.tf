@@ -162,3 +162,9 @@ variable "opensearch_master_password" {
   description = "The password of the OpenSearch master user"
   sensitive   = true
 }
+
+variable "opensearch_instance_count" {
+  type        = number
+  default     = 1
+  description = "The number of instances to create"
+}

@@ -1,12 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-source ./helpers.sh
+source "$(dirname "$0")/helpers.sh"
 
 # Optional feature, disabled by default and can be overwrittne witht the env var "SECURITY"
 # This script configures Camunda 8 to use TLS for secure communication between the brokers and the gateway.
 
-TMP_CERTS_DIR="./tmp-certs"
+TMP_CERTS_DIR="$(dirname "$0")/tmp-certs"
 
 # Configure secure communication via self-signed certificates
 echo "[INFO] Generating certificates for broker/broker and broker/gateway communication."
@@ -18,7 +18,7 @@ transfer_file "${TMP_CERTS_DIR}/${index}.key" "${MNT_DIR}/camunda/config/" "${in
 
 if [ -n "$GRPC_ENDPOINT" ]; then
     echo "[INFO] Generating certificates for gateway/client communication."
-    ./generate-self-signed-cert-node.sh gateway $((index + total_ip_count)) 127.0.0.1 "${TMP_CERTS_DIR}" "${GRPC_ENDPOINT}"
+    "$(dirname "$0")/generate-self-signed-cert-node.sh" gateway $((index + total_ip_count)) 127.0.0.1 "${TMP_CERTS_DIR}" "${GRPC_ENDPOINT}"
     transfer_file "${TMP_CERTS_DIR}/gateway-chain.pem" "${MNT_DIR}/camunda/config/" "gateway-chain.pem"
     transfer_file "${TMP_CERTS_DIR}/gateway.key" "${MNT_DIR}/camunda/config/" "gateway.key"
 fi
@@ -38,4 +38,4 @@ echo "[INFO] Configuring the environment variables for secure communication and 
         echo "ZEEBE_BROKER_GATEWAY_SECURITY_CERTIFICATECHAINPATH=\"${MNT_DIR}/camunda/config/gateway-chain.pem\""
         echo "ZEEBE_BROKER_GATEWAY_SECURITY_PRIVATEKEYPATH=\"${MNT_DIR}/camunda/config/gateway.key\""
     fi
-} >> camunda-environment.tmp
+} >> "$(dirname "$0")camunda-environment.tmp"

@@ -2,10 +2,10 @@ resource "aws_opensearch_domain" "opensearch_cluster" {
   count = var.enable_opensearch ? 1 : 0
 
   domain_name    = "${var.prefix}-os-cluster"
-  engine_version = "OpenSearch_2.5"
+  engine_version = "OpenSearch_2.15"
 
   vpc_options {
-    subnet_ids = module.vpc.private_subnets
+    subnet_ids = [module.vpc.private_subnets[1]]
     security_group_ids = [
       aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
     ]
@@ -13,13 +13,13 @@ resource "aws_opensearch_domain" "opensearch_cluster" {
 
   cluster_config {
     instance_type  = "t3.small.search" # "r6g.large.search"
-    instance_count = var.instance_count
+    instance_count = var.opensearch_instance_count
     warm_enabled   = false
 
-    zone_awareness_config {
-      availability_zone_count = 3
-    }
-    zone_awareness_enabled = true
+    # zone_awareness_config {
+    #   availability_zone_count = var.opensearch_availability_zone_count
+    # }
+    # zone_awareness_enabled = true
   }
 
   advanced_security_options {
