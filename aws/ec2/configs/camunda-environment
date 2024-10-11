@@ -6,6 +6,9 @@ ZEEBE_BROKER_EXPORTERS_OPENSEARCH_INDEX_PROCESS_MESSAGE_SUBSCRIPTION="true"
 CAMUNDA_OPERATE_DATABASE="opensearch"
 CAMUNDA_TASKLIST_DATABASE="opensearch"
 
+# Temporary Workaround for REST ALPHA API
+CAMUNDA_REST_QUERY_ENABLED="true"
+
 # Temporary Workaround for Connectors
 # TODO: Remove when fixed upsteam or when switching to Identity
 CAMUNDA_OPERATE_CSRFPREVENTIONENABLED="false"
