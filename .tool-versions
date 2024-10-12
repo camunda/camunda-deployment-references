@@ -1,6 +1,6 @@
 pre-commit 4.0.1
 
-python 3.12.7
+python 3.13.0
 
 terraform 1.9.7
 
