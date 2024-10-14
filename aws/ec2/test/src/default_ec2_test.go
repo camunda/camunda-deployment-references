@@ -1,7 +1,7 @@
 package test
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -12,7 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/camunda/camunda-deployment-references/aws/ec2/camunda"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/camunda/camunda-deployment-references/aws/ec2/utils"
 	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/gruntwork-io/terratest/modules/shell"
@@ -24,6 +26,7 @@ import (
 const (
 	terraformDir = "../../terraform"
 	privKeyName  = "ec2-jar-priv"
+	logGroupName = "camunda"
 )
 
 var (
@@ -182,75 +185,75 @@ func TestAllInOneScript(t *testing.T) {
 func TestCamundaSanityChecks(t *testing.T) {
 	t.Log("Camunda sanity checks to confirm everything is working as expected")
 
-	// TODO: Make this into a helper function as this will likely be called multiple times
-
-	tfOutputs := terraform.OutputAll(t, terraformOptions(t, logger.Discard))
-
-	alb := tfOutputs["alb_endpoint"].(string)
-
-	cmd := shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("curl -f --request POST '%s/api/login?username=demo&password=demo' --cookie-jar cookie.txt", alb)},
-	}
-	shell.RunCommand(t, cmd)
-
-	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("curl -f --cookie cookie.txt %s/v2/topology", alb)},
-	}
-	output := shell.RunCommandAndGetStdOut(t, cmd)
-
-	var cluster camunda.Cluster
-	err := json.Unmarshal([]byte(output), &cluster)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-
-	require.Equal(t, 3, len(cluster.Brokers), "Expected 3 brokers, got %d", len(cluster.Brokers))
-	require.Equal(t, 3, cluster.ClusterSize, "Expected static cluster size of 3, got %d", cluster.ClusterSize)
-
-	for _, broker := range cluster.Brokers {
-		require.Contains(t, broker.Host, "10.200.", "Broker host should be in the private subnet")
-	}
-
-	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("curl -f --cookie cookie.txt --form resources='@utils/single-task.bpmn' %s/v2/deployments -H 'Content-Type: multipart/form-data' -H 'Accept: application/json'", alb)},
-	}
-	output = shell.RunCommandAndGetStdOut(t, cmd)
-
-	var deploymentInfo camunda.DeploymentInfo
-	err = json.Unmarshal([]byte(output), &deploymentInfo)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-
-	require.Equal(t, 1, len(deploymentInfo.Deployments), "Expected 1 deployment, got %d", len(deploymentInfo.Deployments))
-	require.Equal(t, "single-task.bpmn", deploymentInfo.Deployments[0].ProcessDefinition.ResourceName, "Expected 'single-task.bpmn', got %s", deploymentInfo.Deployments[0].ProcessDefinition.ResourceName)
-	require.Equal(t, "<default>", deploymentInfo.Deployments[0].ProcessDefinition.TenantId, "Expected '<default>', got %s", deploymentInfo.Deployments[0].ProcessDefinition.TenantId)
-
-	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("curl -f --cookie cookie.txt -L -X POST %s/v2/process-instances -H 'Content-Type: application/json' -H 'Accept: application/json' --data-raw '{\"processDefinitionKey\":\"%d\"}'", alb, deploymentInfo.Deployments[0].ProcessDefinition.ProcessDefinitionKey)},
-	}
-	shell.RunCommand(t, cmd)
-
-	// TODO: in the future when other REST APIs are available we could check that those have been deployed / run etc.
-	// atm still limited to v1 API
-
-	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("curl -f --cookie cookie.txt -L -X POST %s/v2/resources/%d/deletion", alb, deploymentInfo.Deployments[0].ProcessDefinition.ProcessDefinitionKey)},
-	}
-	shell.RunCommand(t, cmd)
+	utils.APICheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), "")
+	utils.APIDeployAndStartWorkflow(t, terraformOptions(t, logger.Discard))
 }
 
 func TestCloudWatchFeature(t *testing.T) {
 	t.Log("Test CloudWatch feature")
 
-	// TODO: run all-in-one-script.sh with cloudwatch enabled
+	tfOutputs := terraform.OutputAll(t, terraformOptions(t, logger.Discard))
+	bastionIp := tfOutputs["bastion_ip"].(string)
+	camundaIps := tfOutputs["camunda_ips"].([]interface{})
+
+	filePath := privKeyName
+	attempts := 3
+
+	for i := 0; i < attempts; i++ {
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Logf("Private key does not exist: %s. Waiting for 60 seconds...\n", filePath)
+			time.Sleep(60 * time.Second)
+		} else {
+			t.Log("Private key exists, continuing with the test...")
+			break
+		}
+	}
+
+	cmd := shell.Command{
+		Command: "bash",
+		Args:    []string{"-c", "export CLOUDWATCH_ENABLED=true && ../../scripts/all-in-one-install.sh"},
+	}
+	output := shell.RunCommandAndGetStdOut(t, cmd)
+
+	require.Contains(t, output, "CloudWatch monitoring is set to: true.", "Expected CloudWatch to be enabled")
+
+	cmd = shell.Command{
+		Command: "bash",
+		Args:    []string{"-c", fmt.Sprintf("ssh -J admin@%s admin@%s \"sudo systemctl is-active amazon-cloudwatch-agent\"", bastionIp, camundaIps[0])},
+	}
+	output = shell.RunCommandAndGetStdOut(t, cmd)
+
+	require.Contains(t, output, "active", "Expected CloudWatch agent to be active")
+
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		t.Fatalf("unable to load AWS SDK config, %v", err)
+	}
+
+	svc := cloudwatchlogs.NewFromConfig(cfg)
+
+	input := &cloudwatchlogs.DescribeLogGroupsInput{
+		LogGroupNamePrefix: aws.String(logGroupName),
+	}
+
+	resp, err := svc.DescribeLogGroups(context.TODO(), input)
+	if err != nil {
+		t.Fatalf("failed to describe log groups, %v", err)
+	}
+
+	exists := false
+	for _, group := range resp.LogGroups {
+		if *group.LogGroupName == logGroupName {
+			exists = true
+			break
+		}
+	}
+
+	if exists {
+		t.Logf("Log group '%s' exists.\n", logGroupName)
+	} else {
+		t.Fatalf("Log group '%s' does not exist.\n", logGroupName)
+	}
 }
 
 func TestSecurityFeature(t *testing.T) {
@@ -331,7 +334,7 @@ func TestCamundaUpgrade(t *testing.T) {
 	}
 	shell.RunCommand(t, cmd)
 
-	utils.CheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), camundaPreviousVersion)
+	utils.APICheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), camundaPreviousVersion)
 
 	t.Logf("Restoring file: %s", filePath)
 	err = os.WriteFile(filePath, []byte(fileContent), 0644)
@@ -346,7 +349,7 @@ func TestCamundaUpgrade(t *testing.T) {
 	}
 	shell.RunCommand(t, cmd)
 
-	utils.CheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), camundaCurrentVersion)
+	utils.APICheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), camundaCurrentVersion)
 }
 
 func TestTeardown(t *testing.T) {
@@ -355,4 +358,22 @@ func TestTeardown(t *testing.T) {
 	utils.OverwriteTerraformLifecycle(terraformDir + "/ec2.tf")
 
 	terraform.Destroy(t, terraformOptions(t, nil))
+
+	t.Log("Removing CloudWatch log group")
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		t.Fatalf("unable to load SDK config, %v", err)
+	}
+
+	svc := cloudwatchlogs.NewFromConfig(cfg)
+
+	_, err = svc.DeleteLogGroup(context.TODO(), &cloudwatchlogs.DeleteLogGroupInput{
+		LogGroupName: aws.String(logGroupName),
+	})
+
+	if err != nil {
+		t.Fatalf("failed to delete log group '%s', %v", logGroupName, err)
+	}
+
+	t.Logf("Log group '%s' deleted successfully.\n", logGroupName)
 }
