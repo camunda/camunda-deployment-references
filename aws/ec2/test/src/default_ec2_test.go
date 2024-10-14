@@ -7,9 +7,12 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/camunda/camunda-deployment-references/aws/ec2/camunda"
 	"github.com/camunda/camunda-deployment-references/aws/ec2/utils"
 	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/gruntwork-io/terratest/modules/shell"
@@ -17,48 +20,6 @@ import (
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/require"
 )
-
-// Topology
-type Partition struct {
-	PartitionId int    `json:"partitionId"`
-	Role        string `json:"role"`
-	Health      string `json:"health"`
-}
-
-type Broker struct {
-	NodeId     int         `json:"nodeId"`
-	Host       string      `json:"host"`
-	Port       int         `json:"port"`
-	Partitions []Partition `json:"partitions"`
-	Version    string      `json:"version"`
-}
-
-type Cluster struct {
-	Brokers           []Broker `json:"brokers"`
-	ClusterSize       int      `json:"clusterSize"`
-	PartitionsCount   int      `json:"partitionsCount"`
-	ReplicationFactor int      `json:"replicationFactor"`
-	GatewayVersion    string   `json:"gatewayVersion"`
-}
-
-// Deployment
-type ProcessDefinition struct {
-	ProcessDefinitionId      string `json:"processDefinitionId"`
-	ProcessDefinitionVersion int    `json:"processDefinitionVersion"`
-	ProcessDefinitionKey     int64  `json:"processDefinitionKey"`
-	ResourceName             string `json:"resourceName"`
-	TenantId                 string `json:"tenantId"`
-}
-
-type Deployment struct {
-	ProcessDefinition ProcessDefinition `json:"processDefinition"`
-}
-
-type DeploymentInfo struct {
-	DeploymentKey int64        `json:"deploymentKey"`
-	Deployments   []Deployment `json:"deployments"`
-	TenantId      string       `json:"tenantId"`
-}
 
 const (
 	terraformDir = "../../terraform"
@@ -73,29 +34,28 @@ var (
 	}
 )
 
-// func TestSetup(t *testing.T) {
-// 	t.Log("Test setup")
+func terraformOptions(t *testing.T, logType *logger.Logger) *terraform.Options {
+	if logType == nil {
+		logType = logger.Discard
+	}
 
-// 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
-// 		TerraformBinary: tfBinary,
-// 		TerraformDir:    terraformDir,
-// 		Vars:            tfVars,
-// 		NoColor:         true,
-// 	})
-
-// 	terraform.InitAndApply(t, terraformOptions)
-// }
-
-func TestConnectivity(t *testing.T) {
-	t.Log("Test connectivity to EC2 instances")
-
-	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
+	return terraform.WithDefaultRetryableErrors(t, &terraform.Options{
 		TerraformBinary: tfBinary,
 		TerraformDir:    terraformDir,
 		Vars:            tfVars,
 		NoColor:         true,
-		Logger:          logger.Discard, // disable logger due to sensitive data but will still log on error
+		Logger:          logType,
 	})
+}
+
+func TestSetup(t *testing.T) {
+	t.Log("Test setup")
+
+	terraform.InitAndApply(t, terraformOptions(t, nil))
+}
+
+func TestConnectivity(t *testing.T) {
+	t.Log("Test connectivity to EC2 instances")
 
 	// expected values
 	expectedOutputLength := 8
@@ -103,7 +63,7 @@ func TestConnectivity(t *testing.T) {
 
 	stringOutputs := [...]string{"aws_ami", "alb_endpoint", "nlb_endpoint", "private_key", "public_key", "aws_opensearch_domain", "bastion_ip"}
 
-	tfOutputs := terraform.OutputAll(t, terraformOptions)
+	tfOutputs := terraform.OutputAll(t, terraformOptions(t, logger.Discard))
 
 	require.Len(t, tfOutputs, expectedOutputLength, "Output should contain %d items", expectedOutputLength)
 
@@ -153,15 +113,7 @@ func TestConnectivity(t *testing.T) {
 func TestCreateAndConfigureSSH(t *testing.T) {
 	t.Log("Configuring local ssh to work outside of Go")
 
-	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
-		TerraformBinary: tfBinary,
-		TerraformDir:    terraformDir,
-		Vars:            tfVars,
-		NoColor:         true,
-		Logger:          logger.Discard, // disable logger due to sensitive data but will still log on error
-	})
-
-	tfOutputs := terraform.OutputAll(t, terraformOptions)
+	tfOutputs := terraform.OutputAll(t, terraformOptions(t, logger.Discard))
 
 	// Write private key to file
 	privateKey := tfOutputs["private_key"].(string)
@@ -230,19 +182,9 @@ func TestAllInOneScript(t *testing.T) {
 func TestCamundaSanityChecks(t *testing.T) {
 	t.Log("Camunda sanity checks to confirm everything is working as expected")
 
-	// TODO: deploy a diagram and check if it is running, trigger it, that kinda stuff
-	// TODO: maybe some rest calls, Zeebe status etc. pp.
-	// Make this into a helper function as this will likely be called multiple times
+	// TODO: Make this into a helper function as this will likely be called multiple times
 
-	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
-		TerraformBinary: tfBinary,
-		TerraformDir:    terraformDir,
-		Vars:            tfVars,
-		NoColor:         true,
-		Logger:          logger.Discard, // disable logger due to sensitive data but will still log on error
-	})
-
-	tfOutputs := terraform.OutputAll(t, terraformOptions)
+	tfOutputs := terraform.OutputAll(t, terraformOptions(t, logger.Discard))
 
 	alb := tfOutputs["alb_endpoint"].(string)
 
@@ -258,7 +200,7 @@ func TestCamundaSanityChecks(t *testing.T) {
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
-	var cluster Cluster
+	var cluster camunda.Cluster
 	err := json.Unmarshal([]byte(output), &cluster)
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -278,7 +220,7 @@ func TestCamundaSanityChecks(t *testing.T) {
 	}
 	output = shell.RunCommandAndGetStdOut(t, cmd)
 
-	var deploymentInfo DeploymentInfo
+	var deploymentInfo camunda.DeploymentInfo
 	err = json.Unmarshal([]byte(output), &deploymentInfo)
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -320,20 +262,97 @@ func TestSecurityFeature(t *testing.T) {
 func TestCamundaUpgrade(t *testing.T) {
 	t.Log("Test Camunda upgrade")
 
-	// TODO: Overwrite the Camunda version in `camunda-install.sh` and trigger all-in-one-script.sh
+	filePath := privKeyName
+	attempts := 3
+
+	for i := 0; i < attempts; i++ {
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			fmt.Printf("Private key does not exist: %s. Waiting for 60 seconds...\n", filePath)
+			time.Sleep(60 * time.Second)
+		} else {
+			fmt.Println("Private key exists, continuing with the test...")
+			break
+		}
+	}
+
+	utils.ResetCamunda(t, terraformOptions(t, logger.Discard))
+
+	filePath = "../../scripts/camunda-install.sh"
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		log.Fatalf("Error reading file: %v", err)
+	}
+
+	fileContent := string(content)
+
+	re := regexp.MustCompile(`:-"([0-9]+\.[0-9]+\.[0-9]+)"`)
+	match := re.FindAllStringSubmatch(fileContent, -1)
+
+	fmt.Println("Match:", match)
+
+	if len(match) < 1 {
+		log.Fatalf("No matches found in file: %s", filePath)
+	}
+
+	camundaCurrentVersion := match[0][1]
+	camundaPreviousVersion, err := utils.LowerVersion(camundaCurrentVersion)
+	if err != nil {
+		log.Fatalf("Error lowering version: %v", err)
+	}
+
+	connectorsCurrentVersion := match[1][1]
+	connectorsPreviousVersion, err := utils.LowerVersion(connectorsCurrentVersion)
+	if err != nil {
+		log.Fatalf("Error lowering version: %v", err)
+	}
+
+	// Allows overwriting the versions from outside
+	camundaCurrentVersion = utils.GetEnv("CAMUNDA_VERSION", camundaCurrentVersion)
+	camundaPreviousVersion = utils.GetEnv("CAMUNDA_PREVIOUS_VERSION", camundaPreviousVersion)
+	connectorsCurrentVersion = utils.GetEnv("CAMUNDA_CONNECTORS_VERSION", connectorsCurrentVersion)
+	connectorsPreviousVersion = utils.GetEnv("CAMUNDA_CONNECTORS_PREVIOUS_VERSION", connectorsPreviousVersion)
+
+	t.Logf("Camunda current version: %s, previous version: %s", camundaCurrentVersion, camundaPreviousVersion)
+	t.Logf("Connectors current version: %s, previous version: %s", connectorsCurrentVersion, connectorsPreviousVersion)
+
+	updatedContent := strings.ReplaceAll(fileContent, fmt.Sprintf("CAMUNDA_VERSION:-\"%s\"", camundaCurrentVersion), fmt.Sprintf("CAMUNDA_VERSION:-\"%s\"", camundaPreviousVersion))
+	updatedContent = strings.ReplaceAll(updatedContent, fmt.Sprintf("CAMUNDA_CONNECTORS_VERSION:-\"%s\"", connectorsCurrentVersion), fmt.Sprintf("CAMUNDA_CONNECTORS_VERSION:-\"%s\"", connectorsPreviousVersion))
+
+	err = os.WriteFile(filePath, []byte(updatedContent), 0644)
+	if err != nil {
+		log.Fatalf("Error writing file: %v", err)
+	}
+
+	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaPreviousVersion, connectorsPreviousVersion)
+	cmd := shell.Command{
+		Command: "bash",
+		Args:    []string{"-c", "../../scripts/all-in-one-install.sh"},
+	}
+	shell.RunCommand(t, cmd)
+
+	utils.CheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), camundaPreviousVersion)
+
+	t.Logf("Restoring file: %s", filePath)
+	err = os.WriteFile(filePath, []byte(fileContent), 0644)
+	if err != nil {
+		log.Fatalf("Error writing file: %v", err)
+	}
+
+	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaCurrentVersion, connectorsCurrentVersion)
+	cmd = shell.Command{
+		Command: "bash",
+		Args:    []string{"-c", "../../scripts/all-in-one-install.sh"},
+	}
+	shell.RunCommand(t, cmd)
+
+	utils.CheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), camundaCurrentVersion)
 }
 
-// func TestTeardown(t *testing.T) {
-// 	t.Log("Test teardown")
+func TestTeardown(t *testing.T) {
+	t.Log("Test teardown")
 
-// 	utils.OverwriteTerraformLifecycle(terraformDir + "/ec2.tf")
+	utils.OverwriteTerraformLifecycle(terraformDir + "/ec2.tf")
 
-// 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
-// 		TerraformBinary: tfBinary,
-// 		TerraformDir:    terraformDir,
-// 		Vars:            tfVars,
-// 		NoColor:         true,
-// 	})
-
-// 	terraform.Destroy(t, terraformOptions)
-// }
+	terraform.Destroy(t, terraformOptions(t, nil))
+}

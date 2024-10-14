@@ -9,8 +9,8 @@ set -euo pipefail
 
 # Executed on remote host, defaults should be set here or env vars preconfigured on remote host
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
-CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.6.0"}
-CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.6.0"}
+CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.6.3"}
+CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.6.2"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 USERNAME=${USERNAME:-"camunda"}
 JAVA_OPTS="${JAVA_OPTS:- -Xmx512m}" # Default Java options, required to run commands as remote user
