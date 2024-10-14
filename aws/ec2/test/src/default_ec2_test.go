@@ -38,8 +38,9 @@ var (
 )
 
 func terraformOptions(t *testing.T, logType *logger.Logger) *terraform.Options {
+	tmpLogType := logType
 	if logType == nil {
-		logType = logger.Discard
+		tmpLogType = logger.Discard
 	}
 
 	return terraform.WithDefaultRetryableErrors(t, &terraform.Options{
@@ -47,7 +48,7 @@ func terraformOptions(t *testing.T, logType *logger.Logger) *terraform.Options {
 		TerraformDir:    terraformDir,
 		Vars:            tfVars,
 		NoColor:         true,
-		Logger:          logType,
+		Logger:          tmpLogType,
 	})
 }
 

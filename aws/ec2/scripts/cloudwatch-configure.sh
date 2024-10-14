@@ -3,7 +3,7 @@ set -euo pipefail
 
 source "$(dirname "$0")/helpers.sh"
 
-# Optional feature, disabled by default and can be overwrittne witht the env var "CLOUDWATCH_ENABLED"
+# Optional feature, disabled by default and can be overwritten with the env var "CLOUDWATCH_ENABLED"
 # Copies the configuration files for the CloudWatch agent to the EC2 instance and starts the agent.
 
 transfer_file "$(dirname "$0")/../configs/prometheus.yaml" "${MNT_DIR}/cloudwatch/" prometheus.yaml
