@@ -40,7 +40,7 @@ var (
 func terraformOptions(t *testing.T, logType *logger.Logger) *terraform.Options {
 	tmpLogType := logType
 	if logType == nil {
-		tmpLogType = logger.Discard
+		tmpLogType = logger.Default
 	}
 
 	return terraform.WithDefaultRetryableErrors(t, &terraform.Options{
@@ -260,7 +260,64 @@ func TestCloudWatchFeature(t *testing.T) {
 func TestSecurityFeature(t *testing.T) {
 	t.Log("Test security feature")
 
-	// TODO: run all-in-one-script.sh with security enabled
+	tfOutputs := terraform.OutputAll(t, terraformOptions(t, logger.Discard))
+	filePath := privKeyName
+	attempts := 3
+
+	for i := 0; i < attempts; i++ {
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Logf("Private key does not exist: %s. Waiting for 60 seconds...\n", filePath)
+			time.Sleep(60 * time.Second)
+		} else {
+			t.Log("Private key exists, continuing with the test...")
+			break
+		}
+	}
+
+	t.Log("[Test] Expect the following to fail due to missing certificate")
+	cmd := shell.Command{
+		Command: "bash",
+		Args:    []string{"-c", "export SECURITY=true && ../../scripts/all-in-one-install.sh"},
+	}
+	output, err := shell.RunCommandAndGetOutputE(t, cmd)
+
+	require.Error(t, err, "Expected error due to missing certificate")
+	require.Contains(t, output, "Secure cluster communication is set to: true.", "Expected security to be enabled")
+	require.Contains(t, output, "Error: CA certificate file 'ca-authority.pem' not found in this path", "Expected error message for missing certificate")
+
+	cmd = shell.Command{
+		Command: "bash",
+		Args:    []string{"-c", "export SECURITY=true && ../../scripts/generate-self-signed-cert-authority.sh"},
+	}
+	shell.RunCommand(t, cmd)
+
+	cmd = shell.Command{
+		Command: "bash",
+		Args:    []string{"-c", "export SECURITY=true && ../../scripts/all-in-one-install.sh"},
+	}
+	output = shell.RunCommandAndGetOutput(t, cmd)
+
+	require.Contains(t, output, "Secure cluster communication is set to: true.", "Expected security to be enabled")
+
+	// Using zbctl to check that the cluster is secure - I don't have a better way to check this atm
+	cmd = shell.Command{
+		Command: "bash",
+		Args:    []string{"-c", fmt.Sprintf("zbctl status --address %s:80 --certPath ../../scripts/ca-authority.pem", tfOutputs["nlb_endpoint"].(string))},
+	}
+	output = shell.RunCommandAndGetOutput(t, cmd)
+
+	require.Contains(t, output, "Cluster size: 3", "Expected cluster size to be 3")
+	require.Contains(t, output, "Healthy", "Expected cluster to be healthy")
+
+	t.Log("[Test] Expect the following to fail due to missing certificate")
+	cmd = shell.Command{
+		Command: "bash",
+		Args:    []string{"-c", fmt.Sprintf("zbctl status --address %s:80", tfOutputs["nlb_endpoint"].(string))},
+	}
+	output, err = shell.RunCommandAndGetOutputE(t, cmd)
+
+	require.Error(t, err, "Expected error due to missing certificate")
+	require.Contains(t, output, "authentication handshake failed: x509", "Expected error message for missing certificate")
 }
 
 func TestCamundaUpgrade(t *testing.T) {
@@ -348,7 +405,9 @@ func TestCamundaUpgrade(t *testing.T) {
 		Command: "bash",
 		Args:    []string{"-c", "../../scripts/all-in-one-install.sh"},
 	}
-	shell.RunCommand(t, cmd)
+	output := shell.RunCommandAndGetOutput(t, cmd)
+
+	require.Contains(t, output, "Detected existing Camunda installation. Removing existing JARs and overwriting / recreating configuration files", "Expected existing Camunda installation message")
 
 	utils.APICheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), camundaCurrentVersion)
 }

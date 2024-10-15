@@ -9,7 +9,8 @@ echo "[INFO] Copying the configuration files to the remote server."
 transfer_file "$(dirname "$0")/camunda-environment.tmp" "${MNT_DIR}/camunda/config/camunda-environment" camunda-environment.tmp
 rm -rf "$(dirname "$0")/camunda-environment.tmp"
 
-transfer_file "$(dirname "$0")/../configs/connectors-environment" "${MNT_DIR}/connectors/" connectors-environment
+transfer_file "$(dirname "$0")/connectors-environment.tmp" "${MNT_DIR}/connectors/connectors-environment" connectors-environment.tmp
+rm -rf "$(dirname "$0")/connectors-environment.tmp"
 
 echo "[INFO] Installing the Camunda 8 systemd service on the remote server."
 transfer_file "$(dirname "$0")/../configs/camunda.service" "${MNT_DIR}" camunda.service

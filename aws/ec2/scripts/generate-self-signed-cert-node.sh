@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# The following is meant for demonstration purposes only and should not be used in production with the default self-signed certificates.
+# Please conduct the Documentation - https://docs.camunda.io/docs/self-managed/zeebe-deployment/security/secure-client-communication/
+
 # This script is intended to generate self-signed certificates for secure communication between the brokers and the gateway.
 # It requires the previous creation of a certificate authority (CA) to sign the certificates.
 # Can be used for broker/broker and gateway/client communication.
@@ -36,11 +39,11 @@ openssl x509 \
   -req \
   -days 3650 \
   -in "$output_dir/$file_name.csr" \
-  -CA ca-authority.pem \
-  -CAkey ca-authority.key \
+  -CA "$(dirname "$0")/ca-authority.pem" \
+  -CAkey "$(dirname "$0")/ca-authority.key" \
   -set_serial "$index" \
   -extfile <(printf "subjectAltName = IP.1:%s%s" "$ip" "$extra") \
   -out "$output_dir/$file_name.pem"
 
 # Create final certificate chain to allow verification
-cat "$output_dir/$file_name.pem" ca-authority.pem > "$output_dir/$file_name-chain.pem"
+cat "$output_dir/$file_name.pem" "$(dirname "$0")/ca-authority.pem" > "$output_dir/$file_name-chain.pem"

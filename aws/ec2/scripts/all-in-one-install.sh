@@ -20,17 +20,19 @@ echo "[INFO] CloudWatch monitoring is set to: $CLOUDWATCH_ENABLED."
 
 if [[ $SECURITY == 'true' ]]; then
     echo "[INFO] Checking that the CA certificate files are present in the current directory."
-    if [ ! -f "ca-authority.pem" ]; then
+    if [ ! -f "$(dirname "$0")/ca-authority.pem" ]; then
         echo "[FAIL] Error: CA certificate file 'ca-authority.pem' not found in this path."
-        echo "Please run the 'generate-self-signed-cert-authority.sh' script to generate the CA certificate."
+        echo "Please run the 'generate-self-signed-cert-authority.sh' script to generate a CA certificate."
+        echo "This is meant for demonstration purposes only and should not be used in production with the default self-signed certificates."
         echo "Make sure to keep the certificates secure for future script runs."
         echo "Alternatively set the SECURITY environment variable to 'false' to disable secure communication."
         exit 1
     fi
 
-    if [ ! -f "ca-authority.key" ]; then
+    if [ ! -f "$(dirname "$0")/ca-authority.key" ]; then
         echo "[FAIL] Error: CA certificate file 'ca-authority.key' not found in this path."
-        echo "Please run the 'generate-self-signed-cert-authority.sh' script to generate the CA certificate."
+        echo "Please run the 'generate-self-signed-cert-authority.sh' script to generate a CA certificate."
+        echo "This is meant for demonstration purposes only and should not be used in production with the default self-signed certificates."
         echo "Make sure to keep the certificates secure for future script runs."
         echo "Alternatively set the SECURITY environment variable to 'false' to disable secure communication."
         exit 1

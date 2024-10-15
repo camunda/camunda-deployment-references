@@ -5,6 +5,7 @@ set -euo pipefail
 # This includes the Zeebe cluster configuration but also disabling non HA compatible features in Operate and Tasklist.
 
 cp "$(dirname "$0")/../configs/camunda-environment" "$(dirname "$0")/camunda-environment.tmp"
+cp "$(dirname "$0")/../configs/connectors-environment" "$(dirname "$0")/connectors-environment.tmp"
 
 echo "[INFO] Configuring the environment variables for cluster communication, external DB usage and writing to temporary camunda-environment file."
 # Default configuration for 3 HA setup with OpenSearch as DB
@@ -37,5 +38,12 @@ if (( index % 2 == 0 && total_ip_count > 1 )) || (( index > 2 )); then
     echo "CAMUNDA_OPERATE_ARCHIVERENABLED=\"false\""
     echo "CAMUNDA_TASKLIST_IMPORTERENABLED=\"false\""
     echo "CAMUNDA_TASKLIST_ARCHIVERENABLED=\"false\""
+  } >> "$(dirname "$0")/camunda-environment.tmp"
+fi
+
+if [[ $SECURITY == 'false' ]]; then
+  echo "[INFO] Configuring Connectors to use plain text communication."
+  {
+    echo "ZEEBE_CLIENT_SECURITY_PLAINTEXT=\"true\""
   } >> "$(dirname "$0")/camunda-environment.tmp"
 fi
