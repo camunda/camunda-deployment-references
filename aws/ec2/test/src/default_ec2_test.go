@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -123,7 +122,7 @@ func TestCreateAndConfigureSSH(t *testing.T) {
 	privateKey := tfOutputs["private_key"].(string)
 	err := os.WriteFile(privKeyName, []byte(privateKey), 0600)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	// We are globally setting ssh settings to avoid ssh prompts
@@ -131,12 +130,12 @@ func TestCreateAndConfigureSSH(t *testing.T) {
 	// This is specific to the test environment and should not be used in production
 	dir, err := os.Getwd()
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	usr, err := user.Current()
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	sshConfigPath := filepath.Join(usr.HomeDir, ".ssh", "config")
 
@@ -150,13 +149,13 @@ Host *
 	// Open the ssh config file in append mode, create if it doesn't exist
 	file, err := os.OpenFile(sshConfigPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	defer file.Close()
 
 	_, err = file.WriteString(configToAppend)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 }
 
@@ -342,7 +341,7 @@ func TestCamundaUpgrade(t *testing.T) {
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		log.Fatalf("Error reading file: %v", err)
+		t.Fatalf("Error reading file: %v", err)
 	}
 
 	fileContent := string(content)
@@ -353,19 +352,19 @@ func TestCamundaUpgrade(t *testing.T) {
 	fmt.Println("Match:", match)
 
 	if len(match) < 1 {
-		log.Fatalf("No matches found in file: %s", filePath)
+		t.Fatalf("No matches found in file: %s", filePath)
 	}
 
 	camundaCurrentVersion := match[0][1]
 	camundaPreviousVersion, err := utils.LowerVersion(camundaCurrentVersion)
 	if err != nil {
-		log.Fatalf("Error lowering version: %v", err)
+		t.Fatalf("Error lowering version: %v", err)
 	}
 
 	connectorsCurrentVersion := match[1][1]
 	connectorsPreviousVersion, err := utils.LowerVersion(connectorsCurrentVersion)
 	if err != nil {
-		log.Fatalf("Error lowering version: %v", err)
+		t.Fatalf("Error lowering version: %v", err)
 	}
 
 	// Allows overwriting the versions from outside
@@ -382,7 +381,7 @@ func TestCamundaUpgrade(t *testing.T) {
 
 	err = os.WriteFile(filePath, []byte(updatedContent), 0644)
 	if err != nil {
-		log.Fatalf("Error writing file: %v", err)
+		t.Fatalf("Error writing file: %v", err)
 	}
 
 	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaPreviousVersion, connectorsPreviousVersion)
@@ -397,7 +396,7 @@ func TestCamundaUpgrade(t *testing.T) {
 	t.Logf("Restoring file: %s", filePath)
 	err = os.WriteFile(filePath, []byte(fileContent), 0644)
 	if err != nil {
-		log.Fatalf("Error writing file: %v", err)
+		t.Fatalf("Error writing file: %v", err)
 	}
 
 	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaCurrentVersion, connectorsCurrentVersion)

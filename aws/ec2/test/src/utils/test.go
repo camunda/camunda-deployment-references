@@ -122,13 +122,15 @@ func ResetCamunda(t *testing.T, terraformOptions *terraform.Options) {
 			Command: "bash",
 			Args:    []string{"-c", fmt.Sprintf("ssh -J admin@%s admin@%s \"sudo systemctl stop camunda\"", bastionIp, ip)},
 		}
-		shell.RunCommand(t, cmd)
+		// Ignore error as the service might not be running
+		shell.RunCommandE(t, cmd)
 
 		cmd = shell.Command{
 			Command: "bash",
 			Args:    []string{"-c", fmt.Sprintf("ssh -J admin@%s admin@%s \"sudo systemctl stop connectors\"", bastionIp, ip)},
 		}
-		shell.RunCommand(t, cmd)
+		// Ignore error as the service might not be running
+		shell.RunCommandE(t, cmd)
 
 		cmd = shell.Command{
 			Command: "bash",
