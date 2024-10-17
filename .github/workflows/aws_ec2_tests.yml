@@ -10,6 +10,7 @@ on:
             - .github/workflows/aws_ec2_tests.yml
             - .tool-versions
             - aws/ec2/**
+            - '!aws/ec2/test/golden/**'
 
 # limit to a single execution per actor of this workflow
 concurrency:

@@ -1,0 +1,92 @@
+---
+name: AWS EC2 Golden Files
+
+on:
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/aws_ec2_golden.yml
+            - .tool-versions
+            - aws/ec2/terraform/**
+    push:
+        branches:
+            - main
+        paths:
+            - aws/ec2/terraform/**
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    AWS_PROFILE: infex
+    AWS_REGION: eu-west-2
+
+jobs:
+    compare:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            pull-requests: write
+        steps:
+            ################## Checkout ##################
+            - name: Checkout repository
+              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+            ############# Tool Installations #############
+            - name: Install tooling using asdf
+              uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
+            ################## Secrets ###################
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+            ################ AWS Config ##################
+            # Official action does not support profiles
+            - name: Add profile credentials to ~/.aws/credentials
+              shell: bash
+              run: |
+                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+            - name: Run Terraform plan
+              working-directory: aws/ec2/terraform
+              run: |
+                  terraform init
+                  # We are hardcoding the AMI as it's a moving target
+                  terraform plan -var aws_ami="ami" -out=tfplan
+                  # Use jq to "pretty print" the JSON output to allow comparison
+                  terraform show -json tfplan | jq > tfplan.json
+            - name: Compare Terraform plan with golden file
+              working-directory: aws/ec2/terraform
+              run: |
+                  delta <(jq .planned_values plan2.json) <(jq .planned_values plan3.json)
+                  exit $?
+            - name: Post diff on PR
+              if: failure() && github.event_name == 'pull_request'
+              uses: int128/diff-action@v1
+              with:
+                  base: ${{ github.workspace }}/aws/ec2/test/golden/tfplan.json
+                  head: ${{ github.workspace }}/aws/ec2/terraform/tfplan.json
+            - name: Overwrite local golden files
+              if: failure() && github.event_name == 'push'
+              run: |
+                  cp ${{ github.workspace }}/aws/ec2/terraform/tfplan.json ${{ github.workspace }}/aws/ec2/test/golden/tfplan.json
+            - name: Create PR to update golden files
+              if: failure() && github.event_name == 'push'
+              uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # v7
+              with:
+                  signoff: true
+                  base: main
+                  title: 'chore: update golden files'
+                  body: |
+                      The golden files have been updated to reflect the latest changes in the Terraform plan.
+                  commit-message: 'chore: update golden files'
