@@ -78,15 +78,9 @@
       "aws_ami": {
         "sensitive": false,
         "type": "string",
-        "value": "ami-09e173854da66fbc9"
+        "value": "ami-0a95fb28afbb91fac"
       },
       "aws_opensearch_domain": {
-        "sensitive": false
-      },
-      "bastion_ip": {
-        "sensitive": false
-      },
-      "camunda_ips": {
         "sensitive": false
       },
       "nlb_endpoint": {
@@ -114,7 +108,7 @@
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
           "values": {
-            "availability_zone": "eu-central-1a",
+            "availability_zone": "eu-west-2a",
             "encrypted": true,
             "final_snapshot": false,
             "multi_attach_enabled": null,
@@ -144,7 +138,7 @@
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
           "values": {
-            "availability_zone": "eu-central-1b",
+            "availability_zone": "eu-west-2b",
             "encrypted": true,
             "final_snapshot": false,
             "multi_attach_enabled": null,
@@ -174,7 +168,7 @@
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
           "values": {
-            "availability_zone": "eu-central-1c",
+            "availability_zone": "eu-west-2c",
             "encrypted": true,
             "final_snapshot": false,
             "multi_attach_enabled": null,
@@ -273,274 +267,6 @@
             "role": "camunda-cloudwatch"
           },
           "sensitive_values": {}
-        },
-        {
-          "address": "aws_instance.bastion[0]",
-          "mode": "managed",
-          "type": "aws_instance",
-          "name": "bastion",
-          "index": 0,
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 1,
-          "values": {
-            "ami": "ami",
-            "associate_public_ip_address": true,
-            "credit_specification": [],
-            "get_password_data": false,
-            "hibernation": null,
-            "instance_type": "t2.nano",
-            "key_name": "camunda-auth-key",
-            "launch_template": [],
-            "source_dest_check": true,
-            "tags": {
-              "Name": "camunda-bastion"
-            },
-            "tags_all": {
-              "Name": "camunda-bastion",
-              "managed_by": "Terraform"
-            },
-            "timeouts": null,
-            "user_data_replace_on_change": false,
-            "volume_tags": null
-          },
-          "sensitive_values": {
-            "capacity_reservation_specification": [],
-            "cpu_options": [],
-            "credit_specification": [],
-            "ebs_block_device": [],
-            "enclave_options": [],
-            "ephemeral_block_device": [],
-            "instance_market_options": [],
-            "ipv6_addresses": [],
-            "launch_template": [],
-            "maintenance_options": [],
-            "metadata_options": [],
-            "network_interface": [],
-            "private_dns_name_options": [],
-            "root_block_device": [],
-            "secondary_private_ips": [],
-            "security_groups": [],
-            "tags": {},
-            "tags_all": {},
-            "vpc_security_group_ids": []
-          }
-        },
-        {
-          "address": "aws_instance.camunda[0]",
-          "mode": "managed",
-          "type": "aws_instance",
-          "name": "camunda",
-          "index": 0,
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 1,
-          "values": {
-            "ami": "ami",
-            "associate_public_ip_address": false,
-            "credit_specification": [],
-            "get_password_data": false,
-            "hibernation": null,
-            "iam_instance_profile": "camunda-cloudwatch-instance-profile",
-            "instance_type": "m6i.xlarge",
-            "key_name": "camunda-auth-key",
-            "launch_template": [],
-            "root_block_device": [
-              {
-                "delete_on_termination": true,
-                "encrypted": true,
-                "tags": null,
-                "volume_size": 10,
-                "volume_type": "gp3"
-              }
-            ],
-            "source_dest_check": true,
-            "tags": {
-              "Name": "camunda-instance-0"
-            },
-            "tags_all": {
-              "Name": "camunda-instance-0",
-              "managed_by": "Terraform"
-            },
-            "timeouts": null,
-            "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
-            "user_data_replace_on_change": false,
-            "volume_tags": null
-          },
-          "sensitive_values": {
-            "capacity_reservation_specification": [],
-            "cpu_options": [],
-            "credit_specification": [],
-            "ebs_block_device": [],
-            "enclave_options": [],
-            "ephemeral_block_device": [],
-            "instance_market_options": [],
-            "ipv6_addresses": [],
-            "launch_template": [],
-            "maintenance_options": [],
-            "metadata_options": [],
-            "network_interface": [],
-            "private_dns_name_options": [],
-            "root_block_device": [
-              {
-                "tags_all": {}
-              }
-            ],
-            "secondary_private_ips": [],
-            "security_groups": [],
-            "tags": {},
-            "tags_all": {},
-            "vpc_security_group_ids": []
-          }
-        },
-        {
-          "address": "aws_instance.camunda[1]",
-          "mode": "managed",
-          "type": "aws_instance",
-          "name": "camunda",
-          "index": 1,
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 1,
-          "values": {
-            "ami": "ami",
-            "associate_public_ip_address": false,
-            "credit_specification": [],
-            "get_password_data": false,
-            "hibernation": null,
-            "iam_instance_profile": "camunda-cloudwatch-instance-profile",
-            "instance_type": "m6i.xlarge",
-            "key_name": "camunda-auth-key",
-            "launch_template": [],
-            "root_block_device": [
-              {
-                "delete_on_termination": true,
-                "encrypted": true,
-                "tags": null,
-                "volume_size": 10,
-                "volume_type": "gp3"
-              }
-            ],
-            "source_dest_check": true,
-            "tags": {
-              "Name": "camunda-instance-1"
-            },
-            "tags_all": {
-              "Name": "camunda-instance-1",
-              "managed_by": "Terraform"
-            },
-            "timeouts": null,
-            "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
-            "user_data_replace_on_change": false,
-            "volume_tags": null
-          },
-          "sensitive_values": {
-            "capacity_reservation_specification": [],
-            "cpu_options": [],
-            "credit_specification": [],
-            "ebs_block_device": [],
-            "enclave_options": [],
-            "ephemeral_block_device": [],
-            "instance_market_options": [],
-            "ipv6_addresses": [],
-            "launch_template": [],
-            "maintenance_options": [],
-            "metadata_options": [],
-            "network_interface": [],
-            "private_dns_name_options": [],
-            "root_block_device": [
-              {
-                "tags_all": {}
-              }
-            ],
-            "secondary_private_ips": [],
-            "security_groups": [],
-            "tags": {},
-            "tags_all": {},
-            "vpc_security_group_ids": []
-          }
-        },
-        {
-          "address": "aws_instance.camunda[2]",
-          "mode": "managed",
-          "type": "aws_instance",
-          "name": "camunda",
-          "index": 2,
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 1,
-          "values": {
-            "ami": "ami",
-            "associate_public_ip_address": false,
-            "credit_specification": [],
-            "get_password_data": false,
-            "hibernation": null,
-            "iam_instance_profile": "camunda-cloudwatch-instance-profile",
-            "instance_type": "m6i.xlarge",
-            "key_name": "camunda-auth-key",
-            "launch_template": [],
-            "root_block_device": [
-              {
-                "delete_on_termination": true,
-                "encrypted": true,
-                "tags": null,
-                "volume_size": 10,
-                "volume_type": "gp3"
-              }
-            ],
-            "source_dest_check": true,
-            "tags": {
-              "Name": "camunda-instance-2"
-            },
-            "tags_all": {
-              "Name": "camunda-instance-2",
-              "managed_by": "Terraform"
-            },
-            "timeouts": null,
-            "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
-            "user_data_replace_on_change": false,
-            "volume_tags": null
-          },
-          "sensitive_values": {
-            "capacity_reservation_specification": [],
-            "cpu_options": [],
-            "credit_specification": [],
-            "ebs_block_device": [],
-            "enclave_options": [],
-            "ephemeral_block_device": [],
-            "instance_market_options": [],
-            "ipv6_addresses": [],
-            "launch_template": [],
-            "maintenance_options": [],
-            "metadata_options": [],
-            "network_interface": [],
-            "private_dns_name_options": [],
-            "root_block_device": [
-              {
-                "tags_all": {}
-              }
-            ],
-            "secondary_private_ips": [],
-            "security_groups": [],
-            "tags": {},
-            "tags_all": {},
-            "vpc_security_group_ids": []
-          }
-        },
-        {
-          "address": "aws_key_pair.main",
-          "mode": "managed",
-          "type": "aws_key_pair",
-          "name": "main",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 1,
-          "values": {
-            "key_name": "camunda-auth-key",
-            "public_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ4mHqeTheSLsUBBhhXa73ysoPKYnGGNjjMn+D66ksJLVkSO053c/PD2UCfhMrkNT4Y5mluZMTfuPFhNjN6b5wPscOOYlIwvATfLiARW1uvXgrUMJwCFV8lMiU+Xq7VtXADDipNjzVhwt4vbaw7M62ro63q/37HjAuw0RFKNqnKCAWYgeEvh6v/cxu6DEwJQFAZ8qNqa97pI4vwIJ4XDKGpFxhek20xtdpKL2MW50+1XYo8R1hJcKpg2+1yDDGe+wSeJ4E1v+3TleLvWJsi4iC5obuCrx2bjhWlNnuI6UXZ+cI/eBsVloo8kKYLeVt6V428KKYyJXHajN66fcvXGXJ langleu@langleu-Lenovo-G580",
-            "tags": null,
-            "tags_all": {
-              "managed_by": "Terraform"
-            }
-          },
-          "sensitive_values": {
-            "tags_all": {}
-          }
         },
         {
           "address": "aws_kms_key.main",
@@ -929,132 +655,6 @@
           }
         },
         {
-          "address": "aws_lb_target_group_attachment.connectors[\"0\"]",
-          "mode": "managed",
-          "type": "aws_lb_target_group_attachment",
-          "name": "connectors",
-          "index": "0",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "values": {
-            "availability_zone": null,
-            "port": 9090
-          },
-          "sensitive_values": {}
-        },
-        {
-          "address": "aws_lb_target_group_attachment.connectors[\"1\"]",
-          "mode": "managed",
-          "type": "aws_lb_target_group_attachment",
-          "name": "connectors",
-          "index": "1",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "values": {
-            "availability_zone": null,
-            "port": 9090
-          },
-          "sensitive_values": {}
-        },
-        {
-          "address": "aws_lb_target_group_attachment.connectors[\"2\"]",
-          "mode": "managed",
-          "type": "aws_lb_target_group_attachment",
-          "name": "connectors",
-          "index": "2",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "values": {
-            "availability_zone": null,
-            "port": 9090
-          },
-          "sensitive_values": {}
-        },
-        {
-          "address": "aws_lb_target_group_attachment.grpc[\"0\"]",
-          "mode": "managed",
-          "type": "aws_lb_target_group_attachment",
-          "name": "grpc",
-          "index": "0",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "values": {
-            "availability_zone": null,
-            "port": 26500
-          },
-          "sensitive_values": {}
-        },
-        {
-          "address": "aws_lb_target_group_attachment.grpc[\"1\"]",
-          "mode": "managed",
-          "type": "aws_lb_target_group_attachment",
-          "name": "grpc",
-          "index": "1",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "values": {
-            "availability_zone": null,
-            "port": 26500
-          },
-          "sensitive_values": {}
-        },
-        {
-          "address": "aws_lb_target_group_attachment.grpc[\"2\"]",
-          "mode": "managed",
-          "type": "aws_lb_target_group_attachment",
-          "name": "grpc",
-          "index": "2",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "values": {
-            "availability_zone": null,
-            "port": 26500
-          },
-          "sensitive_values": {}
-        },
-        {
-          "address": "aws_lb_target_group_attachment.main[\"0\"]",
-          "mode": "managed",
-          "type": "aws_lb_target_group_attachment",
-          "name": "main",
-          "index": "0",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "values": {
-            "availability_zone": null,
-            "port": 8080
-          },
-          "sensitive_values": {}
-        },
-        {
-          "address": "aws_lb_target_group_attachment.main[\"1\"]",
-          "mode": "managed",
-          "type": "aws_lb_target_group_attachment",
-          "name": "main",
-          "index": "1",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "values": {
-            "availability_zone": null,
-            "port": 8080
-          },
-          "sensitive_values": {}
-        },
-        {
-          "address": "aws_lb_target_group_attachment.main[\"2\"]",
-          "mode": "managed",
-          "type": "aws_lb_target_group_attachment",
-          "name": "main",
-          "index": "2",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "values": {
-            "availability_zone": null,
-            "port": 8080
-          },
-          "sensitive_values": {}
-        },
-        {
           "address": "aws_opensearch_domain.opensearch_cluster[0]",
           "mode": "managed",
           "type": "aws_opensearch_domain",
@@ -1063,7 +663,7 @@
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
           "values": {
-            "access_policies": "{\"Statement\":[{\"Action\":\"es:*\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Resource\":\"arn:aws:es:eu-central-1:444804106854:domain/camunda-os-cluster/*\"}],\"Version\":\"2012-10-17\"}",
+            "access_policies": "{\"Statement\":[{\"Action\":\"es:*\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Resource\":\"arn:aws:es:eu-west-2:444804106854:domain/camunda-os-cluster/*\"}],\"Version\":\"2012-10-17\"}",
             "advanced_options": {
               "rest.action.multi.allow_explicit_index": "true"
             },
@@ -1114,17 +714,17 @@
             "engine_version": "OpenSearch_2.15",
             "log_publishing_options": [
               {
-                "cloudwatch_log_group_arn": "arn:aws:logs:eu-central-1:444804106854:log-group:doesnotexistbutrequired",
+                "cloudwatch_log_group_arn": "arn:aws:logs:eu-west-2:444804106854:log-group:doesnotexistbutrequired",
                 "enabled": false,
                 "log_type": "ES_APPLICATION_LOGS"
               },
               {
-                "cloudwatch_log_group_arn": "arn:aws:logs:eu-central-1:444804106854:log-group:doesnotexistbutrequired",
+                "cloudwatch_log_group_arn": "arn:aws:logs:eu-west-2:444804106854:log-group:doesnotexistbutrequired",
                 "enabled": false,
                 "log_type": "INDEX_SLOW_LOGS"
               },
               {
-                "cloudwatch_log_group_arn": "arn:aws:logs:eu-central-1:444804106854:log-group:doesnotexistbutrequired",
+                "cloudwatch_log_group_arn": "arn:aws:logs:eu-west-2:444804106854:log-group:doesnotexistbutrequired",
                 "enabled": false,
                 "log_type": "SEARCH_SLOW_LOGS"
               }
@@ -1868,57 +1468,6 @@
             "tags": {},
             "tags_all": {}
           }
-        },
-        {
-          "address": "aws_volume_attachment.ebs_attachment[0]",
-          "mode": "managed",
-          "type": "aws_volume_attachment",
-          "name": "ebs_attachment",
-          "index": 0,
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "values": {
-            "device_name": "/dev/sdb",
-            "force_detach": null,
-            "skip_destroy": null,
-            "stop_instance_before_detaching": null,
-            "timeouts": null
-          },
-          "sensitive_values": {}
-        },
-        {
-          "address": "aws_volume_attachment.ebs_attachment[1]",
-          "mode": "managed",
-          "type": "aws_volume_attachment",
-          "name": "ebs_attachment",
-          "index": 1,
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "values": {
-            "device_name": "/dev/sdb",
-            "force_detach": null,
-            "skip_destroy": null,
-            "stop_instance_before_detaching": null,
-            "timeouts": null
-          },
-          "sensitive_values": {}
-        },
-        {
-          "address": "aws_volume_attachment.ebs_attachment[2]",
-          "mode": "managed",
-          "type": "aws_volume_attachment",
-          "name": "ebs_attachment",
-          "index": 2,
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "values": {
-            "device_name": "/dev/sdb",
-            "force_detach": null,
-            "skip_destroy": null,
-            "stop_instance_before_detaching": null,
-            "timeouts": null
-          },
-          "sensitive_values": {}
         }
       ],
       "child_modules": [
@@ -2078,11 +1627,11 @@
                 "domain": "vpc",
                 "tags": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-eu-central-1a"
+                  "Name": "camunda-vpc-eu-west-2a"
                 },
                 "tags_all": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-eu-central-1a",
+                  "Name": "camunda-vpc-eu-west-2a",
                   "managed_by": "Terraform"
                 },
                 "timeouts": null
@@ -2130,11 +1679,11 @@
                 "secondary_allocation_ids": null,
                 "tags": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-eu-central-1a"
+                  "Name": "camunda-vpc-eu-west-2a"
                 },
                 "tags_all": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-eu-central-1a",
+                  "Name": "camunda-vpc-eu-west-2a",
                   "managed_by": "Terraform"
                 },
                 "timeouts": null
@@ -2353,7 +1902,7 @@
               "schema_version": 1,
               "values": {
                 "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-central-1a",
+                "availability_zone": "eu-west-2a",
                 "cidr_block": "10.200.0.0/20",
                 "customer_owned_ipv4_pool": null,
                 "enable_dns64": false,
@@ -2367,11 +1916,11 @@
                 "outpost_arn": null,
                 "tags": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-private-eu-central-1a"
+                  "Name": "camunda-vpc-private-eu-west-2a"
                 },
                 "tags_all": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-private-eu-central-1a",
+                  "Name": "camunda-vpc-private-eu-west-2a",
                   "managed_by": "Terraform"
                 },
                 "timeouts": null
@@ -2391,7 +1940,7 @@
               "schema_version": 1,
               "values": {
                 "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-central-1b",
+                "availability_zone": "eu-west-2b",
                 "cidr_block": "10.200.16.0/20",
                 "customer_owned_ipv4_pool": null,
                 "enable_dns64": false,
@@ -2405,11 +1954,11 @@
                 "outpost_arn": null,
                 "tags": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-private-eu-central-1b"
+                  "Name": "camunda-vpc-private-eu-west-2b"
                 },
                 "tags_all": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-private-eu-central-1b",
+                  "Name": "camunda-vpc-private-eu-west-2b",
                   "managed_by": "Terraform"
                 },
                 "timeouts": null
@@ -2429,7 +1978,7 @@
               "schema_version": 1,
               "values": {
                 "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-central-1c",
+                "availability_zone": "eu-west-2c",
                 "cidr_block": "10.200.32.0/20",
                 "customer_owned_ipv4_pool": null,
                 "enable_dns64": false,
@@ -2443,11 +1992,11 @@
                 "outpost_arn": null,
                 "tags": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-private-eu-central-1c"
+                  "Name": "camunda-vpc-private-eu-west-2c"
                 },
                 "tags_all": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-private-eu-central-1c",
+                  "Name": "camunda-vpc-private-eu-west-2c",
                   "managed_by": "Terraform"
                 },
                 "timeouts": null
@@ -2467,7 +2016,7 @@
               "schema_version": 1,
               "values": {
                 "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-central-1a",
+                "availability_zone": "eu-west-2a",
                 "cidr_block": "10.200.64.0/20",
                 "customer_owned_ipv4_pool": null,
                 "enable_dns64": false,
@@ -2481,11 +2030,11 @@
                 "outpost_arn": null,
                 "tags": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-public-eu-central-1a"
+                  "Name": "camunda-vpc-public-eu-west-2a"
                 },
                 "tags_all": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-public-eu-central-1a",
+                  "Name": "camunda-vpc-public-eu-west-2a",
                   "managed_by": "Terraform"
                 },
                 "timeouts": null
@@ -2505,7 +2054,7 @@
               "schema_version": 1,
               "values": {
                 "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-central-1b",
+                "availability_zone": "eu-west-2b",
                 "cidr_block": "10.200.80.0/20",
                 "customer_owned_ipv4_pool": null,
                 "enable_dns64": false,
@@ -2519,11 +2068,11 @@
                 "outpost_arn": null,
                 "tags": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-public-eu-central-1b"
+                  "Name": "camunda-vpc-public-eu-west-2b"
                 },
                 "tags_all": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-public-eu-central-1b",
+                  "Name": "camunda-vpc-public-eu-west-2b",
                   "managed_by": "Terraform"
                 },
                 "timeouts": null
@@ -2543,7 +2092,7 @@
               "schema_version": 1,
               "values": {
                 "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-central-1c",
+                "availability_zone": "eu-west-2c",
                 "cidr_block": "10.200.96.0/20",
                 "customer_owned_ipv4_pool": null,
                 "enable_dns64": false,
@@ -2557,11 +2106,11 @@
                 "outpost_arn": null,
                 "tags": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-public-eu-central-1c"
+                  "Name": "camunda-vpc-public-eu-west-2c"
                 },
                 "tags_all": {
                   "Example": "camunda-vpc",
-                  "Name": "camunda-vpc-public-eu-central-1c",
+                  "Name": "camunda-vpc-public-eu-west-2c",
                   "managed_by": "Terraform"
                 },
                 "timeouts": null
@@ -2624,7 +2173,7 @@
         ],
         "before": null,
         "after": {
-          "availability_zone": "eu-central-1a",
+          "availability_zone": "eu-west-2a",
           "encrypted": true,
           "final_snapshot": false,
           "multi_attach_enabled": null,
@@ -2670,7 +2219,7 @@
         ],
         "before": null,
         "after": {
-          "availability_zone": "eu-central-1b",
+          "availability_zone": "eu-west-2b",
           "encrypted": true,
           "final_snapshot": false,
           "multi_attach_enabled": null,
@@ -2716,7 +2265,7 @@
         ],
         "before": null,
         "after": {
-          "availability_zone": "eu-central-1c",
+          "availability_zone": "eu-west-2c",
           "encrypted": true,
           "final_snapshot": false,
           "multi_attach_enabled": null,
@@ -2880,538 +2429,6 @@
         },
         "before_sensitive": false,
         "after_sensitive": {}
-      }
-    },
-    {
-      "address": "aws_instance.bastion[0]",
-      "mode": "managed",
-      "type": "aws_instance",
-      "name": "bastion",
-      "index": 0,
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "ami": "ami",
-          "associate_public_ip_address": true,
-          "credit_specification": [],
-          "get_password_data": false,
-          "hibernation": null,
-          "instance_type": "t2.nano",
-          "key_name": "camunda-auth-key",
-          "launch_template": [],
-          "source_dest_check": true,
-          "tags": {
-            "Name": "camunda-bastion"
-          },
-          "tags_all": {
-            "Name": "camunda-bastion",
-            "managed_by": "Terraform"
-          },
-          "timeouts": null,
-          "user_data_replace_on_change": false,
-          "volume_tags": null
-        },
-        "after_unknown": {
-          "arn": true,
-          "availability_zone": true,
-          "capacity_reservation_specification": true,
-          "cpu_core_count": true,
-          "cpu_options": true,
-          "cpu_threads_per_core": true,
-          "credit_specification": [],
-          "disable_api_stop": true,
-          "disable_api_termination": true,
-          "ebs_block_device": true,
-          "ebs_optimized": true,
-          "enclave_options": true,
-          "ephemeral_block_device": true,
-          "host_id": true,
-          "host_resource_group_arn": true,
-          "iam_instance_profile": true,
-          "id": true,
-          "instance_initiated_shutdown_behavior": true,
-          "instance_lifecycle": true,
-          "instance_market_options": true,
-          "instance_state": true,
-          "ipv6_address_count": true,
-          "ipv6_addresses": true,
-          "launch_template": [],
-          "maintenance_options": true,
-          "metadata_options": true,
-          "monitoring": true,
-          "network_interface": true,
-          "outpost_arn": true,
-          "password_data": true,
-          "placement_group": true,
-          "placement_partition_number": true,
-          "primary_network_interface_id": true,
-          "private_dns": true,
-          "private_dns_name_options": true,
-          "private_ip": true,
-          "public_dns": true,
-          "public_ip": true,
-          "root_block_device": true,
-          "secondary_private_ips": true,
-          "security_groups": true,
-          "spot_instance_request_id": true,
-          "subnet_id": true,
-          "tags": {},
-          "tags_all": {},
-          "tenancy": true,
-          "user_data": true,
-          "user_data_base64": true,
-          "vpc_security_group_ids": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {
-          "capacity_reservation_specification": [],
-          "cpu_options": [],
-          "credit_specification": [],
-          "ebs_block_device": [],
-          "enclave_options": [],
-          "ephemeral_block_device": [],
-          "instance_market_options": [],
-          "ipv6_addresses": [],
-          "launch_template": [],
-          "maintenance_options": [],
-          "metadata_options": [],
-          "network_interface": [],
-          "private_dns_name_options": [],
-          "root_block_device": [],
-          "secondary_private_ips": [],
-          "security_groups": [],
-          "tags": {},
-          "tags_all": {},
-          "vpc_security_group_ids": []
-        }
-      }
-    },
-    {
-      "address": "aws_instance.camunda[0]",
-      "mode": "managed",
-      "type": "aws_instance",
-      "name": "camunda",
-      "index": 0,
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "ami": "ami",
-          "associate_public_ip_address": false,
-          "credit_specification": [],
-          "get_password_data": false,
-          "hibernation": null,
-          "iam_instance_profile": "camunda-cloudwatch-instance-profile",
-          "instance_type": "m6i.xlarge",
-          "key_name": "camunda-auth-key",
-          "launch_template": [],
-          "root_block_device": [
-            {
-              "delete_on_termination": true,
-              "encrypted": true,
-              "tags": null,
-              "volume_size": 10,
-              "volume_type": "gp3"
-            }
-          ],
-          "source_dest_check": true,
-          "tags": {
-            "Name": "camunda-instance-0"
-          },
-          "tags_all": {
-            "Name": "camunda-instance-0",
-            "managed_by": "Terraform"
-          },
-          "timeouts": null,
-          "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
-          "user_data_replace_on_change": false,
-          "volume_tags": null
-        },
-        "after_unknown": {
-          "arn": true,
-          "availability_zone": true,
-          "capacity_reservation_specification": true,
-          "cpu_core_count": true,
-          "cpu_options": true,
-          "cpu_threads_per_core": true,
-          "credit_specification": [],
-          "disable_api_stop": true,
-          "disable_api_termination": true,
-          "ebs_block_device": true,
-          "ebs_optimized": true,
-          "enclave_options": true,
-          "ephemeral_block_device": true,
-          "host_id": true,
-          "host_resource_group_arn": true,
-          "id": true,
-          "instance_initiated_shutdown_behavior": true,
-          "instance_lifecycle": true,
-          "instance_market_options": true,
-          "instance_state": true,
-          "ipv6_address_count": true,
-          "ipv6_addresses": true,
-          "launch_template": [],
-          "maintenance_options": true,
-          "metadata_options": true,
-          "monitoring": true,
-          "network_interface": true,
-          "outpost_arn": true,
-          "password_data": true,
-          "placement_group": true,
-          "placement_partition_number": true,
-          "primary_network_interface_id": true,
-          "private_dns": true,
-          "private_dns_name_options": true,
-          "private_ip": true,
-          "public_dns": true,
-          "public_ip": true,
-          "root_block_device": [
-            {
-              "device_name": true,
-              "iops": true,
-              "kms_key_id": true,
-              "tags_all": true,
-              "throughput": true,
-              "volume_id": true
-            }
-          ],
-          "secondary_private_ips": true,
-          "security_groups": true,
-          "spot_instance_request_id": true,
-          "subnet_id": true,
-          "tags": {},
-          "tags_all": {},
-          "tenancy": true,
-          "user_data_base64": true,
-          "vpc_security_group_ids": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {
-          "capacity_reservation_specification": [],
-          "cpu_options": [],
-          "credit_specification": [],
-          "ebs_block_device": [],
-          "enclave_options": [],
-          "ephemeral_block_device": [],
-          "instance_market_options": [],
-          "ipv6_addresses": [],
-          "launch_template": [],
-          "maintenance_options": [],
-          "metadata_options": [],
-          "network_interface": [],
-          "private_dns_name_options": [],
-          "root_block_device": [
-            {
-              "tags_all": {}
-            }
-          ],
-          "secondary_private_ips": [],
-          "security_groups": [],
-          "tags": {},
-          "tags_all": {},
-          "vpc_security_group_ids": []
-        }
-      }
-    },
-    {
-      "address": "aws_instance.camunda[1]",
-      "mode": "managed",
-      "type": "aws_instance",
-      "name": "camunda",
-      "index": 1,
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "ami": "ami",
-          "associate_public_ip_address": false,
-          "credit_specification": [],
-          "get_password_data": false,
-          "hibernation": null,
-          "iam_instance_profile": "camunda-cloudwatch-instance-profile",
-          "instance_type": "m6i.xlarge",
-          "key_name": "camunda-auth-key",
-          "launch_template": [],
-          "root_block_device": [
-            {
-              "delete_on_termination": true,
-              "encrypted": true,
-              "tags": null,
-              "volume_size": 10,
-              "volume_type": "gp3"
-            }
-          ],
-          "source_dest_check": true,
-          "tags": {
-            "Name": "camunda-instance-1"
-          },
-          "tags_all": {
-            "Name": "camunda-instance-1",
-            "managed_by": "Terraform"
-          },
-          "timeouts": null,
-          "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
-          "user_data_replace_on_change": false,
-          "volume_tags": null
-        },
-        "after_unknown": {
-          "arn": true,
-          "availability_zone": true,
-          "capacity_reservation_specification": true,
-          "cpu_core_count": true,
-          "cpu_options": true,
-          "cpu_threads_per_core": true,
-          "credit_specification": [],
-          "disable_api_stop": true,
-          "disable_api_termination": true,
-          "ebs_block_device": true,
-          "ebs_optimized": true,
-          "enclave_options": true,
-          "ephemeral_block_device": true,
-          "host_id": true,
-          "host_resource_group_arn": true,
-          "id": true,
-          "instance_initiated_shutdown_behavior": true,
-          "instance_lifecycle": true,
-          "instance_market_options": true,
-          "instance_state": true,
-          "ipv6_address_count": true,
-          "ipv6_addresses": true,
-          "launch_template": [],
-          "maintenance_options": true,
-          "metadata_options": true,
-          "monitoring": true,
-          "network_interface": true,
-          "outpost_arn": true,
-          "password_data": true,
-          "placement_group": true,
-          "placement_partition_number": true,
-          "primary_network_interface_id": true,
-          "private_dns": true,
-          "private_dns_name_options": true,
-          "private_ip": true,
-          "public_dns": true,
-          "public_ip": true,
-          "root_block_device": [
-            {
-              "device_name": true,
-              "iops": true,
-              "kms_key_id": true,
-              "tags_all": true,
-              "throughput": true,
-              "volume_id": true
-            }
-          ],
-          "secondary_private_ips": true,
-          "security_groups": true,
-          "spot_instance_request_id": true,
-          "subnet_id": true,
-          "tags": {},
-          "tags_all": {},
-          "tenancy": true,
-          "user_data_base64": true,
-          "vpc_security_group_ids": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {
-          "capacity_reservation_specification": [],
-          "cpu_options": [],
-          "credit_specification": [],
-          "ebs_block_device": [],
-          "enclave_options": [],
-          "ephemeral_block_device": [],
-          "instance_market_options": [],
-          "ipv6_addresses": [],
-          "launch_template": [],
-          "maintenance_options": [],
-          "metadata_options": [],
-          "network_interface": [],
-          "private_dns_name_options": [],
-          "root_block_device": [
-            {
-              "tags_all": {}
-            }
-          ],
-          "secondary_private_ips": [],
-          "security_groups": [],
-          "tags": {},
-          "tags_all": {},
-          "vpc_security_group_ids": []
-        }
-      }
-    },
-    {
-      "address": "aws_instance.camunda[2]",
-      "mode": "managed",
-      "type": "aws_instance",
-      "name": "camunda",
-      "index": 2,
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "ami": "ami",
-          "associate_public_ip_address": false,
-          "credit_specification": [],
-          "get_password_data": false,
-          "hibernation": null,
-          "iam_instance_profile": "camunda-cloudwatch-instance-profile",
-          "instance_type": "m6i.xlarge",
-          "key_name": "camunda-auth-key",
-          "launch_template": [],
-          "root_block_device": [
-            {
-              "delete_on_termination": true,
-              "encrypted": true,
-              "tags": null,
-              "volume_size": 10,
-              "volume_type": "gp3"
-            }
-          ],
-          "source_dest_check": true,
-          "tags": {
-            "Name": "camunda-instance-2"
-          },
-          "tags_all": {
-            "Name": "camunda-instance-2",
-            "managed_by": "Terraform"
-          },
-          "timeouts": null,
-          "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
-          "user_data_replace_on_change": false,
-          "volume_tags": null
-        },
-        "after_unknown": {
-          "arn": true,
-          "availability_zone": true,
-          "capacity_reservation_specification": true,
-          "cpu_core_count": true,
-          "cpu_options": true,
-          "cpu_threads_per_core": true,
-          "credit_specification": [],
-          "disable_api_stop": true,
-          "disable_api_termination": true,
-          "ebs_block_device": true,
-          "ebs_optimized": true,
-          "enclave_options": true,
-          "ephemeral_block_device": true,
-          "host_id": true,
-          "host_resource_group_arn": true,
-          "id": true,
-          "instance_initiated_shutdown_behavior": true,
-          "instance_lifecycle": true,
-          "instance_market_options": true,
-          "instance_state": true,
-          "ipv6_address_count": true,
-          "ipv6_addresses": true,
-          "launch_template": [],
-          "maintenance_options": true,
-          "metadata_options": true,
-          "monitoring": true,
-          "network_interface": true,
-          "outpost_arn": true,
-          "password_data": true,
-          "placement_group": true,
-          "placement_partition_number": true,
-          "primary_network_interface_id": true,
-          "private_dns": true,
-          "private_dns_name_options": true,
-          "private_ip": true,
-          "public_dns": true,
-          "public_ip": true,
-          "root_block_device": [
-            {
-              "device_name": true,
-              "iops": true,
-              "kms_key_id": true,
-              "tags_all": true,
-              "throughput": true,
-              "volume_id": true
-            }
-          ],
-          "secondary_private_ips": true,
-          "security_groups": true,
-          "spot_instance_request_id": true,
-          "subnet_id": true,
-          "tags": {},
-          "tags_all": {},
-          "tenancy": true,
-          "user_data_base64": true,
-          "vpc_security_group_ids": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {
-          "capacity_reservation_specification": [],
-          "cpu_options": [],
-          "credit_specification": [],
-          "ebs_block_device": [],
-          "enclave_options": [],
-          "ephemeral_block_device": [],
-          "instance_market_options": [],
-          "ipv6_addresses": [],
-          "launch_template": [],
-          "maintenance_options": [],
-          "metadata_options": [],
-          "network_interface": [],
-          "private_dns_name_options": [],
-          "root_block_device": [
-            {
-              "tags_all": {}
-            }
-          ],
-          "secondary_private_ips": [],
-          "security_groups": [],
-          "tags": {},
-          "tags_all": {},
-          "vpc_security_group_ids": []
-        }
-      }
-    },
-    {
-      "address": "aws_key_pair.main",
-      "mode": "managed",
-      "type": "aws_key_pair",
-      "name": "main",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "key_name": "camunda-auth-key",
-          "public_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ4mHqeTheSLsUBBhhXa73ysoPKYnGGNjjMn+D66ksJLVkSO053c/PD2UCfhMrkNT4Y5mluZMTfuPFhNjN6b5wPscOOYlIwvATfLiARW1uvXgrUMJwCFV8lMiU+Xq7VtXADDipNjzVhwt4vbaw7M62ro63q/37HjAuw0RFKNqnKCAWYgeEvh6v/cxu6DEwJQFAZ8qNqa97pI4vwIJ4XDKGpFxhek20xtdpKL2MW50+1XYo8R1hJcKpg2+1yDDGe+wSeJ4E1v+3TleLvWJsi4iC5obuCrx2bjhWlNnuI6UXZ+cI/eBsVloo8kKYLeVt6V428KKYyJXHajN66fcvXGXJ langleu@langleu-Lenovo-G580",
-          "tags": null,
-          "tags_all": {
-            "managed_by": "Terraform"
-          }
-        },
-        "after_unknown": {
-          "arn": true,
-          "fingerprint": true,
-          "id": true,
-          "key_name_prefix": true,
-          "key_pair_id": true,
-          "key_type": true,
-          "tags_all": {}
-        },
-        "before_sensitive": false,
-        "after_sensitive": {
-          "tags_all": {}
-        }
       }
     },
     {
@@ -4033,231 +3050,6 @@
       }
     },
     {
-      "address": "aws_lb_target_group_attachment.connectors[\"0\"]",
-      "mode": "managed",
-      "type": "aws_lb_target_group_attachment",
-      "name": "connectors",
-      "index": "0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "availability_zone": null,
-          "port": 9090
-        },
-        "after_unknown": {
-          "id": true,
-          "target_group_arn": true,
-          "target_id": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {}
-      }
-    },
-    {
-      "address": "aws_lb_target_group_attachment.connectors[\"1\"]",
-      "mode": "managed",
-      "type": "aws_lb_target_group_attachment",
-      "name": "connectors",
-      "index": "1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "availability_zone": null,
-          "port": 9090
-        },
-        "after_unknown": {
-          "id": true,
-          "target_group_arn": true,
-          "target_id": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {}
-      }
-    },
-    {
-      "address": "aws_lb_target_group_attachment.connectors[\"2\"]",
-      "mode": "managed",
-      "type": "aws_lb_target_group_attachment",
-      "name": "connectors",
-      "index": "2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "availability_zone": null,
-          "port": 9090
-        },
-        "after_unknown": {
-          "id": true,
-          "target_group_arn": true,
-          "target_id": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {}
-      }
-    },
-    {
-      "address": "aws_lb_target_group_attachment.grpc[\"0\"]",
-      "mode": "managed",
-      "type": "aws_lb_target_group_attachment",
-      "name": "grpc",
-      "index": "0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "availability_zone": null,
-          "port": 26500
-        },
-        "after_unknown": {
-          "id": true,
-          "target_group_arn": true,
-          "target_id": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {}
-      }
-    },
-    {
-      "address": "aws_lb_target_group_attachment.grpc[\"1\"]",
-      "mode": "managed",
-      "type": "aws_lb_target_group_attachment",
-      "name": "grpc",
-      "index": "1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "availability_zone": null,
-          "port": 26500
-        },
-        "after_unknown": {
-          "id": true,
-          "target_group_arn": true,
-          "target_id": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {}
-      }
-    },
-    {
-      "address": "aws_lb_target_group_attachment.grpc[\"2\"]",
-      "mode": "managed",
-      "type": "aws_lb_target_group_attachment",
-      "name": "grpc",
-      "index": "2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "availability_zone": null,
-          "port": 26500
-        },
-        "after_unknown": {
-          "id": true,
-          "target_group_arn": true,
-          "target_id": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {}
-      }
-    },
-    {
-      "address": "aws_lb_target_group_attachment.main[\"0\"]",
-      "mode": "managed",
-      "type": "aws_lb_target_group_attachment",
-      "name": "main",
-      "index": "0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "availability_zone": null,
-          "port": 8080
-        },
-        "after_unknown": {
-          "id": true,
-          "target_group_arn": true,
-          "target_id": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {}
-      }
-    },
-    {
-      "address": "aws_lb_target_group_attachment.main[\"1\"]",
-      "mode": "managed",
-      "type": "aws_lb_target_group_attachment",
-      "name": "main",
-      "index": "1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "availability_zone": null,
-          "port": 8080
-        },
-        "after_unknown": {
-          "id": true,
-          "target_group_arn": true,
-          "target_id": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {}
-      }
-    },
-    {
-      "address": "aws_lb_target_group_attachment.main[\"2\"]",
-      "mode": "managed",
-      "type": "aws_lb_target_group_attachment",
-      "name": "main",
-      "index": "2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "availability_zone": null,
-          "port": 8080
-        },
-        "after_unknown": {
-          "id": true,
-          "target_group_arn": true,
-          "target_id": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {}
-      }
-    },
-    {
       "address": "aws_opensearch_domain.opensearch_cluster[0]",
       "mode": "managed",
       "type": "aws_opensearch_domain",
@@ -4270,7 +3062,7 @@
         ],
         "before": null,
         "after": {
-          "access_policies": "{\"Statement\":[{\"Action\":\"es:*\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Resource\":\"arn:aws:es:eu-central-1:444804106854:domain/camunda-os-cluster/*\"}],\"Version\":\"2012-10-17\"}",
+          "access_policies": "{\"Statement\":[{\"Action\":\"es:*\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Resource\":\"arn:aws:es:eu-west-2:444804106854:domain/camunda-os-cluster/*\"}],\"Version\":\"2012-10-17\"}",
           "advanced_options": {
             "rest.action.multi.allow_explicit_index": "true"
           },
@@ -4321,17 +3113,17 @@
           "engine_version": "OpenSearch_2.15",
           "log_publishing_options": [
             {
-              "cloudwatch_log_group_arn": "arn:aws:logs:eu-central-1:444804106854:log-group:doesnotexistbutrequired",
+              "cloudwatch_log_group_arn": "arn:aws:logs:eu-west-2:444804106854:log-group:doesnotexistbutrequired",
               "enabled": false,
               "log_type": "ES_APPLICATION_LOGS"
             },
             {
-              "cloudwatch_log_group_arn": "arn:aws:logs:eu-central-1:444804106854:log-group:doesnotexistbutrequired",
+              "cloudwatch_log_group_arn": "arn:aws:logs:eu-west-2:444804106854:log-group:doesnotexistbutrequired",
               "enabled": false,
               "log_type": "INDEX_SLOW_LOGS"
             },
             {
-              "cloudwatch_log_group_arn": "arn:aws:logs:eu-central-1:444804106854:log-group:doesnotexistbutrequired",
+              "cloudwatch_log_group_arn": "arn:aws:logs:eu-west-2:444804106854:log-group:doesnotexistbutrequired",
               "enabled": false,
               "log_type": "SEARCH_SLOW_LOGS"
             }
@@ -5427,90 +4219,6 @@
       }
     },
     {
-      "address": "aws_volume_attachment.ebs_attachment[0]",
-      "mode": "managed",
-      "type": "aws_volume_attachment",
-      "name": "ebs_attachment",
-      "index": 0,
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "device_name": "/dev/sdb",
-          "force_detach": null,
-          "skip_destroy": null,
-          "stop_instance_before_detaching": null,
-          "timeouts": null
-        },
-        "after_unknown": {
-          "id": true,
-          "instance_id": true,
-          "volume_id": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {}
-      }
-    },
-    {
-      "address": "aws_volume_attachment.ebs_attachment[1]",
-      "mode": "managed",
-      "type": "aws_volume_attachment",
-      "name": "ebs_attachment",
-      "index": 1,
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "device_name": "/dev/sdb",
-          "force_detach": null,
-          "skip_destroy": null,
-          "stop_instance_before_detaching": null,
-          "timeouts": null
-        },
-        "after_unknown": {
-          "id": true,
-          "instance_id": true,
-          "volume_id": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {}
-      }
-    },
-    {
-      "address": "aws_volume_attachment.ebs_attachment[2]",
-      "mode": "managed",
-      "type": "aws_volume_attachment",
-      "name": "ebs_attachment",
-      "index": 2,
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "change": {
-        "actions": [
-          "create"
-        ],
-        "before": null,
-        "after": {
-          "device_name": "/dev/sdb",
-          "force_detach": null,
-          "skip_destroy": null,
-          "stop_instance_before_detaching": null,
-          "timeouts": null
-        },
-        "after_unknown": {
-          "id": true,
-          "instance_id": true,
-          "volume_id": true
-        },
-        "before_sensitive": false,
-        "after_sensitive": {}
-      }
-    },
-    {
       "address": "module.vpc.aws_default_network_acl.this[0]",
       "module_address": "module.vpc",
       "mode": "managed",
@@ -5731,11 +4439,11 @@
           "domain": "vpc",
           "tags": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-eu-central-1a"
+            "Name": "camunda-vpc-eu-west-2a"
           },
           "tags_all": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-eu-central-1a",
+            "Name": "camunda-vpc-eu-west-2a",
             "managed_by": "Terraform"
           },
           "timeouts": null
@@ -5826,11 +4534,11 @@
           "secondary_allocation_ids": null,
           "tags": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-eu-central-1a"
+            "Name": "camunda-vpc-eu-west-2a"
           },
           "tags_all": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-eu-central-1a",
+            "Name": "camunda-vpc-eu-west-2a",
             "managed_by": "Terraform"
           },
           "timeouts": null
@@ -6211,7 +4919,7 @@
         "before": null,
         "after": {
           "assign_ipv6_address_on_creation": false,
-          "availability_zone": "eu-central-1a",
+          "availability_zone": "eu-west-2a",
           "cidr_block": "10.200.0.0/20",
           "customer_owned_ipv4_pool": null,
           "enable_dns64": false,
@@ -6225,11 +4933,11 @@
           "outpost_arn": null,
           "tags": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-private-eu-central-1a"
+            "Name": "camunda-vpc-private-eu-west-2a"
           },
           "tags_all": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-private-eu-central-1a",
+            "Name": "camunda-vpc-private-eu-west-2a",
             "managed_by": "Terraform"
           },
           "timeouts": null
@@ -6267,7 +4975,7 @@
         "before": null,
         "after": {
           "assign_ipv6_address_on_creation": false,
-          "availability_zone": "eu-central-1b",
+          "availability_zone": "eu-west-2b",
           "cidr_block": "10.200.16.0/20",
           "customer_owned_ipv4_pool": null,
           "enable_dns64": false,
@@ -6281,11 +4989,11 @@
           "outpost_arn": null,
           "tags": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-private-eu-central-1b"
+            "Name": "camunda-vpc-private-eu-west-2b"
           },
           "tags_all": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-private-eu-central-1b",
+            "Name": "camunda-vpc-private-eu-west-2b",
             "managed_by": "Terraform"
           },
           "timeouts": null
@@ -6323,7 +5031,7 @@
         "before": null,
         "after": {
           "assign_ipv6_address_on_creation": false,
-          "availability_zone": "eu-central-1c",
+          "availability_zone": "eu-west-2c",
           "cidr_block": "10.200.32.0/20",
           "customer_owned_ipv4_pool": null,
           "enable_dns64": false,
@@ -6337,11 +5045,11 @@
           "outpost_arn": null,
           "tags": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-private-eu-central-1c"
+            "Name": "camunda-vpc-private-eu-west-2c"
           },
           "tags_all": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-private-eu-central-1c",
+            "Name": "camunda-vpc-private-eu-west-2c",
             "managed_by": "Terraform"
           },
           "timeouts": null
@@ -6379,7 +5087,7 @@
         "before": null,
         "after": {
           "assign_ipv6_address_on_creation": false,
-          "availability_zone": "eu-central-1a",
+          "availability_zone": "eu-west-2a",
           "cidr_block": "10.200.64.0/20",
           "customer_owned_ipv4_pool": null,
           "enable_dns64": false,
@@ -6393,11 +5101,11 @@
           "outpost_arn": null,
           "tags": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-public-eu-central-1a"
+            "Name": "camunda-vpc-public-eu-west-2a"
           },
           "tags_all": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-public-eu-central-1a",
+            "Name": "camunda-vpc-public-eu-west-2a",
             "managed_by": "Terraform"
           },
           "timeouts": null
@@ -6435,7 +5143,7 @@
         "before": null,
         "after": {
           "assign_ipv6_address_on_creation": false,
-          "availability_zone": "eu-central-1b",
+          "availability_zone": "eu-west-2b",
           "cidr_block": "10.200.80.0/20",
           "customer_owned_ipv4_pool": null,
           "enable_dns64": false,
@@ -6449,11 +5157,11 @@
           "outpost_arn": null,
           "tags": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-public-eu-central-1b"
+            "Name": "camunda-vpc-public-eu-west-2b"
           },
           "tags_all": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-public-eu-central-1b",
+            "Name": "camunda-vpc-public-eu-west-2b",
             "managed_by": "Terraform"
           },
           "timeouts": null
@@ -6491,7 +5199,7 @@
         "before": null,
         "after": {
           "assign_ipv6_address_on_creation": false,
-          "availability_zone": "eu-central-1c",
+          "availability_zone": "eu-west-2c",
           "cidr_block": "10.200.96.0/20",
           "customer_owned_ipv4_pool": null,
           "enable_dns64": false,
@@ -6505,11 +5213,11 @@
           "outpost_arn": null,
           "tags": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-public-eu-central-1c"
+            "Name": "camunda-vpc-public-eu-west-2c"
           },
           "tags_all": {
             "Example": "camunda-vpc",
-            "Name": "camunda-vpc-public-eu-central-1c",
+            "Name": "camunda-vpc-public-eu-west-2c",
             "managed_by": "Terraform"
           },
           "timeouts": null
@@ -6604,7 +5312,7 @@
         "create"
       ],
       "before": null,
-      "after": "ami-09e173854da66fbc9",
+      "after": "ami-0a95fb28afbb91fac",
       "after_unknown": false,
       "before_sensitive": false,
       "after_sensitive": false
@@ -6615,33 +5323,6 @@
       ],
       "before": null,
       "after_unknown": true,
-      "before_sensitive": false,
-      "after_sensitive": false
-    },
-    "bastion_ip": {
-      "actions": [
-        "create"
-      ],
-      "before": null,
-      "after_unknown": true,
-      "before_sensitive": false,
-      "after_sensitive": false
-    },
-    "camunda_ips": {
-      "actions": [
-        "create"
-      ],
-      "before": null,
-      "after": [
-        null,
-        null,
-        null
-      ],
-      "after_unknown": [
-        true,
-        true,
-        true
-      ],
       "before_sensitive": false,
       "after_sensitive": false
     },
@@ -6682,7 +5363,7 @@
       "outputs": {
         "aws_ami": {
           "sensitive": false,
-          "value": "ami-09e173854da66fbc9",
+          "value": "ami-0a95fb28afbb91fac",
           "type": "string"
         },
         "private_key": {
@@ -6707,7 +5388,7 @@
             "schema_version": 0,
             "values": {
               "architecture": "x86_64",
-              "arn": "arn:aws:ec2:eu-central-1::image/ami-09e173854da66fbc9",
+              "arn": "arn:aws:ec2:eu-west-2::image/ami-0a95fb28afbb91fac",
               "block_device_mappings": [
                 {
                   "device_name": "/dev/xvda",
@@ -6715,7 +5396,7 @@
                     "delete_on_termination": "true",
                     "encrypted": "false",
                     "iops": "3000",
-                    "snapshot_id": "snap-098d402c72822abab",
+                    "snapshot_id": "snap-0fcc2487cacb6a6f3",
                     "throughput": "125",
                     "volume_size": "8",
                     "volume_type": "gp3"
@@ -6725,8 +5406,8 @@
                 }
               ],
               "boot_mode": "",
-              "creation_date": "2024-10-04T14:21:57.000Z",
-              "deprecation_time": "2026-10-04T14:21:57.000Z",
+              "creation_date": "2024-10-04T14:21:18.000Z",
+              "deprecation_time": "2026-10-04T14:21:18.000Z",
               "description": "Debian 12 (20241004-1890)",
               "ena_support": true,
               "executable_users": null,
@@ -6745,8 +5426,8 @@
                 }
               ],
               "hypervisor": "xen",
-              "id": "ami-09e173854da66fbc9",
-              "image_id": "ami-09e173854da66fbc9",
+              "id": "ami-0a95fb28afbb91fac",
+              "image_id": "ami-0a95fb28afbb91fac",
               "image_location": "amazon/debian-12-amd64-20241004-1890",
               "image_owner_alias": "amazon",
               "image_type": "machine",
@@ -6767,7 +5448,7 @@
               "ramdisk_id": "",
               "root_device_name": "/dev/xvda",
               "root_device_type": "ebs",
-              "root_snapshot_id": "snap-098d402c72822abab",
+              "root_snapshot_id": "snap-0fcc2487cacb6a6f3",
               "sriov_net_support": "simple",
               "state": "available",
               "state_reason": {
@@ -6819,20 +5500,20 @@
               "exclude_zone_ids": null,
               "filter": null,
               "group_names": [
-                "eu-central-1"
+                "eu-west-2"
               ],
-              "id": "eu-central-1",
+              "id": "eu-west-2",
               "names": [
-                "eu-central-1a",
-                "eu-central-1b",
-                "eu-central-1c"
+                "eu-west-2a",
+                "eu-west-2b",
+                "eu-west-2c"
               ],
               "state": null,
               "timeouts": null,
               "zone_ids": [
-                "euc1-az2",
-                "euc1-az3",
-                "euc1-az1"
+                "euw2-az2",
+                "euw2-az3",
+                "euw2-az1"
               ]
             },
             "sensitive_values": {
@@ -6860,9 +5541,9 @@
             "schema_version": 0,
             "values": {
               "account_id": "444804106854",
-              "arn": "arn:aws:sts::444804106854:assumed-role/AWSReservedSSO_SystemAdministrator_555f3db864dcee7e/lars.lange@camunda.com",
+              "arn": "arn:aws:iam::444804106854:user/tf-automation-user",
               "id": "444804106854",
-              "user_id": "AROAWPEDEBJTLKCMW6JXY:lars.lange@camunda.com"
+              "user_id": "AIDAWPEDEBJTP4PJ4L4MO"
             },
             "sensitive_values": {}
           },
@@ -6874,10 +5555,10 @@
             "provider_name": "registry.terraform.io/hashicorp/aws",
             "schema_version": 0,
             "values": {
-              "description": "Europe (Frankfurt)",
-              "endpoint": "ec2.eu-central-1.amazonaws.com",
-              "id": "eu-central-1",
-              "name": "eu-central-1"
+              "description": "Europe (London)",
+              "endpoint": "ec2.eu-west-2.amazonaws.com",
+              "id": "eu-west-2",
+              "name": "eu-west-2"
             },
             "sensitive_values": {}
           }
@@ -14686,54 +13367,40 @@
     {
       "resource": "module.vpc.aws_vpc.this[0]",
       "attribute": [
-        "main_route_table_id"
+        "enable_dns_support"
       ]
-    },
-    {
-      "resource": "module.vpc.aws_vpc_ipv4_cidr_block_association.this[0]",
-      "attribute": [
-        "vpc_id"
-      ]
-    },
-    {
-      "resource": "module.vpc.aws_route_table.private",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_subnet.private",
-      "attribute": []
-    },
-    {
-      "resource": "aws_security_group.allow_remote_9090",
-      "attribute": [
-        "id"
-      ]
-    },
-    {
-      "resource": "module.vpc.aws_vpc.this[0]",
-      "attribute": [
-        "default_security_group_id"
-      ]
-    },
-    {
-      "resource": "module.vpc.aws_route_table_association.redshift",
-      "attribute": []
     },
     {
       "resource": "module.vpc.aws_route_table_association.database",
       "attribute": []
     },
     {
-      "resource": "aws_security_group.allow_necessary_camunda_ports_within_vpc",
-      "attribute": [
-        "id"
-      ]
-    },
-    {
-      "resource": "aws_lb.main[0]",
+      "resource": "aws_kms_key.main",
       "attribute": [
         "arn"
       ]
+    },
+    {
+      "resource": "module.vpc.aws_subnet.private",
+      "attribute": []
+    },
+    {
+      "resource": "aws_lb_target_group.connectors",
+      "attribute": [
+        "arn"
+      ]
+    },
+    {
+      "resource": "module.vpc.aws_route.private_nat_gateway",
+      "attribute": []
+    },
+    {
+      "resource": "aws_opensearch_domain.opensearch_cluster",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_route_table.redshift",
+      "attribute": []
     },
     {
       "resource": "data.aws_caller_identity.current",
@@ -14744,33 +13411,103 @@
     {
       "resource": "module.vpc.aws_vpc.this[0]",
       "attribute": [
-        "enable_dns_support"
+        "arn"
       ]
     },
     {
-      "resource": "aws_security_group.allow_remote_grpc",
+      "resource": "module.vpc.aws_subnet.database",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_vpc.this[0]",
       "attribute": [
-        "id"
+        "default_network_acl_id"
       ]
     },
     {
-      "resource": "aws_security_group.allow_ssh",
+      "resource": "aws_lb_target_group.grpc",
       "attribute": [
-        "id"
+        "arn"
       ]
     },
     {
-      "resource": "data.aws_region.current",
+      "resource": "module.vpc.aws_route_table_association.redshift",
+      "attribute": []
+    },
+    {
+      "resource": "aws_lb.main",
+      "attribute": []
+    },
+    {
+      "resource": "aws_iam_role.cloudwatch",
       "attribute": [
         "name"
       ]
     },
     {
-      "resource": "module.vpc.aws_subnet.elasticache",
+      "resource": "module.vpc.aws_vpc_ipv4_cidr_block_association.this",
       "attribute": []
     },
     {
-      "resource": "aws_instance.bastion",
+      "resource": "module.vpc.aws_route_table.intra",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_route_table.public",
+      "attribute": []
+    },
+    {
+      "resource": "aws_lb.grpc[0]",
+      "attribute": [
+        "arn"
+      ]
+    },
+    {
+      "resource": "module.vpc.aws_vpc.this[0]",
+      "attribute": [
+        "default_security_group_id"
+      ]
+    },
+    {
+      "resource": "module.vpc.aws_route_table_association.private",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_subnet.intra",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_route_table.database",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_route_table_association.public",
+      "attribute": []
+    },
+    {
+      "resource": "aws_security_group.allow_necessary_camunda_ports_within_vpc",
+      "attribute": [
+        "id"
+      ]
+    },
+    {
+      "resource": "module.vpc.aws_nat_gateway.this",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_vpc.this[0]",
+      "attribute": [
+        "main_route_table_id"
+      ]
+    },
+    {
+      "resource": "module.vpc.aws_iam_role.vpc_flow_log_cloudwatch[0]",
+      "attribute": [
+        "arn"
+      ]
+    },
+    {
+      "resource": "module.vpc.aws_route_table.private",
       "attribute": []
     },
     {
@@ -14780,22 +13517,22 @@
       ]
     },
     {
-      "resource": "aws_lb.grpc[0]",
+      "resource": "aws_cloudwatch_log_group.os_log_group",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_subnet.outpost",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_subnet.elasticache",
+      "attribute": []
+    },
+    {
+      "resource": "data.aws_ami.debian",
       "attribute": [
-        "arn"
+        "id"
       ]
-    },
-    {
-      "resource": "module.vpc.aws_subnet.intra",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_route_table.redshift",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_route_table_association.private",
-      "attribute": []
     },
     {
       "resource": "module.vpc.aws_cloudwatch_log_group.flow_log[0]",
@@ -14810,25 +13547,63 @@
       ]
     },
     {
-      "resource": "aws_key_pair.main",
+      "resource": "aws_lb_target_group.main",
       "attribute": [
-        "key_name"
+        "arn"
       ]
     },
     {
-      "resource": "module.vpc.aws_vpc.this[0]",
+      "resource": "module.vpc.aws_customer_gateway.this",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_vpc_ipv4_cidr_block_association.this[0]",
       "attribute": [
-        "ipv6_association_id"
+        "vpc_id"
       ]
     },
     {
-      "resource": "module.vpc.aws_vpc.this[0]",
+      "resource": "data.aws_availability_zones.available",
       "attribute": [
-        "enable_dns_hostnames"
+        "names"
       ]
     },
     {
-      "resource": "aws_opensearch_domain.opensearch_cluster",
+      "resource": "module.vpc.aws_subnet.public",
+      "attribute": []
+    },
+    {
+      "resource": "aws_security_group.allow_remote_9090",
+      "attribute": [
+        "id"
+      ]
+    },
+    {
+      "resource": "module.vpc.aws_internet_gateway.this[0]",
+      "attribute": [
+        "arn"
+      ]
+    },
+    {
+      "resource": "data.aws_region.current",
+      "attribute": [
+        "name"
+      ]
+    },
+    {
+      "resource": "module.vpc.aws_route.private_ipv6_egress",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_route_table_association.intra",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_route_table_association.elasticache",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_route.database_nat_gateway",
       "attribute": []
     },
     {
@@ -14838,23 +13613,31 @@
       ]
     },
     {
-      "resource": "module.vpc.aws_route_table.public",
-      "attribute": []
+      "resource": "module.vpc.aws_vpc.this[0]",
+      "attribute": [
+        "cidr_block"
+      ]
     },
     {
-      "resource": "aws_ebs_volume.camunda",
-      "attribute": []
+      "resource": "module.vpc.aws_vpc.this[0]",
+      "attribute": [
+        "owner_id"
+      ]
     },
     {
-      "resource": "module.vpc.aws_route_table_association.elasticache",
-      "attribute": []
+      "resource": "aws_security_group.allow_remote_80_443",
+      "attribute": [
+        "id"
+      ]
     },
     {
-      "resource": "module.vpc.aws_route_table_association.public",
-      "attribute": []
+      "resource": "module.vpc.aws_route.public_internet_gateway[0]",
+      "attribute": [
+        "id"
+      ]
     },
     {
-      "resource": "aws_iam_policy.cloudwatch_policy",
+      "resource": "aws_lb.main[0]",
       "attribute": [
         "arn"
       ]
@@ -14866,28 +13649,40 @@
       ]
     },
     {
-      "resource": "module.vpc.aws_route_table_association.intra",
+      "resource": "module.vpc.aws_vpc.this[0]",
+      "attribute": [
+        "ipv6_association_id"
+      ]
+    },
+    {
+      "resource": "module.vpc.aws_route_table_association.redshift_public",
       "attribute": []
     },
     {
-      "resource": "module.vpc.aws_internet_gateway.this[0]",
+      "resource": "aws_iam_policy.cloudwatch_policy",
       "attribute": [
         "arn"
       ]
     },
     {
-      "resource": "module.vpc.aws_route.database_nat_gateway",
+      "resource": "tls_private_key.testing",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_subnet.redshift",
+      "attribute": []
+    },
+    {
+      "resource": "aws_lb.grpc",
+      "attribute": []
+    },
+    {
+      "resource": "module.vpc.aws_eip.nat",
       "attribute": []
     },
     {
       "resource": "module.vpc.aws_egress_only_internet_gateway.this",
       "attribute": []
-    },
-    {
-      "resource": "aws_iam_role.cloudwatch",
-      "attribute": [
-        "name"
-      ]
     },
     {
       "resource": "module.vpc.aws_vpc.this[0]",
@@ -14896,174 +13691,18 @@
       ]
     },
     {
-      "resource": "aws_lb_target_group.main",
+      "resource": "module.vpc.aws_vpc.this[0]",
       "attribute": [
-        "arn"
+        "enable_dns_hostnames"
       ]
     },
     {
       "resource": "module.vpc.aws_route_table.elasticache",
       "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_route_table_association.redshift_public",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_route_table.database",
-      "attribute": []
-    },
-    {
-      "resource": "aws_lb.grpc",
-      "attribute": []
-    },
-    {
-      "resource": "tls_private_key.testing[0]",
-      "attribute": [
-        "public_key_openssh"
-      ]
-    },
-    {
-      "resource": "tls_private_key.testing",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_vpc.this[0]",
-      "attribute": [
-        "cidr_block"
-      ]
-    },
-    {
-      "resource": "module.vpc.aws_subnet.redshift",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_route.public_internet_gateway[0]",
-      "attribute": [
-        "id"
-      ]
-    },
-    {
-      "resource": "aws_instance.camunda",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_vpc_ipv4_cidr_block_association.this",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_subnet.database",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_route_table.intra",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_subnet.public",
-      "attribute": []
-    },
-    {
-      "resource": "aws_lb.main",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_customer_gateway.this",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_route.private_nat_gateway",
-      "attribute": []
-    },
-    {
-      "resource": "data.aws_ami.debian",
-      "attribute": [
-        "id"
-      ]
-    },
-    {
-      "resource": "module.vpc.aws_subnet.outpost",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_eip.nat",
-      "attribute": []
-    },
-    {
-      "resource": "aws_lb_target_group.grpc",
-      "attribute": [
-        "arn"
-      ]
-    },
-    {
-      "resource": "aws_lb_target_group.connectors",
-      "attribute": [
-        "arn"
-      ]
-    },
-    {
-      "resource": "aws_cloudwatch_log_group.os_log_group",
-      "attribute": []
-    },
-    {
-      "resource": "module.vpc.aws_iam_role.vpc_flow_log_cloudwatch[0]",
-      "attribute": [
-        "arn"
-      ]
-    },
-    {
-      "resource": "module.vpc.aws_vpc.this[0]",
-      "attribute": [
-        "default_network_acl_id"
-      ]
-    },
-    {
-      "resource": "aws_kms_key.main",
-      "attribute": [
-        "arn"
-      ]
-    },
-    {
-      "resource": "aws_security_group.allow_remote_80_443",
-      "attribute": [
-        "id"
-      ]
-    },
-    {
-      "resource": "module.vpc.aws_nat_gateway.this",
-      "attribute": []
-    },
-    {
-      "resource": "data.aws_availability_zones.available",
-      "attribute": [
-        "names"
-      ]
-    },
-    {
-      "resource": "aws_iam_instance_profile.cloudwatch_instance_profile",
-      "attribute": [
-        "name"
-      ]
-    },
-    {
-      "resource": "module.vpc.aws_vpc.this[0]",
-      "attribute": [
-        "arn"
-      ]
-    },
-    {
-      "resource": "module.vpc.aws_vpc.this[0]",
-      "attribute": [
-        "owner_id"
-      ]
-    },
-    {
-      "resource": "module.vpc.aws_route.private_ipv6_egress",
-      "attribute": []
     }
   ],
-  "timestamp": "2024-10-17T08:04:53Z",
-  "applyable": true,
-  "complete": true,
-  "errored": false
+  "timestamp": "2024-10-17T11:25:54Z",
+  "applyable": false,
+  "complete": false,
+  "errored": true
 }

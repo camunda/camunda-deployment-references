@@ -22,6 +22,8 @@ concurrency:
 env:
     AWS_PROFILE: infex
     AWS_REGION: eu-west-2
+    TF_PATH: ${{ github.workspace }}/aws/ec2/terraform
+    GOLDEN_PATH: ${{ github.workspace }}/aws/ec2/test/golden
 
 jobs:
     compare:
@@ -62,24 +64,41 @@ jobs:
               run: |
                   terraform init
                   # We are hardcoding the AMI as it's a moving target
-                  terraform plan -var aws_ami="ami" -out=tfplan
+                  terraform plan -var aws_ami="ami" -out=tfplan || true
+            - name: Convert Terraform plan to JSON
+              working-directory: aws/ec2/terraform
+              run: |
                   # Use jq to "pretty print" the JSON output to allow comparison
                   terraform show -json tfplan | jq > tfplan.json
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: plan-artifact-json
+                  path: ${{ env.TF_PATH }}/tfplan.json
+                  retention-days: 1
+            - name: Extract planned values from Terraform plan
+              run: |
+                  # extracting the planned values and their actual infra instead of diffing the whole document
+                  jq '.planned_values.root_module' "${TF_PATH}/tfplan.json" > "${TF_PATH}/tfplan_extracted.json"
+                  jq '.planned_values.root_module' "${GOLDEN_PATH}/tfplan.json" > "${GOLDEN_PATH}/tfplan_extracted.json"
             - name: Compare Terraform plan with golden file
               working-directory: aws/ec2/terraform
               run: |
-                  delta <(jq .planned_values plan2.json) <(jq .planned_values plan3.json)
+                  delta "${GOLDEN_PATH}/tfplan_extracted.json" "${TF_PATH}/tfplan_extracted.json"
                   exit $?
             - name: Post diff on PR
-              if: failure() && github.event_name == 'pull_request'
-              uses: int128/diff-action@v1
+              if: always() && github.event_name == 'pull_request'
+              uses: int128/diff-action@3be570dc544fa95fcb45525611b05615778714ca # v1
               with:
-                  base: ${{ github.workspace }}/aws/ec2/test/golden/tfplan.json
-                  head: ${{ github.workspace }}/aws/ec2/terraform/tfplan.json
+                  base: ${{ env.GOLDEN_PATH }}//tfplan_extracted.json
+                  head: ${{ env.TF_PATH }}/tfplan_extracted.json
+                  comment-header: |
+                      ## Terraform golden plan diff
+                  comment-footer: |
+                      Check the delta diff in the [workflow run](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}) for a detailed comparison.
             - name: Overwrite local golden files
               if: failure() && github.event_name == 'push'
               run: |
-                  cp ${{ github.workspace }}/aws/ec2/terraform/tfplan.json ${{ github.workspace }}/aws/ec2/test/golden/tfplan.json
+                  cp "${TF_PATH}/tfplan.json" "${GOLDEN_PATH}/tfplan.json"
             - name: Create PR to update golden files
               if: failure() && github.event_name == 'push'
               uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # v7
