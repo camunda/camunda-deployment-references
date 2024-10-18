@@ -58,6 +58,13 @@ fi
 
 sudo chown -R "${USERNAME}:${USERNAME}" "${MNT_DIR}/"
 
+if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
+    echo "[INFO] Fetching the latest snapshot version of Camunda ${CAMUNDA_VERSION}."
+    VERSION=$(curl -s "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>tar.gz</extension>" | \
+        grep "<value>" | \
+        sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//')
+fi
+
 sudo -u "${USERNAME}" bash <<EOF
 
 if [ -d "${MNT_DIR}/camunda/" ]; then
@@ -67,7 +74,11 @@ fi
 
 # Install Camunda 8
 
-curl -L "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
+if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
+    curl -L "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
+else
+    curl -L "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
+fi
 
 mkdir -p "${MNT_DIR}/camunda"
 tar -xzvf "${MNT_DIR}/camunda.tar.gz" -C "${MNT_DIR}/camunda" --strip-components=1

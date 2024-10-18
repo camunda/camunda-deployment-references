@@ -43,7 +43,7 @@ echo "[INFO] Pulling information from the Terraform state file to configure the 
 
 if [ -z "${IPS+x}" ]; then
     echo "[INFO] IPS was not overwritten via env vars... pulling from Terraform state file."
-    IPS_JSON=$(terraform output -state "$(dirname "$0")/../terraform/terraform.tfstate" -json camunda_ips)
+    IPS_JSON=$(terraform -chdir="$(dirname "$0")/../terraform" output -json camunda_ips)
     cleaned_str=$(echo "${IPS_JSON}" | tr -d '[]"')
     read -r -a IPS <<< "$(echo "${cleaned_str}" | tr ',' ' ')"
 fi
@@ -52,21 +52,21 @@ echo "[INFO] Detected following values for IPS: ${cleaned_str}"
 
 if [ -z "${BASTION_IP+x}" ]; then
     echo "[INFO] BASTION_IP was not overwritten via env vars... pulling from Terraform state file."
-    BASTION_IP=$(terraform output -state "$(dirname "$0")/../terraform/terraform.tfstate" -raw bastion_ip)
+    BASTION_IP=$(terraform -chdir="$(dirname "$0")/../terraform" output -raw bastion_ip)
 fi
 
 echo "[INFO] Detected following values for the BASTION_IP: ${BASTION_IP}"
 
 if [ -z "${OPENSEARCH_URL+x}" ]; then
     echo "[INFO] OPENSEARCH_URL was not overwritten via env vars... pulling from Terraform state file."
-    OPENSEARCH_URL=$(terraform output -state "$(dirname "$0")/../terraform/terraform.tfstate" -raw aws_opensearch_domain)
+    OPENSEARCH_URL=$(terraform -chdir="$(dirname "$0")/../terraform" output -raw aws_opensearch_domain)
 fi
 
 echo "[INFO] Detected following values for the OPENSEARCH_URL: ${OPENSEARCH_URL}"
 
 if [ -z "${GRPC_ENDPOINT+x}" ]; then
     echo "[INFO] GRPC_ENDPOINT was not overwritten via env vars... pulling from Terraform state file."
-    GRPC_ENDPOINT=$(terraform output -state "$(dirname "$0")/../terraform/terraform.tfstate" -raw nlb_endpoint)
+    GRPC_ENDPOINT=$(terraform -chdir="$(dirname "$0")/../terraform" output -raw nlb_endpoint)
 fi
 
 echo "[INFO] Detected following values for the GRPC_ENDPOINT: ${GRPC_ENDPOINT}"

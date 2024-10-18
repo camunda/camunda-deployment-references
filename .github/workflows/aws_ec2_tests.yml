@@ -5,12 +5,12 @@ on:
     schedule:
         - cron: 0 4 * * 1-5
     workflow_dispatch:
-    # pull_request:
-    #     paths:
-    #         - .github/workflows/aws_ec2_tests.yml
-    #         - .tool-versions
-    #         - aws/ec2/**
-    #         - '!aws/ec2/test/golden/**'
+    pull_request:
+        paths:
+            - .github/workflows/aws_ec2_tests.yml
+            - .tool-versions
+            - aws/ec2/**
+            - '!aws/ec2/test/golden/**'
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -24,6 +24,14 @@ env:
 jobs:
     test:
         runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                camunda:
+                    - 8.7.0-SNAPSHOT
+                include:
+                    - camunda: 8.7.0-SNAPSHOT
+                      previous_camunda: 8.6.3
+
         steps:
             ################## Checkout ##################
             - name: Checkout repository
@@ -55,30 +63,51 @@ jobs:
             ################ Prerequisites ##################
             - name: Export test prefix
               run: |
-                  prefix="ec2-test-$(tr -dc 'a-zA-Z0-9' </dev/urandom | head -c 5)-$(date +%Y-%m-%d)"
+                  prefix="ec2-test-$(tr -dc 'a-z0-9' </dev/urandom | head -c 5)"
                   echo "TF_PREFIX=${prefix}" >> "$GITHUB_ENV"
             - name: Configure Terraform Backend
               run: |
                   .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/ec2/terraform/config.tf
+            - name: Set Camunda version
+              working-directory: aws/ec2/scripts
+              run: |
+                  # We need to replace the string without substitution except for that of GitHub Actions
+                  # shellcheck disable=SC2016
+                  sed -i '0,/CAMUNDA_VERSION/s/CAMUNDA_VERSION=.*/CAMUNDA_VERSION=${CAMUNDA_VERSION:-"${{ matrix.camunda }}"}/' camunda-install.sh
             ################ Run Tests ##################
             - name: Terratest - Run all Tests
               id: terratest
-              working-directory: ./test/src
+              working-directory: aws/ec2/test/src
               timeout-minutes: 121
+              env:
+                  CAMUNDA_VERSION: ${{ matrix.camunda }}
+                  CAMUNDA_PREVIOUS_VERSION: ${{ matrix.previous_camunda }}
               run: |
-                  go install github.com/jstemmer/go-junit-report@latest
-                  go test -v -timeout 120m | go-junit-report -set-exit-code > report.xml
+                  # shellcheck disable=SC2155
+                  export PATH=$PATH:$(go env GOPATH)/bin
+                  mkdir /home/runner/.ssh
+                  touch /home/runner/.ssh/config
+
+                  go install github.com/jstemmer/go-junit-report/v2@latest
+                  go test -v -timeout 120m | go-junit-report -iocopy -set-exit-code -out report.xml
            ################ Cleanup ##################
             - name: Terratest - Failsafe Terraform Destroy
               if: failure()
-              working-directory: ./test/src
+              working-directory: aws/ec2/test/src
               timeout-minutes: 30
               run: |
                   go test -v -timeout 30m -run TestTerraformDestroy
             - name: Cleanup S3 state bucket
               if: always() && steps.terratest.outcome == 'success'
               run: |
-                  aws s3 rm "s3://tf-state-multi-reg/state/$TF_PREFIX/terraform.tfstate"
+                  aws s3 rm "s3://tf-state-multi-reg/state/${TF_PREFIX}/terraform.tfstate"
+            - name: Upload test results
+              if: always()
+              uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+              with:
+                  name: test-results
+                  path: ${{ github.workspace }}/aws/ec2/test/src/report.xml
+                  retention-days: 1
             - name: Remove profile credentials from ~/.aws/credentials
               if: always()
               run: |

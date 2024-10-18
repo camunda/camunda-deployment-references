@@ -70,26 +70,25 @@ jobs:
               run: |
                   # Use jq to "pretty print" the JSON output to allow comparison
                   terraform show -json tfplan | jq > tfplan.json
-            - uses: actions/upload-artifact@v4
-              with:
-                  name: plan-artifact-json
-                  path: ${{ env.TF_PATH }}/tfplan.json
-                  retention-days: 1
             - name: Extract planned values from Terraform plan
               run: |
                   # extracting the planned values and their actual infra instead of diffing the whole document
-                  jq '.planned_values.root_module' "${TF_PATH}/tfplan.json" > "${TF_PATH}/tfplan_extracted.json"
-                  jq '.planned_values.root_module' "${GOLDEN_PATH}/tfplan.json" > "${GOLDEN_PATH}/tfplan_extracted.json"
+                  jq --sort-keys '.planned_values.root_module' "${TF_PATH}/tfplan.json" > "${TF_PATH}/tfplan_extracted.json"
+            - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+              with:
+                  name: plan-artifact-json
+                  path: ${{ env.TF_PATH }}/tfplan_extracted.json
+                  retention-days: 1
             - name: Compare Terraform plan with golden file
               working-directory: aws/ec2/terraform
               run: |
-                  delta "${GOLDEN_PATH}/tfplan_extracted.json" "${TF_PATH}/tfplan_extracted.json"
+                  delta "${GOLDEN_PATH}/tfplan.json" "${TF_PATH}/tfplan_extracted.json"
                   exit $?
             - name: Post diff on PR
               if: always() && github.event_name == 'pull_request'
               uses: int128/diff-action@3be570dc544fa95fcb45525611b05615778714ca # v1
               with:
-                  base: ${{ env.GOLDEN_PATH }}//tfplan_extracted.json
+                  base: ${{ env.GOLDEN_PATH }}//tfplan.json
                   head: ${{ env.TF_PATH }}/tfplan_extracted.json
                   comment-header: |
                       ## Terraform golden plan diff
@@ -98,7 +97,7 @@ jobs:
             - name: Overwrite local golden files
               if: failure() && github.event_name == 'push'
               run: |
-                  cp "${TF_PATH}/tfplan.json" "${GOLDEN_PATH}/tfplan.json"
+                  cp "${TF_PATH}/tfplan_extracted.json" "${GOLDEN_PATH}/tfplan.json"
             - name: Create PR to update golden files
               if: failure() && github.event_name == 'push'
               uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # v7
