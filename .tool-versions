@@ -2,6 +2,6 @@ pre-commit 4.0.1
 
 python 3.13.0
 
-terraform 1.9.7
+terraform 1.9.8
 
 tflint 0.53.0
