@@ -29,9 +29,13 @@ func LowerVersion(version string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	patch, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return "", err
+
+	patch := 0
+	if !strings.Contains(parts[2], "SNAPSHOT") {
+		patch, err = strconv.Atoi(parts[2])
+		if err != nil {
+			return "", err
+		}
 	}
 
 	if patch > 0 {

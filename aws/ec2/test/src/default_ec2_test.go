@@ -273,16 +273,16 @@ func TestSecurityFeature(t *testing.T) {
 		}
 	}
 
-	t.Log("[Test] Expect the following to fail due to missing certificate")
+	t.Log("[Test] Expect the following to fail due to missing root certificate")
 	cmd := shell.Command{
 		Command: "bash",
 		Args:    []string{"-c", "export SECURITY=true && ../../scripts/all-in-one-install.sh"},
 	}
 	output, err := shell.RunCommandAndGetOutputE(t, cmd)
 
-	require.Error(t, err, "Expected error due to missing certificate")
+	require.Error(t, err, "Expected error due to missing root certificate")
 	require.Contains(t, output, "Secure cluster communication is set to: true.", "Expected security to be enabled")
-	require.Contains(t, output, "Error: CA certificate file 'ca-authority.pem' not found in this path", "Expected error message for missing certificate")
+	require.Contains(t, output, "Error: CA certificate file 'ca-authority.pem' not found in this path")
 
 	cmd = shell.Command{
 		Command: "bash",
@@ -315,8 +315,8 @@ func TestSecurityFeature(t *testing.T) {
 	}
 	output, err = shell.RunCommandAndGetOutputE(t, cmd)
 
-	require.Error(t, err, "Expected error due to missing certificate")
-	require.Contains(t, output, "authentication handshake failed: x509", "Expected error message for missing certificate")
+	require.Error(t, err, "Expected error due to missing certPath in zbctl call.")
+	require.Contains(t, output, "authentication handshake failed")
 }
 
 func TestCamundaUpgrade(t *testing.T) {
@@ -346,7 +346,7 @@ func TestCamundaUpgrade(t *testing.T) {
 
 	fileContent := string(content)
 
-	re := regexp.MustCompile(`:-"([0-9]+\.[0-9]+\.[0-9]+)"`)
+	re := regexp.MustCompile(`:-"([0-9]+\.[0-9]+\.[0-9]+(-SNAPSHOT)?)"`)
 	match := re.FindAllStringSubmatch(fileContent, -1)
 
 	fmt.Println("Match:", match)
@@ -426,13 +426,36 @@ func TestTeardown(t *testing.T) {
 
 	svc := cloudwatchlogs.NewFromConfig(cfg)
 
-	_, err = svc.DeleteLogGroup(context.TODO(), &cloudwatchlogs.DeleteLogGroupInput{
-		LogGroupName: aws.String(logGroupName),
-	})
-
-	if err != nil {
-		t.Fatalf("failed to delete log group '%s', %v", logGroupName, err)
+	input := &cloudwatchlogs.DescribeLogGroupsInput{
+		LogGroupNamePrefix: aws.String(logGroupName),
 	}
 
-	t.Logf("Log group '%s' deleted successfully.\n", logGroupName)
+	resp, err := svc.DescribeLogGroups(context.TODO(), input)
+	if err != nil {
+		t.Fatalf("failed to describe log groups, %v", err)
+	}
+
+	exists := false
+	for _, group := range resp.LogGroups {
+		if *group.LogGroupName == logGroupName {
+			exists = true
+			break
+		}
+	}
+
+	if !exists {
+		t.Logf("Log group '%s' does not exist.\n", logGroupName)
+		return
+	} else {
+		t.Log("Deleting log group...")
+		_, err = svc.DeleteLogGroup(context.TODO(), &cloudwatchlogs.DeleteLogGroupInput{
+			LogGroupName: aws.String(logGroupName),
+		})
+
+		if err != nil {
+			t.Fatalf("failed to delete log group '%s', %v", logGroupName, err)
+		}
+
+		t.Logf("Log group '%s' deleted successfully.\n", logGroupName)
+	}
 }

@@ -11,6 +11,5 @@ concurrency:
 
 jobs:
     renovate-automerge:
-        if: github.actor == 'renovate[bot]'
         uses: camunda/infraex-common-config/.github/workflows/automerge-global.yml@1b6af8e7117e4e9bdf777911b7a724879b59fcfe # 1.2.4
         secrets: inherit

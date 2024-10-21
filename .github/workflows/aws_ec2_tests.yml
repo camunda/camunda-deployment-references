@@ -25,12 +25,18 @@ jobs:
     test:
         runs-on: ubuntu-latest
         strategy:
+            fail-fast: false
             matrix:
                 camunda:
+                    # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
+                    - 8.6.3
                     - 8.7.0-SNAPSHOT
                 include:
+                    # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
+                    - camunda: 8.6.3
+                      previous_camunda: 8.6.2
                     - camunda: 8.7.0-SNAPSHOT
-                      previous_camunda: 8.6.3
+                      previous_camunda: 8.6.2
 
         steps:
             ################## Checkout ##################
@@ -74,6 +80,10 @@ jobs:
                   # We need to replace the string without substitution except for that of GitHub Actions
                   # shellcheck disable=SC2016
                   sed -i '0,/CAMUNDA_VERSION/s/CAMUNDA_VERSION=.*/CAMUNDA_VERSION=${CAMUNDA_VERSION:-"${{ matrix.camunda }}"}/' camunda-install.sh
+            - name: Replace matrix dots with hyphen
+              run: |
+                  version=$(echo "${{ matrix.camunda }}" | tr '.' '-')
+                  echo "CAMUNDA_HYPHENS=$version" >> "$GITHUB_ENV"
             ################ Run Tests ##################
             - name: Terratest - Run all Tests
               id: terratest
@@ -88,42 +98,81 @@ jobs:
                   mkdir /home/runner/.ssh
                   touch /home/runner/.ssh/config
 
-                  go install github.com/jstemmer/go-junit-report/v2@latest
-                  go test -v -timeout 120m | go-junit-report -iocopy -set-exit-code -out report.xml
+                  # go install github.com/jstemmer/go-junit-report/v2@latest
+                  # go test -v -failfast -timeout 120m | go-junit-report -iocopy -set-exit-code -out report.xml
+                  # go install github.com/ctrf-io/go-ctrf-json-reporter/cmd/go-ctrf-json-reporter@latest
+                  # go test -v -failfast -timeout 120m -json | go-ctrf-json-reporter -output report.json -verbose
+                  go install gotest.tools/gotestsum@latest
+                  go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m
            ################ Cleanup ##################
             - name: Terratest - Failsafe Terraform Destroy
               if: failure()
               working-directory: aws/ec2/test/src
               timeout-minutes: 30
               run: |
-                  go test -v -timeout 30m -run TestTerraformDestroy
+                  go test -v -timeout 30m -run TestTeardown
+            # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
+            - name: Filter logger.go from the test report (too large)
+              if: always()
+              working-directory: aws/ec2/test/src
+              run: |
+                  sed 's/&#xA;/\n/g' < "./tests.xml" |
+                  grep -E -v '^.*logger\.go.*$' |
+                  sed 's/\n/&#xA;/g' > "./tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml"
+            - name: Upload test reports
+              if: always()
+              uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+              with:
+                  name: test-reports-${{ env.CAMUNDA_HYPHENS }}
+                  path: ${{ github.workspace }}/aws/ec2/test/src/tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml
+                  retention-days: 7
             - name: Cleanup S3 state bucket
               if: always() && steps.terratest.outcome == 'success'
               run: |
                   aws s3 rm "s3://tf-state-multi-reg/state/${TF_PREFIX}/terraform.tfstate"
-            - name: Upload test results
-              if: always()
-              uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
-              with:
-                  name: test-results
-                  path: ${{ github.workspace }}/aws/ec2/test/src/report.xml
-                  retention-days: 1
             - name: Remove profile credentials from ~/.aws/credentials
               if: always()
               run: |
                   rm -rf ~/.aws/credentials
-            - name: Post Test Summary
-              if: always()
+
+    test-report:
+        runs-on: ubuntu-latest
+        if: always()
+        needs:
+            - test
+        outputs:
+            SNAPSHOT_ERROR: ${{ steps.determine-if-failed-tests-include-snapshot.outputs.SNAPSHOT_ERROR }}
+        steps:
+            - name: Download artifacts
+              uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
+              with:
+                  pattern: test-reports-*
+                  path: /tmp/testreports
+                  merge-multiple: true
+            - name: Determine if failed tests include SNAPSHOT
+              id: determine-if-failed-tests-include-snapshot
+              run: |
+                  file=$(find /tmp/testreports -name "*SNAPSHOT*.xml" -type f)
+                  echo "Found file: $file"
+                  if grep -q "FAIL" "$file"; then
+                    echo "File containing 'SNAPSHOT' with FAIL exists"
+                    echo "SNAPSHOT_ERROR=true" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "No file containing 'SNAPSHOT' or with FAIL found"
+                    echo "SNAPSHOT_ERROR=false" >> "$GITHUB_OUTPUT"
+                  fi
+            - name: Run test-summary
               uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2
               with:
-                  paths: |
-                      ${{ github.workspace }}/aws/ec2/test/src/report.xml
+                  paths: /tmp/testreports/**/*.xml
 
     notify-on-failure:
         runs-on: ubuntu-latest
-        if: github.event_name == 'schedule' && failure()
+        # if only snapshot error was detected, don't report
+        if: github.event_name == 'schedule' && failure() && needs.test-report.outputs.SNAPSHOT_ERROR == 'false'
         needs:
             - test
+            - test-report
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification

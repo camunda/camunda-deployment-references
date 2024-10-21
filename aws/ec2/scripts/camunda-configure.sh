@@ -45,5 +45,5 @@ if [[ $SECURITY == 'false' ]]; then
   echo "[INFO] Configuring Connectors to use plain text communication."
   {
     echo "ZEEBE_CLIENT_SECURITY_PLAINTEXT=\"true\""
-  } >> "$(dirname "$0")/camunda-environment.tmp"
+  } >> "$(dirname "$0")/connectors-environment.tmp"
 fi
