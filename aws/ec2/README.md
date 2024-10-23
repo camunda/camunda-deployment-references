@@ -2,6 +2,8 @@
 
 ## Project Overview
 
+bla
+
 This reference implementation can be used to deploy Camunda 8 in a highly available setup. It is split into the base infrastructure part done with Terraform and the management part using bash scripts to configure the EC2 instances and deploy Camunda 8.
 
 This Terraform project is designed to create and manage an AWS infrastructure that includes EC2 instances and an Amazon OpenSearch Service domain. The setup includes necessary security groups, VPC, and subnet configurations to ensure secure communication between the EC2 instances and the OpenSearch domain.
