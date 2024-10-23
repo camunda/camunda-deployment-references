@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-bla
+bla bla
 
 This reference implementation can be used to deploy Camunda 8 in a highly available setup. It is split into the base infrastructure part done with Terraform and the management part using bash scripts to configure the EC2 instances and deploy Camunda 8.
 
