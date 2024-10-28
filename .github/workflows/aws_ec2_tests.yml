@@ -20,6 +20,8 @@ concurrency:
 env:
     AWS_PROFILE: infex
     AWS_REGION: eu-west-2
+    S3_BACKEND_BUCKET: tf-state-multi-reg
+    S3_BUCKET_REGION: eu-central-1
 
 jobs:
     test:
@@ -71,9 +73,12 @@ jobs:
               run: |
                   prefix="ec2-test-$(tr -dc 'a-z0-9' </dev/urandom | head -c 5)"
                   echo "TF_PREFIX=${prefix}" >> "$GITHUB_ENV"
+            # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/ec2/terraform/config.tf
+                  cp ${{ github.workspace }}/aws/ec2/tests/fixtures/override.tf ${{ github.workspace }}/aws/ec2/terraform/override.tf
+                  echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.TF_PREFIX }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
+            # yamllint enable rule:line-length
             - name: Set Camunda version
               working-directory: aws/ec2/scripts
               run: |

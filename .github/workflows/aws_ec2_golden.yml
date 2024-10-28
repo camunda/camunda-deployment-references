@@ -73,6 +73,8 @@ jobs:
             - name: Extract planned values from Terraform plan
               run: |
                   # extracting the planned values and their actual infra instead of diffing the whole document
+                  # since we always plan against nothing, it includes all planned objects
+                  # it does not contain sensetive data
                   jq --sort-keys '.planned_values.root_module' "${TF_PATH}/tfplan.json" > "${TF_PATH}/tfplan_extracted.json"
             - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
               with:
@@ -94,6 +96,7 @@ jobs:
                       ## Terraform golden plan diff
                   comment-footer: |
                       Check the delta diff in the [workflow run](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}) for a detailed comparison.
+                      If the changes are expected, you can use the uploaded artifact on the workflow to update the golden file on your branch.
             - name: Overwrite local golden files
               if: failure() && github.event_name == 'push'
               run: |

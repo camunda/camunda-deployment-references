@@ -28,6 +28,8 @@ shellcheck 0.10.0
 
 terraform 1.9.8
 
+terraform-docs 0.19.0
+
 tflint 0.53.0
 
 zbctl 8.5.8

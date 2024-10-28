@@ -45,10 +45,10 @@ check_service_running() {
     fi
 }
 
-check_service localhost:8080/operate
-check_service localhost:8080/tasklist
-check_service localhost:9600/actuator/health
-check_service localhost:9090/actuator/health
+check_service 127.0.0.1:8080/operate
+check_service 127.0.0.1:8080/tasklist
+check_service 127.0.0.1:9600/actuator/health
+check_service 127.0.0.1:9090/actuator/health
 
 check_service_running camunda.service
 check_service_running connectors.service

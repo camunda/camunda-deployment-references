@@ -94,7 +94,7 @@ resource "aws_ebs_volume" "camunda" {
 
   lifecycle {
     create_before_destroy = true
-    prevent_destroy       = false
+    prevent_destroy       = true
   }
 }
 

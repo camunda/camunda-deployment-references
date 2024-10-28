@@ -6,4 +6,4 @@ scrape_configs:
       scheme: http
       metrics_path: /actuator/prometheus
       static_configs:
-          - targets: [localhost:9600]
+          - targets: [127.0.0.1:9600]

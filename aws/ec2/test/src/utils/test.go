@@ -59,6 +59,7 @@ func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Opt
 	require.Equal(t, 3, cluster.ClusterSize, "Expected static cluster size of 3, got %d", cluster.ClusterSize)
 
 	for _, broker := range cluster.Brokers {
+		// The 10.200 comes from the subnets configured in the terraform `variables.tf` as part of `cidr_blocks` for the `vpc.tf`.
 		require.Contains(t, broker.Host, "10.200.", "Broker host should be in the private subnet")
 	}
 
