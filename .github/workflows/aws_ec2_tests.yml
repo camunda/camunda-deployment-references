@@ -73,10 +73,14 @@ jobs:
               run: |
                   prefix="ec2-test-$(tr -dc 'a-z0-9' </dev/urandom | head -c 5)"
                   echo "TF_PREFIX=${prefix}" >> "$GITHUB_ENV"
+            - name: Replace matrix dots with hyphen
+              run: |
+                  version=$(echo "${{ matrix.camunda }}" | tr '.' '-')
+                  echo "CAMUNDA_HYPHENS=$version" >> "$GITHUB_ENV"
             # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  cp ${{ github.workspace }}/aws/ec2/tests/fixtures/override.tf ${{ github.workspace }}/aws/ec2/terraform/override.tf
+                  cp ${{ github.workspace }}/aws/ec2/test/fixtures/override.tf ${{ github.workspace }}/aws/ec2/terraform/override.tf
                   echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.TF_PREFIX }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
             # yamllint enable rule:line-length
             - name: Set Camunda version
@@ -85,10 +89,6 @@ jobs:
                   # We need to replace the string without substitution except for that of GitHub Actions
                   # shellcheck disable=SC2016
                   sed -i '0,/CAMUNDA_VERSION/s/CAMUNDA_VERSION=.*/CAMUNDA_VERSION=${CAMUNDA_VERSION:-"${{ matrix.camunda }}"}/' camunda-install.sh
-            - name: Replace matrix dots with hyphen
-              run: |
-                  version=$(echo "${{ matrix.camunda }}" | tr '.' '-')
-                  echo "CAMUNDA_HYPHENS=$version" >> "$GITHUB_ENV"
             ################ Run Tests ##################
             - name: Terratest - Run all Tests
               id: terratest
