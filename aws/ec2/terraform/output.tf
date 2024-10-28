@@ -32,7 +32,7 @@ output "aws_ami" {
 }
 
 output "private_key" {
-  value       = join("", tls_private_key.testing[*].private_key_pem)
+  value       = join("", tls_private_key.testing[*].private_key_openssh)
   sensitive   = true
   description = "(Optional) This private key is meant for testing purposes only and enabled via the variable `generate_ssh_key_pair`."
 }

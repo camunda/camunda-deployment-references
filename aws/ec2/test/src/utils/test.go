@@ -37,15 +37,17 @@ func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Opt
 
 	alb := tfOutputs["alb_endpoint"].(string)
 
+	// Using the cookie of Operate for the v2 API is a workaround as v2 API is secured in single jar, even though there's no identity yet
+	// TODO: Remove workaround when proper identity is in place
 	cmd := shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("curl -f --request POST '%s/api/login?username=demo&password=demo' --cookie-jar cookie.txt", alb)},
+		Command: "curl",
+		Args:    []string{"-f", "--request", "POST", fmt.Sprintf("%s/api/login?username=demo&password=demo", alb), "--cookie-jar", "cookie.txt"},
 	}
 	shell.RunCommand(t, cmd)
 
 	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("curl -f --cookie cookie.txt %s/v2/topology", alb)},
+		Command: "curl",
+		Args:    []string{"-f", "--cookie", "cookie.txt", fmt.Sprintf("%s/v2/topology", alb)},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -74,14 +76,14 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 	alb := tfOutputs["alb_endpoint"].(string)
 
 	cmd := shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("curl -f --request POST '%s/api/login?username=demo&password=demo' --cookie-jar cookie.txt", alb)},
+		Command: "curl",
+		Args:    []string{"-f", "--request", "POST", fmt.Sprintf("%s/api/login?username=demo&password=demo", alb), "--cookie-jar", "cookie.txt"},
 	}
 	shell.RunCommand(t, cmd)
 
 	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("curl -f --cookie cookie.txt --form resources='@utils/single-task.bpmn' %s/v2/deployments -H 'Content-Type: multipart/form-data' -H 'Accept: application/json'", alb)},
+		Command: "curl",
+		Args:    []string{"-f", "--cookie", "cookie.txt", "--form", "resources=@utils/single-task.bpmn", fmt.Sprintf("%s/v2/deployments", alb), "-H", "'Content-Type: multipart/form-data'", "-H", "'Accept: application/json'"},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -97,8 +99,8 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 	require.Equal(t, "<default>", deploymentInfo.Deployments[0].ProcessDefinition.TenantId, "Expected '<default>', got %s", deploymentInfo.Deployments[0].ProcessDefinition.TenantId)
 
 	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("curl -f --cookie cookie.txt -L -X POST %s/v2/process-instances -H 'Content-Type: application/json' -H 'Accept: application/json' --data-raw '{\"processDefinitionKey\":\"%d\"}'", alb, deploymentInfo.Deployments[0].ProcessDefinition.ProcessDefinitionKey)},
+		Command: "curl",
+		Args:    []string{"-f", "--cookie", "cookie.txt", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json", "--data-raw", fmt.Sprintf("{\"processDefinitionKey\":\"%d\"}", deploymentInfo.Deployments[0].ProcessDefinition.ProcessDefinitionKey)},
 	}
 	shell.RunCommand(t, cmd)
 
@@ -106,8 +108,8 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 	// atm still limited to v1 API
 
 	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("curl -f --cookie cookie.txt -L -X POST %s/v2/resources/%d/deletion", alb, deploymentInfo.Deployments[0].ProcessDefinition.ProcessDefinitionKey)},
+		Command: "curl",
+		Args:    []string{"-f", "--cookie", "cookie.txt", "-L", "-X", "POST", fmt.Sprintf("%s/v2/resources/%d/deletion", alb, deploymentInfo.Deployments[0].ProcessDefinition.ProcessDefinitionKey)},
 	}
 	shell.RunCommand(t, cmd)
 }
@@ -120,29 +122,29 @@ func ResetCamunda(t *testing.T, terraformOptions *terraform.Options) {
 
 	for _, ip := range camundaIps {
 		cmd := shell.Command{
-			Command: "bash",
-			Args:    []string{"-c", fmt.Sprintf("ssh -J admin@%s admin@%s \"sudo systemctl stop camunda\"", bastionIp, ip)},
+			Command: "ssh",
+			Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", ip), "sudo systemctl stop camunda"},
 		}
 		// Ignore error as the service might not be running
 		shell.RunCommandE(t, cmd)
 
 		cmd = shell.Command{
-			Command: "bash",
-			Args:    []string{"-c", fmt.Sprintf("ssh -J admin@%s admin@%s \"sudo systemctl stop connectors\"", bastionIp, ip)},
+			Command: "ssh",
+			Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", ip), "sudo systemctl stop connectors"},
 		}
 		// Ignore error as the service might not be running
 		shell.RunCommandE(t, cmd)
 
 		cmd = shell.Command{
-			Command: "bash",
-			Args:    []string{"-c", fmt.Sprintf("ssh -J admin@%s admin@%s \"sudo rm -rf /opt/camunda/*\"", bastionIp, ip)},
+			Command: "ssh",
+			Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", ip), "sudo rm -rf /opt/camunda/*"},
 		}
 		shell.RunCommand(t, cmd)
 	}
 
 	cmd := shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("ssh -J admin@%s admin@%s \"curl -X DELETE %s/_all\"", bastionIp, camundaIps[0], openSearchConnection)},
+		Command: "ssh",
+		Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", camundaIps[0]), fmt.Sprintf("curl -X DELETE %s/_all", openSearchConnection)},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 

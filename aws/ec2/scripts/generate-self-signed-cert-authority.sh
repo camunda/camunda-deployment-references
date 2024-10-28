@@ -15,5 +15,5 @@ openssl req \
   -x509 \
   -subj "/C=DE/O=Test/OU=Test/ST=BE/CN=cluster.local" \
   -extensions ext \
-  -keyout "$(dirname "$0")/ca-authority.key" \
-  -out "$(dirname "$0")/ca-authority.pem"
+  -keyout "${CURRENT_DIR}/ca-authority.key" \
+  -out "${CURRENT_DIR}/ca-authority.pem"

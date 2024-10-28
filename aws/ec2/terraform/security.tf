@@ -17,7 +17,6 @@ resource "tls_private_key" "testing" {
   count = var.generate_ssh_key_pair ? 1 : 0
 
   algorithm = "ED25519"
-  rsa_bits  = 4096
 }
 
 resource "aws_key_pair" "main" {

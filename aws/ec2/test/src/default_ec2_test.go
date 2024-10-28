@@ -218,8 +218,8 @@ func TestCloudWatchFeature(t *testing.T) {
 	require.Contains(t, output, "CloudWatch monitoring is set to: true.", "Expected CloudWatch to be enabled")
 
 	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("ssh -J admin@%s admin@%s \"sudo systemctl is-active amazon-cloudwatch-agent\"", bastionIp, camundaIps[0])},
+		Command: "ssh",
+		Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", camundaIps[0]), "sudo systemctl is-active amazon-cloudwatch-agent"},
 	}
 	output = shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -300,8 +300,8 @@ func TestSecurityFeature(t *testing.T) {
 
 	// Using zbctl to check that the cluster is secure - I don't have a better way to check this atm
 	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("zbctl status --address %s:80 --certPath ../../scripts/ca-authority.pem", tfOutputs["nlb_endpoint"].(string))},
+		Command: "zbctl",
+		Args:    []string{"status", "--address", fmt.Sprintf("%s:80", tfOutputs["nlb_endpoint"].(string)), "--certPath", "../../scripts/ca-authority.pem"},
 	}
 	output = shell.RunCommandAndGetOutput(t, cmd)
 
@@ -310,8 +310,8 @@ func TestSecurityFeature(t *testing.T) {
 
 	t.Log("[Test] Expect the following to fail due to missing certificate")
 	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", fmt.Sprintf("zbctl status --address %s:80", tfOutputs["nlb_endpoint"].(string))},
+		Command: "zbctl",
+		Args:    []string{"status", "--address", fmt.Sprintf("%s:80", tfOutputs["nlb_endpoint"].(string))},
 	}
 	output, err = shell.RunCommandAndGetOutputE(t, cmd)
 

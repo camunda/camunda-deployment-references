@@ -39,11 +39,11 @@ openssl x509 \
   -req \
   -days 3650 \
   -in "$output_dir/$file_name.csr" \
-  -CA "$(dirname "$0")/ca-authority.pem" \
-  -CAkey "$(dirname "$0")/ca-authority.key" \
+  -CA "${CURRENT_DIR}/ca-authority.pem" \
+  -CAkey "${CURRENT_DIR}/ca-authority.key" \
   -set_serial "$index" \
   -extfile <(printf "subjectAltName = IP.1:%s%s" "$ip" "$extra") \
   -out "$output_dir/$file_name.pem"
 
 # Create final certificate chain to allow verification
-cat "$output_dir/$file_name.pem" "$(dirname "$0")/ca-authority.pem" > "$output_dir/$file_name-chain.pem"
+cat "$output_dir/$file_name.pem" "${CURRENT_DIR}/ca-authority.pem" > "$output_dir/$file_name-chain.pem"
