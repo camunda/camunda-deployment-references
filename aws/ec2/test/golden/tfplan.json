@@ -913,6 +913,7 @@
         "enable_tls_version_and_cipher_suite_headers": null,
         "enable_waf_fail_open": null,
         "enable_xff_client_port": null,
+        "enable_zonal_shift": false,
         "idle_timeout": null,
         "internal": false,
         "load_balancer_type": "network",
@@ -956,6 +957,7 @@
         "enable_tls_version_and_cipher_suite_headers": false,
         "enable_waf_fail_open": false,
         "enable_xff_client_port": false,
+        "enable_zonal_shift": null,
         "idle_timeout": 60,
         "internal": false,
         "load_balancer_type": "application",
@@ -1009,6 +1011,7 @@
         "tags_all": {
           "managed_by": "Terraform"
         },
+        "tcp_idle_timeout_seconds": 350,
         "timeouts": null
       }
     },
@@ -1052,6 +1055,7 @@
         "tags_all": {
           "managed_by": "Terraform"
         },
+        "tcp_idle_timeout_seconds": null,
         "timeouts": null
       }
     },
@@ -1095,6 +1099,7 @@
         "tags_all": {
           "managed_by": "Terraform"
         },
+        "tcp_idle_timeout_seconds": null,
         "timeouts": null
       }
     },
