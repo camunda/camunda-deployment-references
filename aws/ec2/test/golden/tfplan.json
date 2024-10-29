@@ -1155,6 +1155,273 @@
       }
     },
     {
+      "address": "aws_instance.bastion[0]",
+      "index": 0,
+      "mode": "managed",
+      "name": "bastion",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "capacity_reservation_specification": [],
+        "cpu_options": [],
+        "credit_specification": [],
+        "ebs_block_device": [],
+        "enclave_options": [],
+        "ephemeral_block_device": [],
+        "instance_market_options": [],
+        "ipv6_addresses": [],
+        "launch_template": [],
+        "maintenance_options": [],
+        "metadata_options": [],
+        "network_interface": [],
+        "private_dns_name_options": [],
+        "root_block_device": [],
+        "secondary_private_ips": [],
+        "security_groups": [],
+        "tags": {},
+        "tags_all": {},
+        "vpc_security_group_ids": []
+      },
+      "type": "aws_instance",
+      "values": {
+        "ami": "ami",
+        "associate_public_ip_address": true,
+        "credit_specification": [],
+        "get_password_data": false,
+        "hibernation": null,
+        "instance_type": "t2.nano",
+        "key_name": "camunda-auth-key",
+        "launch_template": [],
+        "source_dest_check": true,
+        "tags": {
+          "Name": "camunda-bastion"
+        },
+        "tags_all": {
+          "Name": "camunda-bastion",
+          "managed_by": "Terraform"
+        },
+        "timeouts": null,
+        "user_data_replace_on_change": false,
+        "volume_tags": null
+      }
+    },
+    {
+      "address": "aws_instance.camunda[0]",
+      "index": 0,
+      "mode": "managed",
+      "name": "camunda",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "capacity_reservation_specification": [],
+        "cpu_options": [],
+        "credit_specification": [],
+        "ebs_block_device": [],
+        "enclave_options": [],
+        "ephemeral_block_device": [],
+        "instance_market_options": [],
+        "ipv6_addresses": [],
+        "launch_template": [],
+        "maintenance_options": [],
+        "metadata_options": [],
+        "network_interface": [],
+        "private_dns_name_options": [],
+        "root_block_device": [
+          {
+            "tags_all": {}
+          }
+        ],
+        "secondary_private_ips": [],
+        "security_groups": [],
+        "tags": {},
+        "tags_all": {},
+        "vpc_security_group_ids": []
+      },
+      "type": "aws_instance",
+      "values": {
+        "ami": "ami",
+        "associate_public_ip_address": false,
+        "credit_specification": [],
+        "get_password_data": false,
+        "hibernation": null,
+        "iam_instance_profile": "camunda-cloudwatch-instance-profile",
+        "instance_type": "m6i.xlarge",
+        "key_name": "camunda-auth-key",
+        "launch_template": [],
+        "root_block_device": [
+          {
+            "delete_on_termination": true,
+            "encrypted": true,
+            "tags": null,
+            "volume_size": 10,
+            "volume_type": "gp3"
+          }
+        ],
+        "source_dest_check": true,
+        "tags": {
+          "Name": "camunda-instance-0"
+        },
+        "tags_all": {
+          "Name": "camunda-instance-0",
+          "managed_by": "Terraform"
+        },
+        "timeouts": null,
+        "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
+        "user_data_replace_on_change": false,
+        "volume_tags": null
+      }
+    },
+    {
+      "address": "aws_instance.camunda[1]",
+      "index": 1,
+      "mode": "managed",
+      "name": "camunda",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "capacity_reservation_specification": [],
+        "cpu_options": [],
+        "credit_specification": [],
+        "ebs_block_device": [],
+        "enclave_options": [],
+        "ephemeral_block_device": [],
+        "instance_market_options": [],
+        "ipv6_addresses": [],
+        "launch_template": [],
+        "maintenance_options": [],
+        "metadata_options": [],
+        "network_interface": [],
+        "private_dns_name_options": [],
+        "root_block_device": [
+          {
+            "tags_all": {}
+          }
+        ],
+        "secondary_private_ips": [],
+        "security_groups": [],
+        "tags": {},
+        "tags_all": {},
+        "vpc_security_group_ids": []
+      },
+      "type": "aws_instance",
+      "values": {
+        "ami": "ami",
+        "associate_public_ip_address": false,
+        "credit_specification": [],
+        "get_password_data": false,
+        "hibernation": null,
+        "iam_instance_profile": "camunda-cloudwatch-instance-profile",
+        "instance_type": "m6i.xlarge",
+        "key_name": "camunda-auth-key",
+        "launch_template": [],
+        "root_block_device": [
+          {
+            "delete_on_termination": true,
+            "encrypted": true,
+            "tags": null,
+            "volume_size": 10,
+            "volume_type": "gp3"
+          }
+        ],
+        "source_dest_check": true,
+        "tags": {
+          "Name": "camunda-instance-1"
+        },
+        "tags_all": {
+          "Name": "camunda-instance-1",
+          "managed_by": "Terraform"
+        },
+        "timeouts": null,
+        "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
+        "user_data_replace_on_change": false,
+        "volume_tags": null
+      }
+    },
+    {
+      "address": "aws_instance.camunda[2]",
+      "index": 2,
+      "mode": "managed",
+      "name": "camunda",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "capacity_reservation_specification": [],
+        "cpu_options": [],
+        "credit_specification": [],
+        "ebs_block_device": [],
+        "enclave_options": [],
+        "ephemeral_block_device": [],
+        "instance_market_options": [],
+        "ipv6_addresses": [],
+        "launch_template": [],
+        "maintenance_options": [],
+        "metadata_options": [],
+        "network_interface": [],
+        "private_dns_name_options": [],
+        "root_block_device": [
+          {
+            "tags_all": {}
+          }
+        ],
+        "secondary_private_ips": [],
+        "security_groups": [],
+        "tags": {},
+        "tags_all": {},
+        "vpc_security_group_ids": []
+      },
+      "type": "aws_instance",
+      "values": {
+        "ami": "ami",
+        "associate_public_ip_address": false,
+        "credit_specification": [],
+        "get_password_data": false,
+        "hibernation": null,
+        "iam_instance_profile": "camunda-cloudwatch-instance-profile",
+        "instance_type": "m6i.xlarge",
+        "key_name": "camunda-auth-key",
+        "launch_template": [],
+        "root_block_device": [
+          {
+            "delete_on_termination": true,
+            "encrypted": true,
+            "tags": null,
+            "volume_size": 10,
+            "volume_type": "gp3"
+          }
+        ],
+        "source_dest_check": true,
+        "tags": {
+          "Name": "camunda-instance-2"
+        },
+        "tags_all": {
+          "Name": "camunda-instance-2",
+          "managed_by": "Terraform"
+        },
+        "timeouts": null,
+        "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
+        "user_data_replace_on_change": false,
+        "volume_tags": null
+      }
+    },
+    {
+      "address": "aws_key_pair.main",
+      "mode": "managed",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_key_pair",
+      "values": {
+        "key_name": "camunda-auth-key",
+        "tags": null,
+        "tags_all": {
+          "managed_by": "Terraform"
+        }
+      }
+    },
+    {
       "address": "aws_kms_key.main",
       "mode": "managed",
       "name": "main",
@@ -1543,6 +1810,132 @@
           "managed_by": "Terraform"
         },
         "target_type": "instance"
+      }
+    },
+    {
+      "address": "aws_lb_target_group_attachment.connectors[\"0\"]",
+      "index": "0",
+      "mode": "managed",
+      "name": "connectors",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_lb_target_group_attachment",
+      "values": {
+        "availability_zone": null,
+        "port": 9090
+      }
+    },
+    {
+      "address": "aws_lb_target_group_attachment.connectors[\"1\"]",
+      "index": "1",
+      "mode": "managed",
+      "name": "connectors",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_lb_target_group_attachment",
+      "values": {
+        "availability_zone": null,
+        "port": 9090
+      }
+    },
+    {
+      "address": "aws_lb_target_group_attachment.connectors[\"2\"]",
+      "index": "2",
+      "mode": "managed",
+      "name": "connectors",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_lb_target_group_attachment",
+      "values": {
+        "availability_zone": null,
+        "port": 9090
+      }
+    },
+    {
+      "address": "aws_lb_target_group_attachment.grpc[\"0\"]",
+      "index": "0",
+      "mode": "managed",
+      "name": "grpc",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_lb_target_group_attachment",
+      "values": {
+        "availability_zone": null,
+        "port": 26500
+      }
+    },
+    {
+      "address": "aws_lb_target_group_attachment.grpc[\"1\"]",
+      "index": "1",
+      "mode": "managed",
+      "name": "grpc",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_lb_target_group_attachment",
+      "values": {
+        "availability_zone": null,
+        "port": 26500
+      }
+    },
+    {
+      "address": "aws_lb_target_group_attachment.grpc[\"2\"]",
+      "index": "2",
+      "mode": "managed",
+      "name": "grpc",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_lb_target_group_attachment",
+      "values": {
+        "availability_zone": null,
+        "port": 26500
+      }
+    },
+    {
+      "address": "aws_lb_target_group_attachment.main[\"0\"]",
+      "index": "0",
+      "mode": "managed",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_lb_target_group_attachment",
+      "values": {
+        "availability_zone": null,
+        "port": 8080
+      }
+    },
+    {
+      "address": "aws_lb_target_group_attachment.main[\"1\"]",
+      "index": "1",
+      "mode": "managed",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_lb_target_group_attachment",
+      "values": {
+        "availability_zone": null,
+        "port": 8080
+      }
+    },
+    {
+      "address": "aws_lb_target_group_attachment.main[\"2\"]",
+      "index": "2",
+      "mode": "managed",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_lb_target_group_attachment",
+      "values": {
+        "availability_zone": null,
+        "port": 8080
       }
     },
     {
@@ -2209,6 +2602,76 @@
           "managed_by": "Terraform"
         },
         "timeouts": null
+      }
+    },
+    {
+      "address": "aws_volume_attachment.ebs_attachment[0]",
+      "index": 0,
+      "mode": "managed",
+      "name": "ebs_attachment",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_volume_attachment",
+      "values": {
+        "device_name": "/dev/sdb",
+        "force_detach": null,
+        "skip_destroy": null,
+        "stop_instance_before_detaching": null,
+        "timeouts": null
+      }
+    },
+    {
+      "address": "aws_volume_attachment.ebs_attachment[1]",
+      "index": 1,
+      "mode": "managed",
+      "name": "ebs_attachment",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_volume_attachment",
+      "values": {
+        "device_name": "/dev/sdb",
+        "force_detach": null,
+        "skip_destroy": null,
+        "stop_instance_before_detaching": null,
+        "timeouts": null
+      }
+    },
+    {
+      "address": "aws_volume_attachment.ebs_attachment[2]",
+      "index": 2,
+      "mode": "managed",
+      "name": "ebs_attachment",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_volume_attachment",
+      "values": {
+        "device_name": "/dev/sdb",
+        "force_detach": null,
+        "skip_destroy": null,
+        "stop_instance_before_detaching": null,
+        "timeouts": null
+      }
+    },
+    {
+      "address": "tls_private_key.testing[0]",
+      "index": 0,
+      "mode": "managed",
+      "name": "testing",
+      "provider_name": "registry.terraform.io/hashicorp/tls",
+      "schema_version": 1,
+      "sensitive_values": {
+        "private_key_openssh": true,
+        "private_key_pem": true,
+        "private_key_pem_pkcs8": true
+      },
+      "type": "tls_private_key",
+      "values": {
+        "algorithm": "ED25519",
+        "ecdsa_curve": "P224",
+        "rsa_bits": 2048
       }
     }
   ]

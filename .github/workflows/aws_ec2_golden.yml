@@ -64,7 +64,8 @@ jobs:
               run: |
                   terraform init
                   # We are hardcoding the AMI as it's a moving target
-                  terraform plan -var aws_ami="ami" -out=tfplan || true
+                  # Same for the SSH Key as we don't have one on the device and would otherwise omit values from the plan
+                  terraform plan -var aws_ami="ami" -var generate_ssh_key_pair="true" -out=tfplan || true
             - name: Convert Terraform plan to JSON
               working-directory: aws/ec2/terraform
               run: |
@@ -97,17 +98,4 @@ jobs:
                   comment-footer: |
                       Check the delta diff in the [workflow run](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}) for a detailed comparison.
                       If the changes are expected, you can use the uploaded artifact on the workflow to update the golden file on your branch.
-            - name: Overwrite local golden files
-              if: failure() && github.event_name == 'push'
-              run: |
-                  cp "${TF_PATH}/tfplan_extracted.json" "${GOLDEN_PATH}/tfplan.json"
-            - name: Create PR to update golden files
-              if: failure() && github.event_name == 'push'
-              uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # v7
-              with:
-                  signoff: true
-                  base: main
-                  title: 'chore: update golden files'
-                  body: |
-                      The golden files have been updated to reflect the latest changes in the Terraform plan.
-                  commit-message: 'chore: update golden files'
+                      Alternatively run `just regenerate-aws-ec2-golden-file` locally to update the golden file.
