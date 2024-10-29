@@ -1,5 +1,6 @@
 module "opensearch_domain" {
-  source = "github.com/camunda/camunda-tf-eks-module//modules/opensearch?ref=infraex-251"
+  # tflint-ignore: terraform_module_pinned_source
+  source = "github.com/camunda/camunda-tf-eks-module//modules/opensearch"
 
   count = var.enable_opensearch ? 1 : 0
 

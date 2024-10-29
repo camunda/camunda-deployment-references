@@ -116,7 +116,7 @@ SECURITY: The default is false. If set to true will use self-signed certificates
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_opensearch_domain"></a> [opensearch\_domain](#module\_opensearch\_domain) | github.com/camunda/camunda-tf-eks-module//modules/opensearch | infraex-251 |
+| <a name="module_opensearch_domain"></a> [opensearch\_domain](#module\_opensearch\_domain) | github.com/camunda/camunda-tf-eks-module//modules/opensearch | n/a |
 | <a name="module_vpc"></a> [vpc](#module\_vpc) | terraform-aws-modules/vpc/aws | v5.14.0 |
 ## Resources
 
