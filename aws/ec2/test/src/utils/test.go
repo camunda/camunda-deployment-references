@@ -1,16 +1,15 @@
 package utils
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/camunda/camunda-deployment-references/aws/ec2/camunda"
 	"github.com/gruntwork-io/terratest/modules/shell"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 func OverwriteTerraformLifecycle(filePath string) {
@@ -51,22 +50,21 @@ func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Opt
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
-	var cluster camunda.Cluster
-	err := json.Unmarshal([]byte(output), &cluster)
-	if err != nil {
-		fmt.Println("Error:", err)
-	}
+	brokers := gjson.Get(output, "brokers").Array()
+	clusterSize := gjson.Get(output, "clusterSize").Int()
+	gatewayVersion := gjson.Get(output, "gatewayVersion").String()
 
-	require.Equal(t, 3, len(cluster.Brokers), "Expected 3 brokers, got %d", len(cluster.Brokers))
-	require.Equal(t, 3, cluster.ClusterSize, "Expected static cluster size of 3, got %d", cluster.ClusterSize)
+	require.Equal(t, 3, len(brokers), "Expected 3 brokers, got %d", len(brokers))
+	require.Equal(t, 3, int(clusterSize), "Expected static cluster size of 3, got %d", clusterSize)
 
-	for _, broker := range cluster.Brokers {
+	for _, broker := range brokers {
 		// The 10.200 comes from the subnets configured in the terraform `variables.tf` as part of `cidr_blocks` for the `vpc.tf`.
-		require.Contains(t, broker.Host, "10.200.", "Broker host should be in the private subnet")
+		host := broker.Get("host").String()
+		require.Contains(t, host, "10.200.", "Broker host should be in the private subnet")
 	}
 
 	if version != "" {
-		require.Equal(t, version, cluster.GatewayVersion, "Expected gateway version %s, got %s", version, cluster.GatewayVersion)
+		require.Equal(t, version, gatewayVersion, "Expected gateway version %s, got %s", version, gatewayVersion)
 	}
 }
 
@@ -87,20 +85,18 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
-	var deploymentInfo camunda.DeploymentInfo
-	err := json.Unmarshal([]byte(output), &deploymentInfo)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
+	deployments := gjson.Get(output, "deployments").Array()
+	resourceName := gjson.Get(output, "deployments.0.processDefinition.resourceName").String()
+	tenantId := gjson.Get(output, "deployments.0.processDefinition.tenantId").String()
+	processDefinitionKey := gjson.Get(output, "deployments.0.processDefinition.processDefinitionKey").Int()
 
-	require.Equal(t, 1, len(deploymentInfo.Deployments), "Expected 1 deployment, got %d", len(deploymentInfo.Deployments))
-	require.Equal(t, "single-task.bpmn", deploymentInfo.Deployments[0].ProcessDefinition.ResourceName, "Expected 'single-task.bpmn', got %s", deploymentInfo.Deployments[0].ProcessDefinition.ResourceName)
-	require.Equal(t, "<default>", deploymentInfo.Deployments[0].ProcessDefinition.TenantId, "Expected '<default>', got %s", deploymentInfo.Deployments[0].ProcessDefinition.TenantId)
+	require.Equal(t, 1, len(deployments), "Expected 1 deployment, got %d", len(deployments))
+	require.Equal(t, "single-task.bpmn", resourceName, "Expected 'single-task.bpmn', got %s", resourceName)
+	require.Equal(t, "<default>", tenantId, "Expected '<default>', got %s", tenantId)
 
 	cmd = shell.Command{
 		Command: "curl",
-		Args:    []string{"-f", "--cookie", "cookie.txt", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json", "--data-raw", fmt.Sprintf("{\"processDefinitionKey\":\"%d\"}", deploymentInfo.Deployments[0].ProcessDefinition.ProcessDefinitionKey)},
+		Args:    []string{"-f", "--cookie", "cookie.txt", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json", "--data-raw", fmt.Sprintf("{\"processDefinitionKey\":\"%d\"}", processDefinitionKey)},
 	}
 	shell.RunCommand(t, cmd)
 
@@ -109,7 +105,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd = shell.Command{
 		Command: "curl",
-		Args:    []string{"-f", "--cookie", "cookie.txt", "-L", "-X", "POST", fmt.Sprintf("%s/v2/resources/%d/deletion", alb, deploymentInfo.Deployments[0].ProcessDefinition.ProcessDefinitionKey)},
+		Args:    []string{"-f", "--cookie", "cookie.txt", "-L", "-X", "POST", fmt.Sprintf("%s/v2/resources/%d/deletion", alb, processDefinitionKey)},
 	}
 	shell.RunCommand(t, cmd)
 }

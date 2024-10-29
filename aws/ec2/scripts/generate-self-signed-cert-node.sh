@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+CURRENT_DIR="$(dirname "$0")"
+
 # The following is meant for demonstration purposes only and should not be used in production with the default self-signed certificates.
 # Please conduct the Documentation - https://docs.camunda.io/docs/self-managed/zeebe-deployment/security/secure-client-communication/
 
