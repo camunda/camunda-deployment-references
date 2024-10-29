@@ -414,8 +414,6 @@ func TestCamundaUpgrade(t *testing.T) {
 func TestTeardown(t *testing.T) {
 	t.Log("Test teardown")
 
-	utils.OverwriteTerraformLifecycle(terraformDir + "/ec2.tf")
-
 	terraform.Destroy(t, terraformOptions(t, nil))
 
 	t.Log("Removing CloudWatch log group")
