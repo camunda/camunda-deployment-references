@@ -11,7 +11,7 @@ output "camunda_ips" {
 
 # converting array to string since opensearch is always a single instance
 output "aws_opensearch_domain" {
-  value       = "https://${join("", aws_opensearch_domain.opensearch_cluster[*].endpoint)}"
+  value       = "https://${join("", module.opensearch_domain[*].opensearch_domain_endpoint)}"
   description = "(Optional) The endpoint of the OpenSearch domain."
 }
 

@@ -116,13 +116,12 @@ SECURITY: The default is false. If set to true will use self-signed certificates
 
 | Name | Source | Version |
 |------|--------|---------|
+| <a name="module_opensearch_domain"></a> [opensearch\_domain](#module\_opensearch\_domain) | github.com/camunda/camunda-tf-eks-module//modules/opensearch | infraex-251 |
 | <a name="module_vpc"></a> [vpc](#module\_vpc) | terraform-aws-modules/vpc/aws | v5.14.0 |
 ## Resources
 
 | Name | Type |
 |------|------|
-| [aws_cloudwatch_log_group.os_log_group](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/cloudwatch_log_group) | resource |
-| [aws_cloudwatch_log_resource_policy.os_logging_policy](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/cloudwatch_log_resource_policy) | resource |
 | [aws_ebs_volume.camunda](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/ebs_volume) | resource |
 | [aws_iam_instance_profile.cloudwatch_instance_profile](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/iam_instance_profile) | resource |
 | [aws_iam_policy.cloudwatch_policy](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/iam_policy) | resource |
@@ -143,7 +142,6 @@ SECURITY: The default is false. If set to true will use self-signed certificates
 | [aws_lb_target_group_attachment.connectors](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_target_group_attachment) | resource |
 | [aws_lb_target_group_attachment.grpc](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_target_group_attachment) | resource |
 | [aws_lb_target_group_attachment.main](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_target_group_attachment) | resource |
-| [aws_opensearch_domain.opensearch_cluster](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/opensearch_domain) | resource |
 | [aws_security_group.allow_necessary_camunda_ports_within_vpc](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
 | [aws_security_group.allow_remote_80_443](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
 | [aws_security_group.allow_remote_9090](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
@@ -154,7 +152,6 @@ SECURITY: The default is false. If set to true will use self-signed certificates
 | [aws_ami.debian](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/data-sources/ami) | data source |
 | [aws_availability_zones.available](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/data-sources/availability_zones) | data source |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/data-sources/caller_identity) | data source |
-| [aws_iam_policy_document.os_logging_policy_document](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/data-sources/iam_policy_document) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/data-sources/region) | data source |
 ## Inputs
 
@@ -174,11 +171,10 @@ SECURITY: The default is false. If set to true will use self-signed certificates
 | <a name="input_generate_ssh_key_pair"></a> [generate\_ssh\_key\_pair](#input\_generate\_ssh\_key\_pair) | Generate an SSH key pair for the EC2 instances over the use of pub\_key\_path. Meant for testing purposes / temp environments. | `bool` | `false` | no |
 | <a name="input_instance_count"></a> [instance\_count](#input\_instance\_count) | The number of instances to create | `number` | `3` | no |
 | <a name="input_opensearch_disk_size"></a> [opensearch\_disk\_size](#input\_opensearch\_disk\_size) | The size of the OpenSearch disk in GiB | `number` | `50` | no |
-| <a name="input_opensearch_disk_throughput"></a> [opensearch\_disk\_throughput](#input\_opensearch\_disk\_throughput) | The throughput of the OpenSearch disk in MiB/s | `number` | `125` | no |
-| <a name="input_opensearch_instance_count"></a> [opensearch\_instance\_count](#input\_opensearch\_instance\_count) | The number of instances to create | `number` | `1` | no |
+| <a name="input_opensearch_engine_version"></a> [opensearch\_engine\_version](#input\_opensearch\_engine\_version) | The engine version of the OpenSearch cluster | `string` | `"2.15"` | no |
+| <a name="input_opensearch_instance_count"></a> [opensearch\_instance\_count](#input\_opensearch\_instance\_count) | The number of instances to create | `number` | `3` | no |
+| <a name="input_opensearch_instance_type"></a> [opensearch\_instance\_type](#input\_opensearch\_instance\_type) | The instance type to use for the OpenSearch instances | `string` | `"t3.small.search"` | no |
 | <a name="input_opensearch_log_types"></a> [opensearch\_log\_types](#input\_opensearch\_log\_types) | The types of logs to publish to CloudWatch Logs | `list(string)` | <pre>[<br/>  "SEARCH_SLOW_LOGS",<br/>  "INDEX_SLOW_LOGS",<br/>  "ES_APPLICATION_LOGS"<br/>]</pre> | no |
-| <a name="input_opensearch_master_password"></a> [opensearch\_master\_password](#input\_opensearch\_master\_password) | The password of the OpenSearch master user | `string` | `"camundarocks123"` | no |
-| <a name="input_opensearch_master_username"></a> [opensearch\_master\_username](#input\_opensearch\_master\_username) | The username of the OpenSearch master user | `string` | `"camunda"` | no |
 | <a name="input_prefix"></a> [prefix](#input\_prefix) | The prefix to use for names of resources | `string` | `"camunda"` | no |
 | <a name="input_pub_key_path"></a> [pub\_key\_path](#input\_pub\_key\_path) | The path to the public key to use for the EC2 instances for SSH access | `string` | `"~/.ssh/id_rsa.pub"` | no |
 ## Outputs

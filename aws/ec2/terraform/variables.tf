@@ -143,28 +143,20 @@ variable "opensearch_disk_size" {
   description = "The size of the OpenSearch disk in GiB"
 }
 
-variable "opensearch_disk_throughput" {
-  type        = number
-  default     = 125
-  description = "The throughput of the OpenSearch disk in MiB/s"
-}
-
-variable "opensearch_master_username" {
-  type        = string
-  default     = "camunda"
-  description = "The username of the OpenSearch master user"
-  sensitive   = true
-}
-
-variable "opensearch_master_password" {
-  type        = string
-  default     = "camundarocks123"
-  description = "The password of the OpenSearch master user"
-  sensitive   = true
-}
-
 variable "opensearch_instance_count" {
   type        = number
-  default     = 1
+  default     = 3
   description = "The number of instances to create"
+}
+
+variable "opensearch_engine_version" {
+  type        = string
+  default     = "2.15"
+  description = "The engine version of the OpenSearch cluster"
+}
+
+variable "opensearch_instance_type" {
+  type        = string
+  default     = "t3.small.search"
+  description = "The instance type to use for the OpenSearch instances"
 }
