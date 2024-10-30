@@ -143,6 +143,7 @@ SECURITY: The default is false. If set to true will use self-signed certificates
 | [aws_lb_target_group_attachment.grpc](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_target_group_attachment) | resource |
 | [aws_lb_target_group_attachment.main](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_target_group_attachment) | resource |
 | [aws_security_group.allow_necessary_camunda_ports_within_vpc](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
+| [aws_security_group.allow_package_80_443](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
 | [aws_security_group.allow_remote_80_443](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
 | [aws_security_group.allow_remote_9090](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
 | [aws_security_group.allow_remote_grpc](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
@@ -170,6 +171,7 @@ SECURITY: The default is false. If set to true will use self-signed certificates
 | <a name="input_enable_vpc_logging"></a> [enable\_vpc\_logging](#input\_enable\_vpc\_logging) | Enable VPC flow logging to CloudWatch Logs | `bool` | `false` | no |
 | <a name="input_generate_ssh_key_pair"></a> [generate\_ssh\_key\_pair](#input\_generate\_ssh\_key\_pair) | Generate an SSH key pair for the EC2 instances over the use of pub\_key\_path. Meant for testing purposes / temp environments. | `bool` | `false` | no |
 | <a name="input_instance_count"></a> [instance\_count](#input\_instance\_count) | The number of instances to create | `number` | `3` | no |
+| <a name="input_limit_access_to_cidrs"></a> [limit\_access\_to\_cidrs](#input\_limit\_access\_to\_cidrs) | List of CIDR blocks to allow access to ssh of Bastion and LoadBalancer | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
 | <a name="input_opensearch_disk_size"></a> [opensearch\_disk\_size](#input\_opensearch\_disk\_size) | The size of the OpenSearch disk in GiB | `number` | `50` | no |
 | <a name="input_opensearch_engine_version"></a> [opensearch\_engine\_version](#input\_opensearch\_engine\_version) | The engine version of the OpenSearch cluster | `string` | `"2.15"` | no |
 | <a name="input_opensearch_instance_count"></a> [opensearch\_instance\_count](#input\_opensearch\_instance\_count) | The number of instances to create | `number` | `3` | no |
