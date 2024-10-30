@@ -1,8 +1,3 @@
-# Broker Setup
-ZEEBE_BROKER_CLUSTER_CLUSTERSIZE=3
-ZEEBE_BROKER_CLUSTER_REPLICATIONFACTOR=3
-ZEEBE_BROKER_CLUSTER_PARTITIONSCOUNT=4
-
 # OpenSearch setup
 ZEEBE_BROKER_EXPORTERS_OPENSEARCH_CLASSNAME="io.camunda.zeebe.exporter.opensearch.OpensearchExporter"
 ZEEBE_BROKER_EXPORTERS_OPENSEARCH_ARGS_BULK_SIZE="1"
@@ -11,8 +6,11 @@ ZEEBE_BROKER_EXPORTERS_OPENSEARCH_INDEX_PROCESS_MESSAGE_SUBSCRIPTION="true"
 CAMUNDA_OPERATE_DATABASE="opensearch"
 CAMUNDA_TASKLIST_DATABASE="opensearch"
 
+# Temporary Workaround for REST ALPHA API
+CAMUNDA_REST_QUERY_ENABLED="true"
+
 # Temporary Workaround for Connectors
-# TODO: Remove when fixed upsteam
+# TODO: Remove when fixed upsteam or when switching to Identity - related https://github.com/camunda/team-infrastructure-experience/issues/438
 CAMUNDA_OPERATE_CSRFPREVENTIONENABLED="false"
 
 JAVA_OPTS="-Dlog4j2.DefaultRolloverStrategy.max=1"

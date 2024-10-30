@@ -59,6 +59,12 @@ variable "enable_opensearch_logging" {
   description = "Enable OpenSearch logging to CloudWatch Logs"
 }
 
+variable "generate_ssh_key_pair" {
+  type        = bool
+  default     = false
+  description = "Generate an SSH key pair for the EC2 instances over the use of pub_key_path. Meant for testing purposes / temp environments."
+}
+
 ################################################################
 #                        Global Options                        #
 ################################################################
@@ -83,13 +89,13 @@ variable "instance_count" {
 variable "aws_ami" {
   type        = string
   description = "The AMI to use for the EC2 instances if empty, the latest Debian 12 AMI will be used"
-  default     = "ami-0eb11ab33f229b26c"
+  default     = ""
 }
 
 variable "aws_instance_type" {
   type        = string
   description = "The instance type to use for the EC2 instances"
-  default     = "m5.xlarge"
+  default     = "m6i.xlarge"
 }
 
 variable "aws_instance_type_bastion" {
@@ -137,22 +143,20 @@ variable "opensearch_disk_size" {
   description = "The size of the OpenSearch disk in GiB"
 }
 
-variable "opensearch_disk_throughput" {
+variable "opensearch_instance_count" {
   type        = number
-  default     = 125
-  description = "The throughput of the OpenSearch disk in MiB/s"
+  default     = 3
+  description = "The number of instances to create"
 }
 
-variable "opensearch_master_username" {
+variable "opensearch_engine_version" {
   type        = string
-  default     = "camunda"
-  description = "The username of the OpenSearch master user"
-  sensitive   = true
+  default     = "2.15"
+  description = "The engine version of the OpenSearch cluster"
 }
 
-variable "opensearch_master_password" {
+variable "opensearch_instance_type" {
   type        = string
-  default     = "camundarocks123"
-  description = "The password of the OpenSearch master user"
-  sensitive   = true
+  default     = "t3.small.search"
+  description = "The instance type to use for the OpenSearch instances"
 }

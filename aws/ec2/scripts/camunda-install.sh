@@ -9,11 +9,14 @@ set -euo pipefail
 
 # Executed on remote host, defaults should be set here or env vars preconfigured on remote host
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
-CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.6.0-alpha2"}
-CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.6.0-alpha2.1"}
+# renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
+CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.6.3"}
+# renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.6?(\.(?<patch>\d+))?$
+CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.6.2"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 USERNAME=${USERNAME:-"camunda"}
 JAVA_OPTS="${JAVA_OPTS:- -Xmx512m}" # Default Java options, required to run commands as remote user
+VERSION=""
 
 # Check that the operating system is Debian
 if ! grep -q "ID=debian" /etc/os-release; then
@@ -58,6 +61,13 @@ fi
 
 sudo chown -R "${USERNAME}:${USERNAME}" "${MNT_DIR}/"
 
+if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
+    echo "[INFO] Fetching the latest snapshot version of Camunda ${CAMUNDA_VERSION}."
+    VERSION=$(curl -s "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>tar.gz</extension>" | \
+        grep "<value>" | \
+        sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//')
+fi
+
 sudo -u "${USERNAME}" bash <<EOF
 
 if [ -d "${MNT_DIR}/camunda/" ]; then
@@ -67,7 +77,11 @@ fi
 
 # Install Camunda 8
 
-curl -L "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
+if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
+    curl -L "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
+else
+    curl -L "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
+fi
 
 mkdir -p "${MNT_DIR}/camunda"
 tar -xzvf "${MNT_DIR}/camunda.tar.gz" -C "${MNT_DIR}/camunda" --strip-components=1

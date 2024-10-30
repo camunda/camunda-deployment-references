@@ -1,0 +1,101 @@
+---
+name: AWS EC2 Golden Files
+
+on:
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/aws_ec2_golden.yml
+            - .tool-versions
+            - aws/ec2/terraform/**
+    push:
+        branches:
+            - main
+        paths:
+            - aws/ec2/terraform/**
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    AWS_PROFILE: infex
+    AWS_REGION: eu-west-2
+    TF_PATH: ${{ github.workspace }}/aws/ec2/terraform
+    GOLDEN_PATH: ${{ github.workspace }}/aws/ec2/test/golden
+
+jobs:
+    compare:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            pull-requests: write
+        steps:
+            ################## Checkout ##################
+            - name: Checkout repository
+              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+            ############# Tool Installations #############
+            - name: Install tooling using asdf
+              uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
+            ################## Secrets ###################
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+            ################ AWS Config ##################
+            # Official action does not support profiles
+            - name: Add profile credentials to ~/.aws/credentials
+              shell: bash
+              run: |
+                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+            - name: Run Terraform plan
+              working-directory: aws/ec2/terraform
+              run: |
+                  terraform init
+                  # We are hardcoding the AMI as it's a moving target
+                  # Same for the SSH Key as we don't have one on the device and would otherwise omit values from the plan
+                  terraform plan -var aws_ami="ami" -var generate_ssh_key_pair="true" -out=tfplan || true
+            - name: Convert Terraform plan to JSON
+              working-directory: aws/ec2/terraform
+              run: |
+                  # Use jq to "pretty print" the JSON output to allow comparison
+                  terraform show -json tfplan | jq > tfplan.json
+            - name: Extract planned values from Terraform plan
+              run: |
+                  # extracting the planned values and their actual infra instead of diffing the whole document
+                  # since we always plan against nothing, it includes all planned objects
+                  # it does not contain sensetive data
+                  jq --sort-keys '.planned_values.root_module' "${TF_PATH}/tfplan.json" > "${TF_PATH}/tfplan_extracted.json"
+            - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+              with:
+                  name: plan-artifact-json
+                  path: ${{ env.TF_PATH }}/tfplan_extracted.json
+                  retention-days: 1
+            - name: Compare Terraform plan with golden file
+              working-directory: aws/ec2/terraform
+              run: |
+                  delta "${GOLDEN_PATH}/tfplan.json" "${TF_PATH}/tfplan_extracted.json"
+                  exit $?
+            - name: Post diff on PR
+              if: always() && github.event_name == 'pull_request'
+              uses: int128/diff-action@3be570dc544fa95fcb45525611b05615778714ca # v1
+              with:
+                  base: ${{ env.GOLDEN_PATH }}//tfplan.json
+                  head: ${{ env.TF_PATH }}/tfplan_extracted.json
+                  comment-header: |
+                      ## Terraform golden plan diff
+                  comment-footer: |
+                      Check the delta diff in the [workflow run](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}) for a detailed comparison.
+                      If the changes are expected, you can use the uploaded artifact on the workflow to update the golden file on your branch.
+                      Alternatively run `just regenerate-aws-ec2-golden-file` locally to update the golden file.

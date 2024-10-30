@@ -13,9 +13,15 @@ resource "aws_kms_key" "main" {
   enable_key_rotation     = true
 }
 
+resource "tls_private_key" "testing" {
+  count = var.generate_ssh_key_pair ? 1 : 0
+
+  algorithm = "ED25519"
+}
+
 resource "aws_key_pair" "main" {
   key_name   = "${var.prefix}-auth-key"
-  public_key = file(var.pub_key_path)
+  public_key = var.generate_ssh_key_pair ? tls_private_key.testing[0].public_key_openssh : file(var.pub_key_path)
 }
 
 resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {

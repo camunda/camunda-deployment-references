@@ -91,11 +91,6 @@ resource "aws_ebs_volume" "camunda" {
   tags = {
     Name = "${var.prefix}-extra-volume-${count.index}"
   }
-
-  lifecycle {
-    create_before_destroy = true
-    prevent_destroy       = true
-  }
 }
 
 # Attach EBS Volume to EC2 Instance

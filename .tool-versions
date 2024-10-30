@@ -1,7 +1,37 @@
+################################################################################
+#                                                                              #
+# Note: when adding a new tool here, also adjust the Renovate configuration    #
+#       that mirrors some asdf plugin's logic to remove version prefixes like  #
+#       "v".                                                                   #
+#                                                                              #
+#       You have to amend the Renovate config when the asdf plugin takes 1.2.3 #
+#       as the version but the Docker tag/Github tag is actually v1.2.3        #
+#                                                                              #
+################################################################################
+
+awscli 2.18.5
+
+# renovate: datasource=github-tags depName=rhysd/actionlint
+actionlint 1.7.3
+
+delta 0.18.2
+
+golang 1.23.2
+
+jq 1.7.1
+
+just 1.36.0
+
 pre-commit 4.0.1
 
 python 3.13.0
 
+shellcheck 0.10.0
+
 terraform 1.9.8
 
+terraform-docs 0.19.0
+
 tflint 0.53.0
+
+zbctl 8.5.8

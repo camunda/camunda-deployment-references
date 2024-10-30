@@ -1,0 +1,188 @@
+---
+name: AWS EC2 Tests
+
+on:
+    schedule:
+        - cron: 0 4 * * 1-5
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/aws_ec2_tests.yml
+            - .tool-versions
+            - aws/ec2/**
+            - '!aws/ec2/test/golden/**'
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    AWS_PROFILE: infex
+    AWS_REGION: eu-west-2
+    S3_BACKEND_BUCKET: tf-state-multi-reg
+    S3_BUCKET_REGION: eu-central-1
+
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                camunda:
+                    # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
+                    - 8.6.3
+                    - 8.7.0-SNAPSHOT
+                include:
+                    # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
+                    - camunda: 8.6.3
+                      previous_camunda: 8.6.2
+                    - camunda: 8.7.0-SNAPSHOT
+                      previous_camunda: 8.6.2
+
+        steps:
+            ################## Checkout ##################
+            - name: Checkout repository
+              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+            ############# Tool Installations #############
+            - name: Install tooling using asdf
+              uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
+            ################## Secrets ###################
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+            ################ AWS Config ##################
+            # Official action does not support profiles
+            - name: Add profile credentials to ~/.aws/credentials
+              shell: bash
+              run: |
+                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+            ################ Prerequisites ##################
+            - name: Export test prefix
+              run: |
+                  prefix="ec2-test-$(tr -dc 'a-z0-9' </dev/urandom | head -c 5)"
+                  echo "TF_PREFIX=${prefix}" >> "$GITHUB_ENV"
+            - name: Replace matrix dots with hyphen
+              run: |
+                  version=$(echo "${{ matrix.camunda }}" | tr '.' '-')
+                  echo "CAMUNDA_HYPHENS=$version" >> "$GITHUB_ENV"
+            # yamllint disable rule:line-length
+            - name: Configure Terraform Backend
+              run: |
+                  cp ${{ github.workspace }}/aws/ec2/test/fixtures/override.tf ${{ github.workspace }}/aws/ec2/terraform/override.tf
+                  echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.TF_PREFIX }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
+            # yamllint enable rule:line-length
+            - name: Set Camunda version
+              working-directory: aws/ec2/scripts
+              run: |
+                  # We need to replace the string without substitution except for that of GitHub Actions
+                  # shellcheck disable=SC2016
+                  sed -i '0,/CAMUNDA_VERSION/s/CAMUNDA_VERSION=.*/CAMUNDA_VERSION=${CAMUNDA_VERSION:-"${{ matrix.camunda }}"}/' camunda-install.sh
+            ################ Run Tests ##################
+            - name: Terratest - Run all Tests
+              id: terratest
+              working-directory: aws/ec2/test/src
+              timeout-minutes: 121
+              env:
+                  CAMUNDA_VERSION: ${{ matrix.camunda }}
+                  CAMUNDA_PREVIOUS_VERSION: ${{ matrix.previous_camunda }}
+              run: |
+                  # shellcheck disable=SC2155
+                  export PATH=$PATH:$(go env GOPATH)/bin
+                  mkdir /home/runner/.ssh
+                  touch /home/runner/.ssh/config
+
+                  # go install github.com/jstemmer/go-junit-report/v2@latest
+                  # go test -v -failfast -timeout 120m | go-junit-report -iocopy -set-exit-code -out report.xml
+                  # go install github.com/ctrf-io/go-ctrf-json-reporter/cmd/go-ctrf-json-reporter@latest
+                  # go test -v -failfast -timeout 120m -json | go-ctrf-json-reporter -output report.json -verbose
+                  go install gotest.tools/gotestsum@latest
+                  go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m
+           ################ Cleanup ##################
+            - name: Terratest - Failsafe Terraform Destroy
+              if: failure()
+              working-directory: aws/ec2/test/src
+              timeout-minutes: 30
+              run: |
+                  go test -v -timeout 30m -run TestTeardown
+            # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
+            - name: Filter logger.go from the test report (too large)
+              if: always()
+              working-directory: aws/ec2/test/src
+              run: |
+                  sed 's/&#xA;/\n/g' < "./tests.xml" |
+                  grep -E -v '^.*logger\.go.*$' |
+                  sed 's/\n/&#xA;/g' > "./tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml"
+            - name: Upload test reports
+              if: always()
+              uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+              with:
+                  name: test-reports-${{ env.CAMUNDA_HYPHENS }}
+                  path: ${{ github.workspace }}/aws/ec2/test/src/tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml
+                  retention-days: 7
+            - name: Cleanup S3 state bucket
+              if: always() && steps.terratest.outcome == 'success'
+              run: |
+                  aws s3 rm "s3://tf-state-multi-reg/state/${TF_PREFIX}/terraform.tfstate"
+            - name: Remove profile credentials from ~/.aws/credentials
+              if: always()
+              run: |
+                  rm -rf ~/.aws/credentials
+
+    test-report:
+        runs-on: ubuntu-latest
+        if: always()
+        needs:
+            - test
+        outputs:
+            SNAPSHOT_ERROR: ${{ steps.determine-if-failed-tests-include-snapshot.outputs.SNAPSHOT_ERROR }}
+        steps:
+            - name: Download artifacts
+              uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
+              with:
+                  pattern: test-reports-*
+                  path: /tmp/testreports
+                  merge-multiple: true
+            - name: Determine if failed tests include SNAPSHOT
+              id: determine-if-failed-tests-include-snapshot
+              run: |
+                  file=$(find /tmp/testreports -name "*SNAPSHOT*.xml" -type f)
+                  echo "Found file: $file"
+                  if grep -q "FAIL" "$file"; then
+                    echo "File containing 'SNAPSHOT' with FAIL exists"
+                    echo "SNAPSHOT_ERROR=true" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "No file containing 'SNAPSHOT' or with FAIL found"
+                    echo "SNAPSHOT_ERROR=false" >> "$GITHUB_OUTPUT"
+                  fi
+            - name: Run test-summary
+              uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2
+              with:
+                  paths: /tmp/testreports/**/*.xml
+
+    notify-on-failure:
+        runs-on: ubuntu-latest
+        # if only snapshot error was detected, don't report
+        if: github.event_name == 'schedule' && failure() && needs.test-report.outputs.SNAPSHOT_ERROR == 'false'
+        needs:
+            - test
+            - test-report
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@1b6af8e7117e4e9bdf777911b7a724879b59fcfe # 1.2.4
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
