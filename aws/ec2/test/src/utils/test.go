@@ -17,7 +17,7 @@ func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Opt
 	alb := tfOutputs["alb_endpoint"].(string)
 
 	// Using the cookie of Operate for the v2 API is a workaround as v2 API is secured in single jar, even though there's no identity yet
-	// TODO: Remove workaround when proper identity is in place
+	// TODO: Remove workaround when proper identity is in place - related https://github.com/camunda/team-infrastructure-experience/issues/438
 	cmd := shell.Command{
 		Command: "curl",
 		Args:    []string{"-f", "--request", "POST", fmt.Sprintf("%s/api/login?username=demo&password=demo", alb), "--cookie-jar", "cookie.txt"},
