@@ -34,7 +34,7 @@ jobs:
         steps:
             ################## Checkout ##################
             - name: Checkout repository
-              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
             ############# Tool Installations #############
             - name: Install tooling using asdf
               uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
@@ -89,7 +89,7 @@ jobs:
                   exit $?
             - name: Post diff on PR
               if: always() && github.event_name == 'pull_request'
-              uses: int128/diff-action@3be570dc544fa95fcb45525611b05615778714ca # v1
+              uses: int128/diff-action@1b9421f417ab6eb41fa77e30ef1afef6d04e25c6 # v1
               with:
                   base: ${{ env.GOLDEN_PATH }}//tfplan.json
                   head: ${{ env.TF_PATH }}/tfplan_extracted.json

@@ -31,11 +31,11 @@ jobs:
             matrix:
                 camunda:
                     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
-                    - 8.6.3
+                    - 8.6.4
                     - 8.7.0-SNAPSHOT
                 include:
                     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
-                    - camunda: 8.6.3
+                    - camunda: 8.6.4
                       previous_camunda: 8.6.2
                     - camunda: 8.7.0-SNAPSHOT
                       previous_camunda: 8.6.2
@@ -43,7 +43,7 @@ jobs:
         steps:
             ################## Checkout ##################
             - name: Checkout repository
-              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
             ############# Tool Installations #############
             - name: Install tooling using asdf
               uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
@@ -181,7 +181,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@1b6af8e7117e4e9bdf777911b7a724879b59fcfe # 1.2.4
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@4dcb257030b8026f86747777802b10cc6d64c20b # 1.2.5
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
