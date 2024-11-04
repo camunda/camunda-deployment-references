@@ -3,7 +3,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
     - repo: https://github.com/camunda/infraex-common-config
-      rev: 1.2.4 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
+      rev: 1.2.5 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
       hooks:
           - id: update-action-readmes-docker
 
@@ -41,7 +41,7 @@ repos:
             args: [--strict, --force-scope]
 
     - repo: https://github.com/antonbabenko/pre-commit-terraform
-      rev: v1.96.1
+      rev: v1.96.2
       hooks:
           - id: terraform_fmt
           - id: terraform_tflint
