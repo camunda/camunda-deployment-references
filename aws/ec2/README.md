@@ -1,5 +1,11 @@
 # AWS EC2 Reference Implementation
 
+> [!CAUTION]
+> This project is heavily under construction and targeted for the 8.7 release to utilize the new single jar architecture.
+
+> [!WARNING]
+> This project is not intended for production use but rather for demonstration purposes only. There are no guarantees or warranties provided.
+
 ## Project Overview
 
 This reference implementation can be used to deploy Camunda 8 in a highly available setup. It is split into the base infrastructure part done with Terraform and the management part using bash scripts to configure the EC2 instances and deploy Camunda 8.
