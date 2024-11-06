@@ -301,7 +301,7 @@ func TestSecurityFeature(t *testing.T) {
 	// Using zbctl to check that the cluster is secure - I don't have a better way to check this atm
 	cmd = shell.Command{
 		Command: "zbctl",
-		Args:    []string{"status", "--address", fmt.Sprintf("%s:80", tfOutputs["nlb_endpoint"].(string)), "--certPath", "../../scripts/ca-authority.pem"},
+		Args:    []string{"status", "--address", fmt.Sprintf("%s:80", tfOutputs["nlb_endpoint"].(string)), "--certPath", "../../scripts/ca-authority.pem", "--requestTimeout", "3m"},
 	}
 	output = shell.RunCommandAndGetOutput(t, cmd)
 
