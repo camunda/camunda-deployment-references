@@ -59,6 +59,9 @@ jobs:
                   aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+            - name: Copy provider override
+              run: |
+                  cp "${{ github.workspace }}/aws/ec2/test/fixtures/provider_override.tf" "${TF_PATH}/provider_override.tf"
             - name: Run Terraform plan
               working-directory: aws/ec2/terraform
               run: |

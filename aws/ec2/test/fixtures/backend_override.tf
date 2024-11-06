@@ -6,13 +6,3 @@
 terraform {
   backend "s3" {}
 }
-
-provider "aws" {
-  # configuration is done via the AWS CLI
-
-  default_tags {
-    tags = {
-      managed_by = "Terraform"
-    }
-  }
-}

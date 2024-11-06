@@ -122,38 +122,38 @@ SECURITY: The default is false. If set to true will use self-signed certificates
 
 | Name | Type |
 |------|------|
-| [aws_ebs_volume.camunda](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/ebs_volume) | resource |
-| [aws_iam_instance_profile.cloudwatch_instance_profile](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/iam_instance_profile) | resource |
-| [aws_iam_policy.cloudwatch_policy](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/iam_policy) | resource |
-| [aws_iam_role.cloudwatch](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/iam_role) | resource |
-| [aws_iam_role_policy_attachment.cloudwatch_policy_attachment](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_instance.bastion](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/instance) | resource |
-| [aws_instance.camunda](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/instance) | resource |
-| [aws_key_pair.main](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/key_pair) | resource |
-| [aws_kms_key.main](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/kms_key) | resource |
-| [aws_lb.grpc](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb) | resource |
-| [aws_lb.main](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb) | resource |
-| [aws_lb_listener.grpc_26500](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_listener) | resource |
-| [aws_lb_listener.http_8080](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_listener) | resource |
-| [aws_lb_listener.http_9090](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_listener) | resource |
-| [aws_lb_target_group.connectors](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_target_group) | resource |
-| [aws_lb_target_group.grpc](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_target_group) | resource |
-| [aws_lb_target_group.main](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_target_group) | resource |
-| [aws_lb_target_group_attachment.connectors](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_target_group_attachment) | resource |
-| [aws_lb_target_group_attachment.grpc](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_target_group_attachment) | resource |
-| [aws_lb_target_group_attachment.main](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/lb_target_group_attachment) | resource |
-| [aws_security_group.allow_necessary_camunda_ports_within_vpc](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
-| [aws_security_group.allow_package_80_443](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
-| [aws_security_group.allow_remote_80_443](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
-| [aws_security_group.allow_remote_9090](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
-| [aws_security_group.allow_remote_grpc](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
-| [aws_security_group.allow_ssh](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/security_group) | resource |
-| [aws_volume_attachment.ebs_attachment](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/resources/volume_attachment) | resource |
-| [tls_private_key.testing](https://registry.terraform.io/providers/hashicorp/tls/4.0.6/docs/resources/private_key) | resource |
-| [aws_ami.debian](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/data-sources/ami) | data source |
-| [aws_availability_zones.available](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/data-sources/availability_zones) | data source |
-| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/data-sources/caller_identity) | data source |
-| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/5.73.0/docs/data-sources/region) | data source |
+| [aws_ebs_volume.camunda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ebs_volume) | resource |
+| [aws_iam_instance_profile.cloudwatch_instance_profile](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_instance_profile) | resource |
+| [aws_iam_policy.cloudwatch_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
+| [aws_iam_role.cloudwatch](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy_attachment.cloudwatch_policy_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_instance.bastion](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance) | resource |
+| [aws_instance.camunda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance) | resource |
+| [aws_key_pair.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/key_pair) | resource |
+| [aws_kms_key.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
+| [aws_lb.grpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb) | resource |
+| [aws_lb.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb) | resource |
+| [aws_lb_listener.grpc_26500](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
+| [aws_lb_listener.http_8080](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
+| [aws_lb_listener.http_9090](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
+| [aws_lb_target_group.connectors](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group) | resource |
+| [aws_lb_target_group.grpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group) | resource |
+| [aws_lb_target_group.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group) | resource |
+| [aws_lb_target_group_attachment.connectors](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group_attachment) | resource |
+| [aws_lb_target_group_attachment.grpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group_attachment) | resource |
+| [aws_lb_target_group_attachment.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group_attachment) | resource |
+| [aws_security_group.allow_necessary_camunda_ports_within_vpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_security_group.allow_package_80_443](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_security_group.allow_remote_80_443](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_security_group.allow_remote_9090](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_security_group.allow_remote_grpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_security_group.allow_ssh](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_volume_attachment.ebs_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/volume_attachment) | resource |
+| [tls_private_key.testing](https://registry.terraform.io/providers/hashicorp/tls/latest/docs/resources/private_key) | resource |
+| [aws_ami.debian](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ami) | data source |
+| [aws_availability_zones.available](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/availability_zones) | data source |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 ## Inputs
 
 | Name | Description | Type | Default | Required |
