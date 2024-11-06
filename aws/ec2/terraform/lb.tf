@@ -139,6 +139,10 @@ resource "aws_lb" "grpc" {
   name               = "${var.prefix}-nlb-grpc"
   internal           = false
   load_balancer_type = "network"
+  security_groups = [
+    aws_security_group.allow_remote_grpc.id,
+    aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
+  ]
 
   subnets = module.vpc.public_subnets
 }
@@ -147,7 +151,7 @@ resource "aws_lb_listener" "grpc_26500" {
   count = var.enable_nlb ? 1 : 0
 
   load_balancer_arn = aws_lb.grpc[0].arn
-  port              = "80"
+  port              = "26500"
   protocol          = "TCP"
 
   default_action {
