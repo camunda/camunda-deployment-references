@@ -61,7 +61,7 @@ func TestConnectivity(t *testing.T) {
 	t.Log("Test connectivity to EC2 instances")
 
 	// expected values
-	expectedOutputLength := 8
+	expectedOutputLength := 9
 	expectedEc2Instances := 3
 
 	stringOutputs := [...]string{"aws_ami", "alb_endpoint", "nlb_endpoint", "private_key", "public_key", "aws_opensearch_domain", "bastion_ip"}

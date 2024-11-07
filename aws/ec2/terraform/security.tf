@@ -145,13 +145,6 @@ resource "aws_security_group" "allow_ssh" {
     cidr_blocks = var.limit_access_to_cidrs
   }
 
-  # egress {
-  #   from_port   = 22
-  #   to_port     = 22
-  #   protocol    = "tcp"
-  #   cidr_blocks = var.limit_access_to_cidrs
-  # }
-
   tags = {
     Name = "allow_ssh"
   }
