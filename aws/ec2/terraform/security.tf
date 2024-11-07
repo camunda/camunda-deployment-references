@@ -1,13 +1,3 @@
-locals {
-  // 2650x - Zeebe
-  // 9600 - Metrics endpoint
-  // 9090 - Connectors
-  // 8080 - Camunda WebUi
-  // 443 - HTTPS (e.g. OpenSearch)
-  // 22 - For SSH from Bastion host
-  vpc_ports = [26500, 26501, 26502, 9600, 9090, 8080, 443, 22]
-}
-
 resource "aws_kms_key" "main" {
   description             = "${var.prefix} - KMS key for encrypting EBS volumes and OpenSearch"
   deletion_window_in_days = 7
@@ -31,7 +21,7 @@ resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   vpc_id      = module.vpc.vpc_id
 
   dynamic "ingress" {
-    for_each = local.vpc_ports
+    for_each = var.ports
     content {
       from_port   = ingress.value
       to_port     = ingress.value
@@ -42,7 +32,7 @@ resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   }
 
   dynamic "egress" {
-    for_each = local.vpc_ports
+    for_each = var.ports
 
     content {
       from_port   = egress.value
@@ -155,12 +145,12 @@ resource "aws_security_group" "allow_ssh" {
     cidr_blocks = var.limit_access_to_cidrs
   }
 
-  egress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = var.limit_access_to_cidrs
-  }
+  # egress {
+  #   from_port   = 22
+  #   to_port     = 22
+  #   protocol    = "tcp"
+  #   cidr_blocks = var.limit_access_to_cidrs
+  # }
 
   tags = {
     Name = "allow_ssh"

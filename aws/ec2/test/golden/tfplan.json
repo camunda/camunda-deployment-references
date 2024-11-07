@@ -2629,16 +2629,7 @@
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 1,
       "sensitive_values": {
-        "egress": [
-          {
-            "cidr_blocks": [
-              false
-            ],
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "security_groups": []
-          }
-        ],
+        "egress": [],
         "ingress": [
           {
             "cidr_blocks": [
@@ -2655,21 +2646,6 @@
       "type": "aws_security_group",
       "values": {
         "description": "Allow SSH traffic",
-        "egress": [
-          {
-            "cidr_blocks": [
-              "0.0.0.0/0"
-            ],
-            "description": "",
-            "from_port": 22,
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "protocol": "tcp",
-            "security_groups": [],
-            "self": false,
-            "to_port": 22
-          }
-        ],
         "ingress": [
           {
             "cidr_blocks": [

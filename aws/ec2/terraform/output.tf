@@ -42,3 +42,8 @@ output "public_key" {
   sensitive   = true
   description = "(Optional) This public key is meant for testing purposes only and enabled via the variable `generate_ssh_key_pair`. Please supply your own public key via the variable `pub_key_path`."
 }
+
+output "ports" {
+  value       = var.ports
+  description = "The ports to open in the security group within the VPC. For easier consumption in scripts."
+}
