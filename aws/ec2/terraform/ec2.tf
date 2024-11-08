@@ -9,7 +9,7 @@ resource "aws_instance" "camunda" {
 
   vpc_security_group_ids = [
     aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
-    aws_security_group.allow_remote_80_443.id,
+    aws_security_group.allow_package_80_443.id,
     aws_security_group.allow_remote_grpc.id,
   ]
 

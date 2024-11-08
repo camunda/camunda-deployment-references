@@ -61,7 +61,7 @@ func TestConnectivity(t *testing.T) {
 	t.Log("Test connectivity to EC2 instances")
 
 	// expected values
-	expectedOutputLength := 8
+	expectedOutputLength := 9
 	expectedEc2Instances := 3
 
 	stringOutputs := [...]string{"aws_ami", "alb_endpoint", "nlb_endpoint", "private_key", "public_key", "aws_opensearch_domain", "bastion_ip"}
@@ -301,7 +301,7 @@ func TestSecurityFeature(t *testing.T) {
 	// Using zbctl to check that the cluster is secure - I don't have a better way to check this atm
 	cmd = shell.Command{
 		Command: "zbctl",
-		Args:    []string{"status", "--address", fmt.Sprintf("%s:80", tfOutputs["nlb_endpoint"].(string)), "--certPath", "../../scripts/ca-authority.pem"},
+		Args:    []string{"status", "--address", fmt.Sprintf("%s:26500", tfOutputs["nlb_endpoint"].(string)), "--certPath", "../../scripts/ca-authority.pem", "--requestTimeout", "30s"},
 	}
 	output = shell.RunCommandAndGetOutput(t, cmd)
 
@@ -311,7 +311,7 @@ func TestSecurityFeature(t *testing.T) {
 	t.Log("[Test] Expect the following to fail due to missing certificate")
 	cmd = shell.Command{
 		Command: "zbctl",
-		Args:    []string{"status", "--address", fmt.Sprintf("%s:80", tfOutputs["nlb_endpoint"].(string))},
+		Args:    []string{"status", "--address", fmt.Sprintf("%s:26500", tfOutputs["nlb_endpoint"].(string))},
 	}
 	output, err = shell.RunCommandAndGetOutputE(t, cmd)
 

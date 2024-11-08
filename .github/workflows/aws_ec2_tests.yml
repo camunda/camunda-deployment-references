@@ -80,7 +80,7 @@ jobs:
             # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  cp ${{ github.workspace }}/aws/ec2/test/fixtures/override.tf ${{ github.workspace }}/aws/ec2/terraform/override.tf
+                  cp ${{ github.workspace }}/aws/ec2/test/fixtures/*.tf ${{ github.workspace }}/aws/ec2/terraform/
                   echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.TF_PREFIX }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
             # yamllint enable rule:line-length
             - name: Set Camunda version
@@ -103,10 +103,6 @@ jobs:
                   mkdir /home/runner/.ssh
                   touch /home/runner/.ssh/config
 
-                  # go install github.com/jstemmer/go-junit-report/v2@latest
-                  # go test -v -failfast -timeout 120m | go-junit-report -iocopy -set-exit-code -out report.xml
-                  # go install github.com/ctrf-io/go-ctrf-json-reporter/cmd/go-ctrf-json-reporter@latest
-                  # go test -v -failfast -timeout 120m -json | go-ctrf-json-reporter -output report.json -verbose
                   go install gotest.tools/gotestsum@latest
                   go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m
            ################ Cleanup ##################

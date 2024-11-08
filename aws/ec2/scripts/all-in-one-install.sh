@@ -48,9 +48,12 @@ if [ -z "${IPS+x}" ]; then
     IPS_JSON=$(terraform -chdir="${CURRENT_DIR}/../terraform" output -json camunda_ips)
     cleaned_str=$(echo "${IPS_JSON}" | tr -d '[]"')
     read -r -a IPS <<< "$(echo "${cleaned_str}" | tr ',' ' ')"
+else
+    # IPS env var can be supplied as "IP1 IP2 IP3"
+    read -r -a IPS <<< "${IPS[@]}"
 fi
 
-echo "[INFO] Detected following values for IPS: ${cleaned_str}"
+echo "[INFO] Detected following values for IPS: ${IPS[*]}"
 
 if [ -z "${BASTION_IP+x}" ]; then
     echo "[INFO] BASTION_IP was not overwritten via env vars... pulling from Terraform state file."

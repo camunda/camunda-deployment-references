@@ -1570,7 +1570,7 @@
             "type": "forward"
           }
         ],
-        "port": 80,
+        "port": 26500,
         "protocol": "TCP",
         "tags": null,
         "tags_all": {
@@ -2001,6 +2001,14 @@
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
             "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
           }
         ],
         "ingress": [
@@ -2076,6 +2084,19 @@
       "values": {
         "description": "Allow necessary Camunda ports within the VPC",
         "egress": [
+          {
+            "cidr_blocks": [
+              "10.200.0.0/16"
+            ],
+            "description": "",
+            "from_port": 22,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 22
+          },
           {
             "cidr_blocks": [
               "10.200.0.0/16"
@@ -2287,6 +2308,78 @@
       }
     },
     {
+      "address": "aws_security_group.allow_package_80_443",
+      "mode": "managed",
+      "name": "allow_package_80_443",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "egress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "ingress": [],
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_security_group",
+      "values": {
+        "description": "Allow remote HTTP and HTTPS traffic for e.g. package updates",
+        "egress": [
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "",
+            "from_port": 443,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 443
+          },
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "",
+            "from_port": 80,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 80
+          }
+        ],
+        "name": "allow_package_80_443",
+        "revoke_rules_on_delete": false,
+        "tags": {
+          "Name": "allow_package_80_443"
+        },
+        "tags_all": {
+          "Name": "allow_package_80_443",
+          "managed_by": "Terraform"
+        },
+        "timeouts": null
+      }
+    },
+    {
       "address": "aws_security_group.allow_remote_80_443",
       "mode": "managed",
       "name": "allow_remote_80_443",
@@ -2334,7 +2427,7 @@
       },
       "type": "aws_security_group",
       "values": {
-        "description": "Allow remote HTTP and HTTPS traffic for e.g. package updates",
+        "description": "Allow remote HTTP and HTTPS traffic for LoadBalancer",
         "egress": [
           {
             "cidr_blocks": [
@@ -2435,7 +2528,7 @@
       },
       "type": "aws_security_group",
       "values": {
-        "description": "Allow remote traffic on 9090 for the LB",
+        "description": "Allow remote traffic on 9090 for the LoadBalancer",
         "egress": [
           {
             "cidr_blocks": [
@@ -2536,16 +2629,7 @@
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 1,
       "sensitive_values": {
-        "egress": [
-          {
-            "cidr_blocks": [
-              false
-            ],
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "security_groups": []
-          }
-        ],
+        "egress": [],
         "ingress": [
           {
             "cidr_blocks": [
@@ -2562,21 +2646,6 @@
       "type": "aws_security_group",
       "values": {
         "description": "Allow SSH traffic",
-        "egress": [
-          {
-            "cidr_blocks": [
-              "0.0.0.0/0"
-            ],
-            "description": "",
-            "from_port": 22,
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "protocol": "tcp",
-            "security_groups": [],
-            "self": false,
-            "to_port": 22
-          }
-        ],
         "ingress": [
           {
             "cidr_blocks": [

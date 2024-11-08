@@ -7,21 +7,23 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.73.0"
+      version = "~> 5.74"
     }
     tls = {
       source  = "hashicorp/tls"
-      version = "4.0.6"
+      version = "~> 4.0"
     }
   }
 }
 
-provider "aws" {
-  # set region via $AWS_REGION environment variable
+# Uncomment if used as reference architecture
+# If used as module, a provider configuration is not allowed to be defined
+# provider "aws" {
+#   # set region via $AWS_REGION environment variable
 
-  default_tags {
-    tags = {
-      managed_by = "Terraform"
-    }
-  }
-}
+#   default_tags {
+#     tags = {
+#       managed_by = "Terraform"
+#     }
+#   }
+# }

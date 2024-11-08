@@ -45,6 +45,7 @@ repos:
       hooks:
           - id: terraform_fmt
           - id: terraform_tflint
+            exclude: (_override.tf)
           - id: terraform_docs
             args:
                 - --hook-config=--path-to-file=README.md
