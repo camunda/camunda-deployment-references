@@ -1576,7 +1576,6 @@
         "tags_all": {
           "managed_by": "Terraform"
         },
-        "tcp_idle_timeout_seconds": 350,
         "timeouts": null
       }
     },
@@ -1620,7 +1619,6 @@
         "tags_all": {
           "managed_by": "Terraform"
         },
-        "tcp_idle_timeout_seconds": null,
         "timeouts": null
       }
     },
@@ -1664,7 +1662,6 @@
         "tags_all": {
           "managed_by": "Terraform"
         },
-        "tcp_idle_timeout_seconds": null,
         "timeouts": null
       }
     },
