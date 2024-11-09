@@ -13,7 +13,7 @@ locals {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "v5.14.0"
+  version = "v5.15.0"
 
   name = local.name
   cidr = local.vpc_cidr
