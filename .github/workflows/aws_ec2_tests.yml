@@ -31,11 +31,11 @@ jobs:
             matrix:
                 camunda:
                     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
-                    - 8.6.4
+                    - 8.6.5
                     - 8.7.0-SNAPSHOT
                 include:
                     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
-                    - camunda: 8.6.4
+                    - camunda: 8.6.5
                       previous_camunda: 8.6.2
                     - camunda: 8.7.0-SNAPSHOT
                       previous_camunda: 8.6.2
