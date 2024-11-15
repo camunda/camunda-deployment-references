@@ -30,7 +30,7 @@ module "rosa_cluster" {
 
   # Default node type for the OpenShift cluster
   compute_node_instance_type = "m6i.xlarge"
-  replicas                   = 3
+  replicas                   = 5
 }
 
 # Outputs of the parent module
