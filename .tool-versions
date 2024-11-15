@@ -9,14 +9,14 @@
 #                                                                              #
 ################################################################################
 
-awscli 2.18.5
+awscli 2.19.4
 
 # renovate: datasource=github-tags depName=rhysd/actionlint
-actionlint 1.7.3
+actionlint 1.7.4
 
 delta 0.18.2
 
-golang 1.23.2
+golang 1.23.3
 
 jq 1.7.1
 

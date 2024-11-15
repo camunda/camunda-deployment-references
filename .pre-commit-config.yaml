@@ -21,12 +21,12 @@ repos:
           - id: detect-private-key
 
     - repo: https://github.com/rhysd/actionlint
-      rev: v1.7.3
+      rev: v1.7.4
       hooks:
           - id: actionlint-docker
 
     - repo: https://github.com/renovatebot/pre-commit-hooks
-      rev: 38.132.1
+      rev: 39.9.1
       hooks:
           - id: renovate-config-validator
             args: [--strict]
