@@ -1,4 +1,4 @@
-oc create secret generic identity-secret-for-components \
+kubectl create secret generic identity-secret-for-components \
   --namespace camunda \
   --from-literal=connectors-secret="$CONNECTORS_SECRET" \
   --from-literal=console-secret="$CONSOLE_SECRET" \
