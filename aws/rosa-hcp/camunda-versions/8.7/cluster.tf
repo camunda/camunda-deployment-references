@@ -1,7 +1,7 @@
 locals {
   rosa_cluster_name = "my-rosa" # Change this to a name of your choice
 
-  rosa_cluster_zones = ["eu-west-1a", "eu-west-1b", "eu-west-1c", ]
+  rosa_cluster_zones = ["eu-west-1a", "eu-west-1b", "eu-west-1c"] # Adjust to your needs
 
   rosa_rh_token = "REPLACEME" # Change the token with yours
 
