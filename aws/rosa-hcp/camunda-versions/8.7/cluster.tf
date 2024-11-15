@@ -3,7 +3,7 @@ locals {
 
   rosa_cluster_zones = ["eu-west-1a", "eu-west-1b", "eu-west-1c", ]
 
-  rosa_rh_token = "REPLACEME" # Change the token to the one that own
+  rosa_rh_token = "REPLACEME" # Change the token with yours
 
   rosa_admin_username = "kubeadmin"
   rosa_admin_password = "CHANGEME1234r!" # Change the password of your admin password
@@ -17,11 +17,10 @@ module "rosa_cluster" {
   availability_zones = local.rosa_cluster_zones
 
   # Set CIDR ranges or use the defaults
-  # TODO : remove when dual region is available
-  # vpc_cidr_block = "10.0.0.0/16"
-  # machine_cidr   = "10.0.0.0/18"
-  # service_cidr   = "10.0.128.0/18"
-  # pod_cidr       = "10.0.64.0/18"
+  vpc_cidr_block = "10.0.0.0/16"
+  machine_cidr   = "10.0.0.0/18"
+  service_cidr   = "10.0.128.0/18"
+  pod_cidr       = "10.0.64.0/18"
 
   offline_access_token = local.rosa_rh_token
 
