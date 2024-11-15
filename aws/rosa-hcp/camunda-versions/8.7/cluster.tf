@@ -32,3 +32,5 @@ module "rosa_cluster" {
   compute_node_instance_type = "m6i.xlarge"
   replicas                   = 3
 }
+
+# TODO: set outputs
