@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 5.35.0"
     }
+    rhcs = {
+      version = "1.6.6"
+      source  = "terraform-redhat/rhcs"
+    }
   }
 
   backend "s3" {
