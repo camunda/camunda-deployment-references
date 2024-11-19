@@ -1,18 +1,5 @@
 ---
-identityKeycloak:
-    postgresql:
-        enabled: true # use the embbeded database
-    auth:
-        existingSecret: identity-secret-for-components
-
 global:
-    compatibility:
-        openshift:
-            adaptSecurityContext: force # enforce compatibility with SCCs
-
-    elasticsearch:
-        enabled: true # use the embbeded elasticsearch
-
     identity:
 
         auth:
@@ -45,14 +32,3 @@ global:
 
 identity:
     fullURL: http://localhost:8080 # replace this with a port of your choice when you will do port forwarding
-
-webModeler:
-    enabled: false # by default, webModeler is not enabled
-
-    restapi:
-        mail:
-            existingSecret: identity-secret-for-components # reference the smtp password
-            fromAddress: changeme@example.com   # change this required value
-
-console:
-    enabled: false # by default, console is not enabled

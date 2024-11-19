@@ -1,9 +1,7 @@
 locals {
   rosa_cluster_name = "my-rosa" # Change this to a name of your choice
 
-  rosa_cluster_zones = ["eu-west-1a", "eu-west-1b", "eu-west-1c"] # Adjust to your needs
-
-  rosa_rh_token = "REPLACEME" # Change the token with yours
+  rosa_cluster_zones = ["eu-north-1a", "eu-north-1b", "eu-north-1c"] # Adjust to your needs and align with your value of AWS_REGION
 
   rosa_admin_username = "kubeadmin"
   rosa_admin_password = "CHANGEME1234r!" # Change the password of your admin password
@@ -22,15 +20,13 @@ module "rosa_cluster" {
   service_cidr_block = "10.0.128.0/18"
   pod_cidr_block     = "10.0.64.0/18"
 
-  offline_access_token = local.rosa_rh_token
-
   # admin access
   htpasswd_username = local.rosa_admin_username
   htpasswd_password = local.rosa_admin_password
 
   # Default node type for the OpenShift cluster
   compute_node_instance_type = "m6i.xlarge"
-  replicas                   = 5
+  replicas                   = 6
 }
 
 # Outputs of the parent module

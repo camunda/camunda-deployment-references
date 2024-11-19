@@ -1,0 +1,5 @@
+---
+global:
+    compatibility:
+        openshift:
+            adaptSecurityContext: disabled # do not enforce SCCs, default
