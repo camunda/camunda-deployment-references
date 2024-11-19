@@ -18,7 +18,7 @@ zeebeGateway:
                 # this is the external route certificate
                 secretName: camunda-platform-external-certificate
         hosts:
-            - host: zeebe.${DOMAIN_NAME}
+            - host: zeebe-${DOMAIN_NAME}
 
     # mount the Service certificate in the pod
     env:

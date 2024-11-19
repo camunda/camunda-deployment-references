@@ -1,0 +1,112 @@
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+    name: route-camunda-platform
+spec:
+    host: ${DOMAIN_NAME}
+    to:
+        kind: Service
+        name: camunda-keycloak
+    port:
+        targetPort: 80
+    path: /auth/
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+    name: route-camunda-identity
+spec:
+    host: ${DOMAIN_NAME}
+    to:
+        kind: Service
+        name: camunda-identity
+    port:
+        targetPort: 80
+    path: /identity/
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+    name: route-camunda-operate
+spec:
+    host: ${DOMAIN_NAME}
+    to:
+        kind: Service
+        name: camunda-operate
+    port:
+        targetPort: 80
+    path: /operate/
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+    name: route-camunda-optimize
+spec:
+    host: ${DOMAIN_NAME}
+    to:
+        kind: Service
+        name: camunda-optimize
+    port:
+        targetPort: 80
+    path: /optimize/
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+    name: route-camunda-tasklist
+spec:
+    host: ${DOMAIN_NAME}
+    to:
+        kind: Service
+        name: camunda-tasklist
+    port:
+        targetPort: 80
+    path: /tasklist/
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+    name: route-camunda-zeebe-gateway
+spec:
+    host: ${DOMAIN_NAME}
+    to:
+        kind: Service
+        name: camunda-zeebe-gateway
+    port:
+        targetPort: 8080
+    path: /zeebe/
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+    name: route-camunda-console
+spec:
+    host: ${DOMAIN_NAME}
+    to:
+        kind: Service
+        name: camunda-console
+    port:
+        targetPort: 80
+    path: /console/
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+    name: route-camunda-webmodeler-restapi
+spec:
+    host: ${DOMAIN_NAME}
+    to:
+        kind: Service
+        name: camunda-webmodeler-restapi
+    port:
+        targetPort: 80
+    path: /modeler/

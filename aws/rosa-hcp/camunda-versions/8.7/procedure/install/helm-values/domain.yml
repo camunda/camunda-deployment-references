@@ -1,10 +1,9 @@
 ---
 global:
+
+    # the ingress is manages directly by the Route manifests ../manifest/routes.yml
     ingress:
-        enabled: true
-        host: ${DOMAIN_NAME}
-        tls:
-            enabled: true
+        enabled: false
 
     identity:
 
