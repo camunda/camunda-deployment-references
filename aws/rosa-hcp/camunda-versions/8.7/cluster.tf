@@ -25,7 +25,7 @@ module "rosa_cluster" {
   htpasswd_password = local.rosa_admin_password
 
   # Default node type for the OpenShift cluster
-  compute_node_instance_type = "m6i.xlarge"
+  compute_node_instance_type = "m7i.xlarge"
   replicas                   = 6
 }
 

@@ -1,17 +1,39 @@
 ---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+    annotations:
+        haproxy.router.openshift.io/timeout: 300s
+        route.openshift.io/termination: reencrypt
+        route.openshift.io/destination-ca-certificate-secret: camunda-platform-internal-service-certificate
+    name: camunda-zeebe-gateway-grpc
+spec:
+    host: zeebe-${DOMAIN_NAME}
+    port:
+        targetPort: gateway
+    tls:
+        termination: reencrypt
+    to:
+        kind: Service
+        name: camunda-zeebe-gateway
+    wildcardPolicy: None
+---
 
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-    name: route-camunda-platform
+    name: route-camunda-keycloak
 spec:
     host: ${DOMAIN_NAME}
     to:
         kind: Service
         name: camunda-keycloak
     port:
-        targetPort: 80
+        targetPort: http
     path: /auth/
+    tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
 ---
 
 apiVersion: route.openshift.io/v1
@@ -24,8 +46,11 @@ spec:
         kind: Service
         name: camunda-identity
     port:
-        targetPort: 80
+        targetPort: http
     path: /identity/
+    tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
 ---
 
 apiVersion: route.openshift.io/v1
@@ -38,8 +63,11 @@ spec:
         kind: Service
         name: camunda-operate
     port:
-        targetPort: 80
+        targetPort: http
     path: /operate/
+    tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
 ---
 
 apiVersion: route.openshift.io/v1
@@ -52,8 +80,11 @@ spec:
         kind: Service
         name: camunda-optimize
     port:
-        targetPort: 80
+        targetPort: http
     path: /optimize/
+    tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
 ---
 
 apiVersion: route.openshift.io/v1
@@ -66,8 +97,11 @@ spec:
         kind: Service
         name: camunda-tasklist
     port:
-        targetPort: 80
+        targetPort: http
     path: /tasklist/
+    tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
 ---
 
 apiVersion: route.openshift.io/v1
@@ -80,8 +114,11 @@ spec:
         kind: Service
         name: camunda-zeebe-gateway
     port:
-        targetPort: 8080
+        targetPort: rest
     path: /zeebe/
+    tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
 ---
 
 apiVersion: route.openshift.io/v1
@@ -94,8 +131,11 @@ spec:
         kind: Service
         name: camunda-console
     port:
-        targetPort: 80
+        targetPort: http
     path: /console/
+    tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
 ---
 
 apiVersion: route.openshift.io/v1
@@ -108,5 +148,8 @@ spec:
         kind: Service
         name: camunda-webmodeler-restapi
     port:
-        targetPort: 80
+        targetPort: http
     path: /modeler/
+    tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
