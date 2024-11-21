@@ -33,12 +33,14 @@ jobs:
                     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
                     - 8.6.5
                     - 8.7.0-SNAPSHOT
-                include:
-                    # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
-                    - camunda: 8.6.5
-                      previous_camunda: 8.6.2
+                isPR:
+                    - ${{ github.event_name == 'pull_request' && !contains(github.head_ref, 'SNAPSHOT') }}
+                previous_camunda:
+                    - 8.6.2
+                # we don't include SNAPSHOT in PR due to the instability of its nature except if it's explicitly mentioned
+                exclude:
                     - camunda: 8.7.0-SNAPSHOT
-                      previous_camunda: 8.6.2
+                      isPR: true
 
         steps:
             ################## Checkout ##################
@@ -89,6 +91,13 @@ jobs:
                   # We need to replace the string without substitution except for that of GitHub Actions
                   # shellcheck disable=SC2016
                   sed -i '0,/CAMUNDA_VERSION/s/CAMUNDA_VERSION=.*/CAMUNDA_VERSION=${CAMUNDA_VERSION:-"${{ matrix.camunda }}"}/' camunda-install.sh
+            ########## Create Infrastructure ############
+            - name: Terratest - Terraform Apply
+              if: always() && success()
+              working-directory: aws/ec2/test/src
+              timeout-minutes: 41
+              run: |
+                  go test -v -timeout 40m -run TestSetup
             ################ Run Tests ##################
             - name: Terratest - Run all Tests
               id: terratest
@@ -104,12 +113,13 @@ jobs:
                   touch /home/runner/.ssh/config
 
                   go install gotest.tools/gotestsum@latest
-                  go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m
-           ################ Cleanup ##################
-            - name: Terratest - Failsafe Terraform Destroy
-              if: failure()
+                  # Run all tests except TestSetup and TestTeardown
+                  go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m --skip 'TestSetup|TestTeardown'
+            ################ Cleanup ##################
+            - name: Terratest - Terraform Destroy
+              if: always()
               working-directory: aws/ec2/test/src
-              timeout-minutes: 30
+              timeout-minutes: 31
               run: |
                   go test -v -timeout 30m -run TestTeardown
             # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
