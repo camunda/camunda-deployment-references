@@ -3,7 +3,7 @@ global:
 
     # the ingress is manages directly by the Route manifests ../manifest/routes.yml
     ingress:
-        enabled: false
+        enabled: false # TODO: ask Hamza to fix it
 
     identity:
 
