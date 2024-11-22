@@ -5,7 +5,7 @@ tasklist:
           value: 'true'
         - name: CAMUNDA_TASKLIST_ZEEBE_CERTIFICATEPATH
           value: /usr/local/tasklist/config/tls.crt
-        - name: CAMUNDA_TASKLIST_ZEEBE_BROKERCONTACTPOINT
+        - name: CAMUNDA_TASKLIST_ZEEBE_GATEWAYADDRESS
           value: camunda-zeebe-gateway.camunda.svc.cluster.local:26500
     extraVolumeMounts:
         - name: certificate
