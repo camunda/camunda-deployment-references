@@ -64,3 +64,6 @@ zeebeGateway:
 
 console:
     contextPath: /console
+
+connectors:
+    contextPath: /connectors

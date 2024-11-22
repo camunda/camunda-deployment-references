@@ -5,7 +5,7 @@ operate:
           value: 'true'
         - name: CAMUNDA_OPERATE_ZEEBE_CERTIFICATEPATH
           value: /usr/local/operate/config/tls.crt
-        - name: CAMUNDA_OPERATE_ZEEBE_BROKERCONTACTPOINT
+        - name: CAMUNDA_OPERATE_ZEEBE_GATEWAYADDRESS
           # camunda-zeebe-gateway.<namespace>.svc.cluster.local
           value: camunda-zeebe-gateway.camunda.svc.cluster.local:26500
     extraVolumeMounts:
