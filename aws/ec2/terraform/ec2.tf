@@ -4,7 +4,7 @@ locals {
 resource "aws_instance" "camunda" {
   count         = var.instance_count
   ami           = var.aws_ami == "" ? data.aws_ami.debian.id : var.aws_ami
-  instance_type = var.aws_instance_type
+  instance_type = var.aws_instance_type[var.aws_instance_architecture]
   subnet_id     = module.vpc.private_subnets[count.index]
 
   vpc_security_group_ids = [
@@ -107,7 +107,7 @@ resource "aws_instance" "bastion" {
   count = var.enable_jump_host ? 1 : 0
 
   ami           = var.aws_ami == "" ? data.aws_ami.debian.id : var.aws_ami
-  instance_type = var.aws_instance_type_bastion
+  instance_type = var.aws_instance_type_bastion[var.aws_instance_architecture]
   subnet_id     = module.vpc.public_subnets[0]
 
   vpc_security_group_ids = [
