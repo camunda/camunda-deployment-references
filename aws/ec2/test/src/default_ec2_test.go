@@ -31,8 +31,10 @@ const (
 var (
 	tfBinary = utils.GetEnv("TERRAFORM_BINARY", "terraform")
 	tfVars   = map[string]interface{}{
-		"prefix":                utils.GetEnv("TF_PREFIX", "ec2-jar-test"),
-		"generate_ssh_key_pair": true,
+		"prefix":                    utils.GetEnv("TF_PREFIX", "ec2-jar-test"),
+		"opensearch_architecture":   utils.GetEnv("ARCHITECTURE", "x86_64"),
+		"aws_instance_architecture": utils.GetEnv("ARCHITECTURE", "x86_64"),
+		"generate_ssh_key_pair":     true,
 	}
 )
 
