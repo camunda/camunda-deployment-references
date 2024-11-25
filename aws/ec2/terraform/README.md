@@ -160,7 +160,7 @@ SECURITY: The default is false. If set to true will use self-signed certificates
 |------|-------------|------|---------|:--------:|
 | <a name="input_aws_ami"></a> [aws\_ami](#input\_aws\_ami) | The AMI to use for the EC2 instances if empty, the latest Debian 12 AMI will be used | `string` | `""` | no |
 | <a name="input_aws_instance_architecture"></a> [aws\_instance\_architecture](#input\_aws\_instance\_architecture) | The architecture of the AMI to use for the EC2 instances. Available options: x86\_64, arm64 | `string` | `"x86_64"` | no |
-| <a name="input_aws_instance_type"></a> [aws\_instance\_type](#input\_aws\_instance\_type) | The instance type to use for the EC2 instances based on the architecture | `map(string)` | <pre>{<br/>  "arm64": "m8g.xlarge",<br/>  "x86_64": "m7i.xlarge"<br/>}</pre> | no |
+| <a name="input_aws_instance_type"></a> [aws\_instance\_type](#input\_aws\_instance\_type) | The instance type to use for the EC2 instances based on the architecture | `map(string)` | <pre>{<br/>  "arm64": "m7g.xlarge",<br/>  "x86_64": "m7i.xlarge"<br/>}</pre> | no |
 | <a name="input_aws_instance_type_bastion"></a> [aws\_instance\_type\_bastion](#input\_aws\_instance\_type\_bastion) | The instance type to use for the bastion host based on the architecture | `map(string)` | <pre>{<br/>  "arm64": "t4g.nano",<br/>  "x86_64": "t3.nano"<br/>}</pre> | no |
 | <a name="input_camunda_disk_size"></a> [camunda\_disk\_size](#input\_camunda\_disk\_size) | The size of the Camunda disk in GiB | `number` | `50` | no |
 | <a name="input_cidr_blocks"></a> [cidr\_blocks](#input\_cidr\_blocks) | The CIDR block to use for the VPC | `string` | `"10.200.0.0/16"` | no |

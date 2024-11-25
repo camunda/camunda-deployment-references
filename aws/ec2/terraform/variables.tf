@@ -97,7 +97,7 @@ variable "aws_instance_type" {
   description = "The instance type to use for the EC2 instances based on the architecture"
   default = {
     x86_64 = "m7i.xlarge"
-    arm64  = "m8g.xlarge"
+    arm64  = "m7g.xlarge"
   }
 }
 
