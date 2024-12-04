@@ -3,6 +3,7 @@ Description=Camunda Connectors
 After=network.target
 StartLimitIntervalSec=300
 StartLimitBurst=20
+ConditionFileNotEmpty=/opt/camunda/connectors/connectors-environment
 
 [Service]
 Type=simple

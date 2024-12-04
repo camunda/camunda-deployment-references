@@ -21,6 +21,9 @@ This folder contains the Terraform configuration files used to set up the AWS in
 > [!NOTE]
 > It is assumed that the user has already configured their access to AWS via the aws cli `aws configure` or by providing environment variables with access credentials.
 
+> [!IMPORTANT]
+> The `arm64` architecture is not currently supported for production environments. Please refer to the [supported environments documentation](https://docs.camunda.io/docs/reference/supported-environments/) for a list of officially supported environments.
+
 #### Step 1: Clone the Repository
 
 ```sh
