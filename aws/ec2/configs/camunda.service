@@ -3,6 +3,7 @@ Description=Camunda Platform
 After=network.target
 StartLimitIntervalSec=300
 StartLimitBurst=15
+ConditionFileNotEmpty=/opt/camunda/camunda/config/camunda-environment
 
 [Service]
 Type=simple

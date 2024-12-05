@@ -1,4 +1,7 @@
 module "opensearch_domain" {
+  // for additional information on the module, see:
+  // https://github.com/camunda/camunda-tf-eks-module/tree/main/modules/opensearch
+
   # tflint-ignore: terraform_module_pinned_source
   source = "github.com/camunda/camunda-tf-eks-module//modules/opensearch"
 
@@ -10,9 +13,11 @@ module "opensearch_domain" {
   vpc_id         = module.vpc.vpc_id
   cidr_blocks    = module.vpc.private_subnets_cidr_blocks
 
-  instance_type   = var.opensearch_instance_type
+  instance_type   = var.opensearch_instance_type[var.opensearch_architecture]
   instance_count  = var.opensearch_instance_count
   ebs_volume_size = var.opensearch_disk_size
+
+  dedicated_master_type = var.opensearch_dedicated_master_type[var.opensearch_architecture]
 
   advanced_security_enabled = false
 

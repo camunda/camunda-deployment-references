@@ -15,7 +15,7 @@ data "aws_ami" "debian" {
 
   filter {
     name   = "architecture"
-    values = ["x86_64"]
+    values = [var.aws_instance_architecture]
   }
 }
 
@@ -93,15 +93,27 @@ variable "aws_ami" {
 }
 
 variable "aws_instance_type" {
-  type        = string
-  description = "The instance type to use for the EC2 instances"
-  default     = "m6i.xlarge"
+  type        = map(string)
+  description = "The instance type to use for the EC2 instances based on the architecture"
+  default = {
+    x86_64 = "m7i.xlarge"
+    arm64  = "m7g.xlarge"
+  }
 }
 
 variable "aws_instance_type_bastion" {
+  type        = map(string)
+  description = "The instance type to use for the bastion host based on the architecture"
+  default = {
+    x86_64 = "t3.nano"
+    arm64  = "t4g.nano"
+  }
+}
+
+variable "aws_instance_architecture" {
   type        = string
-  description = "The instance type to use for the bastion host"
-  default     = "t2.nano"
+  description = "The architecture of the AMI to use for the EC2 instances. Available options: x86_64, arm64"
+  default     = "x86_64"
 }
 
 variable "camunda_disk_size" {
@@ -156,9 +168,29 @@ variable "opensearch_engine_version" {
 }
 
 variable "opensearch_instance_type" {
-  type        = string
-  default     = "t3.small.search"
+  type        = map(string)
   description = "The instance type to use for the OpenSearch instances"
+
+  # There's no `medium.search` for non arm64 instances. That's why we align the instance types with the x64 instances.
+  default = {
+    x86_64 = "m7i.large.search"
+    arm64  = "m7g.large.search"
+  }
+}
+
+variable "opensearch_dedicated_master_type" {
+  type        = map(string)
+  description = "The instance type to use for the dedicated OpenSearch master nodes"
+  default = {
+    x86_64 = "m7i.large.search"
+    arm64  = "m7g.large.search"
+  }
+}
+
+variable "opensearch_architecture" {
+  type        = string
+  description = "The architecture of the AMI to use for the OpenSearch instances. Available options: x86_64, arm64"
+  default     = "x86_64"
 }
 
 ################################################################
