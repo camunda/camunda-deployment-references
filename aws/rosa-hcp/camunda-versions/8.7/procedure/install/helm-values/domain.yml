@@ -8,7 +8,8 @@ global:
         host: ${DOMAIN_NAME}
         tls:
             enabled: true
-            secretName:      # we rely on the IngressOperator to handle the TLS secret, if you use a custom certificate, you might want to fill this value
+            # explicitely no secret as we rely on the IngressOperator to handle the TLS secret, if you use a custom certificate, you might want to fill this value
+            secretName: ''
         annotations:
             route.openshift.io/termination: edge
             # enforce HSTS
