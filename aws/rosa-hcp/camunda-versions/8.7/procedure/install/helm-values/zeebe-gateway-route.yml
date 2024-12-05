@@ -7,8 +7,7 @@ zeebeGateway:
             service.beta.openshift.io/serving-cert-secret-name: camunda-platform-internal-service-certificate
 
     ingress:
-        # TODO: check with Hamza why it breaks
-        enabled: false
+        enabled: true
         grpc:
             annotations:
                 haproxy.router.openshift.io/timeout: 300s
@@ -19,7 +18,7 @@ zeebeGateway:
             tls:
                 enabled: true
                 # this is the external route certificate
-                secretName: camunda-platform-external-certificate
+                secretName:  # we rely on the IngressOperator to handle the TLS secret, if you use a custom certificate, you might want to fill this value
         host: zeebe-${DOMAIN_NAME}
 
     # mount the Service certificate in the pod
