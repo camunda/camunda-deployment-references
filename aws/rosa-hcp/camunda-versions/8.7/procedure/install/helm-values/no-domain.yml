@@ -5,18 +5,10 @@ global:
         auth:
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            zeebe:
+            core:
                 existingSecret:
                     name: identity-secret-for-components
             connectors:
-                existingSecret:
-                    name: identity-secret-for-components
-            operate:
-                redirectUrl: http://localhost:8081  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            tasklist:
-                redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
                 existingSecret:
                     name: identity-secret-for-components
             optimize:

@@ -20,18 +20,10 @@ global:
         auth:
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            zeebe:
+            core:
                 existingSecret:
                     name: identity-secret-for-components
             connectors:
-                existingSecret:
-                    name: identity-secret-for-components
-            operate:
-                redirectUrl: https://${DOMAIN_NAME}/operate # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            tasklist:
-                redirectUrl: https://${DOMAIN_NAME}/tasklist  # replace this with a port of your choice when you will do port forwarding
                 existingSecret:
                     name: identity-secret-for-components
             optimize:
@@ -49,20 +41,14 @@ identity:
     contextPath: /identity
     fullURL: https://${DOMAIN_NAME}/identity
 
-operate:
-    contextPath: /operate
-
-tasklist:
-    contextPath: /tasklist
-
 webModeler:
     contextPath: /modeler
 
 optimize:
     contextPath: /optimize
 
-zeebeGateway:
-    contextPath: /zeebe
+core:
+    contextPath: /core
 
 console:
     contextPath: /console

@@ -1,6 +1,5 @@
 ---
-zeebeGateway:
-
+core:
     service:
         annotations:
             # enerate a TLS certificate for the Zeebe Gateway Service
@@ -9,6 +8,7 @@ zeebeGateway:
     ingress:
         enabled: true
         grpc:
+            enabled: true
             annotations:
                 haproxy.router.openshift.io/timeout: 300s
                 route.openshift.io/termination: reencrypt
@@ -21,37 +21,54 @@ zeebeGateway:
                 secretName: ''
         host: zeebe-${DOMAIN_NAME}
 
-    # mount the Service certificate in the pod
     env:
+        ##### Tasklist
+        - name: CAMUNDA_TASKLIST_ZEEBE_SECURE
+          value: 'true'
+        - name: CAMUNDA_TASKLIST_ZEEBE_CERTIFICATEPATH
+          value: /usr/local/core/config/tls.crt
+        - name: CAMUNDA_TASKLIST_ZEEBE_GATEWAYADDRESS
+          value: camunda-zeebe-gateway.camunda.svc.cluster.local:26500
+
+        ##### Gateway
         - name: ZEEBE_GATEWAY_SECURITY_ENABLED
           value: 'true'
         - name: ZEEBE_GATEWAY_SECURITY_CERTIFICATECHAINPATH
-          value: /usr/local/zeebe/config/tls.crt
+          value: /usr/local/core/config/tls.crt
         - name: ZEEBE_GATEWAY_SECURITY_PRIVATEKEYPATH
-          value: /usr/local/zeebe/config/tls.key
+          value: /usr/local/core/config/tls.key
         - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_CERTIFICATECHAINPATH
-          value: /usr/local/zeebe/config/tls.crt
+          value: /usr/local/core/config/tls.crt
         - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_PRIVATEKEYPATH
-          value: /usr/local/zeebe/config/tls.key
+          value: /usr/local/core/config/tls.key
+
+        ##### Operate
+        - name: CAMUNDA_OPERATE_ZEEBE_SECURE
+          value: 'true'
+        - name: CAMUNDA_OPERATE_ZEEBE_CERTIFICATEPATH
+          value: /usr/local/core/config/tls.crt
+        - name: CAMUNDA_OPERATE_ZEEBE_GATEWAYADDRESS
+          # camunda-zeebe-gateway.<namespace>.svc.cluster.local
+          value: camunda-zeebe-gateway.camunda.svc.cluster.local:26500
     extraVolumeMounts:
         - name: certificate
-          mountPath: /usr/local/zeebe/config/tls.crt
+          mountPath: /usr/local/core/config/tls.crt
           subPath: tls.crt
         - name: key
-          mountPath: /usr/local/zeebe/config/tls.key
+          mountPath: /usr/local/core/config/tls.key
           subPath: tls.key
     extraVolumes:
-        - name: certificate
-          secret:
-              secretName: camunda-platform-internal-service-certificate
-              items:
-                  - key: tls.crt
-                    path: tls.crt
-              defaultMode: 420
         - name: key
           secret:
               secretName: camunda-platform-internal-service-certificate
               items:
                   - key: tls.key
                     path: tls.key
+              defaultMode: 420
+        - name: certificate
+          secret:
+              secretName: camunda-platform-internal-service-certificate
+              items:
+                  - key: tls.crt
+                    path: tls.crt
               defaultMode: 420
