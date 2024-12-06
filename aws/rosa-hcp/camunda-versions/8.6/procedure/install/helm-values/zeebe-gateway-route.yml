@@ -19,7 +19,7 @@ zeebeGateway:
                 enabled: true
                 # explicitely no secret as we rely on the IngressOperator to handle the TLS secret, if you use a custom certificate, you might want to fill this value
                 secretName: ''
-        host: zeebe-${DOMAIN_NAME}
+            host: zeebe-${DOMAIN_NAME}
 
     # mount the Service certificate in the pod
     env:
