@@ -5,7 +5,7 @@ go 1.23.2
 require (
 	github.com/aws/aws-sdk-go v1.55.5
 	github.com/aws/aws-sdk-go-v2/config v1.28.6
-	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.44.0
+	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.45.0
 	github.com/gruntwork-io/terratest v0.47.2
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/gjson v1.18.0
