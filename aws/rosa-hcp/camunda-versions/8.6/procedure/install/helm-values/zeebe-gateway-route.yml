@@ -29,6 +29,9 @@ zeebeGateway:
           value: /usr/local/zeebe/config/tls.crt
         - name: ZEEBE_GATEWAY_SECURITY_PRIVATEKEYPATH
           value: /usr/local/zeebe/config/tls.key
+
+        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_ENABLED
+          value: 'true'
         - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_CERTIFICATECHAINPATH
           value: /usr/local/zeebe/config/tls.crt
         - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_PRIVATEKEYPATH
