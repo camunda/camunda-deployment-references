@@ -48,7 +48,7 @@ optimize:
     contextPath: /optimize
 
 core:
-    contextPath: /core
+    contextPath: /
 
 console:
     contextPath: /console

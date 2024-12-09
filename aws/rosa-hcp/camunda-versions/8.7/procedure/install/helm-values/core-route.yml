@@ -37,6 +37,9 @@ core:
           value: /usr/local/core/config/tls.crt
         - name: ZEEBE_GATEWAY_SECURITY_PRIVATEKEYPATH
           value: /usr/local/core/config/tls.key
+
+        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_ENABLED
+          value: 'true'
         - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_CERTIFICATECHAINPATH
           value: /usr/local/core/config/tls.crt
         - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_PRIVATEKEYPATH
