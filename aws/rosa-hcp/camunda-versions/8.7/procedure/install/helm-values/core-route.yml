@@ -31,18 +31,18 @@ core:
           value: camunda-core.camunda.svc.cluster.local:26500
 
         ##### Gateway
-        - name: ZEEBE_GATEWAY_SECURITY_ENABLED
+        - name: ZEEBE_BROKER_GATEWAY_SECURITY_ENABLED
           value: 'true'
-        - name: ZEEBE_GATEWAY_SECURITY_CERTIFICATECHAINPATH
+        - name: ZEEBE_BROKER_GATEWAY_SECURITY_CERTIFICATECHAINPATH
           value: /usr/local/core/config/tls.crt
-        - name: ZEEBE_GATEWAY_SECURITY_PRIVATEKEYPATH
+        - name: ZEEBE_BROKER_GATEWAY_SECURITY_PRIVATEKEYPATH
           value: /usr/local/core/config/tls.key
 
-        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_ENABLED
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_SECURITY_ENABLED
           value: 'true'
-        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_CERTIFICATECHAINPATH
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_SECURITY_CERTIFICATECHAINPATH
           value: /usr/local/core/config/tls.crt
-        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_PRIVATEKEYPATH
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_SECURITY_PRIVATEKEYPATH
           value: /usr/local/core/config/tls.key
 
         ##### Operate
