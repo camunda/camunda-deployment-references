@@ -15,17 +15,11 @@ global:
             # enforce HSTS
             haproxy.router.openshift.io/hsts_header: max-age=31536000; includeSubDomains;preload
 
-    identity:
 
+    identity:
         auth:
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            core:
-                existingSecret:
-                    name: identity-secret-for-components
-            connectors:
-                existingSecret:
-                    name: identity-secret-for-components
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize  # replace this with a port of your choice when you will do port forwarding
                 existingSecret:
@@ -34,6 +28,16 @@ global:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
                 redirectUrl: https://${DOMAIN_NAME}/console
+                existingSecret:
+                    name: identity-secret-for-components
+            core:
+                redirectUrl: http://${DOMAIN_NAME}
+                existingSecret:
+                    name: identity-secret-for-components
+            connectors:
+                existingSecret:
+                    name: identity-secret-for-components
+            admin:
                 existingSecret:
                     name: identity-secret-for-components
 

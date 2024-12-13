@@ -5,12 +5,6 @@ global:
         auth:
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            core:
-                existingSecret:
-                    name: identity-secret-for-components
-            connectors:
-                existingSecret:
-                    name: identity-secret-for-components
             optimize:
                 redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
                 existingSecret:
@@ -19,6 +13,16 @@ global:
                 redirectUrl: http://localhost:8084
             console:
                 redirectUrl: http://localhost:8085
+                existingSecret:
+                    name: identity-secret-for-components
+            core:
+                redirectUrl: http://localhost:8082
+                existingSecret:
+                    name: identity-secret-for-components
+            connectors:
+                existingSecret:
+                    name: identity-secret-for-components
+            admin:
                 existingSecret:
                     name: identity-secret-for-components
 

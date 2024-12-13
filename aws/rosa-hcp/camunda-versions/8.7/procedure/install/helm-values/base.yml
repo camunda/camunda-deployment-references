@@ -3,9 +3,18 @@ global:
     elasticsearch:
         enabled: true # use the embbeded elasticsearch
 
+    secrets:
+        name: identity-secret-for-components
+
+identity:
+    firstUser:
+        existingSecret: identity-secret-for-components
+
 identityKeycloak:
     postgresql:
         enabled: true # use the embbeded database
+        auth:
+            existingSecret: identity-secret-for-components
     auth:
         existingSecret: identity-secret-for-components
 
@@ -17,21 +26,4 @@ webModeler:
 
     restapi:
         mail:
-            existingSecret: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
-
-
-core:
-    ##### Gateway Identity auth mode
-    env:
-        - name: ZEEBE_BROKER_GATEWAY_SECURITY_AUTHENTICATION_MODE
-          value: identity
-
-        - name: ZEEBE_BROKER_GATEWAY_SECURITY_AUTHENTICATION_IDENTITY_ISSUERBACKENDURL
-          value: http://camunda-keycloak:80/auth/realms/camunda-platform
-
-        - name: ZEEBE_BROKER_GATEWAY_SECURITY_AUTHENTICATION_IDENTITY_AUDIENCE
-          value: core-api
-
-        - name: ZEEBE_BROKER_GATEWAY_SECURITY_AUTHENTICATION_IDENTITY_TYPE
-          value: keycloak
