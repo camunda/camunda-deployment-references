@@ -30,7 +30,7 @@ core:
         - name: CAMUNDA_TASKLIST_ZEEBE_GATEWAYADDRESS
           value: camunda-core.camunda.svc.cluster.local:26500
 
-        ##### Gateway
+        ##### Gateway TLS
         - name: ZEEBE_BROKER_GATEWAY_SECURITY_ENABLED
           value: 'true'
         - name: ZEEBE_BROKER_GATEWAY_SECURITY_CERTIFICATECHAINPATH

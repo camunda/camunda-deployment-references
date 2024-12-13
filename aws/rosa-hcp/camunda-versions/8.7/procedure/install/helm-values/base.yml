@@ -19,3 +19,19 @@ webModeler:
         mail:
             existingSecret: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
+
+
+core:
+    ##### Gateway Identity auth mode
+    env:
+        - name: ZEEBE_BROKER_GATEWAY_SECURITY_AUTHENTICATION_MODE
+          value: identity
+
+        - name: ZEEBE_BROKER_GATEWAY_SECURITY_AUTHENTICATION_IDENTITY_ISSUERBACKENDURL
+          value: http://keycloak:8080/auth/realms/camunda-platform
+
+        - name: ZEEBE_BROKER_GATEWAY_SECURITY_AUTHENTICATION_IDENTITY_AUDIENCE
+          value: core-api
+
+        - name: ZEEBE_BROKER_GATEWAY_SECURITY_AUTHENTICATION_IDENTITY_TYPE
+          value: keycloak
