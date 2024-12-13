@@ -28,7 +28,7 @@ core:
           value: identity
 
         - name: ZEEBE_BROKER_GATEWAY_SECURITY_AUTHENTICATION_IDENTITY_ISSUERBACKENDURL
-          value: http://keycloak:8080/auth/realms/camunda-platform
+          value: http://camunda-keycloak:80/auth/realms/camunda-platform
 
         - name: ZEEBE_BROKER_GATEWAY_SECURITY_AUTHENTICATION_IDENTITY_AUDIENCE
           value: core-api
