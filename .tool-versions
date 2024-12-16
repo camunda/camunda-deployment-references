@@ -20,7 +20,7 @@ golang 1.23.4
 
 jq 1.7.1
 
-just 1.37.0
+just 1.38.0
 
 pre-commit 4.0.1
 
