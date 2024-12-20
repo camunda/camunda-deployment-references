@@ -7,6 +7,4 @@ kubectl create secret generic identity-secret-for-components \
   --from-literal=tasklist-secret="$TASKLIST_SECRET" \
   --from-literal=zeebe-secret="$ZEEBE_SECRET" \
   --from-literal=admin-password="$ADMIN_PASSWORD" \
-  --from-literal=postgres-password="" \
-  --from-literal=password="" \
   --from-literal=smtp-password=""

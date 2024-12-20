@@ -8,6 +8,4 @@ kubectl create secret generic identity-secret-for-components \
   --from-literal=identity-firstuser-password="$FIRST_USER_PASSWORD" \
   --from-literal=identity-keycloak-postgresql-user-password="$KEYCLOAK_PG_USER_PASSWORD" \
   --from-literal=identity-keycloak-postgresql-admin-password="$KEYCLOAK_PG_ADMIN_PASSWORD" \
-  --from-literal=postgres-password="" \
-  --from-literal=password="" \
   --from-literal=smtp-password=""
