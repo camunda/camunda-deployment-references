@@ -5,7 +5,7 @@ set -euo pipefail
 USERNAME=${USERNAME:-"camunda"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 # renovate: datasource=docker depName=amazon/cloudwatch-agent
-CLOUDWATCH_VERSION="1.300049.1b929"
+CLOUDWATCH_VERSION="1.300050.0b956"
 
 ARCH=$(uname -m)
 TARGET_ARCH="amd64"
