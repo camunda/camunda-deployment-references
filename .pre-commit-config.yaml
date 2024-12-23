@@ -34,7 +34,7 @@ repos:
             language_version: 20.18.0
 
     - repo: https://github.com/compilerla/conventional-pre-commit
-      rev: v3.6.0 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
+      rev: v4.0.0 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
       hooks:
           - id: conventional-pre-commit
             stages: [commit-msg]
