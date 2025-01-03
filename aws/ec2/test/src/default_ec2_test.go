@@ -63,10 +63,10 @@ func TestConnectivity(t *testing.T) {
 	t.Log("Test connectivity to EC2 instances")
 
 	// expected values
-	expectedOutputLength := 9
+	expectedOutputLength := 10
 	expectedEc2Instances := 3
 
-	stringOutputs := [...]string{"aws_ami", "alb_endpoint", "nlb_endpoint", "private_key", "public_key", "aws_opensearch_domain", "bastion_ip"}
+	stringOutputs := [...]string{"aws_ami", "alb_endpoint", "nlb_endpoint", "private_key", "public_key", "aws_opensearch_domain", "aws_opensearch_domain_name", "bastion_ip"}
 
 	tfOutputs := terraform.OutputAll(t, terraformOptions(t, logger.Discard))
 
