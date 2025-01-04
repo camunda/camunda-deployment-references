@@ -13,7 +13,7 @@ echo "[INFO] Configuring the environment variables for cluster communication, ex
     # Broker Setup
     echo "ZEEBE_BROKER_CLUSTER_CLUSTERSIZE=\"${total_ip_count}\""
     echo "ZEEBE_BROKER_CLUSTER_REPLICATIONFACTOR=\"${total_ip_count}\""
-    echo "ZEEBE_BROKER_CLUSTER_PARTITIONSCOUNT=\"$((total_ip_count + 1))\""
+    echo "ZEEBE_BROKER_CLUSTER_PARTITIONSCOUNT=\"${total_ip_count}\""
     echo "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS=\"${ips_list}\""
     echo "ZEEBE_BROKER_CLUSTER_NODEID=\"${index}\""
     echo "ZEEBE_BROKER_NETWORK_ADVERTISEDHOST=\"${ip}\""
@@ -23,6 +23,8 @@ echo "[INFO] Configuring the environment variables for cluster communication, ex
     echo "CAMUNDA_TASKLIST_OPENSEARCH_URL=\"${OPENSEARCH_URL}\""
     echo "CAMUNDA_TASKLIST_ZEEBEOPENSEARCH_URL=\"${OPENSEARCH_URL}\""
     echo "ZEEBE_BROKER_EXPORTERS_OPENSEARCH_ARGS_URL=\"${OPENSEARCH_URL}\""
+    echo "ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_CONNECT_URL=\"${OPENSEARCH_URL}\""
+    echo "CAMUNDA_DATABASE_URL=\"${OPENSEARCH_URL}\""
 } >> "${CURRENT_DIR}/camunda-environment.tmp"
 
 # Disabling problematic importers and archivers in Operate and Tasklist

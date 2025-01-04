@@ -193,6 +193,7 @@ SECURITY: The default is false. If set to true will use self-signed certificates
 | <a name="output_alb_endpoint"></a> [alb\_endpoint](#output\_alb\_endpoint) | (Optional) The DNS name of the Application Load Balancer (ALB) to access the Camunda Webapp. |
 | <a name="output_aws_ami"></a> [aws\_ami](#output\_aws\_ami) | The AMI retrieved from AWS for the latest Debian 12 image. Make sure to once pin the aws\_ami variable to avoid recreations. |
 | <a name="output_aws_opensearch_domain"></a> [aws\_opensearch\_domain](#output\_aws\_opensearch\_domain) | (Optional) The endpoint of the OpenSearch domain. |
+| <a name="output_aws_opensearch_domain_name"></a> [aws\_opensearch\_domain\_name](#output\_aws\_opensearch\_domain\_name) | The name of the OpenSearch domain. |
 | <a name="output_bastion_ip"></a> [bastion\_ip](#output\_bastion\_ip) | (Optional) The public IP address of the Bastion instance. |
 | <a name="output_camunda_ips"></a> [camunda\_ips](#output\_camunda\_ips) | The private IP addresses of the Camunda instances. |
 | <a name="output_nlb_endpoint"></a> [nlb\_endpoint](#output\_nlb\_endpoint) | (Optional) The DNS name of the Network Load Balancer (NLB) to access the Camunda REST API. |

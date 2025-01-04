@@ -1,3 +1,6 @@
+locals {
+  opensearch_domain_name = "${var.prefix}-os-cluster"
+}
 module "opensearch_domain" {
   // for additional information on the module, see:
   // https://github.com/camunda/camunda-tf-eks-module/tree/main/modules/opensearch
@@ -7,7 +10,7 @@ module "opensearch_domain" {
 
   count = var.enable_opensearch ? 1 : 0
 
-  domain_name    = "${var.prefix}-os-cluster"
+  domain_name    = local.opensearch_domain_name
   engine_version = var.opensearch_engine_version
   subnet_ids     = module.vpc.private_subnets
   vpc_id         = module.vpc.vpc_id
@@ -33,7 +36,7 @@ module "opensearch_domain" {
         "AWS": "*"
       },
       "Action": "es:*",
-      "Resource": "arn:aws:es:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:domain/${var.prefix}-os-cluster/*"
+      "Resource": "arn:aws:es:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:domain/${local.opensearch_domain_name}/*"
     }
   ]
 }

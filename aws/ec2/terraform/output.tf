@@ -15,6 +15,11 @@ output "aws_opensearch_domain" {
   description = "(Optional) The endpoint of the OpenSearch domain."
 }
 
+output "aws_opensearch_domain_name" {
+  value       = var.enable_opensearch ? local.opensearch_domain_name : ""
+  description = "The name of the OpenSearch domain."
+}
+
 # converting array to string since ALB is always a single instance
 output "alb_endpoint" {
   value       = join("", aws_lb.main[*].dns_name)
