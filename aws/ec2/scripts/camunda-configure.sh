@@ -25,6 +25,11 @@ echo "[INFO] Configuring the environment variables for cluster communication, ex
     echo "ZEEBE_BROKER_EXPORTERS_OPENSEARCH_ARGS_URL=\"${OPENSEARCH_URL}\""
     echo "ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_CONNECT_URL=\"${OPENSEARCH_URL}\""
     echo "CAMUNDA_DATABASE_URL=\"${OPENSEARCH_URL}\""
+    # Disable old importers
+    echo "CAMUNDA_OPERATE_IMPORTERENABLED=\"false\""
+    echo "CAMUNDA_OPERATE_ARCHIVERENABLED=\"false\""
+    echo "CAMUNDA_TASKLIST_IMPORTERENABLED=\"false\""
+    echo "CAMUNDA_TASKLIST_ARCHIVERENABLED=\"false\""
 } >> "${CURRENT_DIR}/camunda-environment.tmp"
 
 # Disabling problematic importers and archivers in Operate and Tasklist
@@ -34,14 +39,11 @@ echo "[INFO] Configuring the environment variables for cluster communication, ex
 # disable exporters for those instances
 # essentially we just want to keep the exporter on the first uneven instance
 # While keeping it flexible to use different amount of nodes.
-if (( index % 2 == 0 && total_ip_count > 1 )) || (( index > 2 )); then
-  {
-    echo "CAMUNDA_OPERATE_IMPORTERENABLED=\"false\""
-    echo "CAMUNDA_OPERATE_ARCHIVERENABLED=\"false\""
-    echo "CAMUNDA_TASKLIST_IMPORTERENABLED=\"false\""
-    echo "CAMUNDA_TASKLIST_ARCHIVERENABLED=\"false\""
-  } >> "${CURRENT_DIR}/camunda-environment.tmp"
-fi
+# if (( index % 2 == 0 && total_ip_count > 1 )) || (( index > 2 )); then
+#   {
+    # will be required to disable importer / archiver when Optimize is included
+#   } >> "${CURRENT_DIR}/camunda-environment.tmp"
+# fi
 
 if [[ $SECURITY == 'false' ]]; then
   echo "[INFO] Configuring Connectors to use plain text communication."
