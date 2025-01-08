@@ -31,7 +31,7 @@ CLUSTER_2_PRIVATE_ROUTE_TABLE_IDS_JSON=$(echo "$CLUSTER_2_PRIVATE_ROUTE_TABLE_ID
 
 
 
-export OWNER_JSON=$(jq -n \
+OWNER_JSON=$(jq -n \
   --arg region "$CLUSTER_1_REGION" \
   --arg vpc_cidr_block "$CLUSTER_1_VPC_CIDR" \
   --arg vpc_id "$CLUSTER_1_VPC_ID" \
@@ -47,7 +47,7 @@ export OWNER_JSON=$(jq -n \
     private_route_table_ids: $private_route_table_ids
   }')
 
-export ACCEPTER_JSON=$(jq -n \
+ACCEPTER_JSON=$(jq -n \
   --arg region "$CLUSTER_2_REGION" \
   --arg vpc_cidr_block "$CLUSTER_2_VPC_CIDR" \
   --arg vpc_id "$CLUSTER_2_VPC_ID" \
@@ -63,8 +63,10 @@ export ACCEPTER_JSON=$(jq -n \
     private_route_table_ids: $private_route_table_ids
   }')
 
-echo "Terraform Variables for Owner ($CLUSTER_1):"
+echo "Terraform Variables for Owner ($CLUSTER_1_NAME):"
 echo "$OWNER_JSON"
+export OWNER_JSON
 
-echo "Terraform Variables for Accepter ($CLUSTER_2):"
+echo "Terraform Variables for Accepter ($CLUSTER_2_NAME):"
 echo "$ACCEPTER_JSON"
+export ACCEPTER_JSON
