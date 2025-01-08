@@ -401,6 +401,15 @@ func TestCamundaUpgrade(t *testing.T) {
 		t.Fatalf("Error writing file: %v", err)
 	}
 
+	// Zeebe has a prerelease protection that results in unhealthy clusters if not disabled
+	if strings.Contains(camundaCurrentVersion, "SNAPSHOT") || strings.Contains(camundaCurrentVersion, "alpha") {
+		cmd = shell.Command{
+			Command: "bash",
+			Args:    []string{"-c", "echo ZEEBE_BROKER_EXPERIMENTAL_VERSIONCHECKRESTRICTIONENABLED=false >> ../../configs/camunda-environment"},
+		}
+		shell.RunCommand(t, cmd)
+	}
+
 	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaCurrentVersion, connectorsCurrentVersion)
 	cmd = shell.Command{
 		Command: "bash",
