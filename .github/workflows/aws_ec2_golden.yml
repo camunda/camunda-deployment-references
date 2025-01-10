@@ -36,6 +36,15 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
             ############# Tool Installations #############
+            - name: Cache asdf installation
+              id: cache
+              uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
+              with:
+                  path: |
+                      /home/runner/.asdf
+                  key: ${{ runner.os }}-tooling-${{ hashFiles('**/.tool-versions') }}
+                  restore-keys: |
+                      ${{ runner.os }}-tooling-
             - name: Install tooling using asdf
               uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
             ################## Secrets ###################
