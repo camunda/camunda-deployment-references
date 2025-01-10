@@ -22,6 +22,7 @@ env:
     AWS_REGION: eu-west-2
     S3_BACKEND_BUCKET: tf-state-multi-reg
     S3_BUCKET_REGION: eu-central-1
+    SNAPSHOT_PREVIOUS_VERSION: 8.7.0-alpha3-rc4 # potential to be reworked to dynamic matrix instead
 
 jobs:
     test:
@@ -94,6 +95,14 @@ jobs:
                   # We need to replace the string without substitution except for that of GitHub Actions
                   # shellcheck disable=SC2016
                   sed -i '0,/CAMUNDA_VERSION/s/CAMUNDA_VERSION=.*/CAMUNDA_VERSION=${CAMUNDA_VERSION:-"${{ matrix.camunda }}"}/' camunda-install.sh
+            # potential to rework to dynamic matrix instead or local file that contains version dict
+            - name: Overwrite previous version
+              run: |
+                  if [[ "${{matrix.camunda }}" =~ "SNAPSHOT" ]]; then
+                      echo "CAMUNDA_PREVIOUS_VERSION=${{ env.SNAPSHOT_PREVIOUS_VERSION }}" >> "$GITHUB_ENV"
+                  else
+                      echo "CAMUNDA_PREVIOUS_VERSION=${{ matrix.previous_camunda }}" >> "$GITHUB_ENV"
+                  fi
             ########## Create Infrastructure ############
             - name: Terratest - Terraform Apply
               if: always() && success()
@@ -110,7 +119,7 @@ jobs:
               timeout-minutes: 121
               env:
                   CAMUNDA_VERSION: ${{ matrix.camunda }}
-                  CAMUNDA_PREVIOUS_VERSION: ${{ matrix.previous_camunda }}
+                  CAMUNDA_PREVIOUS_VERSION: ${{ env.CAMUNDA_PREVIOUS_VERSION }}
               run: |
                   # shellcheck disable=SC2155
                   export PATH=$PATH:$(go env GOPATH)/bin

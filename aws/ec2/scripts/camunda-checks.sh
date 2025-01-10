@@ -29,7 +29,10 @@ check_service() {
     done
 
     if [ "$response" -ne 200 ]; then
-        echo "[FAIL] Service on url $url is not available after $retries retries."
+        echo "[FAIL][res=$response] Service on url $url is not available after $retries retries."
+        if [[ "$url" =~ "health" ]]; then
+            curl -s "$url"
+        fi
         SCRIPT_STATUS_OUTPUT=1
     fi
 }
