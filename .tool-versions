@@ -32,6 +32,6 @@ terraform 1.10.3
 
 terraform-docs 0.19.0
 
-tflint 0.54.0
+tflint 0.55.0
 
 zbctl 8.5.8
