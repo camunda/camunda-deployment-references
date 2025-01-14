@@ -35,3 +35,5 @@ terraform-docs 0.19.0
 tflint 0.55.0
 
 zbctl 8.5.8
+
+trivy 0.58.1
