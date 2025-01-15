@@ -15,4 +15,3 @@ AVD-AWS-0038 #(MEDIUM): Control plane scheduler logging is not enabled.
 AVD-AWS-0077 #(MEDIUM): Cluster instance has very low backup retention period.
 
 AVD-AWS-0133 #(LOW): Instance does not have performance insights enabled.
-AVD-AWS-0124 #(LOW): Security group rule does not have a description.
