@@ -1,3 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+
 CLUSTER_1_NAME=$(terraform console <<<local.rosa_cluster_1_name | jq -r)
 CLUSTER_2_NAME=$(terraform console <<<local.rosa_cluster_2_name | jq -r)
 
