@@ -2085,7 +2085,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow outbound traffic on port 22",
             "from_port": 22,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2098,7 +2098,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow outbound traffic on port 26500",
             "from_port": 26500,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2111,7 +2111,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow outbound traffic on port 26501",
             "from_port": 26501,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2124,7 +2124,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow outbound traffic on port 26502",
             "from_port": 26502,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2137,7 +2137,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow outbound traffic on port 443",
             "from_port": 443,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2150,7 +2150,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow outbound traffic on port 8080",
             "from_port": 8080,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2163,7 +2163,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow outbound traffic on port 9090",
             "from_port": 9090,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2176,7 +2176,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow outbound traffic on port 9600",
             "from_port": 9600,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2191,7 +2191,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow inbound traffic on port 22",
             "from_port": 22,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2204,7 +2204,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow inbound traffic on port 26500",
             "from_port": 26500,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2217,7 +2217,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow inbound traffic on port 26501",
             "from_port": 26501,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2230,7 +2230,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow inbound traffic on port 26502",
             "from_port": 26502,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2243,7 +2243,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow inbound traffic on port 443",
             "from_port": 443,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2256,7 +2256,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow inbound traffic on port 8080",
             "from_port": 8080,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2269,7 +2269,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow inbound traffic on port 9090",
             "from_port": 9090,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2282,7 +2282,7 @@
             "cidr_blocks": [
               "10.200.0.0/16"
             ],
-            "description": "",
+            "description": "Allow inbound traffic on port 9600",
             "from_port": 9600,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2341,20 +2341,7 @@
             "cidr_blocks": [
               "0.0.0.0/0"
             ],
-            "description": "",
-            "from_port": 443,
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "protocol": "tcp",
-            "security_groups": [],
-            "self": false,
-            "to_port": 443
-          },
-          {
-            "cidr_blocks": [
-              "0.0.0.0/0"
-            ],
-            "description": "",
+            "description": "Allow outbound HTTP traffic",
             "from_port": 80,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2362,6 +2349,19 @@
             "security_groups": [],
             "self": false,
             "to_port": 80
+          },
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow outbound HTTPS traffic",
+            "from_port": 443,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 443
           }
         ],
         "name": "allow_package_80_443",
@@ -2430,20 +2430,7 @@
             "cidr_blocks": [
               "0.0.0.0/0"
             ],
-            "description": "",
-            "from_port": 443,
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "protocol": "tcp",
-            "security_groups": [],
-            "self": false,
-            "to_port": 443
-          },
-          {
-            "cidr_blocks": [
-              "0.0.0.0/0"
-            ],
-            "description": "",
+            "description": "Allow outbound HTTP traffic",
             "from_port": 80,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2451,6 +2438,19 @@
             "security_groups": [],
             "self": false,
             "to_port": 80
+          },
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow outbound HTTPS traffic",
+            "from_port": 443,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 443
           }
         ],
         "ingress": [
@@ -2458,20 +2458,7 @@
             "cidr_blocks": [
               "0.0.0.0/0"
             ],
-            "description": "",
-            "from_port": 443,
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "protocol": "tcp",
-            "security_groups": [],
-            "self": false,
-            "to_port": 443
-          },
-          {
-            "cidr_blocks": [
-              "0.0.0.0/0"
-            ],
-            "description": "",
+            "description": "Allow inbound HTTP traffic",
             "from_port": 80,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2479,6 +2466,19 @@
             "security_groups": [],
             "self": false,
             "to_port": 80
+          },
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow inbound HTTPS traffic",
+            "from_port": 443,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 443
           }
         ],
         "name": "allow_remote_80_443",
@@ -2531,7 +2531,7 @@
             "cidr_blocks": [
               "0.0.0.0/0"
             ],
-            "description": "",
+            "description": "Allow outbound traffic on port 9090",
             "from_port": 9090,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2546,7 +2546,7 @@
             "cidr_blocks": [
               "0.0.0.0/0"
             ],
-            "description": "",
+            "description": "Allow inbound traffic on port 9090",
             "from_port": 9090,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2597,7 +2597,7 @@
             "cidr_blocks": [
               "0.0.0.0/0"
             ],
-            "description": "",
+            "description": "Allow inbound gRPC traffic on port 26500",
             "from_port": 26500,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2648,7 +2648,7 @@
             "cidr_blocks": [
               "0.0.0.0/0"
             ],
-            "description": "",
+            "description": "Allow inbound SSH traffic",
             "from_port": 22,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
