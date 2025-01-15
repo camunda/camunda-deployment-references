@@ -76,3 +76,12 @@ repos:
       rev: 0.2.3
       hooks:
           - id: yamlfmt
+
+    - repo: local
+      hooks:
+          - id: trivy-scan
+            name: Trivy Scan
+            entry: .lint/trivy/trivy-scan.sh
+            language: script
+            types: [terraform]
+            pass_filenames: false
