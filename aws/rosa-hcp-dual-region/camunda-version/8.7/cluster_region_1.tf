@@ -2,7 +2,7 @@ locals {
   rosa_cluster_1_name = "cluster-region-1" # Change this to a name of your choice
 
   # tflint-ignore: terraform_unused_declarations
-  rosa_cluster_1_region = "eu-north-1"                                                                                              # Change it to the same value as your CLUSTER_1_REGION environment variable
+  rosa_cluster_1_region = "us-east-1"                                                                                               # Change it to the same value as your CLUSTER_1_REGION environment variable
   rosa_cluster_1_zones  = ["${local.rosa_cluster_1_region}a", "${local.rosa_cluster_1_region}b", "${local.rosa_cluster_1_region}c"] # Adjust to your needs and align with your value of AWS_REGION
 
   rosa_cluster_1_admin_username = "kubeadmin"
