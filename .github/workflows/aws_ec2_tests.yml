@@ -32,7 +32,7 @@ jobs:
             matrix:
                 camunda:
                     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
-                    - 8.6.6
+                    - 8.6.7
                     - 8.7.0-SNAPSHOT
                 architecture:
                     - x86_64
@@ -156,7 +156,7 @@ jobs:
                   sed 's/\n/&#xA;/g' > "./tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml"
             - name: Upload test reports
               if: always()
-              uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4
+              uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
               with:
                   name: test-reports-${{ env.CAMUNDA_HYPHENS }}-${{ matrix.architecture }}
                   path: ${{ github.workspace }}/aws/ec2/test/src/tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml
@@ -211,7 +211,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@bf2a95a9ad449bb221a5958537a94ec129270002 # 1.2.10
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@41bed71d5715d2e2e83a83997a44be59fcddf615 # 1.2.12
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
