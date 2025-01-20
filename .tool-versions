@@ -12,11 +12,11 @@
 awscli 2.23.2
 
 # renovate: datasource=github-tags depName=rhysd/actionlint
-actionlint 1.7.6
+actionlint 1.7.7
 
 delta 0.18.2
 
-golang 1.23.4
+golang 1.23.5
 
 jq 1.7.1
 
@@ -28,7 +28,7 @@ python 3.13.1
 
 shellcheck 0.10.0
 
-terraform 1.10.3
+terraform 1.10.4
 
 terraform-docs 0.19.0
 
@@ -36,4 +36,4 @@ tflint 0.55.0
 
 zbctl 8.5.8
 
-trivy 0.58.1
+trivy 0.58.2
