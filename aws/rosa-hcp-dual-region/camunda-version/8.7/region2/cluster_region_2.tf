@@ -3,7 +3,7 @@ locals {
 
   # tflint-ignore: terraform_unused_declarations
   rosa_cluster_2_region = "us-east-2"                                                                                               # Change it to the same value as your CLUSTER_2_REGION environment variable
-  rosa_cluster_2_zones  = ["${local.rosa_cluster_1_region}a", "${local.rosa_cluster_1_region}b", "${local.rosa_cluster_1_region}c"] # Adjust to your needs and align with your value of AWS_REGION
+  rosa_cluster_2_zones  = ["${local.rosa_cluster_2_region}a", "${local.rosa_cluster_2_region}b", "${local.rosa_cluster_2_region}c"] # Adjust to your needs and align with your value of AWS_REGION
 
   rosa_cluster_2_admin_username = "kubeadmin"
   rosa_cluster_2_admin_password = "CHANGEME1234r!" # Change the password of your admin password

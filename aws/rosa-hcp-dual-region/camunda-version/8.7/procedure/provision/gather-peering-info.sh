@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+cd region1
 CLUSTER_1_NAME=$(terraform console <<<local.rosa_cluster_1_name | jq -r)
-CLUSTER_2_NAME=$(terraform console <<<local.rosa_cluster_2_name | jq -r)
 
 # First cluster
 CLUSTER_1_INFO=$(rosa describe cluster --cluster "$CLUSTER_1_NAME" --output json)
@@ -18,7 +18,12 @@ CLUSTER_1_PRIVATE_ROUTE_TABLE_IDS=$(echo "$CLUSTER_1_ROUTE_TABLE_IDS" | jq -r '.
 CLUSTER_1_SECURITY_GROUP_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$CLUSTER_1_VPC_ID" --region "$CLUSTER_1_REGION" | jq -r '.SecurityGroups[0].GroupId')
 CLUSTER_1_PRIVATE_ROUTE_TABLE_IDS_JSON=$(echo "$CLUSTER_1_PRIVATE_ROUTE_TABLE_IDS" | jq -R -s 'split("\n") | map(select(length > 0))')
 
+cd -
+
 # Second cluster
+cd region2
+CLUSTER_2_NAME=$(terraform console <<<local.rosa_cluster_2_name | jq -r)
+
 CLUSTER_2_INFO=$(rosa describe cluster --cluster "$CLUSTER_2_NAME" --output json)
 CLUSTER_2_REGION=$(echo "$CLUSTER_2_INFO" | jq -r '.region.id')
 CLUSTER_2_SUBNET_ID=$(echo "$CLUSTER_2_INFO" | jq -r '.aws.subnet_ids[0]')
@@ -32,7 +37,7 @@ CLUSTER_2_PRIVATE_ROUTE_TABLE_IDS=$(echo "$CLUSTER_2_ROUTE_TABLE_IDS" | jq -r '.
 CLUSTER_2_SECURITY_GROUP_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$CLUSTER_2_VPC_ID" --region "$CLUSTER_2_REGION" | jq -r '.SecurityGroups[0].GroupId')
 CLUSTER_2_PRIVATE_ROUTE_TABLE_IDS_JSON=$(echo "$CLUSTER_2_PRIVATE_ROUTE_TABLE_IDS" | jq -R -s 'split("\n") | map(select(length > 0))')
 
-
+cd -
 
 OWNER_JSON=$(jq -n \
   --arg region "$CLUSTER_1_REGION" \
