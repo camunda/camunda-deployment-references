@@ -46,7 +46,7 @@ apiVersion: submariner.io/v1alpha1
 kind: Broker
 metadata:
   name: submariner-broker
-  namespace: rosa-clusters-broker
+  namespace: submariner-broker
   labels:
     cluster.open-cluster-management.io/backup: submariner
 spec:
