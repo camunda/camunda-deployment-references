@@ -87,6 +87,8 @@ zeebe:
           value: GZIP
         - name: ZEEBE_BROKER_BACKPRESSURE_AIMD_REQUESTTIMEOUT
           value: 1s
+        - name: ZEEBE_BROKER_NETWORK_ADVERTISEDHOST
+          value: ${DOLLAR}(K8S_NAME).$ZEEBE_SERVICE_NAME
     pvcSize: 1Gi
 
     resources:
