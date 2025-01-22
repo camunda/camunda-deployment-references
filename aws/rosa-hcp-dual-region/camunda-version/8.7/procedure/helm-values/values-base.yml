@@ -141,8 +141,8 @@ elasticsearch:
             echo "Adding S3 access keys to Elasticsearch keystore..."
 
             # Add S3 client camunda keys to the keystore
-            echo "$S3_SECRET_KEY" | elasticsearch-keystore add -x s3.client.camunda.secret_key
-            echo "$S3_ACCESS_KEY" | elasticsearch-keystore add -x s3.client.camunda.access_key
+            echo "${DOLLAR}S3_SECRET_KEY" | elasticsearch-keystore add -x s3.client.camunda.secret_key
+            echo "${DOLLAR}S3_ACCESS_KEY" | elasticsearch-keystore add -x s3.client.camunda.access_key
     extraEnvVarsSecret: elasticsearch-env-secret
     # Bitnami chart fix to allow adding keystore secrets
     extraVolumeMounts:
