@@ -18,8 +18,8 @@ export CLUSTER_2_NAME=""
 
 # The OpenShift namespaces for each region where Camunda 8 should be running
 # Namespace names must be unique to route the traffic
-export CAMUNDA_NAMESPACE_1="$CLUSTER_1_NAME"
-export CAMUNDA_NAMESPACE_2="$CLUSTER_2_NAME"
+export CAMUNDA_NAMESPACE_1="camunda-$CLUSTER_1_NAME"
+export CAMUNDA_NAMESPACE_2="camunda-$CLUSTER_2_NAME"
 
 # The backup bucket access variables
 export AWS_ACCESS_KEY_ES=""

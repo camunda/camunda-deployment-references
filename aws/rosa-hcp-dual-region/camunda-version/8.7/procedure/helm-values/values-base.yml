@@ -59,15 +59,15 @@ zeebe:
         - name: ZEEBE_BROKER_DATA_DISKUSAGEREPLICATIONWATERMARK
           value: '0.87'
         - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
-          value: PLACEHOLDER
+          value: ${ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS}
         - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_CLASSNAME
           value: io.camunda.zeebe.exporter.ElasticsearchExporter
         - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL
-          value: http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200
+          value: ${ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL}
         - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_CLASSNAME
           value: io.camunda.zeebe.exporter.ElasticsearchExporter
         - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL
-          value: http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200
+          value: ${ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL}
         # Enable JSON logging for Google Cloud Stackdriver
         - name: ZEEBE_LOG_APPENDER
           value: Stackdriver
