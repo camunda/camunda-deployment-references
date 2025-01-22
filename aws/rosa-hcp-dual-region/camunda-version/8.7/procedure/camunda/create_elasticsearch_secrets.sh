@@ -33,5 +33,8 @@ fi
 create_namespace "$CLUSTER_1_NAME" "$CAMUNDA_NAMESPACE_1"
 create_namespace "$CLUSTER_2_NAME" "$CAMUNDA_NAMESPACE_2"
 
+# wait some time for the namespaces to be created
+sleep 10
+
 create_secret "$CLUSTER_1_NAME" "$CAMUNDA_NAMESPACE_1" "elasticsearch-env-secret" "$AWS_ACCESS_KEY_ES" "$AWS_SECRET_ACCESS_KEY_ES"
 create_secret "$CLUSTER_2_NAME" "$CAMUNDA_NAMESPACE_2" "elasticsearch-env-secret" "$AWS_ACCESS_KEY_ES" "$AWS_SECRET_ACCESS_KEY_ES"
