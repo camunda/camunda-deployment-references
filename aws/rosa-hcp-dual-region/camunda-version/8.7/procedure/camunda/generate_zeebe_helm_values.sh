@@ -118,8 +118,8 @@ echo "  value: $elastic1"
 export ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL="$elastic1"
 
 # Define the broker name of Zeebe Service
-export REGION_0_ZEEBE_SERVICE_NAME="${cluster_1}.${helm_release_name}-zeebe.${namespace_0}.svc.clusterset.local"
-export REGION_1_ZEEBE_SERVICE_NAME="${cluster_0}.${helm_release_name}-zeebe.${namespace_1}.svc.clusterset.local"
+export REGION_0_ZEEBE_SERVICE_NAME="${cluster_0}.${helm_release_name}-zeebe.${namespace_0}.svc.clusterset.local"
+export REGION_1_ZEEBE_SERVICE_NAME="${cluster_1}.${helm_release_name}-zeebe.${namespace_1}.svc.clusterset.local"
 
 echo -e "\nPlease use the following to change the existing environment variable ZEEBE_BROKER_NETWORK_ADVERTISEDHOST $target_text. It's part of the 'zeebe.env' path."
 echo ""
