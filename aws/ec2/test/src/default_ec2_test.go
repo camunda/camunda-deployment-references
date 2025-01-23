@@ -63,10 +63,10 @@ func TestConnectivity(t *testing.T) {
 	t.Log("Test connectivity to EC2 instances")
 
 	// expected values
-	expectedOutputLength := 9
+	expectedOutputLength := 10
 	expectedEc2Instances := 3
 
-	stringOutputs := [...]string{"aws_ami", "alb_endpoint", "nlb_endpoint", "private_key", "public_key", "aws_opensearch_domain", "bastion_ip"}
+	stringOutputs := [...]string{"aws_ami", "alb_endpoint", "nlb_endpoint", "private_key", "public_key", "aws_opensearch_domain", "aws_opensearch_domain_name", "bastion_ip"}
 
 	tfOutputs := terraform.OutputAll(t, terraformOptions(t, logger.Discard))
 
@@ -399,6 +399,15 @@ func TestCamundaUpgrade(t *testing.T) {
 	err = os.WriteFile(filePath, []byte(fileContent), 0644)
 	if err != nil {
 		t.Fatalf("Error writing file: %v", err)
+	}
+
+	// Zeebe has a prerelease protection that results in unhealthy clusters if not disabled
+	if strings.Contains(camundaCurrentVersion, "SNAPSHOT") || strings.Contains(camundaCurrentVersion, "alpha") {
+		cmd = shell.Command{
+			Command: "bash",
+			Args:    []string{"-c", "echo ZEEBE_BROKER_EXPERIMENTAL_VERSIONCHECKRESTRICTIONENABLED=false >> ../../configs/camunda-environment"},
+		}
+		shell.RunCommand(t, cmd)
 	}
 
 	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaCurrentVersion, connectorsCurrentVersion)

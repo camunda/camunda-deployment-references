@@ -36,6 +36,15 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
             ############# Tool Installations #############
+            - name: Cache asdf installation
+              id: cache
+              uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
+              with:
+                  path: |
+                      /home/runner/.asdf
+                  key: ${{ runner.os }}-tooling-${{ hashFiles('**/.tool-versions') }}
+                  restore-keys: |
+                      ${{ runner.os }}-tooling-
             - name: Install tooling using asdf
               uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
             ################## Secrets ###################
@@ -80,7 +89,7 @@ jobs:
                   # since we always plan against nothing, it includes all planned objects
                   # it does not contain sensetive data
                   jq --sort-keys '.planned_values.root_module' "${TF_PATH}/tfplan.json" > "${TF_PATH}/tfplan_extracted.json"
-            - uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4
+            - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
               with:
                   name: plan-artifact-json
                   path: ${{ env.TF_PATH }}/tfplan_extracted.json
@@ -92,7 +101,7 @@ jobs:
                   exit $?
             - name: Post diff on PR
               if: always() && github.event_name == 'pull_request'
-              uses: int128/diff-action@b1b67adf9e7a0a4faa46e38f9fc1936f789ecdab # v1
+              uses: int128/diff-action@f560de06857860e55bb4c6d2a17612803bd37422 # v1
               with:
                   base: ${{ env.GOLDEN_PATH }}//tfplan.json
                   head: ${{ env.TF_PATH }}/tfplan_extracted.json

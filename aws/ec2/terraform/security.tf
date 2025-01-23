@@ -27,18 +27,18 @@ resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
       to_port     = ingress.value
       protocol    = "TCP"
       cidr_blocks = [module.vpc.vpc_cidr_block]
+      description = "Allow inbound traffic on port ${ingress.value}"
     }
-
   }
 
   dynamic "egress" {
     for_each = var.ports
-
     content {
       from_port   = egress.value
       to_port     = egress.value
       protocol    = "TCP"
       cidr_blocks = [module.vpc.vpc_cidr_block]
+      description = "Allow outbound traffic on port ${egress.value}"
     }
   }
 
@@ -57,6 +57,7 @@ resource "aws_security_group" "allow_package_80_443" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow outbound HTTP traffic"
   }
 
   egress {
@@ -64,6 +65,7 @@ resource "aws_security_group" "allow_package_80_443" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow outbound HTTPS traffic"
   }
 
   tags = {
@@ -81,6 +83,7 @@ resource "aws_security_group" "allow_remote_80_443" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow inbound HTTP traffic"
   }
 
   egress {
@@ -88,6 +91,7 @@ resource "aws_security_group" "allow_remote_80_443" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow outbound HTTP traffic"
   }
 
   ingress {
@@ -95,6 +99,7 @@ resource "aws_security_group" "allow_remote_80_443" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow inbound HTTPS traffic"
   }
 
   egress {
@@ -102,6 +107,7 @@ resource "aws_security_group" "allow_remote_80_443" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow outbound HTTPS traffic"
   }
 
   tags = {
@@ -119,6 +125,7 @@ resource "aws_security_group" "allow_remote_9090" {
     to_port     = 9090
     protocol    = "tcp"
     cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow inbound traffic on port 9090"
   }
 
   egress {
@@ -126,6 +133,7 @@ resource "aws_security_group" "allow_remote_9090" {
     to_port     = 9090
     protocol    = "tcp"
     cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow outbound traffic on port 9090"
   }
 
   tags = {
@@ -143,6 +151,7 @@ resource "aws_security_group" "allow_ssh" {
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow inbound SSH traffic"
   }
 
   tags = {
@@ -160,6 +169,7 @@ resource "aws_security_group" "allow_remote_grpc" {
     to_port     = 26500
     protocol    = "tcp"
     cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow inbound gRPC traffic on port 26500"
   }
 
   tags = {

@@ -22,6 +22,7 @@ env:
     AWS_REGION: eu-west-2
     S3_BACKEND_BUCKET: tf-state-multi-reg
     S3_BUCKET_REGION: eu-central-1
+    SNAPSHOT_PREVIOUS_VERSION: 8.7.0-alpha3-rc4 # potential to be reworked to dynamic matrix instead
 
 jobs:
     test:
@@ -31,7 +32,7 @@ jobs:
             matrix:
                 camunda:
                     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
-                    - 8.6.6
+                    - 8.6.7
                     - 8.7.0-SNAPSHOT
                 architecture:
                     - x86_64
@@ -50,6 +51,15 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
             ############# Tool Installations #############
+            - name: Cache asdf installation
+              id: cache
+              uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
+              with:
+                  path: |
+                      /home/runner/.asdf
+                  key: ${{ runner.os }}-tooling-${{ hashFiles('**/.tool-versions') }}
+                  restore-keys: |
+                      ${{ runner.os }}-tooling-
             - name: Install tooling using asdf
               uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
             ################## Secrets ###################
@@ -94,6 +104,14 @@ jobs:
                   # We need to replace the string without substitution except for that of GitHub Actions
                   # shellcheck disable=SC2016
                   sed -i '0,/CAMUNDA_VERSION/s/CAMUNDA_VERSION=.*/CAMUNDA_VERSION=${CAMUNDA_VERSION:-"${{ matrix.camunda }}"}/' camunda-install.sh
+            # potential to rework to dynamic matrix instead or local file that contains version dict
+            - name: Overwrite previous version
+              run: |
+                  if [[ "${{matrix.camunda }}" =~ "SNAPSHOT" ]]; then
+                      echo "CAMUNDA_PREVIOUS_VERSION=${{ env.SNAPSHOT_PREVIOUS_VERSION }}" >> "$GITHUB_ENV"
+                  else
+                      echo "CAMUNDA_PREVIOUS_VERSION=${{ matrix.previous_camunda }}" >> "$GITHUB_ENV"
+                  fi
             ########## Create Infrastructure ############
             - name: Terratest - Terraform Apply
               if: always() && success()
@@ -110,7 +128,7 @@ jobs:
               timeout-minutes: 121
               env:
                   CAMUNDA_VERSION: ${{ matrix.camunda }}
-                  CAMUNDA_PREVIOUS_VERSION: ${{ matrix.previous_camunda }}
+                  CAMUNDA_PREVIOUS_VERSION: ${{ env.CAMUNDA_PREVIOUS_VERSION }}
               run: |
                   # shellcheck disable=SC2155
                   export PATH=$PATH:$(go env GOPATH)/bin
@@ -138,7 +156,7 @@ jobs:
                   sed 's/\n/&#xA;/g' > "./tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml"
             - name: Upload test reports
               if: always()
-              uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4
+              uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
               with:
                   name: test-reports-${{ env.CAMUNDA_HYPHENS }}-${{ matrix.architecture }}
                   path: ${{ github.workspace }}/aws/ec2/test/src/tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml
@@ -193,7 +211,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@bf2a95a9ad449bb221a5958537a94ec129270002 # 1.2.10
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@41bed71d5715d2e2e83a83997a44be59fcddf615 # 1.2.12
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
