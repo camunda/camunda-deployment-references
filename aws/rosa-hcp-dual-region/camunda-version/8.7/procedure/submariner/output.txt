@@ -1,33 +1,27 @@
 Cluster "api-o8u5k0r6u4s7t8a-7gbb-p3-openshiftapps-com:443"
- • Detecting broker(s)  ...
  ✓ Detecting broker(s)
 NAMESPACE            NAME                COMPONENTS   GLOBALNET   GLOBALNET CIDR   DEFAULT GLOBALNET SIZE   DEFAULT DOMAINS
 oc-clusters-broker   submariner-broker                no                           0
 
- • Showing Connections  ...
  ✓ Showing Connections
-GATEWAY          CLUSTER            REMOTE IP     NAT   CABLE DRIVER   SUBNETS                       STATUS       RTT avg.
-ip-10-1-13-153   cluster-region-2   10.1.13.153   no    libreswan      10.1.128.0/18, 10.1.64.0/18   connecting   0s
+GATEWAY          CLUSTER            REMOTE IP     NAT   CABLE DRIVER   SUBNETS                       STATUS      RTT avg.
+ip-10-1-13-153   cluster-region-2   10.1.13.153   no    libreswan      10.1.128.0/18, 10.1.64.0/18   connected   10.406614ms
 
- • Showing Endpoints  ...
  ✓ Showing Endpoints
 CLUSTER            ENDPOINT IP   PUBLIC IP   CABLE DRIVER   TYPE
 local-cluster      10.0.14.37                libreswan      local
 cluster-region-2   10.1.13.153               libreswan      remote
 
- • Showing Gateways  ...
  ✓ Showing Gateways
 NODE            HA STATUS   SUMMARY
-ip-10-0-14-37   active      0 connections out of 1 are established
+ip-10-0-14-37   active      All connections (1) are established
 
- • Showing Network details  ...
  ✓ Showing Network details
     Discovered network details via Submariner:
         Network plugin:  OVNKubernetes
         Service CIDRs:   [10.0.128.0/18]
         Cluster CIDRs:   [10.0.64.0/18]
 
- • Showing versions  ...
  ✓ Showing versions
 COMPONENT                       REPOSITORY                  CONFIGURED                                                         RUNNING   ARCH
 submariner-gateway              registry.redhat.io/rhacm2   2aed1902352cb7771b01ec3e3e7b052a054e3f1d64ef36e4ab210962b93fb499   v0.19.0   amd64
@@ -39,34 +33,28 @@ submariner-lighthouse-coredns   registry.redhat.io/rhacm2   e51a1ffb9cb59243e4a5
 
 
 Cluster "api-q6t6p1q0y8l8e3t-r00e-p3-openshiftapps-com:443"
- • Detecting broker(s)  ...
  ✓ Detecting broker(s)
  ✓ No brokers found
 
- • Showing Connections  ...
  ✓ Showing Connections
-GATEWAY         CLUSTER         REMOTE IP    NAT   CABLE DRIVER   SUBNETS                       STATUS       RTT avg.
-ip-10-0-14-37   local-cluster   10.0.14.37   no    libreswan      10.0.128.0/18, 10.0.64.0/18   connecting   0s
+GATEWAY         CLUSTER         REMOTE IP    NAT   CABLE DRIVER   SUBNETS                       STATUS      RTT avg.
+ip-10-0-14-37   local-cluster   10.0.14.37   no    libreswan      10.0.128.0/18, 10.0.64.0/18   connected   10.398993ms
 
- • Showing Endpoints  ...
  ✓ Showing Endpoints
 CLUSTER            ENDPOINT IP   PUBLIC IP   CABLE DRIVER   TYPE
 cluster-region-2   10.1.13.153               libreswan      local
 local-cluster      10.0.14.37                libreswan      remote
 
- • Showing Gateways  ...
  ✓ Showing Gateways
 NODE             HA STATUS   SUMMARY
-ip-10-1-13-153   active      0 connections out of 1 are established
+ip-10-1-13-153   active      All connections (1) are established
 
- • Showing Network details  ...
  ✓ Showing Network details
     Discovered network details via Submariner:
         Network plugin:  OVNKubernetes
         Service CIDRs:   [10.1.128.0/18]
         Cluster CIDRs:   [10.1.64.0/18]
 
- • Showing versions  ...
  ✓ Showing versions
 COMPONENT                       REPOSITORY                  CONFIGURED                                                         RUNNING   ARCH
 submariner-gateway              registry.redhat.io/rhacm2   2aed1902352cb7771b01ec3e3e7b052a054e3f1d64ef36e4ab210962b93fb499   v0.19.0   amd64
