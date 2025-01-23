@@ -21,10 +21,11 @@ generate_initial_contact() {
 
 # Function to generate Elasticsearch URL
 generate_exporter_elasticsearch_url() {
-  local namespace=$1
-  local release=$2
-  local port_number=${3:-9200}
-  echo "http://${release}-elasticsearch-master-hl.${namespace}.svc.clusterset.local:${port_number}"
+  local cluster_id=$1
+  local namespace=$2
+  local release=$3
+  local port_number=${4:-9200}
+  echo "http://${cluster_id}.${release}-elasticsearch-master-hl.${namespace}.svc.clusterset.local:${port_number}"
 }
 
 # Main script
@@ -85,16 +86,16 @@ fi
 
 # Generate values
 initial_contact=$(generate_initial_contact "$cluster_0" "$namespace_0" "$cluster_1" "$namespace_1" "$helm_release_name" "$cluster_size")
-elastic0=$(generate_exporter_elasticsearch_url "$namespace_0" "$helm_release_name")
-elastic1=$(generate_exporter_elasticsearch_url "$namespace_1" "$helm_release_name")
+elastic0=$(generate_exporter_elasticsearch_url "$cluster_0" "$namespace_0" "$helm_release_name")
+elastic1=$(generate_exporter_elasticsearch_url "$cluster_1" "$namespace_1" "$helm_release_name")
 
 if [[ "$mode" == "failover" ]]; then
   if [[ "$lost_region" == "0" ]]; then
-    elastic0=$(generate_exporter_elasticsearch_url "$namespace_1_failover" "$helm_release_name")
-    elastic1=$(generate_exporter_elasticsearch_url "$namespace_1" "$helm_release_name")
+    elastic0=$(generate_exporter_elasticsearch_url "$cluster_1" "$namespace_1_failover" "$helm_release_name")
+    elastic1=$(generate_exporter_elasticsearch_url "$cluster_1" "$namespace_1" "$helm_release_name")
   else
-    elastic0=$(generate_exporter_elasticsearch_url "$namespace_0" "$helm_release_name")
-    elastic1=$(generate_exporter_elasticsearch_url "$namespace_0_failover" "$helm_release_name")
+    elastic0=$(generate_exporter_elasticsearch_url "$cluster_0" "$namespace_0" "$helm_release_name")
+    elastic1=$(generate_exporter_elasticsearch_url "$cluster_0" "$namespace_0_failover" "$helm_release_name")
   fi
 fi
 

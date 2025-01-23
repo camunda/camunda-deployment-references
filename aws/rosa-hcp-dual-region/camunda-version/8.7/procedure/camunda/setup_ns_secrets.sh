@@ -30,7 +30,10 @@ if [ -z "$AWS_SECRET_ACCESS_KEY_ES" ]; then
     exit 1
 fi
 
+# duplicating namespaces in each cluster is required to have submariner working as expected
 create_namespace "$CLUSTER_1_NAME" "$CAMUNDA_NAMESPACE_1"
+create_namespace "$CLUSTER_1_NAME" "$CAMUNDA_NAMESPACE_2"
+create_namespace "$CLUSTER_2_NAME" "$CAMUNDA_NAMESPACE_1"
 create_namespace "$CLUSTER_2_NAME" "$CAMUNDA_NAMESPACE_2"
 
 # wait some time for the namespaces to be created
