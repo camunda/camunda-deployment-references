@@ -9,6 +9,8 @@
 
 
 resource "aws_vpc_peering_connection" "owner" {
+  provider = aws.peer
+
   vpc_id      = var.owner.vpc_id
   peer_vpc_id = var.accepter.vpc_id
   peer_region = var.accepter.region
@@ -30,6 +32,17 @@ resource "aws_vpc_peering_connection_accepter" "accepter" {
   }
 }
 
+resource "aws_vpc_peering_connection_options" "accepter" {
+  provider = aws.accepter
+
+  vpc_peering_connection_id = aws_vpc_peering_connection.owner.id
+  accepter {
+    allow_remote_vpc_dns_resolution = true
+  }
+
+  depends_on = [aws_vpc_peering_connection_accepter.accepter]
+}
+
 
 ################################
 # Route Table Updates          #
@@ -38,12 +51,16 @@ resource "aws_vpc_peering_connection_accepter" "accepter" {
 # In this case non local cidr range --> VPC Peering connection.
 
 resource "aws_route" "owner" {
+  provider = aws.peer
+
   route_table_id            = var.owner.public_route_table_id
   destination_cidr_block    = var.accepter.vpc_cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.owner.id
 }
 
 resource "aws_route" "owner_private" {
+  provider = aws.peer
+
   for_each       = var.owner.private_route_table_ids
   route_table_id = each.value
 
@@ -74,16 +91,20 @@ resource "aws_route" "accepter_private" {
 ################################
 # These changes are required to actually allow inbound traffic from the other VPC.
 
-resource "aws_vpc_security_group_ingress_rule" "owner_eks_primary" {
+resource "aws_vpc_security_group_ingress_rule" "owner_primary" {
+  provider = aws.peer
+
   security_group_id = var.owner.security_group_id
 
   cidr_ipv4   = var.accepter.vpc_cidr_block
   from_port   = -1
   ip_protocol = -1
   to_port     = -1
+
+  description = "Allow Cluster 2 traffic (no restriction)"
 }
 
-resource "aws_vpc_security_group_ingress_rule" "accepter_eks_primary" {
+resource "aws_vpc_security_group_ingress_rule" "accepter_primary" {
   provider = aws.accepter
 
   security_group_id = var.accepter.security_group_id
@@ -92,4 +113,6 @@ resource "aws_vpc_security_group_ingress_rule" "accepter_eks_primary" {
   from_port   = -1
   ip_protocol = -1
   to_port     = -1
+
+  description = "Allow Cluster 1 traffic (no restriction)"
 }

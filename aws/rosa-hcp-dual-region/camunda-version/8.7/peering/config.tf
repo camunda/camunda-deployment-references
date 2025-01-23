@@ -21,6 +21,7 @@ terraform {
 # It's a limitation by how the AWS provider works
 provider "aws" {
   region = var.owner.region
+  alias  = "peer"
 }
 
 provider "aws" {

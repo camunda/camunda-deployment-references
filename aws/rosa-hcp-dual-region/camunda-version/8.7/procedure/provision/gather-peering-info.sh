@@ -15,7 +15,7 @@ CLUSTER_1_PUBLIC_ROUTE_TABLE_ID=$(echo "$CLUSTER_1_ROUTE_TABLE_IDS" | jq -r '.[]
 
 CLUSTER_1_PRIVATE_ROUTE_TABLE_IDS=$(echo "$CLUSTER_1_ROUTE_TABLE_IDS" | jq -r '.[] | .ID' | grep -vxFf <(echo "$CLUSTER_1_ROUTE_TABLE_IDS" | jq -r '.[] | select((.Routes // []) | any(.GatewayId | (if . == null then false else startswith("igw-") end))) | .ID') | sort -u)
 
-CLUSTER_1_SECURITY_GROUP_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$CLUSTER_1_VPC_ID" --region "$CLUSTER_1_REGION" | jq -r '.SecurityGroups[0].GroupId')
+CLUSTER_1_SECURITY_GROUP_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$CLUSTER_1_VPC_ID" "Name=description,Values=default worker security group" --region "$CLUSTER_1_REGION" | jq -r '.SecurityGroups[0].GroupId')
 CLUSTER_1_PRIVATE_ROUTE_TABLE_IDS_JSON=$(echo "$CLUSTER_1_PRIVATE_ROUTE_TABLE_IDS" | jq -R -s 'split("\n") | map(select(length > 0))')
 
 cd -
@@ -34,7 +34,7 @@ CLUSTER_2_PUBLIC_ROUTE_TABLE_ID=$(echo "$CLUSTER_2_ROUTE_TABLE_IDS" | jq -r '.[]
 
 CLUSTER_2_PRIVATE_ROUTE_TABLE_IDS=$(echo "$CLUSTER_2_ROUTE_TABLE_IDS" | jq -r '.[] | .ID' | grep -vxFf <(echo "$CLUSTER_2_ROUTE_TABLE_IDS" | jq -r '.[] | select((.Routes // []) | any(.GatewayId | (if . == null then false else startswith("igw-") end))) | .ID') | sort -u)
 
-CLUSTER_2_SECURITY_GROUP_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$CLUSTER_2_VPC_ID" --region "$CLUSTER_2_REGION" | jq -r '.SecurityGroups[0].GroupId')
+CLUSTER_2_SECURITY_GROUP_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$CLUSTER_2_VPC_ID" "Name=description,Values=default worker security group" --region "$CLUSTER_2_REGION" | jq -r '.SecurityGroups[0].GroupId')
 CLUSTER_2_PRIVATE_ROUTE_TABLE_IDS_JSON=$(echo "$CLUSTER_2_PRIVATE_ROUTE_TABLE_IDS" | jq -R -s 'split("\n") | map(select(length > 0))')
 
 cd -
