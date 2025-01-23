@@ -1,0 +1,25 @@
+---
+# This file defines a debug pod used to do some networking commands in OpenShift, it only works in the "default" namespace
+apiVersion: v1
+kind: Pod
+metadata:
+    name: ubuntu-with-nmap
+spec:
+    containers:
+        - name: ubuntu
+          image: ubuntu
+          securityContext:
+              allowPrivilegeEscalation: false
+              runAsUser: 0
+              capabilities:
+                  add:
+                      - NET_RAW
+          command: [/bin/sh]
+          args:
+              - -c
+              - >-
+                apt update &&
+                apt install -y iputils-ping nmap mtr dnsutils curl &&
+                nmap --script-updatedb &&
+                echo "container is ready" &&
+                sleep 3d
