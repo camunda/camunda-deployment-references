@@ -25,6 +25,11 @@ global:
     elasticsearch:
         disableExporter: true
 
+    compatibility:
+        openshift:
+            adaptSecurityContext: force # enforce compatibility with SCCs
+
+
 operate:
     env:
         - name: CAMUNDA_OPERATE_BACKUP_REPOSITORYNAME
