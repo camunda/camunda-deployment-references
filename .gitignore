@@ -57,6 +57,7 @@ Temporary Items
 *.tfstate
 *.tfstate.*
 .terraform.lock.hcl
+*.plan
 
 # Crash log files
 crash.log

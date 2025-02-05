@@ -19,7 +19,7 @@ resource "aws_vpc_peering_connection" "cluster_1" {
 
   vpc_id      = var.cluster_1_vpc_id
   peer_vpc_id = var.cluster_2_vpc_id
-  peer_region = data.aws_region.cluster_2_region.name
+  peer_region = var.cluster_2_region
   auto_accept = false
 
   tags = {

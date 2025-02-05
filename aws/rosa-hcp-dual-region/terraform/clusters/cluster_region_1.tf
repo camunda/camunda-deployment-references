@@ -1,7 +1,7 @@
 locals {
   rosa_cluster_1_name = "cluster-region-1" # Change this to a name of your choice
 
-  rosa_cluster_1_zones = ["${data.aws_region.cluster_1_region.name}a", "${data.aws_region.cluster_1_region.name}b", "${data.aws_region.cluster_1_region.name}c"] # Adjust to your needs and align with your value of AWS_REGION
+  rosa_cluster_1_zones = ["${var.cluster_1_region}a", "${var.cluster_1_region}b", "${var.cluster_1_region}c"] # Adjust to your needs and align with your value of AWS_REGION
 
   rosa_cluster_1_admin_username = "kubeadmin"
   rosa_cluster_1_admin_password = "CHANGEME1234r!" # Change the password of your admin password
@@ -10,10 +10,6 @@ locals {
   rosa_cluster_1_machine_cidr_block = "10.0.0.0/18"
   rosa_cluster_1_service_cidr_block = "10.0.128.0/18"
   rosa_cluster_1_pod_cidr_block     = "10.0.64.0/18"
-}
-
-data "aws_region" "cluster_1_region" {
-  provider = aws.cluster_1
 }
 
 module "rosa_cluster_1" {
@@ -52,6 +48,10 @@ output "cluster_1_public_subnet_ids" {
 output "cluster_1_private_subnet_ids" {
   value       = module.rosa_cluster_1.private_subnet_ids
   description = "A comma-separated list of private subnet IDs in the VPC. These subnets are typically used for internal resources that do not require direct internet access."
+}
+output "cluster_1_vpc_id" {
+  value       = module.rosa_cluster_1.vpc_id
+  description = "The VPC ID of the cluster."
 }
 
 output "cluster_1_cluster_id" {

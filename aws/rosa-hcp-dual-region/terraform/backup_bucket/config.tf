@@ -22,3 +22,11 @@ provider "aws" {
   region = var.backup_bucket_region
   alias  = "backup_bucket"
 }
+
+#### Variables
+
+variable "backup_bucket_region" {
+  description = "Region of the backup bucket"
+  default     = "us-east-1"
+  type        = string
+}
