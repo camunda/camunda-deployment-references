@@ -126,7 +126,8 @@ resource "aws_vpc_security_group_ingress_rule" "cluster_2_primary" {
 
 ### Cluster 1 data retrieval
 data "aws_vpc" "cluster_1_vpc" {
-  id = var.cluster_1_vpc_id
+  provider = aws.cluster_1
+  id       = var.cluster_1_vpc_id
 }
 
 # Filter the public route table (associated with an Internet Gateway)
@@ -175,7 +176,8 @@ data "aws_security_groups" "cluster_1_worker_sg" {
 
 ### Cluster 2 data retrieval
 data "aws_vpc" "cluster_2_vpc" {
-  id = var.cluster_2_vpc_id
+  provider = aws.cluster_2
+  id       = var.cluster_2_vpc_id
 }
 
 data "aws_route_tables" "cluster_2_public_route_tables" {
