@@ -10,16 +10,12 @@ resource "aws_s3_bucket" "elastic_backup" {
   tags = {
     Name = var.bucket_name
   }
-
-  provider = aws.backup_bucket
 }
 
 resource "aws_kms_key" "backup_bucket_key" {
   description             = "This key is used to encrypt bucket ${var.bucket_name}"
   deletion_window_in_days = 10
   enable_key_rotation     = true
-
-  provider = aws.backup_bucket
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "encrypt_bucket" {
@@ -31,8 +27,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encrypt_bucket" {
       sse_algorithm     = "aws:kms"
     }
   }
-
-  provider = aws.backup_bucket
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "encrypt_log_bucket" {
@@ -44,8 +38,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encrypt_log_bucke
       sse_algorithm     = "aws:kms"
     }
   }
-
-  provider = aws.backup_bucket
 }
 
 
@@ -54,8 +46,6 @@ resource "aws_s3_bucket_versioning" "versionning_backup" {
   versioning_configuration {
     status = "Enabled"
   }
-
-  provider = aws.backup_bucket
 }
 
 resource "aws_s3_bucket_versioning" "versionning_logs" {
@@ -63,29 +53,17 @@ resource "aws_s3_bucket_versioning" "versionning_logs" {
   versioning_configuration {
     status = "Enabled"
   }
-
-  provider = aws.backup_bucket
 }
 
 resource "aws_s3_bucket_logging" "this" {
   bucket        = aws_s3_bucket.elastic_backup.id
   target_bucket = aws_s3_bucket.log_bucket.id
   target_prefix = "log/"
-
-  provider = aws.backup_bucket
 }
 
+# trivy:ignore:AVD-AWS-0089
 resource "aws_s3_bucket" "log_bucket" {
   bucket = "${var.bucket_name}-log"
-
-  provider = aws.backup_bucket
-}
-
-resource "aws_s3_bucket_acl" "log_bucket" {
-  acl    = "log-delivery-write"
-  bucket = aws_s3_bucket.log_bucket.id
-
-  provider = aws.backup_bucket
 }
 
 resource "aws_s3_bucket_public_access_block" "block_public_policy" {
@@ -94,8 +72,6 @@ resource "aws_s3_bucket_public_access_block" "block_public_policy" {
   ignore_public_acls      = true
   restrict_public_buckets = true
   block_public_acls       = true
-
-  provider = aws.backup_bucket
 }
 
 resource "aws_s3_bucket_public_access_block" "block_public_policy_logs" {
@@ -104,21 +80,15 @@ resource "aws_s3_bucket_public_access_block" "block_public_policy_logs" {
   ignore_public_acls      = true
   restrict_public_buckets = true
   block_public_acls       = true
-
-  provider = aws.backup_bucket
 }
 
 # trivy:ignore:AVD-AWS-0143
 resource "aws_iam_user" "service_account" {
   name = "${var.bucket_name}-s3-service-account"
-
-  provider = aws.backup_bucket
 }
 
 resource "aws_iam_access_key" "service_account_access_key" {
   user = aws_iam_user.service_account.name
-
-  provider = aws.backup_bucket
 }
 
 resource "aws_iam_policy" "s3_access_policy" {
@@ -140,15 +110,11 @@ resource "aws_iam_policy" "s3_access_policy" {
       }
     ]
   })
-
-  provider = aws.backup_bucket
 }
 
 resource "aws_iam_user_policy_attachment" "s3_access_attachment" {
   user       = aws_iam_user.service_account.name
   policy_arn = aws_iam_policy.s3_access_policy.arn
-
-  provider = aws.backup_bucket
 }
 
 output "s3_aws_access_key" {

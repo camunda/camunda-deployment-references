@@ -20,7 +20,6 @@ terraform {
 # For ease of the configuration, a third provider is used only for the bucket creation
 provider "aws" {
   region = var.backup_bucket_region
-  alias  = "backup_bucket"
 }
 
 #### Variables
