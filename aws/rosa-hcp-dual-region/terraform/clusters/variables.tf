@@ -9,9 +9,3 @@ variable "cluster_2_region" {
   default     = "us-east-2"
   type        = string
 }
-
-variable "backup_bucket_region" {
-  description = "Region of the backup bucket"
-  default     = "us-east-1"
-  type        = string
-}
