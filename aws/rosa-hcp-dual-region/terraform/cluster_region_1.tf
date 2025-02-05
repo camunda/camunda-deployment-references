@@ -1,9 +1,7 @@
 locals {
   rosa_cluster_1_name = "cluster-region-1" # Change this to a name of your choice
 
-  # tflint-ignore: terraform_unused_declarations
-  rosa_cluster_1_region = "us-east-1"                                                                                               # Change it to the same value as your CLUSTER_1_REGION environment variable
-  rosa_cluster_1_zones  = ["${local.rosa_cluster_1_region}a", "${local.rosa_cluster_1_region}b", "${local.rosa_cluster_1_region}c"] # Adjust to your needs and align with your value of AWS_REGION
+  rosa_cluster_1_zones = ["${data.aws_region.cluster_1_region.name}a", "${data.aws_region.cluster_1_region.name}b", "${data.aws_region.cluster_1_region.name}c"] # Adjust to your needs and align with your value of AWS_REGION
 
   rosa_cluster_1_admin_username = "kubeadmin"
   rosa_cluster_1_admin_password = "CHANGEME1234r!" # Change the password of your admin password
@@ -14,7 +12,15 @@ locals {
   rosa_cluster_1_pod_cidr_block     = "10.0.64.0/18"
 }
 
+data "aws_region" "cluster_1_region" {
+  provider = aws.cluster_1
+}
+
 module "rosa_cluster_1" {
+  providers = {
+    aws = aws.cluster_1
+  }
+
   source = "git::https://github.com/camunda/camunda-tf-rosa//modules/rosa-hcp?ref=v2.0.0"
 
   cluster_name = local.rosa_cluster_1_name
