@@ -2,8 +2,9 @@
 name: AWS EC2 Tests
 
 on:
-    schedule:
-        - cron: 0 3 * * 1-5
+    # Disabling for the time being due to focus shift with 8.7
+    # schedule:
+    #     - cron: 0 3 * * 1-5
     workflow_dispatch:
     pull_request:
         paths:
@@ -47,22 +48,12 @@ jobs:
                       isPR: true
 
         steps:
-            ################## Checkout ##################
             - name: Checkout repository
               uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-            ############# Tool Installations #############
-            - name: Cache asdf installation
-              id: cache
-              uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
-              with:
-                  path: |
-                      /home/runner/.asdf
-                  key: ${{ runner.os }}-tooling-${{ hashFiles('**/.tool-versions') }}
-                  restore-keys: |
-                      ${{ runner.os }}-tooling-
-            - name: Install tooling using asdf
-              uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
-            ################## Secrets ###################
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@d97ec3138367714e8ecf8d925c0b5287450b6b47 # 1.2.17
+
             - name: Import Secrets
               id: secrets
               uses: hashicorp/vault-action@v3
@@ -75,6 +66,7 @@ jobs:
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+
             ################ AWS Config ##################
             # Official action does not support profiles
             - name: Add profile credentials to ~/.aws/credentials
@@ -211,7 +203,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@41bed71d5715d2e2e83a83997a44be59fcddf615 # 1.2.12
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@510ca7776bb17f028ce9b6254ff68e81744fa76e # 1.2.14
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
