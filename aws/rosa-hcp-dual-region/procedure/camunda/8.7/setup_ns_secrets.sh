@@ -21,12 +21,12 @@ create_secret() {
 }
 
 if [ -z "$AWS_ACCESS_KEY_ES" ]; then
-    echo "Error: AWS_ACCESS_KEY_ES environment variable is not set."
+    echo "ERROR: AWS_ACCESS_KEY_ES environment variable is not set."
     return 1
 fi
 
 if [ -z "$AWS_SECRET_ACCESS_KEY_ES" ]; then
-    echo "Error: AWS_SECRET_ACCESS_KEY_ES environment variable is not set."
+    echo "ERROR: AWS_SECRET_ACCESS_KEY_ES environment variable is not set."
     return 1
 fi
 

@@ -65,7 +65,7 @@ fi
 if [[ "$mode" == "failover" ]]; then
   read -r -p "Enter the region that was lost, values can either be 0 or 1: " lost_region
   if [[ "$lost_region" != "0" && "$lost_region" != "1" ]]; then
-    echo "Invalid region $lost_region provided for the lost region. Please provide either 0 or 1 as input value."
+    echo "ERROR: Invalid region $lost_region provided for the lost region. Please provide either 0 or 1 as input value."
     return 1
   fi
 fi
@@ -78,15 +78,15 @@ fi
 cluster_size=$((ZEEBE_CLUSTER_SIZE))
 
 if (( cluster_size % 2 != 0 )); then
-  echo "Cluster size $cluster_size is an odd number and not supported in a multi-region setup (must be an even number)"
+  echo "ERROR: Cluster size $cluster_size is an odd number and not supported in a multi-region setup (must be an even number)"
   return 1
 fi
 if (( cluster_size < 4 )); then
-  echo "Cluster size $cluster_size is too small and should be at least 4. A multi-region setup is not recommended for a small cluster size."
+  echo "ERROR: Cluster size $cluster_size is too small and should be at least 4. A multi-region setup is not recommended for a small cluster size."
   return 1
 fi
 if [[ "$namespace_0" == "$namespace_1" ]]; then
-  echo "Kubernetes namespaces for Camunda installations must be called differently"
+  echo "ERROR: Kubernetes namespaces for Camunda installations must be called differently"
   return 1
 fi
 
