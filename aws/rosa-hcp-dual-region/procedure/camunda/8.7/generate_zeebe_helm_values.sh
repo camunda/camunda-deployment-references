@@ -71,7 +71,7 @@ if [[ "$mode" == "failover" ]]; then
 fi
 
 if [[ -z "$ZEEBE_CLUSTER_SIZE" ]]; then
-  read -r -p "Enter Zeebe cluster size (total number of Zeebe brokers in both Kubernetes clusters) [or set ZEEBE_CLUSTER_SIZE beforehand]: " ZEEBE_CLUSTER_SIZE
+  read -r -p "Enter Zeebe cluster size (total number of Zeebe brokers in both Kubernetes clusters) [or set ZEEBE_CLUSTER_SIZE beforehand] (recommended value: 8): " ZEEBE_CLUSTER_SIZE
 fi
 
 # Convert to integer
