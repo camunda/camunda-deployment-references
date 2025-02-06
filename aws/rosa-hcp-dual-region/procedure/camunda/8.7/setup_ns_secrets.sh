@@ -22,12 +22,12 @@ create_secret() {
 
 if [ -z "$AWS_ACCESS_KEY_ES" ]; then
     echo "ERROR: AWS_ACCESS_KEY_ES environment variable is not set."
-    return 1
+    exit 1
 fi
 
 if [ -z "$AWS_SECRET_ACCESS_KEY_ES" ]; then
     echo "ERROR: AWS_SECRET_ACCESS_KEY_ES environment variable is not set."
-    return 1
+    exit 1
 fi
 
 # duplicating namespaces in each cluster is required to have submariner working as expected

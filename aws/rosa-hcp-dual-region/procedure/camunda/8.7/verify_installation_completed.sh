@@ -21,7 +21,7 @@ while true; do
     echo "OK: All pods are Running and Healthy in context: $CLUSTER_2_NAME, namespace: $CAMUNDA_NAMESPACE_2 - Installation completed!";
     echo "OK: All pods are healthy across both contexts.";
     echo "Installation completed.";
-    return 0;
+    exit 0;
   else
     echo "Some pods are not Running or Healthy in context: $CLUSTER_2_NAME, namespace: $CAMUNDA_NAMESPACE_2";
   fi
