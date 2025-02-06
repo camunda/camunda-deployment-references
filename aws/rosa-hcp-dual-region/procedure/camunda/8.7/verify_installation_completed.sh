@@ -19,8 +19,8 @@ while true; do
      [ "$(kubectl --context="$CLUSTER_2_NAME" get pods -n "$CAMUNDA_NAMESPACE_2" -o json | jq -r '.items[] | select(.status.containerStatuses[]?.ready == false)' | wc -l)" -eq 0 ];
   then
     echo "All pods are Running and Healthy in context: $CLUSTER_2_NAME, namespace: $CAMUNDA_NAMESPACE_2 - Installation completed!";
-    echo "All pods are healthy across both contexts. Exiting...";
-    exit 0;
+    echo "All pods are healthy across both contexts.";
+    return 0;
   else
     echo "Some pods are not Running or Healthy in context: $CLUSTER_2_NAME, namespace: $CAMUNDA_NAMESPACE_2";
   fi
