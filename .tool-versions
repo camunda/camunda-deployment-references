@@ -8,19 +8,29 @@
 #       as the version but the Docker tag/Github tag is actually v1.2.3        #
 #                                                                              #
 ################################################################################
+#
+# /!\ Please maintain this file sorted alphabetically.
+# check it with
+# diff <(sed '/^#/d; /^$/d' .tool-versions | sort) <(sed '/^#/d; /^$/d' .tool-versions) && echo ".tool-versions is sorted correctly" || echo ".tool-versions is not sorted correctly"
 
 awscli 2.24.0
 
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.7
 
+awscli 2.22.28
+
 delta 0.18.2
 
 golang 1.23.6
 
+helm 3.17.0
+
 jq 1.7.1
 
 just 1.39.0
+
+kubectl 1.32.1
 
 pre-commit 4.1.0
 
