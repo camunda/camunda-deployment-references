@@ -13,7 +13,7 @@
 # check it with
 # diff <(sed '/^#/d; /^$/d' .tool-versions | sort) <(sed '/^#/d; /^$/d' .tool-versions) && echo ".tool-versions is sorted correctly" || echo ".tool-versions is not sorted correctly"
 
-awscli 2.24.0
+awscli 2.24.5
 
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.7
@@ -24,13 +24,13 @@ delta 0.18.2
 
 golang 1.24.0
 
-helm 3.17.0
+helm 3.17.1
 
 jq 1.7.1
 
 just 1.39.0
 
-kubectl 1.32.1
+kubectl 1.32.2
 
 pre-commit 4.1.0
 
