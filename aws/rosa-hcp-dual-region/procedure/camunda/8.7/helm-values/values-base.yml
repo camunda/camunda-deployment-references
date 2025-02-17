@@ -128,7 +128,7 @@ zeebeGateway:
 elasticsearch:
     enabled: true
     master:
-        replicaCount: 2
+        replicaCount: 3
         resources:
             requests:
                 cpu: 100m
