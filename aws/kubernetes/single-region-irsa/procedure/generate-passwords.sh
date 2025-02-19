@@ -1,0 +1,1 @@
+../../camunda-8.7/procedure/generate-passwords.sh

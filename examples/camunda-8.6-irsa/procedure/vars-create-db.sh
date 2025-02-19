@@ -1,1 +1,0 @@
-../../camunda-8.6/procedure/vars-create-db.sh

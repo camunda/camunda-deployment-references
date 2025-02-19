@@ -32,7 +32,7 @@ jobs:
               uses: lycheeverse/lychee-action@f613c4a64e50d792e0b31ec34bbcbba12263c6a6 # v2.3.0
               with:
                   fail: true
-                  args: -c ./lychee-links.toml --base . --cache --max-cache-age 1d . --verbose --no-progress '*.md' './**/*.md'
+                  args: -c ./.lint/lychee-links.toml --base . --cache --max-cache-age 1d . --verbose --no-progress '*.md' './**/*.md'
                   token: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Create Issue From File

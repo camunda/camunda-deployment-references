@@ -5,6 +5,6 @@ set -euxo pipefail
 for dir in $(find modules -type d -maxdepth 1) $(find examples -type d -maxdepth 1); do
   if [ -f "$dir/README.md" ] && ! [ -e "$dir/.trivy_ignore" ]; then
       echo "Scanning terraform module with trivy: $dir"
-      trivy config --config .lint/trivy/trivy.yaml --ignorefile .trivyignore "$dir"
+      trivy config --config .lint/trivy/trivy.yaml --ignorefile .lint/trivy/.trivyignore "$dir"
   fi
 done

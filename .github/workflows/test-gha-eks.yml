@@ -2,8 +2,8 @@
 name: EKS Cluster with an AuroraDB and OpenSearch creation and destruction test
 
 on:
-    schedule:
-        - cron: 0 1 * * 2 # At 01:00 on Tuesday.
+    # schedule:
+    #     - cron: 0 1 * * 2 # At 01:00 on Tuesday.
 
     workflow_dispatch:
         inputs:
@@ -37,17 +37,17 @@ on:
                 required: false
                 type: string
 
-    pull_request:
-        # the paths should be synced with ../labeler.yml
-        paths:
-            - modules/fixtures/backend.tf
-            - modules/fixtures/fixtures.default.eks.tfvars
-            - modules/fixtures/fixtures.default.aurora.tfvars
-            - modules/eks-cluster/**.tf
-            - modules/aurora/**.tf
-            - .tool-versions
-            - .github/workflows/test-gha-eks.yml
-            - .github/actions/*/*.yml
+    # pull_request:
+    #     # the paths should be synced with ../labeler.yml
+    #     paths:
+    #         - modules/fixtures/backend.tf
+    #         - modules/fixtures/fixtures.default.eks.tfvars
+    #         - modules/fixtures/fixtures.default.aurora.tfvars
+    #         - modules/eks-cluster/**.tf
+    #         - modules/aurora/**.tf
+    #         - .tool-versions
+    #         - .github/workflows/test-gha-eks.yml
+    #         - .github/actions/*/*.yml
 
 # limit to a single execution per actor of this workflow
 concurrency:

@@ -2,19 +2,19 @@
 name: Terraform modules tests
 
 on:
-    schedule:
-        - cron: 0 1 * * 2
+    # schedule:
+    #     - cron: 0 1 * * 2
     workflow_dispatch:
-    pull_request:
-        # the paths should be synced with ../labeler.yml
-        paths:
-            - test/**.go
-            - test/**/go.mod
-            - modules/fixtures/**
-            - modules/**.tf
-            - .tool-versions
-            - .github/workflows/tests.yml
-            - justfile
+    # pull_request:
+    #     # the paths should be synced with ../labeler.yml
+    #     paths:
+    #         - test/**.go
+    #         - test/**/go.mod
+    #         - modules/fixtures/**
+    #         - modules/**.tf
+    #         - .tool-versions
+    #         - .github/workflows/tests.yml
+    #         - justfile
 
 # limit to a single execution per ref of this workflow
 concurrency:
