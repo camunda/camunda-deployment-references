@@ -1,0 +1,186 @@
+---
+name: Deploy RDS Aurora Cluster
+
+description: |
+    This GitHub Action automates the deployment of an RDS Aurora cluster using Terraform.
+    This action will also install Terraform and awscli. It will output the Aurora cluster endpoint.
+
+inputs:
+    aws-region:
+        description: AWS region where the cluster will be deployed
+        required: true
+
+    cluster-name:
+        description: Name of the RDS Aurora cluster to deploy
+        required: true
+
+    username:
+        description: Username for the PostgreSQL admin user
+        required: true
+
+    password:
+        description: Password for the PostgreSQL admin user
+        required: true
+
+    vpc-id:
+        description: VPC ID to create the cluster in
+        required: true
+
+    subnet-ids:
+        description: List of subnet IDs to create the cluster in
+        required: true
+
+    cidr-blocks:
+        description: CIDR blocks to allow access from and to
+        required: true
+
+    availability-zones:
+        description: Array of availability zones to use for the Aurora cluster
+        required: true
+
+    additional-terraform-vars:
+        description: JSON object containing additional Terraform variables
+        required: false
+        default: '{}'
+
+    s3-backend-bucket:
+        description: Name of the S3 bucket to store Terraform state
+        required: true
+
+    s3-bucket-region:
+        description: Region of the bucket containing the resources states
+        required: false
+
+    tf-modules-revision:
+        description: Git revision of the tf modules to use
+        default: main
+
+    tf-modules-path:
+        description: Path where the tf Aurora modules will be cloned
+        default: ./.action-tf-modules/aurora/
+
+    # inherited from https://github.com/hashicorp/setup-terraform/blob/main/action.yml
+    tf-cli-config-credentials-hostname:
+        description: |
+            The hostname of a HCP Terraform/Terraform Enterprise instance to place within the credentials block
+            of the Terraform CLI configuration file. Defaults to `app.terraform.io`.
+        default: app.terraform.io
+
+    tf-cli-config-credentials-token:
+        description: |
+            The API token for a HCP Terraform/Terraform Enterprise instance to place
+            within the credentials block of the Terraform CLI configuration file.
+        required: false
+
+    tf-terraform-version:
+        description: The version of Terraform CLI to install. Defaults to `latest`.
+        default: latest
+
+    tf-terraform-wrapper:
+        description: |
+            Whether or not to install a wrapper to wrap subsequent calls of the `terraform` binary
+            and expose its STDOUT, STDERR, and exit code
+            as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`.
+        default: 'true'
+
+    awscli-version:
+        description: Version of the aws cli to use
+        # renovate: datasource=github-releases depName=aws/aws-cli
+        default: 2.15.52
+
+outputs:
+    aurora-endpoint:
+        description: The endpoint of the deployed Aurora cluster
+        value: ${{ steps.apply.outputs.aurora_endpoint }}
+
+    terraform-state-url:
+        description: URL of the Terraform state file in the S3 bucket
+        value: ${{ steps.utility.outputs.terraform-state-url }}
+
+    # Add all terraform outputs dynamically
+    all-terraform-outputs:
+        description: All outputs from Terraform
+        value: ${{ steps.fetch_outputs.outputs.all_terraform_outputs }}
+
+runs:
+    using: composite
+    steps:
+        - name: Use Utility Actions
+          id: utility
+          # see https://github.com/orgs/community/discussions/41927 it's not possible to optimize this yet
+          # steps.uses  cannot access the github context.
+          uses: camunda/camunda-tf-eks-module/.github/actions/utility-action@3d6b87546fe8ad01cd0cfd916dcc2326d04bae6c # 3.1.3
+          with:
+              awscli-version: ${{ inputs.awscli-version }}
+              terraform-version: ${{ inputs.terraform-version }}
+
+              aws-region: ${{ inputs.aws-region }}
+
+              s3-backend-bucket: ${{ inputs.s3-backend-bucket }}
+              s3-bucket-region: ${{ inputs.s3-bucket-region }}
+
+              tf-state-key: terraform/${{ inputs.cluster-name }}/gha/aurora/terraform.tfstate
+
+              tf-cli-config-credentials-hostname: ${{ inputs.tf-cli-config-credentials-hostname }}
+              tf-cli-config-credentials-token: ${{ inputs.tf-cli-config-credentials-token }}
+              tf-terraform-wrapper: ${{ inputs.tf-terraform-wrapper }}
+
+        - name: Checkout Repository Aurora modules
+          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+          with:
+              repository: camunda/camunda-tf-eks-module
+              ref: ${{ inputs.tf-modules-revision }}
+              path: ${{ inputs.tf-modules-path }}
+              fetch-depth: 0
+
+        - name: Terraform Init
+          shell: bash
+          id: init
+          working-directory: ${{ inputs.tf-modules-path }}/modules/aurora/
+          run: |
+              set -euxo pipefail
+
+              cp ../fixtures/backend.tf ./
+              terraform version
+              terraform init -backend-config="bucket=${{ steps.utility.outputs.TFSTATE_BUCKET }}" -backend-config="key=${{ steps.utility.outputs.TFSTATE_KEY }}" \
+                -backend-config="region=${{ steps.utility.outputs.TFSTATE_REGION }}"
+              terraform validate -no-color
+
+        - name: Terraform Plan
+          shell: bash
+          id: plan
+          working-directory: ${{ inputs.tf-modules-path }}/modules/aurora/
+          run: |
+              set -euxo pipefail
+
+              echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
+              terraform plan -no-color -out aurora.plan \
+                -var-file=/tmp/var.tfvars.json \
+                -var "cluster_name=${{ inputs.cluster-name }}" \
+                -var "username=${{ inputs.username }}" \
+                -var "password=${{ inputs.password }}" \
+                -var 'availability_zones=${{ inputs.availability-zones }}' \
+                -var "vpc_id=${{ inputs.vpc-id }}" \
+                -var 'subnet_ids=${{ inputs.subnet-ids }}' \
+                -var 'cidr_blocks=${{ inputs.cidr-blocks }}'
+
+        - name: Terraform Apply
+          shell: bash
+          id: apply
+          working-directory: ${{ inputs.tf-modules-path }}/modules/aurora/
+          run: |
+              set -euxo pipefail
+
+              terraform apply -no-color aurora.plan
+              export aurora_endpoint="$(terraform output -raw aurora_endpoint)"
+              echo "aurora_endpoint=$aurora_endpoint" >> "$GITHUB_OUTPUT"
+
+        - name: Fetch Terraform Outputs
+          shell: bash
+          id: fetch_outputs
+          working-directory: ${{ inputs.tf-modules-path }}/modules/aurora/
+          run: |
+              set -euxo pipefail
+
+              all_outputs=$(terraform output -json | jq -c .)
+              echo "all_terraform_outputs=$all_outputs" | tee -a "$GITHUB_OUTPUT"

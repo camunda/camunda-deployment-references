@@ -1,4 +1,4 @@
- # Created by https://www.toptal.com/developers/gitignore/api/macos,linux,visualstudiocode,terraform
+# Created by https://www.toptal.com/developers/gitignore/api/macos,linux,visualstudiocode,terraform
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,linux,visualstudiocode,terraform
 
 ### Linux ###
@@ -112,3 +112,10 @@ ec2-jar-priv
 ca-authority.pem
 ca-authority.key
 camunda-environment.tmp
+.vscode
+.idea
+terraform.tfstate
+terraform.tfstate.backup
+.terraform
+.terraform.lock.hcl
+trivyreport.txt

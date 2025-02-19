@@ -1,0 +1,174 @@
+---
+identityKeycloak:
+    serviceAccount:
+        name: ${CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${DB_ROLE_KEYCLOAK_ARN}
+
+    postgresql:
+        enabled: false
+    externalDatabase:
+        host: ${DB_HOST}
+        user: ${DB_KEYCLOAK_USERNAME}
+        port: 5432
+        database: ${DB_KEYCLOAK_NAME}
+
+    extraEnvVars:
+        - name: KEYCLOAK_EXTRA_ARGS
+          value: --db-driver=software.amazon.jdbc.Driver --transaction-xa-enabled=false --log-level=INFO,software.amazon.jdbc:INFO
+        - name: KEYCLOAK_JDBC_PARAMS
+          value: wrapperPlugins=iam&ssl=true&sslmode=require
+        - name: KEYCLOAK_JDBC_DRIVER
+          value: aws-wrapper:postgresql
+
+    auth:
+        existingSecret: identity-secret-for-components
+
+global:
+    elasticsearch:
+        enabled: false
+    opensearch:
+        enabled: true
+        aws:
+            enabled: true # enable IRSA auth
+        url:
+            protocol: https
+            host: ${OPENSEARCH_HOST}
+            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
+            port: 443
+
+    ingress:
+        enabled: true
+        host: ${DOMAIN_NAME}
+        tls:
+            enabled: true
+            secretName: camunda-c8-tls
+        annotations:
+            kubernetes.io/tls-acme: 'true'
+    identity:
+        auth:
+            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
+            zeebe:
+                existingSecret:
+                    name: identity-secret-for-components
+            connectors:
+                existingSecret:
+                    name: identity-secret-for-components
+            operate:
+                redirectUrl: https://${DOMAIN_NAME}/operate
+                existingSecret:
+                    name: identity-secret-for-components
+            tasklist:
+                redirectUrl: https://${DOMAIN_NAME}/tasklist
+                existingSecret:
+                    name: identity-secret-for-components
+            optimize:
+                redirectUrl: https://${DOMAIN_NAME}/optimize
+                existingSecret:
+                    name: identity-secret-for-components
+            webModeler:
+                redirectUrl: https://${DOMAIN_NAME}/modeler
+            console:
+                redirectUrl: https://${DOMAIN_NAME}/console
+                existingSecret:
+                    name: identity-secret-for-components
+
+webModeler:
+    enabled: false # by default, webModeler is not enabled
+    contextPath: /modeler
+
+    serviceAccount:
+        name: ${CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${DB_ROLE_WEBMODELER_ARN}
+
+    restapi:
+        externalDatabase:
+            url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?wrapperPlugins=iam
+            user: ${DB_WEBMODELER_USERNAME}
+            existingSecret: identity-secret-for-components # this fake password reference is needed to let the chart deploy webmodeler
+            existingSecretPasswordKey: password
+        env:
+            - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+              value: software.amazon.jdbc.Driver
+        mail:
+            existingSecret: identity-secret-for-components # reference the smtp password
+            fromAddress: changeme@example.com   # change this required value
+
+identity:
+    contextPath: /identity
+    fullURL: https://${DOMAIN_NAME}/identity
+
+    serviceAccount:
+        name: ${CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${DB_ROLE_IDENTITY_ARN}
+
+    externalDatabase:
+        enabled: true
+        host: ${DB_HOST}
+        port: 5432
+        username: ${DB_IDENTITY_USERNAME}
+        database: ${DB_IDENTITY_NAME}
+
+    env:
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_IDENTITY_NAME}?wrapperPlugins=iam
+        - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+          value: software.amazon.jdbc.Driver
+        - name: SPRING_DATASOURCE_USERNAME
+          value: ${DB_IDENTITY_USERNAME}
+
+
+operate:
+    contextPath: /operate
+
+    serviceAccount:
+        name: ${CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+
+tasklist:
+    contextPath: /tasklist
+
+    serviceAccount:
+        name: ${CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+
+optimize:
+    contextPath: /optimize
+
+    serviceAccount:
+        name: ${CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+
+    # OpenSearch prevents migration
+    migration:
+        enabled: false
+
+zeebe:
+    serviceAccount:
+        name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+
+zeebeGateway:
+    ingress:
+        grpc:
+            enabled: true
+            host: zeebe.${DOMAIN_NAME}
+            tls:
+                enabled: true
+                secretName: zeebe-c8-tls-grpc
+            annotations:
+                kubernetes.io/tls-acme: 'true'
+    contextPath: /zeebe
+
+console:
+    enabled: false # by default, console is not enabled
+    contextPath: /console
+
+elasticsearch:
+    enabled: false

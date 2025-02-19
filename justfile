@@ -1,3 +1,7 @@
+# this file is a recipe file for the project
+
+# renovate: datasource=github-releases depName=gotestyourself/gotestsum
+gotestsum_version := "v1.12.0"
 
 regenerate-aws-ec2-golden-file:
   #!/bin/bash
@@ -11,6 +15,25 @@ regenerate-aws-ec2-golden-file:
   rm -rf tfplan tfplan.json
   rm -rf provider_override.tf
 
+# Launch a single test using go test in verbose mode
+test-verbose testname: install-tests-go-mod
+    cd test/src/ && go test -v --timeout=120m -p 1 -run {{testname}}
+
+# Launch a single test using gotestsum
+test testname gts_options="": install-tests-go-mod
+    cd test/src/ && go run gotest.tools/gotestsum@{{gotestsum_version}} {{gts_options}} -- --timeout=120m -p 1 -run {{testname}}
+
+# Launch the tests in parallel using go test in verbose mode
+tests-verbose: install-tests-go-mod
+    cd test/src/ && go test -v --timeout=120m -p 1 .
+
+# Launch the tests in parallel using gotestsum
+tests gts_options="": install-tests-go-mod
+    cd test/src/ && go run gotest.tools/gotestsum@{{gotestsum_version}} {{gts_options}} -- --timeout=120m -p 1 .
+
+# Install go dependencies from test/src/go.mod
+install-tests-go-mod:
+    cd test/src/ && go mod download
 
 # Install all the tooling
 install-tooling: asdf-install

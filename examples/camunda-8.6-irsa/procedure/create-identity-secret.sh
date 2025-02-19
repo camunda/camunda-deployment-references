@@ -1,0 +1,1 @@
+../../camunda-8.6/procedure/create-identity-secret.sh

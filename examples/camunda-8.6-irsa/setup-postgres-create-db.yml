@@ -1,0 +1,113 @@
+---
+# this manifest creates the database
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: create-setup-user-db
+    labels:
+        app: create-setup-user-db
+spec:
+    backoffLimit: 0
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: create-setup-user-db
+                  image: amazonlinux:latest
+                  command:
+                      - sh
+                      - -c
+                      - |
+                        /bin/bash <<'EOF'
+                        set -o pipefail
+
+                        echo "Installing dependencies..."
+                        yum install -y postgresql15
+
+                        echo "Create keycloak user and associated database"
+                        echo "Note: Any message indicating that the user or the database already exists is informational and can be safely ignored."
+                        psql -h $AURORA_ENDPOINT -p $AURORA_PORT "sslmode=require dbname=postgres user=$AURORA_USERNAME password=$AURORA_PASSWORD" \
+                          -c "CREATE DATABASE \"${DB_KEYCLOAK_NAME}\";"
+
+                        # the grant SCHEMA public must be performed on the target database
+                        psql -h $AURORA_ENDPOINT -p $AURORA_PORT "sslmode=require dbname=$DB_KEYCLOAK_NAME user=$AURORA_USERNAME password=$AURORA_PASSWORD" \
+                          -c "CREATE USER \"${DB_KEYCLOAK_USERNAME}\" WITH LOGIN NOSUPERUSER CREATEDB CREATEROLE INHERIT;" \
+                          -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_KEYCLOAK_NAME}\" TO \"${DB_KEYCLOAK_USERNAME}\";" \
+                          -c "GRANT ALL ON SCHEMA public TO \"${DB_KEYCLOAK_USERNAME}\";" \
+                          -c "GRANT rds_iam TO \"${DB_KEYCLOAK_USERNAME}\";"
+
+
+                        echo "Create identity user and associated database"
+                        echo "Note: Any message indicating that the user or the database already exists is informational and can be safely ignored."
+                        psql -h $AURORA_ENDPOINT -p $AURORA_PORT "sslmode=require dbname=postgres user=$AURORA_USERNAME password=$AURORA_PASSWORD" \
+                          -c "CREATE DATABASE \"${DB_IDENTITY_NAME}\";"
+
+                        psql -h $AURORA_ENDPOINT -p $AURORA_PORT "sslmode=require dbname=$DB_IDENTITY_NAME user=$AURORA_USERNAME password=$AURORA_PASSWORD" \
+                          -c "CREATE USER \"${DB_IDENTITY_USERNAME}\" WITH LOGIN NOSUPERUSER CREATEDB CREATEROLE INHERIT;" \
+                          -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_IDENTITY_NAME}\" TO \"${DB_IDENTITY_USERNAME}\";" \
+                          -c "GRANT ALL ON SCHEMA public TO \"${DB_IDENTITY_USERNAME}\";" \
+                          -c "GRANT rds_iam TO \"${DB_IDENTITY_USERNAME}\";"
+
+                        echo "Create webmodeler user and associated database"
+                        echo "Note: Any message indicating that the user or the database already exists is informational and can be safely ignored."
+                        psql -h $AURORA_ENDPOINT -p $AURORA_PORT "sslmode=require dbname=postgres user=$AURORA_USERNAME password=$AURORA_PASSWORD" \
+                          -c "CREATE DATABASE \"${DB_WEBMODELER_NAME}\";"
+
+                        psql -h $AURORA_ENDPOINT -p $AURORA_PORT "sslmode=require dbname=$DB_WEBMODELER_NAME user=$AURORA_USERNAME password=$AURORA_PASSWORD" \
+                          -c "CREATE USER \"${DB_WEBMODELER_USERNAME}\" WITH LOGIN NOSUPERUSER CREATEDB CREATEROLE INHERIT;" \
+                          -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_WEBMODELER_NAME}\" TO \"${DB_WEBMODELER_USERNAME}\";" \
+                          -c "GRANT ALL ON SCHEMA public TO \"${DB_WEBMODELER_USERNAME}\";" \
+                          -c "GRANT rds_iam TO \"${DB_WEBMODELER_USERNAME}\";"
+
+                        EOF
+                  env:
+                      - name: AURORA_ENDPOINT
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: AURORA_ENDPOINT
+                      - name: AURORA_PORT
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: AURORA_PORT
+                      - name: AURORA_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: AURORA_USERNAME
+                      - name: AURORA_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: AURORA_PASSWORD
+                      - name: DB_KEYCLOAK_NAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_KEYCLOAK_NAME
+                      - name: DB_KEYCLOAK_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_KEYCLOAK_USERNAME
+                      - name: DB_IDENTITY_NAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_IDENTITY_NAME
+                      - name: DB_IDENTITY_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_IDENTITY_USERNAME
+                      - name: DB_WEBMODELER_NAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_WEBMODELER_NAME
+                      - name: DB_WEBMODELER_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_WEBMODELER_USERNAME
