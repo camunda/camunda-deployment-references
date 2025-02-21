@@ -5,8 +5,8 @@ gotestsum_version := "v1.12.0"
 
 regenerate-aws-ec2-golden-file:
   #!/bin/bash
-  cd {{justfile_directory()}}/aws/ec2/terraform
-  cp {{justfile_directory()}}/aws/ec2/test/fixtures/provider_override.tf .
+  cd {{justfile_directory()}}/aws/virtual-machine/ec2/terraform
+  cp {{justfile_directory()}}/aws/virtual-machine/ec2/test/fixtures/provider_override.tf .
   export AWS_REGION="eu-west-2"
   terraform init -upgrade
   terraform plan -var aws_ami="ami" -var generate_ssh_key_pair="true" -out=tfplan
@@ -17,23 +17,23 @@ regenerate-aws-ec2-golden-file:
 
 # Launch a single test using go test in verbose mode
 test-verbose testname: install-tests-go-mod
-    cd test/src/ && go test -v --timeout=120m -p 1 -run {{testname}}
+    cd aws/modules/test/src/ && go test -v --timeout=120m -p 1 -run {{testname}}
 
 # Launch a single test using gotestsum
 test testname gts_options="": install-tests-go-mod
-    cd test/src/ && go run gotest.tools/gotestsum@{{gotestsum_version}} {{gts_options}} -- --timeout=120m -p 1 -run {{testname}}
+    cd aws/modules/test/src/ && go run gotest.tools/gotestsum@{{gotestsum_version}} {{gts_options}} -- --timeout=120m -p 1 -run {{testname}}
 
 # Launch the tests in parallel using go test in verbose mode
 tests-verbose: install-tests-go-mod
-    cd test/src/ && go test -v --timeout=120m -p 1 .
+    cd aws/modules/test/src/ && go test -v --timeout=120m -p 1 .
 
 # Launch the tests in parallel using gotestsum
 tests gts_options="": install-tests-go-mod
-    cd test/src/ && go run gotest.tools/gotestsum@{{gotestsum_version}} {{gts_options}} -- --timeout=120m -p 1 .
+    cd aws/modules/test/src/ && go run gotest.tools/gotestsum@{{gotestsum_version}} {{gts_options}} -- --timeout=120m -p 1 .
 
 # Install go dependencies from test/src/go.mod
 install-tests-go-mod:
-    cd test/src/ && go mod download
+    cd aws/modules/test/src/ && go mod download
 
 # Install all the tooling
 install-tooling: asdf-install

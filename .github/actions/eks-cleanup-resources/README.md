@@ -24,7 +24,7 @@ This action is a `composite` action.
 ## Usage
 
 ```yaml
-- uses: camunda/camunda-tf-eks-module/.github/actions/eks-cleanup-resources@main
+- uses: camunda/camunda-deployment-references/.github/actions/eks-cleanup-resources@main
   with:
     tf-bucket:
     # Bucket containing the resources states

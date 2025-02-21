@@ -7,12 +7,12 @@ on:
         paths:
             - .github/workflows/aws_ec2_golden.yml
             - .tool-versions
-            - aws/ec2/terraform/**
+            - aws/virtual-machine/ec2/terraform/**
     push:
         branches:
             - main
         paths:
-            - aws/ec2/terraform/**
+            - aws/virtual-machine/ec2/terraform/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -22,8 +22,8 @@ concurrency:
 env:
     AWS_PROFILE: infex
     AWS_REGION: eu-west-2
-    TF_PATH: ${{ github.workspace }}/aws/ec2/terraform
-    GOLDEN_PATH: ${{ github.workspace }}/aws/ec2/test/golden
+    TF_PATH: ${{ github.workspace }}/aws/virtual-machine/ec2/terraform
+    GOLDEN_PATH: ${{ github.workspace }}/aws/virtual-machine/ec2/test/golden
 
 jobs:
     compare:
@@ -61,16 +61,16 @@ jobs:
                   aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
             - name: Copy provider override
               run: |
-                  cp "${{ github.workspace }}/aws/ec2/test/fixtures/provider_override.tf" "${TF_PATH}/provider_override.tf"
+                  cp "${{ github.workspace }}/aws/virtual-machine/ec2/test/fixtures/provider_override.tf" "${TF_PATH}/provider_override.tf"
             - name: Run Terraform plan
-              working-directory: aws/ec2/terraform
+              working-directory: aws/virtual-machine/ec2/terraform
               run: |
                   terraform init
                   # We are hardcoding the AMI as it's a moving target
                   # Same for the SSH Key as we don't have one on the device and would otherwise omit values from the plan
                   terraform plan -var aws_ami="ami" -var generate_ssh_key_pair="true" -out=tfplan || true
             - name: Convert Terraform plan to JSON
-              working-directory: aws/ec2/terraform
+              working-directory: aws/virtual-machine/ec2/terraform
               run: |
                   # Use jq to "pretty print" the JSON output to allow comparison
                   terraform show -json tfplan | jq > tfplan.json
@@ -86,7 +86,7 @@ jobs:
                   path: ${{ env.TF_PATH }}/tfplan_extracted.json
                   retention-days: 1
             - name: Compare Terraform plan with golden file
-              working-directory: aws/ec2/terraform
+              working-directory: aws/virtual-machine/ec2/terraform
               run: |
                   delta "${GOLDEN_PATH}/tfplan.json" "${TF_PATH}/tfplan_extracted.json"
                   exit $?

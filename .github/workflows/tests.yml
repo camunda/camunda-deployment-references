@@ -2,19 +2,19 @@
 name: Terraform modules tests
 
 on:
-    # schedule:
-    #     - cron: 0 1 * * 2
+    schedule:
+        - cron: 0 1 * * 2
     workflow_dispatch:
-    # pull_request:
-    #     # the paths should be synced with ../labeler.yml
-    #     paths:
-    #         - test/**.go
-    #         - test/**/go.mod
-    #         - modules/fixtures/**
-    #         - modules/**.tf
-    #         - .tool-versions
-    #         - .github/workflows/tests.yml
-    #         - justfile
+    pull_request:
+        # the paths should be synced with ../labeler.yml
+        paths:
+            - aws/modules/test/**.go
+            - aws/modules/test/**/go.mod
+            - aws/modules/fixtures/**
+            - aws/modules/**.tf
+            - .tool-versions
+            - .github/workflows/tests.yml
+            - justfile
 
 # limit to a single execution per ref of this workflow
 concurrency:
@@ -138,7 +138,7 @@ jobs:
               uses: Eun/go-mod-details@b719cd324463e2037cf3a0dd1dd6091bdc2730f4 # v1
               id: go-mod-details
               with:
-                  modfile: ${{ github.workspace }}/test/src/go.mod
+                  modfile: ${{ github.workspace }}/aws/modules/test/src/go.mod
 
             - name: Launch test
               timeout-minutes: 125
@@ -154,16 +154,16 @@ jobs:
             - name: Filter logger.go from the test report (too large)
               if: always()
               run: |
-                  sed 's/&#xA;/\n/g' < "./test/src/${{ matrix.test_function }}_unit-tests.xml" |
+                  sed 's/&#xA;/\n/g' < "./aws/modules/test/src/${{ matrix.test_function }}_unit-tests.xml" |
                   grep -E -v '^.*logger\.go.*$' |
-                  sed 's/\n/&#xA;/g' > "./test/src/${{ matrix.test_function }}_unit-tests_filtered.xml"
+                  sed 's/\n/&#xA;/g' > "./aws/modules/test/src/${{ matrix.test_function }}_unit-tests_filtered.xml"
 
             - name: Upload test reports
               if: always()
               uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
               with:
                   name: test-reports-${{ matrix.test_function }}
-                  path: ./test/src/${{ matrix.test_function }}_unit-tests_filtered.xml
+                  path: ./aws/modules/test/src/${{ matrix.test_function }}_unit-tests_filtered.xml
                   retention-days: 1
 
             - name: Remove profile credentials from ~/.aws/credentials

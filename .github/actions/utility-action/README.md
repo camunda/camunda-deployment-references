@@ -41,7 +41,7 @@ This action is a `composite` action.
 ## Usage
 
 ```yaml
-- uses: camunda/camunda-tf-eks-module/.github/actions/utility-action@main
+- uses: camunda/camunda-deployment-references/.github/actions/utility-action@main
   with:
     awscli-version:
     # Version of the AWS CLI to install

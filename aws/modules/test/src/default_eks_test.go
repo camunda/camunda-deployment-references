@@ -92,9 +92,9 @@ func (suite *DefaultEKSTestSuite) TestDefaultEKS() {
 	errTfDir := os.MkdirAll(fullDir, os.ModePerm)
 	suite.Require().NoError(errTfDir)
 
-	tfDir := test_structure.CopyTerraformFolderToDest(suite.T(), "../../modules/", tfModuleEKS, fullDir)
+	tfDir := test_structure.CopyTerraformFolderToDest(suite.T(), "../../", tfModuleEKS, fullDir)
 
-	errLinkBackend := os.Link("../../modules/fixtures/backend.tf", filepath.Join(tfDir, "backend.tf"))
+	errLinkBackend := os.Link("../../fixtures/backend.tf", filepath.Join(tfDir, "backend.tf"))
 	suite.Require().NoError(errLinkBackend)
 
 	terraformOptions := &terraform.Options{

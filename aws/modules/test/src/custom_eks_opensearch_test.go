@@ -95,9 +95,9 @@ func (suite *CustomEKSOpenSearchTestSuite) TestCustomEKSAndOpenSearch() {
 	fullDirEKS := fmt.Sprintf("%s%s", suite.tfDataDir, tfModuleEKS)
 	errTfDirEKS := os.MkdirAll(fullDirEKS, os.ModePerm)
 	suite.Require().NoError(errTfDirEKS)
-	tfDir := test_structure.CopyTerraformFolderToDest(suite.T(), "../../modules/", tfModuleEKS, fullDirEKS)
+	tfDir := test_structure.CopyTerraformFolderToDest(suite.T(), "../../", tfModuleEKS, fullDirEKS)
 
-	errLinkBackend := os.Link("../../modules/fixtures/backend.tf", filepath.Join(tfDir, "backend.tf"))
+	errLinkBackend := os.Link("../../fixtures/backend.tf", filepath.Join(tfDir, "backend.tf"))
 	suite.Require().NoError(errLinkBackend)
 
 	terraformOptions := &terraform.Options{
@@ -245,9 +245,9 @@ func (suite *CustomEKSOpenSearchTestSuite) TestCustomEKSAndOpenSearch() {
 	errTfDirOpenSearch := os.MkdirAll(fullDirOpenSearch, os.ModePerm)
 	suite.Require().NoError(errTfDirOpenSearch)
 
-	tfDirOpenSearch := test_structure.CopyTerraformFolderToDest(suite.T(), "../../modules/", tfModuleOpenSearch, fullDirOpenSearch)
+	tfDirOpenSearch := test_structure.CopyTerraformFolderToDest(suite.T(), "../../", tfModuleOpenSearch, fullDirOpenSearch)
 
-	errLinkBackend = os.Link("../../modules/fixtures/backend.tf", filepath.Join(tfDirOpenSearch, "backend.tf"))
+	errLinkBackend = os.Link("../../fixtures/backend.tf", filepath.Join(tfDirOpenSearch, "backend.tf"))
 	suite.Require().NoError(errLinkBackend)
 
 	terraformOptionsOpenSearch := &terraform.Options{
@@ -340,7 +340,7 @@ func (suite *CustomEKSOpenSearchTestSuite) TestCustomEKSAndOpenSearch() {
 	}
 
 	// deploy the opensearch-client Job to test the connection
-	k8s.KubectlApply(suite.T(), openSearchKubectlOptions, "../../modules/fixtures/opensearch-client.yml")
+	k8s.KubectlApply(suite.T(), openSearchKubectlOptions, "../../fixtures/opensearch-client.yml")
 	errJob := utils.WaitForJobCompletion(kubeClient, openSearchNamespace, "opensearch-client", 5*time.Minute, jobListOptions)
 	suite.Require().NoError(errJob)
 }

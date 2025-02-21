@@ -3,6 +3,12 @@ package test
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/camunda/camunda-tf-eks-module/utils"
@@ -14,11 +20,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
-	"time"
 )
 
 type UpgradeEKSTestSuite struct {
@@ -93,9 +94,9 @@ func (suite *UpgradeEKSTestSuite) TestUpgradeEKS() {
 	errTfDir := os.MkdirAll(fullDir, os.ModePerm)
 	suite.Require().NoError(errTfDir)
 
-	tfDir := test_structure.CopyTerraformFolderToDest(suite.T(), "../../modules/", tfModuleEKS, fullDir)
+	tfDir := test_structure.CopyTerraformFolderToDest(suite.T(), "../../", tfModuleEKS, fullDir)
 
-	errLinkBackend := os.Link("../../modules/fixtures/backend.tf", filepath.Join(tfDir, "backend.tf"))
+	errLinkBackend := os.Link("../../fixtures/backend.tf", filepath.Join(tfDir, "backend.tf"))
 	suite.Require().NoError(errLinkBackend)
 
 	terraformOptions := &terraform.Options{
@@ -159,7 +160,7 @@ func (suite *UpgradeEKSTestSuite) TestUpgradeEKS() {
 	utils.CreateIfNotExistsNamespace(suite.T(), kubeCtlOptions, namespace)
 
 	// deploy the postgres-client Job to test the connection
-	k8s.KubectlApply(suite.T(), kubeCtlOptions, "../../modules/fixtures/whoami-deployment.yml")
+	k8s.KubectlApply(suite.T(), kubeCtlOptions, "../../fixtures/whoami-deployment.yml")
 
 	k8s.WaitUntilServiceAvailable(suite.T(), kubeCtlOptions, "whoami-service", 60, 1*time.Second)
 	// wait to ensure service available

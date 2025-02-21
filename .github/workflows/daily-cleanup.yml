@@ -8,14 +8,14 @@ on:
                 description: Maximum age of resources in hours
                 required: true
                 default: '20'
-    # pull_request:
-    #     # the paths should be synced with ../labeler.yml
-    #     paths:
-    #         - .github/workflows/daily-cleanup.yml
-    #         - .github/actions/eks-cleanup-resources/**
+    pull_request:
+        # the paths should be synced with ../labeler.yml
+        paths:
+            - .github/workflows/daily-cleanup.yml
+            - .github/actions/eks-cleanup-resources/**
 
-    # schedule:
-    #     - cron: 0 1 * * * # At 01:00 everyday.
+    schedule:
+        - cron: 0 1 * * * # At 01:00 everyday.
 
 env:
     MAX_AGE_HOURS: ${{ github.event.inputs.max_age_hours || '20' }}

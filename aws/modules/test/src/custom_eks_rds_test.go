@@ -3,6 +3,12 @@ package test
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
@@ -19,11 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
-	"time"
 )
 
 type CustomEKSRDSTestSuite struct {
@@ -94,9 +95,9 @@ func (suite *CustomEKSRDSTestSuite) TestCustomEKSAndRDS() {
 	fullDirEKS := fmt.Sprintf("%s%s", suite.tfDataDir, tfModuleEKS)
 	errTfDirEKS := os.MkdirAll(fullDirEKS, os.ModePerm)
 	suite.Require().NoError(errTfDirEKS)
-	tfDir := test_structure.CopyTerraformFolderToDest(suite.T(), "../../modules/", tfModuleEKS, fullDirEKS)
+	tfDir := test_structure.CopyTerraformFolderToDest(suite.T(), "../../", tfModuleEKS, fullDirEKS)
 
-	errLinkBackend := os.Link("../../modules/fixtures/backend.tf", filepath.Join(tfDir, "backend.tf"))
+	errLinkBackend := os.Link("../../fixtures/backend.tf", filepath.Join(tfDir, "backend.tf"))
 	suite.Require().NoError(errLinkBackend)
 
 	terraformOptions := &terraform.Options{
@@ -244,9 +245,9 @@ func (suite *CustomEKSRDSTestSuite) TestCustomEKSAndRDS() {
 	errTfDirAurora := os.MkdirAll(fullDirAurora, os.ModePerm)
 	suite.Require().NoError(errTfDirAurora)
 
-	tfDirAurora := test_structure.CopyTerraformFolderToDest(suite.T(), "../../modules/", tfModuleAurora, fullDirAurora)
+	tfDirAurora := test_structure.CopyTerraformFolderToDest(suite.T(), "../../", tfModuleAurora, fullDirAurora)
 
-	errLinkBackend = os.Link("../../modules/fixtures/backend.tf", filepath.Join(tfDirAurora, "backend.tf"))
+	errLinkBackend = os.Link("../../fixtures/backend.tf", filepath.Join(tfDirAurora, "backend.tf"))
 	suite.Require().NoError(errLinkBackend)
 
 	terraformOptionsRDS := &terraform.Options{
@@ -328,7 +329,7 @@ func (suite *CustomEKSRDSTestSuite) TestCustomEKSAndRDS() {
 	}
 
 	// deploy the postgres-client Job to test the connection
-	k8s.KubectlApply(suite.T(), pgKubeCtlOptions, "../../modules/fixtures/postgres-client.yml")
+	k8s.KubectlApply(suite.T(), pgKubeCtlOptions, "../../fixtures/postgres-client.yml")
 	errJob := utils.WaitForJobCompletion(kubeClient, auroraNamespace, "postgres-client", 5*time.Minute, jobListOptions)
 	suite.Require().NoError(errJob)
 

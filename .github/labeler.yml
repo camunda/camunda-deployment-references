@@ -7,12 +7,12 @@ feature:
 test:
     - changed-files:
           - any-glob-to-any-file:
-                - test/**.go
-                - test/**/go.mod
-                - modules/fixtures/**
+                - '**/test/**.go'
+                - '**/test/**/go.mod'
+                - '**/modules/fixtures/**'
 
 terraform:
     - changed-files:
           - any-glob-to-any-file:
-                - modules/**.tf
+                - '**/modules/**.tf'
                 - .tool-versions

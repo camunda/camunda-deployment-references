@@ -15,7 +15,7 @@ This action will also install Terraform, awscli, and kubectl. The kube context w
 | `additional-terraform-vars` | <p>JSON object containing additional Terraform variables</p> | `false` | `{}` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
-| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `false` | `main` |
+| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `false` | `merge-branch` |
 | `tf-modules-path` | <p>Path where the tf EKS modules will be cloned</p> | `false` | `./.action-tf-modules/eks/` |
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `false` | `true` |
 | `tf-cli-config-credentials-hostname` | <p>The hostname of a HCP Terraform/Terraform Enterprise instance to place within the credentials block of the Terraform CLI configuration file. Defaults to <code>app.terraform.io</code>.</p> | `false` | `app.terraform.io` |
@@ -41,7 +41,7 @@ This action is a `composite` action.
 ## Usage
 
 ```yaml
-- uses: camunda/camunda-tf-eks-module/.github/actions/eks-manage-cluster@main
+- uses: camunda/camunda-deployment-references/.github/actions/eks-manage-cluster@main
   with:
     aws-region:
     # AWS region where the EKS cluster will be deployed
@@ -77,7 +77,7 @@ This action is a `composite` action.
     # Git revision of the tf modules to use
     #
     # Required: false
-    # Default: main
+    # Default: merge-branch
 
     tf-modules-path:
     # Path where the tf EKS modules will be cloned
