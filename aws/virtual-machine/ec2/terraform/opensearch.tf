@@ -6,7 +6,7 @@ module "opensearch_domain" {
   // https://github.com/camunda/camunda-tf-eks-module/tree/main/modules/opensearch
 
   # tflint-ignore: terraform_module_pinned_source
-  source = "github.com/camunda/camunda-tf-eks-module//modules/opensearch"
+  source = "../../../modules/opensearch"
 
   count = var.enable_opensearch ? 1 : 0
 

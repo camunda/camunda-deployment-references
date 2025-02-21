@@ -19,7 +19,7 @@ locals {
 }
 
 module "postgresql" {
-  source                     = "git::https://github.com/camunda/camunda-tf-eks-module//modules/aurora?ref=3.1.3"
+  source                     = "../../modules/aurora"
   engine_version             = "15.8"
   auto_minor_version_upgrade = false
   cluster_name               = local.aurora_cluster_name

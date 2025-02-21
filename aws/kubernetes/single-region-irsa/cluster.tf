@@ -4,7 +4,7 @@ locals {
 }
 
 module "eks_cluster" {
-  source = "git::https://github.com/camunda/camunda-tf-eks-module//modules/eks-cluster?ref=3.1.3"
+  source = "../../modules/eks-cluster"
 
   name   = local.eks_cluster_name
   region = local.eks_cluster_region

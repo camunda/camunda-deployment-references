@@ -8,9 +8,9 @@ Instructions can be found on the official documentation: https://docs.camunda.io
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_eks_cluster"></a> [eks\_cluster](#module\_eks\_cluster) | git::https://github.com/camunda/camunda-tf-eks-module//modules/eks-cluster | 3.1.3 |
-| <a name="module_opensearch_domain"></a> [opensearch\_domain](#module\_opensearch\_domain) | git::https://github.com/camunda/camunda-tf-eks-module//modules/opensearch | 3.1.3 |
-| <a name="module_postgresql"></a> [postgresql](#module\_postgresql) | git::https://github.com/camunda/camunda-tf-eks-module//modules/aurora | 3.1.3 |
+| <a name="module_eks_cluster"></a> [eks\_cluster](#module\_eks\_cluster) | ../../modules/eks-cluster | n/a |
+| <a name="module_opensearch_domain"></a> [opensearch\_domain](#module\_opensearch\_domain) | ../../modules/opensearch | n/a |
+| <a name="module_postgresql"></a> [postgresql](#module\_postgresql) | ../../modules/aurora | n/a |
 ## Resources
 
 No resources.
