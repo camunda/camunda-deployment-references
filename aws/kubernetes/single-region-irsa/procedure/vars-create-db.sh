@@ -1,1 +1,1 @@
-../../camunda-8.7/procedure/vars-create-db.sh
+../../single-region/procedure/vars-create-db.sh

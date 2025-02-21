@@ -1,1 +1,1 @@
-../../camunda-8.7/procedure/chart-env.sh
+../../single-region/procedure/chart-env.sh
