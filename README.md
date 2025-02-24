@@ -2,6 +2,7 @@
 
 [![Camunda](https://img.shields.io/badge/Camunda-FC5D0D)](https://www.camunda.com/)
 [![License](https://img.shields.io/github/license/camunda/camunda-deployment-references)](LICENSE)
+![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white)
 
 Welcome to Camunda Reference Architectures! This repository contains a collection of reference architectures for deploying [Camunda 8 self-managed](https://docs.camunda.io/docs/self-managed/about-self-managed/), implemented using Terraform, scripts, and GitHub Actions for testing.
 
