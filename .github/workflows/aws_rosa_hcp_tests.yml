@@ -200,7 +200,7 @@ jobs:
         secrets: inherit
 
         # TODO: we must adapt this tests part
-        uses: camunda/camunda-platform-helm/./.github/workflows/test-integration-template.yaml@e59b3c5869098815f392e6cc9f3928dedcadaaf8 # main
+        uses: camunda/camunda-platform-helm/.github/workflows/test-integration-template.yaml@e59b3c5869098815f392e6cc9f3928dedcadaaf8 # main
         with:
             matrix-data: |
                 {
