@@ -10,7 +10,7 @@ on:
                 default: '20'
     pull_request:
         paths:
-            - .github/workflows/aws_rosa_hcp_daily_cleanup.yml.tmp
+            - .github/workflows/aws_rosa_hcp_daily_cleanup.yml
 
     schedule:
         - cron: 0 1 * * * # At 01:00 everyday.
