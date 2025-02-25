@@ -48,7 +48,7 @@ env:
     # TEST VARIABLES
 
     # Vars with "CI_" prefix are used in the CI workflow only.
-    CI_MATRIX_FILE: .github/workflows-config/config/rosa-hcp/test-matrix.yml
+    CI_MATRIX_FILE: .github/workflows-config/rosa-hcp/test-matrix.yml
 
     # Docker Hub auth to avoid image pull rate limit.
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
