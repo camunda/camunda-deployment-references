@@ -262,6 +262,7 @@ jobs:
               with:
                   rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   cluster-name: ${{ matrix.distro.clusterName }}
                   aws-region: ${{ env.AWS_REGION }}
 
