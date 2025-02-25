@@ -1,0 +1,282 @@
+---
+name: Tests - Integration - AWS ROSA HCP
+
+# description: This workflow perform integration tests against ROSA HCP platform
+
+on:
+    schedule:
+        - cron: 0 3 * * 1,3,5 # Runs at 3 AM on Monday, Wednesday, and Friday
+    pull_request:
+        paths:
+            - .github/config/rosa-hcp/test-matrix.yml
+            - .github/workflows/aws_rosa_hcp_tests.yml
+            - .github/workflows/aws_rosa_hcp_golden.yml
+            - .tool-versions
+            - aws/rosa-hcp/**
+            - '!aws/rosa-hcp/test/golden/**'
+
+    workflow_dispatch:
+        inputs:
+            cluster_name:
+                description: Cluster name.
+                required: false
+                type: string
+            delete_clusters:
+                description: Whether to delete the clusters.
+                type: boolean
+                default: true
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    # in case of renovate we don't cancel the previous run, so it can finish it
+    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
+    cancel-in-progress: ${{ github.actor == 'renovate[bot]' && false || true }}
+
+env:
+    AWS_PROFILE: infex
+    AWS_REGION: eu-west-2
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+
+    OCP_ADMIN_USERNAME: kube-admin
+    OCP_NAMESPACE: myns
+
+    # TODO: use branches for that versioning
+    TESTS_CAMUNDA_HELM_DIR: camunda-platform-alpha
+
+    # TEST VARIABLES
+
+    # Vars with "CI_" prefix are used in the CI workflow only.
+    CI_MATRIX_FILE: .github/workflows-config/config/rosa-hcp/test-matrix.yml
+
+    # Docker Hub auth to avoid image pull rate limit.
+    # Vars with "TEST_" prefix are used in the test runner tool (Task).
+    # TODO: reintegrate this properly
+    TEST_CREATE_DOCKER_LOGIN_SECRET: 'TRUE'
+    TEST_DOCKER_USERNAME: ${{ secrets.DISTRO_CI_DOCKER_USERNAME_DOCKERHUB }}
+    TEST_DOCKER_PASSWORD: ${{ secrets.DISTRO_CI_DOCKER_PASSWORD_DOCKERHUB }}
+    # Camunda registry auth to access WebModeler Docker image since it's not public.
+    TEST_DOCKER_USERNAME_CAMUNDA_CLOUD: ${{ secrets.DISTRO_CI_DOCKER_USERNAME_CAMUNDA }}
+    TEST_DOCKER_PASSWORD_CAMUNDA_CLOUD: ${{ secrets.DISTRO_CI_DOCKER_PASSWORD_CAMUNDA }}
+
+
+jobs:
+    clusters-info:
+        name: Define Matrix
+        runs-on: ubuntu-latest
+        outputs:
+            platform-matrix: ${{ steps.matrix.outputs.platform-matrix }}
+            tests-camunda-helm-dir: ${{ env.TESTS_CAMUNDA_HELM_DIR }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+
+            - id: matrix
+              # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
+              run: |
+                  # Generate cluster name.
+                  # shellcheck disable=SC2086
+                  distro_indexes="$(yq '.matrix.distro | to_entries | .[] | .key' ${CI_MATRIX_FILE})"
+
+                  # Loop over clusters.
+                  # Vars are exported to pass them to yq instead of local inline syntax.
+                  # shellcheck disable=SC2086
+                  for distro_index in ${distro_indexes}; do
+                    cluster_name_input="${{ inputs.cluster_name }}"
+                    cluster_name_fallback="hci-$(uuidgen | head -c 8)"
+                    export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
+                    export distro_index="${distro_index}"
+                    yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
+                  done
+
+                  # Get updated matrix.
+                  # shellcheck disable=SC2086
+                  platform_matrix="$(yq '.matrix' --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                  echo "${platform_matrix}" | jq
+                  echo "platform-matrix=${platform_matrix}" > "$GITHUB_OUTPUT"
+
+    prepare-clusters:
+        name: Prepare clusters
+        needs:
+            - clusters-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+                      secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+                      secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_PASSWORD;
+
+            - name: Add profile credentials to ~/.aws/credentials
+              shell: bash
+              run: |
+                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+
+
+            # TODO: directly use the aws/rosa-hcp/ terraform
+            # Also remove the versioning
+            - name: Create ROSA cluster and login
+              uses: camunda/camunda-tf-rosa/.github/actions/rosa-create-cluster@c94224888fbb8ddc0c737e7054fd66c661c3cd8d # main
+              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+              if: always() && success()
+              with:
+                  rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+                  cluster-name: ${{ matrix.distro.clusterName }}
+                  admin-username: ${{ env.OCP_ADMIN_USERNAME }}
+                  admin-password: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  replicas: 6
+                  openshift-version: ${{ matrix.distro.version }}
+
+            - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
+              id: export_kube_config
+              run: |
+                  # shellcheck disable=SC2005
+                  echo "$(kubectl config view --raw)" > kubeconfig.yaml 2>/dev/null
+                  openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${GITHUB_TOKEN}" -pbkdf2
+                  encrypted_kubeconfig_base64=$(base64 -w 0 encrypted_kubeconfig.enc)
+                  echo "kubeconfig_raw=${encrypted_kubeconfig_base64}" >> "$GITHUB_OUTPUT"
+
+            ## Write for matrix outputs workaround
+            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
+              id: out
+              with:
+                  matrix-step-name: ${{ github.job }}
+                  matrix-key: ${{ matrix.distro.name }}
+                  outputs: |-
+                      kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
+
+    access-info:
+        name: Read kube configs from matrix
+        runs-on: ubuntu-latest
+        needs: prepare-clusters
+        outputs:
+            kubeconfig: ${{ steps.read-workflow.outputs.result }}
+        steps:
+            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+              id: read-workflow
+              with:
+                  matrix-step-name: prepare-clusters
+
+    integration-tests:
+        name: Run integration tests - ${{ matrix.distro.name }}
+        needs:
+            - clusters-info
+            - access-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        secrets: inherit
+
+        # TODO: we must adapt this tests part
+        uses: camunda/camunda-platform-helm/./.github/workflows/test-integration-template.yaml@e59b3c5869098815f392e6cc9f3928dedcadaaf8 # main
+        with:
+            matrix-data: |
+                {
+                  "distro": [${{ toJson(matrix.distro) }}],
+                  "scenario": [${{ toJson(matrix.scenario) }}]
+                }
+            cluster-type: openshift
+            platforms: rosa
+            flows: ${{ matrix.scenario.flow }}
+            identifier: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.flow }}
+            auth-data: ${{ fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[matrix.distro.name] }}
+            camunda-helm-dir: ${{ needs.clusters-info.outputs.tests-camunda-helm-dir }}
+
+    cleanup-clusters:
+        name: Cleanup ROSA clusters
+        if: always()
+        runs-on: ubuntu-latest
+        needs:
+            - clusters-info
+            - integration-tests
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+                      secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+                      secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_PASSWORD;
+
+            - name: Add profile credentials to ~/.aws/credentials
+              shell: bash
+              run: |
+                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+
+            - name: Delete on-demand ROSA HCP Cluster
+              uses: camunda/camunda-tf-rosa/.github/actions/rosa-delete-cluster@c94224888fbb8ddc0c737e7054fd66c661c3cd8d # main
+              if: always() && !(github.event_name == 'workflow_dispatch' && github.event.inputs.delete_clusters == 'false')
+              timeout-minutes: 125
+              with:
+                  rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  cluster-name: ${{ matrix.distro.clusterName }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+    report:
+        name: Report failures
+        if: github.event_name == 'schedule' && failure()
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+            - cleanup-clusters
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
