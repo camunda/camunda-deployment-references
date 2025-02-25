@@ -1,5 +1,6 @@
 ---
-name: AWS EC2 Golden Files
+name: Tests - Golden - AWS EC2
+
 
 on:
     workflow_dispatch:

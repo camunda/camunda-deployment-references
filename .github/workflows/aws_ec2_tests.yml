@@ -1,5 +1,5 @@
 ---
-name: AWS EC2 Tests
+name: Tests - Integration - AWS EC2
 
 on:
     # Disabling for the time being due to focus shift with 8.7
