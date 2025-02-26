@@ -1,14 +1,38 @@
-# Camunda Deployment References
+# Camunda Reference Architectures
 
-This repository provides a set of reference architectures, implemented in Terraform, for various cloud providers. These examples are designed to help you quickly set up Camunda 8. In addition to Terraform templates, you'll find minimal setups for running Camunda 8 using the Helm chart or deploying via the single JAR. These references are intended to serve as a foundation for customization and improvement. While your organization will likely need to make adjustments for a production-ready deployment, these examples will accelerate your journey.
+[![Camunda](https://img.shields.io/badge/Camunda-FC5D0D)](https://www.camunda.com/)
+[![Terraform](https://img.shields.io/badge/Terraform-5835CC)](https://developer.hashicorp.com/terraform/tutorials?product_intent=terraform)
+[![License](https://img.shields.io/github/license/camunda/camunda-deployment-references)](LICENSE)
 
-## Motivation
+Welcome to Camunda Reference Architectures! This repository contains a collection of reference architectures for deploying [Camunda 8 self-managed](https://docs.camunda.io/docs/self-managed/about-self-managed/), implemented using Terraform, scripts, and GitHub Actions for testing.
 
-Our goal is to help you get started with Camunda 8 in days, not months, by simplifying the process of setting up the underlying infrastructure—a common initial challenge.
+These architectures serve as blueprints for quick learning and rapid deployment.
 
-## How to Use
+For more details, refer to the official [Camunda Reference Architecture documentation](https://docs.camunda.io/docs/8.7/self-managed/reference-architecture/).
 
 The reference architecture implementations are intended for two main use cases:
 
 1. **Reference**: Use these example implementations as guidance to help you build your own solution. Often, users bring their own infrastructure and simply need help with the missing components or confirmation of their existing setup.
 2. **Copy & Paste**: You can copy these reference architectures as-is, using them as a starting point. Modify and extend them to meet your specific requirements.
+
+**⚠️ Warning:** This project is intended for demonstration and learning purposes only. It is not recommended for production use. There are no guarantees or warranties provided, and certain Terraform configuration warnings from Trivy have been deliberately ignored. For more details, see the [.trivyignore](./.trivyignore) file in the repository root.
+
+## Structure
+
+The repository is structured into cloud providers (`aws`, `azure`, `general`) and internal-only reusable modules (`modules`).
+
+## Support
+
+Please note that the modules have been tested with **[Terraform](https://github.com/hashicorp/terraform)** in the version described in the [.tool-versions](./.tool-versions) of this project.
+
+## Support & Feedback
+
+Camunda Reference Architectures is maintained by Camunda Infrastructure Experience Team.
+
+To provide feedback, please use the [issues templates](https://github.com/camunda/camunda-deployment-references/issues) provided.
+
+If you are interested in contributing to Camunda Reference Architectures, see the [Contribution guide](https://github.com/camunda/camunda/blob/main/CONTRIBUTING.md).
+
+## License
+
+Apache-2.0 Licensed. See [LICENSE](https://github.com/camunda/camunda-deployment-references/blob/main/LICENSE).

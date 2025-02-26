@@ -16,7 +16,9 @@ on:
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+    # in case of renovate we don't cancel the previous run, so it can finish it
+    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
+    cancel-in-progress: ${{ github.actor == 'renovate[bot]' && false || true }}
 
 env:
     AWS_PROFILE: infex
@@ -148,7 +150,7 @@ jobs:
                   sed 's/\n/&#xA;/g' > "./tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml"
             - name: Upload test reports
               if: always()
-              uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
+              uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
               with:
                   name: test-reports-${{ env.CAMUNDA_HYPHENS }}-${{ matrix.architecture }}
                   path: ${{ github.workspace }}/aws/virtual-machine/ec2/test/src/tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml
