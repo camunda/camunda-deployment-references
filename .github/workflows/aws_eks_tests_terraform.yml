@@ -1,5 +1,5 @@
 ---
-name: Terraform modules tests
+name: AWS EKS Tests - Terraform modules tests
 
 on:
     schedule:

@@ -1,5 +1,5 @@
 ---
-name: Daily cleanup resources
+name: AWS EKS Daily cleanup
 
 on:
     workflow_dispatch:

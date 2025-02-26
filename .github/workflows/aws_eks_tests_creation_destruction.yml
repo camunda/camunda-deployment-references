@@ -1,5 +1,5 @@
 ---
-name: EKS Cluster with an AuroraDB and OpenSearch creation and destruction test
+name: AWS EKS Tests - Cluster with an AuroraDB and OpenSearch creation and destruction
 
 on:
     schedule:
