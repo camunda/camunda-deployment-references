@@ -63,7 +63,7 @@ jobs:
             - name: Extract Test Functions
               id: extract_test_functions
               run: |
-                  test_functions=$(grep -rho 'func \(Test[^ ]*\)' ./test/src/ | sed 's/func \(Test[^ ]*\)(t/\1/' | tr '\n' ',' | sed 's/,$//')
+                  test_functions=$(grep -rho 'func \(Test[^ ]*\)' ./aws/modules/test/src/ | sed 's/func \(Test[^ ]*\)(t/\1/' | tr '\n' ',' | sed 's/,$//')
                   echo "test_functions=$test_functions"
 
                   : # Extract test names marked to be skipped from the commit message description
