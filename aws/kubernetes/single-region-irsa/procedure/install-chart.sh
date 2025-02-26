@@ -1,0 +1,1 @@
+../../single-region/procedure/install-chart.sh

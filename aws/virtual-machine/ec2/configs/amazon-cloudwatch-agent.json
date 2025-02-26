@@ -1,0 +1,40 @@
+{
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "camunda"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/opt/camunda/camunda/logs/zeebe.log",
+            "log_group_class": "STANDARD",
+            "log_group_name": "camunda",
+            "log_stream_name": "{ip_address}/camunda.log",
+            "retention_in_days": 30,
+            "timestamp_format": "%b %d %H:%M:%S"
+          }
+        ]
+      }
+    },
+    "metrics_collected": {
+      "prometheus": {
+        "log_group_name": "camunda",
+        "prometheus_config_path": "/opt/camunda/cloudwatch/prometheus.yaml",
+        "emf_processor": {
+          "metric_declaration_dedup": true,
+          "metric_namespace": "Camunda/Prometheus",
+          "metric_declaration": [
+            {
+              "source_labels": ["__name__"],
+              "label_matcher": ".*",
+              "dimensions": [["host"]],
+              "metric_selectors": [".*"]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

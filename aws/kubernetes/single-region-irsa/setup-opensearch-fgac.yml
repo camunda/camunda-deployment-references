@@ -1,0 +1,61 @@
+---
+# this manifest configure the fine grained access control on OpenSearch
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: setup-opensearch-fgac
+    labels:
+        app: setup-opensearch-fgac
+spec:
+    backoffLimit: 0
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: setup-opensearch-fgac
+                  image: amazonlinux:latest
+                  command:
+                      - sh
+                      - -c
+                      - |
+                        /bin/bash <<'EOF'
+                        set -o pipefail
+
+                        echo "Configuring Fine-Grained Access Control for OpenSearch..."
+
+                        # Send the PATCH request to map the IAM role to OpenSearch role
+                        curl -sS -u "$OPENSEARCH_MASTER_USERNAME:$OPENSEARCH_MASTER_PASSWORD" \
+                          -X PATCH \
+                          "https://$OPENSEARCH_HOST/_opendistro/_security/api/rolesmapping/all_access?pretty" \
+                          -H 'Content-Type: application/json' \
+                          -d'
+                          [
+                            {
+                              "op": "add",
+                              "path": "/backend_roles",
+                              "value": ["'$OPENSEARCH_ROLE_ARN'"]
+                            }
+                          ]'
+
+                        EOF
+                  env:
+                      - name: OPENSEARCH_HOST
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-os-secret
+                                key: OPENSEARCH_HOST
+                      - name: OPENSEARCH_ROLE_ARN
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-os-secret
+                                key: OPENSEARCH_ROLE_ARN
+                      - name: OPENSEARCH_MASTER_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-os-secret
+                                key: OPENSEARCH_MASTER_USERNAME
+                      - name: OPENSEARCH_MASTER_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-os-secret
+                                key: OPENSEARCH_MASTER_PASSWORD

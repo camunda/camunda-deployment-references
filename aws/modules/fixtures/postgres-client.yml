@@ -1,0 +1,89 @@
+---
+# this manifest contains a version with the IRSA connection check
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: postgres-client
+    labels:
+        app: postgres-client
+spec:
+    backoffLimit: 0
+    template:
+        spec:
+            serviceAccountName: aurora-access-sa
+            restartPolicy: Never
+            containers:
+                - name: postgres-client
+                  image: amazonlinux:latest
+                  command:
+                      - sh
+                      - -c
+                      - |
+                        /bin/bash <<'EOF'
+                        set -o pipefail
+
+                        echo "Installing dependencies..."
+                        yum install -y postgresql15 awscli-2
+
+                        echo "Creating IRSA db user using admin user"
+                        psql -h $AURORA_ENDPOINT -p $AURORA_PORT "sslmode=require dbname=$AURORA_DB_NAME user=$AURORA_USERNAME password=$AURORA_PASSWORD" \
+                          -c "CREATE USER \"${AURORA_USERNAME_IRSA}\" WITH LOGIN;" \
+                          -c "GRANT rds_iam TO \"${AURORA_USERNAME_IRSA}\";" \
+                          -c "GRANT ALL PRIVILEGES ON DATABASE \"${AURORA_DB_NAME}\" TO \"${AURORA_USERNAME_IRSA}\";" \
+                          -c "SELECT aurora_version();" \
+                          -c "SELECT version();" -c "\du"
+
+                        # Attempt unauthenticated access to the Aurora PostgreSQL database, expecting a failure
+                        if ! psql -h "$AURORA_ENDPOINT" \
+                                  -p "$AURORA_PORT" \
+                                  "sslmode=require dbname=$AURORA_DB_NAME user=$AURORA_USERNAME_IRSA password=$AWS_PG_PASSWORD" \
+                                  -c 'SELECT version();' 2>/dev/null; then
+                          echo "Unauthenticated access failed as expected."
+                        else
+                          echo "Unauthenticated access did not fail as expected, check the configuration."
+                          exit 1
+                        fi
+
+                        echo "Testing connection using IRSA"
+                        export AWS_PG_PASSWORD=$(aws rds generate-db-auth-token --hostname $AURORA_ENDPOINT --port $AURORA_PORT \
+                            --region $AWS_REGION --username $AURORA_USERNAME_IRSA)
+                        psql -h $AURORA_ENDPOINT -p $AURORA_PORT "sslmode=require dbname=$AURORA_DB_NAME user=$AURORA_USERNAME_IRSA password=$AWS_PG_PASSWORD" \
+                          -c 'SELECT version();'
+
+                        EOF
+                  env:
+                      - name: AURORA_ENDPOINT
+                        valueFrom:
+                            configMapKeyRef:
+                                name: aurora-config
+                                key: aurora_endpoint
+                      - name: AURORA_USERNAME
+                        valueFrom:
+                            configMapKeyRef:
+                                name: aurora-config
+                                key: aurora_username
+                      - name: AURORA_USERNAME_IRSA
+                        valueFrom:
+                            configMapKeyRef:
+                                name: aurora-config
+                                key: aurora_username_irsa
+                      - name: AURORA_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: aurora-secret
+                                key: aurora_password
+                      - name: AURORA_PORT
+                        valueFrom:
+                            configMapKeyRef:
+                                name: aurora-config
+                                key: aurora_port
+                      - name: AWS_REGION
+                        valueFrom:
+                            configMapKeyRef:
+                                name: aurora-config
+                                key: aws_region
+                      - name: AURORA_DB_NAME
+                        valueFrom:
+                            configMapKeyRef:
+                                name: aurora-config
+                                key: aurora_db_name

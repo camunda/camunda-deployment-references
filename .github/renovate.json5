@@ -7,5 +7,6 @@
       matchPackageNames: ["amazon/cloudwatch-agent"],
       versioning: "regex:^(?<major>\\d)(\\.(?<minor>\\d+))(\\.(?<patch>\\db\\d+))$",
     }
-  ]
+  ],
+  groupName: "mono-update-renovate", // we keep all updates in a single renovate branch in order to save CI tests
 }
