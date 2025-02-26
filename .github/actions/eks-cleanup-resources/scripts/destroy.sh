@@ -138,13 +138,14 @@ destroy_resource() {
   if [ "$terraform_module" == "eks-cluster" ]; then
     terraform state rm "kubernetes_storage_class_v1.ebs_sc" || true
 
+    VPC_ID=$(terraform output -raw vpc_id)
+
     if ! terraform destroy -auto-approve \
       -var="region=$AWS_REGION" \
       -var="name=$cluster_name" \
       -var="cluster_service_ipv4_cidr=10.190.0.0/16" \
       -var="cluster_node_ipv4_cidr=10.192.0.0/16"; then
         echo "Error destroying EKS cluster $cluster_name"
-        VPC_ID=$(terraform output -raw vpc_id)
 
         export AWS_PAGER=""
         echo "Checking subnetes for $VPC_ID"
