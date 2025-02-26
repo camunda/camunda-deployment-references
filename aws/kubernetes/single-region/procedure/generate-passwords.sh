@@ -1,3 +1,5 @@
+#!/bin/bash
+
 export CONNECTORS_SECRET="$(openssl rand -hex 16)"
 export CONSOLE_SECRET="$(openssl rand -hex 16)"
 export OPERATE_SECRET="$(openssl rand -hex 16)"

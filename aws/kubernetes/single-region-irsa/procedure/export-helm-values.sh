@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # EKS Cluster
 export CERT_MANAGER_IRSA_ARN="$(terraform output -raw cert_manager_arn)"
 export EXTERNAL_DNS_IRSA_ARN="$(terraform output -raw external_dns_arn)"

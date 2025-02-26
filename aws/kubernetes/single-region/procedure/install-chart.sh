@@ -1,3 +1,5 @@
+#!/bin/bash
+
 helm upgrade --install \
   camunda camunda-platform \
   --repo https://helm.camunda.io \

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 kubectl create secret generic identity-secret-for-components \
   --namespace camunda \
   --from-literal=connectors-secret="$CONNECTORS_SECRET" \

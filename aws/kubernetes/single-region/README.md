@@ -1,7 +1,9 @@
-# Camunda 8.7 on AWS EKS
+# Camunda 8 on AWS EKS
 
-This folder describes the IaC of Camunda 8.7 on AWS EKS.
+This folder describes the IaC of Camunda 8 on AWS EKS.
 Instructions can be found on the official documentation: https://docs.camunda.io/docs/self-managed/setup/deploy/amazon/amazon-eks/eks-terraform/
+
+- [AWS Elastic Kubernetes Service](https://aws.amazon.com/eks/)
 
 <!-- BEGIN_TF_DOCS -->
 ## Modules

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 kubectl create secret generic setup-db-secret --namespace camunda \
   --from-literal=AURORA_ENDPOINT="$AURORA_ENDPOINT" \
   --from-literal=AURORA_PORT="$AURORA_PORT" \

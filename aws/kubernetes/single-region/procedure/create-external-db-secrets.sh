@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # create a secret to reference external database credentials if you use it
 kubectl create secret generic identity-keycloak-secret \
   --namespace camunda \

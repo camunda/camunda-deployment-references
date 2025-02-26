@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # This script is compatible with bash only
 
 # List of required environment variables

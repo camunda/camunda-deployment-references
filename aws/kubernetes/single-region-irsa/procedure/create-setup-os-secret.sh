@@ -1,3 +1,5 @@
+#!/bin/bash
+
 kubectl create secret generic setup-os-secret --namespace camunda \
   --from-literal=OPENSEARCH_HOST="$OPENSEARCH_HOST" \
   --from-literal=OPENSEARCH_ROLE_ARN="$OPENSEARCH_ROLE_ARN" \

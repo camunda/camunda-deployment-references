@@ -1,0 +1,1 @@
+disable=SC2155 # We have a lot of small scripts where it's beneficial to keep it short

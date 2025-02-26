@@ -1,3 +1,5 @@
+#!/bin/bash
+
 export AURORA_ENDPOINT=$(terraform output -raw postgres_endpoint)
 export AURORA_PORT=5432
 

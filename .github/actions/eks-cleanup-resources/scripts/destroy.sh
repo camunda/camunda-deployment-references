@@ -61,10 +61,8 @@ is_empty_folder() {
     local folder="$1"
     # List all objects within the folder (excluding subfolders) and count them
     local file_count
-    file_count=$(aws s3 ls "s3://$BUCKET/$folder" --recursive | grep -v '/$' | wc -l)
-
-    # Check if the command succeeded
-    if [ $? -ne 0 ]; then
+    if ! file_count=$(aws s3 ls "s3://$BUCKET/$folder" --recursive | grep -cv '/$')
+    then
         echo "Error listing contents of s3://$BUCKET/$folder"
         exit 1
     fi
@@ -78,10 +76,8 @@ process_empty_folders() {
     local empty_folders_found=false
 
     # List all folders and sort them from the deepest to the shallowest
-    empty_folders=$(aws s3 ls "s3://$BUCKET/" --recursive | awk '{print $4}' | grep '/$' | sort -r)
-
-    # Check if the command succeeded
-    if [ $? -ne 0 ]; then
+    if ! empty_folders=$(aws s3 ls "s3://$BUCKET/" --recursive | awk '{print $4}' | grep '/$' | sort -r)
+    then
         echo "Error listing folders in s3://$BUCKET/"
         exit 1
     fi
@@ -90,10 +86,8 @@ process_empty_folders() {
     for folder in $empty_folders; do
         if is_empty_folder "$folder"; then
             # If the folder is empty, delete it
-            aws s3 rm "s3://$BUCKET/$folder" --recursive
-
-            # Check if the deletion command succeeded
-            if [ $? -ne 0 ]; then
+            if ! aws s3 rm "s3://$BUCKET/$folder" --recursive
+            then
                 echo "Error deleting folder: s3://$BUCKET/$folder"
                 exit 1
             else
@@ -272,7 +266,7 @@ process_resources_in_order() {
     fi
     echo "Resource $resource_id last modification: $last_modified ($last_modified_timestamp)"
 
-    file_age_hours=$(( ($current_timestamp - $last_modified_timestamp) / 3600 ))
+    file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
     if [ -z "$file_age_hours" ]; then
       echo "Error: Failed to calculate file age in hours for resource $resource_id"
       exit 1

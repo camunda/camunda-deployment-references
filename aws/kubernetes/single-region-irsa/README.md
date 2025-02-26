@@ -1,7 +1,10 @@
-# Camunda 8.7 on AWS EKS with IRSA
+# Camunda 8 on AWS EKS with IRSA
 
-This folder describes the IaC of Camunda 8.7 on AWS EKS with IRSA.
+This folder describes the IaC of Camunda 8 on AWS EKS with IRSA.
 Instructions can be found on the official documentation: https://docs.camunda.io/docs/self-managed/setup/deploy/amazon/amazon-eks/eks-terraform/
+
+- [AWS Elastic Kubernetes Service](https://aws.amazon.com/eks/)
+- [IAM Roles for Service Accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
 
 <!-- BEGIN_TF_DOCS -->
 ## Modules
