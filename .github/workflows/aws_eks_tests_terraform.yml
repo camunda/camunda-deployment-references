@@ -63,7 +63,7 @@ jobs:
             - name: Extract Test Functions
               id: extract_test_functions
               run: |
-                  test_functions=$(grep -rho 'func \(Test[^ ]*\)' ./aws/modules/test/src/ | sed 's/func \(Test[^ ]*\)(t/\1/' | tr '\n' ',' | sed 's/,$//')
+                  test_functions=$(grep -rho 'func \(Test[^ ]*\)' ./aws/modules/.test/src/ | sed 's/func \(Test[^ ]*\)(t/\1/' | tr '\n' ',' | sed 's/,$//')
                   echo "test_functions=$test_functions"
 
                   : # Extract test names marked to be skipped from the commit message description
@@ -140,7 +140,7 @@ jobs:
               uses: Eun/go-mod-details@b719cd324463e2037cf3a0dd1dd6091bdc2730f4 # v1
               id: go-mod-details
               with:
-                  modfile: ${{ github.workspace }}/aws/modules/test/src/go.mod
+                  modfile: ${{ github.workspace }}/aws/modules/.test/src/go.mod
 
             - name: Launch test
               timeout-minutes: 125
@@ -156,16 +156,16 @@ jobs:
             - name: Filter logger.go from the test report (too large)
               if: always()
               run: |
-                  sed 's/&#xA;/\n/g' < "./aws/modules/test/src/${{ matrix.test_function }}_unit-tests.xml" |
+                  sed 's/&#xA;/\n/g' < "./aws/modules/.test/src/${{ matrix.test_function }}_unit-tests.xml" |
                   grep -E -v '^.*logger\.go.*$' |
-                  sed 's/\n/&#xA;/g' > "./aws/modules/test/src/${{ matrix.test_function }}_unit-tests_filtered.xml"
+                  sed 's/\n/&#xA;/g' > "./aws/modules/.test/src/${{ matrix.test_function }}_unit-tests_filtered.xml"
 
             - name: Upload test reports
               if: always()
               uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
               with:
                   name: test-reports-${{ matrix.test_function }}
-                  path: ./aws/modules/test/src/${{ matrix.test_function }}_unit-tests_filtered.xml
+                  path: ./aws/modules/.test/src/${{ matrix.test_function }}_unit-tests_filtered.xml
                   retention-days: 1
 
             - name: Remove profile credentials from ~/.aws/credentials
