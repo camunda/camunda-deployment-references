@@ -6,12 +6,13 @@ on:
     # schedule:
     #     - cron: 0 3 * * 1-5
     workflow_dispatch:
-    pull_request:
-        paths:
-            - .github/workflows/aws_ec2_tests.yml
-            - .tool-versions
-            - aws/virtual-machine/ec2/**
-            - '!aws/virtual-machine/ec2/test/golden/**'
+    # Disabling for the time being due to focus shift with 8.7
+    # pull_request:
+    #     paths:
+    #         - .github/workflows/aws_ec2_tests.yml
+    #         - .tool-versions
+    #         - aws/virtual-machine/ec2/**
+    #         - '!aws/virtual-machine/ec2/test/golden/**'
 
 # limit to a single execution per actor of this workflow
 concurrency:
