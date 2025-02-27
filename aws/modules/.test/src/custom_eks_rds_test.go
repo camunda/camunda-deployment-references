@@ -56,7 +56,7 @@ func (suite *CustomEKSRDSTestSuite) SetupTest() {
 	suite.expectedNodes = 1
 	var errAbsPath error
 	suite.tfStateS3Bucket = utils.GetEnv("TF_STATE_BUCKET", fmt.Sprintf("tests-eks-tf-state-%s", suite.bucketRegion))
-	suite.tfDataDir, errAbsPath = filepath.Abs(fmt.Sprintf("../../test/states/tf-data-%s", suite.clusterName))
+	suite.tfDataDir, errAbsPath = filepath.Abs(fmt.Sprintf("../states/tf-data-%s", suite.clusterName))
 	suite.Require().NoError(errAbsPath)
 	suite.kubeConfigPath = fmt.Sprintf("%s/kubeconfig-rds-eks", suite.tfDataDir)
 }

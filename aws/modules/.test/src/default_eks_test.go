@@ -4,6 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -19,12 +26,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
-	"time"
 )
 
 type DefaultEKSTestSuite struct {
@@ -56,7 +57,7 @@ func (suite *DefaultEKSTestSuite) SetupTest() {
 	suite.expectedNodes = 4
 	var errAbsPath error
 	suite.tfStateS3Bucket = utils.GetEnv("TF_STATE_BUCKET", fmt.Sprintf("tests-eks-tf-state-%s", suite.bucketRegion))
-	suite.tfDataDir, errAbsPath = filepath.Abs(fmt.Sprintf("../../test/states/tf-data-%s", suite.clusterName))
+	suite.tfDataDir, errAbsPath = filepath.Abs(fmt.Sprintf("../states/tf-data-%s", suite.clusterName))
 	suite.Require().NoError(errAbsPath)
 	suite.kubeConfigPath = fmt.Sprintf("%s/kubeconfig-default-eks", suite.tfDataDir)
 }

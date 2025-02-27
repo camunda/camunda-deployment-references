@@ -3,7 +3,8 @@
 # renovate: datasource=github-releases depName=gotestyourself/gotestsum
 gotestsum_version := "v1.12.0"
 
-regenerate-aws-ec2-golden-file:
+# Generate the AWS golden file for the EC2 tf files
+aws-ec2-regenerate-golden-file:
   #!/bin/bash
   cd {{justfile_directory()}}/aws/virtual-machine/ec2/terraform
   cp {{justfile_directory()}}/aws/virtual-machine/ec2/test/fixtures/provider_override.tf .
@@ -16,24 +17,24 @@ regenerate-aws-ec2-golden-file:
   rm -rf provider_override.tf
 
 # Launch a single test using go test in verbose mode
-test-verbose testname: install-tests-go-mod
-    cd aws/modules/test/src/ && go test -v --timeout=120m -p 1 -run {{testname}}
+aws-tf-modules-test-verbose testname: aws-tf-modules-install-tests-go-mod
+    cd aws/modules/.test/src/ && go test -v --timeout=120m -p 1 -run {{testname}}
 
 # Launch a single test using gotestsum
-test testname gts_options="": install-tests-go-mod
-    cd aws/modules/test/src/ && go run gotest.tools/gotestsum@{{gotestsum_version}} {{gts_options}} -- --timeout=120m -p 1 -run {{testname}}
+aws-tf-modules-test testname gts_options="": aws-tf-modules-install-tests-go-mod
+    cd aws/modules/.test/src/ && go run gotest.tools/gotestsum@{{gotestsum_version}} {{gts_options}} -- --timeout=120m -p 1 -run {{testname}}
 
 # Launch the tests in parallel using go test in verbose mode
-tests-verbose: install-tests-go-mod
-    cd aws/modules/test/src/ && go test -v --timeout=120m -p 1 .
+aws-tf-modules-tests-verbose: aws-tf-modules-install-tests-go-mod
+    cd aws/modules/.test/src/ && go test -v --timeout=120m -p 1 .
 
 # Launch the tests in parallel using gotestsum
-tests gts_options="": install-tests-go-mod
-    cd aws/modules/test/src/ && go run gotest.tools/gotestsum@{{gotestsum_version}} {{gts_options}} -- --timeout=120m -p 1 .
+aws-tf-modules-tests gts_options="": aws-tf-modules-install-tests-go-mod
+    cd aws/modules/.test/src/ && go run gotest.tools/gotestsum@{{gotestsum_version}} {{gts_options}} -- --timeout=120m -p 1 .
 
 # Install go dependencies from test/src/go.mod
-install-tests-go-mod:
-    cd aws/modules/test/src/ && go mod download
+aws-tf-modules-install-tests-go-mod:
+    cd aws/modules/.test/src/ && go mod download
 
 # Install all the tooling
 install-tooling: asdf-install

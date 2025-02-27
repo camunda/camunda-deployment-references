@@ -75,17 +75,19 @@ Test with:
 
 ```bash
 # Launch all the tests
-just test
+just aws-tf-modules-test
 
 # if you want the live output
-just tests-verbose
+just aws-tf-modules-tests-verbose
 
 # or just test one case
-just test-verbose TestUpgradeEKSTestSuite
+just aws-tf-modules-test-verbose TestUpgradeEKSTestSuite
 ```
 
-When you run the test, terratest will create a copy of the module to be tested in the `tests/states` directory.
+When you run the test, terratest will create a copy of the module to be tested in the `./.test/states` directory.
 You can later navigate to the directory and use its content to manipulate the cluster.
+
+The `.test` folder is called this way as we keep it close to the modules due to the monorepo structure and additionally we're making use of a terratest function that copies the modules folder to allow running tests in parallel on the same machine. By "hiding" the folder, the function does not copy the test folder anymore otherwise it would result in an endless path and crash the test.
 
 **Local development note:**
 You can set the `SKIP_XXX` variable to prevent unique IDs of tests from being generated each time, thus using the same resources instead of deploying new resources with terraform.
@@ -96,13 +98,15 @@ May not be up-to-date, please verify with `just --list`:
 ```text
 ╰─λ just --list                                                                                                            130 (10.968s) < 15:28:36
 Available recipes:
-    asdf-install      # Install tools using asdf
-    asdf-plugins      # Install asdf plugins
-    install-tooling   # Install all the tooling
-    test TEST         # Launch a single test using gotestsum
-    test-verbose TEST # Launch a single test using go test in verbose mode
-    tests             # Launch the tests in parallel using gotestsum
-    tests-verbose     # Launch the tests in parallel using go test in verbose mode
+    asdf-install                                # Install tools using asdf
+    asdf-plugins                                # Install asdf plugins
+    aws-ec2-regenerate-golden-file              # Generate the AWS golden file for the EC2 tf files
+    aws-tf-modules-install-tests-go-mod         # Install go dependencies from test/src/go.mod
+    aws-tf-modules-test testname gts_options="" # Launch a single test using gotestsum
+    aws-tf-modules-test-verbose testname        # Launch a single test using go test in verbose mode
+    aws-tf-modules-tests gts_options=""         # Launch the tests in parallel using gotestsum
+    aws-tf-modules-tests-verbose                # Launch the tests in parallel using go test in verbose mode
+    install-tooling                             # Install all the tooling
 ```
 
 ## Troubleshooting

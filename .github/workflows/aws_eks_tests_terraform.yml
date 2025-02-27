@@ -150,7 +150,7 @@ jobs:
                   export TESTS_CLUSTER_ID="${{ needs.configure-tests.outputs.cluster_id }}"
                   export TESTS_CLUSTER_REGION="${{ env.AWS_REGION }}"
                   export TESTS_TF_BINARY_NAME="${{ env.TESTS_TF_BINARY_NAME }}"
-                  just test ${{ matrix.test_function }} "--junitfile ${{ matrix.test_function }}_unit-tests.xml"
+                  just aws-tf-modules-test ${{ matrix.test_function }} "--junitfile ${{ matrix.test_function }}_unit-tests.xml"
 
             # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
             - name: Filter logger.go from the test report (too large)
