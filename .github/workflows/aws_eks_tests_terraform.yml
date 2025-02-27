@@ -8,8 +8,8 @@ on:
     pull_request:
         # the paths should be synced with ../labeler.yml
         paths:
-            - aws/modules/test/**.go
-            - aws/modules/test/**/go.mod
+            - aws/modules/.test/**.go
+            - aws/modules/.test/**/go.mod
             - aws/modules/fixtures/**
             - aws/modules/**.tf
             - .tool-versions
