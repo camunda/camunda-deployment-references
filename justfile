@@ -36,7 +36,7 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
   rm -f tfplan-redacted.json
 
   # bring order
-  jq --sort-keys '.planned_values.root_module' tfplan.json > {{ relative_output_path }}tfplan-golden.json
+  jq --sort-keys '.' tfplan.json > {{ relative_output_path }}tfplan-golden.json
   rm -f tfplan.json
 
   if grep -E -q '\b@camunda\.[A-Za-z]{2,}\b' {{ relative_output_path }}tfplan-golden.json; then
