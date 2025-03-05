@@ -71,13 +71,12 @@ jobs:
                   retention-days: 1
 
             - name: Compare Terraform plan with golden file
-              working-directory: aws/ec2/terraform
               run: |
                   delta "${{ env.MODULE_DIR }}test/golden/tfplan-golden.json" "${{ env.MODULE_DIR }}compare/tfplan-golden.json"
                   exit $?
 
             - name: Post diff on PR
-              if: always() && github.event_name == 'pull_request'
+              if: failure() && github.event_name == 'pull_request'
               uses: int128/diff-action@db6cce01542cb26e181798736eea1e71f5d36706 # v1
               with:
                   base: ${{ env.MODULE_DIR }}test/golden/tfplan-golden.json
