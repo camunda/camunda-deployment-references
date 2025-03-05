@@ -39,21 +39,20 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
   jq --sort-keys '.planned_values.root_module' tfplan.json > tfplan-redacted.json
   rm -f tfplan.json
 
-  jq 'def replace_address:
-      if type == "object" then
-        with_entries(
-          if .key == "address" and .value != null then
-            { key: .value, value: .value }
-          else
-            { key: .key, value: (.value | replace_address) }
-          end
-        )
-      elif type == "array" then
-        map(replace_address)
+  # transform the tfoutput to deal only with keys to keep simple ordering
+  jq 'def transform:
+      if type == "array" then
+        map(transform)
+      elif type == "object" then
+        if has("address") and .address != null then
+          { (.address): with_entries(select(.key != "address")) | map_values(transform) }
+        else
+          with_entries(.value |= transform)
+        end
       else
         .
       end;
-    replace_address' tfplan-redacted.json > tfplan.json
+    transform' tfplan-redacted.json > tfplan.json
   rm -f tfplan-redacted.json
 
   # final sort
