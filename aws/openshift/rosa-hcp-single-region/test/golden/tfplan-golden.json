@@ -90,7 +90,7 @@
                     "tags": {},
                     "tags_all": {}
                   },
-                  "type": "aws_iam_role",
+                  "type": "different-opn-p",
                   "values": {
                     "description": null,
                     "force_detach_policies": false,
@@ -180,7 +180,7 @@
                     "role": "my-rosa-account-HCP-ROSA-Support-Role"
                   }
                 },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role_policy_attachment.account_role_policy_attachment[2]": {
+                "module.dd.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role_policy_attachment.account_role_policy_attachment[2]": {
                   "index": 2,
                   "mode": "managed",
                   "name": "account_role_policy_attachment",
