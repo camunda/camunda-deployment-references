@@ -1,6 +1,8 @@
 
 regenerate-aws-ec2-golden-file:
   #!/bin/bash
+  set -euxo pipefail
+
   cd {{justfile_directory()}}/aws/ec2/terraform
   cp {{justfile_directory()}}/aws/ec2/test/fixtures/provider_override.tf .
   export AWS_REGION="eu-west-2"
@@ -13,16 +15,34 @@ regenerate-aws-ec2-golden-file:
 
 regenerate-golden-file module_dir backend_bucket_region backend_bucket_name backend_bucket_key relative_output_path="./test/golden/":
   #!/bin/bash
+  set -euxo pipefail
+
   cd {{ justfile_directory() }}/{{ module_dir }}
   terraform init \
     -backend-config="bucket={{ backend_bucket_name }}" \
     -backend-config="key={{ backend_bucket_key }}" \
     -backend-config="region={{ backend_bucket_region }}"
+
+  # we always use the same region and fake rhcs token to have a pre-defined output
   RHCS_TOKEN="" AWS_REGION="eu-west-2" terraform plan -out=tfplan
   terraform show -json tfplan | jq > tfplan.json
+  rm -f tfplan
   mkdir -p {{ relative_output_path }}
-  jq --sort-keys '.planned_values.root_module' tfplan.json > {{ relative_output_path }}tfplan.json
-  rm -rf tfplan tfplan.json
+
+  # redact sensible/specific values
+  sed 's/"arn:[^\"]*\"/"ARN_REDACTED"/g' tfplan.json > tfplan-redacted.json
+  rm -f tfplan.json
+  sed -E 's/"arn:([^"\\]|\\.)*"/"ARN_REDACTED"/g; s/'\''arn:([^'\''\\]|\\.)*'\''/'\''ARN_REDACTED'\''/g' tfplan-redacted.json > tfplan.json
+  rm -f tfplan-redacted.json
+
+  # bring order
+  jq --sort-keys '.planned_values.root_module' tfplan.json > {{ relative_output_path }}tfplan-golden.json
+  rm -f tfplan.json
+
+  if grep -E -q '\b@camunda\.[A-Za-z]{2,}\b' {{ relative_output_path }}tfplan-golden.json; then
+    echo "ERROR: The golden file {{ relative_output_path }}tfplan-golden.json file contains user-specific information."
+    exit 1
+  fi
 
 
 # Install all the tooling
@@ -50,6 +70,5 @@ install-tooling-current-dir: asdf-install-current-dir
 [no-cd]
 asdf-install-current-dir:
     #!/bin/sh
-
     just asdf-plugins "$(pwd)/"
     asdf install

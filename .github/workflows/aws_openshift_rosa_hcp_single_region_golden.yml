@@ -67,21 +67,21 @@ jobs:
               uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
               with:
                   name: plan-artifact-json
-                  path: ${{ env.MODULE_DIR }}compare/tfplan.json
+                  path: ${{ env.MODULE_DIR }}compare/tfplan-golden.json
                   retention-days: 1
 
             - name: Compare Terraform plan with golden file
               working-directory: aws/ec2/terraform
               run: |
-                  delta "${{ env.MODULE_DIR }}test/golden/tfplan.json" "${{ env.MODULE_DIR }}compare/tfplan.json"
+                  delta "${{ env.MODULE_DIR }}test/golden/tfplan-golden.json" "${{ env.MODULE_DIR }}compare/tfplan-golden.json"
                   exit $?
 
             - name: Post diff on PR
               if: always() && github.event_name == 'pull_request'
               uses: int128/diff-action@db6cce01542cb26e181798736eea1e71f5d36706 # v1
               with:
-                  base: ${{ env.MODULE_DIR }}test/golden/tfplan.json
-                  head: ${{ env.MODULE_DIR }}compare/tfplan.json
+                  base: ${{ env.MODULE_DIR }}test/golden/tfplan-golden.json
+                  head: ${{ env.MODULE_DIR }}compare/tfplan-golden.json
                   comment-header: |
                       ## Module ${{ env.MODULE_DIR }} - Terraform Golden Plan Diff
 
