@@ -36,7 +36,28 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
   rm -f tfplan-redacted.json
 
   # bring order
-  jq --sort-keys '.' tfplan.json > {{ relative_output_path }}tfplan-golden.json
+  jq --sort-keys '.planned_values.root_module' tfplan.json > tfplan-redacted.json
+  rm -f tfplan.json
+
+  jq 'def replace_address:
+      if type == "object" then
+        with_entries(
+          if .key == "address" and .value != null then
+            { key: .value, value: .value }
+          else
+            { key: .key, value: (.value | replace_address) }
+          end
+        )
+      elif type == "array" then
+        map(replace_address)
+      else
+        .
+      end;
+    replace_address' tfplan-redacted.json > tfplan.json
+  rm -f tfplan-redacted.json
+
+  # final sort
+  jq --sort-keys '.' tfplan.json >  {{ relative_output_path }}tfplan-golden.json
   rm -f tfplan.json
 
   if grep -E -q '\b@camunda\.[A-Za-z]{2,}\b' {{ relative_output_path }}tfplan-golden.json; then
