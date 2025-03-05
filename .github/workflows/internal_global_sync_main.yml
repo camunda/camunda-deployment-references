@@ -1,0 +1,57 @@
+---
+name: Internal - Global - Sync Main branch from latest Camunda stable version
+
+env:
+    CURRENT_STABLE_BRANCH: camunda-8.7
+
+on:
+    push:
+        branches:
+            - camunda-8.7 # keep it updated the current stable version
+    workflow_dispatch:
+
+
+concurrency:
+    group: stable-merge
+    cancel-in-progress: false
+
+jobs:
+    sync-main:
+        runs-on: ubuntu-latest
+        name: Syncing main from latest stable
+        steps:
+            - name: Checkout
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0 # Full clone necessary for proper merge
+
+            - name: Generate token for GitHub
+              id: generate-github-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@5d11ae14b11695bb23f62478361cf5f5cbac6811 # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+
+            - name: Main sync merge
+              uses: robotology/gh-action-nightly-merge@81570ba03dd370f582bd3f52d47672d29191829f # v1.5.2
+              with:
+                  stable_branch: ${{ env.CURRENT_STABLE_BRANCH }}
+                  development_branch: main
+                  allow_ff: false # Prevent fast-forward merges
+              env:
+                  GITHUB_TOKEN: ${{ steps.generate-github-token.outputs.token }}
+
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: failure() && github.event_name == 'schedule'
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

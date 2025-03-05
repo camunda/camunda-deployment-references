@@ -1,0 +1,67 @@
+---
+name: Delete AWS ROSA HCP Single Region Clusters
+
+description: |
+    This GitHub Action automates the deletion of aws/openshift/rosa-hcp-single-region reference architecture clusters using a shell script.
+
+inputs:
+    tf-bucket:
+        description: Bucket containing the clusters states
+        required: true
+
+    tf-bucket-region:
+        description: Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION
+
+    max-age-hours-cluster:
+        description: Maximum age of clusters in hours
+        default: '20'
+
+    target:
+        description: Specify an ID to destroy specific resources or "all" to destroy all resources
+        default: all
+
+    rosa-cli-version:
+        description: Version of the ROSA CLI to use
+        default: latest
+
+    openshift-version:
+        description: Version of the OpenShift to install
+        required: true
+        # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
+        default: 4.17.16
+
+runs:
+    using: composite
+    steps:
+
+        - name: Install asdf tools with cache
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+
+        - name: Install ROSA CLI
+          shell: bash
+          run: |
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              tar -xvf rosa-linux.tar.gz
+              sudo mv rosa /usr/local/bin/rosa
+              chmod +x /usr/local/bin/rosa
+              rm -f rosa-linux.tar.gz
+              rosa version
+
+        - name: Install CLI tools from OpenShift Mirror
+          uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+          with:
+              oc: ${{ inputs.openshift-version }}
+
+        - name: Delete clusters
+          id: delete_clusters
+          shell: bash
+          run: |
+              if [ -n "${{ inputs.tf-bucket-region }}" ]; then
+                export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
+              fi
+
+              # Use repo .tool-version as global version
+              cp .tool-versions ~/.tool-versions
+
+              ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
+                ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-single-region/ /tmp/cleanup/ ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }}

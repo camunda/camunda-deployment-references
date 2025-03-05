@@ -10,7 +10,7 @@
   ],
   "customDatasources": {
     "rosa-camunda": {
-      "defaultRegistryUrlTemplate": "https://camunda.github.io/camunda-tf-rosa/rosa_versions.txt",
+      "defaultRegistryUrlTemplate": "https://camunda.github.io/camunda-deployment-references/rosa_versions.txt",
       "format": "plain",
     },
   },

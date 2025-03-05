@@ -1,0 +1,272 @@
+---
+name: Deploy AWS ROSA HCP Single Region Cluster
+
+description: |
+    This GitHub Action automates the deployment of the aws/openshift/rosa-hcp-single-region reference architecture cluster using Terraform.
+    This action will also install oc, awscli, rosa cli.
+    The kube context will be set on the created cluster.
+
+inputs:
+    rh-token:
+        description: Red Hat Hybrid Cloud Console Token
+        required: true
+    cluster-name:
+        description: Name of the ROSA cluster to deploy
+        required: true
+    admin-password:
+        description: Admin password for the ROSA cluster
+        required: true
+    admin-username:
+        description: Admin username for the ROSA cluster
+        default: kube-admin
+        required: true
+    aws-region:
+        description: AWS region where the ROSA cluster will be deployed
+        required: true
+    availability-zones:
+        description: Comma separated list of availability zones (letters only, e.g., a,b,c)
+        required: true
+        default: a,b,c
+    rosa-cli-version:
+        description: Version of the ROSA CLI to use
+        required: true
+        default: latest
+    openshift-version:
+        description: Version of the OpenShift to install
+        required: true
+        # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
+        default: 4.17.16
+    replicas:
+        description: Number of replicas for the ROSA cluster (empty will fallback on default value of the module)
+        default: ''
+    s3-backend-bucket:
+        description: Name of the S3 bucket to store Terraform state
+        required: true
+    s3-bucket-region:
+        description: Region of the bucket containing the resources states, if not set, will fallback on aws-region
+    tf-modules-revision:
+        description: Git revision of the tf modules to use
+        default: main
+        required: true
+    tf-modules-path:
+        description: Path where the tf rosa modules will be cloned
+        default: ./.action-tf-modules/aws-openshift-rosa-hcp-single-region-create/
+        required: true
+    login:
+        description: Authenticate the current kube context on the created cluster
+        default: 'true'
+        required: true
+
+outputs:
+    openshift-server-api:
+        description: The server API URL of the deployed ROSA cluster
+        value: ${{ steps.cluster_info.outputs.cluster_api }}
+
+    openshift-cluster-id:
+        description: The ID of the deployed ROSA cluster
+        value: ${{ steps.apply.outputs.cluster_id }}
+
+    terraform-state-url:
+        description: URL of the Terraform state file in the S3 bucket
+        value: ${{ steps.set-terraform-variables.outputs.terraform-state-url }}
+
+runs:
+    using: composite
+    steps:
+        - name: Checkout Repository
+          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+          with:
+              repository: camunda/camunda-deployment-references
+              ref: ${{ inputs.tf-modules-revision }}
+              path: ${{ inputs.tf-modules-path }}
+              fetch-depth: 0
+
+        - name: Install asdf tools with cache for the project
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@feature/working-directory # 1.2.19
+          with:
+              tool_versions_files: .tool-versions,${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/.tool-versions
+
+        # TODO: when available on asdf, migrate this to it
+        - name: Install ROSA CLI
+          shell: bash
+          run: |
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              tar -xvf rosa-linux.tar.gz
+              sudo mv rosa /usr/local/bin/rosa
+              chmod +x /usr/local/bin/rosa
+              rm -f rosa-linux.tar.gz
+              rosa version
+
+        - name: Install CLI tools from OpenShift Mirror
+          uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+          with:
+              oc: ${{ inputs.openshift-version }}
+
+        - name: Set AWS Region and associated AZs
+          id: construct_azs
+          shell: bash
+          run: |
+              echo "AWS_REGION=${{ inputs.aws-region }}" | tee -a "$GITHUB_ENV"
+
+              IFS=',' read -r -a az_letters <<< "${{ inputs.availability-zones }}"
+              FULL_AZS=()
+              for az in "${az_letters[@]}"; do
+                FULL_AZS+=("\"${AWS_REGION}${az}\"")  # Add double quotes around each AZ
+              done
+
+              # Join the AZs with commas
+              FULL_AZS_STRING=$(IFS=,; echo "${FULL_AZS[*]}")
+              echo "FULL_AZS=$FULL_AZS_STRING" | tee -a "$GITHUB_ENV"
+
+
+        - name: Login to Red Hat Hybrid Cloud Console
+          shell: bash
+          run: |
+              rosa login --token="${{ inputs.rh-token }}"
+              rosa whoami
+
+        - name: Verify and enable HCP ROSA on AWS Marketplace
+          shell: bash
+          run: |
+              rosa verify quota
+              rosa verify permissions
+              rosa create account-roles --mode auto
+
+        - name: Set Terraform variables
+          id: set-terraform-variables
+          shell: bash
+          run: |
+              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
+              export TFSTATE_KEY="tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
+
+              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+                export TFSTATE_REGION="$AWS_REGION"
+              else
+                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+              fi
+
+              echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
+              echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
+              echo "TFSTATE_KEY=${TFSTATE_KEY}" >> "$GITHUB_OUTPUT"
+
+              terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_KEY}"
+              echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
+
+        - name: Check if S3 bucket exists
+          id: create-s3-bucket
+          shell: bash
+          run: |
+              if aws s3api head-bucket --bucket ${{ inputs.s3-backend-bucket }} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
+                echo "Bucket already exists"
+              else
+                echo "Bucket does not exist, creating..."
+                aws s3api create-bucket --bucket ${{ inputs.s3-backend-bucket }} \
+                    --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
+                    --create-bucket-configuration LocationConstraint=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
+              fi
+
+              aws s3api put-public-access-block --bucket ${{ inputs.s3-backend-bucket }} \
+                --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
+                --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+
+        - name: Terraform Init
+          id: init
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/
+          env:
+              RHCS_TOKEN: ${{ inputs.rh-token }}
+          shell: bash
+          run: |
+              set -euxo pipefail
+
+              terraform version
+
+              terraform init \
+                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_KEY }}" \
+                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
+
+              terraform validate -no-color
+
+        - name: Terraform Plan
+          id: plan
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/
+          env:
+              RHCS_TOKEN: ${{ inputs.rh-token }}
+          shell: bash
+          run: |
+              echo "Adapting the files with input values"
+              pwd
+              ls
+              sed -i -e 's/\(rosa_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
+                     -e 's/\(rosa_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password }}\2/' \
+                     -e 's/\(rosa_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username }}\2/' \
+                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version }}\2/' \
+                     -e "s/\(rosa_cluster_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS]/" \
+                     cluster.tf
+
+              if [ -n "${{ inputs.replicas }}" ]; then
+                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas }}/' cluster.tf
+              else
+                echo "No replicas value provided, skipping replica modification."
+              fi
+
+              echo "Displaying templated cluster.tf file:"
+              cat cluster.tf
+
+              terraform plan -no-color -out rosa.plan
+
+        - name: Terraform Apply
+          id: apply
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/
+          env:
+              RHCS_TOKEN: ${{ inputs.rh-token }}
+          shell: bash
+          run: |
+              terraform apply -no-color rosa.plan
+
+              export cluster_id="$(terraform output -raw cluster_id)"
+              echo "cluster_id=$cluster_id" >> "$GITHUB_OUTPUT"
+
+        - name: Retrieve cluster information
+          id: cluster_info
+          shell: bash
+          run: |
+              rosa describe cluster --output=json -c "${{ steps.apply.outputs.cluster_id }}"
+              export cluster_api=$(rosa describe cluster --output=json -c "${{ steps.apply.outputs.cluster_id }}" | jq -r '.api.url')
+              echo "cluster_api=$cluster_api"
+              echo "cluster_api=$cluster_api" >> "$GITHUB_OUTPUT"
+
+        - name: Login and generate kubeconfig
+          # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
+          uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3
+          id: kube_config
+          if: inputs.login == 'true'
+          with:
+              timeout_minutes: 10
+              max_attempts: 40
+              shell: bash
+              retry_wait_seconds: 15
+              command: |
+                  : # see https://github.com/nick-fields/retry/issues/133
+                  set -o errexit
+                  set -o pipefail
+
+                  oc login --username "${{ inputs.admin-username }}" --password "${{ inputs.admin-password }}" "${{ steps.cluster_info.outputs.cluster_api }}"
+
+                  # Check if the user is already a cluster-admin
+                  if ! rosa list users --cluster="${{ inputs.cluster-name }}" | grep -q "${{ inputs.admin-username }}"; then
+                    rosa grant user cluster-admin --cluster="${{ inputs.cluster-name }}" --user="${{ inputs.admin-username }}"
+                  else
+                    echo "✅ User '${{ inputs.admin-username }}' is already a cluster-admin on '${{ inputs.cluster-name }}'."
+                  fi
+
+                  oc whoami
+
+                  kubectl config rename-context $(oc config current-context) "${{ inputs.cluster-name }}"
+                  kubectl config use "${{ inputs.cluster-name }}"
+
+        - name: Clean up cloned modules
+          if: always()
+          shell: bash
+          run: |
+              rm -rf "${{ inputs.tf-modules-path }}"

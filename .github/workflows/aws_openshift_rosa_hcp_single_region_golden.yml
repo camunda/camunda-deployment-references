@@ -1,0 +1,97 @@
+---
+name: Tests - Golden - AWS OpenShift ROSA HCP Single Region
+
+on:
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/aws_openshift_rosa_hcp_single_region_golden.yml
+            - .tool-versions
+            - aws/modules/rosa-hcp/**
+            - aws/openshift/rosa-hcp-single-region/**
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    # keep this synced with other workflows
+    AWS_PROFILE: infex
+    AWS_REGION: eu-west-2
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    S3_BUCKET_KEY: golden.tfstate
+
+    MODULE_DIR: ./aws/openshift/rosa-hcp-single-region/
+
+jobs:
+    compare:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            pull-requests: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+
+            - name: Add profile credentials to ~/.aws/credentials
+              shell: bash
+              run: |
+                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+
+            - name: Compute golden
+              run: |
+                  set -euxo pipefail
+                  just regenerate-golden-file "${{ env.MODULE_DIR }}" "${{ env.S3_BUCKET_REGION }}" "${{ env.S3_BACKEND_BUCKET }}" "${{ env.S3_BUCKET_KEY }}" "./compare/"
+
+            - name: Upload pipeline golden result
+              uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
+              with:
+                  name: plan-artifact-json
+                  path: ${{ env.MODULE_DIR }}compare/tfplan.json
+                  retention-days: 1
+
+            - name: Compare Terraform plan with golden file
+              working-directory: aws/ec2/terraform
+              run: |
+                  delta "${{ env.MODULE_DIR }}test/golden/tfplan.json" "${{ env.MODULE_DIR }}compare/tfplan.json"
+                  exit $?
+
+            - name: Post diff on PR
+              if: always() && github.event_name == 'pull_request'
+              uses: int128/diff-action@db6cce01542cb26e181798736eea1e71f5d36706 # v1
+              with:
+                  base: ${{ env.MODULE_DIR }}test/golden/tfplan.json
+                  head: ${{ env.MODULE_DIR }}compare/tfplan.json
+                  comment-header: |
+                      ## Module ${{ env.MODULE_DIR }} - Terraform Golden Plan Diff
+
+                  comment-footer: |
+                      🖲 **Check the delta diff**
+                      in the [workflow run](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}) for a detailed comparison.
+
+                      If the changes are expected, you can use the uploaded artifact on the workflow to update the golden file on your branch.
+
+                      📟 **Alternatively, run the following command locally** to update the golden file:
+                      ```sh
+                      just regenerate-golden-file "${{ env.MODULE_DIR }}" "${{ env.S3_BUCKET_REGION }}" "${{ env.S3_BACKEND_BUCKET }}" "${{ env.S3_BUCKET_KEY }}"
+                      ```

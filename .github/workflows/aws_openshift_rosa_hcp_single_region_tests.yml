@@ -1,0 +1,595 @@
+---
+name: Tests - Integration - AWS OpenShift ROSA HCP Single Region
+
+# description: This workflow perform integration tests against ROSA HCP platform
+
+on:
+    schedule:
+        - cron: 0 3 * * 1,3,5 # Runs at 3 AM on Monday, Wednesday, and Friday
+    pull_request:
+        paths:
+            - .github/workflows-config/aws-openshift-rosa-hcp-single-region/test_matrix.yml
+            - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
+            - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
+            - .github/workflows/aws_openshift_rosa_hcp_single_region_golden.yml
+            - .tool-versions
+            - aws/openshift/rosa-hcp-single-region/**
+            - generic/openshift/single-region/**
+            - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
+            - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
+            - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
+
+    workflow_dispatch:
+        inputs:
+            cluster_name:
+                description: Cluster name.
+                required: false
+                type: string
+            delete_clusters:
+                description: Whether to delete the clusters.
+                type: boolean
+                default: true
+            enable_tests:
+                description: Whether to enable the tests.
+                type: boolean
+                default: true
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    # in case of renovate we don't cancel the previous run, so it can finish it
+    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
+    cancel-in-progress: ${{ github.actor == 'renovate[bot]' && false || true }}
+
+env:
+    AWS_PROFILE: infex
+    AWS_REGION: eu-west-2
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+
+    # TEST VARIABLES
+
+    # Vars with "CI_" prefix are used in the CI workflow only.
+    CI_MATRIX_FILE: .github/workflows-config/aws-openshift-rosa-hcp-single-region/test_matrix.yml
+
+    # Docker Hub auth to avoid image pull rate limit.
+    # Vars with "TEST_" prefix are used in the test runner tool (Task).
+    TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
+
+
+    ROSA_CLI_VERSION: latest
+
+jobs:
+    clusters-info:
+        name: Define Matrix
+        runs-on: ubuntu-latest
+        outputs:
+            platform-matrix: ${{ steps.matrix.outputs.platform-matrix }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+
+            - id: matrix
+              # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
+              run: |
+                  set -euxo pipefail # tolerate, nothing.
+
+                  # Generate cluster name.
+                  # shellcheck disable=SC2086
+                  distro_indexes="$(yq '.matrix.distro | to_entries | .[] | .key' ${CI_MATRIX_FILE})"
+
+                  # Loop over clusters.
+                  # Vars are exported to pass them to yq instead of local inline syntax.
+                  # shellcheck disable=SC2086
+                  for distro_index in ${distro_indexes}; do
+                    cluster_name_input="${{ inputs.cluster_name }}"
+                    cluster_name_fallback="hci-$(uuidgen | head -c 8)"
+                    export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
+                    export distro_index="${distro_index}"
+                    yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
+                  done
+
+                  # Get updated matrix.
+                  # shellcheck disable=SC2086
+                  platform_matrix="$(yq '.matrix' --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                  echo "${platform_matrix}" | jq
+                  echo "platform-matrix=${platform_matrix}" > "$GITHUB_OUTPUT"
+
+    prepare-clusters:
+        name: Prepare clusters
+        needs:
+            - clusters-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  ref: ${{ github.head_ref }}
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+                      secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+                      secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_PASSWORD;
+                      secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_USERNAME;
+
+            - name: Add profile credentials to ~/.aws/credentials
+              shell: bash
+              run: |
+                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+
+            # Also remove the versioning
+            - name: Create ROSA cluster and login
+              uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-create
+              id: create_cluster
+              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+              if: always() && success()
+              with:
+                  rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+                  cluster-name: ${{ matrix.distro.clusterName }}
+                  admin-username: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
+                  admin-password: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  openshift-version: ${{ matrix.distro.version }}
+                  tf-modules-revision: ${{ github.head_ref }}
+
+            # This is required for some operations not to fail such as annotation of the IngressController
+            - name: ⏳ Wait for a minimal age of 5min of the cluster
+              id: wait_cluster_age
+              run: |
+                  ns_age=0
+
+                  while [ "$ns_age" -lt 5 ]; do
+                    current_time=$(date +%s)
+
+                    ns_creation_time_raw=$(oc get ns default -o jsonpath='{.metadata.creationTimestamp}')
+                    ns_creation_time=$(date -d "$ns_creation_time_raw" +%s)
+
+                    echo "Namespace creation timestamp (seconds): $ns_creation_time"
+                    ns_age=$(( (current_time - ns_creation_time) / 60 ))
+
+                    # Print the calculated age for debugging
+                    echo "Namespace age in minutes: $ns_age"
+
+                    # If ns_age is still less than 5, wait for a bit and check again
+                    if [ "$ns_age" -lt 5 ]; then
+                      echo "⏳ Waiting for namespace 'default' to be at least 5 minutes old..."
+                      sleep 30
+                    fi
+                  done
+
+                  echo "✅ Namespace is older than 5 minutes."
+
+
+            - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
+              id: export_kube_config
+              run: |
+                  # shellcheck disable=SC2005
+                  echo "$(kubectl config view --raw)" > kubeconfig.yaml 2>/dev/null
+                  openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${GITHUB_TOKEN}" -pbkdf2
+                  encrypted_kubeconfig_base64=$(base64 -w 0 encrypted_kubeconfig.enc)
+                  echo "kubeconfig_raw=${encrypted_kubeconfig_base64}" >> "$GITHUB_OUTPUT"
+
+            ## Write for matrix outputs workaround
+            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
+              id: out
+              with:
+                  matrix-step-name: ${{ github.job }}
+                  matrix-key: ${{ matrix.distro.name }}
+                  outputs: |-
+                      kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
+
+    access-info:
+        name: Read kube configs from matrix
+        runs-on: ubuntu-latest
+        needs: prepare-clusters
+        outputs:
+            kubeconfig: ${{ steps.read-workflow.outputs.result }}
+        steps:
+            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+              id: read-workflow
+              with:
+                  matrix-step-name: prepare-clusters
+
+    integration-tests:
+        name: Run integration tests - ${{ matrix.distro.name }}
+        runs-on: ubuntu-latest
+        needs:
+            - clusters-info
+            - access-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        env:
+            TEST_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
+            # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
+            TEST_CLUSTER_TYPE: openshift
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+            - name: Install asdf tools with cache for the project
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@feature/working-directory # 1.2.19
+              with:
+                  tool_versions_files: .tool-versions,./aws/openshift/rosa-hcp-single-region/.tool-versions,./generic/openshift/rosa-hcp-single-region/.tool-versions
+
+            - name: Install CLI tools from OpenShift Mirror
+              uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+              with:
+                  oc: ${{ matrix.distro.version }}
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
+
+            - name: 🔐 Login into the cluster
+              run: |
+                  mkdir -p "$HOME/.kube"
+                  echo "${{ fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[matrix.distro.name] }}" | base64 --decode > encrypted_kubeconfig.enc
+                  openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${GITHUB_TOKEN}" -pbkdf2
+                  rm encrypted_kubeconfig.enc
+                  chmod 600 "$HOME/.kube/config"
+
+            - name: 🛠️ Prepare a FRESH deployment for generic/openshift/single-region
+              run: |
+                  set -euxo pipefail # tolerate, nothing.
+
+                  # Delete the namespace to ensure a fresh start
+                  if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
+                    kubectl delete namespace "$TEST_NAMESPACE" --wait
+                    while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
+                        echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
+                        sleep 5
+                    done
+                  fi
+
+                  kubectl create namespace "$TEST_NAMESPACE"
+
+                  echo "Construct the values.yml file"
+
+                  cp generic/openshift/single-region/helm-values/base.yml ./values.yml
+
+                  # TODO: [DOC] this should be extract from the doc https://docs.camunda.io/docs/8.7/self-managed/setup/deploy/openshift/redhat-openshift/
+                  source ./generic/openshift/single-region/procedure/setup-application-domain.sh
+                  echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+
+                  # TODO: [DOC] same
+                  source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+                  ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
+
+                  # Enable Routes
+                  yq '. *d load("generic/openshift/single-region/helm-values/zeebe-gateway-route.yml")' values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
+                  yq '. *d load("generic/openshift/single-region/helm-values/operate-route.yml")' values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
+                  yq '. *d load("generic/openshift/single-region/helm-values/tasklist-route.yml")' values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
+                  yq '. *d load("generic/openshift/single-region/helm-values/connectors-route.yml")' values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
+                  yq '. *d load("generic/openshift/single-region/helm-values/domain.yml")' values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
+
+                  # Enable SCC
+                  yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
+
+                  # Add integration tests values
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    yq '. *d load("generic/kubernetes/single-region/tests/helm-values/registry.yml")' values.yml > values-result.yml
+                    cat values-result.yml && mv values-result.yml values.yml
+                    yq '. *d load("generic/kubernetes/single-region/tests/helm-values/identity.yml")' values.yml > values-result.yml
+                    cat values-result.yml && mv values-result.yml values.yml
+                  fi
+
+                  # Generate the final values
+                  envsubst < values.yml > generated-values.yml
+
+                  echo "Final generated-values.yml result"
+                  cat generated-values.yml
+
+
+            - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
+              run: |
+                  set -euxo pipefail # tolerate, nothing.
+
+                  source generic/openshift/single-region/procedure/chart-env.sh
+                  source generic/openshift/single-region/procedure/generate-passwords.sh
+
+                  ./generic/openshift/single-region/procedure/create-identity-secret.sh
+
+                  # Generate tests objects
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml
+                    kubectl create secret docker-registry index-docker-io \
+                        --docker-server=index.docker.io \
+                        --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                        --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                        --namespace="$TEST_NAMESPACE"
+
+                    kubectl create secret generic identity-secret-for-components-integration \
+                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+                        --namespace="$TEST_NAMESPACE"
+                  fi
+
+                  ./generic/openshift/single-region/procedure/install-chart.sh
+
+            - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
+              timeout-minutes: 10
+              run: |
+                  # TODO: [DOC] update the doc to reference this snippet
+                  ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+
+            - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
+              if: env.TESTS_ENABLED == 'true'
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  repository: camunda/camunda-platform-helm
+                  ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
+                  path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
+                  fetch-depth: 0
+
+            - name: 🧪 TESTS - Set variables
+              if: env.TESTS_ENABLED == 'true'
+              run: |
+                  set -euxo pipefail # tolerate, nothing.
+
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+
+                  export TEST_CHART_DIR_STATIC="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/charts/camunda-platform-$CAMUNDA_VERSION"
+                  echo "TEST_CHART_DIR_STATIC=$TEST_CHART_DIR_STATIC" | tee -a "$GITHUB_ENV"
+
+                  TEST_INGRESS_HOST="$CAMUNDA_DOMAIN"
+                  echo "TEST_INGRESS_HOST=$TEST_INGRESS_HOST" | tee -a "$GITHUB_ENV"
+
+                  # shellcheck disable=SC2002
+                  TEST_CHART_VERSION=$(cat "$TEST_CHART_DIR_STATIC/Chart.yaml" | yq '.version')
+                  echo "TEST_CHART_VERSION=$TEST_CHART_VERSION" | tee -a "$GITHUB_ENV"
+
+                  # setup docker registry secret for tests
+                  echo "TEST_CREATE_DOCKER_LOGIN_SECRET=true" | tee -a "$GITHUB_ENV"
+                  echo "TEST_DOCKER_USERNAME_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_USERNAME }}" | tee -a "$GITHUB_ENV"
+                  echo "TEST_DOCKER_PASSWORD_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" | tee -a "$GITHUB_ENV"
+
+                  CI_TASKS_BASE_DIR="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/test/integration/scenarios/"
+                  echo "CI_TASKS_BASE_DIR=$CI_TASKS_BASE_DIR" | tee -a "$GITHUB_ENV"
+                  export TEST_CHART_DIR="../../../../charts/camunda-platform-$CAMUNDA_VERSION"
+                  echo "TEST_CHART_DIR=$TEST_CHART_DIR" | tee -a "$GITHUB_ENV"
+                  export TEST_VALUES_BASE_DIR="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/test/integration/scenarios"
+                  echo "TEST_VALUES_BASE_DIR=$TEST_VALUES_BASE_DIR" | tee -a "$GITHUB_ENV"
+
+                  # replace integration with the camunda release name as part of adaptation required to run the tests in our environment
+                  find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i 's/integration/camunda/g'
+
+                  echo "Configure Venom tests"
+                  # (adapted from https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L56)
+                  export VARIABLES_ENV_FILE="$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables.env"
+                  # Enable the ingress tests
+                  # shellcheck disable=SC2129
+                  echo "VENOM_VAR_TEST_INGRESS_HOST=$TEST_INGRESS_HOST" >> "$VARIABLES_ENV_FILE"
+                  echo "VENOM_VAR_TEST_CLIENT_ID=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" >> "$VARIABLES_ENV_FILE"
+                  echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" >> "$VARIABLES_ENV_FILE"
+                  echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
+                  ZEEBE_VERSION=$(yq '.zeebe.image.tag' "$TEST_CHART_DIR_STATIC/values.yaml")
+                  # shellcheck disable=SC2129
+                  echo "ZEEBE_VERSION=$ZEEBE_VERSION" >> "$VARIABLES_ENV_FILE"
+                  # In case the Zeebe version has not been released officially yet.
+                  echo "ZEEBE_VERSION_FALLBACK=8.5.6" >> "$VARIABLES_ENV_FILE"
+
+                  # Some variables are not working correctly, patching it with yq directly
+                  # shellcheck disable=SC2129
+                  echo "VENOM_VAR_SKIP_TEST_WEBMODELER=false" >> "$VARIABLES_ENV_FILE"
+                  echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
+
+                  echo "Patch the test files..."
+
+                  # TODO: [BUG] remove the patchs when https://github.com/camunda/camunda-platform-helm/issues/3081 is fixed
+                  echo "Patch expression ShoudBeFalse"
+                  sed "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                  sed "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+
+                  echo "Skip test ingress is also broken, fixing it"
+                  yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                  yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+
+                  echo "Disable Console,Webmodeler in the core tests as it's not enabled"
+                  yq eval 'del(.. | select(has("component") and (.component == "Console" or .component == "WebModeler")))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+
+                  echo "Patch the identity secrets to allow venom to access to the platform"
+                  sed -i 's/integration-test-credentials/identity-secret-for-components/g' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+                  sed -i 's/identity-operate-client-password/operate-secret/g' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+                  sed -i 's/identity-optimize-client-password/optimize-secret/g' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+                  sed -i 's/identity-tasklist-client-password/tasklist-secret/g' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+                  sed -i 's/identity-zeebe-client-password/zeebe-secret/g' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+                  sed -i 's/identity-connectors-client-password/connectors-secret/g' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+
+                  # remove venom var client secret as we define it in the file
+                  yq e 'del(.spec.template.spec.containers[].env[] | select(.name == "VENOM_VAR_TEST_CLIENT_SECRET"))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+
+                  echo "Ensure asdf tool is available in the test suite by using our global one"
+                  cp .tool-versions "$TEST_VALUES_BASE_DIR"
+
+            - name: 🧪 TESTS - Run Preflight TestSuite
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 10
+              run: |
+                  task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.preflight
+
+            - name: 🧪 TESTS - Run Core TestSuite
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 20
+              run: |
+                  task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.core
+
+            - name: 🧪 TESTS - Run additional tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 20
+              run: |
+                  set -euxo pipefail # tolerate, nothing.
+
+                  echo "Show zeebe cluster topology using generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh:"
+                  export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
+                  export ZEEBE_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+                  export DOMAIN_NAME="$CAMUNDA_DOMAIN"
+
+                  # Execute the script and capture the output in a variable
+                  check_zeebe_topology_output=$(./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh)
+
+                  echo "$check_zeebe_topology_output" | jq
+
+                  # Checks
+                  error_found=false
+                  check_zeebe_topology_all_healthy=$(echo "$check_zeebe_topology_output" | jq '[.brokers[].partitions[].health == "healthy"] | all')
+                  check_zeebe_topology_cluster_size=$(echo "$check_zeebe_topology_output" | jq '.clusterSize')
+                  check_zeebe_topology_partitions_count=$(echo "$check_zeebe_topology_output" | jq '.partitionsCount')
+
+                  if [ "$check_zeebe_topology_all_healthy" = "true" ]; then
+                    echo "✅ All partitions are healthy."
+                  else
+                    echo "❌ Not all partitions are healthy"
+                    error_found=true
+                  fi
+
+                  if [ "$check_zeebe_topology_cluster_size" -eq 3 ]; then
+                    echo "✅ Cluster size is 3."
+                  else
+                    echo "❌ Cluster size is not 3."
+                    error_found=true
+                  fi
+
+                  if [ "$check_zeebe_topology_partitions_count" -eq 3 ]; then
+                    echo "✅ Partitions count is 3."
+                  else
+                    echo "❌ Partitions count is not 3."
+                    error_found=true
+                  fi
+
+                  if [ "$error_found" = true ]; then
+                    exit 1
+                  fi
+
+                  echo "✅ The cluster meets all the expected criteria."
+
+                  # TODO: [DOC] integrate it as testable doc
+
+            - name: 🔬🚨 Get failed Pods info
+              if: failure()
+              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@52f7c04dc9817a2f8a5b7b1c5450a80a8a6996ae # main
+
+    cleanup-clusters:
+        name: Cleanup ROSA clusters
+        if: always()
+        runs-on: ubuntu-latest
+        needs:
+            - clusters-info
+            - integration-tests
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              if: env.CLEANUP_CLUSTERS == 'true'
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              if: env.CLEANUP_CLUSTERS == 'true'
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@v3
+              if: env.CLEANUP_CLUSTERS == 'true'
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+                      secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+
+            - name: Add profile credentials to ~/.aws/credentials
+              shell: bash
+              if: env.CLEANUP_CLUSTERS == 'true'
+              run: |
+                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+
+            - name: Delete on-demand ROSA HCP Cluster
+              uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 125
+              env:
+                  RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours-cluster: 0
+                  target: ${{ matrix.distro.clusterName }}
+
+    report:
+        name: Report failures
+        if: github.event_name == 'schedule' && failure()
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+            - cleanup-clusters
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

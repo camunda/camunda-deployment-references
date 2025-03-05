@@ -1,0 +1,27 @@
+---
+global:
+    elasticsearch:
+        enabled: true # use the embbeded elasticsearch
+
+identityKeycloak:
+    postgresql:
+        enabled: true # use the embbeded database
+
+        # TODO: [BUG] 8.6 only remove when https://github.com/camunda/camunda-platform-helm/pull/3018 is release
+        # context https://github.com/camunda/camunda-platform-helm/pull/2944
+        auth:
+            existingSecret: ''
+
+    auth:
+        existingSecret: identity-secret-for-components
+
+console:
+    enabled: false # by default, console is not enabled
+
+webModeler:
+    enabled: false # by default, webModeler is not enabled
+
+    restapi:
+        mail:
+            existingSecret: identity-secret-for-components # reference the smtp password
+            fromAddress: changeme@example.com   # change this required value
