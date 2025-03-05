@@ -42,10 +42,20 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
   # transform the tfoutput to deal only with keys to keep simple ordering
   jq 'def transform:
       if type == "array" then
-        map(transform)
+        . as $arr |
+        if $arr | length > 0 and (.[0] | type == "object" and has("address")) then
+          # Transform array elements into an object with address as the key
+          map({ (.address): with_entries(select(.key != "address")) | map_values(transform) }) | add
+        else
+          .
+        end
       elif type == "object" then
         if has("address") and .address != null then
           { (.address): with_entries(select(.key != "address")) | map_values(transform) }
+        elif has("resources") then
+          { "resources": map(transform) | add }
+        elif has("child_modules") then
+          { "child_modules": map(transform) | add }
         else
           with_entries(.value |= transform)
         end
