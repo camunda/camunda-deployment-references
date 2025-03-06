@@ -312,11 +312,9 @@ jobs:
 
                   cp generic/openshift/single-region/helm-values/base.yml ./values.yml
 
-                  # TODO: [DOC] this should be extract from the doc https://docs.camunda.io/docs/8.7/self-managed/setup/deploy/openshift/redhat-openshift/
                   source ./generic/openshift/single-region/procedure/setup-application-domain.sh
                   echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
-                  # TODO: [DOC] same
                   source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
                   ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
 
@@ -380,7 +378,6 @@ jobs:
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 10
               run: |
-                  # TODO: [DOC] update the doc to reference this snippet
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
             - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
@@ -533,13 +530,40 @@ jobs:
                     error_found=true
                   fi
 
-                  if [ "$error_found" = true ]; then
-                    exit 1
+                  echo "Comparing golden file of the zeebe topology output..."
+
+                  reference_file="./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json"
+                  # Save the output to a temporary file
+                  temp_output=$(mktemp)
+                  echo "$check_zeebe_topology_output" > "$temp_output"
+
+                  if ! jq -e . "$temp_output" > /dev/null 2>&1 || ! jq -e . "$reference_file" > /dev/null 2>&1; then
+                    echo "❌ One of the files is not a valid JSON."
+                    error_found=true
                   fi
 
+                  # Compare the two files using diff (in compacted JSON format)
+                  diff_output=$(delta <(jq -S . "$temp_output") <(jq -S . "$reference_file"))
+
+                  if [[ -n "$diff_output" ]]; then
+                    # If differences are found, print the error and the diff
+                    echo "❌ Error: The golden files of zeebe topology files do not match."
+                    echo "Differences found:"
+                    echo "$diff_output"
+
+                    # Display the new generated version
+                    echo "New version:"
+                    cat "$temp_output"
+
+                    error_found=true
+                  fi
+
+                  if [ "$error_found" = true ]; then
+                    echo "❌ Some tests failed."
+                    exit 1
+                  fi
                   echo "✅ The cluster meets all the expected criteria."
 
-                  # TODO: [DOC] integrate it as testable doc
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()

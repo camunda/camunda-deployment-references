@@ -59,7 +59,6 @@ zeebeGateway:
                     path: tls.key
               defaultMode: 420
 
-# TODO: [DOC] before merge update the doc to indicate why we do this
 zeebe:
     env:
         - name: ZEEBE_BROKER_NETWORK_SECURITY_ENABLED
