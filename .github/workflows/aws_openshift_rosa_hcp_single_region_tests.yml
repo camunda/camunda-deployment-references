@@ -279,10 +279,14 @@ jobs:
 
                   cp generic/openshift/single-region/helm-values/base.yml ./values.yml
 
-                  retry -max-time=120s source ./generic/openshift/single-region/procedure/setup-application-domain.sh
+                  retry -max-time=120s ./generic/openshift/single-region/procedure/setup-application-domain.sh
+                  # do it again to source it...
+                  source ./generic/openshift/single-region/procedure/setup-application-domain.sh
                   echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
-                  retry -max-time=120s source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+                  retry -max-time=120s ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+                  source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+
                   retry -max-time=120s ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
 
                   # Enable Routes
