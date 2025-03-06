@@ -161,34 +161,6 @@ jobs:
                   openshift-version: ${{ matrix.distro.version }}
                   tf-modules-revision: ${{ github.head_ref }}
 
-            # This is required for some operations not to fail such as annotation of the IngressController
-            - name: ⏳ Wait for a minimal age of 5min of the cluster
-              id: wait_cluster_age
-              run: |
-                  ns_age=0
-
-                  while [ "$ns_age" -lt 5 ]; do
-                    current_time=$(date +%s)
-
-                    ns_creation_time_raw=$(oc get ns default -o jsonpath='{.metadata.creationTimestamp}')
-                    ns_creation_time=$(date -d "$ns_creation_time_raw" +%s)
-
-                    echo "Namespace creation timestamp (seconds): $ns_creation_time"
-                    ns_age=$(( (current_time - ns_creation_time) / 60 ))
-
-                    # Print the calculated age for debugging
-                    echo "Namespace age in minutes: $ns_age"
-
-                    # If ns_age is still less than 5, wait for a bit and check again
-                    if [ "$ns_age" -lt 5 ]; then
-                      echo "⏳ Waiting for namespace 'default' to be at least 5 minutes old..."
-                      sleep 30
-                    fi
-                  done
-
-                  echo "✅ Namespace is older than 5 minutes."
-
-
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
               run: |
@@ -269,6 +241,43 @@ jobs:
                   openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${GITHUB_TOKEN}" -pbkdf2
                   rm encrypted_kubeconfig.enc
                   chmod 600 "$HOME/.kube/config"
+
+            - name: ⏳ Wait for a minimal age of 5min of the cluster
+              id: wait_cluster_age
+              # we need to retry due as the cluster has just been created and the permissions are sometime refused
+              uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3
+              with:
+                  timeout_minutes: 10
+                  max_attempts: 40
+                  shell: bash
+                  retry_wait_seconds: 15
+                  command: |
+                      : # see https://github.com/nick-fields/retry/issues/133
+                      set -o errexit
+                      set -o pipefail
+
+                      ns_age=0
+                      ns_name='default'
+
+                      while [ "$ns_age" -lt 5 ]; do
+                        current_time=$(date +%s)
+
+                        ns_creation_time_raw=$(oc get ns "$ns_name" -o jsonpath='{.metadata.creationTimestamp}')
+                        ns_creation_time=$(date -d "$ns_creation_time_raw" +%s)
+
+                        echo "Namespace '$ns_name' creation timestamp (seconds): $ns_creation_time"
+                        ns_age=$(( (current_time - ns_creation_time) / 60 ))
+
+                        echo "Namespace '$ns_name' age in minutes: $ns_age"
+
+                        # If ns_age is still less than 5, wait for a bit and check again
+                        if [ "$ns_age" -lt 5 ]; then
+                          echo "⏳ Waiting for namespace '$ns_name' to be at least 5 minutes old..."
+                          sleep 30
+                        fi
+                      done
+
+                      echo "✅ Namespace '$ns_name' is older than 5 minutes."
 
             - name: 🏗️ Prepare a fresh namespace for the tests
               # we need to retry due as the cluster has just been created and the permissions are sometime refused

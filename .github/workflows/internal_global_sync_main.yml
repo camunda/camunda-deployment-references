@@ -2,12 +2,12 @@
 name: Internal - Global - Sync Main branch from latest Camunda stable version
 
 env:
-    CURRENT_STABLE_BRANCH: camunda-8.7
+    CURRENT_STABLE_BRANCH: stable/8.7
 
 on:
     push:
         branches:
-            - camunda-8.7 # keep it updated the current stable version
+            - stable/8.7 # keep it updated the current stable version
     workflow_dispatch:
 
 

@@ -15,9 +15,9 @@ The `main` branch will be updated automatically when we push to the latest stabl
 For example, consider the following branches:
 
 - `main/`
-- `camunda-8.7`
-- `camunda-8.6`
-- `camunda-8.5`
+- `stable/8.7`
+- `stable/8.6`
+- `stable/8.5`
 
 Where `8.6` is the latest stable version and `8.7` is the next one. The branch to target for merge requests should be `8.7` since it represents the upcoming version.
 
