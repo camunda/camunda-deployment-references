@@ -13,12 +13,12 @@
 # check it with
 # diff <(sed '/^#/d; /^$/d' .tool-versions | sort) <(sed '/^#/d; /^$/d' .tool-versions) && echo ".tool-versions is sorted correctly" || echo ".tool-versions is not sorted correctly"
 
-awscli 2.24.5
+awscli 2.24.15
 
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.7
 
-awscli 2.24.5
+awscli 2.24.15
 
 delta 0.18.2
 
@@ -38,7 +38,7 @@ python 3.13.2
 
 shellcheck 0.10.0
 
-terraform 1.10.5
+terraform 1.11.0
 
 terraform-docs 0.19.0
 

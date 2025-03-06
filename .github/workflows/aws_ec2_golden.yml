@@ -80,7 +80,7 @@ jobs:
                   # since we always plan against nothing, it includes all planned objects
                   # it does not contain sensetive data
                   jq --sort-keys '.planned_values.root_module' "${TF_PATH}/tfplan.json" > "${TF_PATH}/tfplan_extracted.json"
-            - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
+            - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
               with:
                   name: plan-artifact-json
                   path: ${{ env.TF_PATH }}/tfplan_extracted.json
@@ -92,7 +92,7 @@ jobs:
                   exit $?
             - name: Post diff on PR
               if: always() && github.event_name == 'pull_request'
-              uses: int128/diff-action@1eb9a1ecddd46e6fbc409ad8a8d33b70d0ec0e54 # v1
+              uses: int128/diff-action@db6cce01542cb26e181798736eea1e71f5d36706 # v1
               with:
                   base: ${{ env.GOLDEN_PATH }}//tfplan.json
                   head: ${{ env.TF_PATH }}/tfplan_extracted.json
