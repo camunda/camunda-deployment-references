@@ -271,7 +271,7 @@ jobs:
                   set -euxo pipefail # tolerate, nothing.
 
                   # some commands are prone to error on OpenShift
-                  GOBIN="$HOME/.local/bin"
+                  export GOBIN="$HOME/.local/bin"
                   echo "GOBIN=$GOBIN" | tee -a "$GITHUB_ENV"
                   go install github.com/joshdk/retry@v1.4.0
 
@@ -530,6 +530,9 @@ jobs:
                   fi
                   echo "✅ The cluster meets all the expected criteria."
 
+            - name: Setup tmate session
+              if: failure()
+              uses: mxschmitt/action-tmate@v3
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
