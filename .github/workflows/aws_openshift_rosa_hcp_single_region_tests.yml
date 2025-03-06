@@ -245,10 +245,11 @@ jobs:
             - name: ⏳ Wait for a minimal age of 5min of the cluster
               id: wait_cluster_age
               # we need to retry due as the cluster has just been created and the permissions are sometime refused
+              # the minimal age is here to prevent following commands/script to fail
               uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3
               with:
-                  timeout_minutes: 10
-                  max_attempts: 40
+                  timeout_minutes: 30
+                  max_attempts: 80
                   shell: bash
                   retry_wait_seconds: 15
                   command: |
@@ -258,8 +259,9 @@ jobs:
 
                       ns_age=0
                       ns_name='default'
+                      minimal_age=20
 
-                      while [ "$ns_age" -lt 5 ]; do
+                      while [ "$ns_age" -lt $minimal_age ]; do
                         current_time=$(date +%s)
 
                         ns_creation_time_raw=$(oc get ns "$ns_name" -o jsonpath='{.metadata.creationTimestamp}')
@@ -270,39 +272,31 @@ jobs:
 
                         echo "Namespace '$ns_name' age in minutes: $ns_age"
 
-                        # If ns_age is still less than 5, wait for a bit and check again
-                        if [ "$ns_age" -lt 5 ]; then
-                          echo "⏳ Waiting for namespace '$ns_name' to be at least 5 minutes old..."
+                        # If ns_age is still less than $minimal_age, wait for a bit and check again
+                        if [ "$ns_age" -lt $minimal_age ]; then
+                          echo "⏳ Waiting for namespace '$ns_name' to be at least $minimal_age minutes old..."
                           sleep 30
                         fi
                       done
 
-                      echo "✅ Namespace '$ns_name' is older than 5 minutes."
+                      echo "✅ Namespace '$ns_name' is older than $minimal_age minutes."
 
             - name: 🏗️ Prepare a fresh namespace for the tests
-              # we need to retry due as the cluster has just been created and the permissions are sometime refused
-              uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3
               id: kube_config
-              with:
-                  timeout_minutes: 10
-                  max_attempts: 40
-                  shell: bash
-                  retry_wait_seconds: 15
-                  command: |
-                      : # see https://github.com/nick-fields/retry/issues/133
-                      set -o errexit
-                      set -o pipefail
+              run: |
+                  set -euxo pipefail # tolerate, nothing.
 
-                      # Delete the namespace to ensure a fresh start
-                      if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
-                        kubectl delete namespace "$TEST_NAMESPACE" --wait
-                        while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
-                            echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
-                            sleep 5
-                        done
-                      fi
 
-                      kubectl create namespace "$TEST_NAMESPACE"
+                  # Delete the namespace to ensure a fresh start
+                  if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
+                    kubectl delete namespace "$TEST_NAMESPACE" --wait
+                    while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
+                      echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
+                      sleep 5
+                    done
+                  fi
+
+                  kubectl create namespace "$TEST_NAMESPACE"
 
             - name: 🛠️ Assemble deployment values of generic/openshift/single-region
               run: |
@@ -537,10 +531,9 @@ jobs:
                   temp_output=$(mktemp)
                   echo "$check_zeebe_topology_output" > "$temp_output"
 
-                  if ! jq -e . "$temp_output" > /dev/null 2>&1 || ! jq -e . "$reference_file" > /dev/null 2>&1; then
-                    echo "❌ One of the files is not a valid JSON."
-                    error_found=true
-                  fi
+                  # Order each file
+                  yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId))' -i "$temp_output"
+                  yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId))' -i "$reference_file"
 
                   # Compare the two files using diff (in compacted JSON format)
                   diff_output=$(delta <(jq -S . "$temp_output") <(jq -S . "$reference_file"))
