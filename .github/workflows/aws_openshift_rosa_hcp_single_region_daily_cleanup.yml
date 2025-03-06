@@ -16,7 +16,7 @@ on:
         - cron: 0 1 * * * # At 01:00 everyday.
 
 env:
-    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '20' }}
+    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '0' }}
 
     # please keep those variables synced with aws_rosa_hcp_tests.yml
     AWS_PROFILE: infex
