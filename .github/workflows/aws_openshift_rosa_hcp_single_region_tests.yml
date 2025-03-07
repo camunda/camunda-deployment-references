@@ -245,6 +245,14 @@ jobs:
                   rm encrypted_kubeconfig.enc
                   chmod 600 "$HOME/.kube/config"
 
+            - name: 📁 Get a copy of the reference architecture
+              run: |
+                  # run it as specified in the doc
+                  set -euxo pipefail # tolerate, nothing.
+
+                  ./aws/openshift/rosa-hcp-single-region/procedure/get-your-copy.sh
+                  tree
+
             - name: 🏗️ Prepare a fresh namespace for the tests
               # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
               uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3
