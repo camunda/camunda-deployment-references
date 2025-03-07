@@ -328,11 +328,7 @@ jobs:
                         done
                       fi
 
-                      # Generate the final values
-                      envsubst < values.yml > generated-values.yml
-
-                      echo "Final generated-values.yml result"
-                      cat generated-values.yml
+                      ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
 
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
