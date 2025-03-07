@@ -60,6 +60,9 @@ env:
     TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
+    # Components that are not enabled by default in the doc, but enabled in our tests to have a better coverage
+    WEBMODELER_ENABLED: 'true'
+    CONSOLE_ENABLED: 'true'
 
     ROSA_CLI_VERSION: latest
 
@@ -292,27 +295,31 @@ jobs:
                       ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
 
                       # Enable Routes
-                      yq '. *d load("generic/openshift/single-region/helm-values/zeebe-gateway-route.yml")' values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
-                      yq '. *d load("generic/openshift/single-region/helm-values/operate-route.yml")' values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
-                      yq '. *d load("generic/openshift/single-region/helm-values/tasklist-route.yml")' values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
-                      yq '. *d load("generic/openshift/single-region/helm-values/connectors-route.yml")' values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
-                      yq '. *d load("generic/openshift/single-region/helm-values/domain.yml")' values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
+                      for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
+                          yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
+                          cat values-result.yml && mv values-result.yml values.yml
+                      done
 
                       # Enable SCC
                       yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
 
+                      if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                        echo "Enabling WebModeler"
+                        yq -i '.webModeler.enabled = true' values.yml
+                      fi
+
+                      if [ "$CONSOLE_ENABLED" == "true" ]; then
+                        echo "Enabling Console"
+                        yq -i '.console.enabled = true' values.yml
+                      fi
+
                       # Add integration tests values
                       if [ "$TESTS_ENABLED" == "true" ]; then
-                        yq '. *d load("generic/kubernetes/single-region/tests/helm-values/registry.yml")' values.yml > values-result.yml
-                        cat values-result.yml && mv values-result.yml values.yml
-                        yq '. *d load("generic/kubernetes/single-region/tests/helm-values/identity.yml")' values.yml > values-result.yml
-                        cat values-result.yml && mv values-result.yml values.yml
+                        for file in registry.yml identity.yml; do
+                          yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
+                          cat values-result.yml && mv values-result.yml values.yml
+                        done
                       fi
 
                       # Generate the final values
@@ -410,18 +417,15 @@ jobs:
                   echo "ZEEBE_VERSION_FALLBACK=8.5.6" >> "$VARIABLES_ENV_FILE"
 
                   # Some variables are not working correctly, patching it with yq directly
-                  # shellcheck disable=SC2129
-                  echo "VENOM_VAR_SKIP_TEST_WEBMODELER=false" >> "$VARIABLES_ENV_FILE"
                   echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
 
                   echo "Patch the test files..."
 
                   # TODO: [BUG] remove the patchs when https://github.com/camunda/camunda-platform-helm/issues/3081 is fixed
                   echo "Patch expression ShoudBeFalse"
-                  sed "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
-                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-                  sed "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
-                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+                  sed -i "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
+                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
+                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
 
                   echo "Skip test ingress is also broken, fixing it"
                   yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
@@ -429,17 +433,29 @@ jobs:
                   yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
                     -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
 
-                  echo "Disable Console,Webmodeler in the core tests as it's not enabled"
-                  yq eval 'del(.. | select(has("component") and (.component == "Console" or .component == "WebModeler")))' \
-                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                  if [ "$WEBMODELER_ENABLED" != "true" ]; then
+                    echo "Disable Webmodeler in the core tests as it's not enabled"
+
+                    echo "VENOM_VAR_SKIP_TEST_WEBMODELER=false" >> "$VARIABLES_ENV_FILE"
+                    yq eval 'del(.. | select(has("component") and .component == "WebModeler"))' \
+                      -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                  fi
+
+                  if [ "$CONSOLE_ENABLED" != "true" ]; then
+                    echo "Disable Console in the core tests as it's not enabled"
+
+                    yq eval 'del(.. | select(has("component") and .component == "Console"))' \
+                      -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                  fi
 
                   echo "Patch the identity secrets to allow venom to access to the platform"
-                  sed -i 's/integration-test-credentials/identity-secret-for-components/g' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
-                  sed -i 's/identity-operate-client-password/operate-secret/g' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
-                  sed -i 's/identity-optimize-client-password/optimize-secret/g' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
-                  sed -i 's/identity-tasklist-client-password/tasklist-secret/g' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
-                  sed -i 's/identity-zeebe-client-password/zeebe-secret/g' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
-                  sed -i 's/identity-connectors-client-password/connectors-secret/g' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+                  sed -i -e 's/integration-test-credentials/identity-secret-for-components/g' \
+                         -e 's/identity-operate-client-password/operate-secret/g' \
+                         -e 's/identity-optimize-client-password/optimize-secret/g' \
+                         -e 's/identity-tasklist-client-password/tasklist-secret/g' \
+                         -e 's/identity-zeebe-client-password/zeebe-secret/g' \
+                         -e 's/identity-connectors-client-password/connectors-secret/g' \
+                         "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
 
                   # remove venom var client secret as we define it in the file
                   yq e 'del(.spec.template.spec.containers[].env[] | select(.name == "VENOM_VAR_TEST_CLIENT_SECRET"))' \
