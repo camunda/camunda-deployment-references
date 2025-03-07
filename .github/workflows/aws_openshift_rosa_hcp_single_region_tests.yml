@@ -257,6 +257,11 @@ jobs:
                       set -o errexit # this is required https://github.com/nick-fields/retry/issues/133
                       set -o pipefail
 
+                      source ./aws/openshift/rosa-hcp-single-region/procedure/gather-cluster-login-id.sh
+                      echo "CLUSTER_NAME=$CLUSTER_NAME"
+                      echo "CLUSTER_API_URL=$CLUSTER_API_URL"
+                      echo "CLUSTER_ADMIN_USERNAME=$CLUSTER_ADMIN_USERNAME"
+
                       # Delete the namespace to ensure a fresh start
                       if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
                         kubectl delete namespace "$TEST_NAMESPACE" --wait
