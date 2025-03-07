@@ -41,7 +41,7 @@ global:
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: https://${DOMAIN_NAME}/console
+                redirectUrl: https://${DOMAIN_NAME}
                 existingSecret:
                     name: identity-secret-for-components
 
@@ -65,7 +65,7 @@ zeebeGateway:
     contextPath: /zeebe
 
 console:
-    contextPath: /console
+    contextPath: /
 
 connectors:
     contextPath: /connectors
