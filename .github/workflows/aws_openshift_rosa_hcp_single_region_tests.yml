@@ -266,58 +266,60 @@ jobs:
                       kubectl create namespace "$TEST_NAMESPACE"
 
             - name: 🛠️ Assemble deployment values of generic/openshift/single-region
-              timeout-minutes: 10
-              run: |
-                  set -euxo pipefail # tolerate, nothing.
+              # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
+              uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3
+              with:
+                  timeout_minutes: 10
+                  max_attempts: 40
+                  shell: bash
+                  retry_wait_seconds: 15
+                  command: |
+                      set -o errexit
+                      set -euxo pipefail # tolerate, nothing.
 
-                  # some commands are prone to error on OpenShift
-                  export GOBIN="$HOME/.local/bin"
-                  echo "GOBIN=$GOBIN" | tee -a "$GITHUB_ENV"
-                  go install github.com/joshdk/retry@v1.4.0
+                      # As this action can be retried due to OpenShift API error, it must
+                      # be stateless (all commmands can be rerun without issue)
 
-                  echo "Construct the values.yml file"
+                      echo "Construct the values.yml file"
 
-                  cp generic/openshift/single-region/helm-values/base.yml ./values.yml
+                      cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
 
-                  retry -max-time=120s ./generic/openshift/single-region/procedure/setup-application-domain.sh
-                  # do it again to source it...
-                  source ./generic/openshift/single-region/procedure/setup-application-domain.sh
-                  echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+                      source ./generic/openshift/single-region/procedure/setup-application-domain.sh
+                      echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
-                  retry -max-time=120s ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
-                  source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+                      source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
 
-                  retry -max-time=120s ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
+                      ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
 
-                  # Enable Routes
-                  yq '. *d load("generic/openshift/single-region/helm-values/zeebe-gateway-route.yml")' values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
-                  yq '. *d load("generic/openshift/single-region/helm-values/operate-route.yml")' values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
-                  yq '. *d load("generic/openshift/single-region/helm-values/tasklist-route.yml")' values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
-                  yq '. *d load("generic/openshift/single-region/helm-values/connectors-route.yml")' values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
-                  yq '. *d load("generic/openshift/single-region/helm-values/domain.yml")' values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
+                      # Enable Routes
+                      yq '. *d load("generic/openshift/single-region/helm-values/zeebe-gateway-route.yml")' values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
+                      yq '. *d load("generic/openshift/single-region/helm-values/operate-route.yml")' values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
+                      yq '. *d load("generic/openshift/single-region/helm-values/tasklist-route.yml")' values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
+                      yq '. *d load("generic/openshift/single-region/helm-values/connectors-route.yml")' values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
+                      yq '. *d load("generic/openshift/single-region/helm-values/domain.yml")' values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
 
-                  # Enable SCC
-                  yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
+                      # Enable SCC
+                      yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
 
-                  # Add integration tests values
-                  if [ "$TESTS_ENABLED" == "true" ]; then
-                    yq '. *d load("generic/kubernetes/single-region/tests/helm-values/registry.yml")' values.yml > values-result.yml
-                    cat values-result.yml && mv values-result.yml values.yml
-                    yq '. *d load("generic/kubernetes/single-region/tests/helm-values/identity.yml")' values.yml > values-result.yml
-                    cat values-result.yml && mv values-result.yml values.yml
-                  fi
+                      # Add integration tests values
+                      if [ "$TESTS_ENABLED" == "true" ]; then
+                        yq '. *d load("generic/kubernetes/single-region/tests/helm-values/registry.yml")' values.yml > values-result.yml
+                        cat values-result.yml && mv values-result.yml values.yml
+                        yq '. *d load("generic/kubernetes/single-region/tests/helm-values/identity.yml")' values.yml > values-result.yml
+                        cat values-result.yml && mv values-result.yml values.yml
+                      fi
 
-                  # Generate the final values
-                  envsubst < values.yml > generated-values.yml
+                      # Generate the final values
+                      envsubst < values.yml > generated-values.yml
 
-                  echo "Final generated-values.yml result"
-                  cat generated-values.yml
+                      echo "Final generated-values.yml result"
+                      cat generated-values.yml
 
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
