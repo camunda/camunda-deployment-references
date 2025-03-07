@@ -312,6 +312,7 @@ jobs:
                       if [ "$WEBMODELER_ENABLED" == "true" ]; then
                         echo "Enabling WebModeler"
                         yq -i '.webModeler.enabled = true' values.yml
+                        yq -i '.postgresql.enabled = true' values.yml
                       fi
 
                       if [ "$CONSOLE_ENABLED" == "true" ]; then
