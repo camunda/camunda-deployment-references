@@ -5,7 +5,7 @@
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_rosa_cluster"></a> [rosa\_cluster](#module\_rosa\_cluster) | git::https://github.com/camunda/camunda-tf-rosa//modules/rosa-hcp | v2.1.1 |
+| <a name="module_rosa_cluster"></a> [rosa\_cluster](#module\_rosa\_cluster) | git::https://github.com/camunda/camunda-tf-rosa//modules/rosa-hcp | v2.2.0 |
 ## Resources
 
 No resources.
