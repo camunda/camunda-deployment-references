@@ -85,7 +85,7 @@ jobs:
 
             - name: Modify workflow files to trigger the PR
               run: |
-                  workflow_files=$(echo "${{ matrix.schedule.workflow_files }}" | jq -r '.[]')
+                  workflow_files=$(echo '${{ matrix.schedule.workflow_files }}' | jq -r '.[]')
                   echo "Removing on.pull_request.paths from $workflow_files"
 
                   # Loop through each workflow file and modify it using yq
