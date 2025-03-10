@@ -36,7 +36,7 @@ jobs:
                   current_hour=$(date +%H)
 
                   # Filter schedules based on cron_every_day and cron_every_hours
-                  filtered_schedules=$(echo "$formatted_schedules" | jq --arg current_day "$current_day" --arg current_hour "$current_hour" '
+                  filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg current_day "$current_day" --arg current_hour "$current_hour" '
                       [.[] | select(
                         (.cron_every_day == null or (.cron_every_day | tostring | split(",") | index($current_day))) and
                         (.cron_every_hours == null or (.cron_every_hours | tostring | split(",") | index($current_hour)))
