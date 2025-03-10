@@ -41,6 +41,12 @@ jobs:
                   GH_TOKEN: ${{ steps.generate-github-token.outputs.token }}
               run: |
                   prs=$(gh pr list --state open --label "schedule" --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
+
+                  if [[ -z "$prs" ]]; then
+                    echo "No PRs found with the label 'schedule'."
+                    exit 0
+                  fi
+
                   echo "PRs with the label 'schedule': $prs"
 
                   while IFS=" " read -r pr_number branch_name; do
