@@ -14,7 +14,7 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    # TODO: add step to close all PR > 24h that are scheduled + delete the associated branch
+    # TODO: add step to close all PR that are scheduled + delete the associated branch
 
     cleanup-open-prs:
         runs-on: ubuntu-latest
@@ -64,6 +64,7 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - define-matrix
+            - cleanup-open-prs
         strategy:
             fail-fast: false
             matrix:
@@ -111,7 +112,7 @@ jobs:
                   branch: ${{ steps.branch-update.outputs.current_branch }}
                   delete-branch: true
                   title: '[schedule][NO MERGE] ${{ matrix.schedule.name }}'
-                  base: no-merge
+                  base: schedule-graveyard
                   body: |
                       This PR is used to perform a schedule on a specific branch.
                       Don't do anything with this PR.
