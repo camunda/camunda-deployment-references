@@ -37,10 +37,10 @@ jobs:
 
                   # Filter schedules based on cron_every_day and cron_every_hours
                   filtered_schedules=$(echo "$formatted_schedules" | jq --arg current_day "$current_day" --arg current_hour "$current_hour" '
-                    [.[] | select(
-                      (.cron_every_day == null or .cron_every_day | split(",") | index($current_day)) and
-                      (.cron_every_hours == null or .cron_every_hours | split(",") | index($current_hour))
-                    )]
+                      [.[] | select(
+                        (.cron_every_day == null or (.cron_every_day | tostring | split(",") | index($current_day))) and
+                        (.cron_every_hours == null or (.cron_every_hours | tostring | split(",") | index($current_hour)))
+                      )]
                   ')
 
                   echo "schedules=${filtered_schedules}" | tee -a "$GITHUB_OUTPUT"
