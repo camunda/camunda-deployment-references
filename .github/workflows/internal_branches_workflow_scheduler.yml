@@ -14,6 +14,8 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
+    # TODO: add step to close all PR > 24h that are scheduled
+
     define-matrix:
         runs-on: ubuntu-latest
         outputs:
@@ -108,6 +110,7 @@ jobs:
                   branch: ${{ steps.branch-update.outputs.current_branch }}
                   delete-branch: true
                   title: '[schedule][NO MERGE] ${{ matrix.schedule.name }}'
+                  base: no-merge
                   body: |
                       This PR is used to perform a schedule on a specific branch.
                       Don't do anything with this PR.
