@@ -30,13 +30,9 @@ jobs:
                   schedules="$(yq '.schedules' --indent=0 --output-format json .github/workflows-config/workflow-scheduler.yml)"
 
                   # Convert each workflow_files array to a string format
-                  formatted_schedules=$(echo "$schedules" | jq '
-                    .[] |
-                    .workflow_files |= "[\(.[] | @json)]"
-                  ')
+                  formatted_schedules=$(echo "$schedules" | jq '.[].workflow_files |= tostring')
 
-                  echo "$formatted_schedules"
-                  echo "schedules=${formatted_schedules}" > "$GITHUB_OUTPUT"
+                  echo "schedules=${formatted_schedules}" | tee -a "$GITHUB_OUTPUT"
 
     schedule-workflows:
         runs-on: ubuntu-latest
