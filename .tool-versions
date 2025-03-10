@@ -42,7 +42,7 @@ terraform-docs 0.19.0
 
 tflint 0.55.1
 
-trivy 0.59.1
+trivy 0.60.0
 
 yq 4.45.1
 
