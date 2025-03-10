@@ -23,7 +23,7 @@ concurrency:
     cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
 
 env:
-    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '20' }}
+    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '0' }}
 
     # please keep those variables synced with aws_rosa_hcp_tests.yml
     AWS_PROFILE: infex
@@ -44,7 +44,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
 
             - name: Use repo .tool-version as global version
               run: cp .tool-versions ~/.tool-versions
