@@ -21,6 +21,8 @@ concurrency:
     cancel-in-progress: true
 
 env:
+    IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedule/') || github.event_name == 'schedule' && 'true' || 'false' }}
+
     AWS_PROFILE: infex
     AWS_REGION: eu-west-2
     TF_PATH: ${{ github.workspace }}/aws/ec2/terraform
