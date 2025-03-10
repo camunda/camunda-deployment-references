@@ -6,8 +6,7 @@ on:
         paths:
             - .github/workflows/internal_branches_workflow_scheduler.yml
     schedule:
-        # TODO: fix
-        - cron: '*/5 * * * *'
+        - cron: 0 * * * *   # every hour, every day
 
 jobs:
     define-matrix:
@@ -24,11 +23,9 @@ jobs:
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
 
             - id: matrix
-              # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
               run: |
                   set -euxo pipefail # tolerate, nothing.
 
-                  # Get updated matrix.
                   # shellcheck disable=SC2086
                   schedules="$(yq '.schedules' --indent=0 --output-format json .github/workflows-config/workflow-scheduler.yml)"
                   echo "${schedules}" | jq
@@ -78,6 +75,7 @@ jobs:
             - name: Modify workflow files to trigger the PR
               run: |
                   # Convert the JSON array into a newline-separated list using jq
+                  echo "${{ matrix.schedule.workflow_files }}"
                   workflow_files=$(echo "${{ matrix.schedule.workflow_files }}" | jq -r '.[]')
 
                   # Loop through each workflow file and modify it using yq
