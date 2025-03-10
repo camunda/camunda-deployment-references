@@ -13,8 +13,6 @@
 # check it with
 # diff <(sed '/^#/d; /^$/d' .tool-versions | sort) <(sed '/^#/d; /^$/d' .tool-versions) && echo ".tool-versions is sorted correctly" || echo ".tool-versions is not sorted correctly"
 
-awscli 2.24.20
-
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.7
 
@@ -44,6 +42,8 @@ terraform-docs 0.19.0
 
 tflint 0.55.1
 
-zbctl 8.5.8
-
 trivy 0.59.1
+
+yq 4.45.1
+
+zbctl 8.5.8

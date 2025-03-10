@@ -20,7 +20,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
 
             - id: matrix
               run: |
@@ -28,8 +28,15 @@ jobs:
 
                   # shellcheck disable=SC2086
                   schedules="$(yq '.schedules' --indent=0 --output-format json .github/workflows-config/workflow-scheduler.yml)"
-                  echo "${schedules}" | jq
-                  echo "schedules=${schedules}" > "$GITHUB_OUTPUT"
+
+                  # Convert each workflow_files array to a string format
+                  formatted_schedules=$(echo "$schedules" | jq '
+                    .[] |
+                    .workflow_files |= "[\(.[] | @json)]"
+                  ')
+
+                  echo "$formatted_schedules"
+                  echo "schedules=${formatted_schedules}" > "$GITHUB_OUTPUT"
 
     schedule-workflows:
         runs-on: ubuntu-latest
@@ -41,7 +48,7 @@ jobs:
                 schedule: ${{ fromJson(needs.define-matrix.outputs.schedules) }}
         steps:
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
 
             - name: Generate token for GitHub
               id: generate-github-token
@@ -74,9 +81,8 @@ jobs:
 
             - name: Modify workflow files to trigger the PR
               run: |
-                  # Convert the JSON array into a newline-separated list using jq
-                  echo "${{ matrix.schedule.workflow_files }}"
                   workflow_files=$(echo "${{ matrix.schedule.workflow_files }}" | jq -r '.[]')
+                  echo "Removing on.pull_request.paths from $workflow_files"
 
                   # Loop through each workflow file and modify it using yq
                   echo "$workflow_files" | while IFS= read -r workflow_file; do
