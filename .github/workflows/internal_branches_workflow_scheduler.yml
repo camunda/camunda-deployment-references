@@ -110,9 +110,10 @@ jobs:
               with:
                   token: ${{ steps.generate-github-token.outputs.token }}
                   branch: ${{ steps.branch-update.outputs.current_branch }}
+                  base: ${{ matrix.schedule.branch }}
+                  branch-suffix: random
                   delete-branch: true
                   title: '[schedule][NO MERGE] ${{ matrix.schedule.name }}'
-                  base: schedule-graveyard
                   body: |
                       This PR is used to perform a schedule on a specific branch.
                       Don't do anything with this PR.
