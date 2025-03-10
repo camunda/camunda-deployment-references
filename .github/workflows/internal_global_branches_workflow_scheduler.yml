@@ -4,7 +4,7 @@ name: Internal - Global - Branches Schedule Workflows
 on:
     pull_request:
         paths:
-            - .github/workflows/internal_branches_workflow_scheduler.yml
+            - .github/workflows/internal_global_branches_workflow_scheduler.yml
     schedule:
         - cron: 0 * * * *   # every hour, every day
 
@@ -129,7 +129,7 @@ jobs:
                   done
 
             - name: Create the schedule PR
-              uses: peter-evans/create-pull-request@v7
+              uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7
               with:
                   token: ${{ steps.generate-github-token.outputs.token }}
                   branch: ${{ steps.branch-update.outputs.current_branch }}
