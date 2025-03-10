@@ -14,7 +14,15 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    # TODO: add step to close all PR > 24h that are scheduled
+    # TODO: add step to close all PR > 24h that are scheduled + delete the associated branch
+
+    cleanup-open-prs:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0
 
     define-matrix:
         runs-on: ubuntu-latest
@@ -84,13 +92,6 @@ jobs:
               id: branch-update
               run: |
                   stringified_branch=$(echo "${{ matrix.schedule.name }}" | tr ' ' '_' | tr -cd '[:alnum:]_')
-
-                  if git show-ref --verify --quiet "refs/heads/schedules/$stringified_branch"; then
-                    git push origin --delete "schedules/$stringified_branch"
-                  fi
-
-                  git checkout -b "schedules/$stringified_branch"
-
                   echo "current_branch=schedules/$stringified_branch" | tee -a "$GITHUB_OUTPUT"
 
             - name: Modify workflow files to trigger the PR
@@ -124,6 +125,10 @@ jobs:
     notify-on-failure:
         runs-on: ubuntu-latest
         if: github.event_name == 'schedule' && failure()
+        needs:
+            - define-matrix
+            - schedule-workflows
+            - cleanup-open-prs
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
