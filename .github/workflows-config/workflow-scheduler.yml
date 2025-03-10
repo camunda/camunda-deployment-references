@@ -3,7 +3,7 @@ schedules:
     - name: Mondays schedules 8.6
       branch: feature/integrate-tests-rosa
       cron_every_day: Monday   # left null to run it everyday, otherwise separate days with a coma
-      cron_every_hours: 19,20,21   # left null to run it every hour, otherwise separate hours with a coma
+      cron_every_hours: 19,20,21,22   # left null to run it every hour, otherwise separate hours with a coma
       workflow_files:
           # AWS OpenShift ROSA HCP single region
           - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml

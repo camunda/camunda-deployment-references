@@ -125,7 +125,7 @@ jobs:
 
                   # Loop through each workflow file and modify it using yq
                   echo "$workflow_files" | while IFS= read -r workflow_file; do
-                    yq -i 'del(.on.pull_request.path)' "$workflow_file"
+                    yq -i 'del(.on.pull_request.paths)' "$workflow_file"
                   done
 
             - name: Create the schedule PR
