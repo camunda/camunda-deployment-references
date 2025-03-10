@@ -7,6 +7,7 @@ on:
             - .github/workflows/internal_global_branches_workflow_scheduler.yml
     schedule:
         - cron: 0 * * * *   # every hour, every day
+    workflow_dispatch:
 
 # limit to a single execution per ref of this workflow
 concurrency:
