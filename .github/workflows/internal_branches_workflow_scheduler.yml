@@ -1,0 +1,92 @@
+---
+name: Internal - Global - Branches Schedule Workflows
+
+on:
+    pull_request:
+        paths:
+            - .github/workflows/internal_branches_workflow_scheduler.yml
+    schedule:
+        # TODO: fix
+        - cron: '*/5 * * * *'
+
+jobs:
+    define-matrix:
+        runs-on: ubuntu-latest
+        outputs:
+            schedules: ${{ steps.matrix.outputs.schedules }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+
+            - id: matrix
+              # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
+              run: |
+                  set -euxo pipefail # tolerate, nothing.
+
+                  # Get updated matrix.
+                  # shellcheck disable=SC2086
+                  schedules="$(yq '.schedules' --indent=0 --output-format json .github/workflows-config/workflow-scheduler.yml)"
+                  echo "${schedules}" | jq
+                  echo "schedules=${schedules}" > "$GITHUB_OUTPUT"
+
+    schedule-workflows:
+        runs-on: ubuntu-latest
+        needs:
+            - define-matrix
+        strategy:
+            fail-fast: false
+            matrix:
+                schedule: ${{ fromJson(needs.define-matrix.outputs.schedules) }}
+        steps:
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+
+            - name: Generate token for GitHub
+              id: generate-github-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@a6a9d41844431ce3a5edc43a0f446ed19fca9e25 # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  token: ${{ steps.generate-github-token.outputs.token }}
+                  ref: ${{ matrix.schedule.branch }}
+
+            - name: Prepare the working branch
+              run: |
+                  stringified_branch=$(echo "${{ matrix.schedule.name }}" | tr ' ' '_' | tr -cd '[:alnum:]_')
+
+                  if git show-ref --verify --quiet "refs/heads/schedules/$stringified_branch"; then
+                    git push origin --delete "schedules/$stringified_branch"
+                  fi
+
+                  git checkout -b "schedules/$stringified_branch"
+
+            - name: Modify workflow files to trigger the PR
+              run: |
+                  # Convert the JSON array into a newline-separated list using jq
+                  workflow_files=$(echo "${{ matrix.schedule.workflow_files }}" | jq -r '.[]')
+
+                  # Loop through each workflow file and modify it using yq
+                  echo "$workflow_files" | while IFS= read -r workflow_file; do
+                    yq -i 'del(.on.pull_request.path)' "$workflow_file"
+                  done
+
+            - name: Commit Changes
+              uses: getsentry/action-github-commit@5972d5f578ad77306063449e718c0c2a6fbc4ae1 # main
+              with:
+                  github-token: ${{ steps.generate-github-token.outputs.token }}
+                  message: 'chore: update schedule files'
