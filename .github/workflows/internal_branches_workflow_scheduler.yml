@@ -14,15 +14,33 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    # TODO: add step to close all PR that are scheduled + delete the associated branch
-
-    cleanup-open-prs:
+    close-scheduled-prs:
         runs-on: ubuntu-latest
         steps:
-            - name: Checkout repository
-              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - name: Generate token for GitHub
+              id: generate-github-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@a6a9d41844431ce3a5edc43a0f446ed19fca9e25 # main
               with:
-                  fetch-depth: 0
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+
+            - name: Close all scheduled PRs and delete associated branches
+              env:
+                  GH_TOKEN: ${{ steps.generate-github-token.outputs.token }}
+              run: |
+                  prs=$(gh pr list --state open --label "schedule" --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
+                  echo "PRs with the label 'schedule': $prs"
+
+                  while IFS=" " read -r pr_number branch_name; do
+                      echo "Closing PR #$pr_number and deleting branch $branch_name..."
+                      gh pr close "$pr_number" --delete-branch
+                  done <<< "$prs"
 
     define-matrix:
         runs-on: ubuntu-latest
@@ -64,7 +82,7 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - define-matrix
-            - cleanup-open-prs
+            - close-scheduled-prs
         strategy:
             fail-fast: false
             matrix:
@@ -115,9 +133,16 @@ jobs:
                   delete-branch: true
                   title: '[schedule][NO MERGE] ${{ matrix.schedule.name }}'
                   body: |
-                      This PR is used to perform a schedule on a specific branch.
-                      Don't do anything with this PR.
-                      It will be auto-closed in 24 hours.
+                      ## 📌 Purpose of this PR
+                      This PR is automatically generated to **trigger a scheduled workflow** on a specific branch. **No manual action is required.**
+
+                      ### ⚠️ Do Not
+                      🚫 **Do not modify or merge this PR.**
+                      🚫 It will be automatically closed.
+
+                      ### 🔍 Details
+                      - This PR is used to execute scheduled workflows defined in `.github/workflows-config/workflow-scheduler.yml`.
+                      - The associated workflow files have been modified to remove the `on.pull_request.paths` trigger.
                   labels: |
                       schedule
                       automated pr
@@ -130,7 +155,7 @@ jobs:
         needs:
             - define-matrix
             - schedule-workflows
-            - cleanup-open-prs
+            - close-scheduled-prs
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
