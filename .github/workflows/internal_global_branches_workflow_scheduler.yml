@@ -105,6 +105,7 @@ jobs:
 
     schedule-workflows:
         runs-on: ubuntu-latest
+        if: needs.define-matrix.outputs.schedules != '[]' && needs.define-matrix.outputs.schedules != ''
         needs:
             - define-matrix
             - close-scheduled-prs
