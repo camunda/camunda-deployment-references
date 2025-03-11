@@ -17,3 +17,8 @@ For example, consider the following branches:
 Where `8.6` is the latest stable version and `8.7` is the next one. The branch to target for merge requests should be `main` since it represents the upcoming version.
 
 When `8.7` becomes the new stable version, we create the `stable/8.7` branch from `main` and then `main` will be used for the next unrelease version (`8.8`).
+
+## Release duty
+
+When we plan to release, the `main` branch will be cut into a `stable/8.x`
+All the `TODO [release-duty] must be solved during this process`

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Download a copy of the reference architecture
-BRANCH="feature/integrate-tests-rosa"  # TODO: Change the branch to 8.6
+BRANCH="feature/rosa-8.7"  # TODO: Change the branch to main then [release-duty] to 8.7
 
 git clone --depth 1 --branch "$BRANCH" https://github.com/camunda/camunda-deployment-references.git
 
