@@ -20,5 +20,21 @@ When `8.7` becomes the new stable version, we create the `stable/8.7` branch fro
 
 ## Release duty
 
-When we plan to release, the `main` branch will be cut into a `stable/8.x`
-All the `TODO [release-duty] must be solved during this process`
+When a new version is ready for release, we need to cut the `main` branch to create a new stable branch (`stable/8.x`). Follow these steps:
+
+1. **Create the stable branch**
+   - From `main`, create a new branch `stable/8.x`.
+   - Example: If the current stable version is `8.6` and we are preparing to release `8.7`, run:
+     ```sh
+     git checkout main
+     git checkout -b stable/8.7
+     git push origin stable/8.7
+     ```
+
+1. **Ensure all release tasks are completed**
+   - Resolve all `TODO [release-duty]` items in the codebase.
+   - Verify that documentation, configurations, and dependencies are up to date.
+
+1. **Prepare `main` for the next version**
+   - The `main` branch now represents the next unreleased version (`8.8`).
+   - Update version references in relevant files to reflect the new development cycle.
