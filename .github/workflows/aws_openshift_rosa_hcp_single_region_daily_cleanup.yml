@@ -11,6 +11,10 @@ on:
     pull_request:
         paths:
             - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
+            - .tool-versions
+            - aws/openshift/rosa-hcp-single-region/**
+            - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
+            - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
 
     schedule:
         - cron: 0 1 * * * # At 01:00 everyday.
@@ -42,7 +46,7 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
-                  ref: ${{ github.head_ref }}
+                  ref: ${{ github.ref_name }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache

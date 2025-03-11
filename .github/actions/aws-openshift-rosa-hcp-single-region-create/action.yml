@@ -196,6 +196,9 @@ runs:
               echo "Adapting the files with input values"
               pwd
               ls
+
+              # We use sed instead of -var because the module presented to the user
+              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
               sed -i -e 's/\(rosa_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
                      -e 's/\(rosa_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password }}\2/' \
                      -e 's/\(rosa_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username }}\2/' \

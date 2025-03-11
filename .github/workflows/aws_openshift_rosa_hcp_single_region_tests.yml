@@ -5,16 +5,15 @@ name: Tests - Integration - AWS OpenShift ROSA HCP Single Region
 
 on:
     schedule:
-        - cron: 0 3 * * 1,3,5 # Runs at 3 AM on Monday, Wednesday, and Friday
+        - cron: 0 3 * * 1 # Runs at 3 AM on Monday
     pull_request:
         paths:
-            - .github/workflows-config/aws-openshift-rosa-hcp-single-region/test_matrix.yml
-            - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
             - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
-            - .github/workflows/aws_openshift_rosa_hcp_single_region_golden.yml
+            - .github/workflows-config/aws-openshift-rosa-hcp-single-region/test_matrix.yml
             - .tool-versions
-            - aws/openshift/rosa-hcp-single-region/**
+            - generic/kubernetes/single-region/**
             - generic/openshift/single-region/**
+            - aws/openshift/rosa-hcp-single-region/**
             - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
             - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
@@ -102,9 +101,15 @@ jobs:
                     yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
                   done
 
-                  # Get updated matrix.
-                  # shellcheck disable=SC2086
-                  platform_matrix="$(yq '.matrix' --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                  echo "Filtering the matrix with strategy IS_SCHEDULE=$IS_SCHEDULE"
+                  if [[ "$IS_SCHEDULE" == "true" ]]; then
+                    # shellcheck disable=SC2086
+                    platform_matrix="$(yq '.matrix | map(select(.schedule_only == true))' --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                  else
+                    # shellcheck disable=SC2086
+                    platform_matrix="$(yq '.matrix | map(select(.schedule_only == null or .schedule_only == false))' --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                  fi
+
                   echo "${platform_matrix}" | jq
                   echo "platform-matrix=${platform_matrix}" > "$GITHUB_OUTPUT"
 
@@ -120,7 +125,7 @@ jobs:
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
-                  ref: ${{ github.head_ref }}
+                  ref: ${{ github.ref_name }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
@@ -128,7 +133,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@v3
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -164,7 +169,7 @@ jobs:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   openshift-version: ${{ matrix.distro.version }}
-                  tf-modules-revision: ${{ github.head_ref }}
+                  tf-modules-revision: ${{ github.ref_name }}
 
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
@@ -224,7 +229,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@v3
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -562,10 +567,6 @@ jobs:
                   fi
                   echo "✅ The cluster meets all the expected criteria."
 
-            - name: Setup tmate session
-              if: failure()
-              uses: mxschmitt/action-tmate@v3
-
             - name: 🔬🚨 Get failed Pods info
               if: failure()
               uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@52f7c04dc9817a2f8a5b7b1c5450a80a8a6996ae # main
@@ -593,7 +594,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@v3
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   url: ${{ secrets.VAULT_ADDR }}
