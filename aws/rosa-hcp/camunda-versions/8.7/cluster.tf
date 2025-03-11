@@ -8,7 +8,7 @@ locals {
 }
 
 module "rosa_cluster" {
-  source = "git::https://github.com/camunda/camunda-tf-rosa//modules/rosa-hcp?ref=v2.1.1"
+  source = "git::https://github.com/camunda/camunda-tf-rosa//modules/rosa-hcp?ref=v2.2.0"
 
   cluster_name = local.rosa_cluster_name
 

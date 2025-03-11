@@ -57,6 +57,7 @@
                 "cold_storage_options": [
                   {}
                 ],
+                "node_options": [],
                 "zone_awareness_config": [
                   {}
                 ]
@@ -1522,7 +1523,7 @@
         "enable_tls_version_and_cipher_suite_headers": false,
         "enable_waf_fail_open": false,
         "enable_xff_client_port": false,
-        "enable_zonal_shift": null,
+        "enable_zonal_shift": false,
         "idle_timeout": 60,
         "internal": false,
         "load_balancer_type": "application",
