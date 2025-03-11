@@ -3,16 +3,16 @@ name: AWS EC2 Golden Files
 
 on:
     workflow_dispatch:
-    pull_request:
-        paths:
-            - .github/workflows/aws_ec2_golden.yml
-            - .tool-versions
-            - aws/ec2/terraform/**
-    push:
-        branches:
-            - main
-        paths:
-            - aws/ec2/terraform/**
+    # pull_request:
+    #     paths:
+    #         - .github/workflows/aws_ec2_golden.yml
+    #         - .tool-versions
+    #         - aws/ec2/terraform/**
+    # push:
+    #     branches:
+    #         - main
+    #     paths:
+    #         - aws/ec2/terraform/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
