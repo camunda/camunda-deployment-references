@@ -14,7 +14,7 @@ For more details, refer to the official [Camunda Reference Architecture document
 
 ## Structure
 
-The repository is organized into different cloud providers (`aws`, `azure`, `general`) and internal reusable modules (`modules`) that are associated with each cloud provider.
+The repository is organized into different cloud providers (`aws`, `azure`, `generic`) and internal reusable modules (`modules`) that are associated with each cloud provider.
 
 ### Naming Convention
 
@@ -31,12 +31,12 @@ Where:
 - `{cloud_provider}`: The cloud provider (`aws`, `azure`, `generic`).
 - `{category}`: The type of service or technology (e.g., `kubernetes`, `compute`).
 - `{solution}`: The specific solution, such as `eks` (Amazon EKS), `gke` (Google Kubernetes Engine), or `ec2` (Amazon EC2).
-- `{declination}`: A variation of the solution, such as:
-  - `spot-instances` (for EC2 cost optimization).
-  - `on-demand` (for standard EC2 instances).
-- `{feature}`: A specific feature or deployment model, particularly in relation to **Camunda 8**, such as:
+- `{declination}`: A specific feature or deployment model, particularly in relation to **Camunda 8**, such as:
   - `single-region` (deployment in a single region).
   - `dual-region` (high availability across two regions).
+- `{feature}`: A variation of the solution, such as:
+  - `irsa` (native IAM auth of AWS).
+  - `spot-instances` (for EC2 cost optimization).
 
 ### Modules
 
@@ -49,10 +49,10 @@ For AWS Kubernetes and EC2 solutions:
 ```
 - aws
   - kubernetes
-    - eks-spot-instances-dual-region
-    - eks-on-demand-single-region
+    - eks-dual-region-spot-instances
+    - eks-single-region-on-demand
   - compute
-    - ec2-on-demand-single-region
+    - ec2-single-region-on-demand
   - modules
     - networking
     - monitoring
