@@ -323,7 +323,7 @@ jobs:
                       ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
 
                       # Enable Routes
-                      for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
+                      for file in core-route.yml connectors-route.yml domain.yml; do
                           yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
                           cat values-result.yml && mv values-result.yml values.yml
                       done
@@ -435,7 +435,7 @@ jobs:
                   echo "VENOM_VAR_TEST_CLIENT_ID=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" >> "$VARIABLES_ENV_FILE"
                   echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" >> "$VARIABLES_ENV_FILE"
                   echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
-                  ZEEBE_VERSION=$(yq '.zeebe.image.tag' "$TEST_CHART_DIR_STATIC/values.yaml")
+                  ZEEBE_VERSION=$(yq '.core.image.tag' "$TEST_CHART_DIR_STATIC/values.yaml")
                   # shellcheck disable=SC2129
                   echo "ZEEBE_VERSION=$ZEEBE_VERSION" >> "$VARIABLES_ENV_FILE"
                   # In case the Zeebe version has not been released officially yet.
@@ -473,6 +473,7 @@ jobs:
                       -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
                   fi
 
+                  # TODO: 8.8 fix
                   echo "Patch the identity secrets to allow venom to access to the platform"
                   sed -i -e 's/integration-test-credentials/identity-secret-for-components/g' \
                          -e 's/identity-operate-client-password/operate-secret/g' \

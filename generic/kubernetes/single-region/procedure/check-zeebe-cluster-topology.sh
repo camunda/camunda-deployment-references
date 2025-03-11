@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ZEEBE_ADDRESS_REST="https://$DOMAIN_NAME/zeebe"
+ZEEBE_ADDRESS_REST="https://$DOMAIN_NAME/core"
 ZEEBE_AUTHORIZATION_SERVER_URL="https://$DOMAIN_NAME/auth/realms/camunda-platform/protocol/openid-connect/token"
 
 # Generate a temporary token from the authorization server (keycloak)

@@ -3,21 +3,20 @@ global:
     elasticsearch:
         enabled: true # use the embbeded elasticsearch
 
+    secrets:
+        name: identity-secret-for-components
+
+identity:
+    firstUser:
+        existingSecret: identity-secret-for-components
+
 identityKeycloak:
     postgresql:
         enabled: true # use the embbeded database
-
-        # TODO: [BUG] 8.6 only remove when https://github.com/camunda/camunda-platform-helm/pull/3018 is released and chart is set to 11.2.2
-        # context https://github.com/camunda/camunda-platform-helm/pull/2944
         auth:
-            existingSecret: ''
-
+            existingSecret: identity-secret-for-components
     auth:
         existingSecret: identity-secret-for-components
-
-connectors:
-    # TODO: investigate why connectors are not working in 8.7
-    enabled: false
 
 console:
     enabled: false # by default, console is not enabled
@@ -29,6 +28,7 @@ webModeler:
         mail:
             existingSecret: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
+
 postgresql:
     # Will deploy a postgresql datbase for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
