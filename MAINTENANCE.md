@@ -23,6 +23,7 @@ When `8.7` becomes the new stable version, we create the `stable/8.7` branch fro
 When a new version is ready for release, we need to cut the `main` branch to create a new stable branch (`stable/8.x`). Follow these steps:
 
 0. Update the value of the release in `.camunda-version`
+0. Add all the schedules for the version in `.github/workflows-config/workflow-scheduler.yml`
 1. **Create the stable branch**
    - From `main`, create a new branch `stable/8.x`.
    - Example: If the current stable version is `8.6` and we are preparing to release `8.7`, run:
