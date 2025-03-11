@@ -136,6 +136,7 @@ runs:
           id: set-terraform-variables
           shell: bash
           run: |
+              # TODO: add key prefix
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
               export TFSTATE_KEY="tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
 

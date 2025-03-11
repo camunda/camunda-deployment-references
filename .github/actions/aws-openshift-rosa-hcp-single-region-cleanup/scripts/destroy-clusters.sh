@@ -26,6 +26,8 @@ set -o pipefail
 # - AWS CLI installed and configured with the necessary permissions to access and modify the S3 bucket.
 # - Terraform installed and accessible in the PATH.
 
+# TODO: add key_prefix
+
 # Check for required arguments
 if [ "$#" -ne 5 ]; then
   echo "Usage: $0 <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL>"
