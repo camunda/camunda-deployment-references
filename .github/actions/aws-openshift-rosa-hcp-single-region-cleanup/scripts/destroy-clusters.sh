@@ -9,7 +9,7 @@ set -o pipefail
 # is successful, it removes the corresponding S3 objects.
 #
 # Usage:
-# ./destroy_clusters.sh <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL>
+# ./destroy_clusters.sh <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX]
 #
 # Arguments:
 #   BUCKET: The name of the S3 bucket containing the cluster state files.
@@ -17,22 +17,24 @@ set -o pipefail
 #   TEMP_DIR_PREFIX: The prefix for the temporary directories created for each cluster.
 #   MIN_AGE_IN_HOURS: The minimum age (in hours) of clusters to be destroyed.
 #   ID_OR_ALL: The specific ID suffix to filter objects, or "all" to destroy all objects.
+#   KEY_PREFIX (optional): A prefix (with a '/' at the end) for filtering objects in the S3 bucket.
 #
 # Example:
 # ./destroy_clusters.sh tf-state-rosa-ci-eu-west-3 ./modules/rosa-hcp/ /tmp/rosa/ 24 all
 # ./destroy_clusters.sh tf-state-rosa-ci-eu-west-3 ./modules/rosa-hcp/ /tmp/rosa/ 24 rosa-cluster-2883
+# ./destroy_clusters.sh tf-state-rosa-ci-eu-west-3 ./modules/rosa-hcp/ /tmp/rosa/ 24 all my-prefix/
 #
 # Requirements:
 # - AWS CLI installed and configured with the necessary permissions to access and modify the S3 bucket.
 # - Terraform installed and accessible in the PATH.
 
-# TODO: add key_prefix
 
 # Check for required arguments
-if [ "$#" -ne 5 ]; then
-  echo "Usage: $0 <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL>"
+if [ "$#" -lt 5 ] || [ "$#" -gt 6 ]; then
+  echo "Usage: $0 <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX]"
   exit 1
 fi
+
 # Check if required environment variables are set
 if [ -z "$RHCS_TOKEN" ]; then
   echo "Error: The environment variable RHCS_TOKEN is not set."
@@ -50,6 +52,7 @@ MODULES_DIR=$2
 TEMP_DIR_PREFIX=$3
 MIN_AGE_IN_HOURS=$4
 ID_OR_ALL=$5
+KEY_PREFIX=${6:-""}  # Key prefix is optional
 FAILED=0
 CURRENT_DIR=$(pwd)
 AWS_S3_REGION=${AWS_S3_REGION:-$AWS_REGION}
@@ -65,7 +68,7 @@ fi
 # Function to perform terraform destroy
 destroy_cluster() {
   local cluster_id=$1
-  local cluster_folder=$2
+  local cluster_folder="$KEY_PREFIX$2"
   # we must add two levels to replicate the "source = ../../modules" relative path presented in the module
   local temp_dir="${TEMP_DIR_PREFIX}${cluster_id}/1/2"
   local temp_generic_modules_dir="${TEMP_DIR_PREFIX}${cluster_id}/modules/"
@@ -108,7 +111,7 @@ destroy_cluster() {
 }
 
 # List objects in the S3 bucket and parse the cluster IDs
-all_objects=$(aws s3 ls "s3://$BUCKET/")
+all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX")
 aws_exit_code=$?
 
 if [ $aws_exit_code -ne 0 ]; then
@@ -136,7 +139,7 @@ for cluster_id in $clusters; do
   cluster_folder="tfstate-$cluster_id"
   echo "Checking cluster $cluster_id in $cluster_folder"
 
-  last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$cluster_folder/${cluster_id}.tfstate" --output json | grep LastModified | awk -F '"' '{print $4}')
+  last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate" --output json | grep LastModified | awk -F '"' '{print $4}')
   if [ -z "$last_modified" ]; then
     echo "Error: Failed to retrieve last modified timestamp for cluster $cluster_id"
     exit 1

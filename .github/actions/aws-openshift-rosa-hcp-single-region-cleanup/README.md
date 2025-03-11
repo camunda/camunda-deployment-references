@@ -11,6 +11,7 @@ This GitHub Action automates the deletion of aws/openshift/rosa-hcp-single-regio
 | --- | --- | --- | --- |
 | `tf-bucket` | <p>Bucket containing the clusters states</p> | `true` | `""` |
 | `tf-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION</p> | `false` | `""` |
+| `tf-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
 | `max-age-hours-cluster` | <p>Maximum age of clusters in hours</p> | `false` | `20` |
 | `target` | <p>Specify an ID to destroy specific resources or "all" to destroy all resources</p> | `false` | `all` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
@@ -34,6 +35,12 @@ This action is a `composite` action.
 
     tf-bucket-region:
     # Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION
+    #
+    # Required: false
+    # Default: ""
+
+    tf-bucket-key-prefix:
+    # Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
     #
     # Required: false
     # Default: ""
