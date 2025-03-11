@@ -473,16 +473,6 @@ jobs:
                       -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
                   fi
 
-                  # TODO: 8.8 fix
-                  echo "Patch the identity secrets to allow venom to access to the platform"
-                  sed -i -e 's/integration-test-credentials/identity-secret-for-components/g' \
-                         -e 's/identity-operate-client-password/operate-secret/g' \
-                         -e 's/identity-optimize-client-password/optimize-secret/g' \
-                         -e 's/identity-tasklist-client-password/tasklist-secret/g' \
-                         -e 's/identity-zeebe-client-password/zeebe-secret/g' \
-                         -e 's/identity-connectors-client-password/connectors-secret/g' \
-                         "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
-
                   # remove venom var client secret as we define it in the file
                   yq e 'del(.spec.template.spec.containers[].env[] | select(.name == "VENOM_VAR_TEST_CLIENT_SECRET"))' \
                     -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
