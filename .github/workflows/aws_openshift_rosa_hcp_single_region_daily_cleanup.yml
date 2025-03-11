@@ -25,7 +25,7 @@ concurrency:
 env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedule/') || github.event_name == 'schedule' && 'true' || 'false' }}
 
-    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '0' }}
+    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '20' }}
 
     # please keep those variables synced with aws_rosa_hcp_tests.yml
     AWS_PROFILE: infex
