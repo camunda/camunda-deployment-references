@@ -104,10 +104,12 @@ jobs:
                   echo "Filtering the matrix with strategy IS_SCHEDULE=$IS_SCHEDULE"
                   if [[ "$IS_SCHEDULE" == "true" ]]; then
                     # shellcheck disable=SC2086
-                    platform_matrix="$(yq '.matrix | map(select(.schedule_only == true))' --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                    platform_matrix="$(yq '.matrix |= (.distro |= map(select(.schedule_only == true)))' \
+                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
                   else
                     # shellcheck disable=SC2086
-                    platform_matrix="$(yq '.matrix | map(select(.schedule_only == null or .schedule_only == false))' --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                    platform_matrix="$(yq '.matrix |= (.distro |= map(select(.schedule_only == null or .schedule_only == false)))' \
+                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
                   fi
 
                   echo "${platform_matrix}" | jq
