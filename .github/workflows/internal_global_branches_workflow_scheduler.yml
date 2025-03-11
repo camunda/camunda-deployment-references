@@ -8,6 +8,11 @@ on:
     schedule:
         - cron: 0 * * * *   # every hour, every day
     workflow_dispatch:
+        inputs:
+            schedule_name:
+                description: Name of the schedule to run
+                required: false
+                type: string
 
 # limit to a single execution per ref of this workflow
 concurrency:
@@ -77,16 +82,23 @@ jobs:
                   # Convert each workflow_files array to a string format
                   formatted_schedules=$(echo "$schedules" | jq -c '.[].workflow_files |= tostring')
 
-                  current_day=$(date +%A)
-                  current_hour=$(date +%H)
+                  if [[ -n "${{ github.event.inputs.schedule_name }}" ]]; then
+                    # Filter schedules based on the provided workflow name
+                    filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg schedule_name "${{ github.event.inputs.schedule_name }}" '
+                    [.[] | select(.name == $schedule_name)]
+                    ')
+                  else
+                    current_day=$(date +%A)
+                    current_hour=$(date +%H)
 
-                  # Filter schedules based on cron_every_day and cron_every_hours
-                  filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg current_day "$current_day" --arg current_hour "$current_hour" '
-                      [.[] | select(
-                        (.cron_every_day == null or (.cron_every_day | tostring | split(",") | index($current_day))) and
-                        (.cron_every_hours == null or (.cron_every_hours | tostring | split(",") | index($current_hour)))
-                      )]
-                  ')
+                    # Filter schedules based on cron_every_day and cron_every_hours
+                    filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg current_day "$current_day" --arg current_hour "$current_hour" '
+                        [.[] | select(
+                            (.cron_every_day == null or (.cron_every_day | tostring | split(",") | index($current_day))) and
+                            (.cron_every_hours == null or (.cron_every_hours | tostring | split(",") | index($current_hour)))
+                        )]
+                    ')
+                  fi
 
                   echo "schedules=${filtered_schedules}" | tee -a "$GITHUB_OUTPUT"
 
