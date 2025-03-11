@@ -41,11 +41,12 @@ jobs:
                   vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   vault-url: ${{ secrets.VAULT_ADDR }}
 
-            - name: Close all scheduled PRs and delete associated branches
+            - name: Close all scheduled PRs after 24h and delete associated branches
               env:
                   GH_TOKEN: ${{ steps.generate-github-token.outputs.token }}
               run: |
-                  prs=$(gh pr list --state open --label "schedule" --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
+                  prs=$(gh pr list --state open --label "schedule" --json number,headRefName,createdAt \
+                            --jq '.[] | select(.createdAt < (now - 86400)) | "\(.number) \(.headRefName)"')
 
                   if [[ -z "$prs" ]]; then
                     echo "No PRs found with the label 'schedule'."
@@ -162,7 +163,7 @@ jobs:
 
                       ### ⚠️ Do Not
                       🚫 **Do not modify or merge this PR.**
-                      🚫 It will be automatically closed.
+                      🚫 It will be automatically closed after 24 hours.
 
                       ### 🔍 Details
                       - This PR is used to execute scheduled workflows defined in `.github/workflows-config/workflow-scheduler.yml`.
