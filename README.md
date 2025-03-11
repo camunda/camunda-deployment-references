@@ -81,15 +81,6 @@ just install-tooling
 just --list
 ```
 
-### Installing Tooling for a Specific Reference Architecture
-
-Each reference architecture has its own `.tool-versions` file located in its respective directory. To install the tooling for a specific architecture, navigate to the appropriate directory and run:
-
-```bash
-cd aws/openshift/rosa-hcp-single-region
-just install-tooling-current-dir
-```
-
 ## Support
 
 Please note that the modules have been tested with **[Terraform](https://github.com/hashicorp/terraform)** in the version described in the [.tool-versions](./.tool-versions) of this project.

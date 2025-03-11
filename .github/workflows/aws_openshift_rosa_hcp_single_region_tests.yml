@@ -216,8 +216,6 @@ jobs:
 
             - name: Install asdf tools with cache for the project
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6158b7c7534f6dbeb3fa7c3c836f6e6aa6881b2e # 1.3.0
-              with:
-                  tool_versions_files: .tool-versions,./aws/openshift/rosa-hcp-single-region/.tool-versions,./generic/openshift/rosa-hcp-single-region/.tool-versions
 
             - name: Install CLI tools from OpenShift Mirror
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
