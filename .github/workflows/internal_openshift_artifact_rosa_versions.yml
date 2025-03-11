@@ -1,7 +1,7 @@
 ---
 # This workflow updates an artifact containing the ROSA versions,
 # it's used by renovate and published at https://camunda.github.io/camunda-deployment-references/rosa_versions.txt
-name: Generic - OpenShift - Save ROSA Versions as an artifact
+name: Internal - OpenShift - Save ROSA Versions as an artifact
 
 on:
     schedule:
@@ -9,7 +9,7 @@ on:
     workflow_dispatch:
     pull_request:
         paths:
-            - .github/workflows/generic_openshift_artifact_rosa_versions.yml
+            - .github/workflows/internal_openshift_artifact_rosa_versions.yml
 
 jobs:
     save-rosa-versions:
