@@ -125,7 +125,7 @@ jobs:
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
-                  ref: ${{ github.ref_name }}
+                  ref: ${{ github.ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
@@ -176,7 +176,7 @@ jobs:
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   openshift-version: ${{ matrix.distro.version }}
-                  tf-modules-revision: ${{ github.ref_name }}
+                  tf-modules-revision: ${{ github.ref }}
 
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
