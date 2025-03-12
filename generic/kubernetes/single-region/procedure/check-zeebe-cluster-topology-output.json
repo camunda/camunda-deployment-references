@@ -21,7 +21,7 @@
           "health": "healthy"
         }
       ],
-      "version": "8.6.X"
+      "version": "8.6.z"
     },
     {
       "nodeId": 1,
@@ -44,7 +44,7 @@
           "health": "healthy"
         }
       ],
-      "version": "8.6.X"
+      "version": "8.6.z"
     },
     {
       "nodeId": 2,
@@ -67,11 +67,11 @@
           "health": "healthy"
         }
       ],
-      "version": "8.6.X"
+      "version": "8.6.z"
     }
   ],
   "clusterSize": 3,
   "partitionsCount": 3,
   "replicationFactor": 3,
-  "gatewayVersion": "8.6.X"
+  "gatewayVersion": "8.6.z"
 }
