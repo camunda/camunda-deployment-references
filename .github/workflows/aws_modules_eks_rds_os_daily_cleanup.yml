@@ -1,5 +1,5 @@
 ---
-name: AWS EKS Daily cleanup
+name: Tests - Daily Cleanup - AWS EKS/RDS/OS Modules
 
 on:
     workflow_dispatch:
@@ -11,7 +11,7 @@ on:
     pull_request:
         # the paths should be synced with ../labeler.yml
         paths:
-            - .github/workflows/daily-cleanup.yml
+            - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
             - .github/actions/eks-cleanup-resources/**
 
     schedule:
@@ -47,7 +47,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@a1b77a09293a4366e48a5067a86692ac6e94fdc0 # v3
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle

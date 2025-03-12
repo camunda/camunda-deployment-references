@@ -100,7 +100,7 @@ May not be up-to-date, please verify with `just --list`:
 Available recipes:
     asdf-install                                # Install tools using asdf
     asdf-plugins                                # Install asdf plugins
-    aws-ec2-regenerate-golden-file              # Generate the AWS golden file for the EC2 tf files
+    aws-compute-ec2-single-region-golden              # Generate the AWS golden file for the EC2 tf files
     aws-tf-modules-install-tests-go-mod         # Install go dependencies from test/src/go.mod
     aws-tf-modules-test testname gts_options="" # Launch a single test using gotestsum
     aws-tf-modules-test-verbose testname        # Launch a single test using go test in verbose mode

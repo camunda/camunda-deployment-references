@@ -1,1 +1,0 @@
-../../single-region/procedure/create-identity-secret.sh

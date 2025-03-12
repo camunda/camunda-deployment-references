@@ -4,10 +4,10 @@
 gotestsum_version := "v1.12.0"
 
 # Generate the AWS golden file for the EC2 tf files
-aws-ec2-regenerate-golden-file:
+aws-compute-ec2-single-region-golden:
   #!/bin/bash
-  cd {{justfile_directory()}}/aws/virtual-machine/ec2/terraform
-  cp {{justfile_directory()}}/aws/virtual-machine/ec2/test/fixtures/provider_override.tf .
+  cd {{justfile_directory()}}/aws/compute/ec2-single-region/terraform
+  cp {{justfile_directory()}}/aws/compute/ec2-single-region/test/fixtures/provider_override.tf .
   export AWS_REGION="eu-west-2"
   terraform init -upgrade
   terraform plan -var aws_ami="ami" -var generate_ssh_key_pair="true" -out=tfplan

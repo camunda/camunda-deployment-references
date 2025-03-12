@@ -1,5 +1,5 @@
 ---
-name: AWS EKS Tests - Cluster with an AuroraDB and OpenSearch creation and destruction
+name: Tests - Integration - AWS EKS Cluster with an AuroraDB and OpenSearch creation and destruction
 
 on:
     schedule:
@@ -46,7 +46,7 @@ on:
             - aws/modules/eks-cluster/**.tf
             - aws/modules/aurora/**.tf
             - .tool-versions
-            - .github/workflows/test-gha-eks.yml
+            - .github/workflows/aws_modules_eks_rds_os_creation_destruction_tests.yml
             - .github/actions/auroa-manage-cluster/**
             - .github/actions/eks-manage-cluster/**
             - .github/actions/opensearch-manage-cluster/**
@@ -131,7 +131,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@a1b77a09293a4366e48a5067a86692ac6e94fdc0 # v3
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle

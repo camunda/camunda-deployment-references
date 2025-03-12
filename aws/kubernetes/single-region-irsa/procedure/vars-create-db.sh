@@ -1,1 +1,0 @@
-../../single-region/procedure/vars-create-db.sh

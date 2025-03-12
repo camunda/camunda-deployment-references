@@ -1,1 +1,0 @@
-../../single-region/procedure/chart-env.sh

@@ -1,5 +1,5 @@
 ---
-name: AWS EC2 Tests
+name: Tests - Integration - AWS Compute EC2
 
 on:
     # Disabling for the time being due to focus shift with 8.7
@@ -9,17 +9,17 @@ on:
     # Disabling for the time being due to focus shift with 8.7
     # pull_request:
     #     paths:
-    #         - .github/workflows/aws_ec2_tests.yml
+    #         - .github/workflows/aws_compute_ec2_single_region_tests.yml
     #         - .tool-versions
-    #         - aws/virtual-machine/ec2/**
-    #         - '!aws/virtual-machine/ec2/test/golden/**'
+    #         - aws/compute/ec2-single-region/**
+    #         - '!aws/compute/ec2-single-region/test/golden/**'
 
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     # in case of renovate we don't cancel the previous run, so it can finish it
     # otherwise weekly renovate PRs with tf docs updates result in broken clusters
-    cancel-in-progress: ${{ github.actor == 'renovate[bot]' && false || true }}
+    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
 
 env:
     AWS_PROFILE: infex
@@ -59,7 +59,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@v3
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -90,11 +90,11 @@ jobs:
             # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  cp ${{ github.workspace }}/aws/virtual-machine/ec2/test/fixtures/*.tf ${{ github.workspace }}/aws/virtual-machine/ec2/terraform/
+                  cp ${{ github.workspace }}/aws/compute/ec2-single-region/test/fixtures/*.tf ${{ github.workspace }}/aws/compute/ec2-single-region/terraform/
                   echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.TF_PREFIX }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
             # yamllint enable rule:line-length
             - name: Set Camunda version
-              working-directory: aws/virtual-machine/ec2/scripts
+              working-directory: aws/compute/ec2-single-region/scripts
               run: |
                   # We need to replace the string without substitution except for that of GitHub Actions
                   # shellcheck disable=SC2016
@@ -110,7 +110,7 @@ jobs:
             ########## Create Infrastructure ############
             - name: Terratest - Terraform Apply
               if: always() && success()
-              working-directory: aws/virtual-machine/ec2/test/src
+              working-directory: aws/compute/ec2-single-region/test/src
               timeout-minutes: 61
               run: |
                   go test -v -timeout 60m -run TestSetup
@@ -119,7 +119,7 @@ jobs:
             ################ Run Tests ##################
             - name: Terratest - Run all Tests
               id: terratest
-              working-directory: aws/virtual-machine/ec2/test/src
+              working-directory: aws/compute/ec2-single-region/test/src
               timeout-minutes: 121
               env:
                   CAMUNDA_VERSION: ${{ matrix.camunda }}
@@ -137,14 +137,14 @@ jobs:
             - name: Terratest - Terraform Destroy
               if: always()
               id: tf-destroy
-              working-directory: aws/virtual-machine/ec2/test/src
+              working-directory: aws/compute/ec2-single-region/test/src
               timeout-minutes: 31
               run: |
                   go test -v -timeout 30m -run TestTeardown
             # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
             - name: Filter logger.go from the test report (too large)
               if: always()
-              working-directory: aws/virtual-machine/ec2/test/src
+              working-directory: aws/compute/ec2-single-region/test/src
               run: |
                   sed 's/&#xA;/\n/g' < "./tests.xml" |
                   grep -E -v '^.*logger\.go.*$' |
@@ -154,7 +154,7 @@ jobs:
               uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
               with:
                   name: test-reports-${{ env.CAMUNDA_HYPHENS }}-${{ matrix.architecture }}
-                  path: ${{ github.workspace }}/aws/virtual-machine/ec2/test/src/tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml
+                  path: ${{ github.workspace }}/aws/compute/ec2-single-region/test/src/tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml
                   retention-days: 7
             - name: Cleanup S3 state bucket
               if: always() && steps.tf-destroy.outcome == 'success'
