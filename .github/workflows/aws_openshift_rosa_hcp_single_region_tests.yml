@@ -618,6 +618,7 @@ jobs:
 
             - name: Set current Camunda version
               id: camunda-version
+              if: env.CLEANUP_CLUSTERS == 'true'
               run: |
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
