@@ -543,8 +543,8 @@ jobs:
                   echo "$check_zeebe_topology_output" > "$temp_output"
 
                   # Replace patch version
-                  yq e '.brokers[].version |= sub("[.][0-9]+$", ".X") | .gatewayVersion |= sub("[.][0-9]+$", ".X")' -i "$temp_output"
-                  yq e '.brokers[].version |= sub("[.][0-9]+$", ".X") | .gatewayVersion |= sub("[.][0-9]+$", ".X")' -i "$reference_file"
+                  yq e '.brokers[].version |= sub("[.][0-9]+$", ".z") | .gatewayVersion |= sub("[.][0-9]+$", ".z")' -i "$temp_output"
+                  yq e '.brokers[].version |= sub("[.][0-9]+$", ".z") | .gatewayVersion |= sub("[.][0-9]+$", ".z")' -i "$reference_file"
 
                   # Order each file also remove not predictable fields
                   yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$temp_output"
