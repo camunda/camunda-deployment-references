@@ -49,10 +49,13 @@ For AWS Kubernetes and EC2 solutions:
 ```
 - aws
   - kubernetes
-    - eks-dual-region-spot-instances
-    - eks-single-region-on-demand
+    - eks-single-region
+    - eks-single-region-spot-instances
+    - eks-dual-region
+    - eks-dual-region-karpenter
   - compute
-    - ec2-single-region-on-demand
+    - ec2-single-region
+    - ec2-single-region-spot-instances
   - modules
     - networking
     - monitoring
