@@ -41,7 +41,7 @@ This action is a `composite` action.
 ## Usage
 
 ```yaml
-- uses: camunda/camunda-deployment-references/.github/actions/eks-manage-cluster@main
+- uses: camunda/camunda-deployment-references/.github/actions/aws-eks-manage-cluster@main
   with:
     aws-region:
     # AWS region where the EKS cluster will be deployed

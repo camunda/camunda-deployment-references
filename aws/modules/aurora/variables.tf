@@ -1,4 +1,4 @@
-# ! Developer: if you are adding a variable without a default value, please ensure to reference it in the cleanup script (.github/actions/eks-cleanup-resources/scripts/destroy.sh)
+# ! Developer: if you are adding a variable without a default value, please ensure to reference it in the cleanup script (.github/actions/aws-eks-cleanup-resources/scripts/destroy.sh)
 variable "cluster_name" {
   description = "Name of the cluster, also used to prefix dependent resources. Format: /[[:lower:][:digit:]-]/"
 }

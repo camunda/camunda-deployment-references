@@ -111,7 +111,7 @@ You can automate the deployment and deletion of the EKS cluster and Aurora datab
 
 Below are examples of GitHub Actions workflows for deploying and deleting these resources.
 
-For more details, refer to the corresponding [EKS Actions README](./.github/actions/eks-manage-cluster/README.md), [Aurora Actions README](./.github/actions/aurora-manage-cluster/README.md) and [OpenSearch Actions README](./.github/actions/opensearch-manage-cluster/README.md), [Cleanup Actions README](./.github/actions/eks-cleanup-resources/README.md).
+For more details, refer to the corresponding [EKS Actions README](./.github/actions/aws-eks-manage-cluster/README.md), [Aurora Actions README](./.github/actions/aws-aurora-manage-cluster/README.md) and [OpenSearch Actions README](./.github/actions/aws-opensearch-manage-cluster/README.md), [Cleanup Actions README](./.github/actions/aws-eks-cleanup-resources/README.md).
 
 An example workflow can be found in [here](./.github/workflows/test-gha-eks.yml).
 

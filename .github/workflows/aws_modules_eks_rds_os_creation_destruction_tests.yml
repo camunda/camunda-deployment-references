@@ -48,10 +48,10 @@ on:
             - .tool-versions
             - .github/workflows/aws_modules_eks_rds_os_creation_destruction_tests.yml
             - .github/actions/auroa-manage-cluster/**
-            - .github/actions/eks-manage-cluster/**
-            - .github/actions/opensearch-manage-cluster/**
-            - .github/actions/eks-cleanup-resources/**
-            - .github/actions/utility-action/**
+            - .github/actions/aws-eks-manage-cluster/**
+            - .github/actions/aws-opensearch-manage-cluster/**
+            - .github/actions/aws-eks-cleanup-resources/**
+            - .github/actions/aws-utility-action/**
 
 # limit to a single execution per ref of this workflow
 concurrency:
@@ -150,7 +150,7 @@ jobs:
 
             - name: Create EKS Cluster
               timeout-minutes: 45
-              uses: ./.github/actions/eks-manage-cluster
+              uses: ./.github/actions/aws-eks-manage-cluster
               id: create_eks_cluster
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
@@ -181,7 +181,7 @@ jobs:
 
             - name: Create Aurora Cluster
               timeout-minutes: 20
-              uses: ./.github/actions/aurora-manage-cluster
+              uses: ./.github/actions/aws-aurora-manage-cluster
               id: create_aurora_cluster
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: env.CREATE_DB == 'true' && always() && success()
@@ -202,7 +202,7 @@ jobs:
                   availability-zones: ${{ steps.after_cluster_creation_infos.outputs.availability_zones }}
 
             - name: Deploy OpenSearch Domain
-              uses: ./.github/actions/opensearch-manage-cluster
+              uses: ./.github/actions/aws-opensearch-manage-cluster
               id: deploy_opensearch_domain
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: env.CREATE_OPENSEARCH == 'true' && always() && success()
@@ -228,7 +228,7 @@ jobs:
             - name: Delete Resources
               timeout-minutes: 120
               if: always() && !(github.event_name == 'workflow_dispatch' && inputs.delete_cluster == 'false')
-              uses: ./.github/actions/eks-cleanup-resources
+              uses: ./.github/actions/aws-eks-cleanup-resources
               with:
                   tf-bucket: ${{ env.TF_STATE_BUCKET }}
                   tf-bucket-region: ${{ env.TF_STATE_BUCKET_REGION }}

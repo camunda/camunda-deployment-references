@@ -233,7 +233,7 @@ jobs:
             - name: Delete resources of this run
               timeout-minutes: 125
               if: always()
-              uses: ./.github/actions/eks-cleanup-resources
+              uses: ./.github/actions/aws-eks-cleanup-resources
               with:
                   tf-bucket: ${{ env.TF_STATE_BUCKET }}
                   tf-bucket-region: ${{ env.TF_STATE_BUCKET_REGION }}

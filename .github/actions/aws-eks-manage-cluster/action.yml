@@ -87,8 +87,8 @@ runs:
           id: utility
           # see https://github.com/orgs/community/discussions/41927 it's not possible to optimize this yet
           # steps.uses  cannot access the github context.
-          # uses: ${{ github.action_repository }}/utility-action@${{ github.action_ref }}
-          uses: camunda/camunda-deployment-references/.github/actions/utility-action@merge-branch
+          # uses: ${{ github.action_repository }}/aws-utility-action@${{ github.action_ref }}
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@merge-branch
           with:
               awscli-version: ${{ inputs.awscli-version }}
               terraform-version: ${{ inputs.terraform-version }}

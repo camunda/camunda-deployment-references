@@ -12,7 +12,7 @@ on:
         # the paths should be synced with ../labeler.yml
         paths:
             - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
-            - .github/actions/eks-cleanup-resources/**
+            - .github/actions/aws-eks-cleanup-resources/**
 
     schedule:
         - cron: 0 1 * * * # At 01:00 everyday.
@@ -69,7 +69,7 @@ jobs:
               id: delete-orphaned-resources
               timeout-minutes: 360
               if: always()
-              uses: ./.github/actions/eks-cleanup-resources
+              uses: ./.github/actions/aws-eks-cleanup-resources
               with:
                   tf-bucket: ${{ env.TF_STATE_BUCKET }}
                   tf-bucket-region: ${{ env.TF_STATE_BUCKET_REGION }}
@@ -81,7 +81,7 @@ jobs:
               id: retry-delete-orphaned-resources
               timeout-minutes: 360
               if: failure() && steps.delete-orphaned-resources.outcome == 'failure'
-              uses: ./.github/actions/eks-cleanup-resources
+              uses: ./.github/actions/aws-eks-cleanup-resources
               with:
                   tf-bucket: ${{ env.TF_STATE_BUCKET }}
                   tf-bucket-region: ${{ env.TF_STATE_BUCKET_REGION }}

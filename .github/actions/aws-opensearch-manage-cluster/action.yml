@@ -1,46 +1,46 @@
 ---
-name: Deploy RDS Aurora Cluster
+name: Deploy OpenSearch Domain
 
 description: |
-    This GitHub Action automates the deployment of an RDS Aurora cluster using Terraform.
-    This action will also install Terraform and awscli. It will output the Aurora cluster endpoint.
+    This GitHub Action automates the deployment of an OpenSearch domain using Terraform.
+    It will also install Terraform and awscli. It will output the OpenSearch domain endpoint.
 
 inputs:
     aws-region:
         description: AWS region where the cluster will be deployed
         required: true
 
-    cluster-name:
-        description: Name of the RDS Aurora cluster to deploy
+    domain-name:
+        description: Name of the OpenSearch domain to deploy
         required: true
 
-    username:
-        description: Username for the PostgreSQL admin user
-        required: true
-
-    password:
-        description: Password for the PostgreSQL admin user
-        required: true
+    engine-version:
+        description: Version of the OpenSearch engine to deploy
+        # TODO: add renovate
+        default: '2.15'
 
     vpc-id:
-        description: VPC ID to create the cluster in
+        description: VPC ID to create the domain in
         required: true
 
     subnet-ids:
-        description: List of subnet IDs to create the cluster in
+        description: List of subnet IDs to create the domain in
         required: true
 
     cidr-blocks:
         description: CIDR blocks to allow access from and to
         required: true
 
-    availability-zones:
-        description: Array of availability zones to use for the Aurora cluster
-        required: true
+    instance-type:
+        description: Instance type for the OpenSearch cluster
+        default: t3.small.search
+
+    instance-count:
+        description: Number of instances in the cluster
+        default: '3'
 
     additional-terraform-vars:
         description: JSON object containing additional Terraform variables
-        required: false
         default: '{}'
 
     s3-backend-bucket:
@@ -56,10 +56,9 @@ inputs:
         default: merge-branch
 
     tf-modules-path:
-        description: Path where the tf Aurora modules will be cloned
-        default: ./.action-tf-modules/aurora/
+        description: Path where the tf OpenSearch modules will be cloned
+        default: ./.action-tf-modules/opensearch/
 
-    # inherited from https://github.com/hashicorp/setup-terraform/blob/main/action.yml
     tf-cli-config-credentials-hostname:
         description: |
             The hostname of a HCP Terraform/Terraform Enterprise instance to place within the credentials block
@@ -89,15 +88,14 @@ inputs:
         default: 2.15.52
 
 outputs:
-    aurora-endpoint:
-        description: The endpoint of the deployed Aurora cluster
-        value: ${{ steps.apply.outputs.aurora_endpoint }}
+    opensearch-endpoint:
+        description: The endpoint of the deployed OpenSearch domain
+        value: ${{ steps.fetch_outputs.outputs.opensearch_endpoint }}
 
     terraform-state-url:
         description: URL of the Terraform state file in the S3 bucket
         value: ${{ steps.utility.outputs.terraform-state-url }}
 
-    # Add all terraform outputs dynamically
     all-terraform-outputs:
         description: All outputs from Terraform
         value: ${{ steps.fetch_outputs.outputs.all_terraform_outputs }}
@@ -107,25 +105,23 @@ runs:
     steps:
         - name: Use Utility Actions
           id: utility
-          # see https://github.com/orgs/community/discussions/41927 it's not possible to optimize this yet
-          # steps.uses  cannot access the github context.
-          uses: camunda/camunda-deployment-references/.github/actions/utility-action@merge-branch
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@merge-branch
           with:
               awscli-version: ${{ inputs.awscli-version }}
-              terraform-version: ${{ inputs.terraform-version }}
+              terraform-version: ${{ inputs.tf-terraform-version }}
 
               aws-region: ${{ inputs.aws-region }}
 
               s3-backend-bucket: ${{ inputs.s3-backend-bucket }}
               s3-bucket-region: ${{ inputs.s3-bucket-region }}
 
-              tf-state-key: terraform/${{ inputs.cluster-name }}/gha/aurora/terraform.tfstate
+              tf-state-key: terraform/${{ inputs.domain-name }}/gha/opensearch/terraform.tfstate
 
               tf-cli-config-credentials-hostname: ${{ inputs.tf-cli-config-credentials-hostname }}
               tf-cli-config-credentials-token: ${{ inputs.tf-cli-config-credentials-token }}
               tf-terraform-wrapper: ${{ inputs.tf-terraform-wrapper }}
 
-        - name: Checkout Repository Aurora modules
+        - name: Checkout Repository OpenSearch modules
           uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
           with:
               repository: camunda/camunda-deployment-references
@@ -136,7 +132,7 @@ runs:
         - name: Terraform Init
           shell: bash
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
           run: |
               set -euxo pipefail
 
@@ -149,38 +145,39 @@ runs:
         - name: Terraform Plan
           shell: bash
           id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
           run: |
               set -euxo pipefail
 
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
-              terraform plan -no-color -out aurora.plan \
+              terraform plan -no-color -out opensearch.plan \
                 -var-file=/tmp/var.tfvars.json \
-                -var "cluster_name=${{ inputs.cluster-name }}" \
-                -var "username=${{ inputs.username }}" \
-                -var "password=${{ inputs.password }}" \
-                -var 'availability_zones=${{ inputs.availability-zones }}' \
-                -var "vpc_id=${{ inputs.vpc-id }}" \
+                -var "domain_name=${{ inputs.domain-name }}" \
+                -var "engine_version=${{ inputs.engine-version }}" \
                 -var 'subnet_ids=${{ inputs.subnet-ids }}' \
-                -var 'cidr_blocks=${{ inputs.cidr-blocks }}'
+                -var "vpc_id=${{ inputs.vpc-id }}" \
+                -var 'cidr_blocks=${{ inputs.cidr-blocks }}' \
+                -var "instance_type=${{ inputs.instance-type }}" \
+                -var "instance_count=${{ inputs.instance-count }}"
 
         - name: Terraform Apply
           shell: bash
           id: apply
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
           run: |
               set -euxo pipefail
 
-              terraform apply -no-color aurora.plan
-              export aurora_endpoint="$(terraform output -raw aurora_endpoint)"
-              echo "aurora_endpoint=$aurora_endpoint" >> "$GITHUB_OUTPUT"
+              terraform apply -no-color opensearch.plan
 
         - name: Fetch Terraform Outputs
           shell: bash
           id: fetch_outputs
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
           run: |
               set -euxo pipefail
+
+              export opensearch_endpoint="$(terraform output -raw opensearch_domain_endpoint)"
+              echo "opensearch_endpoint=$opensearch_endpoint" >> "$GITHUB_OUTPUT"
 
               all_outputs=$(terraform output -json | jq -c .)
               echo "all_terraform_outputs=$all_outputs" | tee -a "$GITHUB_OUTPUT"

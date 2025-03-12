@@ -46,7 +46,7 @@ This action is a `composite` action.
 ## Usage
 
 ```yaml
-- uses: camunda/camunda-deployment-references/.github/actions/aurora-manage-cluster@main
+- uses: camunda/camunda-deployment-references/.github/actions/aws-aurora-manage-cluster@main
   with:
     aws-region:
     # AWS region where the cluster will be deployed
