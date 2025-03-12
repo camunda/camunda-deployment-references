@@ -17,7 +17,7 @@ identityKeycloak:
 
 connectors:
     # TODO: investigate why connectors are not working in 8.7
-    enabled: false
+    enabled: true
 
 console:
     enabled: false # by default, console is not enabled
