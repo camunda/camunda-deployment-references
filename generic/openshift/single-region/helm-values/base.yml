@@ -7,11 +7,6 @@ identityKeycloak:
     postgresql:
         enabled: true # use the embbeded database
 
-        # TODO: [BUG] 8.6 only remove when https://github.com/camunda/camunda-platform-helm/pull/3018 is released and chart is set to 11.2.2
-        # context https://github.com/camunda/camunda-platform-helm/pull/2944
-        auth:
-            existingSecret: ''
-
     auth:
         existingSecret: identity-secret-for-components
 
