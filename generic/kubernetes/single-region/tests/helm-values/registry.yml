@@ -1,0 +1,20 @@
+---
+# This file contains specific values used during the integration tests
+
+
+# Auth to avoid Docker download rate limit.
+# https://docs.docker.com/docker-hub/download-rate-limit/
+identityKeycloak:
+    image:
+        pullSecrets:
+            - name: index-docker-io
+
+global:
+    image:
+        pullSecrets:
+            - name: index-docker-io
+
+elasticsearch:
+    global:
+        imagePullSecrets:
+            - name: index-docker-io

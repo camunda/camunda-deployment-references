@@ -58,6 +58,8 @@ Temporary Items
 *.tfstate.*
 .terraform.lock.hcl
 *.plan
+tfplan.json
+tfplan-redacted.json
 
 # Crash log files
 crash.log
