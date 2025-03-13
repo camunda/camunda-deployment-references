@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Download a copy of the reference architecture
-BRANCH="feature/integrate-tests-rosa"  # TODO: Change the branch to 8.6 after the merge
+BRANCH="stable/8.6"
 
 git clone --depth 1 --branch "$BRANCH" https://github.com/camunda/camunda-deployment-references.git
 
