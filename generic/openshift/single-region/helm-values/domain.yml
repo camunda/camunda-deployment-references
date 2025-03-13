@@ -1,0 +1,71 @@
+---
+global:
+
+    # the ingress is manages directly by the Route manifests ../manifest/routes.yml
+    ingress:
+        enabled: true
+        className: openshift-default
+        host: ${DOMAIN_NAME}
+        tls:
+            enabled: true
+            # explicitely no secret as we rely on the IngressOperator to handle the TLS secret, if you use a custom certificate, you might want to fill this value
+            secretName: ''
+        annotations:
+            route.openshift.io/termination: edge
+            # enforce HSTS
+            haproxy.router.openshift.io/hsts_header: max-age=31536000; includeSubDomains;preload
+
+    identity:
+
+        auth:
+            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
+
+            zeebe:
+                existingSecret:
+                    name: identity-secret-for-components
+            connectors:
+                existingSecret:
+                    name: identity-secret-for-components
+            operate:
+                redirectUrl: https://${DOMAIN_NAME}/operate # replace this with a port of your choice when you will do port forwarding
+                existingSecret:
+                    name: identity-secret-for-components
+            tasklist:
+                redirectUrl: https://${DOMAIN_NAME}/tasklist  # replace this with a port of your choice when you will do port forwarding
+                existingSecret:
+                    name: identity-secret-for-components
+            optimize:
+                redirectUrl: https://${DOMAIN_NAME}/optimize  # replace this with a port of your choice when you will do port forwarding
+                existingSecret:
+                    name: identity-secret-for-components
+            webModeler:
+                redirectUrl: https://${DOMAIN_NAME}/modeler
+            console:
+                redirectUrl: https://${DOMAIN_NAME}
+                existingSecret:
+                    name: identity-secret-for-components
+
+identity:
+    contextPath: /identity
+    fullURL: https://${DOMAIN_NAME}/identity
+
+operate:
+    contextPath: /operate
+
+tasklist:
+    contextPath: /tasklist
+
+webModeler:
+    contextPath: /modeler
+
+optimize:
+    contextPath: /optimize
+
+zeebeGateway:
+    contextPath: /zeebe
+
+console:
+    contextPath: /
+
+connectors:
+    contextPath: /connectors

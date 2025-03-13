@@ -1,0 +1,77 @@
+{
+  "brokers": [
+    {
+      "nodeId": 0,
+      "host": "camunda-zeebe-0.camunda-zeebe",
+      "port": 26501,
+      "partitions": [
+        {
+          "partitionId": 1,
+          "role": "leader",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 2,
+          "role": "follower",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 3,
+          "role": "follower",
+          "health": "healthy"
+        }
+      ],
+      "version": "8.7.z"
+    },
+    {
+      "nodeId": 1,
+      "host": "camunda-zeebe-1.camunda-zeebe",
+      "port": 26501,
+      "partitions": [
+        {
+          "partitionId": 1,
+          "role": "follower",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 2,
+          "role": "leader",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 3,
+          "role": "follower",
+          "health": "healthy"
+        }
+      ],
+      "version": "8.7.z"
+    },
+    {
+      "nodeId": 2,
+      "host": "camunda-zeebe-2.camunda-zeebe",
+      "port": 26501,
+      "partitions": [
+        {
+          "partitionId": 1,
+          "role": "follower",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 2,
+          "role": "follower",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 3,
+          "role": "leader",
+          "health": "healthy"
+        }
+      ],
+      "version": "8.7.z"
+    }
+  ],
+  "clusterSize": 3,
+  "partitionsCount": 3,
+  "replicationFactor": 3,
+  "gatewayVersion": "8.7.z"
+}

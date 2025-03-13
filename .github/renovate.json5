@@ -1,11 +1,4 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["github>camunda/infraex-common-config:default.json5"],
-  packageRules: [
-    {
-      // The versioning is a bit strange, so we need to help a bit with parsing it correctly
-      matchPackageNames: ["amazon/cloudwatch-agent"],
-      versioning: "regex:^(?<major>\\d)(\\.(?<minor>\\d+))(\\.(?<patch>\\db\\d+))$",
-    }
-  ]
 }

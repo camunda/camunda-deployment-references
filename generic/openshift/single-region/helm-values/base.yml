@@ -1,0 +1,29 @@
+---
+global:
+    elasticsearch:
+        enabled: true # use the embbeded elasticsearch
+
+identityKeycloak:
+    postgresql:
+        enabled: true # use the embbeded database
+
+    auth:
+        existingSecret: identity-secret-for-components
+
+connectors:
+    enabled: true
+
+console:
+    enabled: false # by default, console is not enabled
+
+webModeler:
+    enabled: false # by default, webModeler is not enabled
+
+    restapi:
+        mail:
+            existingSecret: identity-secret-for-components # reference the smtp password
+            fromAddress: changeme@example.com   # change this required value
+postgresql:
+    # Will deploy a postgresql datbase for webModeler.
+    # If you enable webModeler, you either need to turn it true or use an external database
+    enabled: false
