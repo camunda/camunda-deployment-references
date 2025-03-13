@@ -1,18 +1,19 @@
 ---
-name: AWS EC2 Golden Files
+name: Tests - Golden - AWS EC2
+
 
 on:
     workflow_dispatch:
-    pull_request:
-        paths:
-            - .github/workflows/aws_ec2_golden.yml
-            - .tool-versions
-            - aws/ec2/terraform/**
-    push:
-        branches:
-            - main
-        paths:
-            - aws/ec2/terraform/**
+    # pull_request:
+    #     paths:
+    #         - .github/workflows/aws_ec2_golden.yml
+    #         - .tool-versions
+    #         - aws/ec2/terraform/**
+    # push:
+    #     branches:
+    #         - main
+    #     paths:
+    #         - aws/ec2/terraform/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -20,6 +21,8 @@ concurrency:
     cancel-in-progress: true
 
 env:
+    IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedule/') || github.event_name == 'schedule' && 'true' || 'false' }}
+
     AWS_PROFILE: infex
     AWS_REGION: eu-west-2
     TF_PATH: ${{ github.workspace }}/aws/ec2/terraform
@@ -36,11 +39,11 @@ jobs:
               uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@v3
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
