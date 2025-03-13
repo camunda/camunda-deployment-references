@@ -90,7 +90,7 @@ jobs:
                     ')
                   else
                     current_day=$(date +%A)
-                    current_hour=$(date +%H)
+                    current_hour=$(date +%-H)
 
                     # Filter schedules based on cron_every_day and cron_every_hours
                     filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg current_day "$current_day" --arg current_hour "$current_hour" '
