@@ -11,7 +11,6 @@ identityKeycloak:
         existingSecret: identity-secret-for-components
 
 connectors:
-    # TODO: investigate why connectors are not working in 8.7
     enabled: true
 
 console:
