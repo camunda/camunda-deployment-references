@@ -7,3 +7,13 @@ output "aks_nsg_id" {
   description = "ID of the Network Security Group for AKS"
   value       = azurerm_network_security_group.aks_nsg.id
 }
+
+output "db_subnet_id" {
+  description = "Subnet ID for PostgreSQL Flexible Server"
+  value       = azurerm_subnet.db_subnet.id
+}
+
+output "postgres_private_dns_zone_id" {
+  description = "Private DNS Zone ID for PostgreSQL Flexible Server"
+  value       = azurerm_private_dns_zone.postgres.id
+}
