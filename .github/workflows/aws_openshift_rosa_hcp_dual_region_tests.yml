@@ -1,20 +1,20 @@
 ---
-name: Tests - Integration - AWS OpenShift ROSA HCP Single Region
+name: Tests - Integration - AWS OpenShift ROSA HCP Dual Region
 
 on:
     schedule:
-        - cron: 0 3 * * 1 # Runs at 3 AM on Monday
+        - cron: 0 3 * * 2 # Runs at 3 AM on Tuesday
     pull_request:
         paths:
-            - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
-            - .github/workflows-config/aws-openshift-rosa-hcp-single-region/test_matrix.yml
+            - .github/workflows/aws_openshift_rosa_hcp_dual_region_tests.yml
+            - .github/workflows-config/aws-openshift-rosa-hcp-dual-region/test_matrix.yml
             - .tool-versions
-            - generic/kubernetes/single-region/**
-            - generic/openshift/single-region/**
-            - aws/openshift/rosa-hcp-single-region/**
-            - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
-            - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
-            - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
+            - generic/kubernetes/dual-region/**
+            - generic/openshift/dual-region/**
+            - aws/openshift/rosa-hcp-dual-region/**
+            - '!aws/openshift/rosa-hcp-dual-region/test/golden/**'
+            - .github/actions/aws-openshift-rosa-hcp-dual-region-create/**
+            - .github/actions/aws-openshift-rosa-hcp-dual-region-cleanup/**
 
     workflow_dispatch:
         inputs:
@@ -42,16 +42,20 @@ env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedule/') || github.event_name == 'schedule' && 'true' || 'false' }}
 
     AWS_PROFILE: infex
-    AWS_REGION: eu-west-2
+
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
+    S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-dual-region/ # keep it synced with the name of the module for simplicity
+
+    CLUSTER_1_AWS_REGION: eu-west-2
+    CLUSTER_2_AWS_REGION: eu-west-3
 
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
     # Vars with "CI_" prefix are used in the CI workflow only.
-    CI_MATRIX_FILE: .github/workflows-config/aws-openshift-rosa-hcp-single-region/test_matrix.yml
+    CI_MATRIX_FILE: .github/workflows-config/aws-openshift-rosa-hcp-dual-region/test_matrix.yml
 
     # Docker Hub auth to avoid image pull rate limit.
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
@@ -60,8 +64,9 @@ env:
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Components that are not enabled by default in the doc, but enabled in our tests to have a better coverage
-    WEBMODELER_ENABLED: 'true'
-    CONSOLE_ENABLED: 'true'
+    # TODO: this may requires adjustments
+    WEBMODELER_ENABLED: 'false'
+    CONSOLE_ENABLED: 'false'
 
     ROSA_CLI_VERSION: latest
 
@@ -153,7 +158,7 @@ jobs:
               run: |
                   aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.CLUSTER_1_AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
 
             - name: Set current Camunda version
               id: camunda-version
@@ -163,20 +168,25 @@ jobs:
 
             # Also remove the versioning
             - name: Create ROSA cluster and login
-              uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-create
-              id: create_cluster
+              uses: ./.github/actions/aws-openshift-rosa-hcp-dual-region-create
+              id: create_clusters
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               with:
                   rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
-                  cluster-name: ${{ matrix.distro.clusterName }}
-                  admin-username: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
-                  admin-password: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
-                  aws-region: ${{ env.AWS_REGION }}
+                  cluster-name-1: ${{ matrix.distro.clusterName }}-1
+                  cluster-name-2: ${{ matrix.distro.clusterName }}-2
+                  admin-username-cluster-1: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
+                  admin-username-cluster-2: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
+                  admin-password-cluster-1: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
+                  admin-password-cluster-2: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
+                  aws-region-cluster-1: ${{ env.CLUSTER_1_AWS_REGION }}
+                  aws-region-cluster-2: ${{ env.CLUSTER_2_AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  s3-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
-                  openshift-version: ${{ matrix.distro.version }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  openshift-version-cluster-1: ${{ matrix.distro.version }}
+                  openshift-version-cluster-2: ${{ matrix.distro.version }}
                   tf-modules-revision: ${{ github.ref }}
 
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
@@ -263,7 +273,7 @@ jobs:
                   # run it as specified in the doc
                   set -euxo pipefail # tolerate, nothing.
 
-                  ./aws/openshift/rosa-hcp-single-region/procedure/get-your-copy.sh
+                  ./aws/openshift/rosa-hcp-dual-region/procedure/get-your-copy.sh
                   tree
 
             - name: 🏗️ Prepare a fresh namespace for the tests
@@ -278,7 +288,7 @@ jobs:
                       set -o errexit # this is required https://github.com/nick-fields/retry/issues/133
                       set -o pipefail
 
-                      source ./aws/openshift/rosa-hcp-single-region/procedure/gather-cluster-login-id.sh
+                      source ./aws/openshift/rosa-hcp-dual-region/procedure/gather-cluster-login-id.sh
                       echo "CLUSTER_NAME=$CLUSTER_NAME"
                       echo "CLUSTER_API_URL=$CLUSTER_API_URL"
                       echo "CLUSTER_ADMIN_USERNAME=$CLUSTER_ADMIN_USERNAME"
@@ -294,7 +304,7 @@ jobs:
 
                       kubectl create namespace "$TEST_NAMESPACE"
 
-            - name: 🛠️ Assemble deployment values of generic/openshift/single-region
+            - name: 🛠️ Assemble deployment values of generic/openshift/dual-region
               # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
               uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3
               with:
@@ -311,23 +321,23 @@ jobs:
 
                       echo "Construct the values.yml file"
 
-                      cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
+                      cp -f generic/openshift/dual-region/helm-values/base.yml ./values.yml
 
-                      source ./generic/openshift/single-region/procedure/setup-application-domain.sh
+                      source ./generic/openshift/dual-region/procedure/setup-application-domain.sh
                       echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
-                      source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+                      source ./generic/openshift/dual-region/procedure/get-ingress-http2-status.sh
 
-                      ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
+                      ./generic/openshift/dual-region/procedure/enable-ingress-http2.sh
 
                       # Enable Routes
                       for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
-                          yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
+                          yq ". *d load(\"generic/openshift/dual-region/helm-values/$file\")" values.yml > values-result.yml
                           cat values-result.yml && mv values-result.yml values.yml
                       done
 
                       # Enable SCC
-                      yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
+                      yq '. *d load("generic/openshift/dual-region/helm-values/scc.yml")' values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
 
                       if [ "$WEBMODELER_ENABLED" == "true" ]; then
@@ -344,26 +354,26 @@ jobs:
                       # Add integration tests values
                       if [ "$TESTS_ENABLED" == "true" ]; then
                         for file in registry.yml identity.yml; do
-                          yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
+                          yq ". *d load(\"generic/kubernetes/dual-region/tests/helm-values/$file\")" values.yml > values-result.yml
                           cat values-result.yml && mv values-result.yml values.yml
                         done
                       fi
 
-                      ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
+                      ./generic/openshift/dual-region/procedure/assemble-envsubst-values.sh
 
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               run: |
                   set -euxo pipefail # tolerate, nothing.
 
-                  source generic/openshift/single-region/procedure/chart-env.sh
-                  source generic/openshift/single-region/procedure/generate-passwords.sh
+                  source generic/openshift/dual-region/procedure/chart-env.sh
+                  source generic/openshift/dual-region/procedure/generate-passwords.sh
 
-                  ./generic/openshift/single-region/procedure/create-identity-secret.sh
+                  ./generic/openshift/dual-region/procedure/create-identity-secret.sh
 
                   # Generate tests objects
                   if [ "$TESTS_ENABLED" == "true" ]; then
-                    # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml
+                    # Create the pull secrets described in generic/kubernetes/dual-region/tests/helm-values/registry.yml
                     kubectl create secret docker-registry index-docker-io \
                         --docker-server=index.docker.io \
                         --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
@@ -376,12 +386,12 @@ jobs:
                         --namespace="$TEST_NAMESPACE"
                   fi
 
-                  ./generic/openshift/single-region/procedure/install-chart.sh
+                  ./generic/openshift/dual-region/procedure/install-chart.sh
 
-            - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
+            - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/dual-region
               timeout-minutes: 10
               run: |
-                  ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+                  ./generic/kubernetes/dual-region/procedure/check-deployment-ready.sh
 
             - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
               if: env.TESTS_ENABLED == 'true'
@@ -505,13 +515,13 @@ jobs:
               run: |
                   set -euxo pipefail # tolerate, nothing.
 
-                  echo "Show zeebe cluster topology using generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh:"
+                  echo "Show zeebe cluster topology using generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh:"
                   export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
                   export ZEEBE_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
                   export DOMAIN_NAME="$CAMUNDA_DOMAIN"
 
                   # Execute the script and capture the output in a variable
-                  check_zeebe_topology_output=$(./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh)
+                  check_zeebe_topology_output=$(./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh)
 
                   echo "$check_zeebe_topology_output" | jq
 
@@ -544,7 +554,7 @@ jobs:
 
                   echo "Comparing golden file of the zeebe topology output..."
 
-                  reference_file="./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json"
+                  reference_file="./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology-output.json"
                   # Save the output to a temporary file
                   temp_output=$(mktemp)
                   echo "$check_zeebe_topology_output" > "$temp_output"
@@ -625,7 +635,7 @@ jobs:
               run: |
                   aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.CLUSTER_1_AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
 
             - name: Set current Camunda version
               id: camunda-version
@@ -635,7 +645,7 @@ jobs:
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand ROSA HCP Cluster
-              uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-cleanup
+              uses: ./.github/actions/aws-openshift-rosa-hcp-dual-region-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 125
               env:

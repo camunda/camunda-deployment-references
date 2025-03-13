@@ -1,0 +1,192 @@
+# Deploy AWS ROSA HCP Dual Region Cluster
+
+## Description
+
+This GitHub Action automates the deployment of the aws/openshift/rosa-hcp-dual-region reference architecture cluster using Terraform.
+It will create 2 OpenShift clusters, a VPC peering and a bucket used for replication accross the regions.
+This action will also install oc, awscli, rosa cli.
+Each cluster will be added to the kube config with the name of the cluster as context's name.
+
+
+## Inputs
+
+| name | description | required | default |
+| --- | --- | --- | --- |
+| `rh-token` | <p>Red Hat Hybrid Cloud Console Token</p> | `true` | `""` |
+| `cluster-name-1` | <p>Name of the ROSA cluster 1 to deploy</p> | `true` | `""` |
+| `cluster-name-2` | <p>Name of the ROSA cluster 2 to deploy</p> | `true` | `""` |
+| `admin-password-cluster-1` | <p>Admin password for the ROSA cluster 1</p> | `true` | `""` |
+| `admin-username-cluster-1` | <p>Admin username for the ROSA cluster 1</p> | `true` | `kube-admin` |
+| `admin-password-cluster-2` | <p>Admin password for the ROSA cluster 2</p> | `true` | `""` |
+| `admin-username-cluster-2` | <p>Admin username for the ROSA cluster 2</p> | `true` | `kube-admin` |
+| `aws-region-cluster-1` | <p>AWS region where the ROSA cluster 1 will be deployed</p> | `true` | `""` |
+| `aws-region-cluster-2` | <p>AWS region where the ROSA cluster 2 will be deployed</p> | `true` | `""` |
+| `availability-zones-cluster-1` | <p>Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)</p> | `true` | `a,b,c` |
+| `availability-zones-cluster-2` | <p>Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)</p> | `true` | `a,b,c` |
+| `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `true` | `latest` |
+| `openshift-version-cluster-1` | <p>Version of the OpenShift to install</p> | `true` | `4.17.16` |
+| `openshift-version-cluster-2` | <p>Version of the OpenShift to install</p> | `true` | `4.17.16` |
+| `replicas-cluster-1` | <p>Number of replicas for the ROSA cluster 1 (empty will fallback on default value of the module)</p> | `false` | `""` |
+| `replicas-cluster-2` | <p>Number of replicas for the ROSA cluster 2 (empty will fallback on default value of the module)</p> | `false` | `""` |
+| `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
+| `s3-bucket-region` | <p>Region of the bucket containing the resources states.</p> | `true` | `""` |
+| `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
+| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `main` |
+| `tf-modules-path` | <p>Path where the tf rosa modules will be cloned</p> | `true` | `./.action-tf-modules/aws-openshift-rosa-hcp-dual-region-create/` |
+| `login` | <p>Authenticate the current kube context on the created clusters</p> | `true` | `true` |
+
+
+## Outputs
+
+| name | description |
+| --- | --- |
+| `openshift-server-api-cluster-1` | <p>The server API URL of the deployed ROSA cluster 1</p> |
+| `openshift-server-api-cluster-2` | <p>The server API URL of the deployed ROSA cluster 2</p> |
+| `openshift-cluster-id-cluster-1` | <p>The ID of the deployed ROSA cluster 1</p> |
+| `openshift-cluster-id-cluster-2` | <p>The ID of the deployed ROSA cluster 2</p> |
+| `openshift-cluster-vpc-id-cluster-1` | <p>The VPC ID of the deployed ROSA cluster 1</p> |
+| `openshift-cluster-vpc-id-cluster-2` | <p>The VPC ID of the deployed ROSA cluster 2</p> |
+| `terraform-state-url` | <p>URL of the Terraform state file in the S3 bucket</p> |
+
+
+## Runs
+
+This action is a `composite` action.
+
+## Usage
+
+```yaml
+- uses: camunda/camunda-deployment-references/.github/actions/aws-openshift-rosa-hcp-dual-region-create@main
+  with:
+    rh-token:
+    # Red Hat Hybrid Cloud Console Token
+    #
+    # Required: true
+    # Default: ""
+
+    cluster-name-1:
+    # Name of the ROSA cluster 1 to deploy
+    #
+    # Required: true
+    # Default: ""
+
+    cluster-name-2:
+    # Name of the ROSA cluster 2 to deploy
+    #
+    # Required: true
+    # Default: ""
+
+    admin-password-cluster-1:
+    # Admin password for the ROSA cluster 1
+    #
+    # Required: true
+    # Default: ""
+
+    admin-username-cluster-1:
+    # Admin username for the ROSA cluster 1
+    #
+    # Required: true
+    # Default: kube-admin
+
+    admin-password-cluster-2:
+    # Admin password for the ROSA cluster 2
+    #
+    # Required: true
+    # Default: ""
+
+    admin-username-cluster-2:
+    # Admin username for the ROSA cluster 2
+    #
+    # Required: true
+    # Default: kube-admin
+
+    aws-region-cluster-1:
+    # AWS region where the ROSA cluster 1 will be deployed
+    #
+    # Required: true
+    # Default: ""
+
+    aws-region-cluster-2:
+    # AWS region where the ROSA cluster 2 will be deployed
+    #
+    # Required: true
+    # Default: ""
+
+    availability-zones-cluster-1:
+    # Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)
+    #
+    # Required: true
+    # Default: a,b,c
+
+    availability-zones-cluster-2:
+    # Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)
+    #
+    # Required: true
+    # Default: a,b,c
+
+    rosa-cli-version:
+    # Version of the ROSA CLI to use
+    #
+    # Required: true
+    # Default: latest
+
+    openshift-version-cluster-1:
+    # Version of the OpenShift to install
+    #
+    # Required: true
+    # Default: 4.17.16
+
+    openshift-version-cluster-2:
+    # Version of the OpenShift to install
+    #
+    # Required: true
+    # Default: 4.17.16
+
+    replicas-cluster-1:
+    # Number of replicas for the ROSA cluster 1 (empty will fallback on default value of the module)
+    #
+    # Required: false
+    # Default: ""
+
+    replicas-cluster-2:
+    # Number of replicas for the ROSA cluster 2 (empty will fallback on default value of the module)
+    #
+    # Required: false
+    # Default: ""
+
+    s3-backend-bucket:
+    # Name of the S3 bucket to store Terraform state
+    #
+    # Required: true
+    # Default: ""
+
+    s3-bucket-region:
+    # Region of the bucket containing the resources states.
+    #
+    # Required: true
+    # Default: ""
+
+    s3-bucket-key-prefix:
+    # Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+    #
+    # Required: false
+    # Default: ""
+
+    tf-modules-revision:
+    # Git revision of the tf modules to use
+    #
+    # Required: true
+    # Default: main
+
+    tf-modules-path:
+    # Path where the tf rosa modules will be cloned
+    #
+    # Required: true
+    # Default: ./.action-tf-modules/aws-openshift-rosa-hcp-dual-region-create/
+
+    login:
+    # Authenticate the current kube context on the created clusters
+    #
+    # Required: true
+    # Default: true
+```
