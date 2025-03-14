@@ -24,19 +24,19 @@ The directory structure follows a standardized naming pattern:
 - {cloud_provider}
   - modules
   - {category}
-    - {solution}-{declination}-{feature}
+    - {solution}-{feature}-{declination}
 ```
 
 Where:
 - `{cloud_provider}`: The cloud provider (`aws`, `azure`, `generic`).
 - `{category}`: The type of service or technology (e.g., `kubernetes`, `compute`).
 - `{solution}`: The specific solution, such as `eks` (Amazon EKS), `gke` (Google Kubernetes Engine), or `ec2` (Amazon EC2).
-- `{declination}`: A variation of the solution, such as:
-  - `spot-instances` (for EC2 cost optimization).
-  - `on-demand` (for standard EC2 instances).
 - `{feature}`: A specific feature or deployment model, particularly in relation to **Camunda 8**, such as:
   - `single-region` (deployment in a single region).
   - `dual-region` (high availability across two regions).
+- `{declination}`: A variation of the solution, such as:
+  - `spot-instances` (for EC2 cost optimization).
+  - `on-demand` (for standard EC2 instances).
 
 ### Modules
 
