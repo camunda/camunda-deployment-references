@@ -6,7 +6,7 @@
 
 Terraform module which creates AWS EKS (Kubernetes) resources with an opinionated configuration targeting Camunda 8, an AWS Aurora RDS cluster and an OpenSearch domain.
 
-**⚠️ Warning:** This project is not intended for production use but rather for demonstration purposes only. There are no guarantees or warranties provided. As such certain Terraform configuration warnings from Trivy have deliberately been ignored. For more details, see the [.trivyignore](../.lint/trivy/.trivyignore) file in the repository root.
+**⚠️ Warning:** This project is not intended for production use but rather for demonstration purposes only. There are no guarantees or warranties provided. As such certain Terraform configuration warnings from Trivy have deliberately been ignored. For more details, see the [.trivyignore](../../.lint/trivy/.trivyignore) file in the repository root.
 
 ## Documentation
 
@@ -23,7 +23,7 @@ See [AWS EKS Cluster inputs](./modules/eks-cluster/README.md#inputs), [AWS Auror
 
 ```hcl
 module "eks_cluster" {
-  source = "github.com/camunda/camunda-tf-eks-module/modules/eks-cluster"
+  source = "./eks-cluster"
 
   region             = "eu-central-1"
   name               = "cluster-name"
@@ -35,7 +35,7 @@ module "eks_cluster" {
 
 ```hcl
 module "postgresql" {
-  source                     = "github.com/camunda/camunda-tf-eks-module/modules/aurora"
+  source                     = "./modules/aurora"
   engine_version             = "15.4"
   auto_minor_version_upgrade = false
   cluster_name               = "cluster-name-postgresql"
@@ -55,7 +55,7 @@ module "postgresql" {
 ```hcl
 
 module "opensearch_domain" {
-  source = "github.com/camunda/camunda-tf-eks-module/modules/opensearch"
+  source = "./opensearch"
 
   domain_name     = "my-opensearch-domain"
   subnet_ids      = module.eks_cluster.private_subnet_ids

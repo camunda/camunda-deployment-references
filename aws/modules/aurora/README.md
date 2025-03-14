@@ -10,7 +10,7 @@ See [inputs](#inputs) for further configuration options and how they affect the 
 
 ```hcl
 module "postgresql" {
-  source                     = "github.com/camunda/camunda-tf-eks-module/modules/aurora"
+  source                     = "."
   engine_version             = "15.4"
   auto_minor_version_upgrade = false
   cluster_name               = "cluster-name-postgresql"

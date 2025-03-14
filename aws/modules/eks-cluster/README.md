@@ -10,7 +10,7 @@ See [inputs](#inputs) for further configuration options and how they affect the 
 
 ```hcl
 module "eks_cluster" {
-  source = "github.com/camunda/camunda-tf-eks-module/modules/eks-cluster"
+  source = "."
 
   region             = "eu-central-1"
   name               = "cluster-name"

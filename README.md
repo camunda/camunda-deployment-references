@@ -15,7 +15,7 @@ The reference architecture implementations are intended for two main use cases:
 1. **Reference**: Use these example implementations as guidance to help you build your own solution. Often, users bring their own infrastructure and simply need help with the missing components or confirmation of their existing setup.
 2. **Copy & Paste**: You can copy these reference architectures as-is, using them as a starting point. Modify and extend them to meet your specific requirements.
 
-**⚠️ Warning:** This project is intended for demonstration and learning purposes only. It is not recommended for production use. There are no guarantees or warranties provided, and certain Terraform configuration warnings from Trivy have been deliberately ignored. For more details, see the [.trivyignore](./.trivyignore) file in the repository root.
+**⚠️ Warning:** This project is intended for demonstration and learning purposes only. It is not recommended for production use. There are no guarantees or warranties provided, and certain Terraform configuration warnings from Trivy have been deliberately ignored. For more details, see the [.trivyignore](./.lint/trivy/.trivyignore) file in the repository root.
 
 ## Structure
 
