@@ -1,0 +1,130 @@
+---
+identityKeycloak:
+    serviceAccount:
+        name: keycloak-sa
+        annotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::444804106854:role/AuroraRole-Keycloak-cluster-name-pg-irsa
+
+    postgresql:
+        enabled: false
+    externalDatabase:
+        host: cluster-name-pg-irsa.cluster-c588eqg0kg9b.eu-west-2.rds.amazonaws.com
+        user: keycloak_irsa
+        port: 5432
+        database: camunda_keycloak
+
+    extraEnvVars:
+        - name: KEYCLOAK_EXTRA_ARGS
+          value: --db-driver=software.amazon.jdbc.Driver --transaction-xa-enabled=false --log-level=INFO,software.amazon.jdbc:INFO
+        - name: KEYCLOAK_JDBC_PARAMS
+          value: wrapperPlugins=iam&ssl=true&sslmode=require
+        - name: KEYCLOAK_JDBC_DRIVER
+          value: aws-wrapper:postgresql
+    auth:
+        existingSecret: identity-secret-for-components
+
+global:
+    elasticsearch:
+        enabled: false
+    opensearch:
+        enabled: true
+        aws:
+            enabled: true # enable IRSA auth
+        url:
+            protocol: https
+            host: vpc-domain-name-os-irsa-d43g2u6kc54b7hge2xptmfkieu.eu-west-2.es.amazonaws.com
+            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
+            port: 443
+
+    identity:
+
+        auth:
+            publicIssuerUrl: http://localhost:8070/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
+
+            zeebe:
+                existingSecret:
+                    name: identity-secret-for-components
+            connectors:
+                existingSecret:
+                    name: identity-secret-for-components
+            operate:
+                redirectUrl: http://localhost:8071  # replace this with a port of your choice when you will do port forwarding
+                existingSecret:
+                    name: identity-secret-for-components
+            tasklist:
+                redirectUrl: http://localhost:8072  # replace this with a port of your choice when you will do port forwarding
+                existingSecret:
+                    name: identity-secret-for-components
+            optimize:
+                redirectUrl: http://localhost:8073  # replace this with a port of your choice when you will do port forwarding
+                existingSecret:
+                    name: identity-secret-for-components
+
+webModeler:
+    serviceAccount:
+        name: webmodeler-sa
+        annotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::444804106854:role/AuroraRole-Webmodeler-cluster-name-pg-irsa
+
+    restapi:
+        externalDatabase:
+            url: jdbc:aws-wrapper:postgresql://cluster-name-pg-irsa.cluster-c588eqg0kg9b.eu-west-2.rds.amazonaws.com:5432/camunda_webmodeler?wrapperPlugins=iam
+            user: webmodeler_irsa
+        env:
+            - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+              value: software.amazon.jdbc.Driver
+
+
+identity:
+    serviceAccount:
+        name: identity-sa
+        annotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::444804106854:role/AuroraRole-Identity-cluster-name-pg-irsa
+
+    fullURL: http://localhost:8069 # replace this with a port of your choice when you will do port forwarding
+
+    externalDatabase:
+        enabled: true
+        host: cluster-name-pg-irsa.cluster-c588eqg0kg9b.eu-west-2.rds.amazonaws.com
+        port: 5432
+        username: identity_irsa
+        database: camunda_identity
+
+    env:
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:aws-wrapper:postgresql://cluster-name-pg-irsa.cluster-c588eqg0kg9b.eu-west-2.rds.amazonaws.com:5432/camunda_identity?wrapperPlugins=iam
+        - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+          value: software.amazon.jdbc.Driver
+        - name: SPRING_DATASOURCE_USERNAME
+          value: identity_irsa
+
+zeebe:
+    serviceAccount:
+        name: zeebe-sa
+        annotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::444804106854:role/OpenSearchRole-domain-name-os-irsa
+
+operate:
+    serviceAccount:
+        name: operate-sa
+        annotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::444804106854:role/OpenSearchRole-domain-name-os-irsa
+
+tasklist:
+    serviceAccount:
+        name: tasklist-sa
+        annotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::444804106854:role/OpenSearchRole-domain-name-os-irsa
+
+optimize:
+    serviceAccount:
+        name: optimize-sa
+        annotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::444804106854:role/OpenSearchRole-domain-name-os-irsa
+
+    # OpenSearch prevents migration
+    migration:
+        enabled: false
+
+elasticsearch:
+    enabled: false

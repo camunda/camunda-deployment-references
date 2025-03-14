@@ -1,0 +1,86 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: opensearch-client
+    labels:
+        app: opensearch-client
+spec:
+    backoffLimit: 0
+    template:
+        spec:
+            serviceAccountName: opensearch-access-sa
+            restartPolicy: Never
+            containers:
+                - name: opensearch-client
+                  image: amazonlinux:latest
+                  command:
+                      - sh
+                      - -c
+                      - |
+                        /bin/bash <<'EOF'
+                        set -euxo pipefail
+
+                        echo "Installing dependencies..."
+                        yum install -y unzip awscli-2
+
+                        echo "Installing OpenSearch CLI..."
+                        curl -L "https://github.com/opensearch-project/opensearch-cli/releases/download/v1.2.0/opensearch-cli-1.2.0-linux-x64.zip" -o "opensearch.zip"
+                        unzip opensearch.zip
+
+                        # Create or replace the ~/.aws/config file with the values from the environment variables
+                        mkdir -p ~/.aws
+                        cat <<EOCONFIG > ~/.aws/config
+                        [profile opensearch]
+                        role_arn = "$AWS_ROLE_ARN"
+                        web_identity_token_file = "$AWS_WEB_IDENTITY_TOKEN_FILE"
+                        EOCONFIG
+                        chmod 0600 ~/.aws/config
+
+                        echo "AWS IRSA profile configured:"
+                        cat ~/.aws/config
+
+                        # Attempt unauthenticated access to the OpenSearch cluster, expecting a failure
+                        if curl -s -o /dev/null -w "%{http_code}" https://$OPENSEARCH_ENDPOINT/_cluster/health | grep -q '403'; then
+                          echo "Unauthenticated access failed as expected."
+                        else
+                          echo "Unauthenticated access did not fail as expected, check the configuration."
+                          exit 1
+                        fi
+
+                        echo "Testing OpenSearch connection using IRSA..."
+
+                        # Create or replace the /root/.opensearch-cli/config.yaml file with the values from the environment variables
+                        mkdir -p ~/.opensearch-cli
+                        cat <<EOCONFIG_OPENSEARCH > ~/.opensearch-cli/config.yaml
+                        profiles:
+                          - name: opensearch
+                            endpoint: https://$OPENSEARCH_ENDPOINT
+                            aws_iam:
+                              profile: opensearch
+                              service: es
+                            max_retry: 3
+                            timeout: 10
+                        EOCONFIG_OPENSEARCH
+                        chmod 0600 ~/.opensearch-cli/config.yaml
+
+                        echo "OpenSearch CLI profile configured:"
+                        cat ~/.opensearch-cli/config.yaml
+
+                        # Test OpenSearch connection using the opensearch profile
+                        ./opensearch-cli curl get --path _cluster/health --profile opensearch
+                        ./opensearch-cli curl put --path /my_index --profile opensearch
+                        ./opensearch-cli curl get --path /my_index --profile opensearch
+
+                        EOF
+                  env:
+                      - name: OPENSEARCH_ENDPOINT
+                        valueFrom:
+                            configMapKeyRef:
+                                name: opensearch-config
+                                key: opensearch_endpoint
+                      - name: AWS_REGION
+                        valueFrom:
+                            configMapKeyRef:
+                                name: opensearch-config
+                                key: aws_region
