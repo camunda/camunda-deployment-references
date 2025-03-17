@@ -172,7 +172,7 @@ jobs:
               with:
                   rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
                   cluster-name: ${{ matrix.distro.clusterName }}
-                  admin-username: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}-${{ matrix.distro.clusterName }}
+                  admin-username: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
                   admin-password: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
                   aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
