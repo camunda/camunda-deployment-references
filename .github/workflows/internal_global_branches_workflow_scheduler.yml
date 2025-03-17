@@ -45,8 +45,8 @@ jobs:
               env:
                   GH_TOKEN: ${{ steps.generate-github-token.outputs.token }}
               run: |
-                  prs=$(gh pr list --state open --label "schedule" --json number,headRefName,createdAt \
-                            --jq '.[] | select(.createdAt < (now - 86400)) | "\(.number) \(.headRefName)"')
+                  prs=$(gh pr list --state "OPEN" --label "schedule" --json number,headRefName,createdAt \
+                        --jq '[.[] | select((now - (.createdAt | fromdate)) > 86400)]')
 
                   if [[ -z "$prs" ]]; then
                     echo "No PRs found with the label 'schedule'."
