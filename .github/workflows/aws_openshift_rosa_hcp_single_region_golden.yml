@@ -82,6 +82,7 @@ jobs:
 
             - name: Check if diff exists or diff comment already posted
               id: check_conditions
+              if: always() && github.event_name == 'pull_request'
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
@@ -92,14 +93,14 @@ jobs:
 
                   if [ -n "$comment_exists" ] || [ "${{ env.delta_exit_code }}" != "0" ]; then
                       echo "Conditions met: Diff exists or comment already posted."
-                      echo "conditions_met=true" | tee -a "$GITHUB_ENV"
+                      echo "update_or_create_diff_comment=true" | tee -a "$GITHUB_ENV"
                   else
                       echo "Conditions not met."
-                      echo "conditions_met=false" | tee -a "$GITHUB_ENV"
+                      echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
                   fi
 
             - name: Post diff on PR
-              if: always() && github.event_name == 'pull_request' && env.conditions_met == 'true'
+              if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
               uses: int128/diff-action@db6cce01542cb26e181798736eea1e71f5d36706 # v1
               with:
                   base: ${{ env.MODULE_DIR }}test/golden/tfplan-golden.json

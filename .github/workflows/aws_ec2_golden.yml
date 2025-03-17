@@ -28,6 +28,9 @@ env:
     TF_PATH: ${{ github.workspace }}/aws/ec2/terraform
     GOLDEN_PATH: ${{ github.workspace }}/aws/ec2/test/golden
 
+    MODULE_DIR: ./aws/ec2/terraform/
+
+
 jobs:
     compare:
         runs-on: ubuntu-latest
@@ -92,15 +95,38 @@ jobs:
               working-directory: aws/ec2/terraform
               run: |
                   delta "${GOLDEN_PATH}/tfplan.json" "${TF_PATH}/tfplan_extracted.json"
-                  exit $?
-            - name: Post diff on PR
+                  delta_exit_code=$?
+                  echo "delta_exit_code=$delta_exit_code" | tee -a "$GITHUB_ENV"
+                  exit $delta_exit_code
+
+            - name: Check if diff exists or diff comment already posted
+              id: check_conditions
               if: always() && github.event_name == 'pull_request'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  # Check if there's already a comment containing the header
+                  # If it's the case, we need to update it
+                  comment_exists=$(gh pr view ${{ github.event.pull_request.number }} --json comments \
+                      --jq ".comments[] | select(.body | contains(\"## Module ${{ env.MODULE_DIR }} - Terraform Golden Plan Diff\"))")
+
+                  if [ -n "$comment_exists" ] || [ "${{ env.delta_exit_code }}" != "0" ]; then
+                      echo "Conditions met: Diff exists or comment already posted."
+                      echo "update_or_create_diff_comment=true" | tee -a "$GITHUB_ENV"
+                  else
+                      echo "Conditions not met."
+                      echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
+                  fi
+
+            - name: Post diff on PR
+              if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
               uses: int128/diff-action@db6cce01542cb26e181798736eea1e71f5d36706 # v1
               with:
                   base: ${{ env.GOLDEN_PATH }}//tfplan.json
                   head: ${{ env.TF_PATH }}/tfplan_extracted.json
                   comment-header: |
-                      ## Terraform golden plan diff
+                      ## Module ${{ env.MODULE_DIR }} - Terraform Golden Plan Diff
+
                   comment-footer: |
                       Check the delta diff in the [workflow run](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}) for a detailed comparison.
                       If the changes are expected, you can use the uploaded artifact on the workflow to update the golden file on your branch.
