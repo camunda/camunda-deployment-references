@@ -75,10 +75,31 @@ jobs:
             - name: Compare Terraform plan with golden file
               run: |
                   delta "${{ env.MODULE_DIR }}test/golden/tfplan-golden.json" "${{ env.MODULE_DIR }}compare/tfplan-golden.json"
-                  exit $?
+                  delta_exit_code=$?
+                  echo "delta_exit_code=$delta_exit_code" | tee -a "$GITHUB_ENV"
+                  exit $delta_exit_code
+
+
+            - name: Check if diff exists or diff comment already posted
+              id: check_conditions
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  # Check if there's already a comment containing the header
+                  # If it's the case, we need to update it
+                  comment_exists=$(gh pr view ${{ github.event.pull_request.number }} --json comments \
+                      --jq ".comments[] | select(.body | contains(\"## Module ${{ env.MODULE_DIR }} - Terraform Golden Plan Diff\"))")
+
+                  if [ -n "$comment_exists" ] || [ "${{ env.delta_exit_code }}" != "0" ]; then
+                      echo "Conditions met: Diff exists or comment already posted."
+                      echo "conditions_met=true" | tee -a "$GITHUB_ENV"
+                  else
+                      echo "Conditions not met."
+                      echo "conditions_met=false" | tee -a "$GITHUB_ENV"
+                  fi
 
             - name: Post diff on PR
-              if: always() && github.event_name == 'pull_request'
+              if: always() && github.event_name == 'pull_request' && env.conditions_met == 'true'
               uses: int128/diff-action@db6cce01542cb26e181798736eea1e71f5d36706 # v1
               with:
                   base: ${{ env.MODULE_DIR }}test/golden/tfplan-golden.json
