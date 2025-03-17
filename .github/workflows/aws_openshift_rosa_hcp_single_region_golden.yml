@@ -106,7 +106,7 @@ jobs:
                   diff_comment_url=$(gh pr view ${{ github.event.pull_request.number }} --json comments \
                       --jq ".comments[] | select(.body | contains(\"✅ No diff, you can ignore this comment and below footer.\")) | .url")
 
-                  if [ -n "$DIFF_COMMENT" ]; then
+                  if [ -n "$diff_comment_url" ]; then
                       # shellcheck disable=SC2001
                       comment_id=$(echo "$diff_comment_url" | sed 's/.*#issuecomment-\([^ ]*\)/\1/')
                       echo "Deleting no diff comment $diff_comment_url (#$comment_id)"
