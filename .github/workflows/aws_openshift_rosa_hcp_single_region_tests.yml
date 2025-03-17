@@ -172,7 +172,7 @@ jobs:
               with:
                   rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
                   cluster-name: ${{ matrix.distro.clusterName }}
-                  admin-username: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
+                  admin-username: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}-${{ matrix.distro.clusterName }}
                   admin-password: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
                   aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
@@ -296,62 +296,58 @@ jobs:
 
                       kubectl create namespace "$TEST_NAMESPACE"
 
+                      echo "Sleeping 30s"
+                      sleep 30
+
             - name: 🛠️ Assemble deployment values of generic/openshift/single-region
-              # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
-              uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3
-              with:
-                  timeout_minutes: 10
-                  max_attempts: 40
-                  shell: bash
-                  retry_wait_seconds: 15
-                  command: |
-                      set -o errexit
-                      set -euxo pipefail # tolerate, nothing.
+              run: |
+                  set -o errexit
+                  set -euxo pipefail # tolerate, nothing.
 
-                      # As this action can be retried due to OpenShift API error, it must
-                      # be stateless (all commmands can be rerun without issue)
+                  # As this action can be retried due to OpenShift API error, it must
+                  # be stateless (all commmands can be rerun without issue)
 
-                      echo "Construct the values.yml file"
+                  echo "Construct the values.yml file"
 
-                      cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
+                  cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
 
-                      source ./generic/openshift/single-region/procedure/setup-application-domain.sh
-                      echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+                  source ./generic/openshift/single-region/procedure/setup-application-domain.sh
+                  echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
-                      source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+                  source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
 
-                      ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
+                  ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
 
-                      # Enable Routes
-                      for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
-                          yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
-                          cat values-result.yml && mv values-result.yml values.yml
-                      done
-
-                      # Enable SCC
-                      yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
+                  # Enable Routes
+                  for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
+                      yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
+                  done
 
-                      if [ "$WEBMODELER_ENABLED" == "true" ]; then
-                        echo "Enabling WebModeler"
-                        yq -i '.webModeler.enabled = true' values.yml
-                        yq -i '.postgresql.enabled = true' values.yml
-                      fi
+                  # Enable SCC
+                  yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
 
-                      if [ "$CONSOLE_ENABLED" == "true" ]; then
-                        echo "Enabling Console"
-                        yq -i '.console.enabled = true' values.yml
-                      fi
+                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                    echo "Enabling WebModeler"
+                    yq -i '.webModeler.enabled = true' values.yml
+                    yq -i '.postgresql.enabled = true' values.yml
+                  fi
 
-                      # Add integration tests values
-                      if [ "$TESTS_ENABLED" == "true" ]; then
-                        for file in registry.yml identity.yml; do
-                          yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
-                          cat values-result.yml && mv values-result.yml values.yml
-                        done
-                      fi
+                  if [ "$CONSOLE_ENABLED" == "true" ]; then
+                    echo "Enabling Console"
+                    yq -i '.console.enabled = true' values.yml
+                  fi
 
-                      ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
+                  # Add integration tests values
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    for file in registry.yml identity.yml; do
+                      yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
+                    done
+                  fi
+
+                  ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
 
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
