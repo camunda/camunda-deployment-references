@@ -108,5 +108,8 @@ jobs:
 
                   if [ -n "$DIFF_COMMENT" ]; then
                       echo "Deleting no diff comment with ID $DIFF_COMMENT"
-                      gh pr comment ${{ github.event.pull_request.number }} --delete --comment-id "$DIFF_COMMENT"
+                      gh api \
+                        --method DELETE \
+                        -H "Accept: application/vnd.github+json" \
+                        "/repos/${{ github.repository }}/pulls/comments/$DIFF_COMMENT"
                   fi
