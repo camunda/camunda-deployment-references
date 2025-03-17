@@ -86,7 +86,9 @@ jobs:
                   # Convert each workflow_files array to a string format
                   formatted_schedules=$(echo "$schedules" | jq -c '.[].workflow_files |= tostring')
 
-                  if [[ -n "${{ github.event.inputs.schedule_name }}" ]]; then
+                  schedule_name="Everyday schedules 8.6"
+                  #if [[ -n "${{ github.event.inputs.schedule_name }}" ]]; then
+                  if [[ -n "$schedule_name" ]]; then
                     # Filter schedules based on the provided workflow name
                     filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg schedule_name "${{ github.event.inputs.schedule_name }}" '
                     [.[] | select(.name == $schedule_name)]
@@ -151,6 +153,13 @@ jobs:
                   echo "$workflow_files" | while IFS= read -r workflow_file; do
                     yq -i 'del(.on.pull_request.paths)' "$workflow_file"
                   done
+
+            - name: Reformat yaml after yq files using pre-commit
+              uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+              id: pre_commit_check_first_run
+              continue-on-error: true # it will fail as we reformat the files
+              with:
+                  extra_args: --all-files --verbose
 
             - name: Create the schedule PR
               uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7
