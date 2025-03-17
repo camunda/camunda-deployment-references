@@ -1,222 +1,54 @@
-variable "postgres_server_name" {
-  description = "Name of the PostgreSQL Flexible Server instance"
+variable "location" {
+  description = "Region where resources will be deployed"
   type        = string
-  default     = "cluster-name-pg-std"
+  default     = "swedencentral"
 }
 
-variable "db_admin_username" {
-  description = "Administrator username for PostgreSQL"
+variable "resource_group_name" {
+  description = "Name of the Azure resource group"
   type        = string
-  default     = "secret_user"
+  default     = "camunda-rg"
 }
 
-variable "db_admin_password" {
-  description = "Administrator password for PostgreSQL"
-  type        = string
-  default     = "secretvalue%23"
-  sensitive   = true
+variable "tags" {
+  description = "A map of tags to add to all resources"
+  type        = map(string)
+  default     = {}
 }
 
-variable "postgres_sku_tier" {
-  description = "SKU tier for PostgreSQL Flexible Server (e.g., GP_Standard_D2s_v3)"
+variable "aks_cluster_name" {
+  description = "Name of the AKS cluster"
   type        = string
-  default     = "GP_Standard_D2s_v3"
+  default     = "camunda-aks"
 }
 
-variable "postgres_storage_mb" {
-  description = "Storage size in MB for PostgreSQL"
+
+variable "node_pool_count" {
+  description = "Fixed number of nodes in the default node pool"
   type        = number
-  default     = 32768
+  default     = 3
 }
 
-variable "postgres_backup_retention_days" {
-  description = "Backup retention days for PostgreSQL"
-  type        = number
-  default     = 7
-}
-
-variable "postgres_enable_geo_redundant_backup" {
-  description = "Enable geo-redundant backup for PostgreSQL"
+variable "api_private_access" {
+  description = "Enable private API access for AKS"
   type        = bool
   default     = true
 }
 
-variable "postgres_zone" {
-  description = "Primary Availability Zone for PostgreSQL"
+variable "private_dns_zone_id" {
+  description = "Private DNS Zone ID for AKS API Server"
   type        = string
-  default     = "1"
+  default     = null
 }
 
-variable "postgres_standby_zone" {
-  description = "Standby Availability Zone for PostgreSQL"
+variable "api_allowed_ip_ranges" {
+  description = "List of allowed IP ranges for public API access"
+  type        = list(string)
+  default     = []
+}
+
+variable "admin_group_object_id" {
+  description = "Microsoft Entra ID group for Kubernetes admins"
   type        = string
-  default     = "2"
-}
-
-variable "db_keycloak_name" {
-  description = "Name of the Camunda Keycloak database"
-  type        = string
-  default     = "camunda_keycloak"
-}
-
-variable "db_identity_name" {
-  description = "Name of the Camunda Identity database"
-  type        = string
-  default     = "camunda_identity"
-}
-
-variable "db_webmodeler_name" {
-  description = "Name of the Camunda WebModeler database"
-  type        = string
-  default     = "camunda_webmodeler"
-}
-
-variable "db_keycloak_username" {
-  description = "Username for the Camunda Keycloak database connection"
-  type        = string
-  default     = "keycloak_db"
-}
-
-variable "db_identity_username" {
-  description = "Username for the Camunda Identity database connection"
-  type        = string
-  default     = "identity_db"
-}
-
-variable "db_webmodeler_username" {
-  description = "Username for the Camunda WebModeler database connection"
-  type        = string
-  default     = "webmodeler_db"
-}
-
-variable "db_keycloak_password" {
-  description = "Password for the Camunda Keycloak database connection"
-  type        = string
-  default     = "secretvalue%24"
-  sensitive   = true
-}
-
-variable "db_identity_password" {
-  description = "Password for the Camunda Identity database connection"
-  type        = string
-  default     = "secretvalue%25"
-  sensitive   = true
-}
-
-variable "db_webmodeler_password" {
-  description = "Password for the Camunda WebModeler database connection"
-  type        = string
-  default     = "secretvalue%26"
-  sensitive   = true
-}
-variable "postgres_server_name" {
-  description = "Name of the PostgreSQL Flexible Server instance"
-  type        = string
-  default     = "cluster-name-pg-std"
-}
-
-variable "db_admin_username" {
-  description = "Administrator username for PostgreSQL"
-  type        = string
-  default     = "secret_user"
-}
-
-variable "db_admin_password" {
-  description = "Administrator password for PostgreSQL"
-  type        = string
-  default     = "secretvalue%23"
-  sensitive   = true
-}
-
-variable "postgres_sku_tier" {
-  description = "SKU tier for PostgreSQL Flexible Server (e.g., GP_Standard_D2s_v3)"
-  type        = string
-  default     = "GP_Standard_D2s_v3"
-}
-
-variable "postgres_storage_mb" {
-  description = "Storage size in MB for PostgreSQL"
-  type        = number
-  default     = 32768
-}
-
-variable "postgres_backup_retention_days" {
-  description = "Backup retention days for PostgreSQL"
-  type        = number
-  default     = 7
-}
-
-variable "postgres_enable_geo_redundant_backup" {
-  description = "Enable geo-redundant backup for PostgreSQL"
-  type        = bool
-  default     = true
-}
-
-variable "postgres_zone" {
-  description = "Primary Availability Zone for PostgreSQL"
-  type        = string
-  default     = "1"
-}
-
-variable "postgres_standby_zone" {
-  description = "Standby Availability Zone for PostgreSQL"
-  type        = string
-  default     = "2"
-}
-
-variable "db_keycloak_name" {
-  description = "Name of the Camunda Keycloak database"
-  type        = string
-  default     = "camunda_keycloak"
-}
-
-variable "db_identity_name" {
-  description = "Name of the Camunda Identity database"
-  type        = string
-  default     = "camunda_identity"
-}
-
-variable "db_webmodeler_name" {
-  description = "Name of the Camunda WebModeler database"
-  type        = string
-  default     = "camunda_webmodeler"
-}
-
-variable "db_keycloak_username" {
-  description = "Username for the Camunda Keycloak database connection"
-  type        = string
-  default     = "keycloak_db"
-}
-
-variable "db_identity_username" {
-  description = "Username for the Camunda Identity database connection"
-  type        = string
-  default     = "identity_db"
-}
-
-variable "db_webmodeler_username" {
-  description = "Username for the Camunda WebModeler database connection"
-  type        = string
-  default     = "webmodeler_db"
-}
-
-variable "db_keycloak_password" {
-  description = "Password for the Camunda Keycloak database connection"
-  type        = string
-  default     = "secretvalue%24"
-  sensitive   = true
-}
-
-variable "db_identity_password" {
-  description = "Password for the Camunda Identity database connection"
-  type        = string
-  default     = "secretvalue%25"
-  sensitive   = true
-}
-
-variable "db_webmodeler_password" {
-  description = "Password for the Camunda WebModeler database connection"
-  type        = string
-  default     = "secretvalue%26"
-  sensitive   = true
+  default     = "00000000-0000-0000-0000-000000000000"
 }
