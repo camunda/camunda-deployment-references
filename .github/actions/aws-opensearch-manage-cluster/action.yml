@@ -51,6 +51,10 @@ inputs:
         description: Region of the bucket containing the resources states
         required: false
 
+    s3-bucket-key-prefix:
+        description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+        default: ''
+
     tf-modules-revision:
         description: Git revision of the tf modules to use
         default: merge-branch
@@ -115,7 +119,7 @@ runs:
               s3-backend-bucket: ${{ inputs.s3-backend-bucket }}
               s3-bucket-region: ${{ inputs.s3-bucket-region }}
 
-              tf-state-key: terraform/${{ inputs.domain-name }}/gha/opensearch/terraform.tfstate
+              tf-state-key: ${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.domain-name }}/${{ inputs.domain-name }}.tfstate
 
               tf-cli-config-credentials-hostname: ${{ inputs.tf-cli-config-credentials-hostname }}
               tf-cli-config-credentials-token: ${{ inputs.tf-cli-config-credentials-token }}

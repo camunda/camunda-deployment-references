@@ -199,9 +199,9 @@ fi
 
 # Categorize resources by module type
 if [ "$ID_OR_ALL" == "all" ]; then
-  resources=$(echo "$all_objects" | grep "/terraform.tfstate" | awk '{print $4}')
+  resources=$(echo "$all_objects" | grep "/*.tfstate" | awk '{print $4}')
 else
-  resources=$(echo "$all_objects" | grep "/terraform.tfstate" | grep "$ID_OR_ALL" | awk '{print $4}')
+  resources=$(echo "$all_objects" | grep "/*.tfstate" | grep "$ID_OR_ALL" | awk '{print $4}')
 fi
 
 # Check if resources is empty (i.e., no objects found)
@@ -217,22 +217,15 @@ eks_resources=()
 
 # Classify resources into different module types
 for resource_id in $resources; do
-  terraform_module=$(basename "$(dirname "$resource_id")")
-
-  case "$terraform_module" in
-    aurora)
-      aurora_resources+=("$resource_id")
-      ;;
-    opensearch)
-      opensearch_resources+=("$resource_id")
-      ;;
-    eks-cluster)
-      eks_resources+=("$resource_id")
-      ;;
-    *)
-      echo "Skipping unsupported module: $terraform_module"
-      ;;
-  esac
+  if [[ "$resource_id" =~ aurora ]]; then
+    aurora_resources+=("$resource_id")
+  elif [[ "$resource_id" =~ opensearch ]]; then
+    opensearch_resources+=("$resource_id")
+  elif [[ "$resource_id" =~ eks-cluster ]]; then
+    eks_resources+=("$resource_id")
+  else
+    echo "Skipping unsupported module: $resource_id"
+  fi
 done
 
 current_timestamp=$($date_command +%s)

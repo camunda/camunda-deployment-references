@@ -32,8 +32,8 @@ env:
 
     # please keep those variables synced with tests.yml
     AWS_REGION: eu-west-2
-    TF_STATE_BUCKET: tests-eks-tf-state-eu-central-1
-    TF_STATE_BUCKET_REGION: eu-central-1
+    S3_BACKEND_BUCKET: tests-eks-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
 
 jobs:
 
@@ -78,8 +78,8 @@ jobs:
               if: always()
               uses: ./.github/actions/aws-eks-cleanup-resources
               with:
-                  tf-bucket: ${{ env.TF_STATE_BUCKET }}
-                  tf-bucket-region: ${{ env.TF_STATE_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: ${{ env.MAX_AGE_HOURS }}
                   target: all
 
@@ -90,8 +90,8 @@ jobs:
               if: failure() && steps.delete-orphaned-resources.outcome == 'failure'
               uses: ./.github/actions/aws-eks-cleanup-resources
               with:
-                  tf-bucket: ${{ env.TF_STATE_BUCKET }}
-                  tf-bucket-region: ${{ env.TF_STATE_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0 # the previous step alters the age and resets it to 0
                   target: all
 

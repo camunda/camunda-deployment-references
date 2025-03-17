@@ -9,8 +9,8 @@ This GitHub Action automates the deletion of EKS resources using a shell script.
 
 | name | description | required | default |
 | --- | --- | --- | --- |
-| `tf-bucket` | <p>Bucket containing the resources states</p> | `true` | `""` |
-| `tf-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION</p> | `false` | `""` |
+| `s3-backend-bucket` | <p>Bucket containing the resources states</p> | `true` | `""` |
+| `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION</p> | `false` | `""` |
 | `max-age-hours` | <p>Maximum age of resources in hours</p> | `false` | `20` |
 | `target` | <p>Specify an ID to destroy specific resources or "all" to destroy all resources</p> | `false` | `all` |
 | `temp-dir` | <p>Temporary directory prefix used for storing resource data during processing</p> | `false` | `./tmp/eks-cleanup/` |
@@ -26,13 +26,13 @@ This action is a `composite` action.
 ```yaml
 - uses: camunda/camunda-deployment-references/.github/actions/aws-eks-cleanup-resources@main
   with:
-    tf-bucket:
+    s3-backend-bucket:
     # Bucket containing the resources states
     #
     # Required: true
     # Default: ""
 
-    tf-bucket-region:
+    s3-bucket-region:
     # Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION
     #
     # Required: false

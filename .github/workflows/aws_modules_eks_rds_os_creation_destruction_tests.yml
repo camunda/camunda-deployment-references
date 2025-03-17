@@ -68,8 +68,9 @@ env:
     # /!\ always use one of the available test region https://github.com/camunda/infraex-common-config
 
     # please keep those synced with tests.yml
-    TF_STATE_BUCKET: tests-eks-tf-state-eu-central-1
-    TF_STATE_BUCKET_REGION: eu-central-1
+    S3_BACKEND_BUCKET: tests-eks-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    S3_BACKEND_BUCKET_PREFIX: aws/kubernetes/modules/ # keep it synced with the name of the module for simplicity
 
     CREATE_DB: ${{ github.event.inputs.create_db || 'true' }}
     CREATE_OPENSEARCH: ${{ github.event.inputs.create_opensearch || 'true' }}
@@ -148,6 +149,12 @@ jobs:
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
 
+            - name: Set current Camunda version
+              id: camunda-version
+              run: |
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
             - name: Create EKS Cluster
               timeout-minutes: 45
               uses: ./.github/actions/aws-eks-manage-cluster
@@ -160,8 +167,9 @@ jobs:
 
                   additional-terraform-vars: '{"np_capacity_type": "SPOT", "np_instance_types": ["t2.medium"]}'
 
-                  s3-backend-bucket: ${{ env.TF_STATE_BUCKET }}
-                  s3-bucket-region: ${{ env.TF_STATE_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}eks-cluster/${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   tf-modules-revision: ${{ steps.commit_info.outputs.tf_modules_revision }}
 
             - name: After EKS creation infos
@@ -191,8 +199,9 @@ jobs:
                   password: ${{ steps.commit_info.outputs.db_password }}
                   aws-region: ${{ env.AWS_REGION }}
 
-                  s3-backend-bucket: ${{ env.TF_STATE_BUCKET }}
-                  s3-bucket-region: ${{ env.TF_STATE_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}aurora/${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   tf-modules-revision: ${{ steps.commit_info.outputs.tf_modules_revision }}
 
                   vpc-id: ${{ steps.after_cluster_creation_infos.outputs.vpc_id }}
@@ -221,8 +230,9 @@ jobs:
                         "advanced_security_internal_user_database_enabled": true
                       }
 
-                  s3-backend-bucket: ${{ env.TF_STATE_BUCKET }}
-                  s3-bucket-region: ${{ env.TF_STATE_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}opensearch/${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   tf-modules-revision: ${{ steps.commit_info.outputs.tf_modules_revision }}
 
             - name: Delete Resources
@@ -230,8 +240,8 @@ jobs:
               if: always() && !(github.event_name == 'workflow_dispatch' && inputs.delete_cluster == 'false')
               uses: ./.github/actions/aws-eks-cleanup-resources
               with:
-                  tf-bucket: ${{ env.TF_STATE_BUCKET }}
-                  tf-bucket-region: ${{ env.TF_STATE_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
                   target: ${{ steps.commit_info.outputs.cluster_name }}
 
