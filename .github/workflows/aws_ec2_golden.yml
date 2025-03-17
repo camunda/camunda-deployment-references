@@ -105,3 +105,4 @@ jobs:
                       Check the delta diff in the [workflow run](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}) for a detailed comparison.
                       If the changes are expected, you can use the uploaded artifact on the workflow to update the golden file on your branch.
                       Alternatively run `just regenerate-aws-ec2-golden-file` locally to update the golden file.
+                  comment-body-no-diff: ✅ No diff, you can ignore this comment and below footer.

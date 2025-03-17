@@ -78,7 +78,7 @@ jobs:
                   exit $?
 
             - name: Post diff on PR
-              if: failure() && github.event_name == 'pull_request'
+              if: always() && github.event_name == 'pull_request'
               uses: int128/diff-action@db6cce01542cb26e181798736eea1e71f5d36706 # v1
               with:
                   base: ${{ env.MODULE_DIR }}test/golden/tfplan-golden.json
@@ -96,3 +96,4 @@ jobs:
                       ```sh
                       just regenerate-golden-file "${{ env.MODULE_DIR }}" "${{ env.S3_BUCKET_REGION }}" "${{ env.S3_BACKEND_BUCKET }}" "${{ env.S3_BUCKET_KEY }}"
                       ```
+                  comment-body-no-diff: ✅ No diff, you can ignore this comment and below footer.
