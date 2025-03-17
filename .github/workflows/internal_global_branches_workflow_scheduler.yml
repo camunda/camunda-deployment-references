@@ -104,10 +104,6 @@ jobs:
                     ')
                   fi
 
-                  schedule_name="Everyday schedules 8.6"
-                  filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg schedule_name "$schedule_name" \
-                     '[.[] | select(.name == $schedule_name)]')
-
                   echo "schedules=${filtered_schedules}" | tee -a "$GITHUB_OUTPUT"
 
     schedule-workflows:
