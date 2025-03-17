@@ -1,6 +1,6 @@
 {
   "child_modules": {
-    "module.rosa_cluster": {
+    "module.rosa_cluster_test": {
       "child_modules": {
         "module.rosa_cluster.module.htpasswd_idp": {
           "resources": {
@@ -1680,7 +1680,7 @@
                       "owner": "ARN_REDACTED"
                     },
                     "upgrade_acknowledgements_for": null,
-                    "version": "GOLDEN",
+                    "version": "4.17.16",
                     "wait_for_create_complete": true,
                     "wait_for_std_compute_nodes_complete": true,
                     "worker_disk_size": null
