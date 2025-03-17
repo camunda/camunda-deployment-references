@@ -24,7 +24,7 @@ concurrency:
     cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
 
 env:
-    IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedule/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
 
     # please keep those variables synced with daily-cleanup.yml
     AWS_PROFILE: infex
@@ -43,7 +43,7 @@ jobs:
     configure-tests:
         runs-on: ubuntu-latest
         if: >-
-            (github.event_name == 'schedule' || contains(github.ref, 'refs/heads/schedule/')) || github.event_name == 'workflow_dispatch' || (
+            (github.event_name == 'schedule' || contains(github.ref, 'refs/heads/schedules/')) || github.event_name == 'workflow_dispatch' || (
               github.event_name == 'pull_request' &&
               !contains(github.event.pull_request.labels.*.name, 'testing-ci-not-necessary')
             )
