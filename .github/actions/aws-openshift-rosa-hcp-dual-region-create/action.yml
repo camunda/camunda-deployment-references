@@ -3,12 +3,12 @@ name: Deploy AWS ROSA HCP Dual Region Cluster
 
 description: |
     This GitHub Action automates the deployment of the aws/openshift/rosa-hcp-dual-region reference architecture cluster using Terraform.
-    It will create 2 OpenShift clusters, a VPC peering and a bucket used for replication accross the regions.
+    It will create 2 OpenShift clusters, a VPC peering accross the regions.
     This action will also install oc, awscli, rosa cli.
     Each cluster will be added to the kube config with the name of the cluster as context's name.
 
 # TODO: add VPC peering
-# TODO: add backup bucket
+# TODO: add backup bucket in another action
 
 inputs:
     rh-token:
@@ -26,14 +26,12 @@ inputs:
     admin-username-cluster-1:
         description: Admin username for the ROSA cluster 1
         default: kube-admin
-        required: true
     admin-password-cluster-2:
         description: Admin password for the ROSA cluster 2
         required: true
     admin-username-cluster-2:
         description: Admin username for the ROSA cluster 2
         default: kube-admin
-        required: true
     aws-region-cluster-1:
         description: AWS region where the ROSA cluster 1 will be deployed
         required: true
@@ -42,24 +40,19 @@ inputs:
         required: true
     availability-zones-cluster-1:
         description: Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)
-        required: true
         default: a,b,c
     availability-zones-cluster-2:
         description: Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)
-        required: true
         default: a,b,c
     rosa-cli-version:
         description: Version of the ROSA CLI to use
-        required: true
         default: latest
     openshift-version-cluster-1:
         description: Version of the OpenShift to install
-        required: true
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
         default: 4.17.16
     openshift-version-cluster-2:
         description: Version of the OpenShift to install
-        required: true
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
         default: 4.17.16
     replicas-cluster-1:
@@ -80,15 +73,15 @@ inputs:
     tf-modules-revision:
         description: Git revision of the tf modules to use
         default: main
-        required: true
     tf-modules-path:
         description: Path where the tf rosa modules will be cloned
         default: ./.action-tf-modules/aws-openshift-rosa-hcp-dual-region-create/
-        required: true
     login:
         description: Authenticate the current kube context on the created clusters
         default: 'true'
-        required: true
+    enable-vpc-peering:
+        description: Whether or not to enable VPC Peering between the clusters
+        default: 'true'
 
 outputs:
     openshift-server-api-cluster-1:
@@ -221,7 +214,7 @@ runs:
 
         - name: Terraform Init
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
@@ -239,7 +232,7 @@ runs:
 
         - name: Terraform Plan
           id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash

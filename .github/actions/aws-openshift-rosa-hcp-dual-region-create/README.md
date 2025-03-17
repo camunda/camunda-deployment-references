@@ -3,7 +3,7 @@
 ## Description
 
 This GitHub Action automates the deployment of the aws/openshift/rosa-hcp-dual-region reference architecture cluster using Terraform.
-It will create 2 OpenShift clusters, a VPC peering and a bucket used for replication accross the regions.
+It will create 2 OpenShift clusters, a VPC peering accross the regions.
 This action will also install oc, awscli, rosa cli.
 Each cluster will be added to the kube config with the name of the cluster as context's name.
 
@@ -16,24 +16,25 @@ Each cluster will be added to the kube config with the name of the cluster as co
 | `cluster-name-1` | <p>Name of the ROSA cluster 1 to deploy</p> | `true` | `""` |
 | `cluster-name-2` | <p>Name of the ROSA cluster 2 to deploy</p> | `true` | `""` |
 | `admin-password-cluster-1` | <p>Admin password for the ROSA cluster 1</p> | `true` | `""` |
-| `admin-username-cluster-1` | <p>Admin username for the ROSA cluster 1</p> | `true` | `kube-admin` |
+| `admin-username-cluster-1` | <p>Admin username for the ROSA cluster 1</p> | `false` | `kube-admin` |
 | `admin-password-cluster-2` | <p>Admin password for the ROSA cluster 2</p> | `true` | `""` |
-| `admin-username-cluster-2` | <p>Admin username for the ROSA cluster 2</p> | `true` | `kube-admin` |
+| `admin-username-cluster-2` | <p>Admin username for the ROSA cluster 2</p> | `false` | `kube-admin` |
 | `aws-region-cluster-1` | <p>AWS region where the ROSA cluster 1 will be deployed</p> | `true` | `""` |
 | `aws-region-cluster-2` | <p>AWS region where the ROSA cluster 2 will be deployed</p> | `true` | `""` |
-| `availability-zones-cluster-1` | <p>Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)</p> | `true` | `a,b,c` |
-| `availability-zones-cluster-2` | <p>Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)</p> | `true` | `a,b,c` |
-| `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `true` | `latest` |
-| `openshift-version-cluster-1` | <p>Version of the OpenShift to install</p> | `true` | `4.17.16` |
-| `openshift-version-cluster-2` | <p>Version of the OpenShift to install</p> | `true` | `4.17.16` |
+| `availability-zones-cluster-1` | <p>Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)</p> | `false` | `a,b,c` |
+| `availability-zones-cluster-2` | <p>Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)</p> | `false` | `a,b,c` |
+| `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
+| `openshift-version-cluster-1` | <p>Version of the OpenShift to install</p> | `false` | `4.17.16` |
+| `openshift-version-cluster-2` | <p>Version of the OpenShift to install</p> | `false` | `4.17.16` |
 | `replicas-cluster-1` | <p>Number of replicas for the ROSA cluster 1 (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `replicas-cluster-2` | <p>Number of replicas for the ROSA cluster 2 (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states.</p> | `true` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
-| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `main` |
-| `tf-modules-path` | <p>Path where the tf rosa modules will be cloned</p> | `true` | `./.action-tf-modules/aws-openshift-rosa-hcp-dual-region-create/` |
-| `login` | <p>Authenticate the current kube context on the created clusters</p> | `true` | `true` |
+| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `false` | `main` |
+| `tf-modules-path` | <p>Path where the tf rosa modules will be cloned</p> | `false` | `./.action-tf-modules/aws-openshift-rosa-hcp-dual-region-create/` |
+| `login` | <p>Authenticate the current kube context on the created clusters</p> | `false` | `true` |
+| `enable-vpc-peering` | <p>Whether or not to enable VPC Peering between the clusters</p> | `false` | `true` |
 
 
 ## Outputs
@@ -85,7 +86,7 @@ This action is a `composite` action.
     admin-username-cluster-1:
     # Admin username for the ROSA cluster 1
     #
-    # Required: true
+    # Required: false
     # Default: kube-admin
 
     admin-password-cluster-2:
@@ -97,7 +98,7 @@ This action is a `composite` action.
     admin-username-cluster-2:
     # Admin username for the ROSA cluster 2
     #
-    # Required: true
+    # Required: false
     # Default: kube-admin
 
     aws-region-cluster-1:
@@ -115,31 +116,31 @@ This action is a `composite` action.
     availability-zones-cluster-1:
     # Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)
     #
-    # Required: true
+    # Required: false
     # Default: a,b,c
 
     availability-zones-cluster-2:
     # Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)
     #
-    # Required: true
+    # Required: false
     # Default: a,b,c
 
     rosa-cli-version:
     # Version of the ROSA CLI to use
     #
-    # Required: true
+    # Required: false
     # Default: latest
 
     openshift-version-cluster-1:
     # Version of the OpenShift to install
     #
-    # Required: true
+    # Required: false
     # Default: 4.17.16
 
     openshift-version-cluster-2:
     # Version of the OpenShift to install
     #
-    # Required: true
+    # Required: false
     # Default: 4.17.16
 
     replicas-cluster-1:
@@ -175,18 +176,24 @@ This action is a `composite` action.
     tf-modules-revision:
     # Git revision of the tf modules to use
     #
-    # Required: true
+    # Required: false
     # Default: main
 
     tf-modules-path:
     # Path where the tf rosa modules will be cloned
     #
-    # Required: true
+    # Required: false
     # Default: ./.action-tf-modules/aws-openshift-rosa-hcp-dual-region-create/
 
     login:
     # Authenticate the current kube context on the created clusters
     #
-    # Required: true
+    # Required: false
+    # Default: true
+
+    enable-vpc-peering:
+    # Whether or not to enable VPC Peering between the clusters
+    #
+    # Required: false
     # Default: true
 ```
