@@ -100,6 +100,8 @@ jobs:
 
             - name: Delete specific comment containing the text and post diff
               if: always() && github.event_name == 'pull_request'
+              env:
+                  GH_TOKEN: ${{ github.token }}
               run: |
                   DIFF_COMMENT=$(gh pr view ${{ github.event.pull_request.number }} --json comments \
                       --jq ".comments[] | select(.body | contains(\"✅ No diff, you can ignore this comment and below footer.\")) | .id")
