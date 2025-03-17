@@ -97,3 +97,14 @@ jobs:
                       just regenerate-golden-file "${{ env.MODULE_DIR }}" "${{ env.S3_BUCKET_REGION }}" "${{ env.S3_BACKEND_BUCKET }}" "${{ env.S3_BUCKET_KEY }}"
                       ```
                   comment-body-no-diff: ✅ No diff, you can ignore this comment and below footer.
+
+            - name: Delete specific comment containing the text and post diff
+              if: always() && github.event_name == 'pull_request'
+              run: |
+                  DIFF_COMMENT=$(gh pr view ${{ github.event.pull_request.number }} --json comments \
+                      --jq ".comments[] | select(.body | contains(\"✅ No diff, you can ignore this comment and below footer.\")) | .id")
+
+                  if [ -n "$DIFF_COMMENT" ]; then
+                      echo "Deleting no diff comment with ID $DIFF_COMMENT"
+                      gh pr comment ${{ github.event.pull_request.number }} --delete --comment-id "$DIFF_COMMENT"
+                  fi
