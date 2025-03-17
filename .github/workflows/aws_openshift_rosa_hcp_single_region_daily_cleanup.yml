@@ -1,6 +1,5 @@
 ---
 name: Tests - Daily Cleanup - AWS OpenShift ROSA HCP Single Region
-
 on:
     workflow_dispatch:
         inputs:
@@ -8,38 +7,24 @@ on:
                 description: Maximum age of clusters in hours
                 required: true
                 default: '20'
-    pull_request:
-        paths:
-            - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
-            - .tool-versions
-            - aws/openshift/rosa-hcp-single-region/**
-            - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
-            - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
-
+    pull_request: {}
     schedule:
         - cron: 0 1 * * * # At 01:00 everyday.
-
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # in case of renovate we don't cancel the previous run, so it can finish it
-    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
+  # in case of renovate we don't cancel the previous run, so it can finish it
+  # otherwise weekly renovate PRs with tf docs updates result in broken clusters
     cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
-
 env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
-
     MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '20' }}
-
-    # please keep those variables synced with aws_rosa_hcp_tests.yml
+  # please keep those variables synced with aws_rosa_hcp_tests.yml
     AWS_PROFILE: infex
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     AWS_REGION: eu-west-2
-
-
 jobs:
-
     cleanup-clusters:
         runs-on: ubuntu-latest
         steps:
@@ -48,19 +33,15 @@ jobs:
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
-
             - name: Use repo .tool-version as global version
               run: cp .tool-versions ~/.tool-versions
-
             - name: Set current Camunda version
               id: camunda-version
               run: |
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
-
             - name: Import Secrets
               id: secrets
               uses: hashicorp/vault-action@a1b77a09293a4366e48a5067a86692ac6e94fdc0 # v3
@@ -74,14 +55,12 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
-
-            # Official action does not support profiles
+      # Official action does not support profiles
             - name: Add profile credentials to ~/.aws/credentials
               run: |
                   aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
-
             - name: Delete clusters
               id: delete_clusters
               timeout-minutes: 125
@@ -93,8 +72,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: ${{ env.MAX_AGE_HOURS_CLUSTER }}
                   tf-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
-
-            # There are cases where the deletion of resources fails due to dependencies.
+      # There are cases where the deletion of resources fails due to dependencies.
             - name: Retry delete clusters
               id: retry_delete_clusters
               if: failure() && steps.delete_clusters.outcome == 'failure'
@@ -107,7 +85,6 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0 # the previous step alters the age and resets it to 0
                   tf-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
-
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ failure() && env.IS_SCHEDULE == 'true' && steps.retry_delete_clusters.outcome == 'failure' }}
