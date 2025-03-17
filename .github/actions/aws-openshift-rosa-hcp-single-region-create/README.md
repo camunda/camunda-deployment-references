@@ -18,7 +18,7 @@ The kube context will be set on the created cluster.
 | `aws-region` | <p>AWS region where the ROSA cluster will be deployed</p> | `true` | `""` |
 | `availability-zones` | <p>Comma separated list of availability zones (letters only, e.g., a,b,c)</p> | `true` | `a,b,c` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `true` | `latest` |
-| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.17.16` |
+| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.18.3` |
 | `replicas` | <p>Number of replicas for the ROSA cluster (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
@@ -92,7 +92,7 @@ This action is a `composite` action.
     # Version of the OpenShift to install
     #
     # Required: true
-    # Default: 4.17.16
+    # Default: 4.18.3
 
     replicas:
     # Number of replicas for the ROSA cluster (empty will fallback on default value of the module)

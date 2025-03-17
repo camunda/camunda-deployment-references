@@ -56,7 +56,12 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
   # redact sensible/specific values
   sed 's/"arn:[^\"]*\"/"ARN_REDACTED"/g' tfplan.json > tfplan-redacted.json
   rm -f tfplan.json
-  sed -E 's/"arn:([^"\\]|\\.)*"/"ARN_REDACTED"/g; s/'\''arn:([^'\''\\]|\\.)*'\''/'\''ARN_REDACTED'\''/g' tfplan-redacted.json > tfplan.json
+  sed -E '
+  s/"arn:([^"\\]|\\.)*"/"ARN_REDACTED"/g;
+  s/'\''arn:([^'\''\\]|\\.)*'\''/'\''ARN_REDACTED'\''/g;
+  s/\"[0-9]+\.[0-9]+\.[0-9]+\",/"GOLDEN",/g;;
+  ' tfplan-redacted.json > tfplan.json
+
   rm -f tfplan-redacted.json
 
   # bring order
