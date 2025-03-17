@@ -1,6 +1,6 @@
 {
   "child_modules": {
-    "module.rosa_cluster_test": {
+    "module.rosa_cluster_test_2": {
       "child_modules": {
         "module.rosa_cluster.module.htpasswd_idp": {
           "resources": {
