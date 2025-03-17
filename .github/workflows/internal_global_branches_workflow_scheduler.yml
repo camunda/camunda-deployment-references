@@ -86,9 +86,7 @@ jobs:
                   # Convert each workflow_files array to a string format
                   formatted_schedules=$(echo "$schedules" | jq -c '.[].workflow_files |= tostring')
 
-                  schedule_name="Everyday schedules 8.6"
-                  #if [[ -n "${{ github.event.inputs.schedule_name }}" ]]; then
-                  if [[ -n "$schedule_name" ]]; then
+                  if [[ -n "${{ github.event.inputs.schedule_name }}" ]]; then
                     # Filter schedules based on the provided workflow name
                     filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg schedule_name "${{ github.event.inputs.schedule_name }}" '
                     [.[] | select(.name == $schedule_name)]
@@ -105,6 +103,10 @@ jobs:
                         )]
                     ')
                   fi
+
+                  schedule_name="Everyday schedules 8.6"
+                  filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg schedule_name "$schedule_name" \
+                     '[.[] | select(.name == $schedule_name)]')
 
                   echo "schedules=${filtered_schedules}" | tee -a "$GITHUB_OUTPUT"
 
