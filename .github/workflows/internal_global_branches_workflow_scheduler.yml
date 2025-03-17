@@ -154,6 +154,9 @@ jobs:
                   # Loop through each workflow file and modify it using yq
                   echo "$workflow_files" | while IFS= read -r workflow_file; do
                     yq -i 'del(.on.pull_request.paths)' "$workflow_file"
+
+                    # remove all comments in the file as yamlfmt may conflict with yamllint
+                    yq -i '... comments=""' "$workflow_file"
                   done
 
             - name: Reformat yaml after yq files using pre-commit
