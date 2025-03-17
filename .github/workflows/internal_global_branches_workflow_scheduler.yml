@@ -45,8 +45,8 @@ jobs:
               env:
                   GH_TOKEN: ${{ steps.generate-github-token.outputs.token }}
               run: |
-                  prs=$(gh pr list --state open --label "schedule" --json number,headRefName,createdAt \
-                            --jq '.[] | select(.createdAt < (now - 86400)) | "\(.number) \(.headRefName)"')
+                  prs=$(gh pr list --state "OPEN" --label "schedule" --json number,headRefName,createdAt \
+                        --jq '[.[] | select((now - (.createdAt | fromdate)) > 86400)]')
 
                   if [[ -z "$prs" ]]; then
                     echo "No PRs found with the label 'schedule'."
@@ -55,10 +55,13 @@ jobs:
 
                   echo "PRs with the label 'schedule': $prs"
 
-                  while IFS=" " read -r pr_number branch_name; do
-                      echo "Closing PR #$pr_number and deleting branch $branch_name..."
-                      gh pr close "$pr_number" --delete-branch
-                  done <<< "$prs"
+                  # Loop through each PR in the JSON array and process it
+                  echo "$prs" | jq -c '.[]' | while IFS= read -r pr; do
+                    pr_number=$(echo "$pr" | jq -r '.number')
+                    branch_name=$(echo "$pr" | jq -r '.headRefName')
+                    echo "Closing PR #$pr_number and deleting branch $branch_name..."
+                    gh pr close "$pr_number" --delete-branch
+                  done
 
     define-matrix:
         runs-on: ubuntu-latest
