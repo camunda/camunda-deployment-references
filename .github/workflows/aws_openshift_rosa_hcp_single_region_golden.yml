@@ -78,7 +78,7 @@ jobs:
                   exit $?
 
             - name: Post diff on PR
-              if: failure() && github.event_name == 'pull_request'
+              if: always() && github.event_name == 'pull_request'
               uses: int128/diff-action@db6cce01542cb26e181798736eea1e71f5d36706 # v1
               with:
                   base: ${{ env.MODULE_DIR }}test/golden/tfplan-golden.json
@@ -96,3 +96,22 @@ jobs:
                       ```sh
                       just regenerate-golden-file "${{ env.MODULE_DIR }}" "${{ env.S3_BUCKET_REGION }}" "${{ env.S3_BACKEND_BUCKET }}" "${{ env.S3_BUCKET_KEY }}"
                       ```
+                  comment-body-no-diff: ✅ No diff, you can ignore this comment and below footer.
+
+            - name: Delete specific comment containing the text and post diff
+              if: always() && github.event_name == 'pull_request'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  diff_comment_url=$(gh pr view ${{ github.event.pull_request.number }} --json comments \
+                      --jq ".comments[] | select(.body | contains(\"✅ No diff, you can ignore this comment and below footer.\")) | .url")
+
+                  if [ -n "$diff_comment_url" ]; then
+                      # shellcheck disable=SC2001
+                      comment_id=$(echo "$diff_comment_url" | sed 's/.*#issuecomment-\([^ ]*\)/\1/')
+                      echo "Deleting no diff comment $diff_comment_url (#$comment_id)"
+                      gh api \
+                        --method DELETE \
+                        -H "Accept: application/vnd.github+json" \
+                        "/repos/${{ github.repository }}/issues/comments/$comment_id"
+                  fi
