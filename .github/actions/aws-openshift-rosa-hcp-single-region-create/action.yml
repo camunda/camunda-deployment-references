@@ -255,8 +255,6 @@ runs:
                   set -o errexit
                   set -o pipefail
 
-                  oc login --username "${{ inputs.admin-username }}" --password "${{ inputs.admin-password }}" "${{ steps.cluster_info.outputs.cluster_api }}"
-
                   # Check if the user is already a cluster-admin
                   if ! rosa list users --cluster="${{ inputs.cluster-name }}" | grep -q "${{ inputs.admin-username }}"; then
                     rosa grant user cluster-admin --cluster="${{ inputs.cluster-name }}" --user="${{ inputs.admin-username }}"
@@ -264,6 +262,7 @@ runs:
                     echo "✅ User '${{ inputs.admin-username }}' is already a cluster-admin on '${{ inputs.cluster-name }}'."
                   fi
 
+                  oc login --username "${{ inputs.admin-username }}" --password "${{ inputs.admin-password }}" "${{ steps.cluster_info.outputs.cluster_api }}"
                   oc whoami
 
                   kubectl config rename-context $(oc config current-context) "${{ inputs.cluster-name }}"
