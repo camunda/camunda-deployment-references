@@ -8,6 +8,9 @@ set -o pipefail
 # the appropriate backend configuration, and runs `terraform destroy`. If the destroy operation
 # is successful, it removes the corresponding S3 objects.
 #
+# Additionally, if the environment variable `RETRY_DESTROY` is set, the script will invoke `cloud-nuke`
+# to ensure the deletion of any remaining VPC resources that might not have been removed by Terraform.
+#
 # Usage:
 # ./destroy_clusters.sh <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX]
 #
@@ -27,7 +30,7 @@ set -o pipefail
 # Requirements:
 # - AWS CLI installed and configured with the necessary permissions to access and modify the S3 bucket.
 # - Terraform installed and accessible in the PATH.
-
+# - `yq` installed when you use `RETRY_DESTROY`.
 
 # Check for required arguments
 if [ "$#" -lt 5 ] || [ "$#" -gt 6 ]; then
@@ -55,6 +58,7 @@ ID_OR_ALL=$5
 KEY_PREFIX=${6:-""}  # Key prefix is optional
 FAILED=0
 CURRENT_DIR=$(pwd)
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 AWS_S3_REGION=${AWS_S3_REGION:-$AWS_REGION}
 
 
@@ -87,6 +91,12 @@ destroy_cluster() {
   cp -a "$MODULES_DIR." "$temp_dir" || return 1
 
   tree "$MODULES_DIR" "$temp_dir" || return 1
+
+  if [[ "$RETRY_DESTROY" == "true" ]]; then
+      echo "Performing cloud-nuke on VPC to ensure that resources managed outside of Terraform are deleted."
+      yq eval ".VPC.include.names_regex = [\"^$cluster_id.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
+      cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$AWS_REGION" --force
+  fi
 
   cd "$temp_dir" || return 1
 
