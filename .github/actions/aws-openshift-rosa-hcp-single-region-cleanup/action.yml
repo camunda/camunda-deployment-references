@@ -59,6 +59,10 @@ runs:
         - name: Delete clusters
           id: delete_clusters
           shell: bash
+          env:
+              TF_LOG: DEBUG
+              TF_LOG_PROVIDER: DEBUG
+              TF_LOG_CORE: DEBUG
           run: |
               if [ -n "${{ inputs.tf-bucket-region }}" ]; then
                 export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
