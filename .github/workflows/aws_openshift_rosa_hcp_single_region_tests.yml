@@ -228,7 +228,7 @@ jobs:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6158b7c7534f6dbeb3fa7c3c836f6e6aa6881b2e # 1.3.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
 
             - name: Install CLI tools from OpenShift Mirror
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -268,7 +268,7 @@ jobs:
 
             - name: 🏗️ Prepare a fresh namespace for the tests
               # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
-              uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3
+              uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3
               with:
                   timeout_minutes: 10
                   max_attempts: 40
@@ -278,10 +278,12 @@ jobs:
                       set -o errexit # this is required https://github.com/nick-fields/retry/issues/133
                       set -o pipefail
 
-                      source ./aws/openshift/rosa-hcp-single-region/procedure/gather-cluster-login-id.sh
+                      cd ./aws/openshift/rosa-hcp-single-region/
+                      source ./procedure/gather-cluster-login-id.sh
+                      cd -
+
                       echo "CLUSTER_NAME=$CLUSTER_NAME"
                       echo "CLUSTER_API_URL=$CLUSTER_API_URL"
-                      echo "CLUSTER_ADMIN_USERNAME=$CLUSTER_ADMIN_USERNAME"
 
                       # Delete the namespace to ensure a fresh start
                       if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
@@ -292,64 +294,62 @@ jobs:
                         done
                       fi
 
-                      kubectl create namespace "$TEST_NAMESPACE"
+                      oc new-project "$TEST_NAMESPACE" \
+                        --description="Integration project of $TEST_NAMESPACE" \
+                        --display-name="$TEST_NAMESPACE"
+
+                      echo "Sleeping 30s"
+                      sleep 30
 
             - name: 🛠️ Assemble deployment values of generic/openshift/single-region
-              # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
-              uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3
-              with:
-                  timeout_minutes: 10
-                  max_attempts: 40
-                  shell: bash
-                  retry_wait_seconds: 15
-                  command: |
-                      set -o errexit
-                      set -euxo pipefail # tolerate, nothing.
+              run: |
+                  set -o errexit
+                  set -euxo pipefail # tolerate, nothing.
 
-                      # As this action can be retried due to OpenShift API error, it must
-                      # be stateless (all commmands can be rerun without issue)
+                  # As this action can be retried due to OpenShift API error, it must
+                  # be stateless (all commmands can be rerun without issue)
 
-                      echo "Construct the values.yml file"
+                  echo "Construct the values.yml file"
 
-                      cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
+                  cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
 
-                      source ./generic/openshift/single-region/procedure/setup-application-domain.sh
-                      echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+                  source ./generic/openshift/single-region/procedure/setup-application-domain.sh
+                  echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
-                      source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+                  source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
 
-                      ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
+                  ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
 
-                      # Enable Routes
-                      for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
-                          yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
-                          cat values-result.yml && mv values-result.yml values.yml
-                      done
-
-                      # Enable SCC
-                      yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
+                  # Enable Routes
+                  for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
+                      yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
+                  done
 
-                      if [ "$WEBMODELER_ENABLED" == "true" ]; then
-                        echo "Enabling WebModeler"
-                        yq -i '.webModeler.enabled = true' values.yml
-                        yq -i '.postgresql.enabled = true' values.yml
-                      fi
+                  # Enable SCC
+                  yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
 
-                      if [ "$CONSOLE_ENABLED" == "true" ]; then
-                        echo "Enabling Console"
-                        yq -i '.console.enabled = true' values.yml
-                      fi
+                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                    echo "Enabling WebModeler"
+                    yq -i '.webModeler.enabled = true' values.yml
+                    yq -i '.postgresql.enabled = true' values.yml
+                  fi
 
-                      # Add integration tests values
-                      if [ "$TESTS_ENABLED" == "true" ]; then
-                        for file in registry.yml identity.yml; do
-                          yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
-                          cat values-result.yml && mv values-result.yml values.yml
-                        done
-                      fi
+                  if [ "$CONSOLE_ENABLED" == "true" ]; then
+                    echo "Enabling Console"
+                    yq -i '.console.enabled = true' values.yml
+                  fi
 
-                      ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
+                  # Add integration tests values
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    for file in registry.yml identity.yml; do
+                      yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
+                    done
+                  fi
+
+                  ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
 
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
@@ -581,7 +581,7 @@ jobs:
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
-              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@52f7c04dc9817a2f8a5b7b1c5450a80a8a6996ae # main
+              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@2cccac37a99d9344528f3595df2246459206fc3d # main
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
@@ -658,7 +658,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

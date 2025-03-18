@@ -32,7 +32,7 @@ inputs:
         description: Version of the OpenShift to install
         required: true
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.17.16
+        default: 4.18.3
 
 runs:
     using: composite
@@ -55,6 +55,21 @@ runs:
           uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
           with:
               oc: ${{ inputs.openshift-version }}
+
+        - name: Install Cloud Nuke for retry
+          shell: bash
+          if: ${{ env.RETRY_DESTROY == 'true' }}
+          env:
+              # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
+              CLOUD_NUKE_VERSION: v0.38.2
+          run: |
+              curl -LO \
+                  --retry 5 \
+                  --max-time 15 \
+                  --retry-delay 30 \
+                  https://github.com/gruntwork-io/cloud-nuke/releases/download/${{ env.CLOUD_NUKE_VERSION }}/cloud-nuke_linux_amd64
+              chmod +x cloud-nuke_linux_amd64
+              mv cloud-nuke_linux_amd64 /usr/local/bin/cloud-nuke
 
         - name: Delete clusters
           id: delete_clusters
