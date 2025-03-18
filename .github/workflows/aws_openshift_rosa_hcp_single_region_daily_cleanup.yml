@@ -102,6 +102,7 @@ jobs:
               uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-cleanup
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+                  RETRY_DESTROY: 'true' # trigger cloud nuke
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
