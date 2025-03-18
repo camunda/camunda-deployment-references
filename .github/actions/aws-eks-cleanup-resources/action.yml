@@ -13,6 +13,10 @@ inputs:
         description: Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION
         required: false
 
+    camunda-version:
+        description: Camunda version to only clean up certain compatible versions.
+        default: ''
+
     max-age-hours:
         description: Maximum age of resources in hours
         default: '20'
@@ -43,4 +47,4 @@ runs:
               fi
 
               ${{ github.action_path }}/scripts/destroy.sh "${{ inputs.s3-backend-bucket }}" ${{ github.action_path }}/../../../aws/modules/ \
-                "${{ inputs.temp-dir }}" ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.module-name }}
+                "${{ inputs.temp-dir }}" ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.module-name }} ${{ inputs.camunda-version }}

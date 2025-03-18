@@ -72,6 +72,12 @@ jobs:
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
 
+            - name: Set current Camunda version
+              id: camunda-version
+              run: |
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
             - name: Delete orphaned resources
               id: delete-orphaned-resources
               timeout-minutes: 360
@@ -80,6 +86,7 @@ jobs:
               with:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   max-age-hours: ${{ env.MAX_AGE_HOURS }}
                   target: all
 
@@ -92,6 +99,7 @@ jobs:
               with:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   max-age-hours: 0 # the previous step alters the age and resets it to 0
                   target: all
 

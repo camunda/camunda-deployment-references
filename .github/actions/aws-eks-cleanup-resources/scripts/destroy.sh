@@ -18,6 +18,7 @@ set -o pipefail
 #   MIN_AGE_IN_HOURS: The minimum age (in hours) of resources to be destroyed.
 #   ID_OR_ALL: The specific ID suffix to filter objects, or "all" to destroy all objects.
 #   MODULE_NAME (optional): The name of the module to destroy (e.g., "eks-cluster", "aurora", "opensearch"). Default is "all".
+#   CAMUNDA_VERSION: The version of Camunda Cloud to filter the resources. Default is "" - empty targeting all versions.
 #
 # Example:
 # ./destroy.sh tf-state-eks-ci-eu-west-3 ./modules/eks/ /tmp/eks/ 24 all
@@ -28,7 +29,7 @@ set -o pipefail
 # - Terraform installed and accessible in the PATH.
 
 # Check for required arguments
-if [ "$#" -lt 5 ] || [ "$#" -gt 6 ]; then
+if [ "$#" -lt 6 ] || [ "$#" -gt 7 ]; then
   echo "Usage: $0 <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [MODULE_NAME]"
   exit 1
 fi
@@ -52,6 +53,7 @@ TEMP_DIR_PREFIX=$3
 MIN_AGE_IN_HOURS=$4
 ID_OR_ALL=$5
 MODULE_NAME=${6:-all}
+CAMUNDA_VERSION=$7
 FAILED=0
 CURRENT_DIR=$(pwd)
 AWS_S3_REGION=${AWS_S3_REGION:-$AWS_REGION}
@@ -199,14 +201,14 @@ fi
 
 # Categorize resources by module type
 if [ "$ID_OR_ALL" == "all" ]; then
-  resources=$(echo "$all_objects" | grep "/*.tfstate" | awk '{print $4}')
+  resources=$(echo "$all_objects" | grep "/*.tfstate" | grep "$CAMUNDA_VERSION" | awk '{print $4}')
 else
-  resources=$(echo "$all_objects" | grep "/*.tfstate" | grep "$ID_OR_ALL" | awk '{print $4}')
+  resources=$(echo "$all_objects" | grep "/*.tfstate" | grep "$CAMUNDA_VERSION" | grep "$ID_OR_ALL" | awk '{print $4}')
 fi
 
 # Check if resources is empty (i.e., no objects found)
 if [ -z "$resources" ]; then
-  echo "No terraform.tfstate objects found in the S3 bucket. Exiting script." >&2
+  echo "No tfstate objects found in the S3 bucket. Exiting script." >&2
   exit 0
 fi
 
@@ -230,6 +232,21 @@ done
 
 current_timestamp=$($date_command +%s)
 
+# Function to filter the module type based on the resource ID (path)
+filter_module_type() {
+  local resource_id=$1
+
+  if [[ "$resource_id" =~ aurora ]]; then
+    echo "aurora"
+  elif [[ "$resource_id" =~ opensearch ]]; then
+    echo "opensearch"
+  elif [[ "$resource_id" =~ eks-cluster ]]; then
+    echo "eks-cluster"
+  else
+    echo "unsupported"
+  fi
+}
+
 # Function to process the destruction for a specific resource type
 process_resources_in_order() {
   local resources=("$@")  # Accept an array of resources to process
@@ -237,7 +254,7 @@ process_resources_in_order() {
   for resource_id in "${resources[@]}"; do
     cd "$CURRENT_DIR" || return 1
 
-    terraform_module=$(basename "$(dirname "$resource_id")")
+    terraform_module=$(filter_module_type "$resource_id")
     echo "Checking resource $resource_id (terraform module=$terraform_module)"
 
     # Apply module name filter if specified

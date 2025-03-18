@@ -242,6 +242,7 @@ jobs:
               with:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   max-age-hours: 0
                   target: ${{ steps.commit_info.outputs.cluster_name }}
 
