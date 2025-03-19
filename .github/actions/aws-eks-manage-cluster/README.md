@@ -16,7 +16,7 @@ This action will also install Terraform, awscli, and kubectl. The kube context w
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
-| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `false` | `merge-branch` |
+| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `false` | `main` |
 | `tf-modules-path` | <p>Path where the tf EKS modules will be cloned</p> | `false` | `./.action-tf-modules/eks/` |
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `false` | `true` |
 | `tf-cli-config-credentials-hostname` | <p>The hostname of a HCP Terraform/Terraform Enterprise instance to place within the credentials block of the Terraform CLI configuration file. Defaults to <code>app.terraform.io</code>.</p> | `false` | `app.terraform.io` |
@@ -84,7 +84,7 @@ This action is a `composite` action.
     # Git revision of the tf modules to use
     #
     # Required: false
-    # Default: merge-branch
+    # Default: main
 
     tf-modules-path:
     # Path where the tf EKS modules will be cloned
