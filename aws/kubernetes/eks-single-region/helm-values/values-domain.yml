@@ -1,0 +1,125 @@
+---
+identityKeycloak:
+    postgresql:
+        enabled: false
+    externalDatabase:
+        # see https://artifacthub.io/packages/helm/bitnami/keycloak
+        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
+        existingSecretHostKey: host
+        existingSecretPortKey: port
+        existingSecretUserKey: user
+        existingSecretDatabaseKey: database
+        existingSecretPasswordKey: password
+    auth:
+        existingSecret: identity-secret-for-components
+
+global:
+    elasticsearch:
+        enabled: false
+    opensearch:
+        enabled: true
+        aws:
+            enabled: false # we rely on anonymous auth, not irsa, basic auth is not supported on managed OpenSearch
+        auth:
+            username:
+            password:
+        url:
+            protocol: https
+            host: ${OPENSEARCH_HOST}
+            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
+            port: 443
+
+    ingress:
+        enabled: true
+        host: ${DOMAIN_NAME}
+        tls:
+            enabled: true
+            secretName: camunda-c8-tls
+        annotations:
+            kubernetes.io/tls-acme: 'true'
+    identity:
+        auth:
+            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
+            zeebe:
+                existingSecret:
+                    name: identity-secret-for-components
+            connectors:
+                existingSecret:
+                    name: identity-secret-for-components
+            operate:
+                redirectUrl: https://${DOMAIN_NAME}/operate
+                existingSecret:
+                    name: identity-secret-for-components
+            tasklist:
+                redirectUrl: https://${DOMAIN_NAME}/tasklist
+                existingSecret:
+                    name: identity-secret-for-components
+            optimize:
+                redirectUrl: https://${DOMAIN_NAME}/optimize
+                existingSecret:
+                    name: identity-secret-for-components
+            webModeler:
+                redirectUrl: https://${DOMAIN_NAME}/modeler
+            console:
+                redirectUrl: https://${DOMAIN_NAME}/console
+                existingSecret:
+                    name: identity-secret-for-components
+
+elasticsearch:
+    enabled: false
+
+identity:
+    contextPath: /identity
+    fullURL: https://${DOMAIN_NAME}/identity
+
+    externalDatabase:
+        enabled: true
+        host: ${DB_HOST}
+        port: 5432
+        username: ${DB_IDENTITY_USERNAME}
+        database: ${DB_IDENTITY_NAME}
+        existingSecret: identity-postgres-secret
+        existingSecretPasswordKey: password
+
+operate:
+    contextPath: /operate
+
+tasklist:
+    contextPath: /tasklist
+
+webModeler:
+    enabled: false # by default, webModeler is not enabled
+    contextPath: /modeler
+
+    restapi:
+        externalDatabase:
+            url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}
+            user: ${DB_WEBMODELER_USERNAME}
+            existingSecret: webmodeler-postgres-secret
+            existingSecretPasswordKey: password
+        mail:
+            existingSecret: identity-secret-for-components # reference the smtp password
+            fromAddress: changeme@example.com   # change this required value
+
+optimize:
+    contextPath: /optimize
+
+    # OpenSearch prevents migration
+    migration:
+        enabled: false
+
+zeebeGateway:
+    ingress:
+        grpc:
+            enabled: true
+            host: zeebe.${DOMAIN_NAME}
+            tls:
+                enabled: true
+                secretName: zeebe-c8-tls-grpc
+            annotations:
+                kubernetes.io/tls-acme: 'true'
+    contextPath: /zeebe
+
+console:
+    enabled: false # by default, console is not enabled
+    contextPath: /console

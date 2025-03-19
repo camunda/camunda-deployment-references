@@ -1,0 +1,18 @@
+---
+# Add 'feature' label to any PR where the head branch name starts with `feature` or has a `feature` section in the name
+feature:
+    - head-branch: [^feature, feature]
+
+# Add 'test' label to any changes within 'test' folder or any subfolders
+test:
+    - changed-files:
+          - any-glob-to-any-file:
+                - '**/test/**.go'
+                - '**/test/**/go.mod'
+                - '**/modules/fixtures/**'
+
+terraform:
+    - changed-files:
+          - any-glob-to-any-file:
+                - '**/modules/**.tf'
+                - .tool-versions

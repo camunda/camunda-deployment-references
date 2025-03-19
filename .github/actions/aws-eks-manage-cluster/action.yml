@@ -1,0 +1,182 @@
+---
+name: Deploy an EKS Cluster
+
+description: |
+    This GitHub Action automates the deployment of an EKS (Amazon Elastic Kubernetes Service) cluster using Terraform.
+    This action will also install Terraform, awscli, and kubectl. The kube context will be set on the created cluster.
+
+inputs:
+    aws-region:
+        description: AWS region where the EKS cluster will be deployed
+        required: true
+
+    cluster-name:
+        description: Name of the EKS cluster to deploy
+        required: true
+
+    additional-terraform-vars:
+        description: JSON object containing additional Terraform variables
+        required: false
+        default: '{}'
+
+    s3-backend-bucket:
+        description: Name of the S3 bucket to store Terraform state
+        required: true
+
+    s3-bucket-region:
+        description: Region of the bucket containing the resources states, if not set, will fallback on aws-region
+        required: false
+
+    s3-bucket-key-prefix:
+        description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+        default: ''
+
+    tf-modules-revision:
+        description: Git revision of the tf modules to use
+        default: merge-branch
+
+    tf-modules-path:
+        description: Path where the tf EKS modules will be cloned
+        default: ./.action-tf-modules/eks/
+
+    login:
+        description: Authenticate the current kube context on the created cluster
+        default: 'true'
+
+    # inherited from https://github.com/hashicorp/setup-terraform/blob/main/action.yml
+    tf-cli-config-credentials-hostname:
+        description: The hostname of a HCP Terraform/Terraform Enterprise instance to place within the credentials block of the Terraform CLI configuration
+            file. Defaults to `app.terraform.io`.
+        default: app.terraform.io
+
+    tf-cli-config-credentials-token:
+        description: The API token for a HCP Terraform/Terraform Enterprise instance to place within the credentials block of the Terraform CLI configuration
+            file.
+        required: false
+
+    tf-terraform-version:
+        description: The version of Terraform CLI to install. Instead of full version string you can also specify constraint string starting with "<" (for
+            example `<1.13.0`) to install the latest version satisfying the constraint. A value of `latest` will install the latest version of Terraform
+            CLI. Defaults to `latest`.
+        default: latest
+
+    tf-terraform-wrapper:
+        description: Whether or not to install a wrapper to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code
+            as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`.
+        default: 'true'
+
+    awscli-version:
+        description: Version of the aws cli to use
+        # renovate: datasource=github-releases depName=aws/aws-cli
+        default: 2.15.52
+
+outputs:
+    eks-cluster-endpoint:
+        description: The API endpoint of the deployed EKS cluster
+        value: ${{ steps.apply.outputs.cluster_endpoint }}
+
+    terraform-state-url:
+        description: URL of the Terraform state file in the S3 bucket
+        value: ${{ steps.utility.outputs.terraform-state-url }}
+
+    # Add all terraform outputs dynamically
+    all-terraform-outputs:
+        description: All outputs from Terraform
+        value: ${{ steps.fetch_outputs.outputs.all_terraform_outputs }}
+
+runs:
+    using: composite
+    steps:
+        - name: Use Utility Actions
+          id: utility
+          # see https://github.com/orgs/community/discussions/41927 it's not possible to optimize this yet
+          # steps.uses  cannot access the github context.
+          # uses: ${{ github.action_repository }}/aws-utility-action@${{ github.action_ref }}
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@merge-branch
+          with:
+              awscli-version: ${{ inputs.awscli-version }}
+              terraform-version: ${{ inputs.terraform-version }}
+
+              aws-region: ${{ inputs.aws-region }}
+              s3-backend-bucket: ${{ inputs.s3-backend-bucket }}
+              s3-bucket-region: ${{ inputs.s3-bucket-region }}
+
+              tf-state-key: ${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate
+
+              tf-cli-config-credentials-hostname: ${{ inputs.tf-cli-config-credentials-hostname }}
+              tf-cli-config-credentials-token: ${{ inputs.tf-cli-config-credentials-token }}
+              tf-terraform-wrapper: ${{ inputs.tf-terraform-wrapper }}
+
+        - name: Checkout Repository EKS modules
+          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+          with:
+              repository: camunda/camunda-deployment-references
+              ref: ${{ inputs.tf-modules-revision }}
+              path: ${{ inputs.tf-modules-path }}
+              fetch-depth: 0
+
+        - name: Terraform Init
+          shell: bash
+          id: init
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/eks-cluster/
+          run: |
+              set -euxo pipefail
+
+              cp ../fixtures/backend.tf ./
+              terraform version
+              terraform init -backend-config="bucket=${{ steps.utility.outputs.TFSTATE_BUCKET }}" \
+                -backend-config="key=${{ steps.utility.outputs.TFSTATE_KEY }}" -backend-config="region=${{ steps.utility.outputs.TFSTATE_REGION }}"
+              terraform validate -no-color
+
+        - name: Terraform Plan
+          shell: bash
+          id: plan
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/eks-cluster/
+          run: |
+              set -euxo pipefail
+
+              echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
+              terraform plan -no-color -out eks.plan \
+                -var-file=/tmp/var.tfvars.json \
+                -var "name=${{ inputs.cluster-name }}" \
+                -var "region=${{ inputs.aws-region }}" \
+                -var "name=${{ inputs.cluster-name }}"
+
+        - name: Terraform Apply
+          shell: bash
+          id: apply
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/eks-cluster/
+          run: |
+              set -euxo pipefail
+
+              terraform apply -no-color eks.plan
+              export cluster_endpoint="$(terraform output -raw cluster_endpoint)"
+              echo "cluster_endpoint=$cluster_endpoint" >> "$GITHUB_OUTPUT"
+
+        - name: Fetch Terraform Outputs
+          shell: bash
+          id: fetch_outputs
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/eks-cluster/
+          run: |
+              set -euxo pipefail
+
+              all_outputs=$(terraform output -json | jq -c .)
+              echo "all_terraform_outputs=$all_outputs" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Configure kubectl
+          shell: bash
+          id: kube_config
+          if: inputs.login == 'true'
+          run: |
+              set -euxo pipefail
+
+              aws eks --region ${{ inputs.aws-region }} update-kubeconfig --name ${{ inputs.cluster-name }}
+
+        - name: Output Kube Config
+          shell: bash
+          if: inputs.login == 'true'
+          run: |
+              set -euxo pipefail
+
+              kubectl config view
+              kubectl get ns

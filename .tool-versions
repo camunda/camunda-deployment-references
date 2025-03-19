@@ -9,6 +9,7 @@
 #                                                                              #
 ################################################################################
 #
+
 # /!\ Please maintain this file sorted alphabetically.
 # check it with
 # diff <(sed '/^#/d; /^$/d' .tool-versions | sort) <(sed '/^#/d; /^$/d' .tool-versions) && echo ".tool-versions is sorted correctly" || echo ".tool-versions is not sorted correctly"
@@ -19,6 +20,9 @@ actionlint 1.7.7
 awscli 2.24.24
 
 delta 0.18.2
+
+# renovate: datasource=github-tags depName=eksctl-io/eksctl
+eksctl 0.204.0
 
 golang 1.24.1
 

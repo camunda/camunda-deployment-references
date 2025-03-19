@@ -46,6 +46,8 @@ repos:
           - id: terraform_fmt
           - id: terraform_tflint
             exclude: (_override.tf)
+            args:
+                - --args=--config=__GIT_WORKING_DIR__/.lint/tflint/.tflint.hcl
           - id: terraform_docs
             args:
                 - --hook-config=--path-to-file=README.md

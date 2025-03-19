@@ -40,3 +40,13 @@ When a new version is ready for release, we need to cut the `main` branch to cre
 1. **Prepare `main` for the next version**
    - The `main` branch now represents the next unreleased version (`8.8`).
    - Update version references in relevant files to reflect the new development cycle.
+
+## Modules
+
+### AWS Modules
+
+#### Dependencies
+
+##### Upstream Dependencies: dependencies of this project
+
+- **terraform-aws-modules**: This project relies on the official AWS modules available at [terraform-aws-modules](https://github.com/terraform-aws-modules).
