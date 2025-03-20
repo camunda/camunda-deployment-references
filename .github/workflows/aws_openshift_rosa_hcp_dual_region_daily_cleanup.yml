@@ -13,7 +13,7 @@ on:
             - .github/workflows/aws_openshift_rosa_hcp_dual_region_daily_cleanup.yml
             - .tool-versions
             - aws/openshift/rosa-hcp-dual-region/**
-            - '!aws/openshift/rosa-hcp-dual-region/test/golden/**'
+            - '!aws/openshift/rosa-hcp-dual-region/terraform/*/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-dual-region-cleanup/**
 
     schedule:

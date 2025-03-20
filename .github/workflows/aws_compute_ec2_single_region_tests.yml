@@ -12,7 +12,7 @@ on:
     #         - .github/workflows/aws_compute_ec2_single_region_tests.yml
     #         - .tool-versions
     #         - aws/compute/ec2-single-region/**
-    #         - '!aws/compute/ec2-single-region/test/golden/**'
+    #         - '!aws/compute/ec2-single-region/terraform/test/golden/**'
 
 # limit to a single execution per actor of this workflow
 concurrency:

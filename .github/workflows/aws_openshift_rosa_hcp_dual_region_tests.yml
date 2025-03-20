@@ -12,7 +12,7 @@ on:
             - generic/kubernetes/dual-region/**
             - generic/openshift/dual-region/**
             - aws/openshift/rosa-hcp-dual-region/**
-            - '!aws/openshift/rosa-hcp-dual-region/test/golden/**'
+            - '!aws/openshift/rosa-hcp-dual-region/terraform/*/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-dual-region-create/**
             - .github/actions/aws-openshift-rosa-hcp-dual-region-cleanup/**
 
