@@ -236,7 +236,9 @@ runs:
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}clusters"
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}clusters" \
+                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
+                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
 
               terraform validate -no-color
 
@@ -291,7 +293,9 @@ runs:
               echo "Displaying templated cluster_cluster_2.tf file:"
               cat cluster_region_2.tf
 
-              terraform plan -no-color -out clusters.plan
+              terraform plan -no-color -out clusters.plan  \
+                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
+                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
 
         - name: Terraform Apply - Clusters
           id: apply-clusters
@@ -377,7 +381,9 @@ runs:
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}peering"
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}peering"  \
+                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
+                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
 
               terraform validate -no-color
 
@@ -389,8 +395,8 @@ runs:
           run: |
               terraform plan -no-color -out peering.plan \
                 -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                -var="cluster_1_vpc_id=${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}" \
                 -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}" \
+                -var="cluster_1_vpc_id=${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}" \
                 -var="cluster_2_vpc_id=${{ steps.apply-clusters.outputs.cluster_2_vpc_id }}"
 
 
