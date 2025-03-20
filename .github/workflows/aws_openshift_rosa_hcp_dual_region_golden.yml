@@ -66,7 +66,7 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               with:
-                  module-dir: ${{ env.MODULE_DIR_BASE }}clusters
+                  module-dir: ${{ env.MODULE_DIR_BASE }}clusters/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
@@ -76,7 +76,7 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               with:
-                  module-dir: ${{ env.MODULE_DIR_BASE }}peering
+                  module-dir: ${{ env.MODULE_DIR_BASE }}peering/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
@@ -86,7 +86,7 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               with:
-                  module-dir: ${{ env.MODULE_DIR_BASE }}backup_bucket
+                  module-dir: ${{ env.MODULE_DIR_BASE }}backup_bucket/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
