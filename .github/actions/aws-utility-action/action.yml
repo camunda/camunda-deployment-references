@@ -78,6 +78,7 @@ runs:
 
         - name: Install AWS CLI
           shell: bash
+          working-directory: /tmp
           run: |
               set -euxo pipefail
 

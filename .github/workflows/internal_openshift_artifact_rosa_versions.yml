@@ -34,6 +34,7 @@ jobs:
 
             - name: Install ROSA CLI and output rosa versions
               shell: bash
+              working-directory: /tmp
               run: |
                   curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-linux.tar.gz"
                   tar -xvf rosa-linux.tar.gz
