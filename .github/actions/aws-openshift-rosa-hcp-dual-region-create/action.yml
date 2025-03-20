@@ -410,6 +410,8 @@ runs:
           if: inputs.enable-backup-bucket == 'true'
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
           shell: bash
+          env:
+              AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
           run: |
               set -euxo pipefail
 
@@ -427,6 +429,8 @@ runs:
           if: inputs.enable-backup-bucket == 'true'
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
           shell: bash
+          env:
+              AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
           run: |
               terraform plan -no-color -out  backup_bucket.plan \
                 -var="bucket_name=camunda-backup-${{ inputs.cluster-name-1 }}-#-${{ inputs.cluster-name-2 }}"
@@ -437,6 +441,8 @@ runs:
           if: inputs.enable-backup-bucket == 'true'
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/backup_bucket/
           shell: bash
+          env:
+              AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
           run: |
               terraform apply -no-color backup_bucket.plan
 

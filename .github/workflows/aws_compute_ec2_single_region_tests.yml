@@ -127,7 +127,6 @@ jobs:
                   CAMUNDA_VERSION: ${{ matrix.camunda }}
                   CAMUNDA_PREVIOUS_VERSION: ${{ env.CAMUNDA_PREVIOUS_VERSION }}
               run: |
-                  # shellcheck disable=SC2155
                   export PATH=$PATH:$(go env GOPATH)/bin
                   mkdir /home/runner/.ssh
                   touch /home/runner/.ssh/config
