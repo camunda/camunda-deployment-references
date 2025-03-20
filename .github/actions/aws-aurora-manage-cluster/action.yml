@@ -57,7 +57,7 @@ inputs:
 
     tf-modules-revision:
         description: Git revision of the tf modules to use
-        default: merge-branch
+        default: main
 
     tf-modules-path:
         description: Path where the tf Aurora modules will be cloned
@@ -113,7 +113,7 @@ runs:
           id: utility
           # see https://github.com/orgs/community/discussions/41927 it's not possible to optimize this yet
           # steps.uses  cannot access the github context.
-          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@merge-branch
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@main
           with:
               awscli-version: ${{ inputs.awscli-version }}
               terraform-version: ${{ inputs.terraform-version }}
