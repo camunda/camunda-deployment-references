@@ -40,7 +40,7 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
     -backend-config="region={{ backend_bucket_region }}"
 
   # we always use the same region and fake rhcs token to have a pre-defined output
-  RHCS_TOKEN="" AWS_REGION="eu-west-2" terraform plan -var-file=test/golden.tfvars -out=tfplan
+  RHCS_TOKEN="" AWS_REGION="eu-west-2" terraform plan -var-file=test/golden/golden.tfvars -out=tfplan
 
   # Clean up copied .tf files (those prefixed with fixture_)
   rm -f fixture_*.tf
