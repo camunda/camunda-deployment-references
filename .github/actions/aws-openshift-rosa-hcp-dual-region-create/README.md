@@ -3,7 +3,7 @@
 ## Description
 
 This GitHub Action automates the deployment of the aws/openshift/rosa-hcp-dual-region reference architecture cluster using Terraform.
-It will create 2 OpenShift clusters, a VPC peering accross the regions.
+It will create 2 OpenShift clusters, a VPC peering accross the regions and a backup bucket.
 This action will also install oc, awscli, rosa cli.
 Each cluster will be added to the kube config with the name of the cluster as context's name.
 
@@ -35,6 +35,7 @@ Each cluster will be added to the kube config with the name of the cluster as co
 | `tf-modules-path` | <p>Path where the tf rosa modules will be cloned</p> | `false` | `./.action-tf-modules/aws-openshift-rosa-hcp-dual-region-create/` |
 | `login` | <p>Authenticate the current kube context on the created clusters</p> | `false` | `true` |
 | `enable-vpc-peering` | <p>Whether or not to enable VPC Peering between the clusters</p> | `false` | `true` |
+| `enable-backup-bucket` | <p>Whether or not to enable Backup Bucket creation used by the clusters</p> | `false` | `true` |
 
 
 ## Outputs
@@ -47,6 +48,9 @@ Each cluster will be added to the kube config with the name of the cluster as co
 | `openshift-cluster-id-cluster-2` | <p>The ID of the deployed ROSA cluster 2</p> |
 | `openshift-cluster-vpc-id-cluster-1` | <p>The VPC ID of the deployed ROSA cluster 1</p> |
 | `openshift-cluster-vpc-id-cluster-2` | <p>The VPC ID of the deployed ROSA cluster 2</p> |
+| `backup-bucket-s3-aws-access-key` | <p>The AWS Access Key of the S3 Backup bucket used by Camunda</p> |
+| `backup-bucket-s3-aws-secret-access-key` | <p>The AWS Secret Access Key of the S3 Backup bucket used by Camunda</p> |
+| `backup-bucket-s3-bucket-name` | <p>The name of the S3 Backup bucket used by Camunda</p> |
 | `terraform-state-url` | <p>URL of the Terraform state file in the S3 bucket</p> |
 
 
@@ -193,6 +197,12 @@ This action is a `composite` action.
 
     enable-vpc-peering:
     # Whether or not to enable VPC Peering between the clusters
+    #
+    # Required: false
+    # Default: true
+
+    enable-backup-bucket:
+    # Whether or not to enable Backup Bucket creation used by the clusters
     #
     # Required: false
     # Default: true
