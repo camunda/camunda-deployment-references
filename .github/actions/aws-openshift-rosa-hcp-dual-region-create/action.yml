@@ -322,9 +322,6 @@ runs:
                   set -o pipefail
 
                   # Cluster 1
-                  echo "Logging in to Cluster 1: ${{ inputs.cluster-name-1 }}"
-                  oc login --username "${{ inputs.admin-username-cluster-1 }}" --password "${{ inputs.admin-password-cluster-1 }}" \
-                    "${{ steps.apply.outputs.cluster_1_openshift_api_url }}"
 
                   if ! rosa list users --cluster="${{ inputs.cluster-name-1 }}" | grep -q "${{ inputs.admin-username-cluster-1 }}"; then
                     rosa grant user cluster-admin --cluster="${{ inputs.cluster-name-1 }}" --user="${{ inputs.admin-username-cluster-1 }}"
@@ -332,14 +329,15 @@ runs:
                     echo "✅ User '${{ inputs.admin-username-cluster-1 }}' is already a cluster-admin on '${{ inputs.cluster-name-1 }}'."
                   fi
 
+                  echo "Logging in to Cluster 1: ${{ inputs.cluster-name-1 }}"
+                  oc login --username "${{ inputs.admin-username-cluster-1 }}" --password "${{ inputs.admin-password-cluster-1 }}" \
+                    "${{ steps.apply.outputs.cluster_1_openshift_api_url }}"
+
+
                   oc whoami
                   kubectl config rename-context $(oc config current-context) "${{ inputs.cluster-name-1 }}"
-                  kubectl config use-context "${{ inputs.cluster-name-1 }}"
 
                   # Cluster 2
-                  echo "Logging in to Cluster 2: ${{ inputs.cluster-name-2 }}"
-                  oc login --username "${{ inputs.admin-username-cluster-2 }}" --password "${{ inputs.admin-password-cluster-2 }}" \
-                    "${{ steps.apply.outputs.cluster_2_openshift_api_url }}"
 
                   if ! rosa list users --cluster="${{ inputs.cluster-name-2 }}" | grep -q "${{ inputs.admin-username-cluster-2 }}"; then
                     rosa grant user cluster-admin --cluster="${{ inputs.cluster-name-2 }}" --user="${{ inputs.admin-username-cluster-2 }}"
@@ -347,9 +345,12 @@ runs:
                     echo "✅ User '${{ inputs.admin-username-cluster-2 }}' is already a cluster-admin on '${{ inputs.cluster-name-2 }}'."
                   fi
 
+                  echo "Logging in to Cluster 2: ${{ inputs.cluster-name-2 }}"
+                  oc login --username "${{ inputs.admin-username-cluster-2 }}" --password "${{ inputs.admin-password-cluster-2 }}" \
+                    "${{ steps.apply.outputs.cluster_2_openshift_api_url }}"
+
                   oc whoami
                   kubectl config rename-context $(oc config current-context) "${{ inputs.cluster-name-2 }}"
-                  kubectl config use-context "${{ inputs.cluster-name-2 }}"
 
         - name: Clean up cloned modules
           if: always()
