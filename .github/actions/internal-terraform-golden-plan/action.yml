@@ -36,7 +36,7 @@ runs:
               module_dir="${{ inputs.module-dir }}"
               module_dir_key="${module_dir//\//-}"
               # Remove trailing . and -
-              module_dir_key="${module_dir_key%%[-.]*}"
+              module_dir_key=$(echo "$module_dir_key" | sed 's/^[.-]*//;s/[-.]*$//')
               echo "module_dir_key=$module_dir_key" | tee -a "$GITHUB_OUTPUT""
 
         - name: Upload pipeline golden result
