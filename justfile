@@ -3,20 +3,6 @@
 # renovate: datasource=github-releases depName=gotestyourself/gotestsum
 gotestsum_version := "v1.12.0"
 
-# Generate the AWS golden file for the EC2 tf files
-aws-compute-ec2-single-region-golden:
-  #!/bin/bash
-  set -euxo pipefail
-  cd {{justfile_directory()}}/aws/compute/ec2-single-region/terraform
-  cp {{justfile_directory()}}/aws/compute/ec2-single-region/test/fixtures/provider_override.tf .
-  export AWS_REGION="eu-west-2"
-  terraform init -upgrade
-  terraform plan -var aws_ami="ami" -var generate_ssh_key_pair="true" -out=tfplan
-  terraform show -json tfplan | jq > tfplan.json
-  jq --sort-keys '.planned_values.root_module' tfplan.json > ../test/golden/tfplan.json
-  rm -rf tfplan tfplan.json
-  rm -rf provider_override.tf
-
 # Launch a single test using go test in verbose mode
 aws-tf-modules-test-verbose testname: aws-tf-modules-install-tests-go-mod
     cd aws/modules/.test/src/ && go test -v --timeout=120m -p 1 -run {{testname}}
@@ -42,13 +28,23 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
   set -euxo pipefail
 
   cd {{ justfile_directory() }}/{{ module_dir }}
+
+  # Copy *.tf files from tests/fixtures/ to the current directory before running the plan
+  if ls test/fixtures/fixture_*.tf 1> /dev/null 2>&1; then
+    cp test/fixtures/fixture_*.tf ./
+  fi
+
   terraform init \
     -backend-config="bucket={{ backend_bucket_name }}" \
     -backend-config="key={{ backend_bucket_key }}" \
     -backend-config="region={{ backend_bucket_region }}"
 
   # we always use the same region and fake rhcs token to have a pre-defined output
-  RHCS_TOKEN="" AWS_REGION="eu-west-2" terraform plan -out=tfplan
+  RHCS_TOKEN="" AWS_REGION="eu-west-2" terraform plan -var-file=test/golden.tfvars -out=tfplan
+
+  # Clean up copied .tf files (those prefixed with fixture_)
+  rm -f fixture_*.tf
+
   terraform show -json tfplan | jq > tfplan.json
   rm -f tfplan
   mkdir -p {{ relative_output_path }}
