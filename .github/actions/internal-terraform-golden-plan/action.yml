@@ -26,15 +26,21 @@ runs:
     steps:
         - name: Compute golden
           shell: bash
+          id: golden-prepare
           run: |
               set -euxo pipefail
+
               just regenerate-golden-file "${{ inputs.module-dir }}" "${{ inputs.s3-bucket-region }}" \
                  "${{ inputs.s3-backend-bucket }}" "${{ inputs.s3-bucket-key }}" "./compare/"
+
+              module_dir="${{ inputs.module-dir }}"
+              module_dir_key="${module_dir//\//-}"
+              echo "module_dir_key=$module_dir_key" | tee -a "$GITHUB_OUTPUT""
 
         - name: Upload pipeline golden result
           uses: actions/upload-artifact@v4
           with:
-              name: ${{ inputs.module-dir }}plan-artifact-json
+              name: ${{ steps.golden-prepare.outputs.module_dir_key }}
               path: ${{ inputs.module-dir }}compare/tfplan-golden.json
               retention-days: 1
 
