@@ -31,6 +31,7 @@ set -o pipefail
 # - AWS CLI installed and configured with the necessary permissions to access and modify the S3 bucket.
 # - Terraform installed and accessible in the PATH.
 # - `yq` installed when you use `RETRY_DESTROY`.
+# - CLUSTER_1_AWS_REGION and CLUSTER_2_AWS_REGION variables defined on the regions of the clusters
 
 # Check for required arguments
 if [ "$#" -lt 5 ] || [ "$#" -gt 6 ]; then
@@ -44,8 +45,13 @@ if [ -z "$RHCS_TOKEN" ]; then
   exit 1
 fi
 
-if [ -z "$AWS_REGION" ]; then
-  echo "Error: The environment variable AWS_REGION is not set."
+if [ -z "$CLUSTER_1_AWS_REGION" ]; then
+  echo "Error: The environment variable CLUSTER_1_AWS_REGION is not set."
+  exit 1
+fi
+
+if [ -z "$CLUSTER_2_AWS_REGION" ]; then
+  echo "Error: The environment variable CLUSTER_2_AWS_REGION is not set."
   exit 1
 fi
 
@@ -59,6 +65,7 @@ KEY_PREFIX=${6:-""}  # Key prefix is optional
 FAILED=0
 CURRENT_DIR=$(pwd)
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+AWS_REGION=${AWS_REGION:-$CLUSTER_1_AWS_REGION}
 AWS_S3_REGION=${AWS_S3_REGION:-$AWS_REGION}
 
 
@@ -68,6 +75,8 @@ if [[ "$(uname)" == "Darwin" ]]; then
 else
     date_command="date"
 fi
+
+# TODO: fix region 1 and 2
 
 # Function to perform terraform destroy
 destroy_resource() {
@@ -95,29 +104,42 @@ destroy_resource() {
   if [[ "$module_name" == "clusters" && "$RETRY_DESTROY" == "true" ]]; then
     echo "Performing cloud-nuke on VPC to ensure resources managed outside of Terraform are deleted."
     yq eval ".VPC.include.names_regex = [\"^$group_id.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
-    cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$AWS_REGION" --force
+    cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$CLUSTER_1_AWS_REGION" --force
+    cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$CLUSTER_2_AWS_REGION" --force
   fi
 
   cd "$temp_dir" || return 1
   tree "." || return 1
+
+  # Extract cluster name from group_id by splitting at "-#-" and taking the first element
+  cluster_1_name=$(echo "$group_id" | awk -F"-#-" '{print $1}')
+  cluster_2_name=$(echo "$group_id" | awk -F"-#-" '{print $2}')
+
+  if [[ "$module_name" == "backup_bucket" ]]; then
+    export TF_VAR_bucket_name="camunda-backup-$group_id"
+    echo "Bucket name is set to $TF_VAR_bucket_name"
+  elif  [[ "$module_name" == "clusters" ]]; then
+    echo "Updating cluster names in Terraform configuration..."
+    export TF_VAR_cluster_1_region="$CLUSTER_1_AWS_REGION"
+    export TF_VAR_cluster_2_region="$CLUSTER_2_AWS_REGION"
+
+    sed -i -e "s/\(rosa_cluster_1_name\s*=\s*\"\)[^\"]*\(\"\)/\1${cluster_1_name}\2/" cluster_region_1.tf
+    sed -i -e "s/\(rosa_cluster_2_name\s*=\s*\"\)[^\"]*\(\"\)/\1${cluster_2_name}\2/" cluster_region_2.tf
+  elif [[ "$module_name" == "vpc_peering" ]]; then
+    echo "Setting fake values for VPC peering variables..."
+
+    export TF_VAR_cluster_1_region="$CLUSTER_1_AWS_REGION"
+    export TF_VAR_cluster_1_vpc_id="vpc-xxxxxxxx"
+    export TF_VAR_cluster_2_region="$CLUSTER_2_AWS_REGION"
+    export TF_VAR_cluster_2_vpc_id="vpc-yyyyyyyy"
+  fi
+
 
   echo "Initializing Terraform for module $module_name (tfstate: $module_tfstate)"
 
   if ! terraform init -backend-config="bucket=$BUCKET" -backend-config="key=$module_tfstate" -backend-config="region=$AWS_S3_REGION"; then
     echo "Error initializing Terraform for module $module_name in group $group_id"
     return 1
-  fi
-
-  # Extract cluster name from group_id by splitting at "-#-" and taking the first element
-  cluster_1_name=$(echo "$group_id" | awk -F"-#-" '{print $1}')
-  cluster_2_name=$(echo "$group_id" | awk -F"-#-" '{print $2}')
-
-  # If it's a cluster module, update the cluster name in configuration
-  if [[ "$module_name" == "clusters" ]]; then
-    echo "Updating cluster names in Terraform configuration..."
-
-    sed -i -e "s/\(rosa_cluster_1_name\s*=\s*\"\)[^\"]*\(\"\)/\1${cluster_1_name}\2/" cluster_region_1.tf
-    sed -i -e "s/\(rosa_cluster_2_name\s*=\s*\"\)[^\"]*\(\"\)/\1${cluster_2_name}\2/" cluster_region_2.tf
   fi
 
   echo "Destroying module $module_name in group $group_id"

@@ -39,7 +39,6 @@ env:
     CLUSTER_1_AWS_REGION: eu-west-2
     CLUSTER_2_AWS_REGION: eu-west-3
 
-    # TODO: implement S3_BACKEND_PREFIX for single region
 
 jobs:
 

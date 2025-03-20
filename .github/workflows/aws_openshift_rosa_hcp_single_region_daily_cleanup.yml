@@ -37,6 +37,7 @@ env:
     S3_BUCKET_REGION: eu-central-1
     AWS_REGION: eu-west-2
 
+    # TODO: implement S3_BACKEND_PREFIX for single region similar to dual region
 
 jobs:
 
