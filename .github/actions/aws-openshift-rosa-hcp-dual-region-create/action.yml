@@ -295,7 +295,7 @@ runs:
 
         - name: Terraform Apply - Clusters
           id: apply-clusters
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/clusters/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/clusters/
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
@@ -397,7 +397,7 @@ runs:
         - name: Terraform Apply - Peering
           id: apply-peering
           if: inputs.enable-vpc-peering == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/peering/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/peering/
           shell: bash
           run: |
               terraform apply -no-color peering.plan
@@ -439,7 +439,7 @@ runs:
         - name: Terraform Apply - Backup bucket
           id: apply-backup-bucket
           if: inputs.enable-backup-bucket == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/backup_bucket/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/backup_bucket/
           shell: bash
           env:
               AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
