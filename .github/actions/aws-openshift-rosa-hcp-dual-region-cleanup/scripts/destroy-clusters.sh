@@ -70,55 +70,73 @@ else
 fi
 
 # Function to perform terraform destroy
-destroy_cluster() {
-  local cluster_id=$1
-  local cluster_folder="$KEY_PREFIX$2"
-  # we must add two levels to replicate the "source = ../../modules" relative path presented in the module
-  local temp_dir="${TEMP_DIR_PREFIX}${cluster_id}/1/2"
-  local temp_generic_modules_dir="${TEMP_DIR_PREFIX}${cluster_id}/modules/"
+destroy_resource() {
+  local group_id=$1
+  local module_name=$2
+  local module_folder="$KEY_PREFIX$group_id"
+  local module_tfstate="${module_folder}/${module_name}.tfstate"
+
+  # Create temporary directories for Terraform execution
+  local temp_dir="${TEMP_DIR_PREFIX}${group_id}/1/2"
+  local temp_generic_modules_dir="${TEMP_DIR_PREFIX}${group_id}/modules/"
   local source_generic_modules="$MODULES_DIR/../../modules/"
 
-  echo "Copying generic modules $source_generic_modules in $temp_generic_modules_dir"
-
+  echo "Copying generic modules from $source_generic_modules to $temp_generic_modules_dir"
   mkdir -p "$temp_generic_modules_dir" || return 1
   cp -a "$source_generic_modules." "$temp_generic_modules_dir" || return 1
-
   tree "$source_generic_modules" "$temp_generic_modules_dir" || return 1
 
-  echo "Copying $MODULES_DIR in $temp_dir"
-
+  echo "Copying $MODULES_DIR to $temp_dir"
   mkdir -p "$temp_dir" || return 1
   cp -a "$MODULES_DIR." "$temp_dir" || return 1
-
   tree "$MODULES_DIR" "$temp_dir" || return 1
 
-  if [[ "$RETRY_DESTROY" == "true" ]]; then
-      echo "Performing cloud-nuke on VPC to ensure that resources managed outside of Terraform are deleted."
-      yq eval ".VPC.include.names_regex = [\"^$cluster_id.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
-      cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$AWS_REGION" --force
+  # Only perform cloud-nuke if the module is "clusters"
+  if [[ "$module_name" == "clusters" && "$RETRY_DESTROY" == "true" ]]; then
+    echo "Performing cloud-nuke on VPC to ensure resources managed outside of Terraform are deleted."
+    yq eval ".VPC.include.names_regex = [\"^$group_id.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
+    cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$AWS_REGION" --force
   fi
 
   cd "$temp_dir" || return 1
-
   tree "." || return 1
 
-  echo "tf state: bucket=$BUCKET key=${cluster_folder}/${cluster_id}.tfstate region=$AWS_S3_REGION"
+  echo "Initializing Terraform for module $module_name (tfstate: $module_tfstate)"
 
-  if ! terraform init -backend-config="bucket=$BUCKET" -backend-config="key=${cluster_folder}/${cluster_id}.tfstate" -backend-config="region=$AWS_S3_REGION"; then return 1; fi
+  if ! terraform init -backend-config="bucket=$BUCKET" -backend-config="key=$module_tfstate" -backend-config="region=$AWS_S3_REGION"; then
+    echo "Error initializing Terraform for module $module_name in group $group_id"
+    return 1
+  fi
 
-  # Edit the name of the cluster
-  sed -i -e "s/\(rosa_cluster_name\s*=\s*\"\)[^\"]*\(\"\)/\1${cluster_id}\2/" cluster.tf
+  # Extract cluster name from group_id by splitting at "-#-" and taking the first element
+  cluster_1_name=$(echo "$group_id" | awk -F"-#-" '{print $1}')
+  cluster_2_name=$(echo "$group_id" | awk -F"-#-" '{print $2}')
 
-  if ! terraform destroy -auto-approve; then return 1; fi
+  # If it's a cluster module, update the cluster name in configuration
+  if [[ "$module_name" == "clusters" ]]; then
+    echo "Updating cluster names in Terraform configuration..."
 
-  # Cleanup S3
-  echo "Deleting s3://$BUCKET/$cluster_folder"
-  if ! aws s3 rm "s3://$BUCKET/$cluster_folder" --recursive; then return 1; fi
-  if ! aws s3api delete-object --bucket "$BUCKET" --key "$cluster_folder/"; then return 1; fi
+    sed -i -e "s/\(rosa_cluster_1_name\s*=\s*\"\)[^\"]*\(\"\)/\1${cluster_1_name}\2/" cluster_region_1.tf
+    sed -i -e "s/\(rosa_cluster_2_name\s*=\s*\"\)[^\"]*\(\"\)/\1${cluster_2_name}\2/" cluster_region_2.tf
+  fi
+
+  echo "Destroying module $module_name in group $group_id"
+  if ! terraform destroy -auto-approve; then
+    echo "Error destroying module $module_name in group $group_id"
+    return 1
+  fi
+
+  # Cleanup S3 resources
+  echo "Deleting S3 resources for module $module_name in group $group_id"
+  if ! aws s3 rm "s3://$BUCKET/$module_folder/$module_name.tfstate" --recursive; then return 1; fi
+  if ! aws s3api delete-object --bucket "$BUCKET" --key "$module_folder/$module_name.tfstate"; then return 1; fi
 
   cd - || return 1
   rm -rf "$temp_dir" || return 1
+
+  echo "Successfully destroyed module $module_name in group $group_id"
 }
+
 
 # List objects in the S3 bucket and parse the cluster IDs
 all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX")
@@ -131,55 +149,65 @@ if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
 fi
 
 if [ "$ID_OR_ALL" == "all" ]; then
-  clusters=$(echo "$all_objects" | awk '{print $2}' | sed -n 's#^tfstate-\(.*\)/$#\1#p')
+  groups=$(echo "$all_objects" | awk '{print $2}' | sed -n 's#^tfstate-\(.*\)/$#\1#p')
 else
-  clusters=$(echo "$all_objects" | awk '{print $2}' | grep "tfstate-$ID_OR_ALL/" | sed -n 's#^tfstate-\(.*\)/$#\1#p')
+  groups=$(echo "$all_objects" | awk '{print $2}' | grep "tfstate-$ID_OR_ALL/" | sed -n 's#^tfstate-\(.*\)/$#\1#p')
 fi
 
-if [ -z "$clusters" ]; then
+if [ -z "$groups" ]; then
   echo "No objects found in the S3 bucket. Exiting script." >&2
   exit 0
 fi
 
 current_timestamp=$($date_command +%s)
 
-for cluster_id in $clusters; do
+for group_id in $groups; do
   cd "$CURRENT_DIR" || return 1
 
+  echo "Processing group: $group_id"
+  module_order=("backup_bucket" "peering" "clusters")
+  group_folder="$KEY_PREFIX/tfstate-$group_id/"
 
-  cluster_folder="tfstate-$cluster_id"
-  echo "Checking cluster $cluster_id in $cluster_folder"
+  for module_name in "${module_order[@]}"; do
+    module_path="${group_folder}${module_name}.tfstate"
 
-  last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate" --output json | grep LastModified | awk -F '"' '{print $4}')
-  if [ -z "$last_modified" ]; then
-    echo "Error: Failed to retrieve last modified timestamp for cluster $cluster_id"
-    exit 1
-  fi
-
-  last_modified_timestamp=$($date_command -d "$last_modified" +%s)
-  if [ -z "$last_modified_timestamp" ]; then
-    echo "Error: Failed to convert last modified timestamp to seconds since epoch for cluster $cluster_id"
-    exit 1
-  fi
-  echo "Cluster $cluster_id last modification: $last_modified ($last_modified_timestamp)"
-
-  file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
-  if [ -z "$file_age_hours" ]; then
-    echo "Error: Failed to calculate file age in hours for cluster $cluster_id"
-    exit 1
-  fi
-  echo "Cluster $cluster_id is $file_age_hours hours old"
-
-  if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
-    echo "Destroying cluster $cluster_id in $cluster_folder"
-
-    if ! destroy_cluster "$cluster_id" "$cluster_folder"; then
-      echo "Error destroying cluster $cluster_id"
-      FAILED=1
+    # Check if the module exists
+    if ! aws s3 ls "s3://$BUCKET/$module_path" >/dev/null 2>&1; then
+      echo "Module $module_name not found for group $group_id, skipping..."
+      continue
     fi
-  else
-    echo "Skipping cluster $cluster_id as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
-  fi
+
+    last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$module_path" --output json | grep LastModified | awk -F '"' '{print $4}')
+    if [ -z "$last_modified" ]; then
+      echo "Warning: Could not retrieve last modified timestamp for $module_path, skipping."
+      continue
+    fi
+
+    last_modified_timestamp=$($date_command -d "$last_modified" +%s)
+    if [ -z "$last_modified_timestamp" ]; then
+      echo "Error: Failed to convert last modified timestamp for $module_path"
+      exit 1
+    fi
+    echo "Module $module_name last modified: $last_modified ($last_modified_timestamp)"
+
+    file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
+    if [ -z "$file_age_hours" ]; then
+      echo "Error: Failed to calculate file age in hours for $module_path"
+      exit 1
+    fi
+    echo "Module $module_name is $file_age_hours hours old"
+
+    if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
+      echo "Destroying module $module_name in group $group_id"
+
+      if ! destroy_resource "$group_id" "$module_name"; then
+        echo "Error destroying module $module_name in group $group_id"
+        FAILED=1
+      fi
+    else
+      echo "Skipping $module_name as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
+    fi
+  done
 done
 
 # Exit with the appropriate status
