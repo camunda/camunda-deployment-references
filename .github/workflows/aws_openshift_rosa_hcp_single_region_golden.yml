@@ -62,6 +62,8 @@ jobs:
 
             - name: Run Terraform Golden Plan Comparison
               uses: ./.github/actions/internal-terraform-golden-plan
+              env:
+                  GH_TOKEN: ${{ github.token }}
               with:
                   module-dir: ${{ env.MODULE_DIR }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
