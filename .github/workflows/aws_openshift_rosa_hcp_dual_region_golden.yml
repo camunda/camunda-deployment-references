@@ -61,41 +61,10 @@ jobs:
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set region ${{ env.CLUSTER_1_AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
 
-            - name: Compute golden
-              run: |
-                  set -euxo pipefail
-                  just regenerate-golden-file "${{ env.MODULE_DIR }}" "${{ env.S3_BUCKET_REGION }}" \
-                     "${{ env.S3_BACKEND_BUCKET }}" "${{ env.MODULE_DIR }}${{ env.S3_BUCKET_KEY }}" "./compare/"
-
-            - name: Upload pipeline golden result
-              uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
+            - name: Run Terraform Golden Plan Comparison
+              uses: ./.github/actions/internal-terraform-golden-plan
               with:
-                  name: plan-artifact-json
-                  path: ${{ env.MODULE_DIR }}compare/tfplan-golden.json
-                  retention-days: 1
-
-            - name: Compare Terraform plan with golden file
-              run: |
-                  delta "${{ env.MODULE_DIR }}test/golden/tfplan-golden.json" "${{ env.MODULE_DIR }}compare/tfplan-golden.json"
-                  exit $?
-
-            - name: Post diff on PR
-              if: failure() && github.event_name == 'pull_request'
-              uses: int128/diff-action@db6cce01542cb26e181798736eea1e71f5d36706 # v1
-              with:
-                  base: ${{ env.MODULE_DIR }}test/golden/tfplan-golden.json
-                  head: ${{ env.MODULE_DIR }}compare/tfplan-golden.json
-                  comment-header: |
-                      ## Module ${{ env.MODULE_DIR }} - Terraform Golden Plan Diff
-
-                  comment-footer: |
-                      🖲 **Check the delta diff**
-                      in the [workflow run](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}) for a detailed comparison.
-
-                      If the changes are expected, you can use the uploaded artifact on the workflow to update the golden file on your branch.
-
-                      📟 **Alternatively, run the following command locally** to update the golden file:
-                      ```sh
-                      just regenerate-golden-file "${{ env.MODULE_DIR }}" "${{ env.S3_BUCKET_REGION }}" \
-                        "${{ env.S3_BACKEND_BUCKET }}" "${{ env.MODULE_DIR }}${{ env.S3_BUCKET_KEY }}"
-                      ```
+                  module-dir: ${{ env.MODULE_DIR }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
