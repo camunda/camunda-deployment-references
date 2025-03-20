@@ -34,7 +34,7 @@ runs:
         - name: Upload pipeline golden result
           uses: actions/upload-artifact@v4
           with:
-              name: plan-artifact-json
+              name: ${{ inputs.module-dir }}plan-artifact-json
               path: ${{ inputs.module-dir }}compare/tfplan-golden.json
               retention-days: 1
 
