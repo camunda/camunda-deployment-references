@@ -100,20 +100,20 @@ destroy_resource() {
   cp -a "$MODULES_DIR." "$temp_dir" || return 1
   tree "$MODULES_DIR" "$temp_dir" || return 1
 
-  # Only perform cloud-nuke if the module is "clusters"
-  if [[ "$module_name" == "clusters" && "$RETRY_DESTROY" == "true" ]]; then
-    echo "Performing cloud-nuke on VPC to ensure resources managed outside of Terraform are deleted."
-    yq eval ".VPC.include.names_regex = [\"^$group_id.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
-    cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$CLUSTER_1_AWS_REGION" --force
-    cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$CLUSTER_2_AWS_REGION" --force
-  fi
-
   cd "$temp_dir" || return 1
   tree "." || return 1
 
   # Extract cluster name from group_id by splitting at "-#-" and taking the first element
   cluster_1_name=$(echo "$group_id" | awk -F"-#-" '{print $1}')
   cluster_2_name=$(echo "$group_id" | awk -F"-#-" '{print $2}')
+
+  # Only perform cloud-nuke if the module is "clusters"
+  if [[ "$module_name" == "clusters" && "$RETRY_DESTROY" == "true" ]]; then
+    echo "Performing cloud-nuke on VPC to ensure resources managed outside of Terraform are deleted."
+    yq eval ".VPC.include.names_regex = [\"^$cluster_1_name.*\", \"^$cluster_2_name.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
+    cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$CLUSTER_1_AWS_REGION" --force
+    cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$CLUSTER_2_AWS_REGION" --force
+  fi
 
   if [[ "$module_name" == "backup_bucket" ]]; then
     export TF_VAR_bucket_name="camunda-backup-$group_id"
