@@ -54,7 +54,6 @@ jobs:
             - triage
         runs-on: ubuntu-latest
         if: >-
-            needs.triage.outputs.should_skip == 'false' &&
             (github.event_name == 'schedule' || contains(github.ref, 'refs/heads/schedules/')) || github.event_name == 'workflow_dispatch' || (
               github.event_name == 'pull_request' &&
               !contains(github.event.pull_request.labels.*.name, 'testing-ci-not-necessary')
@@ -118,7 +117,9 @@ jobs:
     integration-tests:
         runs-on: ubuntu-latest
         needs:
+            - triage
             - configure-tests
+        if: needs.triage.outputs.should_skip == 'false'
         strategy:
             fail-fast: false # don't propagate failing jobs
             matrix:
