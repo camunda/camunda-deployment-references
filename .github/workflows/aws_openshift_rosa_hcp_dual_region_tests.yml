@@ -269,6 +269,19 @@ jobs:
               with:
                   oc: ${{ matrix.distro.version }}
 
+            - name: Install ROSA CLI (required for MultiClusterHub)
+              shell: bash
+              env:
+                  rosa-cli-version: latest
+              working-directory: /tmp
+              run: |
+                  curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ env.rosa-cli-version }}/rosa-linux.tar.gz"
+                  tar -xvf rosa-linux.tar.gz
+                  sudo mv rosa /usr/local/bin/rosa
+                  chmod +x /usr/local/bin/rosa
+                  rm -f rosa-linux.tar.gz
+                  rosa version
+
             - name: Import Secrets
               id: secrets
               uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
@@ -283,6 +296,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
+                      secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
 
             - name: 🔐 Login into the clusters
               timeout-minutes: 10
@@ -322,6 +336,8 @@ jobs:
 
             - name: 🚢 Configure ACM
               timeout-minutes: 20
+              env:
+                  RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
               run: |
                   set -euxo pipefail # tolerate, nothing.
 
