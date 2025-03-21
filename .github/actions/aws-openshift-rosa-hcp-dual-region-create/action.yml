@@ -194,7 +194,7 @@ runs:
           run: |
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
               export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name-1 }}-#-${{ inputs.cluster-name-2 }}/"
+              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}/"
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
@@ -439,7 +439,7 @@ runs:
               AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
           run: |
               terraform plan -no-color -out  backup_bucket.plan \
-                -var="bucket_name=camunda-backup-${{ inputs.cluster-name-1 }}-#-${{ inputs.cluster-name-2 }}"
+                -var="bucket_name=camunda-backup-${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}"
 
 
         - name: Terraform Apply - Backup bucket

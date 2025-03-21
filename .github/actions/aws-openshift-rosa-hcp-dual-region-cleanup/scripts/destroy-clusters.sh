@@ -86,7 +86,7 @@ destroy_resource() {
   local module_tfstate="${module_folder}/${module_name}"
 
   # Create temporary directories for Terraform execution
-  local temp_dir="${TEMP_DIR_PREFIX}${group_id}/1/2"
+  local temp_dir="${TEMP_DIR_PREFIX}${group_id}/1/2/3/"
   local temp_generic_modules_dir="${TEMP_DIR_PREFIX}${group_id}/modules/"
   local source_generic_modules="$MODULES_DIR/../../modules/"
 
@@ -95,17 +95,19 @@ destroy_resource() {
   cp -a "$source_generic_modules." "$temp_generic_modules_dir" || return 1
   tree "$source_generic_modules" "$temp_generic_modules_dir" || return 1
 
-  echo "Copying $MODULES_DIR to $temp_dir"
+  real_module_dir="${MODULES_DIR}${module_name}/"
+
+  echo "Copying $real_module_dir to $temp_dir"
   mkdir -p "$temp_dir" || return 1
-  cp -a "$MODULES_DIR." "$temp_dir" || return 1
-  tree "$MODULES_DIR" "$temp_dir" || return 1
+  cp -a "$real_module_dir." "$temp_dir" || return 1
+  tree "$real_module_dir" "$temp_dir" || return 1
 
   cd "$temp_dir" || return 1
   tree "." || return 1
 
-  # Extract cluster name from group_id by splitting at "-#-" and taking the first element
-  cluster_1_name=$(echo "$group_id" | awk -F"-#-" '{print $1}')
-  cluster_2_name=$(echo "$group_id" | awk -F"-#-" '{print $2}')
+  # Extract cluster name from group_id by splitting at "-oOo-" and taking the first element
+  cluster_1_name=$(echo "$group_id" | awk -F"-oOo-" '{print $1}')
+  cluster_2_name=$(echo "$group_id" | awk -F"-oOo-" '{print $2}')
 
   # Only perform cloud-nuke if the module is "clusters"
   if [[ "$module_name" == "clusters" && "$RETRY_DESTROY" == "true" ]]; then

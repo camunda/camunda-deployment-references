@@ -83,5 +83,5 @@ runs:
               cp .tool-versions ~/.tool-versions
 
               ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
-                ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-single-region/ /tmp/cleanup/ \
+                ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-dual-region/ /tmp/cleanup/ \
                 ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
