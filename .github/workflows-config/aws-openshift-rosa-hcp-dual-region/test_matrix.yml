@@ -5,7 +5,7 @@ matrix:
           type: openshift
           schedule_only: false
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-          version: 4.18.3
+          version: 4.18.4
           platform: rosa
 
     scenario:
