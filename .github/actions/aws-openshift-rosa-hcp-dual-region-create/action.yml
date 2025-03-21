@@ -236,7 +236,7 @@ runs:
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}clusters" \
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}clusters.tfstate" \
                 -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
                 -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
 
@@ -381,7 +381,7 @@ runs:
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}peering"  \
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}peering.tfstate"  \
                 -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
                 -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
 
@@ -426,7 +426,7 @@ runs:
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}backup_bucket"
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}backup_bucket.tfstate"
 
               terraform validate -no-color
 

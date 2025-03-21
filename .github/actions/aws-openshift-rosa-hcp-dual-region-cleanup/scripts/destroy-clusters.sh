@@ -83,7 +83,7 @@ destroy_resource() {
   local group_id=$1
   local module_name=$2
   local module_folder="$KEY_PREFIX$group_id"
-  local module_tfstate="${module_folder}/${module_name}.tfstate"
+  local module_tfstate="${module_folder}/${module_name}"
 
   # Create temporary directories for Terraform execution
   local temp_dir="${TEMP_DIR_PREFIX}${group_id}/1/2"
@@ -150,8 +150,8 @@ destroy_resource() {
 
   # Cleanup S3 resources
   echo "Deleting S3 resources for module $module_name in group $group_id"
-  if ! aws s3 rm "s3://$BUCKET/$module_folder/$module_name.tfstate" --recursive; then return 1; fi
-  if ! aws s3api delete-object --bucket "$BUCKET" --key "$module_folder/$module_name.tfstate"; then return 1; fi
+  if ! aws s3 rm "s3://$BUCKET/$module_folder/$module_name" --recursive; then return 1; fi
+  if ! aws s3api delete-object --bucket "$BUCKET" --key "$module_folder/$module_name"; then return 1; fi
 
   cd - || return 1
   rm -rf "$temp_dir" || return 1
@@ -188,10 +188,10 @@ for group_id in $groups; do
 
   echo "Processing group: $group_id"
   module_order=("backup_bucket" "peering" "clusters")
-  group_folder="$KEY_PREFIX/tfstate-$group_id/"
+  group_folder="${KEY_PREFIX}tfstate-$group_id/"
 
   for module_name in "${module_order[@]}"; do
-    module_path="${group_folder}${module_name}.tfstate"
+    module_path="${group_folder}${module_name}"
 
     # Check if the module exists
     if ! aws s3 ls "s3://$BUCKET/$module_path" >/dev/null 2>&1; then
