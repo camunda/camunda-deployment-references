@@ -128,7 +128,7 @@ destroy_resource() {
 
     sed -i -e "s/\(rosa_cluster_1_name\s*=\s*\"\)[^\"]*\(\"\)/\1${cluster_1_name}\2/" cluster_region_1.tf
     sed -i -e "s/\(rosa_cluster_2_name\s*=\s*\"\)[^\"]*\(\"\)/\1${cluster_2_name}\2/" cluster_region_2.tf
-  elif [[ "$module_name" == "vpc_peering" ]]; then
+  elif [[ "$module_name" == "peering" ]]; then
     echo "Setting fake values for VPC peering variables..."
 
     export TF_VAR_cluster_1_region="$CLUSTER_1_AWS_REGION"
