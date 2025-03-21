@@ -91,11 +91,12 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
   rm -f tfplan-redacted.json
 
   # transform, as our user don't have permission to see ipam_pools but ci can
-  jq 'walk(if type == "object" then del(.ipam_pools) else . end)' input.json
+  jq 'walk(if type == "object" then del(.ipam_pools) else . end)' tfplan.json > tfplan-redacted.json
+  rm -f tfplan.json
 
   # final sort
-  jq --sort-keys '.' tfplan.json >  {{ relative_output_path }}tfplan-golden.json
-  rm -f tfplan.json
+  jq --sort-keys '.' tfplan-redacted.json >  {{ relative_output_path }}tfplan-golden.json
+  rm -f tfplan-redacted.json
 
   if grep -E -q '\b@camunda\.[A-Za-z]{2,}\b' {{ relative_output_path }}tfplan-golden.json; then
     echo "ERROR: The golden file {{ relative_output_path }}tfplan-golden.json file contains user-specific information."
