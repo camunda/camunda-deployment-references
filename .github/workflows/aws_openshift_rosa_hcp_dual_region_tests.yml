@@ -338,6 +338,10 @@ jobs:
                   ./install-managed-cluster-set.sh
                   ./verify-managed-cluster-set.sh
 
+                  echo "Import Cluster 2 in the ManagedClusterSet"
+                  ./initiate-cluster-set.sh
+                  ./verify-managed-cluster-set.sh
+
 
             - name: 🐠 Configure Submariner
               timeout-minutes: 20
