@@ -251,6 +251,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
 
             - name: 🔐 Login into the cluster
+              timeout-minutes: 10
               run: |
                   mkdir -p "$HOME/.kube"
                   echo "${{ fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[matrix.distro.name] }}" | base64 --decode > encrypted_kubeconfig.enc
@@ -259,6 +260,7 @@ jobs:
                   chmod 600 "$HOME/.kube/config"
 
             - name: 📁 Get a copy of the reference architecture
+              timeout-minutes: 10
               run: |
                   # run it as specified in the doc
                   set -euxo pipefail # tolerate, nothing.
@@ -302,6 +304,7 @@ jobs:
                       sleep 30
 
             - name: 🛠️ Assemble deployment values of generic/openshift/single-region
+              timeout-minutes: 10
               run: |
                   set -o errexit
                   set -euxo pipefail # tolerate, nothing.
@@ -353,6 +356,7 @@ jobs:
 
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
+              timeout-minutes: 10
               run: |
                   set -euxo pipefail # tolerate, nothing.
 
@@ -394,6 +398,7 @@ jobs:
 
             - name: 🧪 TESTS - Set variables
               if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 10
               run: |
                   set -euxo pipefail # tolerate, nothing.
 
