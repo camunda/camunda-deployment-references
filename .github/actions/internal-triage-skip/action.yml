@@ -16,14 +16,14 @@ runs:
           id: check_labels
           shell: bash
           run: |
-              WORKFLOW_FILE="${{ github.workflow_ref }}"
-              WORKFLOW_FILE_NAME=$(basename "$WORKFLOW_FILE" | sed 's/\(.*\)\(\.yaml\|\.yml\)$/\1/')
-              echo "workflow_file_name=$WORKFLOW_FILE_NAME" | tee -a "$GITHUB_ENV"
+              workflow_file_name=$(echo "${{ github.workflow_ref }}" | sed 's/@.*//')
+              workflow_file_name=$(basename "$workflow_file_name" | sed 's/\(.*\)\(\.yaml\|\.yml\)$/\1/')
+              echo "workflow_file_name=$workflow_file_name" | tee -a "$GITHUB_ENV"
 
-              LABELS=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
-              WORKFLOW_LABEL="skip_${{ env.workflow_file_name }}"
+              labels=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
+              workflow_labels="skip_$workflow_file_name"
 
-              if echo "$LABELS" | grep -qE "$WORKFLOW_LABEL|testing-ci-not-necessary"; then
+              if echo "$labels" | grep -qE "$workflow_labels|testing-ci-not-necessary"; then
                 echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
               else
                 echo "workflow_should_skip=false" | tee -a "$GITHUB_OUTPUT"
