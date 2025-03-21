@@ -447,7 +447,7 @@ runs:
               AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
           run: |
               terraform plan -no-color -out  backup_bucket.plan \
-                -var="bucket_name=camunda-backup-${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}"
+                -var="bucket_name=cb-${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}"
 
 
         - name: Terraform Apply - Backup bucket

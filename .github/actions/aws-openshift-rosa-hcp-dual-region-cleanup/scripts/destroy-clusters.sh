@@ -118,7 +118,7 @@ destroy_resource() {
   fi
 
   if [[ "$module_name" == "backup_bucket" ]]; then
-    export TF_VAR_bucket_name="camunda-backup-$group_id"
+    export TF_VAR_bucket_name="cb-$group_id"
     echo "Bucket name is set to $TF_VAR_bucket_name"
   elif  [[ "$module_name" == "clusters" ]]; then
     echo "Updating cluster names in Terraform configuration..."
