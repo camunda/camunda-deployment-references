@@ -4,7 +4,7 @@ TODO: write the complete maintenance guide (https://github.com/camunda/camunda-d
 
 ## Branching Strategy for camunda-deployment-references
 
-The repository [https://github.com/camunda/camunda-deployment-references](https://github.com/camunda/camunda-deployment-references) follows the logic of maintaining only the [next unreleased version of Camunda](https://docs.camunda.io/docs/8.7/reference/release-notes/) on the `main` branch.
+The repository [https://github.com/camunda/camunda-deployment-references](https://github.com/camunda/camunda-deployment-references) follows the logic of maintaining only the [next unreleased version of Camunda](https://docs.camunda.io/docs/next/reference/announcements-release-notes/overview/#announcements--release-notes) on the `main` branch.
 
 => Most of the time, we work on the next unreleased version, we should then merge into `main`.
 
