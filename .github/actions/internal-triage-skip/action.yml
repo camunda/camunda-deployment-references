@@ -1,6 +1,8 @@
 ---
 name: Skip Workflow if Labeled
-description: Skips the workflow if a label matches its filename
+description: >
+    Skips the workflow if a label matches its filename
+    (e.g.  skip_aws_openshift_rosa_hcp_single_region_tests without the yml extension)
 
 outputs:
     should_skip:
@@ -15,7 +17,7 @@ runs:
           shell: bash
           run: |
               WORKFLOW_FILE="${{ github.workflow_ref }}"
-              WORKFLOW_FILE_NAME=$(basename "$WORKFLOW_FILE")
+              WORKFLOW_FILE_NAME=$(basename "$WORKFLOW_FILE" | sed 's/\(.*\)\(\.yaml\|\.yml\)$/\1/')
               echo "workflow_file_name=$WORKFLOW_FILE_NAME" | tee -a "$GITHUB_ENV"
 
               LABELS=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
