@@ -76,8 +76,6 @@ else
     date_command="date"
 fi
 
-# TODO: fix region 1 and 2
-
 # Function to perform terraform destroy
 destroy_resource() {
   local group_id=$1
@@ -152,7 +150,7 @@ destroy_resource() {
   fi
 
   # Cleanup S3 resources
-  echo "Deleting S3 resources for module $module_name in group $group_id"
+  echo "Deleting S3 resources for module $module_name in group $group_id (tfstate=s3://$BUCKET/$module_tfstate)"
   if ! aws s3 rm "s3://$BUCKET/$module_tfstate" --recursive; then return 1; fi
   if ! aws s3api delete-object --bucket "$BUCKET" --key "$module_tfstate"; then return 1; fi
 
@@ -260,6 +258,9 @@ process_empty_folders() {
         echo "Error listing folders in s3://$BUCKET/"
         exit 1
     fi
+
+    # TODO: fix that, does not work with this structure
+
 
     # Process each folder
     for folder in $empty_folders; do
