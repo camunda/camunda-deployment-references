@@ -88,7 +88,7 @@ destroy_resource() {
   # Create temporary directories for Terraform execution
   local temp_dir="${TEMP_DIR_PREFIX}${group_id}/1/2/3/"
   local temp_generic_modules_dir="${TEMP_DIR_PREFIX}${group_id}/modules/"
-  local source_generic_modules="$MODULES_DIR/../../modules/"
+  local source_generic_modules="$MODULES_DIR/../../../modules/"
 
   echo "Copying generic modules from $source_generic_modules to $temp_generic_modules_dir"
   mkdir -p "$temp_generic_modules_dir" || return 1
