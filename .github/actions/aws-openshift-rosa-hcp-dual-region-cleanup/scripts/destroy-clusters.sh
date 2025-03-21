@@ -273,9 +273,6 @@ process_empty_folders() {
         exit 1
     fi
 
-    # TODO: fix that, does not work with this structure
-
-
     # Process each folder
     for folder in $empty_folders; do
         if is_empty_folder "$folder"; then
