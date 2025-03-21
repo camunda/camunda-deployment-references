@@ -118,7 +118,8 @@ destroy_resource() {
   fi
 
   if [[ "$module_name" == "backup_bucket" ]]; then
-    export TF_VAR_bucket_name="cb-$group_id"
+    hash=$(echo -n "$group_id" | sha256sum | cut -c1-8)
+    export TF_VAR_bucket_name="cb-$hash"
     echo "Bucket name is set to $TF_VAR_bucket_name"
   elif  [[ "$module_name" == "clusters" ]]; then
     echo "Updating cluster names in Terraform configuration..."
