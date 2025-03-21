@@ -46,7 +46,7 @@ on:
             - aws/modules/eks-cluster/**.tf
             - aws/modules/aurora/**.tf
             - .tool-versions
-            - .github/workflows/aws_modules_eks_rds_os_creation_destruction_tests.yml
+            - .github/workflows/aws_modules_eks_rds_os_create_destruct_tests.yml
             - .github/actions/auroa-manage-cluster/**
             - .github/actions/aws-eks-manage-cluster/**
             - .github/actions/aws-opensearch-manage-cluster/**
