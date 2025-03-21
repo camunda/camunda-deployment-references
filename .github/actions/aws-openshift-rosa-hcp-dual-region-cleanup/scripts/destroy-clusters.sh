@@ -80,7 +80,7 @@ fi
 destroy_resource() {
   local group_id=$1
   local module_name=$2
-  local module_folder="$KEY_PREFIX$group_id"
+  local module_folder="${KEY_PREFIX}tfstate-${group_id}"
   local module_tfstate="${module_folder}/${module_name}.tfstate"
 
   # Create temporary directories for Terraform execution
