@@ -83,7 +83,7 @@ destroy_resource() {
   local group_id=$1
   local module_name=$2
   local module_folder="$KEY_PREFIX$group_id"
-  local module_tfstate="${module_folder}/${module_name}"
+  local module_tfstate="${module_folder}/${module_name}.tfstate"
 
   # Create temporary directories for Terraform execution
   local temp_dir="${TEMP_DIR_PREFIX}${group_id}/1/2/3/4/"
@@ -194,7 +194,7 @@ for group_id in $groups; do
   group_folder="${KEY_PREFIX}tfstate-$group_id/"
 
   for module_name in "${module_order[@]}"; do
-    module_path="${group_folder}${module_name}"
+    module_path="${group_folder}${module_name}.tfstate"
 
     # Check if the module exists
     if ! aws s3 ls "s3://$BUCKET/$module_path" >/dev/null 2>&1; then
