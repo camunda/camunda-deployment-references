@@ -46,7 +46,7 @@ on:
             - aws/modules/eks-cluster/**.tf
             - aws/modules/aurora/**.tf
             - .tool-versions
-            - .github/workflows/aws_modules_eks_rds_os_creation_destruction_tests.yml
+            - .github/workflows/aws_modules_eks_rds_os_create_destruct_tests.yml
             - .github/actions/auroa-manage-cluster/**
             - .github/actions/aws-eks-manage-cluster/**
             - .github/actions/aws-opensearch-manage-cluster/**
@@ -76,7 +76,20 @@ env:
     CREATE_OPENSEARCH: ${{ github.event.inputs.create_opensearch || 'true' }}
 
 jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
     action-test:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository

@@ -36,11 +36,22 @@ env:
     S3_BUCKET_REGION: eu-central-1
 
 jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
 
     # We can skip some tests using the commit description (skip-tests:NameOfTest1,NameOfTest2) or all tests (skip-tests:all) (see `DEVELOPER.md`)
     # If all tests are skipped, the result of this workflow will be `failed` on purpose
     # If you want to skip tests and have no error, you need to use `testing-ci-not-necessary` as a label on the PR
     configure-tests:
+        needs:
+            - triage
         runs-on: ubuntu-latest
         if: >-
             (github.event_name == 'schedule' || contains(github.ref, 'refs/heads/schedules/')) || github.event_name == 'workflow_dispatch' || (
@@ -106,7 +117,9 @@ jobs:
     integration-tests:
         runs-on: ubuntu-latest
         needs:
+            - triage
             - configure-tests
+        if: needs.triage.outputs.should_skip == 'false'
         strategy:
             fail-fast: false # don't propagate failing jobs
             matrix:
