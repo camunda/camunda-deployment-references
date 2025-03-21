@@ -84,7 +84,7 @@ destroy_resource() {
   local module_tfstate="${module_folder}/${module_name}.tfstate"
 
   # Create temporary directories for Terraform execution
-  local temp_dir="${TEMP_DIR_PREFIX}${group_id}/1/2/3/4/"
+  local temp_dir="${TEMP_DIR_PREFIX}${group_id}/1/2/3/${module_name}/"
   local temp_generic_modules_dir="${TEMP_DIR_PREFIX}${group_id}/modules/"
   local source_generic_modules="$MODULES_DIR/../../../modules/"
 
