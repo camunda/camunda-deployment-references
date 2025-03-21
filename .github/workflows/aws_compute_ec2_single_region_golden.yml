@@ -27,8 +27,20 @@ env:
 
 
 jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
     compare:
         runs-on: ubuntu-latest
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
         permissions:
             contents: write
             pull-requests: write

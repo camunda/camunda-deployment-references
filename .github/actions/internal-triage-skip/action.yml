@@ -1,0 +1,28 @@
+---
+name: Skip Workflow if Labeled
+description: Skips the workflow if a label matches its filename
+
+outputs:
+    should_skip:
+        description: Indicates whether the workflow should be skipped
+        value: ${{ steps.check_labels.outputs.workflow_should_skip }}
+
+runs:
+    using: composite
+    steps:
+        - name: Get the current workflow filename and check for skip labels
+          id: check_labels
+          shell: bash
+          run: |
+              WORKFLOW_FILE="${{ github.workflow_ref }}"
+              WORKFLOW_FILE_NAME=$(basename "$WORKFLOW_FILE")
+              echo "workflow_file_name=$WORKFLOW_FILE_NAME" | tee -a "$GITHUB_ENV"
+
+              LABELS=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
+              WORKFLOW_LABEL="skip_${{ env.workflow_file_name }}"
+
+              if echo "$LABELS" | grep -qE "$WORKFLOW_LABEL|testing-ci-not-necessary"; then
+                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
+              else
+                echo "workflow_should_skip=false" | tee -a "$GITHUB_OUTPUT"
+              fi
