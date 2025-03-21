@@ -121,18 +121,22 @@ destroy_resource() {
     echo "Bucket name is set to $TF_VAR_bucket_name"
   elif  [[ "$module_name" == "clusters" ]]; then
     echo "Updating cluster names in Terraform configuration..."
+
     export TF_VAR_cluster_1_region="$CLUSTER_1_AWS_REGION"
     export TF_VAR_cluster_2_region="$CLUSTER_2_AWS_REGION"
 
     sed -i -e "s/\(rosa_cluster_1_name\s*=\s*\"\)[^\"]*\(\"\)/\1${cluster_1_name}\2/" cluster_region_1.tf
     sed -i -e "s/\(rosa_cluster_2_name\s*=\s*\"\)[^\"]*\(\"\)/\1${cluster_2_name}\2/" cluster_region_2.tf
   elif [[ "$module_name" == "peering" ]]; then
-    echo "Setting fake values for VPC peering variables..."
+    echo "Setting values for VPC peering variables..."
 
     export TF_VAR_cluster_1_region="$CLUSTER_1_AWS_REGION"
-    export TF_VAR_cluster_1_vpc_id="vpc-xxxxxxxx"
     export TF_VAR_cluster_2_region="$CLUSTER_2_AWS_REGION"
-    export TF_VAR_cluster_2_vpc_id="vpc-yyyyyyyy"
+    TF_VAR_cluster_1_vpc_id=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_1_name}*" --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_1_AWS_REGION")
+    TF_VAR_cluster_2_vpc_id=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_2_name}*" --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_2_AWS_REGION")
+
+    export TF_VAR_cluster_1_vpc_id
+    export TF_VAR_cluster_2_vpc_id
   fi
 
 
