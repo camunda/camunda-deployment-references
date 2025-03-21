@@ -153,8 +153,8 @@ destroy_resource() {
 
   # Cleanup S3 resources
   echo "Deleting S3 resources for module $module_name in group $group_id"
-  if ! aws s3 rm "s3://$BUCKET/$module_folder/$module_name" --recursive; then return 1; fi
-  if ! aws s3api delete-object --bucket "$BUCKET" --key "$module_folder/$module_name"; then return 1; fi
+  if ! aws s3 rm "s3://$BUCKET/$module_tfstate" --recursive; then return 1; fi
+  if ! aws s3api delete-object --bucket "$BUCKET" --key "$module_tfstate"; then return 1; fi
 
   cd - || return 1
   rm -rf "$temp_dir" || return 1
@@ -233,6 +233,63 @@ for group_id in $groups; do
       echo "Skipping $module_name as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
     fi
   done
+done
+
+# Function to check if a folder is empty
+is_empty_folder() {
+    local folder="$1"
+    # List all objects within the folder (excluding subfolders) and count them
+    local file_count
+    if ! file_count=$(aws s3 ls "s3://$BUCKET/$folder" --recursive | grep -cv '/$')
+    then
+        echo "Error listing contents of s3://$BUCKET/$folder"
+        exit 1
+    fi
+
+    # Return true if the folder is empty
+    [ "$file_count" -eq "0" ]
+}
+
+# Function to list and process all empty folders
+process_empty_folders() {
+    local empty_folders_found=false
+
+    # List all folders and sort them from the deepest to the shallowest
+    if ! empty_folders=$(aws s3 ls "s3://$BUCKET/" --recursive | awk '{print $4}' | grep '/$' | sort -r)
+    then
+        echo "Error listing folders in s3://$BUCKET/"
+        exit 1
+    fi
+
+    # Process each folder
+    for folder in $empty_folders; do
+        if is_empty_folder "$folder"; then
+            # If the folder is empty, delete it
+            if ! aws s3 rm "s3://$BUCKET/$folder" --recursive
+            then
+                echo "Error deleting folder: s3://$BUCKET/$folder"
+                exit 1
+            else
+                echo "Deleted empty folder: s3://$BUCKET/$folder"
+                empty_folders_found=true
+            fi
+        fi
+    done
+
+    echo $empty_folders_found
+}
+
+
+echo "Cleaning up empty folders in s3://$BUCKET"
+# Loop until no empty folders are found
+while true; do
+    # Process folders and check if any empty folders were found and deleted
+    if [ "$(process_empty_folders)" = true ]; then
+        echo "Rechecking for empty folders..."
+    else
+        echo "No more empty folders found."
+        break
+    fi
 done
 
 # Exit with the appropriate status
