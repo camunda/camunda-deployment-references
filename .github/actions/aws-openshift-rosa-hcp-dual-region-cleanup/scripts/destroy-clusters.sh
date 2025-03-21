@@ -135,6 +135,16 @@ destroy_resource() {
     TF_VAR_cluster_1_vpc_id=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_1_name}*" --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_1_AWS_REGION")
     TF_VAR_cluster_2_vpc_id=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_2_name}*" --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_2_AWS_REGION")
 
+    if [[ "$TF_VAR_cluster_1_vpc_id" == "None" || -z "$TF_VAR_cluster_1_vpc_id" ]]; then
+      echo "Error: VPC for cluster_1 ($cluster_1_name) not found in region $CLUSTER_1_AWS_REGION."
+      return 1
+    fi
+
+    if [[ "$TF_VAR_cluster_2_vpc_id" == "None" || -z "$TF_VAR_cluster_2_vpc_id" ]]; then
+        echo "Error: VPC for cluster_2 ($cluster_2_name) not found in region $CLUSTER_2_AWS_REGION."
+        return 1
+    fi
+
     export TF_VAR_cluster_1_vpc_id
     export TF_VAR_cluster_2_vpc_id
   fi
