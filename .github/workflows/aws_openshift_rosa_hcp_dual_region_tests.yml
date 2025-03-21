@@ -334,9 +334,9 @@ jobs:
                   ./install-multi-cluster-hub.sh
                   ./verify-multi-cluster-hub.sh
 
-                  echo "Configure MultiClusterSet"
-                  ./install-multi-cluster-set.sh
-                  ./verify-multi-cluster-set.sh
+                  echo "Configure ManagedClusterSet"
+                  ./install-managed-cluster-set.sh
+                  ./verify-managed-cluster-set.sh
 
 
             - name: 🐠 Configure Submariner
