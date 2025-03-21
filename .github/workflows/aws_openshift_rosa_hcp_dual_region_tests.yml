@@ -97,6 +97,9 @@ jobs:
                     cluster_name_fallback="hci-$(uuidgen | head -c 8)"
                     export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
                     export distro_index="${distro_index}"
+
+                    # TODO: remove this
+                    export cluster_name="hci-78309507"
                     yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
                   done
 
@@ -201,8 +204,6 @@ jobs:
                     '.["backup-bucket-s3-aws-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-access-key }}" |
                     .["backup-bucket-s3-aws-secret-access-key"] = ${{ steps.create_clusters.outputs.backup-bucket-s3-aws-secret-access-key }} |
                     .["backup-bucket-s3-bucket-name"] = ${{ steps.create_clusters.outputs.backup-bucket-s3-bucket-name }}' > sensitive_values.yaml
-
-                  cat sensitive_values.yaml
 
                   openssl enc -aes-256-cbc -salt -in sensitive_values.yaml -out encrypted_sensitive_values.enc -pass pass:"$GITHUB_TOKEN" -pbkdf2
                   encrypted_base64=$(base64 -w 0 encrypted_sensitive_values.enc)
