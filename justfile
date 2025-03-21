@@ -90,6 +90,9 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
     transform' tfplan-redacted.json > tfplan.json
   rm -f tfplan-redacted.json
 
+  # transform, as our user don't have permission to see ipam_pools but ci can
+  jq 'walk(if type == "object" then del(.ipam_pools) else . end)' input.json
+
   # final sort
   jq --sort-keys '.' tfplan.json >  {{ relative_output_path }}tfplan-golden.json
   rm -f tfplan.json
