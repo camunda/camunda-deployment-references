@@ -66,7 +66,7 @@ jobs:
                   just regenerate-golden-file "${{ env.MODULE_DIR }}" "${{ env.S3_BUCKET_REGION }}" "${{ env.S3_BACKEND_BUCKET }}" "${{ env.S3_BUCKET_KEY }}" "./compare/"
 
             - name: Upload pipeline golden result
-              uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
               with:
                   name: plan-artifact-json
                   path: ${{ env.MODULE_DIR }}compare/tfplan-golden.json
@@ -124,7 +124,7 @@ jobs:
 
             - name: Post diff on PR
               if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
-              uses: int128/diff-action@db6cce01542cb26e181798736eea1e71f5d36706 # v1
+              uses: int128/diff-action@1a147f34a49636aafdb862075055908e06edaaa7 # v1
               with:
                   base: ${{ env.MODULE_DIR }}test/golden/tfplan-golden.json
                   head: ${{ env.MODULE_DIR }}compare/tfplan-golden.json
