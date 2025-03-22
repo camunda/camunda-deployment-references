@@ -29,7 +29,7 @@ module "rosa_cluster" {
   replicas                   = 6
 
   # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-  openshift_version = "4.18.3"
+  openshift_version = "4.18.4"
 }
 
 # Outputs of the parent module

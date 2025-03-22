@@ -1,7 +1,7 @@
 # this file is a recipe file for the project
 
 # renovate: datasource=github-releases depName=gotestyourself/gotestsum
-gotestsum_version := "v1.12.0"
+gotestsum_version := "v1.12.1"
 
 # Generate the AWS golden file for the EC2 tf files
 aws-compute-ec2-single-region-golden:
