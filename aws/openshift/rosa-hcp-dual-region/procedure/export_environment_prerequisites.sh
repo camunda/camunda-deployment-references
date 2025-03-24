@@ -9,8 +9,8 @@
 # to export the environment variables to the current shell
 
 # The AWS regions of your OpenShift cluster 1 and 2
-export CLUSTER_1_REGION="us-east-1"
-export CLUSTER_2_REGION="us-east-2"
+export CLUSTER_1_REGION=us-east-1
+export CLUSTER_2_REGION=us-east-2
 
 # The names of your OpenShift clusters in regions 1 and 2
 export CLUSTER_1_NAME=""
