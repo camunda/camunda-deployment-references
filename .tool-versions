@@ -17,12 +17,12 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.7
 
-awscli 2.24.24
+awscli 2.25.1
 
 delta 0.18.2
 
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
-eksctl 0.204.0
+eksctl 0.206.0
 
 golang 1.24.1
 
@@ -38,7 +38,7 @@ kubectl 1.32.3
 
 kustomize 5.6.0 # used by the tests
 
-pre-commit 4.1.0
+pre-commit 4.2.0
 
 python 3.13.2
 

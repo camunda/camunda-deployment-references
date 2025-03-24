@@ -23,7 +23,7 @@ matrix:
           schedule_only: true # Old versions are only checked during schedule workflows
           type: openshift
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.17(\.(?<patch>\d+))?$
-          version: 4.17.19
+          version: 4.17.20
           platform: rosa
 
         - name: OpenShift 4.16
@@ -37,7 +37,7 @@ matrix:
           schedule_only: true
           type: openshift
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.15(\.(?<patch>\d+))?$
-          version: 4.15.46
+          version: 4.15.47
           platform: rosa
 
     scenario:
