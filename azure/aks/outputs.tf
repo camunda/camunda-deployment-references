@@ -1,7 +1,42 @@
-output "aks_cluster_id" {
-  value = module.aks.aks_cluster_id
+output "resource_group_name" {
+  description = "Name of the resource group"
+  value       = azurerm_resource_group.app_rg.name
 }
 
-output "network_security_group_id" {
-  value = module.network.aks_nsg_id
+output "aks_cluster_id" {
+  description = "ID of the deployed AKS cluster"
+  value       = module.aks.aks_cluster_id
+}
+
+output "aks_fqdn" {
+  description = "FQDN of the AKS cluster"
+  value       = module.aks.aks_fqdn
+}
+
+output "postgres_fqdn" {
+  description = "The fully qualified domain name of the PostgreSQL Flexible Server"
+  value       = module.postgres_db.fqdn
+}
+
+output "postgres_admin_username" {
+  description = "PostgreSQL admin username"
+  value       = var.db_admin_username
+  sensitive   = true
+}
+
+output "postgres_databases" {
+  description = "List of created database names"
+  value       = module.postgres_db.databases
+}
+
+# Output deployment info in a format suitable for testing
+output "deployment_info" {
+  description = "Deployment information for testing"
+  value = {
+    timestamp       = timestamp()
+    location        = var.location
+    environment     = "testing"
+    postgres_server = module.postgres_db.fqdn
+    aks_cluster     = module.aks.aks_fqdn
+  }
 }

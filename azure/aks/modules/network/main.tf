@@ -1,30 +1,20 @@
-terraform {
-  required_version = ">= 0.12"
-
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = ">= 2.0"
-    }
-  }
-}
-
 resource "azurerm_virtual_network" "aks_vnet" {
-  name                = "aks-vnet"
+  name                = "${var.resource_prefix}-vnet"
   location            = var.location
   resource_group_name = var.resource_group_name
   address_space       = ["10.1.0.0/16"]
+  tags                = var.tags
 }
 
 resource "azurerm_subnet" "aks_subnet" {
-  name                 = "aks-subnet"
+  name                 = "${var.resource_prefix}-aks-subnet"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.aks_vnet.name
   address_prefixes     = ["10.1.0.0/24"]
 }
 
 resource "azurerm_subnet" "db_subnet" {
-  name                 = "db-subnet"
+  name                 = "${var.resource_prefix}-db-subnet"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.aks_vnet.name
   address_prefixes     = ["10.1.1.0/24"]
@@ -38,13 +28,16 @@ resource "azurerm_subnet" "db_subnet" {
   }
 }
 
+# Simple NSG with permissive rules for testing
 resource "azurerm_network_security_group" "aks_nsg" {
   name                = var.nsg_name
   location            = var.location
   resource_group_name = var.resource_group_name
+  tags                = var.tags
 
+  # For testing - allow all internal traffic
   security_rule {
-    name                       = "Node-to-Node-All"
+    name                       = "AllowAllInternal"
     priority                   = 100
     direction                  = "Inbound"
     access                     = "Allow"
@@ -54,6 +47,19 @@ resource "azurerm_network_security_group" "aks_nsg" {
     source_address_prefix      = "VirtualNetwork"
     destination_address_prefix = "VirtualNetwork"
   }
+
+  # For testing - allow necessary external traffic
+  security_rule {
+    name                       = "AllowHTTPS"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
 }
 
 resource "azurerm_subnet_network_security_group_association" "aks_nsg_association" {
@@ -61,15 +67,17 @@ resource "azurerm_subnet_network_security_group_association" "aks_nsg_associatio
   network_security_group_id = azurerm_network_security_group.aks_nsg.id
 }
 
-# Private DNS Zone for PostgreSQL (required for private endpoint resolution)
+# Simple DNS zone for testing
 resource "azurerm_private_dns_zone" "postgres" {
-  name                = "postgres.database.azure.com"
+  name                = "${var.resource_prefix}-postgres.private.postgres.database.azure.com"
   resource_group_name = var.resource_group_name
+  tags                = var.tags
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "postgres_vnet_link" {
-  name                  = "postgres-vnet-link"
+  name                  = "${var.resource_prefix}-postgres-vnet-link"
   resource_group_name   = var.resource_group_name
   private_dns_zone_name = azurerm_private_dns_zone.postgres.name
   virtual_network_id    = azurerm_virtual_network.aks_vnet.id
+  tags                  = var.tags
 }

@@ -1,13 +1,11 @@
 variable "aks_cluster_name" {
   description = "Name of the AKS cluster"
   type        = string
-  default     = "camunda-aks"
 }
 
 variable "location" {
   description = "Region where the AKS cluster will be deployed"
   type        = string
-  default     = "swedencentral"
 }
 
 variable "resource_group_name" {
@@ -20,26 +18,52 @@ variable "subnet_id" {
   type        = string
 }
 
-variable "node_pool_count" {
-  description = "Fixed number of nodes in the default node pool"
-  type        = number
-  default     = 2
+variable "kubernetes_version" {
+  description = "Kubernetes version to use for the AKS cluster"
+  type        = string
+  default     = "1.25.5"
 }
 
 variable "tags" {
-  description = "Tags to apply to AKS cluster"
+  description = "Tags to apply to all resources"
   type        = map(string)
   default     = {}
 }
 
-variable "node_vm_size" {
-  description = "VM size for AKS node pool"
+# System node pool configuration
+variable "system_node_pool_vm_size" {
+  description = "VM size for the system node pool"
   type        = string
-  default     = "standard_d2_v2"
+  default     = "Standard_D2s_v3"
 }
 
-variable "node_disk_size_gb" {
-  description = "OS disk size in GB for AKS nodes"
+variable "system_node_disk_size_gb" {
+  description = "OS disk size in GB for system nodes"
   type        = number
   default     = 30
+}
+
+variable "system_node_pool_count" {
+  description = "Number of nodes in the system node pool"
+  type        = number
+  default     = 1
+}
+
+# User node pool configuration
+variable "user_node_pool_vm_size" {
+  description = "VM size for the user node pool"
+  type        = string
+  default     = "Standard_D4s_v3"
+}
+
+variable "user_node_disk_size_gb" {
+  description = "OS disk size in GB for user nodes"
+  type        = number
+  default     = 50
+}
+
+variable "user_node_pool_count" {
+  description = "Number of nodes in the user node pool"
+  type        = number
+  default     = 2
 }

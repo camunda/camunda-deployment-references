@@ -1,32 +1,15 @@
-terraform {
-  required_version = ">= 0.14"
-
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = ">= 2.0"
-    }
-    postgresql = {
-      source  = "cyrilgdn/postgresql"
-      version = ">= 1.0"
-    }
-  }
-}
-
-# Create the PostgreSQL Flexible Server
 resource "azurerm_postgresql_flexible_server" "this" {
   name                         = var.server_name
   resource_group_name          = var.resource_group_name
   location                     = var.location
   version                      = var.postgres_version
-  delegated_subnet_id          = var.delegated_subnet_id
-  private_dns_zone_id          = var.private_dns_zone_id
   administrator_login          = var.admin_username
   administrator_password       = var.admin_password
   sku_name                     = var.sku_tier
   storage_mb                   = var.storage_mb
   backup_retention_days        = var.backup_retention_days
   geo_redundant_backup_enabled = var.enable_geo_redundant_backup
+  tags                         = var.tags
 
   zone = var.zone
 
@@ -35,87 +18,54 @@ resource "azurerm_postgresql_flexible_server" "this" {
     standby_availability_zone = var.standby_availability_zone
   }
 
-  public_network_access_enabled = false
+  # For testing purposes, we're enabling public access
+  # In production, you would restrict this and use private endpoints
+  public_network_access_enabled = true
+
+  # For testing simplicity, allow all IP addresses to connect
+  # NOT RECOMMENDED FOR PRODUCTION
+  lifecycle {
+    ignore_changes = [
+      # This allows automated tests to run without worrying about IP changes
+      tags["testing"],
+    ]
+  }
 }
 
-# Create the Keycloak database
-resource "azurerm_postgresql_flexible_server_database" "keycloak" {
-  name      = var.db_keycloak_name
+# For testing purposes, allow all IPs to connect to the PostgreSQL server
+# NOT RECOMMENDED FOR PRODUCTION
+resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_all" {
+  name             = "AllowAll"
+  server_id        = azurerm_postgresql_flexible_server.this.id
+  start_ip_address = "0.0.0.0"
+  end_ip_address   = "255.255.255.255"
+}
+
+resource "azurerm_postgresql_flexible_server_database" "databases" {
+  for_each = var.databases
+
+  name      = each.value.name
   server_id = azurerm_postgresql_flexible_server.this.id
   charset   = "UTF8"
   collation = "en_US.utf8"
+
+  depends_on = [
+    azurerm_postgresql_flexible_server_firewall_rule.allow_all
+  ]
 }
 
-# Create the Identity database
-resource "azurerm_postgresql_flexible_server_database" "identity" {
-  name      = var.db_identity_name
-  server_id = azurerm_postgresql_flexible_server.this.id
-  charset   = "UTF8"
-  collation = "en_US.utf8"
-}
-
-# Create the WebModeler database
-resource "azurerm_postgresql_flexible_server_database" "webmodeler" {
-  name      = var.db_webmodeler_name
-  server_id = azurerm_postgresql_flexible_server.this.id
-  charset   = "UTF8"
-  collation = "en_US.utf8"
-}
-
-# Configure the PostgreSQL provider to manage roles and grants
-provider "postgresql" {
-  host            = azurerm_postgresql_flexible_server.this.fqdn
-  port            = 5432
-  username        = var.admin_username
-  password        = var.admin_password
-  database        = "postgres"
-  sslmode         = "require"
-  connect_timeout = 15
-
-  depends_on = [azurerm_postgresql_flexible_server.this]
-}
-
-# Create the Keycloak database connection role
-resource "postgresql_role" "keycloak_role" {
-  name     = var.db_keycloak_username
-  password = var.db_keycloak_password
-  login    = true
-}
-
-# Grant CONNECT privilege on Keycloak database
-resource "postgresql_grant" "keycloak_grant" {
-  database    = azurerm_postgresql_flexible_server_database.keycloak.name
-  role        = postgresql_role.keycloak_role.name
-  object_type = "database"
-  privileges  = ["CONNECT"]
-}
-
-# Create the Identity database connection role
-resource "postgresql_role" "identity_role" {
-  name     = var.db_identity_username
-  password = var.db_identity_password
-  login    = true
-}
-
-# Grant CONNECT privilege on Identity database
-resource "postgresql_grant" "identity_grant" {
-  database    = azurerm_postgresql_flexible_server_database.identity.name
-  role        = postgresql_role.identity_role.name
-  object_type = "database"
-  privileges  = ["CONNECT"]
-}
-
-# Create the WebModeler database connection role
-resource "postgresql_role" "webmodeler_role" {
-  name     = var.db_webmodeler_username
-  password = var.db_webmodeler_password
-  login    = true
-}
-
-# Grant CONNECT privilege on WebModeler database
-resource "postgresql_grant" "webmodeler_grant" {
-  database    = azurerm_postgresql_flexible_server_database.webmodeler.name
-  role        = postgresql_role.webmodeler_role.name
-  object_type = "database"
-  privileges  = ["CONNECT"]
+resource "local_file" "connection_info" {
+  content = templatefile("${path.module}/templates/connection.tpl", {
+    server_name = azurerm_postgresql_flexible_server.this.fqdn
+    admin_user  = var.admin_username
+    admin_pass  = var.admin_password
+    databases = {
+      for k, v in var.databases : k => {
+        name     = v.name
+        username = v.username
+        password = lookup(var.database_passwords, k, "")
+      }
+    }
+  })
+  filename = "${path.module}/connection_info.txt"
 }

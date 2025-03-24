@@ -1,60 +1,70 @@
 resource "azurerm_resource_group" "app_rg" {
   name     = var.resource_group_name
   location = var.location
+  tags     = var.tags
 }
 
 module "network" {
   source              = "./modules/network"
   resource_group_name = azurerm_resource_group.app_rg.name
   location            = var.location
-  nsg_name            = "camunda-aks-nsg"
+  resource_prefix     = var.resource_prefix
+  nsg_name            = "${var.resource_prefix}-aks-nsg"
+  tags                = var.tags
 }
 
 module "aks" {
   source              = "./modules/aks"
   resource_group_name = azurerm_resource_group.app_rg.name
   location            = var.location
-  aks_cluster_name    = var.aks_cluster_name
+  aks_cluster_name    = "${var.resource_prefix}-aks"
   subnet_id           = module.network.aks_subnet_id
-  node_pool_count     = var.node_pool_count
-  tags                = var.tags
-  depends_on          = [module.network]
+  # System node pool configuration (for Kubernetes system components)
+  system_node_pool_vm_size = "Standard_D2s_v3"
+  system_node_pool_count   = 1
+  system_node_disk_size_gb = 30
+
+  # User node pool configuration (for Camunda workloads)
+  user_node_pool_vm_size = "Standard_D4s_v3"
+  user_node_pool_count   = 2
+  user_node_disk_size_gb = 50
+  tags                   = var.tags
+  depends_on             = [module.network]
+  kubernetes_version     = var.kubernetes_version
 }
 
 module "postgres_db" {
-  source              = "./modules/postgres-db"
+  source = "./modules/postgres-db"
 
   resource_group_name = azurerm_resource_group.app_rg.name
   location            = var.location
+  tags                = var.tags
 
-  server_name         = var.postgres_server_name
-  admin_username      = var.db_admin_username
-  admin_password      = var.db_admin_password
-  postgres_version    = "15"
-  sku_tier            = var.postgres_sku_tier
-  storage_mb          = var.postgres_storage_mb
-  backup_retention_days = var.postgres_backup_retention_days
+  server_name      = "${var.resource_prefix}-pg-server"
+  admin_username   = var.db_admin_username
+  admin_password   = var.db_admin_password
+  postgres_version = var.postgres_version
+  sku_tier         = var.postgres_sku_tier
+  storage_mb       = var.postgres_storage_mb
+
+  backup_retention_days       = var.postgres_backup_retention_days
   enable_geo_redundant_backup = var.postgres_enable_geo_redundant_backup
+  zone                        = var.postgres_zone
+  standby_availability_zone   = var.postgres_standby_zone
 
-  delegated_subnet_id = module.network.db_subnet_id
-  private_dns_zone_id = module.network.postgres_private_dns_zone_id
+  databases          = var.databases
+  database_passwords = var.database_passwords
 
-  zone                = var.postgres_zone
-  standby_availability_zone = var.postgres_standby_zone
-
-  db_keycloak_name       = var.db_keycloak_name
-  db_identity_name       = var.db_identity_name
-  db_webmodeler_name     = var.db_webmodeler_name
-
-  db_keycloak_username   = var.db_keycloak_username
-  db_identity_username   = var.db_identity_username
-  db_webmodeler_username = var.db_webmodeler_username
-
-  db_keycloak_password   = var.db_keycloak_password
-  db_identity_password   = var.db_identity_password
-  db_webmodeler_password = var.db_webmodeler_password
+  depends_on = [module.network]
 }
 
-output "postgres_fqdn" {
-  value = module.postgres_db.fqdn
+# Local resource to indicate test readiness
+resource "local_file" "deployment_complete" {
+  content  = "Deployment completed on ${timestamp()}"
+  filename = "${path.module}/deployment_complete.txt"
+
+  depends_on = [
+    module.aks,
+    module.postgres_db
+  ]
 }

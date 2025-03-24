@@ -8,6 +8,12 @@ variable "location" {
   type        = string
 }
 
+variable "tags" {
+  description = "A map of tags to add to all resources"
+  type        = map(string)
+  default     = {}
+}
+
 variable "server_name" {
   description = "Name for the PostgreSQL Flexible Server instance"
   type        = string
@@ -31,8 +37,9 @@ variable "postgres_version" {
 }
 
 variable "sku_tier" {
-  description = "SKU name for the PostgreSQL Flexible Server (e.g., GP_Standard_D2s_v3 or MO_Standard_E4s_v3)"
+  description = "SKU name for the PostgreSQL Flexible Server"
   type        = string
+  default     = "B_Standard_B1ms"
 }
 
 variable "storage_mb" {
@@ -50,17 +57,7 @@ variable "backup_retention_days" {
 variable "enable_geo_redundant_backup" {
   description = "Enable geo-redundant backup"
   type        = bool
-  default     = true
-}
-
-variable "delegated_subnet_id" {
-  description = "ID of the subnet delegated to PostgreSQL Flexible Server (from your networking module)"
-  type        = string
-}
-
-variable "private_dns_zone_id" {
-  description = "ID of the Private DNS Zone for PostgreSQL Flexible Server (from your networking module)"
-  type        = string
+  default     = false # Disabled for testing to save costs
 }
 
 variable "zone" {
@@ -75,61 +72,19 @@ variable "standby_availability_zone" {
   default     = "2"
 }
 
-# Database names
-variable "db_keycloak_name" {
-  description = "Name of the Camunda Keycloak database"
-  type        = string
-  default     = "camunda_keycloak"
+# Simplified database configurations using map for better organization
+# Non-sensitive information only
+variable "databases" {
+  description = "Map of database configurations (non-sensitive information)"
+  type = map(object({
+    name     = string
+    username = string
+  }))
 }
 
-variable "db_identity_name" {
-  description = "Name of the Camunda Identity database"
-  type        = string
-  default     = "camunda_identity"
-}
-
-variable "db_webmodeler_name" {
-  description = "Name of the Camunda WebModeler database"
-  type        = string
-  default     = "camunda_webmodeler"
-}
-
-# Connection credentials for each database
-variable "db_keycloak_username" {
-  description = "Connection username for the Keycloak database"
-  type        = string
-  default     = "keycloak_db"
-}
-
-variable "db_identity_username" {
-  description = "Connection username for the Identity database"
-  type        = string
-  default     = "identity_db"
-}
-
-variable "db_webmodeler_username" {
-  description = "Connection username for the WebModeler database"
-  type        = string
-  default     = "webmodeler_db"
-}
-
-variable "db_keycloak_password" {
-  description = "Connection password for the Keycloak database"
-  type        = string
-  default     = "secretvalue%24"
-  sensitive   = true
-}
-
-variable "db_identity_password" {
-  description = "Connection password for the Identity database"
-  type        = string
-  default     = "secretvalue%25"
-  sensitive   = true
-}
-
-variable "db_webmodeler_password" {
-  description = "Connection password for the WebModeler database"
-  type        = string
-  default     = "secretvalue%26"
+# Store passwords separately to avoid for_each with sensitive values
+variable "database_passwords" {
+  description = "Map of database passwords (sensitive)"
+  type        = map(string)
   sensitive   = true
 }
