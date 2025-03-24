@@ -1,0 +1,89 @@
+---
+name: Delete AWS ROSA HCP Single Region Clusters
+
+description: |
+    This GitHub Action automates the deletion of aws/openshift/rosa-hcp-single-region reference architecture clusters using a shell script.
+
+inputs:
+    tf-bucket:
+        description: Bucket containing the clusters states
+        required: true
+
+    tf-bucket-region:
+        description: Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION
+
+    tf-bucket-key-prefix:
+        description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+        default: ''
+
+    max-age-hours-cluster:
+        description: Maximum age of clusters in hours
+        default: '20'
+
+    target:
+        description: Specify an ID to destroy specific resources or "all" to destroy all resources
+        default: all
+
+    rosa-cli-version:
+        description: Version of the ROSA CLI to use
+        default: latest
+
+    openshift-version:
+        description: Version of the OpenShift to install
+        required: true
+        # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
+        default: 4.18.4
+
+runs:
+    using: composite
+    steps:
+
+        - name: Install asdf tools with cache
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+
+        - name: Install ROSA CLI
+          shell: bash
+          working-directory: /tmp
+          run: |
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              tar -xvf rosa-linux.tar.gz
+              sudo mv rosa /usr/local/bin/rosa
+              chmod +x /usr/local/bin/rosa
+              rm -f rosa-linux.tar.gz
+              rosa version
+
+        - name: Install CLI tools from OpenShift Mirror
+          uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+          with:
+              oc: ${{ inputs.openshift-version }}
+
+        - name: Install Cloud Nuke for retry
+          shell: bash
+          if: ${{ env.RETRY_DESTROY == 'true' }}
+          working-directory: /tmp
+          env:
+              # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
+              CLOUD_NUKE_VERSION: v0.39.0
+          run: |
+              curl -LO \
+                  --retry 5 \
+                  --max-time 15 \
+                  --retry-delay 30 \
+                  https://github.com/gruntwork-io/cloud-nuke/releases/download/${{ env.CLOUD_NUKE_VERSION }}/cloud-nuke_linux_amd64
+              chmod +x cloud-nuke_linux_amd64
+              mv cloud-nuke_linux_amd64 /usr/local/bin/cloud-nuke
+
+        - name: Delete clusters
+          id: delete_clusters
+          shell: bash
+          run: |
+              if [ -n "${{ inputs.tf-bucket-region }}" ]; then
+                export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
+              fi
+
+              # Use repo .tool-version as global version
+              cp .tool-versions ~/.tool-versions
+
+              ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
+                ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-single-region/ /tmp/cleanup/ \
+                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}

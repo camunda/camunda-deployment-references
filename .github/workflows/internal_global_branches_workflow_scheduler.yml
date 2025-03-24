@@ -1,0 +1,205 @@
+---
+name: Internal - Global - Branches Schedule Workflows
+
+on:
+    pull_request:
+        paths:
+            - .github/workflows/internal_global_branches_workflow_scheduler.yml
+    schedule:
+        - cron: 0 * * * *   # every hour, every day
+    workflow_dispatch:
+        inputs:
+            schedule_name:
+                description: Name of the schedule to run
+                required: false
+                type: string
+
+# limit to a single execution per ref of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    close-scheduled-prs:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0
+
+            - name: Generate token for GitHub
+              id: generate-github-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@10e245cd78ae2c263dbc6e4c785ab7b7613dc085 # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+
+            - name: Close all scheduled PRs after 24h and delete associated branches
+              env:
+                  GH_TOKEN: ${{ steps.generate-github-token.outputs.token }}
+              run: |
+                  prs=$(gh pr list --state "OPEN" --label "schedule" --json number,headRefName,createdAt \
+                        --jq '[.[] | select((now - (.createdAt | fromdate)) > 86400)]')
+
+                  if [[ -z "$prs" ]]; then
+                    echo "No PRs found with the label 'schedule'."
+                    exit 0
+                  fi
+
+                  echo "PRs with the label 'schedule': $prs"
+
+                  # Loop through each PR in the JSON array and process it
+                  echo "$prs" | jq -c '.[]' | while IFS= read -r pr; do
+                    pr_number=$(echo "$pr" | jq -r '.number')
+                    branch_name=$(echo "$pr" | jq -r '.headRefName')
+                    echo "Closing PR #$pr_number and deleting branch $branch_name..."
+                    gh pr close "$pr_number" --delete-branch
+                  done
+
+    define-matrix:
+        runs-on: ubuntu-latest
+        outputs:
+            schedules: ${{ steps.matrix.outputs.schedules }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+
+            - id: matrix
+              run: |
+                  set -euxo pipefail # tolerate, nothing.
+
+                  # shellcheck disable=SC2086
+                  schedules="$(yq '.schedules' --indent=0 --output-format json .github/workflows-config/workflow-scheduler.yml)"
+
+                  # Convert each workflow_files array to a string format
+                  formatted_schedules=$(echo "$schedules" | jq -c '.[].workflow_files |= tostring')
+
+                  if [[ -n "${{ github.event.inputs.schedule_name }}" ]]; then
+                    # Filter schedules based on the provided workflow name
+                    filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg schedule_name "${{ github.event.inputs.schedule_name }}" '
+                    [.[] | select(.name == $schedule_name)]
+                    ')
+                  else
+                    current_day=$(date +%A)
+                    current_hour=$(date +%-H)
+
+                    # Filter schedules based on cron_every_day and cron_every_hours
+                    filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg current_day "$current_day" --arg current_hour "$current_hour" '
+                        [.[] | select(
+                            (.cron_every_day == null or (.cron_every_day | tostring | split(",") | index($current_day))) and
+                            (.cron_every_hours == null or (.cron_every_hours | tostring | split(",") | index($current_hour)))
+                        )]
+                    ')
+                  fi
+
+                  echo "schedules=${filtered_schedules}" | tee -a "$GITHUB_OUTPUT"
+
+    schedule-workflows:
+        runs-on: ubuntu-latest
+        if: needs.define-matrix.outputs.schedules != '[]' && needs.define-matrix.outputs.schedules != ''
+        needs:
+            - define-matrix
+            - close-scheduled-prs
+        strategy:
+            fail-fast: false
+            matrix:
+                schedule: ${{ fromJson(needs.define-matrix.outputs.schedules) }}
+        steps:
+            - name: Generate token for GitHub
+              id: generate-github-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@10e245cd78ae2c263dbc6e4c785ab7b7613dc085 # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  token: ${{ steps.generate-github-token.outputs.token }}
+                  ref: ${{ matrix.schedule.branch }}
+
+            - name: Prepare the working branch
+              id: branch-update
+              run: |
+                  stringified_branch=$(echo "${{ matrix.schedule.name }}" | tr ' ' '_' | tr -cd '[:alnum:]_')
+                  echo "current_branch=schedules/$stringified_branch" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Modify workflow files to trigger the PR
+              run: |
+                  workflow_files=$(echo '${{ matrix.schedule.workflow_files }}' | jq -r '.[]')
+                  echo "Removing on.pull_request.paths from $workflow_files"
+
+                  # Loop through each workflow file and modify it using yq
+                  echo "$workflow_files" | while IFS= read -r workflow_file; do
+                    yq -i 'del(.on.pull_request.paths)' "$workflow_file"
+
+                    # remove all comments in the file as yamlfmt may conflict with yamllint
+                    yq -i '... comments=""' "$workflow_file"
+                  done
+
+            - name: Reformat yaml after yq files using pre-commit
+              uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+              id: pre_commit_check_first_run
+              continue-on-error: true # it will fail as we reformat the files
+              with:
+                  extra_args: --all-files --verbose
+
+            - name: Create the schedule PR
+              uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7
+              with:
+                  token: ${{ steps.generate-github-token.outputs.token }}
+                  branch: ${{ steps.branch-update.outputs.current_branch }}
+                  base: ${{ matrix.schedule.branch }}
+                  branch-suffix: random
+                  delete-branch: true
+                  title: '[schedule][NO MERGE] ${{ matrix.schedule.name }}'
+                  body: |
+                      ## 📌 Purpose of this PR
+                      This PR is automatically generated to **trigger a scheduled workflow** on a specific branch. **No manual action is required.**
+
+                      ### ⚠️ Do Not
+                      🚫 **Do not modify or merge this PR.**
+                      🚫 It will be automatically closed after 24 hours.
+
+                      ### 🔍 Details
+                      - This PR is used to execute scheduled workflows defined in `.github/workflows-config/workflow-scheduler.yml`.
+                      - The associated workflow files have been modified to remove the `on.pull_request.paths` trigger.
+                  labels: |
+                      schedule
+                      automated pr
+                      no merge
+                  draft: true
+
+    notify-on-failure:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'schedule' && failure()
+        needs:
+            - define-matrix
+            - schedule-workflows
+            - close-scheduled-prs
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

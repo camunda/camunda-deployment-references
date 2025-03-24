@@ -1,4 +1,4 @@
- # Created by https://www.toptal.com/developers/gitignore/api/macos,linux,visualstudiocode,terraform
+# Created by https://www.toptal.com/developers/gitignore/api/macos,linux,visualstudiocode,terraform
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,linux,visualstudiocode,terraform
 
 ### Linux ###
@@ -58,6 +58,8 @@ Temporary Items
 *.tfstate.*
 .terraform.lock.hcl
 *.plan
+tfplan.json
+tfplan-redacted.json
 
 # Crash log files
 crash.log
@@ -67,7 +69,6 @@ crash.*.log
 # password, private keys, and other secrets. These should not be part of version
 # control as they are data points which are potentially sensitive and subject
 # to change depending on the environment.
-*.tfvars
 *.tfvars.json
 
 # Ignore override files as they are usually used to override resources locally and so
@@ -112,3 +113,10 @@ ec2-jar-priv
 ca-authority.pem
 ca-authority.key
 camunda-environment.tmp
+.vscode
+.idea
+terraform.tfstate
+terraform.tfstate.backup
+.terraform
+.terraform.lock.hcl
+trivyreport.txt

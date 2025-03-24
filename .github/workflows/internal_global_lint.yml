@@ -1,0 +1,13 @@
+---
+name: Internal - Global - Lint
+
+on:
+    workflow_dispatch:
+    pull_request:
+    push:
+        branches: [main]
+
+jobs:
+    lint:
+        uses: camunda/infraex-common-config/.github/workflows/lint-global.yml@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+        secrets: inherit

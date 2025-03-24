@@ -1,0 +1,187 @@
+---
+name: Deploy OpenSearch Domain
+
+description: |
+    This GitHub Action automates the deployment of an OpenSearch domain using Terraform.
+    It will also install Terraform and awscli. It will output the OpenSearch domain endpoint.
+
+inputs:
+    aws-region:
+        description: AWS region where the cluster will be deployed
+        required: true
+
+    domain-name:
+        description: Name of the OpenSearch domain to deploy
+        required: true
+
+    engine-version:
+        description: Version of the OpenSearch engine to deploy
+        # TODO: add renovate
+        default: '2.15'
+
+    vpc-id:
+        description: VPC ID to create the domain in
+        required: true
+
+    subnet-ids:
+        description: List of subnet IDs to create the domain in
+        required: true
+
+    cidr-blocks:
+        description: CIDR blocks to allow access from and to
+        required: true
+
+    instance-type:
+        description: Instance type for the OpenSearch cluster
+        default: t3.small.search
+
+    instance-count:
+        description: Number of instances in the cluster
+        default: '3'
+
+    additional-terraform-vars:
+        description: JSON object containing additional Terraform variables
+        default: '{}'
+
+    s3-backend-bucket:
+        description: Name of the S3 bucket to store Terraform state
+        required: true
+
+    s3-bucket-region:
+        description: Region of the bucket containing the resources states
+        required: false
+
+    s3-bucket-key-prefix:
+        description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+        default: ''
+
+    tf-modules-revision:
+        description: Git revision of the tf modules to use
+        default: main
+
+    tf-modules-path:
+        description: Path where the tf OpenSearch modules will be cloned
+        default: ./.action-tf-modules/opensearch/
+
+    tf-cli-config-credentials-hostname:
+        description: |
+            The hostname of a HCP Terraform/Terraform Enterprise instance to place within the credentials block
+            of the Terraform CLI configuration file. Defaults to `app.terraform.io`.
+        default: app.terraform.io
+
+    tf-cli-config-credentials-token:
+        description: |
+            The API token for a HCP Terraform/Terraform Enterprise instance to place
+            within the credentials block of the Terraform CLI configuration file.
+        required: false
+
+    tf-terraform-version:
+        description: The version of Terraform CLI to install. Defaults to `latest`.
+        default: latest
+
+    tf-terraform-wrapper:
+        description: |
+            Whether or not to install a wrapper to wrap subsequent calls of the `terraform` binary
+            and expose its STDOUT, STDERR, and exit code
+            as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`.
+        default: 'true'
+
+    awscli-version:
+        description: Version of the aws cli to use
+        # renovate: datasource=github-releases depName=aws/aws-cli
+        default: 2.15.52
+
+outputs:
+    opensearch-endpoint:
+        description: The endpoint of the deployed OpenSearch domain
+        value: ${{ steps.fetch_outputs.outputs.opensearch_endpoint }}
+
+    terraform-state-url:
+        description: URL of the Terraform state file in the S3 bucket
+        value: ${{ steps.utility.outputs.terraform-state-url }}
+
+    all-terraform-outputs:
+        description: All outputs from Terraform
+        value: ${{ steps.fetch_outputs.outputs.all_terraform_outputs }}
+
+runs:
+    using: composite
+    steps:
+        - name: Use Utility Actions
+          id: utility
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@main
+          with:
+              awscli-version: ${{ inputs.awscli-version }}
+              terraform-version: ${{ inputs.tf-terraform-version }}
+
+              aws-region: ${{ inputs.aws-region }}
+
+              s3-backend-bucket: ${{ inputs.s3-backend-bucket }}
+              s3-bucket-region: ${{ inputs.s3-bucket-region }}
+
+              tf-state-key: ${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.domain-name }}/${{ inputs.domain-name }}.tfstate
+
+              tf-cli-config-credentials-hostname: ${{ inputs.tf-cli-config-credentials-hostname }}
+              tf-cli-config-credentials-token: ${{ inputs.tf-cli-config-credentials-token }}
+              tf-terraform-wrapper: ${{ inputs.tf-terraform-wrapper }}
+
+        - name: Checkout Repository OpenSearch modules
+          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+          with:
+              repository: camunda/camunda-deployment-references
+              ref: ${{ inputs.tf-modules-revision }}
+              path: ${{ inputs.tf-modules-path }}
+              fetch-depth: 0
+
+        - name: Terraform Init
+          shell: bash
+          id: init
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
+          run: |
+              set -euxo pipefail
+
+              cp ../fixtures/backend.tf ./
+              terraform version
+              terraform init -backend-config="bucket=${{ steps.utility.outputs.TFSTATE_BUCKET }}" -backend-config="key=${{ steps.utility.outputs.TFSTATE_KEY }}" \
+                -backend-config="region=${{ steps.utility.outputs.TFSTATE_REGION }}"
+              terraform validate -no-color
+
+        - name: Terraform Plan
+          shell: bash
+          id: plan
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
+          run: |
+              set -euxo pipefail
+
+              echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
+              terraform plan -no-color -out opensearch.plan \
+                -var-file=/tmp/var.tfvars.json \
+                -var "domain_name=${{ inputs.domain-name }}" \
+                -var "engine_version=${{ inputs.engine-version }}" \
+                -var 'subnet_ids=${{ inputs.subnet-ids }}' \
+                -var "vpc_id=${{ inputs.vpc-id }}" \
+                -var 'cidr_blocks=${{ inputs.cidr-blocks }}' \
+                -var "instance_type=${{ inputs.instance-type }}" \
+                -var "instance_count=${{ inputs.instance-count }}"
+
+        - name: Terraform Apply
+          shell: bash
+          id: apply
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
+          run: |
+              set -euxo pipefail
+
+              terraform apply -no-color opensearch.plan
+
+        - name: Fetch Terraform Outputs
+          shell: bash
+          id: fetch_outputs
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
+          run: |
+              set -euxo pipefail
+
+              export opensearch_endpoint="$(terraform output -raw opensearch_domain_endpoint)"
+              echo "opensearch_endpoint=$opensearch_endpoint" >> "$GITHUB_OUTPUT"
+
+              all_outputs=$(terraform output -json | jq -c .)
+              echo "all_terraform_outputs=$all_outputs" | tee -a "$GITHUB_OUTPUT"

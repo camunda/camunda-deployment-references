@@ -1,0 +1,15 @@
+---
+name: Internal - Global - Renovate Auto Merge
+
+on:
+    pull_request:
+
+# limit to a single execution per ref of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    renovate-automerge:
+        uses: camunda/infraex-common-config/.github/workflows/automerge-global.yml@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+        secrets: inherit

@@ -3,7 +3,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
     - repo: https://github.com/camunda/infraex-common-config
-      rev: 1.2.19 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
+      rev: 1.3.1 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
       hooks:
           - id: update-action-readmes-docker
 
@@ -26,7 +26,7 @@ repos:
           - id: actionlint-docker
 
     - repo: https://github.com/renovatebot/pre-commit-hooks
-      rev: 39.185.0
+      rev: 39.205.1
       hooks:
           - id: renovate-config-validator
             args: [--strict]
@@ -46,6 +46,8 @@ repos:
           - id: terraform_fmt
           - id: terraform_tflint
             exclude: (_override.tf)
+            args:
+                - --args=--config=__GIT_WORKING_DIR__/.lint/tflint/.tflint.hcl
           - id: terraform_docs
             args:
                 - --hook-config=--path-to-file=README.md
@@ -64,10 +66,10 @@ repos:
       rev: v0.9.0.6
       hooks:
           - id: shellcheck
-            args: [--external-sources, --source-path, .github/workflows/scripts, '--exclude=SC2154,SC2034,SC1091']
+            args: [--external-sources]
 
     - repo: https://github.com/adrienverge/yamllint
-      rev: v1.35.1
+      rev: v1.37.0
       hooks:
           - id: yamllint
             args: [-c, .lint/yamllint/.yamllint.yaml]

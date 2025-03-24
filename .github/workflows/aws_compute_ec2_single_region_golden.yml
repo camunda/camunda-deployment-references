@@ -1,0 +1,156 @@
+---
+name: Tests - Golden - AWS Compute EC2
+
+on:
+    workflow_dispatch:
+    # Disabling for the time being due to focus shift with 8.7
+    # pull_request:
+    #     paths:
+    #         - .github/workflows/aws_compute_ec2_single_region_golden.yml
+    #         - .tool-versions
+    #         - aws/compute/ec2-single-region/terraform/**
+    # push:
+    #     branches:
+    #         - main
+    #     paths:
+    #         - aws/compute/ec2-single-region/terraform/**
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+
+    AWS_PROFILE: infex
+    AWS_REGION: eu-west-2
+    TF_PATH: ${{ github.workspace }}/aws/compute/ec2-single-region/terraform
+    GOLDEN_PATH: ${{ github.workspace }}/aws/compute/ec2-single-region/test/golden
+
+    MODULE_DIR: ./aws/ec2/terraform/
+
+
+jobs:
+    compare:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            pull-requests: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+
+            ################ AWS Config ##################
+            # Official action does not support profiles
+            - name: Add profile credentials to ~/.aws/credentials
+              shell: bash
+              run: |
+                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+            - name: Copy provider override
+              run: |
+                  cp "${{ github.workspace }}/aws/compute/ec2-single-region/test/fixtures/provider_override.tf" "${TF_PATH}/provider_override.tf"
+            - name: Run Terraform plan
+              working-directory: aws/compute/ec2-single-region/terraform
+              run: |
+                  terraform init
+                  # We are hardcoding the AMI as it's a moving target
+                  # Same for the SSH Key as we don't have one on the device and would otherwise omit values from the plan
+                  terraform plan -var aws_ami="ami" -var generate_ssh_key_pair="true" -out=tfplan || true
+            - name: Convert Terraform plan to JSON
+              working-directory: aws/compute/ec2-single-region/terraform
+              run: |
+                  # Use jq to "pretty print" the JSON output to allow comparison
+                  terraform show -json tfplan | jq > tfplan.json
+            - name: Extract planned values from Terraform plan
+              run: |
+                  # extracting the planned values and their actual infra instead of diffing the whole document
+                  # since we always plan against nothing, it includes all planned objects
+                  # it does not contain sensetive data
+                  jq --sort-keys '.planned_values.root_module' "${TF_PATH}/tfplan.json" > "${TF_PATH}/tfplan_extracted.json"
+            - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              with:
+                  name: plan-artifact-json
+                  path: ${{ env.TF_PATH }}/tfplan_extracted.json
+                  retention-days: 1
+            - name: Compare Terraform plan with golden file
+              working-directory: aws/compute/ec2-single-region/terraform
+              run: |
+                  delta "${GOLDEN_PATH}/tfplan.json" "${TF_PATH}/tfplan_extracted.json"
+                  delta_exit_code=$?
+                  echo "delta_exit_code=$delta_exit_code" | tee -a "$GITHUB_ENV"
+                  exit $delta_exit_code
+
+            - name: Manage Terraform diff comment
+              if: always() && github.event_name == 'pull_request'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  # Check if a diff comment exists
+                  diff_comment_url=$(gh pr view "${{ github.event.pull_request.number }}" --json comments \
+                    --jq ".comments[] | select(.body | contains(\"## Module $MODULE_DIR - Terraform Golden Plan Diff\")) | .url")
+
+                  has_diff_comment=false
+                  has_diff=false
+
+                  if [[ -n "$diff_comment_url" ]]; then
+                      has_diff_comment=true
+                  fi
+
+                  if [[ "${{ env.delta_exit_code }}" != "0" ]]; then
+                      has_diff=true
+                  fi
+
+                  if [[ "$has_diff_comment" == "true" && "$has_diff" == "false" ]]; then
+                      # Delete the comment if no diff exists
+                      # shellcheck disable=SC2001
+                      comment_id=$(echo "$diff_comment_url" | sed 's/.*#issuecomment-\([^ ]*\)/\1/')
+                      echo "Deleting diff comment $diff_comment_url (#$comment_id)"
+                      gh api \
+                      --method DELETE \
+                      -H "Accept: application/vnd.github+json" \
+                      "/repos/${{ github.repository }}/issues/comments/$comment_id"
+                      echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
+
+                  elif [[ "$has_diff" == "true" ]]; then
+                      # Keep or create the comment if a diff exists
+                      echo "Diff exists, keeping or updating the comment."
+                      echo "update_or_create_diff_comment=true" | tee -a "$GITHUB_ENV"
+
+                  else
+                      # No diff and no existing comment
+                      echo "No diff and no existing comment, nothing to do."
+                      echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
+                  fi
+
+            - name: Post diff on PR
+              if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
+              uses: int128/diff-action@1a147f34a49636aafdb862075055908e06edaaa7 # v1
+              with:
+                  base: ${{ env.GOLDEN_PATH }}//tfplan.json
+                  head: ${{ env.TF_PATH }}/tfplan_extracted.json
+                  comment-header: |
+                      ## Module ${{ env.MODULE_DIR }} - Terraform Golden Plan Diff
+
+                  comment-footer: |
+                      Check the delta diff in the [workflow run](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}) for a detailed comparison.
+                      If the changes are expected, you can use the uploaded artifact on the workflow to update the golden file on your branch.
+                      Alternatively run `just aws-compute-ec2-single-region-golden` locally to update the golden file.
