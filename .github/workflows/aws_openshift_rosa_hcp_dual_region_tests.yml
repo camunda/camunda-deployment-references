@@ -112,7 +112,7 @@ jobs:
                     export distro_index="${distro_index}"
 
                     # TODO: remove this
-                    export cluster_name="hci-78309507"
+                    export cluster_name="hci-78309508"
                     yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
                   done
 
