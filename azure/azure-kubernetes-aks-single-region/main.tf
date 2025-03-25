@@ -5,7 +5,7 @@ resource "azurerm_resource_group" "app_rg" {
 }
 
 module "network" {
-  source              = "./modules/network"
+  source              = "../modules/network"
   resource_group_name = azurerm_resource_group.app_rg.name
   location            = var.location
   resource_prefix     = var.resource_prefix
@@ -14,7 +14,7 @@ module "network" {
 }
 
 module "aks" {
-  source              = "./modules/aks"
+  source              = "../modules/aks"
   resource_group_name = azurerm_resource_group.app_rg.name
   location            = var.location
   aks_cluster_name    = "${var.resource_prefix}-aks"
@@ -34,7 +34,7 @@ module "aks" {
 }
 
 module "postgres_db" {
-  source = "./modules/postgres-db"
+  source = "../modules/postgres-db"
 
   resource_group_name = azurerm_resource_group.app_rg.name
   location            = var.location
