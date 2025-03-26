@@ -76,7 +76,7 @@ jobs:
             - name: Extract Test Functions
               id: extract_test_functions
               run: |
-                  set -euxo pipefail
+                  # We don't use set -euxo pipefail as it's not working with this script
 
                   test_functions=$(grep -rho 'func \(Test[^ ]*\)' ./aws/modules/.test/src/ | sed 's/func \(Test[^ ]*\)(t/\1/' | tr '\n' ',' | sed 's/,$//')
                   echo "test_functions=$test_functions"
