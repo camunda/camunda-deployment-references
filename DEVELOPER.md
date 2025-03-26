@@ -41,3 +41,36 @@ Inside each workflow file, the `name` field is also standardized to maintain uni
   ```
 
 By following these conventions, we ensure a clear and structured approach to workflow management, making it easier to understand, maintain, and scale our CI/CD pipelines.
+
+## Skipping Workflows Using Labels
+
+The action `.github/actions/internal-triage-skip` allows skipping workflows using specific labels. This action must be included in every workflow to enable this functionality.
+
+### Implementation Example
+
+Each workflow should contain a `triage` job to check for skip labels:
+
+```yaml
+triage:
+    runs-on: ubuntu-latest
+    outputs:
+        should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+        - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        - name: Check labels
+          id: skip_check
+          uses: ./.github/actions/internal-triage-skip
+
+clusters-info:
+    needs:
+        - triage
+    if: needs.triage.outputs.should_skip == 'false'
+```
+
+### Creating and Using Skip Labels
+
+A label can be added to a pull request or issue to skip a specific workflow execution. For example, adding the label [`skip_aws_compute_ec2_single_region_tests`](https://github.com/camunda/camunda-deployment-references/labels/skip_aws_compute_ec2_single_region_tests) prevents unnecessary resource usage.
+
+If the required label does not exist, it must be created manually on GitHub at [GitHub Labels](https://github.com/camunda/camunda-deployment-references/issues/labels) with the color `#1D76DB`.
+
+_Note:_ One should create and apply the label during the creation of the PR; otherwise, the first run will trigger all workflows.

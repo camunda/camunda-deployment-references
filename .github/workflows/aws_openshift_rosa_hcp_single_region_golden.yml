@@ -28,7 +28,20 @@ env:
     MODULE_DIR: ./aws/openshift/rosa-hcp-single-region/
 
 jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
     compare:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         permissions:
             contents: write
@@ -60,84 +73,12 @@ jobs:
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
 
-            - name: Compute golden
-              run: |
-                  set -euxo pipefail
-                  just regenerate-golden-file "${{ env.MODULE_DIR }}" "${{ env.S3_BUCKET_REGION }}" "${{ env.S3_BACKEND_BUCKET }}" "${{ env.S3_BUCKET_KEY }}" "./compare/"
-
-            - name: Upload pipeline golden result
-              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-              with:
-                  name: plan-artifact-json
-                  path: ${{ env.MODULE_DIR }}compare/tfplan-golden.json
-                  retention-days: 1
-
-            - name: Compare Terraform plan with golden file
-              run: |
-                  delta "${{ env.MODULE_DIR }}test/golden/tfplan-golden.json" "${{ env.MODULE_DIR }}compare/tfplan-golden.json"
-                  delta_exit_code=$?
-                  echo "delta_exit_code=$delta_exit_code" | tee -a "$GITHUB_ENV"
-                  exit $delta_exit_code
-
-
-            - name: Manage Terraform diff comment
-              if: always() && github.event_name == 'pull_request'
+            - name: Run Terraform Golden Plan Comparison
+              uses: ./.github/actions/internal-terraform-golden-plan
               env:
                   GH_TOKEN: ${{ github.token }}
-              run: |
-                  # Check if a diff comment exists
-                  diff_comment_url=$(gh pr view "${{ github.event.pull_request.number }}" --json comments \
-                      --jq ".comments[] | select(.body | contains(\"## Module $MODULE_DIR - Terraform Golden Plan Diff\")) | .url")
-
-                  has_diff_comment=false
-                  has_diff=false
-
-                  if [[ -n "$diff_comment_url" ]]; then
-                      has_diff_comment=true
-                  fi
-
-                  if [[ "${{ env.delta_exit_code }}" != "0" ]]; then
-                      has_diff=true
-                  fi
-
-                  if [[ "$has_diff_comment" == "true" && "$has_diff" == "false" ]]; then
-                      # Delete the comment if no diff exists
-                      # shellcheck disable=SC2001
-                      comment_id=$(echo "$diff_comment_url" | sed 's/.*#issuecomment-\([^ ]*\)/\1/')
-                      echo "Deleting diff comment $diff_comment_url (#$comment_id)"
-                      gh api \
-                      --method DELETE \
-                      -H "Accept: application/vnd.github+json" \
-                      "/repos/${{ github.repository }}/issues/comments/$comment_id"
-                      echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
-
-                  elif [[ "$has_diff" == "true" ]]; then
-                      # Keep or create the comment if a diff exists
-                      echo "Diff exists, keeping or updating the comment."
-                      echo "update_or_create_diff_comment=true" | tee -a "$GITHUB_ENV"
-
-                  else
-                      # No diff and no existing comment
-                      echo "No diff and no existing comment, nothing to do."
-                      echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
-                  fi
-
-            - name: Post diff on PR
-              if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
-              uses: int128/diff-action@1a147f34a49636aafdb862075055908e06edaaa7 # v1
               with:
-                  base: ${{ env.MODULE_DIR }}test/golden/tfplan-golden.json
-                  head: ${{ env.MODULE_DIR }}compare/tfplan-golden.json
-                  comment-header: |
-                      ## Module ${{ env.MODULE_DIR }} - Terraform Golden Plan Diff
-
-                  comment-footer: |
-                      🖲 **Check the delta diff**
-                      in the [workflow run](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}) for a detailed comparison.
-
-                      If the changes are expected, you can use the uploaded artifact on the workflow to update the golden file on your branch.
-
-                      📟 **Alternatively, run the following command locally** to update the golden file:
-                      ```sh
-                      just regenerate-golden-file "${{ env.MODULE_DIR }}" "${{ env.S3_BUCKET_REGION }}" "${{ env.S3_BACKEND_BUCKET }}" "${{ env.S3_BUCKET_KEY }}"
-                      ```
+                  module-dir: ${{ env.MODULE_DIR }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key: ${{ env.S3_BUCKET_KEY }}

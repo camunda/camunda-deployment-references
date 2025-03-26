@@ -12,7 +12,7 @@ on:
     #         - .github/workflows/aws_compute_ec2_single_region_tests.yml
     #         - .tool-versions
     #         - aws/compute/ec2-single-region/**
-    #         - '!aws/compute/ec2-single-region/test/golden/**'
+    #         - '!aws/compute/ec2-single-region/terraform/test/golden/**'
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -32,7 +32,20 @@ env:
     SNAPSHOT_PREVIOUS_VERSION: 8.7.0-alpha3-rc4 # potential to be reworked to dynamic matrix instead
 
 jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
     test:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
@@ -128,7 +141,6 @@ jobs:
                   CAMUNDA_VERSION: ${{ matrix.camunda }}
                   CAMUNDA_PREVIOUS_VERSION: ${{ env.CAMUNDA_PREVIOUS_VERSION }}
               run: |
-                  # shellcheck disable=SC2155
                   export PATH=$PATH:$(go env GOPATH)/bin
                   mkdir /home/runner/.ssh
                   touch /home/runner/.ssh/config
