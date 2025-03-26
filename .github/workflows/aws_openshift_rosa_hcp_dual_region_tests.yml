@@ -244,7 +244,7 @@ jobs:
                   matrix-key: ${{ matrix.distro.name }}
                   outputs: |-
                       kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
-                      sensitive_values_raw: ${{ steps.export_kube_config.outputs.encrypted_sensitive_values_raw }}
+                      sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_sensitive_values_raw }}
 
             - name: 🌐 Post-creation steps
               timeout-minutes: 20
