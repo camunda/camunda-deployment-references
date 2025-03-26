@@ -78,33 +78,34 @@ jobs:
               run: |
                   set -euxo pipefail
 
+                  # Extract the test functions
                   test_functions=$(grep -rho 'func \(Test[^ ]*\)' ./aws/modules/.test/src/ | sed 's/func \(Test[^ ]*\)(t/\1/' | tr '\n' ',' | sed 's/,$//')
                   echo "test_functions=$test_functions"
 
-                  : # Extract test names marked to be skipped from the commit message description
+                  # Extract commit message to find skipped tests
                   commit_message=$(git log -1 --pretty=format:"%B")
                   echo "commit_message=$commit_message"
 
                   skipped_tests=$(echo "$commit_message" | grep 'skip-tests' | sed 's/skip-tests://')
                   echo "skipped_tests=$skipped_tests"
 
-                  : # If all tests are marked to be skipped, then clear the test_functions list completely
+                  # If all tests are marked to be skipped, clear the test functions list
                   if [ "$skipped_tests" == "all" ]; then
                     test_functions=""
                     echo "Skipping all tests (skip-tests:all found), this workflow will fail. \
-                      If you want to skip-tests for a PR, please use the label 'testing-ci-not-necessary'"
+                    If you want to skip-tests for a PR, please use the label 'testing-ci-not-necessary'"
                   else
-                    : # Otherwise, remove the tests marked to be skipped from the test_functions list
+                    # Remove skipped tests from the list of test functions
                     if [ -n "$skipped_tests" ]; then
                       for test in $(echo "$skipped_tests" | tr ',' '\n'); do
                         echo "Skipping test: $test"
-                        test_functions=$(echo "$test_functions" | sed "s/$test//g" | sed 's/,,/,/g' | sed 's/^,//' | sed 's/,$//')
-                        echo "test_functions=$test_functions"
+                        test_functions=$(echo "$test_functions" | sed "s/\b$test\b//g" | sed 's/,,/,/g' | sed 's/^,//' | sed 's/,$//')
+                        echo "Updated test_functions=$test_functions"
                       done
                     fi
                   fi
 
-                  : # to json array
+                  # Convert the test functions into a JSON array format
                   IFS=',' read -ra array <<< "$test_functions"
                   json_array="["
                   for element in "${array[@]}"
