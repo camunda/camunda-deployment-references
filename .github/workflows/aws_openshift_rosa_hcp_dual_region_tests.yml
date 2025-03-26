@@ -422,7 +422,6 @@ jobs:
                          -e 's/^export AWS_ES_BUCKET_REGION=".*"/export AWS_ES_BUCKET_REGION="${{ env.CLUSTER_1_AWS_REGION }}"/' \
                         generic/openshift/dual-region/procedure/chart-env.sh
 
-                  cat generic/openshift/dual-region/procedure/chart-env.sh
                   source ./generic/openshift/dual-region/procedure/chart-env.sh
 
                   echo "Delete the namespaces to ensure a fresh start"
@@ -533,6 +532,7 @@ jobs:
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 20
               run: |
+                  # TODO: figure out why this test is failing due to pipefail certainly
                   set -euo pipefail
 
                   echo "Show zeebe cluster topology using generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh:"
@@ -581,8 +581,7 @@ jobs:
                   yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$reference_file"
 
                   # Replace namespaces names with cluster names
-                  sed -e "s/cluster-region-2/$CLUSTER_2_NAME/g" \
-                         -i "$reference_file"
+                  sed -e "s/cluster-region-2/$CLUSTER_2_NAME/g" -i "$reference_file"
 
                   # Order each file also remove not predictable fields
                   yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$temp_output"
