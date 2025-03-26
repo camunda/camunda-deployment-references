@@ -29,7 +29,6 @@ concurrency:
 env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
 
-    # TODO: revert
     MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '20' }}
 
     # please keep those variables synced with aws_rosa_hcp_tests.yml

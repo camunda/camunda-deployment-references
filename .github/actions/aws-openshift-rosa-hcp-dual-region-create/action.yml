@@ -139,6 +139,7 @@ runs:
         # TODO: when available on asdf, migrate this to it
         - name: Install ROSA CLI
           shell: bash
+          working-directory: /tmp
           run: |
               curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
               tar -xvf rosa-linux.tar.gz
