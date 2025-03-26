@@ -45,6 +45,8 @@ runs:
           shell: bash
           working-directory: /tmp
           run: |
+              set -euxo pipefail
+
               curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
               tar -xvf rosa-linux.tar.gz
               sudo mv rosa /usr/local/bin/rosa
@@ -65,6 +67,8 @@ runs:
               # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
               CLOUD_NUKE_VERSION: v0.39.0
           run: |
+              set -euxo pipefail
+
               curl -LO \
                   --retry 5 \
                   --max-time 15 \
@@ -77,6 +81,8 @@ runs:
           id: delete_clusters
           shell: bash
           run: |
+              set -euxo pipefail
+
               if [ -n "${{ inputs.tf-bucket-region }}" ]; then
                 export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
               fi

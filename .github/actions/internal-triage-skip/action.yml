@@ -16,6 +16,8 @@ runs:
           id: check_labels
           shell: bash
           run: |
+              set -euxo pipefail
+
               if [[ "${{ github.event_name }}" != "pull_request" ]]; then
                 echo "workflow_should_skip=false" | tee -a "$GITHUB_OUTPUT"
                 exit 0

@@ -97,7 +97,7 @@ jobs:
             - id: matrix
               # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   # Generate cluster name.
                   # shellcheck disable=SC2086
@@ -157,22 +157,24 @@ jobs:
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
                   secrets: |
-                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
                       secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_PASSWORD;
                       secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_USERNAME;
 
-            - name: Add profile credentials to ~/.aws/credentials
-              shell: bash
-              run: |
-                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+            - name: Configure AWS CLI
+              uses: ./.github/actions/internal-configure-aws-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
 
             - name: Set current Camunda version
               id: camunda-version
               run: |
+                  set -euxo pipefail
+
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
@@ -197,6 +199,8 @@ jobs:
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
               run: |
+                  set -euxo pipefail
+
                   # shellcheck disable=SC2005
                   echo "$(kubectl config view --raw)" > kubeconfig.yaml 2>/dev/null
                   openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${GITHUB_TOKEN}" -pbkdf2
@@ -268,6 +272,8 @@ jobs:
             - name: 🔐 Login into the cluster
               timeout-minutes: 10
               run: |
+                  set -euxo pipefail
+
                   mkdir -p "$HOME/.kube"
                   echo "${{ fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[matrix.distro.name] }}" | base64 --decode > encrypted_kubeconfig.enc
                   openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${GITHUB_TOKEN}" -pbkdf2
@@ -277,8 +283,8 @@ jobs:
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
               run: |
+                  set -euxo pipefail
                   # run it as specified in the doc
-                  set -euxo pipefail # tolerate, nothing.
 
                   ./aws/openshift/rosa-hcp-single-region/procedure/get-your-copy.sh
                   tree
@@ -322,7 +328,7 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -o errexit
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   # As this action can be retried due to OpenShift API error, it must
                   # be stateless (all commmands can be rerun without issue)
@@ -373,7 +379,7 @@ jobs:
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 10
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   source generic/openshift/single-region/procedure/chart-env.sh
                   source generic/openshift/single-region/procedure/generate-passwords.sh
@@ -400,6 +406,8 @@ jobs:
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 10
               run: |
+                  set -euxo pipefail
+
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
             - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
@@ -415,7 +423,7 @@ jobs:
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 10
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   CAMUNDA_VERSION=$(cat .camunda-version)
 
@@ -511,19 +519,23 @@ jobs:
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 10
               run: |
+                  set -euxo pipefail
+
                   task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.preflight
 
             - name: 🧪 TESTS - Run Core TestSuite
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 20
               run: |
+                  set -euxo pipefail
+
                   task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.core
 
             - name: 🧪 TESTS - Run additional tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 20
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   echo "Show zeebe cluster topology using generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh:"
                   export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
@@ -602,7 +614,7 @@ jobs:
             - name: 🔬🚨 Get failed Pods info
               if: failure()
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   kubectl -n "$TEST_NAMESPACE" get po
                   kubectl -n "$TEST_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
@@ -643,22 +655,23 @@ jobs:
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
                   secrets: |
-                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
 
-            - name: Add profile credentials to ~/.aws/credentials
-              shell: bash
-              if: env.CLEANUP_CLUSTERS == 'true'
-              run: |
-                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+            - name: Configure AWS CLI
+              uses: ./.github/actions/internal-configure-aws-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
 
             - name: Set current Camunda version
               id: camunda-version
               if: env.CLEANUP_CLUSTERS == 'true'
               run: |
+                  set -euxo pipefail
+
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 

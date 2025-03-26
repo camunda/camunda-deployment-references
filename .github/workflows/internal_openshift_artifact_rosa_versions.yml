@@ -36,6 +36,8 @@ jobs:
               shell: bash
               working-directory: /tmp
               run: |
+                  set -euxo pipefail
+
                   curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-linux.tar.gz"
                   tar -xvf rosa-linux.tar.gz
                   sudo mv rosa /usr/local/bin/rosa
@@ -49,6 +51,8 @@ jobs:
             - name: Commit and push ROSA versions file to gh-pages
               shell: bash
               run: |
+                  set -euxo pipefail
+
                   git diff --exit-code docs/rosa_versions.txt || {
                     git config --local user.name "github-actions[bot]"
                     git config --local user.email "github-actions[bot]@users.noreply.github.com"

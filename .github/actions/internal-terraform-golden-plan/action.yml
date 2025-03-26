@@ -49,6 +49,8 @@ runs:
         - name: Compare Terraform plan with golden file
           shell: bash
           run: |
+              set -euxo pipefail
+
               delta "${{ inputs.module-dir }}test/golden/tfplan-golden.json" "${{ inputs.module-dir }}compare/tfplan-golden.json"
               delta_exit_code=$?
               echo "delta_exit_code=$delta_exit_code" | tee -a "$GITHUB_ENV"
@@ -58,6 +60,8 @@ runs:
           if: always() && github.event_name == 'pull_request'
           shell: bash
           run: |
+              set -euxo pipefail
+
               diff_comment_url=$(gh pr view "${{ github.event.pull_request.number }}" --json comments \
                   --jq ".comments[] | select(.body | contains(\"## Module ${{ inputs.module-dir }} - Terraform Golden Plan Diff\")) | .url")
 
