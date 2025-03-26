@@ -98,7 +98,7 @@ jobs:
             - id: matrix
               # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   # Generate cluster name.
                   # shellcheck disable=SC2086
@@ -219,7 +219,7 @@ jobs:
             - name: 🌐 Post-creation steps
               timeout-minutes: 20
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   # Here we verify the extraction of the env variables as presented in the documentation
 
@@ -298,7 +298,7 @@ jobs:
               timeout-minutes: 10
               run: |
                   # run it as specified in the doc
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   ./aws/openshift/rosa-hcp-single-region/procedure/get-your-copy.sh
                   tree
@@ -335,7 +335,7 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -o errexit
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   # As this action can be retried due to OpenShift API error, it must
                   # be stateless (all commmands can be rerun without issue)
@@ -386,7 +386,7 @@ jobs:
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 10
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   source generic/openshift/single-region/procedure/chart-env.sh
                   source generic/openshift/single-region/procedure/generate-passwords.sh
@@ -428,7 +428,7 @@ jobs:
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 10
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   CAMUNDA_VERSION=$(cat .camunda-version)
 
@@ -536,7 +536,7 @@ jobs:
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 20
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   echo "Show zeebe cluster topology using generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh:"
                   export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
@@ -615,7 +615,7 @@ jobs:
             - name: 🔬🚨 Get failed Pods info
               if: failure()
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   kubectl -n "$TEST_NAMESPACE" get po
                   kubectl -n "$TEST_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do

@@ -138,7 +138,7 @@ runs:
           id: init
           working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               cp ../fixtures/backend.tf ./
               terraform version
@@ -151,7 +151,7 @@ runs:
           id: plan
           working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
               terraform plan -no-color -out opensearch.plan \
@@ -169,7 +169,7 @@ runs:
           id: apply
           working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               terraform apply -no-color opensearch.plan
 
@@ -178,7 +178,7 @@ runs:
           id: fetch_outputs
           working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               export opensearch_endpoint="$(terraform output -raw opensearch_domain_endpoint)"
               echo "opensearch_endpoint=$opensearch_endpoint" >> "$GITHUB_OUTPUT"

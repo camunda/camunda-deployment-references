@@ -181,7 +181,7 @@ runs:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               terraform version
 

@@ -28,7 +28,7 @@ runs:
           shell: bash
           id: golden-prepare
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               just regenerate-golden-file "${{ inputs.module-dir }}" "${{ inputs.s3-bucket-region }}" \
                  "${{ inputs.s3-backend-bucket }}" "${{ inputs.s3-bucket-key }}" "./compare/"

@@ -233,7 +233,7 @@ runs:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               terraform version
 
@@ -386,7 +386,7 @@ runs:
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               terraform version
 
@@ -431,7 +431,7 @@ runs:
           env:
               AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               terraform version
 
