@@ -26,7 +26,7 @@
           "health": "healthy"
         }
       ],
-      "version": "8.6.7"
+      "version": "8.7.z"
     },
     {
       "nodeId": 3,
@@ -54,7 +54,7 @@
           "health": "healthy"
         }
       ],
-      "version": "8.6.7"
+      "version": "8.7.z"
     },
     {
       "nodeId": 1,
@@ -82,7 +82,7 @@
           "health": "healthy"
         }
       ],
-      "version": "8.6.7"
+      "version": "8.7.z"
     },
     {
       "nodeId": 7,
@@ -110,7 +110,7 @@
           "health": "healthy"
         }
       ],
-      "version": "8.6.7"
+      "version": "8.7.z"
     },
     {
       "nodeId": 6,
@@ -138,7 +138,7 @@
           "health": "healthy"
         }
       ],
-      "version": "8.6.7"
+      "version": "8.7.z"
     },
     {
       "nodeId": 2,
@@ -166,7 +166,7 @@
           "health": "healthy"
         }
       ],
-      "version": "8.6.7"
+      "version": "8.7.z"
     },
     {
       "nodeId": 0,
@@ -194,11 +194,11 @@
           "health": "healthy"
         }
       ],
-      "version": "8.6.7"
+      "version": "8.7.z"
     }
   ],
   "clusterSize": 8,
   "partitionsCount": 8,
   "replicationFactor": 4,
-  "gatewayVersion": "8.6.7"
+  "gatewayVersion": "8.7.z"
 }
