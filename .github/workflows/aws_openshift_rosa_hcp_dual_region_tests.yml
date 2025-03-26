@@ -382,8 +382,9 @@ jobs:
               run: |
                   set -euxo pipefail # tolerate, nothing.
 
-                  cd ./aws/openshift/rosa-hcp-single-region/terraform/clusters/
-                  source ./aws/openshift/rosa-hcp-dual-region/procedure/gather-cluster-login-id.sh
+                  # TODO: adapt the doc
+                  cd ./aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+                  source ../../procedure/gather-cluster-login-id.sh
                   cd -
 
                   echo "Load outputs values from creation of the clusters"
