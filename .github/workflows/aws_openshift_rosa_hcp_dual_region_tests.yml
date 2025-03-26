@@ -46,12 +46,14 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-dual-region/ # keep it synced with the name of the module for simplicity
+    TF_MODULES_DIRECTORY: ./tf-modules-workflow/   # where the tf repo will be clone
 
     CLUSTER_1_AWS_REGION: eu-west-2
     CLUSTER_2_AWS_REGION: eu-west-3
 
     # TODO: revert this one
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
+
 
     # TEST VARIABLES
 
@@ -164,6 +166,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
                       secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_PASSWORD;
                       secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_USERNAME;
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
             - name: Add profile credentials to ~/.aws/credentials
               shell: bash
@@ -204,24 +207,21 @@ jobs:
                   openshift-version-cluster-1: ${{ matrix.distro.version }}
                   openshift-version-cluster-2: ${{ matrix.distro.version }}
                   tf-modules-revision: ${{ github.ref }}
+                  tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
 
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   set -euxo pipefail
 
                   # shellcheck disable=SC2005
-                  echo "$(kubectl config view --raw)" > kubeconfig.yaml 2>/dev/null
-                  openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${GITHUB_TOKEN}" -pbkdf2
+                  kubectl config view --raw > kubeconfig.yaml 2>/dev/null
+                  openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   encrypted_kubeconfig_base64=$(base64 -w 0 encrypted_kubeconfig.enc)
                   echo "kubeconfig_raw=${encrypted_kubeconfig_base64}" >> "$GITHUB_OUTPUT"
 
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
               id: export_secrets
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   set -euxo pipefail
 
@@ -230,7 +230,8 @@ jobs:
                     .["backup-bucket-s3-aws-secret-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-secret-access-key }}" |
                     .["backup-bucket-s3-bucket-name"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-bucket-name }}"' > sensitive_values.yaml
 
-                  openssl enc -aes-256-cbc -salt -in sensitive_values.yaml -out encrypted_sensitive_values.enc -pass pass:"$GITHUB_TOKEN" -pbkdf2
+                  openssl enc -aes-256-cbc -salt -in sensitive_values.yaml \
+                    -out encrypted_sensitive_values.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   encrypted_base64=$(base64 -w 0 encrypted_sensitive_values.enc)
                   echo "encrypted_sensitive_values_raw=$encrypted_base64" >> "$GITHUB_OUTPUT"
 
@@ -311,17 +312,16 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
             - name: 🔐 Login into the clusters
               timeout-minutes: 10
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   set -euxo pipefail
 
                   mkdir -p "$HOME/.kube"
                   echo "${{ fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[matrix.distro.name] }}" | base64 --decode > encrypted_kubeconfig.enc
-                  openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${GITHUB_TOKEN}" -pbkdf2
+                  openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   rm encrypted_kubeconfig.enc
                   chmod 600 "$HOME/.kube/config"
 
@@ -399,19 +399,17 @@ jobs:
 
             - name: 🏗️ Prepare the environment for the deployment
               timeout-minutes: 20
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   set -euxo pipefail
 
                   # TODO: adapt the doc
-                  cd ./aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+                  cd ${{ env.TF_MODULES_DIRECTORY }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
                   source ../../procedure/gather-cluster-login-id.sh
                   cd -
 
                   echo "Load outputs values from creation of the clusters"
                   echo "${{ fromJson(needs.access-info.outputs.kubeconfig).sensitive_values_raw[matrix.distro.name] }}" | base64 --decode > encrypted_sensitive.enc
-                  openssl enc -aes-256-cbc -d -in encrypted_sensitive.enc -out ./encrypted_sensitive.yaml -pass pass:"${GITHUB_TOKEN}" -pbkdf2
+                  openssl enc -aes-256-cbc -d -in encrypted_sensitive.enc -out ./encrypted_sensitive.yaml -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   rm encrypted_sensitive.enc
 
                   # shellcheck disable=SC2086
