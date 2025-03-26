@@ -95,7 +95,7 @@ runs:
           shell: bash
           working-directory: /tmp
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
               tar -xvf rosa-linux.tar.gz
@@ -113,7 +113,7 @@ runs:
           id: construct_azs
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               echo "AWS_REGION=${{ inputs.aws-region }}" | tee -a "$GITHUB_ENV"
 
@@ -131,7 +131,7 @@ runs:
         - name: Login to Red Hat Hybrid Cloud Console
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               rosa login --token="${{ inputs.rh-token }}"
               rosa whoami
@@ -139,7 +139,7 @@ runs:
         - name: Verify and enable HCP ROSA on AWS Marketplace
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               rosa verify quota
               rosa verify permissions
@@ -149,7 +149,7 @@ runs:
           id: set-terraform-variables
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
               export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
@@ -171,7 +171,7 @@ runs:
           id: create-s3-bucket
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               if aws s3api head-bucket --bucket ${{ inputs.s3-backend-bucket }} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
                 echo "Bucket already exists"
@@ -193,7 +193,7 @@ runs:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               terraform version
 
@@ -211,7 +211,7 @@ runs:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               echo "Adapting the files with input values"
               pwd
@@ -244,7 +244,7 @@ runs:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               terraform apply -no-color rosa.plan
 
@@ -255,7 +255,7 @@ runs:
           id: cluster_info
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               rosa describe cluster --output=json -c "${{ steps.apply.outputs.cluster_id }}"
               export cluster_api=$(rosa describe cluster --output=json -c "${{ steps.apply.outputs.cluster_id }}" | jq -r '.api.url')
@@ -294,6 +294,6 @@ runs:
           if: always() && inputs.cleanup-tf-modules-path == 'true'
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               rm -rf "${{ inputs.tf-modules-path }}"

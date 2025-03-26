@@ -25,7 +25,7 @@ aws-tf-modules-install-tests-go-mod:
 
 regenerate-golden-file module_dir backend_bucket_region backend_bucket_name backend_bucket_key relative_output_path="./test/golden/":
   #!/bin/bash
-  set -euxo pipefail
+  set -euo pipefail
 
   cd {{ justfile_directory() }}/{{ module_dir }}
 

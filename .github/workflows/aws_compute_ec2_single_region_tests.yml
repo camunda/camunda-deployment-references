@@ -86,14 +86,14 @@ jobs:
             ################ Prerequisites ##################
             - name: Export test prefix
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   prefix="ec2-test-$(tr -dc 'a-z0-9' </dev/urandom | head -c 5)"
                   echo "TF_PREFIX=${prefix}" >> "$GITHUB_ENV"
 
             - name: Replace matrix dots with hyphen
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   version=$(echo "${{ matrix.camunda }}" | tr '.' '-')
                   echo "CAMUNDA_HYPHENS=$version" >> "$GITHUB_ENV"
@@ -101,7 +101,7 @@ jobs:
             # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   cp ${{ github.workspace }}/aws/compute/ec2-single-region/test/fixtures/*.tf ${{ github.workspace }}/aws/compute/ec2-single-region/terraform/
                   echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.TF_PREFIX }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
@@ -109,7 +109,7 @@ jobs:
             - name: Set Camunda version
               working-directory: aws/compute/ec2-single-region/scripts
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   # We need to replace the string without substitution except for that of GitHub Actions
                   # shellcheck disable=SC2016
@@ -117,7 +117,7 @@ jobs:
             # potential to rework to dynamic matrix instead or local file that contains version dict
             - name: Overwrite previous version
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   if [[ "${{matrix.camunda }}" =~ "SNAPSHOT" ]]; then
                       echo "CAMUNDA_PREVIOUS_VERSION=${{ env.SNAPSHOT_PREVIOUS_VERSION }}" >> "$GITHUB_ENV"
@@ -130,7 +130,7 @@ jobs:
               working-directory: aws/compute/ec2-single-region/test/src
               timeout-minutes: 61
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   go test -v -timeout 60m -run TestSetup
               env:
@@ -144,7 +144,7 @@ jobs:
                   CAMUNDA_VERSION: ${{ matrix.camunda }}
                   CAMUNDA_PREVIOUS_VERSION: ${{ env.CAMUNDA_PREVIOUS_VERSION }}
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   export PATH=$PATH:$(go env GOPATH)/bin
                   mkdir /home/runner/.ssh
@@ -160,7 +160,7 @@ jobs:
               working-directory: aws/compute/ec2-single-region/test/src
               timeout-minutes: 31
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   go test -v -timeout 30m -run TestTeardown
             # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
@@ -168,7 +168,7 @@ jobs:
               if: always()
               working-directory: aws/compute/ec2-single-region/test/src
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   sed 's/&#xA;/\n/g' < "./tests.xml" |
                   grep -E -v '^.*logger\.go.*$' |
@@ -183,13 +183,13 @@ jobs:
             - name: Cleanup S3 state bucket
               if: always() && steps.tf-destroy.outcome == 'success'
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   aws s3 rm "s3://tf-state-multi-reg/state/${TF_PREFIX}/terraform.tfstate"
             - name: Remove profile credentials from ~/.aws/credentials
               if: always()
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   rm -rf ~/.aws/credentials
 
@@ -210,7 +210,7 @@ jobs:
             - name: Determine if failed tests include SNAPSHOT
               id: determine-if-failed-tests-include-snapshot
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   file=$(find /tmp/testreports -name "*SNAPSHOT*.xml" -type f)
                   echo "Found file: $file"

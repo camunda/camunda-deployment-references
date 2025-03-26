@@ -77,7 +77,7 @@ jobs:
             - name: Set current Camunda version
               id: camunda-version
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"

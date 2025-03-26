@@ -39,7 +39,7 @@ runs:
         - name: Add AWS CLI credentials to profile
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
               aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ inputs.aws-profile }}
               aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ inputs.aws-profile }}
               aws configure set region ${{ inputs.aws-region }} --profile ${{ inputs.aws-profile }}

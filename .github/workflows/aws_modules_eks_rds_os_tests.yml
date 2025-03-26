@@ -77,7 +77,7 @@ jobs:
             - name: Extract Test Functions
               id: extract_test_functions
               run: |
-                  # We don't use set -euxo pipefail as it's not working with this script
+                  # We don't use set -euo pipefailas it's not working with this script
 
                   test_functions=$(grep -rho 'func \(Test[^ ]*\)' ./aws/modules/.test/src/ | sed 's/func \(Test[^ ]*\)(t/\1/' | tr '\n' ',' | sed 's/,$//')
                   echo "test_functions=$test_functions"
@@ -154,7 +154,7 @@ jobs:
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   export TESTS_CLUSTER_ID="${{ needs.configure-tests.outputs.cluster_id }}"
                   export TESTS_CLUSTER_REGION="${{ env.AWS_REGION }}"
@@ -165,7 +165,7 @@ jobs:
             - name: Filter logger.go from the test report (too large)
               if: always()
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   sed 's/&#xA;/\n/g' < "./aws/modules/.test/src/${{ matrix.test_function }}_unit-tests.xml" |
                   grep -E -v '^.*logger\.go.*$' |
@@ -182,7 +182,7 @@ jobs:
             - name: Remove profile credentials from ~/.aws/credentials
               if: always()
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
 
                   rm -rf ~/.aws/credentials
 
