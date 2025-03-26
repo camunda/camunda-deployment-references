@@ -198,6 +198,8 @@ jobs:
 
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   set -euxo pipefail
 
@@ -271,6 +273,8 @@ jobs:
 
             - name: 🔐 Login into the cluster
               timeout-minutes: 10
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   set -euxo pipefail
 
