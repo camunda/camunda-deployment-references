@@ -82,6 +82,9 @@ inputs:
     enable-backup-bucket:
         description: Whether or not to enable Backup Bucket creation used by the clusters
         default: 'true'
+    cleanup-tf-modules-path:
+        description: Whether to clean up the tf modules path
+        default: 'false'
 
 outputs:
     openshift-server-api-cluster-1:
@@ -473,7 +476,7 @@ runs:
 
 
         - name: Clean up cloned modules
-          if: always()
+          if: always() && inputs.cleanup-tf-modules-path == 'true'
           shell: bash
           run: |
               rm -rf "${{ inputs.tf-modules-path }}"

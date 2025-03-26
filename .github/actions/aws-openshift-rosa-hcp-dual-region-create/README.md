@@ -36,6 +36,7 @@ Each cluster will be added to the kube config with the name of the cluster as co
 | `login` | <p>Authenticate the current kube context on the created clusters</p> | `false` | `true` |
 | `enable-vpc-peering` | <p>Whether or not to enable VPC Peering between the clusters</p> | `false` | `true` |
 | `enable-backup-bucket` | <p>Whether or not to enable Backup Bucket creation used by the clusters</p> | `false` | `true` |
+| `cleanup-tf-modules-path` | <p>Whether to clean up the tf modules path</p> | `false` | `false` |
 
 
 ## Outputs
@@ -206,4 +207,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
+
+    cleanup-tf-modules-path:
+    # Whether to clean up the tf modules path
+    #
+    # Required: false
+    # Default: false
 ```

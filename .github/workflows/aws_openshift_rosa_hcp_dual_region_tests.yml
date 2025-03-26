@@ -208,6 +208,7 @@ jobs:
                   openshift-version-cluster-2: ${{ matrix.distro.version }}
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
+                  cleanup-tf-modules-path: 'false'
 
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
