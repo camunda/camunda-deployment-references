@@ -59,6 +59,9 @@ inputs:
         description: Authenticate the current kube context on the created cluster
         default: 'true'
         required: true
+    cleanup-tf-modules-path:
+        description: Whether to clean up the tf modules path
+        default: 'false'
 
 outputs:
     openshift-server-api:
@@ -288,7 +291,7 @@ runs:
                   kubectl config use "${{ inputs.cluster-name }}"
 
         - name: Clean up cloned modules
-          if: always()
+          if: always() && inputs.cleanup-tf-modules-path == 'true'
           shell: bash
           run: |
               set -euxo pipefail
