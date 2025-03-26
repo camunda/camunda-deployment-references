@@ -372,13 +372,8 @@ jobs:
                   ./install-submariner.sh
                   ./verify-submariner.sh
 
-                  echo "Installing subctl"
-                  PATH="$PATH:$(go env GOPATH)/bin"
-                  export PATH
+                  source ./install-subctl.sh
                   echo "PATH=$PATH" | tee -a "$GITHUB_ENV"
-                  go install github.com/submariner-io/submariner@latest
-                  # rename the installed package as subctl
-                  ln -s "$(which submariner)" "$(go env GOPATH)/bin/subctl"
 
                   ./verify-subctl.sh
 
