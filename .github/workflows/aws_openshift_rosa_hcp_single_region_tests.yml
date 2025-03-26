@@ -15,6 +15,7 @@ on:
             - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
             - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
+            - .github/actions/aws-configure-cli/**
 
     workflow_dispatch:
         inputs:
@@ -164,7 +165,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
             - name: Configure AWS CLI
-              uses: ./.github/actions/internal-configure-aws-cli
+              uses: ./.github/actions/aws-configure-cli
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
@@ -670,7 +671,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
 
             - name: Configure AWS CLI
-              uses: ./.github/actions/internal-configure-aws-cli
+              uses: ./.github/actions/aws-configure-cli
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}

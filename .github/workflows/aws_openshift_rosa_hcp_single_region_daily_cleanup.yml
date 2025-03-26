@@ -15,6 +15,7 @@ on:
             - aws/openshift/rosa-hcp-single-region/**
             - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
+            - .github/actions/aws-configure-cli/**
 
     schedule:
         - cron: 0 1 * * * # At 01:00 everyday.
@@ -89,7 +90,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
 
             - name: Configure AWS CLI
-              uses: ./.github/actions/internal-configure-aws-cli
+              uses: ./.github/actions/aws-configure-cli
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}

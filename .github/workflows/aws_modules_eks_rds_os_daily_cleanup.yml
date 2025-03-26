@@ -13,6 +13,7 @@ on:
         paths:
             - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
             - .github/actions/aws-eks-cleanup-resources/**
+            - .github/actions/aws-configure-cli/**
 
     schedule:
         - cron: 0 1 * * * # At 01:00 everyday.
@@ -65,7 +66,7 @@ jobs:
               run: cp .tool-versions ~/.tool-versions
 
             - name: Configure AWS CLI
-              uses: ./.github/actions/internal-configure-aws-cli
+              uses: ./.github/actions/aws-configure-cli
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}

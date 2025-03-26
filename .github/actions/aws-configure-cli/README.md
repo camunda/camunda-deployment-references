@@ -22,7 +22,7 @@ This action is a `composite` action.
 ## Usage
 
 ```yaml
-- uses: camunda/camunda-deployment-references/.github/actions/internal-configure-aws-cli@main
+- uses: camunda/camunda-deployment-references/.github/actions/aws-configure-cli@main
   with:
     vault-addr:
     # The URL of the Vault server

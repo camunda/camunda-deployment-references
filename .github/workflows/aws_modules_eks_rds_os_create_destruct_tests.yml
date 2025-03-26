@@ -52,6 +52,7 @@ on:
             - .github/actions/aws-opensearch-manage-cluster/**
             - .github/actions/aws-eks-cleanup-resources/**
             - .github/actions/aws-utility-action/**
+            - .github/actions/aws-configure-cli/**
 
 # limit to a single execution per ref of this workflow
 concurrency:
@@ -146,7 +147,7 @@ jobs:
                   echo "tf_modules_revision=$tf_modules_revision" | tee -a "$GITHUB_OUTPUT"
 
             - name: Configure AWS CLI
-              uses: ./.github/actions/internal-configure-aws-cli
+              uses: ./.github/actions/aws-configure-cli
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}

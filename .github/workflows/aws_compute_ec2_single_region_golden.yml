@@ -8,6 +8,7 @@ on:
             - .github/workflows/aws_compute_ec2_single_region_golden.yml
             - .tool-versions
             - aws/compute/ec2-single-region/terraform/**
+            - .github/actions/aws-configure-cli/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -53,7 +54,7 @@ jobs:
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
 
             - name: Configure AWS CLI
-              uses: ./.github/actions/internal-configure-aws-cli
+              uses: ./.github/actions/aws-configure-cli
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
