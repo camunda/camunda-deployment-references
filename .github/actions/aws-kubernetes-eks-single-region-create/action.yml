@@ -1,0 +1,162 @@
+---
+name: Deploy AWS ROSA HCP Single Region Cluster
+
+description: |
+    This GitHub Action automates the deployment of the aws/openshift/rosa-hcp-single-region reference architecture cluster using Terraform.
+    This action will also install oc, awscli, rosa cli.
+    The kube context will be set on the created cluster.
+
+inputs:
+    cluster-name:
+        description: Name of the ROSA cluster to deploy
+        required: true
+    aws-region:
+        description: AWS region where the ROSA cluster will be deployed
+        required: true
+    kubernetes-version:
+        description: Version of Kubernetes to install
+        required: false
+        # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
+        default: '1.32'
+    s3-backend-bucket:
+        description: Name of the S3 bucket to store Terraform state
+        required: true
+    s3-bucket-region:
+        description: Region of the bucket containing the resources states, if not set, will fallback on aws-region
+    s3-bucket-key-prefix:
+        description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+        default: ''
+    tf-modules-revision:
+        description: Git revision of the tf modules to use
+        default: main
+        required: true
+    tf-modules-path:
+        description: Path where the tf rosa modules will be cloned
+        default: ./.action-tf-modules/aws-kubernetes-eks-single-region-create/
+        required: true
+    login:
+        description: Authenticate the current kube context on the created cluster
+        default: 'true'
+        required: true
+
+outputs:
+    terraform-state-url:
+        description: URL of the Terraform state file in the S3 bucket
+        value: ${{ steps.set-terraform-variables.outputs.terraform-state-url }}
+
+runs:
+    using: composite
+    steps:
+        - name: Checkout Repository
+          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+          with:
+              repository: camunda/camunda-deployment-references
+              ref: ${{ inputs.tf-modules-revision }}
+              path: ${{ inputs.tf-modules-path }}
+              fetch-depth: 0
+
+        - name: Install asdf tools with cache for the project
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+
+        - name: Set Terraform variables
+          id: set-terraform-variables
+          shell: bash
+          run: |
+              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
+              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
+
+              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+                export TFSTATE_REGION="$AWS_REGION"
+              else
+                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+              fi
+
+              echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
+              echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
+              echo "TFSTATE_KEY=${TFSTATE_KEY}" >> "$GITHUB_OUTPUT"
+
+              terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_KEY}"
+              echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
+
+        - name: Check if S3 bucket exists
+          id: create-s3-bucket
+          shell: bash
+          run: |
+              if aws s3api head-bucket --bucket ${{ inputs.s3-backend-bucket }} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
+                echo "Bucket already exists"
+              else
+                echo "Bucket does not exist, creating..."
+                aws s3api create-bucket --bucket ${{ inputs.s3-backend-bucket }} \
+                    --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
+                    --create-bucket-configuration LocationConstraint=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
+              fi
+
+              aws s3api put-public-access-block --bucket ${{ inputs.s3-backend-bucket }} \
+                --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
+                --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+
+        - name: Terraform Init
+          id: init
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/eks-single-region-irsa/
+          shell: bash
+          run: |
+              set -euxo pipefail
+
+              terraform version
+
+              terraform init \
+                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_KEY }}" \
+                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
+
+              terraform validate -no-color
+
+        - name: Terraform Plan
+          id: plan
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/eks-single-region-irsa/
+          shell: bash
+          run: |
+              echo "Adapting the files with input values"
+              pwd
+              ls
+
+              # We use sed instead of -var because the module presented to the user
+              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
+              sed -i -e 's/\(eks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
+                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
+                     cluster.tf
+
+              echo "Displaying templated cluster.tf file:"
+              cat cluster.tf
+
+              sed -i -e 's/\(aurora_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
+                     db.tf
+
+              echo "Displaying templated db.tf file:"
+              cat db.tf
+
+              sed -i -e 's/\(opensearch_domain_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
+                     opensearch.tf
+
+              echo "Displaying templated opensearch.tf file:"
+              cat opensearch.tf
+
+              terraform plan -no-color -out tf.plan
+
+        # - name: Terraform Apply
+        #   id: apply
+        #   working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/eks-single-region-irsa/
+        #   shell: bash
+        #   run: |
+        #       terraform apply -no-color tf.plan
+
+        # - name: Login and generate kubeconfig
+        #   shell: bash
+        #   run: |
+        #     # TODO:
+
+        # - name: Clean up cloned modules
+        #   if: always()
+        #   shell: bash
+        #   run: |
+        #       rm -rf "${{ inputs.tf-modules-path }}"
