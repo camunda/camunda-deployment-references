@@ -219,6 +219,20 @@ jobs:
                   outputs: |-
                       kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
 
+            - name: 🌐 Post-creation steps
+              timeout-minutes: 20
+              run: |
+                  set -euxo pipefail
+
+                  # Here we verify the extraction of the env variables as presented in the documentation
+
+                  cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/rosa-hcp-single-region/
+                  source ./procedure/gather-cluster-login-id.sh
+                  cd -
+
+                  echo "CLUSTER_NAME=$CLUSTER_NAME"
+                  echo "CLUSTER_API_URL=$CLUSTER_API_URL"
+
     access-info:
         name: Read kube configs from matrix
         runs-on: ubuntu-latest
