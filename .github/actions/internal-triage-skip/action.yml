@@ -16,6 +16,11 @@ runs:
           id: check_labels
           shell: bash
           run: |
+              if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+                echo "workflow_should_skip=false" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
               workflow_file_name=$(echo "${{ github.workflow_ref }}" | sed 's/@.*//')
               workflow_file_name=$(basename "$workflow_file_name" | sed 's/\(.*\)\(\.yaml\|\.yml\)$/\1/')
               echo "workflow_file_name=$workflow_file_name" | tee -a "$GITHUB_ENV"
