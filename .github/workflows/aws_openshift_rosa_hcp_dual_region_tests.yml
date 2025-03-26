@@ -536,10 +536,10 @@ jobs:
 
                   echo "Show zeebe cluster topology using generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh:"
 
-                  # Execute the script and capture the output in a variable
-                  check_zeebe_topology_output=$(./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh)
+                  # Execute the script and capture the output file (zeebe-topology.json)
+                  ./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh
 
-                  echo "$check_zeebe_topology_output" | jq
+                  check_zeebe_topology_output=$(<zeebe-topology.json)
 
                   # Checks
                   error_found=false
