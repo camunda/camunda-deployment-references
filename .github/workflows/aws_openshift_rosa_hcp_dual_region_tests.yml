@@ -168,6 +168,8 @@ jobs:
             - name: Add profile credentials to ~/.aws/credentials
               shell: bash
               run: |
+                  set -euxo pipefail
+
                   aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set region ${{ env.CLUSTER_1_AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
@@ -175,6 +177,8 @@ jobs:
             - name: Set current Camunda version
               id: camunda-version
               run: |
+                  set -euxo pipefail
+
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
@@ -204,6 +208,8 @@ jobs:
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
               run: |
+                  set -euxo pipefail
+
                   # shellcheck disable=SC2005
                   echo "$(kubectl config view --raw)" > kubeconfig.yaml 2>/dev/null
                   openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${GITHUB_TOKEN}" -pbkdf2
@@ -213,6 +219,8 @@ jobs:
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
               id: export_secrets
               run: |
+                  set -euxo pipefail
+
                   yq eval -n \
                     '.["backup-bucket-s3-aws-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-access-key }}" |
                     .["backup-bucket-s3-aws-secret-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-secret-access-key }}" |
@@ -275,6 +283,8 @@ jobs:
                   rosa-cli-version: latest
               working-directory: /tmp
               run: |
+                  set -euxo pipefail
+
                   curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ env.rosa-cli-version }}/rosa-linux.tar.gz"
                   tar -xvf rosa-linux.tar.gz
                   sudo mv rosa /usr/local/bin/rosa
@@ -301,6 +311,8 @@ jobs:
             - name: 🔐 Login into the clusters
               timeout-minutes: 10
               run: |
+                  set -euxo pipefail
+
                   mkdir -p "$HOME/.kube"
                   echo "${{ fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[matrix.distro.name] }}" | base64 --decode > encrypted_kubeconfig.enc
                   openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${GITHUB_TOKEN}" -pbkdf2
@@ -310,7 +322,7 @@ jobs:
             - name: 🏷️ Configure clusters informations
               timeout-minutes: 10
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   # TODO: extract as code https://docs.camunda.io/docs/8.7/self-managed/setup/deploy/openshift/redhat-openshift-dual-region/#advanced-cluster-management?
                   sed -i -e 's/^export CLUSTER_1_NAME=".*"/export CLUSTER_1_NAME="${{ matrix.distro.clusterName }}-1"/' \
@@ -328,6 +340,8 @@ jobs:
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
               run: |
+                  set -euxo pipefail
+
                   # run it as specified in the doc
                   set -euxo pipefail # tolerate, nothing.
 
@@ -339,7 +353,7 @@ jobs:
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   echo "Install ACM"
                   cd ./generic/openshift/dual-region/procedure/acm/
@@ -362,7 +376,7 @@ jobs:
             - name: 🐠 Configure Submariner
               timeout-minutes: 20
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   echo "Install Submariner"
                   cd ./generic/openshift/dual-region/procedure/submariner/
@@ -380,7 +394,7 @@ jobs:
             - name: 🏗️ Prepare the environment for the deployment
               timeout-minutes: 20
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   # TODO: adapt the doc
                   cd ./aws/openshift/rosa-hcp-dual-region/terraform/clusters/
@@ -481,7 +495,7 @@ jobs:
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 30
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   # Generate tests objects
                   if [ "$TESTS_ENABLED" == "true" ]; then
@@ -511,6 +525,8 @@ jobs:
             - name: 👀⏳ Wait for the deployment to be healthy using generic/openshift/dual-region
               timeout-minutes: 10
               run: |
+                  set -euxo pipefail
+
                   ./generic/openshift/dual-region/procedure/check-deployment-ready.sh
 
             - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
@@ -622,12 +638,16 @@ jobs:
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 10
               run: |
+                  set -euxo pipefail
+
                   task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.preflight
 
             - name: 🧪 TESTS - Run Core TestSuite
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 20
               run: |
+                  set -euxo pipefail
+
                   task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.core
 
             - name: 🧪 TESTS - Run additional tests
@@ -758,6 +778,8 @@ jobs:
               shell: bash
               if: env.CLEANUP_CLUSTERS == 'true'
               run: |
+                  set -euxo pipefail
+
                   aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set region ${{ env.CLUSTER_1_AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
@@ -766,6 +788,8 @@ jobs:
               id: camunda-version
               if: env.CLEANUP_CLUSTERS == 'true'
               run: |
+                  set -euxo pipefail
+
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
