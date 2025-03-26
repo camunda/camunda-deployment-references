@@ -46,7 +46,7 @@ env:
     AWS_REGION: eu-west-2
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
-    TF_MODULES_DIRECTORY: ./tf-modules-workflow/   # where the tf repo will be clone
+    TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
 
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
@@ -98,7 +98,7 @@ jobs:
             - id: matrix
               # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   # Generate cluster name.
                   # shellcheck disable=SC2086
@@ -215,6 +215,21 @@ jobs:
                   outputs: |-
                       kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
 
+            - name: 🌐 Post-creation steps
+              timeout-minutes: 20
+              run: |
+                  set -euxo pipefail
+
+                  # Here we verify the extraction of the env variables as presented in the documentation
+
+                  # TODO: adapt in the doc
+                  cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/rosa-hcp-single-region/
+                  source ./procedure/gather-cluster-login-id.sh
+                  cd -
+
+                  echo "CLUSTER_NAME=$CLUSTER_NAME"
+                  echo "CLUSTER_API_URL=$CLUSTER_API_URL"
+
     access-info:
         name: Read kube configs from matrix
         runs-on: ubuntu-latest
@@ -282,7 +297,7 @@ jobs:
               timeout-minutes: 10
               run: |
                   # run it as specified in the doc
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   ./aws/openshift/rosa-hcp-single-region/procedure/get-your-copy.sh
                   tree
@@ -298,13 +313,6 @@ jobs:
                   command: |
                       set -o errexit # this is required https://github.com/nick-fields/retry/issues/133
                       set -o pipefail
-
-                      cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/rosa-hcp-single-region/
-                      source ./procedure/gather-cluster-login-id.sh
-                      cd -
-
-                      echo "CLUSTER_NAME=$CLUSTER_NAME"
-                      echo "CLUSTER_API_URL=$CLUSTER_API_URL"
 
                       # Delete the namespace to ensure a fresh start
                       if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
@@ -326,7 +334,7 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -o errexit
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   # As this action can be retried due to OpenShift API error, it must
                   # be stateless (all commmands can be rerun without issue)
@@ -377,7 +385,7 @@ jobs:
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 10
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   source generic/openshift/single-region/procedure/chart-env.sh
                   source generic/openshift/single-region/procedure/generate-passwords.sh
@@ -419,7 +427,7 @@ jobs:
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 10
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   CAMUNDA_VERSION=$(cat .camunda-version)
 
@@ -527,7 +535,7 @@ jobs:
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 20
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   echo "Show zeebe cluster topology using generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh:"
                   export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
@@ -606,7 +614,7 @@ jobs:
             - name: 🔬🚨 Get failed Pods info
               if: failure()
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   kubectl -n "$TEST_NAMESPACE" get po
                   kubectl -n "$TEST_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do

@@ -46,7 +46,7 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-dual-region/ # keep it synced with the name of the module for simplicity
-    TF_MODULES_DIRECTORY: ./tf-modules-workflow/   # where the tf repo will be clone
+    TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
 
     CLUSTER_1_AWS_REGION: eu-west-2
     CLUSTER_2_AWS_REGION: eu-west-3
@@ -98,7 +98,7 @@ jobs:
             - id: matrix
               # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   # Generate cluster name.
                   # shellcheck disable=SC2086
@@ -245,6 +245,18 @@ jobs:
                       kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
                       sensitive_values_raw: ${{ steps.export_kube_config.outputs.encrypted_sensitive_values_raw }}
 
+            - name: 🌐 Post-creation steps
+              timeout-minutes: 20
+              run: |
+                  set -euxo pipefail
+
+                  # Here we verify the extraction of the env variables as presented in the documentation
+
+                  # TODO: adapt in the doc
+                  cd ${{ env.TF_MODULES_DIRECTORY }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+                  source ../../procedure/gather-cluster-login-id.sh
+                  cd -
+
     access-info:
         name: Read kube configs from matrix
         runs-on: ubuntu-latest
@@ -281,21 +293,6 @@ jobs:
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
               with:
                   oc: ${{ matrix.distro.version }}
-
-            - name: Install ROSA CLI (required for MultiClusterHub)
-              shell: bash
-              env:
-                  rosa-cli-version: latest
-              working-directory: /tmp
-              run: |
-                  set -euxo pipefail
-
-                  curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ env.rosa-cli-version }}/rosa-linux.tar.gz"
-                  tar -xvf rosa-linux.tar.gz
-                  sudo mv rosa /usr/local/bin/rosa
-                  chmod +x /usr/local/bin/rosa
-                  rm -f rosa-linux.tar.gz
-                  rosa version
 
             - name: Import Secrets
               id: secrets
@@ -348,9 +345,6 @@ jobs:
               run: |
                   set -euxo pipefail
 
-                  # run it as specified in the doc
-                  set -euxo pipefail # tolerate, nothing.
-
                   ./aws/openshift/rosa-hcp-dual-region/procedure/get-your-copy.sh
                   tree
 
@@ -401,11 +395,6 @@ jobs:
               timeout-minutes: 20
               run: |
                   set -euxo pipefail
-
-                  # TODO: adapt the doc
-                  cd ${{ env.TF_MODULES_DIRECTORY }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
-                  source ../../procedure/gather-cluster-login-id.sh
-                  cd -
 
                   echo "Load outputs values from creation of the clusters"
                   echo "${{ fromJson(needs.access-info.outputs.kubeconfig).sensitive_values_raw[matrix.distro.name] }}" | base64 --decode > encrypted_sensitive.enc
@@ -465,7 +454,7 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -o errexit
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   echo "Construct the values.yml file for each cluster"
 
@@ -548,7 +537,7 @@ jobs:
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 10
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
                   # TODO: adapt the tests
                   CAMUNDA_VERSION=$(cat .camunda-version)
 
@@ -660,7 +649,7 @@ jobs:
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 20
               run: |
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   echo "Show zeebe cluster topology using generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh:"
                   export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
