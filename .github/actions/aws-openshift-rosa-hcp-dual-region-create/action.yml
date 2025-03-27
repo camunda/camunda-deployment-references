@@ -257,6 +257,10 @@ runs:
               pwd
               ls
 
+              # protect sensitive values
+              echo "::add-mask::${{ inputs.admin-password-cluster-1 }}"
+              echo "::add-mask::${{ inputs.admin-password-cluster-2 }}"
+
               ## Cluster 1
 
               # We use sed instead of -var because the module presented to the user
@@ -470,9 +474,11 @@ runs:
               echo "s3_bucket_name=$s3_bucket_name" | tee -a "$GITHUB_OUTPUT"
 
               export s3_aws_access_key="$(terraform output -raw s3_aws_access_key)"
+              echo "::add-mask::$s3_aws_access_key"
               echo "s3_aws_access_key=$s3_aws_access_key" | tee -a "$GITHUB_OUTPUT"
 
               export s3_aws_secret_access_key="$(terraform output -raw s3_aws_secret_access_key)"
+              echo "::add-mask::$s3_aws_secret_access_key"
               echo "s3_aws_secret_access_key=$s3_aws_secret_access_key" | tee -a "$GITHUB_OUTPUT"
 
 
