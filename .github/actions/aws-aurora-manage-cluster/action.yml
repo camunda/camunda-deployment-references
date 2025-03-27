@@ -157,6 +157,9 @@ runs:
           run: |
               set -euo pipefail
 
+              # protect sensitive values
+              echo "::add-mask::${{ inputs.password }}"
+
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
               terraform plan -no-color -out aurora.plan \
                 -var-file=/tmp/var.tfvars.json \
