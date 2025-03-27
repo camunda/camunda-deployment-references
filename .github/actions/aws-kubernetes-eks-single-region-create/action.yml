@@ -2,8 +2,7 @@
 name: Deploy AWS ROSA HCP Single Region Cluster
 
 description: |
-    This GitHub Action automates the deployment of the aws/openshift/rosa-hcp-single-region reference architecture cluster using Terraform.
-    This action will also install oc, awscli, rosa cli.
+    This GitHub Action automates the deployment of the aws/kubernetes/eks-single-region(-irsa) reference architecture cluster using Terraform.
     The kube context will be set on the created cluster.
 
 inputs:
@@ -38,6 +37,10 @@ inputs:
         description: Authenticate the current kube context on the created cluster
         default: 'true'
         required: true
+    ref-arch:
+        description: Reference architecture to deploy
+        default: eks-single-region-irsa
+        required: false
 
 outputs:
     terraform-state-url:
@@ -99,7 +102,7 @@ runs:
 
         - name: Terraform Init
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/eks-single-region-irsa/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
           run: |
               set -euo pipefail
@@ -115,7 +118,7 @@ runs:
 
         - name: Terraform Plan
           id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/eks-single-region-irsa/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
           run: |
               set -euo pipefail
@@ -148,13 +151,14 @@ runs:
 
         - name: Terraform Apply
           id: apply
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/eks-single-region-irsa/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
           run: |
               set -euo pipefail
               terraform apply -no-color tf.plan
 
         - name: Login and generate kubeconfig
+          if: inputs.login == 'true'
           shell: bash
           run: |
               set -euo pipefail
@@ -162,10 +166,3 @@ runs:
 
               kubectl config current-context
               kubectl get nodes
-
-        - name: Clean up cloned modules
-          if: always()
-          shell: bash
-          run: |
-              set -euo pipefail
-              rm -rf "${{ inputs.tf-modules-path }}"

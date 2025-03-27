@@ -44,7 +44,7 @@ env:
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infex
-    AWS_REGION: eu-west-2
+    AWS_REGION: eu-north-1
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
 
@@ -62,6 +62,8 @@ env:
     # Components that are not enabled by default in the doc, but enabled in our tests to have a better coverage
     WEBMODELER_ENABLED: 'false'
     CONSOLE_ENABLED: 'false'
+    CLUSTER_NAME: eks-single-region-0-rg1 # TODO: temporary to iterate more quickly with integration test
+    REF_ARCH: eks-single-region-irsa # using as default as it does two in one.
 
 jobs:
     triage:
@@ -76,11 +78,49 @@ jobs:
 
     prepare-cluster:
         name: Prepare cluster
+        needs:
+            - triage
         strategy:
             fail-fast: false
         runs-on: ubuntu-latest
+        env:
+            TF_MODULES_PATH: ./.action-tf-modules/aws-kubernetes-eks-single-region-create/
         outputs:
             cluster_name: ${{ steps.generate_cluster_name.outputs.CLUSTER_NAME }}
+            cert_manager_irsa_arn: ${{ steps.export-terraform-outputs.outputs.CERT_MANAGER_IRSA_ARN }}
+            external_dns_irsa_arn: ${{ steps.export-terraform-outputs.outputs.EXTERNAL_DNS_IRSA_ARN }}
+            db_keycloak_name: ${{ steps.export-terraform-outputs.outputs.DB_KEYCLOAK_NAME }}
+            db_keycloak_username: ${{ steps.export-terraform-outputs.outputs.DB_KEYCLOAK_USERNAME }}
+            camunda_keycloak_service_account_name: ${{ steps.export-terraform-outputs.outputs.CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME }}
+            db_keycloak_password: ${{ steps.export-terraform-outputs.outputs.DB_KEYCLOAK_PASSWORD }}
+            db_identity_name: ${{ steps.export-terraform-outputs.outputs.DB_IDENTITY_NAME }}
+            db_identity_username: ${{ steps.export-terraform-outputs.outputs.DB_IDENTITY_USERNAME }}
+            camunda_identity_service_account_name: ${{ steps.export-terraform-outputs.outputs.CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME }}
+            db_identity_password: ${{ steps.export-terraform-outputs.outputs.DB_IDENTITY_PASSWORD }}
+            db_webmodeler_name: ${{ steps.export-terraform-outputs.outputs.DB_WEBMODELER_NAME }}
+            db_webmodeler_username: ${{ steps.export-terraform-outputs.outputs.DB_WEBMODELER_USERNAME }}
+            camunda_webmodeler_service_account_name: ${{ steps.export-terraform-outputs.outputs.CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME }}
+            db_webmodeler_password: ${{ steps.export-terraform-outputs.outputs.DB_WEBMODELER_PASSWORD }}
+            db_host: ${{ steps.export-terraform-outputs.outputs.DB_HOST }}
+            db_role_keycloak_name: ${{ steps.export-terraform-outputs.outputs.DB_ROLE_KEYCLOAK_NAME }}
+            db_role_keycloak_arn: ${{ steps.export-terraform-outputs.outputs.DB_ROLE_KEYCLOAK_ARN }}
+            db_role_identity_name: ${{ steps.export-terraform-outputs.outputs.DB_ROLE_IDENTITY_NAME }}
+            db_role_identity_arn: ${{ steps.export-terraform-outputs.outputs.DB_ROLE_IDENTITY_ARN }}
+            db_role_webmodeler_name: ${{ steps.export-terraform-outputs.outputs.DB_ROLE_WEBMODELER_NAME }}
+            db_role_webmodeler_arn: ${{ steps.export-terraform-outputs.outputs.DB_ROLE_WEBMODELER_ARN }}
+            opensearch_host: ${{ steps.export-terraform-outputs.outputs.OPENSEARCH_HOST }}
+            opensearch_role_name: ${{ steps.export-terraform-outputs.outputs.OPENSEARCH_ROLE_NAME }}
+            opensearch_role_arn: ${{ steps.export-terraform-outputs.outputs.OPENSEARCH_ROLE_ARN }}
+            camunda_zeebe_service_account_name: ${{ steps.export-terraform-outputs.outputs.CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME }}
+            camunda_operate_service_account_name: ${{ steps.export-terraform-outputs.outputs.CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME }}
+            camunda_tasklist_service_account_name: ${{ steps.export-terraform-outputs.outputs.CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME }}
+            camunda_optimize_service_account_name: ${{ steps.export-terraform-outputs.outputs.CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME }}
+            aurora_endpoint: ${{ steps.export-terraform-outputs.outputs.AURORA_ENDPOINT }}
+            aurora_port: ${{ steps.export-terraform-outputs.outputs.AURORA_PORT }}
+            aurora_username: ${{ steps.export-terraform-outputs.outputs.AURORA_USERNAME }}
+            aurora_password: ${{ steps.export-terraform-outputs.outputs.AURORA_PASSWORD }}
+            opensearch_master_username: ${{ steps.export-terraform-outputs.outputs.OPENSEARCH_MASTER_USERNAME }}
+            opensearch_master_password: ${{ steps.export-terraform-outputs.outputs.OPENSEARCH_MASTER_PASSWORD }}
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
@@ -140,6 +180,65 @@ jobs:
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   tf-modules-revision: ${{ github.ref }}
+                  tf-modules-path: ${{ env.TF_MODULES_PATH }}
+                  ref-arch: ${{ env.REF_ARCH }}
+
+            - name: Export relevant Terraform outputs
+              working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ env.REF_ARCH }}/
+              id: export-terraform-outputs
+              run: |
+                  source ${{ github.workspace }}/aws/kubernetes/${{ env.REF_ARCH }}/procedure/export-helm-values.sh
+                  source ${{ github.workspace }}/aws/kubernetes/${{ env.REF_ARCH }}/procedure/vars-create-db.sh
+                  # TODO: irsa only
+                  source ${{ github.workspace }}/aws/kubernetes/${{ env.REF_ARCH }}/procedure/vars-create-os.sh || true
+
+                  # Export as outputs
+                  echo "CERT_MANAGER_IRSA_ARN=$CERT_MANAGER_IRSA_ARN" | tee -a "$GITHUB_OUTPUT"
+                  echo "EXTERNAL_DNS_IRSA_ARN=$EXTERNAL_DNS_IRSA_ARN" | tee -a "$GITHUB_OUTPUT"
+
+                  # PostgreSQL
+                  echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME=$CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD" | tee -a "$GITHUB_OUTPUT"
+
+
+                  echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME=$CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD" | tee -a "$GITHUB_OUTPUT"
+
+                  echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME=$CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD" | tee -a "$GITHUB_OUTPUT"
+
+                  echo "DB_HOST=$DB_HOST" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_ROLE_KEYCLOAK_NAME=$DB_ROLE_KEYCLOAK_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_ROLE_KEYCLOAK_ARN=$DB_ROLE_KEYCLOAK_ARN" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_ROLE_IDENTITY_NAME=$DB_ROLE_IDENTITY_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_ROLE_IDENTITY_ARN=$DB_ROLE_IDENTITY_ARN" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_ROLE_WEBMODELER_NAME=$DB_ROLE_WEBMODELER_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_ROLE_WEBMODELER_ARN=$DB_ROLE_WEBMODELER_ARN" | tee -a "$GITHUB_OUTPUT"
+
+                  # OpenSearch
+                  echo "OPENSEARCH_HOST=$OPENSEARCH_HOST" | tee -a "$GITHUB_OUTPUT"
+                  echo "OPENSEARCH_ROLE_NAME=$OPENSEARCH_ROLE_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "OPENSEARCH_ROLE_ARN=$OPENSEARCH_ROLE_ARN" | tee -a "$GITHUB_OUTPUT"
+                  echo "CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME=$CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME=$CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME=$CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME=$CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME" | tee -a "$GITHUB_OUTPUT"
+
+                  echo "AURORA_ENDPOINT=$AURORA_ENDPOINT" | tee -a "$GITHUB_OUTPUT"
+                  echo "AURORA_PORT=$AURORA_PORT" | tee -a "$GITHUB_OUTPUT"
+                  echo "AURORA_USERNAME=$AURORA_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "AURORA_PASSWORD=$AURORA_PASSWORD" | tee -a "$GITHUB_OUTPUT"
+
+                  echo "OPENSEARCH_MASTER_USERNAME=$OPENSEARCH_MASTER_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "OPENSEARCH_MASTER_PASSWORD=$OPENSEARCH_MASTER_PASSWORD" | tee -a "$GITHUB_OUTPUT"
+
+    # END OF PREPARE CLUSTER
 
             # - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
             #   id: export_kube_config
@@ -171,178 +270,207 @@ jobs:
     #           with:
     #               matrix-step-name: prepare-clusters
 
-    # integration-tests:
-    #     name: Run integration tests - ${{ matrix.scenario }}
-    #     runs-on: ubuntu-latest
-    #     needs:
-    #         - prepare-cluster
-    #     strategy:
-    #         fail-fast: false
-    #         max-parallel: 1
-    #         matrix:
-    #             scenario:
-    #                 - eks-single-region
-    #                 # - eks-single-region-irsa
-    #             # declination:
-    #             #     - domain
-    #             #     - no-domain
-    #     env:
-    #         TEST_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
-    #         # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
-    #         TEST_CLUSTER_TYPE: kubernetes
-    #     steps:
-    #         - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+    integration-tests:
+        name: Run integration tests - ${{ matrix.scenario }}
+        runs-on: ubuntu-latest
+        needs:
+            - prepare-cluster
+        strategy:
+            fail-fast: false
+            max-parallel: 1
+            matrix:
+                scenario:
+                    - eks-single-region
+                    # - eks-single-region-irsa
+                declination:
+                #     - domain
+                    - no-domain
+        env:
+            TEST_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
+            # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
+            TEST_CLUSTER_TYPE: kubernetes
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-    #         - name: Install asdf tools with cache for the project
-    #           uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+            - name: Install asdf tools with cache for the project
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
 
-    #         - name: Import Secrets
-    #           id: secrets
-    #           uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
-    #           with:
-    #               url: ${{ secrets.VAULT_ADDR }}
-    #               method: approle
-    #               roleId: ${{ secrets.VAULT_ROLE_ID }}
-    #               secretId: ${{ secrets.VAULT_SECRET_ID }}
-    #               exportEnv: false
-    #               secrets: |
-    #                   secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
-    #                   secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
-    #                   secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
-    #                   secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
 
-    #         - name: Clean up databases
-    #           run: |
-    #             # TODO:
+            - name: Export outputs as environment variables
+              run: |
+                  echo "CLUSTER_NAME=${{ needs.prepare-cluster.outputs.cluster_name }}" | tee -a "$GITHUB_ENV"
+                  echo "CERT_MANAGER_IRSA_ARN=${{ needs.prepare-cluster.outputs.cert_manager_irsa_arn }}" | tee -a "$GITHUB_ENV"
+                  echo "EXTERNAL_DNS_IRSA_ARN=${{ needs.prepare-cluster.outputs.external_dns_irsa_arn }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_KEYCLOAK_NAME=${{ needs.prepare-cluster.outputs.db_keycloak_name }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_KEYCLOAK_USERNAME=${{ needs.prepare-cluster.outputs.db_keycloak_username }}" | tee -a "$GITHUB_ENV"
+                  echo "CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME=${{ needs.prepare-cluster.outputs.camunda_keycloak_service_account_name }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_KEYCLOAK_PASSWORD=${{ needs.prepare-cluster.outputs.db_keycloak_password }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_IDENTITY_NAME=${{ needs.prepare-cluster.outputs.db_identity_name }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_IDENTITY_USERNAME=${{ needs.prepare-cluster.outputs.db_identity_username }}" | tee -a "$GITHUB_ENV"
+                  echo "CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME=${{ needs.prepare-cluster.outputs.camunda_identity_service_account_name }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_IDENTITY_PASSWORD=${{ needs.prepare-cluster.outputs.db_identity_password }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_WEBMODELER_NAME=${{ needs.prepare-cluster.outputs.db_webmodeler_name }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_WEBMODELER_USERNAME=${{ needs.prepare-cluster.outputs.db_webmodeler_username }}" | tee -a "$GITHUB_ENV"
+                  echo "CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME=${{ needs.prepare-cluster.outputs.camunda_webmodeler_service_account_name }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_WEBMODELER_PASSWORD=${{ needs.prepare-cluster.outputs.db_webmodeler_password }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_HOST=${{ needs.prepare-cluster.outputs.db_host }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_ROLE_KEYCLOAK_NAME=${{ needs.prepare-cluster.outputs.db_role_keycloak_name }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_ROLE_KEYCLOAK_ARN=${{ needs.prepare-cluster.outputs.db_role_keycloak_arn }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_ROLE_IDENTITY_NAME=${{ needs.prepare-cluster.outputs.db_role_identity_name }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_ROLE_IDENTITY_ARN=${{ needs.prepare-cluster.outputs.db_role_identity_arn }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_ROLE_WEBMODELER_NAME=${{ needs.prepare-cluster.outputs.db_role_webmodeler_name }}" | tee -a "$GITHUB_ENV"
+                  echo "DB_ROLE_WEBMODELER_ARN=${{ needs.prepare-cluster.outputs.db_role_webmodeler_arn }}" | tee -a "$GITHUB_ENV"
+                  echo "OPENSEARCH_HOST=${{ needs.prepare-cluster.outputs.opensearch_host }}" | tee -a "$GITHUB_ENV"
+                  echo "OPENSEARCH_ROLE_NAME=${{ needs.prepare-cluster.outputs.opensearch_role_name }}" | tee -a "$GITHUB_ENV"
+                  echo "OPENSEARCH_ROLE_ARN=${{ needs.prepare-cluster.outputs.opensearch_role_arn }}" | tee -a "$GITHUB_ENV"
+                  echo "CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME=${{ needs.prepare-cluster.outputs.camunda_zeebe_service_account_name }}" | tee -a "$GITHUB_ENV"
+                  echo "CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME=${{ needs.prepare-cluster.outputs.camunda_operate_service_account_name }}" | tee -a "$GITHUB_ENV"
+                  echo "CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME=${{ needs.prepare-cluster.outputs.camunda_tasklist_service_account_name }}" | tee -a "$GITHUB_ENV"
+                  echo "CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME=${{ needs.prepare-cluster.outputs.camunda_optimize_service_account_name }}" | tee -a "$GITHUB_ENV"
+                  echo "AURORA_ENDPOINT=${{ needs.prepare-cluster.outputs.aurora_endpoint }}" | tee -a "$GITHUB_ENV"
+                  echo "AURORA_PORT=${{ needs.prepare-cluster.outputs.aurora_port }}" | tee -a "$GITHUB_ENV"
+                  echo "AURORA_USERNAME=${{ needs.prepare-cluster.outputs.aurora_username }}" | tee -a "$GITHUB_ENV"
+                  echo "AURORA_PASSWORD=${{ needs.prepare-cluster.outputs.aurora_password }}" | tee -a "$GITHUB_ENV"
+                  echo "OPENSEARCH_MASTER_USERNAME=${{ needs.prepare-cluster.outputs.opensearch_master_username }}" | tee -a "$GITHUB_ENV"
+                  echo "OPENSEARCH_MASTER_PASSWORD=${{ needs.prepare-cluster.outputs.opensearch_master_password }}" | tee -a "$GITHUB_ENV"
 
-    #         - name: 🔐 Login into the cluster
-    #           timeout-minutes: 10
-    #           run: |
-    #             set -euo pipefail
-    #             aws eks --region "${{ env.AWS_REGION }}" update-kubeconfig --name "${{ needs.prepare-cluster.outputs.cluster_name }}" --alias "${{ needs.prepare-cluster.outputs.cluster_name }}"
+            - name: Clean up databases
+              run: |
+                  # TODO:
 
-    #             kubectl config current-context
-    #             kubectl get nodes
+            - name: 🔐 Login into the cluster
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+                  aws eks --region "${{ env.AWS_REGION }}" update-kubeconfig --name "${{ env.CLUSTER_NAME }}" --alias "${{ env.CLUSTER_NAME }}"
 
-    #         - name: 📁 Get a copy of the reference architecture
-    #           timeout-minutes: 10
-    #           run: |
-    #               # run it as specified in the doc
-    #               set -euo pipefail # tolerate, nothing.
+                  kubectl config current-context
+                  kubectl get nodes
 
-    #               ./aws/kubernetes/${{ matrix.scenario }}/procedure/get-your-copy.sh
-    #               tree
+            - name: 📁 Get a copy of the reference architecture
+              timeout-minutes: 10
+              run: |
+                  # run it as specified in the doc
+                  set -euo pipefail # tolerate, nothing.
 
-    #         - name: 🏗️ Prepare a fresh namespace for the tests
-    #           run: |
-    #             set -euo pipefail
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/get-your-copy.sh
+                  tree
 
-    #             # Delete the namespace to ensure a fresh start
-    #             if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
-    #             kubectl delete namespace "$TEST_NAMESPACE" --wait
-    #             while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
-    #                 echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
-    #                 sleep 5
-    #             done
-    #             fi
+            - name: 🏗️ Prepare a fresh namespace for the tests
+              run: |
+                  set -euo pipefail
 
-    #             # Create the namespace
-    #             kubectl create namespace "$TEST_NAMESPACE"
+                  # Delete the namespace to ensure a fresh start
+                  if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
+                  kubectl delete namespace "$TEST_NAMESPACE" --wait
+                  while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
+                      echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
+                      sleep 5
+                  done
+                  fi
 
-    #         # - name: 🛠️ Assemble deployment values of generic/openshift/single-region
-    #         #   timeout-minutes: 10
-    #         #   run: |
-    #         #       set -o errexit
-    #         #       set -euxo pipefail # tolerate, nothing.
+                  # Create the namespace
+                  kubectl create namespace "$TEST_NAMESPACE"
 
-    #         #       # As this action can be retried due to OpenShift API error, it must
-    #         #       # be stateless (all commmands can be rerun without issue)
+            - name: 🛠️ Assemble deployment values of aws/kubernetes/${{ matrix.scenario }}/${{ matrix.declination }}
+              timeout-minutes: 10
+              run: |
+                  set -o errexit
+                  set -euxo pipefail # tolerate, nothing.
 
-    #         #       echo "Construct the values.yml file"
+                  echo "Construct the values.yml file"
 
-    #         #       cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
+                  cp -f aws/kubernetes/eks-single-region/helm-values/values-${{ matrix.declination }}.yml ./values.yml
 
-    #         #       source ./generic/openshift/single-region/procedure/setup-application-domain.sh
-    #         #       echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+                  if [[ "${{ matrix.declination }}" == "domain" ]]; then
+                    echo "CAMUNDA_DOMAIN=${{ env.CLUSTER_NAME }}.camunda.ie" | tee -a "$GITHUB_ENV"
+                  fi
 
-    #         #       source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                    echo "Enabling WebModeler"
+                    yq -i '.webModeler.enabled = true' values.yml
+                    yq -i '.postgresql.enabled = true' values.yml
+                  fi
 
-    #         #       ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
+                  if [ "$CONSOLE_ENABLED" == "true" ]; then
+                    echo "Enabling Console"
+                    yq -i '.console.enabled = true' values.yml
+                  fi
 
-    #         #       # Enable Routes
-    #         #       for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
-    #         #           yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
-    #         #           cat values-result.yml && mv values-result.yml values.yml
-    #         #       done
+                  # Add integration tests values
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    for file in registry.yml identity.yml; do
+                      yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
+                    done
+                  fi
 
-    #         #       # Enable SCC
-    #         #       yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
-    #         #       cat values-result.yml && mv values-result.yml values.yml
+                  ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
 
-    #         #       if [ "$WEBMODELER_ENABLED" == "true" ]; then
-    #         #         echo "Enabling WebModeler"
-    #         #         yq -i '.webModeler.enabled = true' values.yml
-    #         #         yq -i '.postgresql.enabled = true' values.yml
-    #         #       fi
+            - name: Execute procedure scripts
+              run: |
+                  set -euo pipefail
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/check-env-variables.sh
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-external-db-secrets.sh
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-db-secret.sh
 
-    #         #       if [ "$CONSOLE_ENABLED" == "true" ]; then
-    #         #         echo "Enabling Console"
-    #         #         yq -i '.console.enabled = true' values.yml
-    #         #       fi
+            - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
 
-    #         #       # Add integration tests values
-    #         #       if [ "$TESTS_ENABLED" == "true" ]; then
-    #         #         for file in registry.yml identity.yml; do
-    #         #           yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
-    #         #           cat values-result.yml && mv values-result.yml values.yml
-    #         #         done
-    #         #       fi
+                  source generic/kubernetes/single-region/procedure/chart-env.sh
+                  source generic/kubernetes/single-region/procedure/generate-passwords.sh
 
-    #         #       ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
+                  ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
 
-    #         - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
-    #           timeout-minutes: 10
-    #           run: |
-    #               set -euo pipefail
+                  # Generate tests objects
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml
+                    kubectl create secret docker-registry index-docker-io \
+                        --docker-server=index.docker.io \
+                        --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                        --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                        --namespace="$TEST_NAMESPACE"
 
-    #               source generic/kubernetes/single-region/procedure/chart-env.sh
-    #               source generic/kubernetes/single-region/procedure/generate-passwords.sh
+                    kubectl create secret generic identity-secret-for-components-integration \
+                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+                        --namespace="$TEST_NAMESPACE"
+                  fi
 
-    #               ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
+                  ./generic/kubernetes/single-region/procedure/install-chart.sh
 
-    #               # Generate tests objects
-    #               if [ "$TESTS_ENABLED" == "true" ]; then
-    #                 # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml
-    #                 kubectl create secret docker-registry index-docker-io \
-    #                     --docker-server=index.docker.io \
-    #                     --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
-    #                     --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
-    #                     --namespace="$TEST_NAMESPACE"
+            - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
+              timeout-minutes: 10
+              run: |
+                  ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
-    #                 kubectl create secret generic identity-secret-for-components-integration \
-    #                     --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
-    #                     --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-    #                     --namespace="$TEST_NAMESPACE"
-    #               fi
+            - name: 🔬🚨 Get failed Pods info
+              if: failure()
+              run: |
+                  set -euo pipefail
 
-    #               ./generic/kubernetes/single-region/procedure/install-chart.sh
-
-    #         - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
-    #           timeout-minutes: 10
-    #           run: |
-    #               ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
-
-    #         - name: 🔬🚨 Get failed Pods info
-    #           if: failure()
-    #           run: |
-    #               set -euo pipefail
-
-    #               kubectl -n "$TEST_NAMESPACE" get po
-    #               kubectl -n "$TEST_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
-    #                 echo -e "\n###Failed Pod: ${pod_name}###\n";
-    #                 kubectl -n "$TEST_NAMESPACE" describe po "$pod_name";
-    #                 kubectl -n "$TEST_NAMESPACE" logs "$pod_name";
-    #               done
+                  kubectl -n "$TEST_NAMESPACE" get po
+                  kubectl -n "$TEST_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                    echo -e "\n###Failed Pod: ${pod_name}###\n";
+                    kubectl -n "$TEST_NAMESPACE" describe po "$pod_name";
+                    kubectl -n "$TEST_NAMESPACE" logs "$pod_name";
+                  done
 
     # cleanup-clusters:
     #     name: Cleanup ROSA clusters
