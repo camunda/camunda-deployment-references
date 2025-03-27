@@ -2,8 +2,7 @@
 
 ## Description
 
-This GitHub Action automates the deployment of the aws/openshift/rosa-hcp-single-region reference architecture cluster using Terraform.
-This action will also install oc, awscli, rosa cli.
+This GitHub Action automates the deployment of the aws/kubernetes/eks-single-region(-irsa) reference architecture cluster using Terraform.
 The kube context will be set on the created cluster.
 
 
@@ -20,6 +19,7 @@ The kube context will be set on the created cluster.
 | `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `main` |
 | `tf-modules-path` | <p>Path where the tf rosa modules will be cloned</p> | `true` | `./.action-tf-modules/aws-kubernetes-eks-single-region-create/` |
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `true` | `true` |
+| `ref-arch` | <p>Reference architecture to deploy</p> | `false` | `eks-single-region-irsa` |
 
 
 ## Outputs
@@ -91,4 +91,10 @@ This action is a `composite` action.
     #
     # Required: true
     # Default: true
+
+    ref-arch:
+    # Reference architecture to deploy
+    #
+    # Required: false
+    # Default: eks-single-region-irsa
 ```
