@@ -70,8 +70,6 @@ jobs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-              with:
-                    ref: fix-triage
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -116,13 +114,22 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
+            - name: Generate random cluster_name
+              run: |
+                  PR_NUMBER=0
+                  if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+                      PR_NUMBER=${{ github.event.pull_request.number}}
+                  fi
+                  # limiting factor are OpenSearch domains of maximum 28 characters
+                  echo "CLUSTER_NAME=eks-single-region-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 3)" | tee -a "$GITHUB_ENV"
+
             - name: Create K8S cluster and login
               uses: ./.github/actions/aws-kubernetes-eks-single-region-create
               id: create_cluster
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               with:
-                  cluster-name: lars-static-test-cluster
+                  cluster-name: ${{ env.CLUSTER_NAME }}
                   aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
