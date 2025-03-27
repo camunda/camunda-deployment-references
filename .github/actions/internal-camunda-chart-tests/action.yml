@@ -8,10 +8,12 @@ description: >
 inputs:
     tests-camunda-helm-chart-repo-ref:
         description: The branch, tag or commit to checkout
-        required: true
+        required: false
+        default: main
     tests-camunda-helm-chart-repo-path:
         description: Path to the Helm chart repository
-        required: true
+        required: false
+        default: ./.camunda_helm_repo
     secrets:
         description: JSON wrapped secrets for easier secret passing
         required: true
@@ -38,6 +40,10 @@ inputs:
         description: The type of the cluster to use for the tests
         required: false
         default: kubernetes
+    zeebe-topology-golden-file:
+        description: The golden file to compare the Zeebe topology output against.
+        required: false
+        default: ./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json
 
 runs:
     using: composite
@@ -190,6 +196,9 @@ runs:
           run: |
               set -euxo pipefail
 
+              reference_file="${{ inputs.zeebe-topology-golden-file }}"
+              echo "Using golden reference file to compare against: $reference_file"
+
               echo "Show zeebe cluster topology using generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh:"
               export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
               export ZEEBE_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
@@ -205,6 +214,9 @@ runs:
               check_zeebe_topology_cluster_size=$(echo "$check_zeebe_topology_output" | jq '.clusterSize')
               check_zeebe_topology_partitions_count=$(echo "$check_zeebe_topology_output" | jq '.partitionsCount')
 
+              golden_zeebe_topology_cluster_size=$(jq '.clusterSize' < "$reference_file")
+              golden_zeebe_topology_partitions_count=$(jq '.partitionsCount' < "$reference_file")
+
               if [ "$check_zeebe_topology_all_healthy" = "true" ]; then
                 echo "✅ All partitions are healthy."
               else
@@ -212,23 +224,22 @@ runs:
                 error_found=true
               fi
 
-              if [ "$check_zeebe_topology_cluster_size" -eq 3 ]; then
-                echo "✅ Cluster size is 3."
+              if [ "$check_zeebe_topology_cluster_size" -eq $golden_zeebe_topology_cluster_size ]; then
+                echo "✅ Cluster size is $check_zeebe_topology_cluster_size."
               else
-                echo "❌ Cluster size is not 3."
+                echo "❌ Cluster size is not $golden_zeebe_topology_cluster_size."
                 error_found=true
               fi
 
-              if [ "$check_zeebe_topology_partitions_count" -eq 3 ]; then
-                echo "✅ Partitions count is 3."
+              if [ "$check_zeebe_topology_partitions_count" -eq $golden_zeebe_topology_partitions_count ]; then
+                echo "✅ Partitions count is $check_zeebe_topology_partitions_count."
               else
-                echo "❌ Partitions count is not 3."
+                echo "❌ Partitions count is not $golden_zeebe_topology_partitions_count."
                 error_found=true
               fi
 
               echo "Comparing golden file of the zeebe topology output..."
 
-              reference_file="./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json"
               # Save the output to a temporary file
               temp_output=$(mktemp)
               echo "$check_zeebe_topology_output" > "$temp_output"

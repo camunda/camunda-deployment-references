@@ -9,8 +9,8 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 
 | name | description | required | default |
 | --- | --- | --- | --- |
-| `tests-camunda-helm-chart-repo-ref` | <p>The branch, tag or commit to checkout</p> | `true` | `""` |
-| `tests-camunda-helm-chart-repo-path` | <p>Path to the Helm chart repository</p> | `true` | `""` |
+| `tests-camunda-helm-chart-repo-ref` | <p>The branch, tag or commit to checkout</p> | `false` | `main` |
+| `tests-camunda-helm-chart-repo-path` | <p>Path to the Helm chart repository</p> | `false` | `./.camunda_helm_repo` |
 | `secrets` | <p>JSON wrapped secrets for easier secret passing</p> | `true` | `""` |
 | `camunda-version` | <p>The version of the Camunda Helm chart to test</p> | `true` | `""` |
 | `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `false` |
@@ -18,6 +18,7 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `console-enabled` | <p>Whether the Console is enabled in the chart</p> | `false` | `false` |
 | `test-namespace` | <p>The namespace to use for the tests</p> | `false` | `camunda` |
 | `test-cluster-type` | <p>The type of the cluster to use for the tests</p> | `false` | `kubernetes` |
+| `zeebe-topology-golden-file` | <p>The golden file to compare the Zeebe topology output against.</p> | `false` | `./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json` |
 
 
 ## Runs
@@ -32,14 +33,14 @@ This action is a `composite` action.
     tests-camunda-helm-chart-repo-ref:
     # The branch, tag or commit to checkout
     #
-    # Required: true
-    # Default: ""
+    # Required: false
+    # Default: main
 
     tests-camunda-helm-chart-repo-path:
     # Path to the Helm chart repository
     #
-    # Required: true
-    # Default: ""
+    # Required: false
+    # Default: ./.camunda_helm_repo
 
     secrets:
     # JSON wrapped secrets for easier secret passing
@@ -82,4 +83,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: kubernetes
+
+    zeebe-topology-golden-file:
+    # The golden file to compare the Zeebe topology output against.
+    #
+    # Required: false
+    # Default: ./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json
 ```
