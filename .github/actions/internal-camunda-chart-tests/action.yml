@@ -79,7 +79,7 @@ runs:
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
               CONSOLE_ENABLED: ${{ inputs.console-enabled }}
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               # export test variables to be used in other steps
               echo "TEST_NAMESPACE=${{ inputs.test-namespace }}" | tee -a "$GITHUB_ENV"
@@ -182,11 +182,15 @@ runs:
         - name: 🧪 TESTS - Run Preflight TestSuite
           shell: bash
           run: |
+              set -euo pipefail
+
               task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.preflight
 
         - name: 🧪 TESTS - Run Core TestSuite
           shell: bash
           run: |
+              set -euo pipefail
+
               task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.core
 
         - name: 🧪 TESTS - Run additional tests
@@ -194,7 +198,7 @@ runs:
           env:
               DOMAIN_NAME: ${{ inputs.camunda-domain }}
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               reference_file="${{ inputs.zeebe-topology-golden-file }}"
               echo "Using golden reference file to compare against: $reference_file"

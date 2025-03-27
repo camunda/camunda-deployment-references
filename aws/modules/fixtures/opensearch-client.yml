@@ -19,7 +19,7 @@ spec:
                       - -c
                       - |
                         /bin/bash <<'EOF'
-                        set -euxo pipefail
+                        set -euo pipefail
 
                         echo "Installing dependencies..."
                         yum install -y unzip awscli-2

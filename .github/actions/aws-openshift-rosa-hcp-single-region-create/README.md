@@ -26,6 +26,7 @@ The kube context will be set on the created cluster.
 | `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `main` |
 | `tf-modules-path` | <p>Path where the tf rosa modules will be cloned</p> | `true` | `./.action-tf-modules/aws-openshift-rosa-hcp-single-region-create/` |
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `true` | `true` |
+| `cleanup-tf-modules-path` | <p>Whether to clean up the tf modules path</p> | `false` | `false` |
 
 
 ## Outputs
@@ -135,4 +136,10 @@ This action is a `composite` action.
     #
     # Required: true
     # Default: true
+
+    cleanup-tf-modules-path:
+    # Whether to clean up the tf modules path
+    #
+    # Required: false
+    # Default: false
 ```

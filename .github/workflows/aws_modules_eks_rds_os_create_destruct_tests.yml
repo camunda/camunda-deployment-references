@@ -52,6 +52,7 @@ on:
             - .github/actions/aws-opensearch-manage-cluster/**
             - .github/actions/aws-eks-cleanup-resources/**
             - .github/actions/aws-utility-action/**
+            - .github/actions/aws-configure-cli/**
 
 # limit to a single execution per ref of this workflow
 concurrency:
@@ -104,6 +105,8 @@ jobs:
             - name: Get Cluster Info
               id: commit_info
               run: |
+                  set -euo pipefail
+
                   if [[ -n "${{ inputs.cluster_name }}" ]]; then
                     cluster_name="${{ inputs.cluster_name }}"
                   else
@@ -137,34 +140,28 @@ jobs:
                   else
                     opensearch_password="$(openssl rand -base64 12 | tr -d '/@" ')"
                   fi
+                  # protect sensitive values
+                  echo "::add-mask::$opensearch_password"
                   echo "opensearch_password=$opensearch_password" | tee -a "$GITHUB_OUTPUT"
 
                   # Get the current commit hash for the modules revision
                   tf_modules_revision=$(git rev-parse HEAD)
                   echo "tf_modules_revision=$tf_modules_revision" | tee -a "$GITHUB_OUTPUT"
 
-            - name: Import Secrets
-              id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
               with:
-                  url: ${{ secrets.VAULT_ADDR }}
-                  method: approle
-                  roleId: ${{ secrets.VAULT_ROLE_ID }}
-                  secretId: ${{ secrets.VAULT_SECRET_ID }}
-                  exportEnv: false
-                  secrets: |
-                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
-
-            - name: Add profile credentials to ~/.aws/credentials
-              run: |
-                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
 
             - name: Set current Camunda version
               id: camunda-version
               run: |
+                  set -euo pipefail
+
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
@@ -188,6 +185,8 @@ jobs:
             - name: After EKS creation infos
               id: after_cluster_creation_infos
               run: |
+                  set -euo pipefail
+
                   vpc_id=$(echo '${{ steps.create_eks_cluster.outputs.all-terraform-outputs }}' | jq -c -r '.vpc_id.value')
                   echo "vpc_id=$vpc_id" | tee -a "$GITHUB_OUTPUT"
 

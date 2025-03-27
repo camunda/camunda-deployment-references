@@ -15,6 +15,7 @@ on:
             - .tool-versions
             - .github/workflows/aws_modules_eks_rds_os_tests.yml
             - justfile
+            - .github/actions/aws-configure-cli/**
 
 # limit to a single execution per ref of this workflow
 concurrency:
@@ -76,6 +77,8 @@ jobs:
             - name: Extract Test Functions
               id: extract_test_functions
               run: |
+                  # We don't use set -euo pipefailas it's not working with this script
+
                   test_functions=$(grep -rho 'func \(Test[^ ]*\)' ./aws/modules/.test/src/ | sed 's/func \(Test[^ ]*\)(t/\1/' | tr '\n' ',' | sed 's/,$//')
                   echo "test_functions=$test_functions"
 
@@ -131,25 +134,14 @@ jobs:
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
 
-            - name: Import Secrets
-              id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
               with:
-                  url: ${{ secrets.VAULT_ADDR }}
-                  method: approle
-                  roleId: ${{ secrets.VAULT_ROLE_ID }}
-                  secretId: ${{ secrets.VAULT_SECRET_ID }}
-                  exportEnv: false
-                  secrets: |
-                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
-
-            # Official action does not support profiles
-            - name: Add profile credentials to ~/.aws/credentials
-              run: |
-                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
 
             - name: Get go.mod details
               uses: Eun/go-mod-details@b719cd324463e2037cf3a0dd1dd6091bdc2730f4 # v1
@@ -162,6 +154,8 @@ jobs:
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               run: |
+                  set -euo pipefail
+
                   export TESTS_CLUSTER_ID="${{ needs.configure-tests.outputs.cluster_id }}"
                   export TESTS_CLUSTER_REGION="${{ env.AWS_REGION }}"
                   export TESTS_TF_BINARY_NAME="${{ env.TESTS_TF_BINARY_NAME }}"
@@ -171,6 +165,8 @@ jobs:
             - name: Filter logger.go from the test report (too large)
               if: always()
               run: |
+                  set -euo pipefail
+
                   sed 's/&#xA;/\n/g' < "./aws/modules/.test/src/${{ matrix.test_function }}_unit-tests.xml" |
                   grep -E -v '^.*logger\.go.*$' |
                   sed 's/\n/&#xA;/g' > "./aws/modules/.test/src/${{ matrix.test_function }}_unit-tests_filtered.xml"
@@ -186,6 +182,8 @@ jobs:
             - name: Remove profile credentials from ~/.aws/credentials
               if: always()
               run: |
+                  set -euo pipefail
+
                   rm -rf ~/.aws/credentials
 
     test-report:
@@ -223,25 +221,14 @@ jobs:
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
 
-            - name: Import Secrets
-              id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
               with:
-                  url: ${{ secrets.VAULT_ADDR }}
-                  method: approle
-                  roleId: ${{ secrets.VAULT_ROLE_ID }}
-                  secretId: ${{ secrets.VAULT_SECRET_ID }}
-                  exportEnv: false
-                  secrets: |
-                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
-
-            # Official action does not support profiles
-            - name: Add profile credentials to ~/.aws/credentials
-              run: |
-                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
 
             - name: Delete resources of this run
               timeout-minutes: 125
