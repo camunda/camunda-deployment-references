@@ -62,6 +62,7 @@ runs:
           id: set-terraform-variables
           shell: bash
           run: |
+              set -euo pipefail
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
               export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
 
@@ -82,6 +83,7 @@ runs:
           id: create-s3-bucket
           shell: bash
           run: |
+              set -euo pipefail
               if aws s3api head-bucket --bucket ${{ inputs.s3-backend-bucket }} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
                 echo "Bucket already exists"
               else
@@ -100,7 +102,7 @@ runs:
           working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/eks-single-region-irsa/
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               terraform version
 
@@ -116,6 +118,7 @@ runs:
           working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/eks-single-region-irsa/
           shell: bash
           run: |
+              set -euo pipefail
               echo "Adapting the files with input values"
               pwd
               ls
@@ -143,20 +146,26 @@ runs:
 
               terraform plan -no-color -out tf.plan
 
-        # - name: Terraform Apply
-        #   id: apply
-        #   working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/eks-single-region-irsa/
-        #   shell: bash
-        #   run: |
-        #       terraform apply -no-color tf.plan
+        - name: Terraform Apply
+          id: apply
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/eks-single-region-irsa/
+          shell: bash
+          run: |
+              set -euo pipefail
+              terraform apply -no-color tf.plan
 
-        # - name: Login and generate kubeconfig
-        #   shell: bash
-        #   run: |
-        #     # TODO:
+        - name: Login and generate kubeconfig
+          shell: bash
+          run: |
+              set -euo pipefail
+              aws eks update-kubeconfig --region ${{ inputs.aws-regions }} --name ${{ inputs.cluster-name }} --alias ${{ inputs.cluster-name }}
 
-        # - name: Clean up cloned modules
-        #   if: always()
-        #   shell: bash
-        #   run: |
-        #       rm -rf "${{ inputs.tf-modules-path }}"
+              kubectl config current-context
+              kubectl get nodes
+
+        - name: Clean up cloned modules
+          if: always()
+          shell: bash
+          run: |
+              set -euo pipefail
+              rm -rf "${{ inputs.tf-modules-path }}"
