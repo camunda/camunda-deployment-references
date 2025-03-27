@@ -15,6 +15,7 @@ on:
             - aws/openshift/rosa-hcp-dual-region/**
             - '!aws/openshift/rosa-hcp-dual-region/terraform/*/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-dual-region-cleanup/**
+            - .github/actions/aws-configure-cli/**
 
     schedule:
         - cron: 0 1 * * * # At 01:00 everyday.
@@ -85,16 +86,17 @@ jobs:
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
                   secrets: |
-                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
 
-            # Official action does not support profiles
-            - name: Add profile credentials to ~/.aws/credentials
-              run: |
-                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set region ${{ env.CLUSTER_1_AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
 
             - name: Delete clusters
               id: delete_clusters

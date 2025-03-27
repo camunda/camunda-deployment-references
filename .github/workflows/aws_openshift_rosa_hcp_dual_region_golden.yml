@@ -6,6 +6,7 @@ on:
     pull_request:
         paths:
             - .github/workflows/aws_openshift_rosa_hcp_dual_region_golden.yml
+            - .github/actions/aws-configure-cli/**
             - .tool-versions
             - aws/modules/rosa-hcp/**
             - aws/openshift/rosa-hcp-dual-region/**
@@ -67,12 +68,14 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
 
-            - name: Add profile credentials to ~/.aws/credentials
-              shell: bash
-              run: |
-                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set region ${{ env.CLUSTER_1_AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
 
             - name: Run Terraform Golden Plan Comparison - Clusters
               uses: ./.github/actions/internal-terraform-golden-plan
