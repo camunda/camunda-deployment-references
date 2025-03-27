@@ -592,9 +592,8 @@ jobs:
                   yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$reference_file"
 
                   # Compare the two files using diff (in compacted JSON format)
-                  # diff_output=$(delta <(jq -S . "$temp_output") <(jq -S . "$reference_file"))
+                  diff_output=$(delta <(jq -S . "$temp_output") <(jq -S . "$reference_file") || true)
 
-                  diff_output=""
                   if [[ -n "$diff_output" ]]; then
                     # If differences are found, print the error and the diff
                     echo "❌ Error: The golden files of zeebe topology files do not match."
@@ -658,6 +657,7 @@ jobs:
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
+              if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
