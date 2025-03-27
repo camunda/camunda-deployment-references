@@ -140,6 +140,8 @@ jobs:
                   else
                     opensearch_password="$(openssl rand -base64 12 | tr -d '/@" ')"
                   fi
+                  # protect sensitive values
+                  echo "::add-mask::$opensearch_password"
                   echo "opensearch_password=$opensearch_password" | tee -a "$GITHUB_OUTPUT"
 
                   # Get the current commit hash for the modules revision

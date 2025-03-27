@@ -217,6 +217,9 @@ runs:
               pwd
               ls
 
+              # protect sensitive values
+              echo "::add-mask::${{ inputs.admin-password }}"
+
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
               sed -i -e 's/\(rosa_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
@@ -276,6 +279,9 @@ runs:
                   : # see https://github.com/nick-fields/retry/issues/133
                   set -o errexit
                   set -o pipefail
+
+                  # protect sensitive values
+                  echo "::add-mask::${{ inputs.admin-password }}"
 
                   # Check if the user is already a cluster-admin
                   if ! rosa list users --cluster="${{ inputs.cluster-name }}" | grep -q "${{ inputs.admin-username }}"; then
