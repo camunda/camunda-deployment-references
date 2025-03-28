@@ -584,8 +584,11 @@ jobs:
                   yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$temp_output"
                   yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$reference_file"
 
-                  # Replace namespaces names with cluster names
-                  sed -e "s/cluster-region-2/$CLUSTER_2_NAME/g" -i "$reference_file"
+                  # Replace namespaces names with cluster names, we don't proceed to replacement of local-cluster as this one is hard-coded
+                  sed -e "s/cluster-region-2/$CLUSTER_2_NAME/g" \
+                      -e "s/camunda-cluster-region-2\.svc/$CAMUNDA_NAMESPACE_2\.svc/g" \
+                      -e "s/camunda-cluster-region-1\.svc/$CAMUNDA_NAMESPACE_1\.svc/g" \
+                      -i "$reference_file"
 
                   # Order each file also remove not predictable fields
                   yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$temp_output"
