@@ -62,7 +62,6 @@ env:
     # Components that are not enabled by default in the doc, but enabled in our tests to have a better coverage
     WEBMODELER_ENABLED: 'false'
     CONSOLE_ENABLED: 'false'
-    CLUSTER_NAME: eks-single-region-0-rg1 # TODO: temporary to iterate more quickly with integration test
     REF_ARCH: eks-single-region-irsa # using as default as it does two in one.
 
 jobs:
@@ -166,7 +165,7 @@ jobs:
                       PR_NUMBER=${{ github.event.pull_request.number}}
                   fi
                   # limiting factor are OpenSearch domains of maximum 28 characters
-                  echo "CLUSTER_NAME=eks-single-region-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 3)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+                  echo "CLUSTER_NAME=eks-sr-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
             - name: Create K8S cluster and login
               uses: ./.github/actions/aws-kubernetes-eks-single-region-create
