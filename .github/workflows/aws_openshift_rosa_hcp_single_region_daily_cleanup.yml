@@ -38,7 +38,7 @@ env:
     S3_BUCKET_REGION: eu-central-1
     AWS_REGION: eu-west-2
 
-    # TODO: implement S3_BACKEND_PREFIX for single region similar to dual region
+    S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-single-region/ # keep it synced with the name of the module for simplicity
 
 jobs:
     triage:
@@ -108,7 +108,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: ${{ env.MAX_AGE_HOURS_CLUSTER }}
-                  tf-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
             # There are cases where the deletion of resources fails due to dependencies.
             - name: Retry delete clusters
@@ -123,7 +123,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0 # the previous step alters the age and resets it to 0
-                  tf-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
             - name: Notify in Slack in case of failure
               id: slack-notification

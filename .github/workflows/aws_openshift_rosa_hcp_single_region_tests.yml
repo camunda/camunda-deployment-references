@@ -49,6 +49,7 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
+    S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-single-region/ # keep it synced with the name of the module for simplicity
 
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
@@ -196,7 +197,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  s3-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   openshift-version: ${{ matrix.distro.version }}
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
@@ -523,7 +524,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
                   target: ${{ matrix.distro.clusterName }}
-                  tf-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     report:
         name: Report failures
