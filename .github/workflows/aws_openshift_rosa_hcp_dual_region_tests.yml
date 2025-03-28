@@ -616,10 +616,6 @@ jobs:
                   fi
                   echo "✅ The cluster meets all the expected criteria."
 
-            - name: Setup tmate session
-              if: ${{ failure() }}
-              uses: mxschmitt/action-tmate@v3
-
             - name: 🔬🚨 Get failed Pods info
               if: failure()
               uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@52f7c04dc9817a2f8a5b7b1c5450a80a8a6996ae # main
