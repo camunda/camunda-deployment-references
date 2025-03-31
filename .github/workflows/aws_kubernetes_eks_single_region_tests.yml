@@ -379,7 +379,7 @@ jobs:
               timeout-minutes: 10
               run: |
                   # run it as specified in the doc
-                  set -euo pipefail # tolerate, nothing.
+                  set -euo pipefail
 
                   ./aws/kubernetes/${{ matrix.scenario }}/procedure/get-your-copy.sh
                   tree
@@ -404,11 +404,11 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -o errexit
-                  set -euxo pipefail # tolerate, nothing.
+                  set -euxo pipefail
 
                   echo "Construct the values.yml file"
 
-                  cp -f aws/kubernetes/eks-single-region/helm-values/values-${{ matrix.declination }}.yml ./values.yml
+                  cp -f aws/kubernetes/${{ matrix.scenario }}/helm-values/values-${{ matrix.declination }}.yml ./values.yml
 
                   if [[ "${{ matrix.declination }}" == "domain" ]]; then
                     echo "CAMUNDA_DOMAIN=${{ env.CLUSTER_NAME }}.camunda.ie" | tee -a "$GITHUB_ENV"
