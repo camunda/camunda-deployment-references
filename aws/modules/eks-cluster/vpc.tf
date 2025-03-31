@@ -84,11 +84,15 @@ module "vpc" {
   create_flow_log_cloudwatch_iam_role  = false
   create_flow_log_cloudwatch_log_group = false
 
-  default_security_group_ingress = {
-    description = "${local.vpc_name} default SG Ingress"
-  }
+  default_security_group_ingress = [
+    {
+      description = "${local.vpc_name} default SG Ingress"
+    }
+  ]
 
-  default_security_group_egress = {
-    description = "${local.vpc_name} default SG Egress"
-  }
+  default_security_group_egress = [
+    {
+      description = "${local.vpc_name} default SG Egress"
+    }
+  ]
 }
