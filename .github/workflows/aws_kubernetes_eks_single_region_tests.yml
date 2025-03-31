@@ -274,7 +274,7 @@ jobs:
     #               matrix-step-name: prepare-clusters
 
     integration-tests:
-        name: Run integration tests - ${{ matrix.scenario }}
+        name: Run integration tests - ${{ matrix.scenario }} - ${{ matrix.declination }}
         runs-on: ubuntu-latest
         needs:
             - prepare-cluster
