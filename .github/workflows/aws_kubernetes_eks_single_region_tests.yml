@@ -362,10 +362,6 @@ jobs:
                   echo "OPENSEARCH_MASTER_USERNAME=${{ needs.prepare-cluster.outputs.opensearch_master_username }}" | tee -a "$GITHUB_ENV"
                   echo "OPENSEARCH_MASTER_PASSWORD=${{ needs.prepare-cluster.outputs.opensearch_master_password }}" | tee -a "$GITHUB_ENV"
 
-            - name: Clean up databases
-              run: |
-                  # TODO:
-
             - name: 🔐 Login into the cluster
               timeout-minutes: 10
               run: |
@@ -399,6 +395,10 @@ jobs:
 
                   # Create the namespace
                   kubectl create namespace "$TEST_NAMESPACE"
+
+            - name: Clean up databases
+              run: |
+                  # TODO:
 
             - name: 🛠️ Assemble deployment values of aws/kubernetes/${{ matrix.scenario }}/${{ matrix.declination }}
               timeout-minutes: 10
@@ -435,24 +435,65 @@ jobs:
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
 
-            - name: Execute general procedure scripts
+            - name: Configure the database and associated access
               timeout-minutes: 10
               run: |
                   set -euo pipefail
                   ./aws/kubernetes/${{ matrix.scenario }}/procedure/check-env-variables.sh
                   ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-db-secret.sh
 
-            - name: Execute non irsa procedure scripts
-              if: ${{ !contains(matrix.scenario, 'irsa') }}
-              timeout-minutes: 10
-              run: |
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-external-db-secrets.sh
+                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario }}/setup-postgres-create-db.yml --namespace camunda
 
-            - name: Execute irsa procedure scripts
+                  # Wait for the job to complete
+                  while true; do
+                      STATUS=$(kubectl get job create-setup-user-db --namespace camunda -o jsonpath='{.status.succeeded}')
+
+                      if [[ "$STATUS" == "1" ]]; then
+                          echo "Job $JOB_NAME completed successfully."
+                          break
+                      fi
+
+                      echo "Waiting for job $JOB_NAME to complete..."
+                      sleep 5
+                  done
+
+                  kubectl logs job/create-setup-user-db --namespace camunda
+
+                  kubectl delete job create-setup-user-db --namespace camunda
+                  kubectl delete secret setup-db-secret --namespace camunda
+
+            # TODO: double check what for and where from
+            # - name: Execute non irsa procedure scripts
+            #   if: ${{ !contains(matrix.scenario, 'irsa') }}
+            #   timeout-minutes: 10
+            #   run: |
+            #       ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-external-db-secrets.sh
+
+            - name: Configure OpenSearch fine grained access control
               if: contains(matrix.scenario, 'irsa')
               timeout-minutes: 10
               run: |
                   ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-os-secret.sh
+
+                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario }}/setup-opensearch-fgac.yml --namespace camunda
+
+                  # Wait for the job to complete
+                  while true; do
+                      STATUS=$(kubectl get job setup-opensearch-fgac --namespace camunda -o jsonpath='{.status.succeeded}')
+
+                      if [[ "$STATUS" == "1" ]]; then
+                          echo "Job $JOB_NAME completed successfully."
+                          break
+                      fi
+
+                      echo "Waiting for job $JOB_NAME to complete..."
+                      sleep 5
+                  done
+
+                  kubectl logs job/setup-opensearch-fgac --namespace camunda
+
+                  kubectl delete job setup-opensearch-fgac --namespace camunda
+                  kubectl delete secret setup-os-secret --namespace camunda
 
             - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
               timeout-minutes: 10
