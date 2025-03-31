@@ -193,7 +193,7 @@ jobs:
                   source ${{ github.workspace }}/aws/kubernetes/${{ env.REF_ARCH }}/procedure/export-helm-values.sh
                   source ${{ github.workspace }}/aws/kubernetes/${{ env.REF_ARCH }}/procedure/vars-create-db.sh
 
-                  if [[ "${{ matrix.scenario }}" =~ "irsa" ]]; then
+                  if [[ "${{ env.REF_ARCH }}" =~ "irsa" ]]; then
                       source ${{ github.workspace }}/aws/kubernetes/${{ env.REF_ARCH }}/procedure/vars-create-os.sh
                   fi
 
@@ -457,6 +457,7 @@ jobs:
                       sleep 5
                   done
 
+                  echo "[DEBUG] Job log:"
                   kubectl logs job/create-setup-user-db --namespace camunda
 
                   kubectl delete job create-setup-user-db --namespace camunda
@@ -490,6 +491,7 @@ jobs:
                       sleep 5
                   done
 
+                  echo "[DEBUG] Job log:"
                   kubectl logs job/setup-opensearch-fgac --namespace camunda
 
                   kubectl delete job setup-opensearch-fgac --namespace camunda
