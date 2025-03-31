@@ -15,3 +15,6 @@ AVD-AWS-0038 #(MEDIUM): Control plane scheduler logging is not enabled.
 AVD-AWS-0077 #(MEDIUM): Cluster instance has very low backup retention period.
 
 AVD-AWS-0133 #(LOW): Instance does not have performance insights enabled.
+
+# We don't have the AWS CloudWatch component enabled yet in OpenSearch, therefore we disable this domain log rule
+AVD-AWS-0042 #(MEDIUM): Domain audit logging is not enabled.
