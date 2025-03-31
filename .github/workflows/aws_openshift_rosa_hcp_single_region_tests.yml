@@ -79,7 +79,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@fb5eb5a68e17039de4eaa92976ddda51645b7c97 # 1.3.2
 
             - id: matrix
               # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
@@ -132,7 +132,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@fb5eb5a68e17039de4eaa92976ddda51645b7c97 # 1.3.2
 
             - name: Import Secrets
               id: secrets
@@ -230,7 +230,7 @@ jobs:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6158b7c7534f6dbeb3fa7c3c836f6e6aa6881b2e # 1.3.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@fb5eb5a68e17039de4eaa92976ddda51645b7c97 # 1.3.2
 
             - name: Install CLI tools from OpenShift Mirror
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -270,7 +270,7 @@ jobs:
 
             - name: 🏗️ Prepare a fresh namespace for the tests
               # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
-              uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3
+              uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3
               with:
                   timeout_minutes: 10
                   max_attempts: 40
@@ -583,7 +583,7 @@ jobs:
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
-              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@52f7c04dc9817a2f8a5b7b1c5450a80a8a6996ae # main
+              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@1277c3faf8dd78fb333451649ea96f8c9305a702 # main
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
@@ -604,7 +604,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@fb5eb5a68e17039de4eaa92976ddda51645b7c97 # 1.3.2
 
             - name: Import Secrets
               id: secrets
