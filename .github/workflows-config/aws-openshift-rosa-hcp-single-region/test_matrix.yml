@@ -9,7 +9,7 @@ matrix:
           type: openshift
           schedule_only: false
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-          version: 4.18.4
+          version: 4.18.5
           # /!\ Warning: When a new minor version of OpenShift is released,
           # you must update all N-1, N-2, and N-3 versions in this matrix.
           # rationale: Red Hat supports the last four minor versions of OpenShift.
@@ -23,7 +23,7 @@ matrix:
           schedule_only: true # Old versions are only checked during schedule workflows
           type: openshift
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.17(\.(?<patch>\d+))?$
-          version: 4.17.20
+          version: 4.17.21
           platform: rosa
 
         - name: OpenShift 4.16
