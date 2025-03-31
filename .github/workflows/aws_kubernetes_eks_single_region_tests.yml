@@ -192,8 +192,10 @@ jobs:
               run: |
                   source ${{ github.workspace }}/aws/kubernetes/${{ env.REF_ARCH }}/procedure/export-helm-values.sh
                   source ${{ github.workspace }}/aws/kubernetes/${{ env.REF_ARCH }}/procedure/vars-create-db.sh
-                  # TODO: irsa only
-                  source ${{ github.workspace }}/aws/kubernetes/${{ env.REF_ARCH }}/procedure/vars-create-os.sh || true
+
+                  if [[ "${{ matrix.scenario }}" =~ "irsa" ]]; then
+                      source ${{ github.workspace }}/aws/kubernetes/${{ env.REF_ARCH }}/procedure/vars-create-os.sh
+                  fi
 
                   # Export as outputs
                   echo "CERT_MANAGER_IRSA_ARN=$CERT_MANAGER_IRSA_ARN" | tee -a "$GITHUB_OUTPUT"
@@ -433,13 +435,24 @@ jobs:
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
 
-            - name: Execute procedure scripts
+            - name: Execute general procedure scripts
               timeout-minutes: 10
               run: |
                   set -euo pipefail
                   ./aws/kubernetes/${{ matrix.scenario }}/procedure/check-env-variables.sh
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-external-db-secrets.sh
                   ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-db-secret.sh
+
+            - name: Execute non irsa procedure scripts
+              if: contains(matrix.scenario, 'irsa')
+              timeout-minutes: 10
+              run: |
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-external-db-secrets.sh
+
+            - name: Execute irsa procedure scripts
+              if: contains(matrix.scenario, 'irsa')
+              timeout-minutes: 10
+              run: |
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-os-secret.sh
 
             - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
               timeout-minutes: 10
