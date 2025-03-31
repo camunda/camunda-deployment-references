@@ -443,7 +443,7 @@ jobs:
                   ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-db-secret.sh
 
             - name: Execute non irsa procedure scripts
-              if: contains(matrix.scenario, 'irsa')
+              if: ${{ !contains(matrix.scenario, 'irsa') }}
               timeout-minutes: 10
               run: |
                   ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-external-db-secrets.sh
