@@ -283,8 +283,8 @@ jobs:
             max-parallel: 1
             matrix:
                 scenario:
-                    - eks-single-region
-                    # - eks-single-region-irsa
+                    # - eks-single-region
+                    - eks-single-region-irsa
                 declination:
                 #     - domain
                     - no-domain
@@ -434,6 +434,7 @@ jobs:
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
 
             - name: Execute procedure scripts
+              timeout-minutes: 10
               run: |
                   set -euo pipefail
                   ./aws/kubernetes/${{ matrix.scenario }}/procedure/check-env-variables.sh
