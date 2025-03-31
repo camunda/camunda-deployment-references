@@ -167,7 +167,9 @@ jobs:
                       PR_NUMBER=${{ github.event.pull_request.number}}
                   fi
                   # limiting factor are OpenSearch domains of maximum 28 characters
-                  echo "CLUSTER_NAME=eks-sr-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+                  # echo "CLUSTER_NAME=eks-sr-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+                  # TODO: remove temporary hardcoded cluster name
+                  echo "CLUSTER_NAME=eks-sr-0-h4bfl" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
             - name: Create K8S cluster and login
               uses: ./.github/actions/aws-kubernetes-eks-single-region-create
