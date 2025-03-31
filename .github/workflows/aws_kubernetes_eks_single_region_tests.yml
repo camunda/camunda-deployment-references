@@ -449,11 +449,11 @@ jobs:
                       STATUS=$(kubectl get job create-setup-user-db --namespace camunda -o jsonpath='{.status.succeeded}')
 
                       if [[ "$STATUS" == "1" ]]; then
-                          echo "Job $JOB_NAME completed successfully."
+                          echo "Job completed successfully."
                           break
                       fi
 
-                      echo "Waiting for job $JOB_NAME to complete..."
+                      echo "Waiting for job to complete..."
                       sleep 5
                   done
 
@@ -482,11 +482,11 @@ jobs:
                       STATUS=$(kubectl get job setup-opensearch-fgac --namespace camunda -o jsonpath='{.status.succeeded}')
 
                       if [[ "$STATUS" == "1" ]]; then
-                          echo "Job $JOB_NAME completed successfully."
+                          echo "Job completed successfully."
                           break
                       fi
 
-                      echo "Waiting for job $JOB_NAME to complete..."
+                      echo "Waiting for job to complete..."
                       sleep 5
                   done
 
