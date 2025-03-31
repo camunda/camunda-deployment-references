@@ -428,7 +428,7 @@ jobs:
                   # Add integration tests values
                   if [ "$TESTS_ENABLED" == "true" ]; then
                     for file in registry.yml identity.yml; do
-                      yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
+                      yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                     done
                   fi
