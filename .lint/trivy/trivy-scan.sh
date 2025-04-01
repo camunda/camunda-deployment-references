@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euxo pipefaill
+set -euxo pipefail
 
 # ⚠️ Warning: This project is not intended for production use but rather for
 # demonstration purposes only. There are no guarantees or warranties provided.
