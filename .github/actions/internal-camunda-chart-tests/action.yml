@@ -32,6 +32,10 @@ inputs:
         description: Whether the Console is enabled in the chart
         required: false
         default: 'false'
+    elasticsearch-enabled:
+        description: Whether the Elasticsearch is enabled in the chart
+        required: false
+        default: 'true'
     test-namespace:
         description: The namespace to use for the tests
         required: false
@@ -78,6 +82,7 @@ runs:
               CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
               CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
           run: |
               set -euxo pipefail
 
@@ -147,6 +152,13 @@ runs:
                 -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
               yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
                 -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+
+              if [[ "$ELASTICSEARCH_ENABLED" != "true" ]]; then
+                echo "Disable Elasticsearch in the core tests as it's not enabled"
+
+                yq eval 'del(.. | select(has("component") and .component == "Elasticsearch"))' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+              fi
 
               if [ "$WEBMODELER_ENABLED" != "true" ]; then
                 echo "Disable Webmodeler in the core tests as it's not enabled"
