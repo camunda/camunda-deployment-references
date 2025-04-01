@@ -147,7 +147,7 @@ runs:
                 echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
 
                 # fix wrong default zeebeGatewayGRPC port
-                yq eval '.coreVars.baseURLs.zeebeGatewayGRPC |= sub(":9600$", ":26500")' \
+                yq eval '.coreVars.baseURLs.zeebeGatewayGRPC |= (select(tag == "!!str") | sub("^http://", "") | sub(":9600$", ":26500"))' \
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
               fi
 
