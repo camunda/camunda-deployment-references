@@ -599,6 +599,7 @@ jobs:
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  elasticsearch-enabled: 'false'
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   test-namespace: ${{ env.TEST_NAMESPACE }}
