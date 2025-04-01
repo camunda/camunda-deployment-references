@@ -17,3 +17,8 @@ output "postgres_private_dns_zone_id" {
   description = "Private DNS Zone ID for PostgreSQL Flexible Server"
   value       = azurerm_private_dns_zone.postgres.id
 }
+
+output "vnet_id" {
+  description = "ID of the virtual network"
+  value       = azurerm_virtual_network.aks_vnet.id
+}

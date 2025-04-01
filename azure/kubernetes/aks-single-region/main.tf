@@ -10,7 +10,13 @@ module "network" {
   location            = var.location
   resource_prefix     = var.resource_prefix
   nsg_name            = "${var.resource_prefix}-aks-nsg"
-  tags                = var.tags
+
+  # Network address configuration
+  vnet_address_space        = var.vnet_address_space
+  aks_subnet_address_prefix = var.aks_subnet_address_prefix
+  db_subnet_address_prefix  = var.db_subnet_address_prefix
+
+  tags = var.tags
 }
 
 module "aks" {
@@ -19,20 +25,25 @@ module "aks" {
   location            = var.location
   aks_cluster_name    = "${var.resource_prefix}-aks"
   subnet_id           = module.network.aks_subnet_id
+  tags                = var.tags
+
+  # Production-grade configuration with separate node pools
+  kubernetes_version = var.kubernetes_version
+
   # System node pool configuration (for Kubernetes system components)
-  system_node_pool_vm_size = "Standard_D2s_v3"
-  system_node_pool_count   = 1
+  system_node_pool_vm_size = var.system_node_pool_vm_size
+  system_node_pool_count   = var.system_node_pool_count
   system_node_disk_size_gb = 30
 
   # User node pool configuration (for Camunda workloads)
-  user_node_pool_vm_size = "Standard_D4s_v3"
-  user_node_pool_count   = 2
+  user_node_pool_vm_size = var.user_node_pool_vm_size
+  user_node_pool_count   = var.user_node_pool_count
   user_node_disk_size_gb = 50
-  tags                   = var.tags
-  depends_on             = [module.network]
-  kubernetes_version     = var.kubernetes_version
+
+  depends_on = [module.network]
 }
 
+# PostgreSQL database
 module "postgres_db" {
   source = "../../modules/postgres-db"
 

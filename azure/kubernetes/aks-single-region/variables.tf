@@ -16,6 +16,31 @@ variable "resource_prefix" {
   default     = "camunda"
 }
 
+variable "kubernetes_version" {
+  description = "Kubernetes version to use for the AKS cluster"
+  type        = string
+  default     = "1.28.5"
+}
+
+# Network configuration
+variable "vnet_address_space" {
+  description = "Address space for the virtual network"
+  type        = list(string)
+  default     = ["10.1.0.0/16"]
+}
+
+variable "aks_subnet_address_prefix" {
+  description = "Address prefix for the AKS subnet"
+  type        = list(string)
+  default     = ["10.1.0.0/24"]
+}
+
+variable "db_subnet_address_prefix" {
+  description = "Address prefix for the database subnet"
+  type        = list(string)
+  default     = ["10.1.1.0/24"]
+}
+
 variable "tags" {
   description = "A map of tags to add to all resources"
   type        = map(string)
@@ -25,12 +50,29 @@ variable "tags" {
   }
 }
 
-# AKS Variables
+# AKS module specific variables
+variable "system_node_pool_count" {
+  description = "Number of nodes in the system node pool"
+  type        = number
+  default     = 1
+}
 
-variable "kubernetes_version" {
-  description = "Kubernetes version to use for the AKS cluster"
+variable "system_node_pool_vm_size" {
+  description = "VM size for the system node pool"
   type        = string
-  default     = "1.32.0"
+  default     = "Standard_D2s_v3"
+}
+
+variable "user_node_pool_count" {
+  description = "Number of nodes in the user node pool"
+  type        = number
+  default     = 2
+}
+
+variable "user_node_pool_vm_size" {
+  description = "VM size for the user node pool"
+  type        = string
+  default     = "Standard_D4s_v3"
 }
 
 # PostgreSQL Variables
@@ -74,19 +116,20 @@ variable "postgres_backup_retention_days" {
 variable "postgres_enable_geo_redundant_backup" {
   description = "Enable geo-redundant backup for PostgreSQL"
   type        = bool
-  default     = true
+  default     = true # Enabled for production reference architecture
 }
 
 variable "postgres_zone" {
-  description = "Primary Availability Zone for PostgreSQL"
+  description = "Primary Availability Zone for PostgreSQL server"
   type        = string
   default     = "1"
 }
 
 variable "postgres_standby_zone" {
-  description = "Standby Availability Zone for PostgreSQL"
+  description = "Standby Availability Zone for PostgreSQL high availability"
   type        = string
   default     = "2"
+  # Must be different from primary zone for zone-redundant high availability
 }
 
 # Database Definitions - Split into non-sensitive data and sensitive passwords
