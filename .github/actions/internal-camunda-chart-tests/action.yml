@@ -265,6 +265,8 @@ runs:
 
                 start_port_forward camunda-zeebe-gateway 8080:8080
                 start_port_forward camunda-keycloak 18080:80
+
+                echo "Waiting for port-forwarding to be established..." && sleep 10
               fi
 
               # Execute the script and capture the output in a variable
