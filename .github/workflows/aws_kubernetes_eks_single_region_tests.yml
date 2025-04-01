@@ -515,7 +515,8 @@ jobs:
                   cp -f aws/kubernetes/${{ matrix.scenario }}/helm-values/values-${{ matrix.declination }}.yml ./values.yml
 
                   if [[ "${{ matrix.declination }}" == "domain" ]]; then
-                    echo "DOMAIN_NAME=${{ env.CLUSTER_NAME }}-${{ matrix.scenario }}.camunda.ie" | tee -a "$GITHUB_ENV"
+                    export DOMAIN_NAME="${{ env.CLUSTER_NAME }}-${{ matrix.scenario }}.camunda.ie"
+                    echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
                   fi
 
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
