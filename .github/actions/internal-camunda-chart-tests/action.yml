@@ -148,11 +148,11 @@ runs:
                 "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
                 "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
 
-              echo "Skip test ingress is also broken, fixing it"
-              yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
-                -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-              yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
-                -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+              # echo "Skip test ingress is also broken, fixing it"
+              # yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
+              #   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+              # yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
+              #   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
 
               if [[ "$ELASTICSEARCH_ENABLED" != "true" ]]; then
                 echo "Disable Elasticsearch in the core tests as it's not enabled"
