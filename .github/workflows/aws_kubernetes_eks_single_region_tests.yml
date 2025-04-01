@@ -398,7 +398,62 @@ jobs:
 
             - name: Clean up databases
               run: |
-                  # TODO:
+                  set -euo pipefail
+
+                  # Requires db secrets to be created
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-db-secret.sh
+
+                  if [[ "${{ matrix.scenario}}" =~ "irsa" ]]; then
+                      ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-os-secret.sh
+                  else
+                    # for non irsa, we don't need credentials but want to reuse the same job
+                    kubectl create secret generic setup-os-secret --namespace camunda \
+                    --from-literal=OPENSEARCH_HOST="$OPENSEARCH_HOST" \
+                    --from-literal=OPENSEARCH_MASTER_USERNAME="" \
+                    --from-literal=OPENSEARCH_MASTER_PASSWORD=""
+                  fi
+
+                  # Reset PostgreSQL
+                  kubectl apply -f ./aws/kubernetes/test/reset-aurora-postgres.yml --namespace camunda
+
+                  # Wait for the job to complete
+                  while true; do
+                      STATUS=$(kubectl get job reset-aurora-postgres --namespace camunda -o jsonpath='{.status.succeeded}')
+
+                      if [[ "$STATUS" == "1" ]]; then
+                          echo "Job completed successfully."
+                          break
+                      fi
+
+                      echo "Waiting for job to complete..."
+                      sleep 5
+                  done
+                  echo "[DEBUG] Job log:"
+                  kubectl logs job/reset-aurora-postgres --namespace camunda
+                  kubectl delete job reset-aurora-postgres --namespace camunda
+
+                  kubectl delete secret setup-db-secret --namespace camunda
+
+                  # Reset OpenSearch
+                  kubectl apply -f ./aws/kubernetes/test/reset-opensearch.yml --namespace camunda
+
+                  # Wait for the job to complete
+                  while true; do
+                      STATUS=$(kubectl get job reset-opensearch --namespace camunda -o jsonpath='{.status.succeeded}')
+
+                      if [[ "$STATUS" == "1" ]]; then
+                          echo "Job completed successfully."
+                          break
+                      fi
+
+                      echo "Waiting for job to complete..."
+                      sleep 5
+                  done
+                  echo "[DEBUG] Job log:"
+                  kubectl logs job/reset-opensearch --namespace camunda
+                  kubectl delete job reset-opensearch --namespace camunda
+
+                  kubectl delete secret setup-os-secret --namespace camunda
 
             - name: 🛠️ Assemble deployment values of aws/kubernetes/${{ matrix.scenario }}/${{ matrix.declination }}
               timeout-minutes: 10
