@@ -30,6 +30,14 @@ module "aks" {
   # Production-grade configuration with separate node pools
   kubernetes_version = var.kubernetes_version
 
+  # Network configuration
+  network_plugin = var.aks_network_plugin
+  network_policy = var.aks_network_policy
+  pod_cidr       = var.aks_pod_cidr
+  service_cidr   = var.aks_service_cidr
+  dns_service_ip = var.aks_dns_service_ip
+  # docker_bridge_cidr parameter removed
+
   # System node pool configuration (for Kubernetes system components)
   system_node_pool_vm_size = var.system_node_pool_vm_size
   system_node_pool_count   = var.system_node_pool_count

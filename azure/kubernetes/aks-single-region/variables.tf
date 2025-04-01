@@ -19,7 +19,7 @@ variable "resource_prefix" {
 variable "kubernetes_version" {
   description = "Kubernetes version to use for the AKS cluster"
   type        = string
-  default     = "1.28.5"
+  default     = "1.30.1"
 }
 
 # Network configuration
@@ -39,6 +39,37 @@ variable "db_subnet_address_prefix" {
   description = "Address prefix for the database subnet"
   type        = list(string)
   default     = ["10.1.1.0/24"]
+}
+
+# AKS network configuration
+variable "aks_network_plugin" {
+  description = "Network plugin to use for Kubernetes networking"
+  type        = string
+  default     = "azure" # "azure" or "kubenet"
+}
+
+variable "aks_network_policy" {
+  description = "Network policy to use for Kubernetes networking"
+  type        = string
+  default     = "calico" # "calico" or "azure"
+}
+
+variable "aks_pod_cidr" {
+  description = "CIDR block for pod IP addresses (only used with kubenet)"
+  type        = string
+  default     = "10.244.0.0/16"
+}
+
+variable "aks_service_cidr" {
+  description = "CIDR block for Kubernetes service IP addresses"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "aks_dns_service_ip" {
+  description = "IP address within the service CIDR that will be used for DNS"
+  type        = string
+  default     = "10.0.0.10"
 }
 
 variable "tags" {
@@ -79,7 +110,7 @@ variable "user_node_pool_vm_size" {
 variable "postgres_version" {
   description = "PostgreSQL version"
   type        = string
-  default     = "16"
+  default     = "15"
 }
 
 variable "db_admin_username" {

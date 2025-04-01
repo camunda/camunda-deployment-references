@@ -21,7 +21,7 @@ variable "subnet_id" {
 variable "kubernetes_version" {
   description = "Kubernetes version to use for the AKS cluster"
   type        = string
-  default     = "1.25.5"
+  default     = "1.30.1"
 }
 
 variable "tags" {
@@ -46,7 +46,7 @@ variable "system_node_disk_size_gb" {
 variable "system_node_pool_count" {
   description = "Number of nodes in the system node pool"
   type        = number
-  default     = 1
+  default     = 3
 }
 
 # User node pool configuration
@@ -66,4 +66,35 @@ variable "user_node_pool_count" {
   description = "Number of nodes in the user node pool"
   type        = number
   default     = 2
+}
+
+# Network configuration
+variable "network_plugin" {
+  description = "Network plugin to use for Kubernetes networking"
+  type        = string
+  default     = "azure"
+}
+
+variable "network_policy" {
+  description = "Network policy to use for Kubernetes networking"
+  type        = string
+  default     = "calico"
+}
+
+variable "pod_cidr" {
+  description = "CIDR block for pod IP addresses"
+  type        = string
+  default     = "10.244.0.0/16"
+}
+
+variable "service_cidr" {
+  description = "CIDR block for Kubernetes service IP addresses"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "dns_service_ip" {
+  description = "IP address within the service CIDR that will be used for DNS"
+  type        = string
+  default     = "10.0.0.10"
 }
