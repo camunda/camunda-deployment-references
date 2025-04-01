@@ -1,0 +1,279 @@
+---
+name: Camunda Chart Tests
+
+description: >
+    Run the Camunda Helm chart tests.
+    Already requires the Helm chart to be deployed and cluster access granted.
+
+inputs:
+    tests-camunda-helm-chart-repo-ref:
+        description: The branch, tag or commit to checkout
+        required: false
+        default: main
+    tests-camunda-helm-chart-repo-path:
+        description: Path to the Helm chart repository
+        required: false
+        default: ./.camunda_helm_repo
+    secrets:
+        description: JSON wrapped secrets for easier secret passing
+        required: true
+    camunda-version:
+        description: The version of the Camunda Helm chart to test
+        required: true
+    camunda-domain:
+        description: The domain to use for the tests
+        required: false
+        default: 'false'
+    webmodeler-enabled:
+        description: Whether the Webmodeler is enabled in the chart
+        required: false
+        default: 'false'
+    console-enabled:
+        description: Whether the Console is enabled in the chart
+        required: false
+        default: 'false'
+    test-namespace:
+        description: The namespace to use for the tests
+        required: false
+        default: camunda
+    test-cluster-type:
+        description: The type of the cluster to use for the tests
+        required: false
+        default: kubernetes
+    zeebe-topology-golden-file:
+        description: The golden file to compare the Zeebe topology output against.
+        required: false
+        default: ./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json
+
+runs:
+    using: composite
+    steps:
+        - name: Import Secrets
+          id: secrets
+          uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+          with:
+              url: ${{ fromJSON(inputs.secrets).VAULT_ADDR }}
+              method: approle
+              roleId: ${{ fromJSON(inputs.secrets).VAULT_ROLE_ID }}
+              secretId: ${{ fromJSON(inputs.secrets).VAULT_SECRET_ID }}
+              exportEnv: false
+              secrets: |
+                  secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
+                  secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
+                  secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
+                  secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
+
+        - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
+          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+          with:
+              repository: camunda/camunda-platform-helm
+              ref: ${{ inputs.tests-camunda-helm-chart-repo-ref }}
+              path: ${{ inputs.tests-camunda-helm-chart-repo-path }}
+              fetch-depth: 0
+
+        - name: 🧪 TESTS - Set variables
+          shell: bash
+          env:
+              CAMUNDA_VERSION: ${{ inputs.camunda-version }}
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
+              CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+          run: |
+              set -euo pipefail
+
+              # export test variables to be used in other steps
+              echo "TEST_NAMESPACE=${{ inputs.test-namespace }}" | tee -a "$GITHUB_ENV"
+              echo "TEST_CLUSTER_TYPE=$TEST_CLUSTER_TYPE" | tee -a "$GITHUB_ENV"
+              export TESTS_CAMUNDA_HELM_CHART_REPO_PATH="${{ inputs.tests-camunda-helm-chart-repo-path }}"
+              echo "TESTS_CAMUNDA_HELM_CHART_REPO_PATH=$TESTS_CAMUNDA_HELM_CHART_REPO_PATH" | tee -a "$GITHUB_ENV"
+
+              export TEST_CHART_DIR_STATIC="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/charts/camunda-platform-$CAMUNDA_VERSION"
+              echo "TEST_CHART_DIR_STATIC=$TEST_CHART_DIR_STATIC" | tee -a "$GITHUB_ENV"
+
+              TEST_INGRESS_HOST="$CAMUNDA_DOMAIN"
+              echo "TEST_INGRESS_HOST=$TEST_INGRESS_HOST" | tee -a "$GITHUB_ENV"
+
+              # shellcheck disable=SC2002
+              TEST_CHART_VERSION=$(cat "$TEST_CHART_DIR_STATIC/Chart.yaml" | yq '.version')
+              echo "TEST_CHART_VERSION=$TEST_CHART_VERSION" | tee -a "$GITHUB_ENV"
+
+              # setup docker registry secret for tests
+              echo "TEST_CREATE_DOCKER_LOGIN_SECRET=true" | tee -a "$GITHUB_ENV"
+              echo "TEST_DOCKER_USERNAME_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_USERNAME }}" | tee -a "$GITHUB_ENV"
+              echo "TEST_DOCKER_PASSWORD_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" | tee -a "$GITHUB_ENV"
+
+              CI_TASKS_BASE_DIR="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/test/integration/scenarios/"
+              echo "CI_TASKS_BASE_DIR=$CI_TASKS_BASE_DIR" | tee -a "$GITHUB_ENV"
+              export TEST_CHART_DIR="../../../../charts/camunda-platform-$CAMUNDA_VERSION"
+              echo "TEST_CHART_DIR=$TEST_CHART_DIR" | tee -a "$GITHUB_ENV"
+              export TEST_VALUES_BASE_DIR="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/test/integration/scenarios"
+              echo "TEST_VALUES_BASE_DIR=$TEST_VALUES_BASE_DIR" | tee -a "$GITHUB_ENV"
+
+              # replace integration with the camunda release name as part of adaptation required to run the tests in our environment
+              find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i 's/integration/camunda/g'
+
+              echo "Configure Venom tests"
+              # (adapted from https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L56)
+              export VARIABLES_ENV_FILE="$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables.env"
+              # Enable the ingress tests
+
+              if [[ "$CAMUNDA_DOMAIN" != "false" ]]; then
+                # shellcheck disable=SC2129
+                echo "VENOM_VAR_TEST_INGRESS_HOST=$TEST_INGRESS_HOST" >> "$VARIABLES_ENV_FILE"
+                echo "VENOM_VAR_TEST_CLIENT_ID=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" >> "$VARIABLES_ENV_FILE"
+                echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" >> "$VARIABLES_ENV_FILE"
+                echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
+              else
+                # Some variables are not working correctly, patching it with yq directly
+                echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
+              fi
+
+              ZEEBE_VERSION=$(yq '.zeebe.image.tag' "$TEST_CHART_DIR_STATIC/values.yaml")
+              # shellcheck disable=SC2129
+              echo "ZEEBE_VERSION=$ZEEBE_VERSION" >> "$VARIABLES_ENV_FILE"
+              # In case the Zeebe version has not been released officially yet.
+              echo "ZEEBE_VERSION_FALLBACK=8.5.6" >> "$VARIABLES_ENV_FILE"
+
+              echo "Patch the test files..."
+
+              # TODO: [BUG] remove the patchs when https://github.com/camunda/camunda-platform-helm/issues/3081 is fixed
+              echo "Patch expression ShoudBeFalse"
+              sed -i "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
+                "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
+                "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+
+              echo "Skip test ingress is also broken, fixing it"
+              yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
+                -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+              yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
+                -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+
+              if [ "$WEBMODELER_ENABLED" != "true" ]; then
+                echo "Disable Webmodeler in the core tests as it's not enabled"
+
+                echo "VENOM_VAR_SKIP_TEST_WEBMODELER=false" >> "$VARIABLES_ENV_FILE"
+                yq eval 'del(.. | select(has("component") and .component == "WebModeler"))' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+              fi
+
+              if [ "$CONSOLE_ENABLED" != "true" ]; then
+                echo "Disable Console in the core tests as it's not enabled"
+
+                yq eval 'del(.. | select(has("component") and .component == "Console"))' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+              fi
+
+              echo "Patch the identity secrets to allow venom to access to the platform"
+              sed -i -e 's/integration-test-credentials/identity-secret-for-components/g' \
+                      -e 's/identity-operate-client-password/operate-secret/g' \
+                      -e 's/identity-optimize-client-password/optimize-secret/g' \
+                      -e 's/identity-tasklist-client-password/tasklist-secret/g' \
+                      -e 's/identity-zeebe-client-password/zeebe-secret/g' \
+                      -e 's/identity-connectors-client-password/connectors-secret/g' \
+                      "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+
+              # remove venom var client secret as we define it in the file
+              yq e 'del(.spec.template.spec.containers[].env[] | select(.name == "VENOM_VAR_TEST_CLIENT_SECRET"))' \
+                -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+
+              echo "Ensure asdf tool is available in the test suite by using our global one"
+              cp .tool-versions "$TEST_VALUES_BASE_DIR"
+
+        - name: 🧪 TESTS - Run Preflight TestSuite
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.preflight
+
+        - name: 🧪 TESTS - Run Core TestSuite
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.core
+
+        - name: 🧪 TESTS - Run additional tests
+          shell: bash
+          env:
+              DOMAIN_NAME: ${{ inputs.camunda-domain }}
+          run: |
+              set -euo pipefail
+
+              reference_file="${{ inputs.zeebe-topology-golden-file }}"
+              echo "Using golden reference file to compare against: $reference_file"
+
+              echo "Show zeebe cluster topology using generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh:"
+              export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
+              export ZEEBE_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+
+              # Execute the script and capture the output in a variable
+              check_zeebe_topology_output=$(./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh)
+
+              echo "$check_zeebe_topology_output" | jq
+
+              # Checks
+              error_found=false
+              check_zeebe_topology_all_healthy=$(echo "$check_zeebe_topology_output" | jq '[.brokers[].partitions[].health == "healthy"] | all')
+              check_zeebe_topology_cluster_size=$(echo "$check_zeebe_topology_output" | jq '.clusterSize')
+              check_zeebe_topology_partitions_count=$(echo "$check_zeebe_topology_output" | jq '.partitionsCount')
+
+              golden_zeebe_topology_cluster_size=$(jq '.clusterSize' < "$reference_file")
+              golden_zeebe_topology_partitions_count=$(jq '.partitionsCount' < "$reference_file")
+
+              if [ "$check_zeebe_topology_all_healthy" = "true" ]; then
+                echo "✅ All partitions are healthy."
+              else
+                echo "❌ Not all partitions are healthy"
+                error_found=true
+              fi
+
+              if [ "$check_zeebe_topology_cluster_size" -eq $golden_zeebe_topology_cluster_size ]; then
+                echo "✅ Cluster size is $check_zeebe_topology_cluster_size."
+              else
+                echo "❌ Cluster size is not $golden_zeebe_topology_cluster_size."
+                error_found=true
+              fi
+
+              if [ "$check_zeebe_topology_partitions_count" -eq $golden_zeebe_topology_partitions_count ]; then
+                echo "✅ Partitions count is $check_zeebe_topology_partitions_count."
+              else
+                echo "❌ Partitions count is not $golden_zeebe_topology_partitions_count."
+                error_found=true
+              fi
+
+              echo "Comparing golden file of the zeebe topology output..."
+
+              # Save the output to a temporary file
+              temp_output=$(mktemp)
+              echo "$check_zeebe_topology_output" > "$temp_output"
+
+              # Replace patch version
+              yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$temp_output"
+              yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$reference_file"
+
+              # Order each file also remove not predictable fields
+              yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$temp_output"
+              yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$reference_file"
+
+              # Compare the two files using diff (in compacted JSON format)
+              diff_output=$(delta <(jq -S . "$temp_output") <(jq -S . "$reference_file"))
+
+              if [[ -n "$diff_output" ]]; then
+                # If differences are found, print the error and the diff
+                echo "❌ Error: The golden files of zeebe topology files do not match."
+                echo "Differences found:"
+                echo "$diff_output"
+
+                # Display the new generated version
+                echo "New version:"
+                cat "$temp_output"
+
+                error_found=true
+              fi
+
+              if [ "$error_found" = true ]; then
+                echo "❌ Some tests failed."
+                exit 1
+              fi
+              echo "✅ The cluster meets all the expected criteria."

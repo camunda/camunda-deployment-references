@@ -1,0 +1,268 @@
+---
+name: Tests - Integration - AWS EKS Cluster with an AuroraDB and OpenSearch creation and destruction
+
+on:
+    schedule:
+        - cron: 0 1 * * 2 # At 01:00 on Tuesday.
+
+    workflow_dispatch:
+        inputs:
+            cluster_name:
+                description: Cluster name.
+                required: false
+                type: string
+            create_db:
+                description: Should the aurora db be created
+                default: 'true'
+            create_opensearch:
+                description: Should the opensearch domain be created
+                default: 'true'
+            delete_cluster:
+                description: Whether to delete the cluster.
+                default: 'true'
+            db_username:
+                description: Database username.
+                required: false
+                type: string
+            db_password:
+                description: Database password.
+                required: false
+                type: string
+            opensearch_username:
+                description: OpenSearch username.
+                required: false
+                type: string
+            opensearch_password:
+                description: OpenSearch password.
+                required: false
+                type: string
+
+    pull_request:
+        # the paths should be synced with ../labeler.yml
+        paths:
+            - aws/modules/fixtures/backend.tf
+            - aws/modules/fixtures/fixtures.default.eks.tfvars
+            - aws/modules/fixtures/fixtures.default.aurora.tfvars
+            - aws/modules/eks-cluster/**.tf
+            - aws/modules/aurora/**.tf
+            - .tool-versions
+            - .github/workflows/aws_modules_eks_rds_os_create_destruct_tests.yml
+            - .github/actions/auroa-manage-cluster/**
+            - .github/actions/aws-eks-manage-cluster/**
+            - .github/actions/aws-opensearch-manage-cluster/**
+            - .github/actions/aws-eks-cleanup-resources/**
+            - .github/actions/aws-utility-action/**
+            - .github/actions/aws-configure-cli/**
+
+# limit to a single execution per ref of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    # in case of renovate we don't cancel the previous run, so it can finish it
+    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
+    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
+
+env:
+    IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+
+    AWS_PROFILE: infex
+    AWS_REGION: eu-west-2
+    # /!\ always use one of the available test region https://github.com/camunda/infraex-common-config
+
+    # please keep those synced with tests.yml
+    S3_BACKEND_BUCKET: tests-eks-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    S3_BACKEND_BUCKET_PREFIX: aws/kubernetes/modules/ # keep it synced with the name of the module for simplicity
+
+    CREATE_DB: ${{ github.event.inputs.create_db || 'true' }}
+    CREATE_OPENSEARCH: ${{ github.event.inputs.create_opensearch || 'true' }}
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    action-test:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  ref: ${{ github.head_ref }}
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+
+            - name: Get Cluster Info
+              id: commit_info
+              run: |
+                  set -euo pipefail
+
+                  if [[ -n "${{ inputs.cluster_name }}" ]]; then
+                    cluster_name="${{ inputs.cluster_name }}"
+                  else
+                    cluster_name="cl-$(git rev-parse --short HEAD)-t"
+                  fi
+                  echo "cluster_name=$cluster_name" | tee -a "$GITHUB_OUTPUT"
+
+                  if [[ -n "${{ inputs.db_username }}" ]]; then
+                    db_username="${{ inputs.db_username }}"
+                  else
+                    db_username="user$(openssl rand -hex 4 | tr -d '/@" ')"
+                  fi
+                  echo "db_username=$db_username" | tee -a "$GITHUB_OUTPUT"
+
+                  if [[ -n "${{ inputs.db_password }}" ]]; then
+                    db_password="${{ inputs.db_password }}"
+                  else
+                    db_password="$(openssl rand -base64 12 | tr -d '/@" ')"
+                  fi
+                  echo "db_password=$db_password" | tee -a "$GITHUB_OUTPUT"
+
+                  if [[ -n "${{ inputs.opensearch_username }}" ]]; then
+                    opensearch_username="${{ inputs.opensearch_username }}"
+                  else
+                    opensearch_username="user$(openssl rand -hex 4 | tr -d '/@" ')"
+                  fi
+                  echo "opensearch_username=$opensearch_username" | tee -a "$GITHUB_OUTPUT"
+
+                  if [[ -n "${{ inputs.opensearch_password }}" ]]; then
+                    opensearch_password="${{ inputs.opensearch_password }}"
+                  else
+                    opensearch_password="$(openssl rand -base64 12 | tr -d '/@" ')"
+                  fi
+                  # protect sensitive values
+                  echo "::add-mask::$opensearch_password"
+                  echo "opensearch_password=$opensearch_password" | tee -a "$GITHUB_OUTPUT"
+
+                  # Get the current commit hash for the modules revision
+                  tf_modules_revision=$(git rev-parse HEAD)
+                  echo "tf_modules_revision=$tf_modules_revision" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Set current Camunda version
+              id: camunda-version
+              run: |
+                  set -euo pipefail
+
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Create EKS Cluster
+              timeout-minutes: 45
+              uses: ./.github/actions/aws-eks-manage-cluster
+              id: create_eks_cluster
+              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+              if: always() && success()
+              with:
+                  cluster-name: ${{ steps.commit_info.outputs.cluster_name }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+                  additional-terraform-vars: '{"np_capacity_type": "SPOT", "np_instance_types": ["t2.medium"]}'
+
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}eks-cluster/${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  tf-modules-revision: ${{ steps.commit_info.outputs.tf_modules_revision }}
+
+            - name: After EKS creation infos
+              id: after_cluster_creation_infos
+              run: |
+                  set -euo pipefail
+
+                  vpc_id=$(echo '${{ steps.create_eks_cluster.outputs.all-terraform-outputs }}' | jq -c -r '.vpc_id.value')
+                  echo "vpc_id=$vpc_id" | tee -a "$GITHUB_OUTPUT"
+
+                  private_subnet_ids=$(echo '${{ steps.create_eks_cluster.outputs.all-terraform-outputs }}' | jq -c -r '.private_subnet_ids.value')
+                  echo "private_subnet_ids=$private_subnet_ids" | tee -a "$GITHUB_OUTPUT"
+
+                  private_vpc_cidr_blocks=$(echo '${{ steps.create_eks_cluster.outputs.all-terraform-outputs }}' | jq -c -r '.private_vpc_cidr_blocks.value')
+                  echo "private_vpc_cidr_blocks=$private_vpc_cidr_blocks" | tee -a "$GITHUB_OUTPUT"
+
+                  availability_zones=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=${vpc_id}" --query 'Subnets[].AvailabilityZone' --output json | jq 'unique'  -c)
+                  echo "availability_zones=$availability_zones" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Create Aurora Cluster
+              timeout-minutes: 20
+              uses: ./.github/actions/aws-aurora-manage-cluster
+              id: create_aurora_cluster
+              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+              if: env.CREATE_DB == 'true' && always() && success()
+              with:
+                  cluster-name: ${{ steps.commit_info.outputs.cluster_name }}
+                  username: ${{ steps.commit_info.outputs.db_username }}
+                  password: ${{ steps.commit_info.outputs.db_password }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}aurora/${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  tf-modules-revision: ${{ steps.commit_info.outputs.tf_modules_revision }}
+
+                  vpc-id: ${{ steps.after_cluster_creation_infos.outputs.vpc_id }}
+                  subnet-ids: ${{ steps.after_cluster_creation_infos.outputs.private_subnet_ids }}
+                  cidr-blocks: ${{ steps.after_cluster_creation_infos.outputs.private_vpc_cidr_blocks }}
+
+                  availability-zones: ${{ steps.after_cluster_creation_infos.outputs.availability_zones }}
+
+            - name: Deploy OpenSearch Domain
+              uses: ./.github/actions/aws-opensearch-manage-cluster
+              id: deploy_opensearch_domain
+              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+              if: env.CREATE_OPENSEARCH == 'true' && always() && success()
+              with:
+                  domain-name: ${{ steps.commit_info.outputs.cluster_name }}-opensearch
+                  aws-region: ${{ env.AWS_REGION }}
+
+                  vpc-id: ${{ steps.after_cluster_creation_infos.outputs.vpc_id }}
+                  subnet-ids: ${{ steps.after_cluster_creation_infos.outputs.private_subnet_ids }}
+                  cidr-blocks: ${{ steps.after_cluster_creation_infos.outputs.private_vpc_cidr_blocks }}
+
+                  additional-terraform-vars: |
+                      {
+                        "advanced_security_master_user_name": "${{ steps.commit_info.outputs.opensearch_username }}",
+                        "advanced_security_master_user_password": "${{ steps.commit_info.outputs.opensearch_password }}",
+                        "advanced_security_internal_user_database_enabled": true
+                      }
+
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}opensearch/${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  tf-modules-revision: ${{ steps.commit_info.outputs.tf_modules_revision }}
+
+            - name: Delete Resources
+              timeout-minutes: 120
+              if: always() && !(github.event_name == 'workflow_dispatch' && inputs.delete_cluster == 'false')
+              uses: ./.github/actions/aws-eks-cleanup-resources
+              with:
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  max-age-hours: 0
+                  target: ${{ steps.commit_info.outputs.cluster_name }}
+
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: failure() && env.IS_SCHEDULE == 'true'
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

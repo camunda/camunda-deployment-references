@@ -12,7 +12,8 @@ on:
     #         - .github/workflows/aws_compute_ec2_single_region_tests.yml
     #         - .tool-versions
     #         - aws/compute/ec2-single-region/**
-    #         - '!aws/compute/ec2-single-region/test/golden/**'
+    #         - '!aws/compute/ec2-single-region/terraform/test/golden/**'
+    #         - .github/actions/aws-configure-cli/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -23,6 +24,7 @@ concurrency:
 
 env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infex
     AWS_REGION: eu-west-2
@@ -31,7 +33,20 @@ env:
     SNAPSHOT_PREVIOUS_VERSION: 8.7.0-alpha3-rc4 # potential to be reworked to dynamic matrix instead
 
 jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
     test:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
@@ -59,51 +74,51 @@ jobs:
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
 
-            - name: Import Secrets
-              id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
               with:
-                  url: ${{ secrets.VAULT_ADDR }}
-                  method: approle
-                  roleId: ${{ secrets.VAULT_ROLE_ID }}
-                  secretId: ${{ secrets.VAULT_SECRET_ID }}
-                  exportEnv: false
-                  secrets: |
-                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
 
-            ################ AWS Config ##################
-            # Official action does not support profiles
-            - name: Add profile credentials to ~/.aws/credentials
-              shell: bash
-              run: |
-                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
             ################ Prerequisites ##################
             - name: Export test prefix
               run: |
+                  set -euo pipefail
+
                   prefix="ec2-test-$(tr -dc 'a-z0-9' </dev/urandom | head -c 5)"
                   echo "TF_PREFIX=${prefix}" >> "$GITHUB_ENV"
+
             - name: Replace matrix dots with hyphen
               run: |
+                  set -euo pipefail
+
                   version=$(echo "${{ matrix.camunda }}" | tr '.' '-')
                   echo "CAMUNDA_HYPHENS=$version" >> "$GITHUB_ENV"
+
             # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
+                  set -euo pipefail
+
                   cp ${{ github.workspace }}/aws/compute/ec2-single-region/test/fixtures/*.tf ${{ github.workspace }}/aws/compute/ec2-single-region/terraform/
                   echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.TF_PREFIX }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
             # yamllint enable rule:line-length
             - name: Set Camunda version
               working-directory: aws/compute/ec2-single-region/scripts
               run: |
+                  set -euo pipefail
+
                   # We need to replace the string without substitution except for that of GitHub Actions
                   # shellcheck disable=SC2016
                   sed -i '0,/CAMUNDA_VERSION/s/CAMUNDA_VERSION=.*/CAMUNDA_VERSION=${CAMUNDA_VERSION:-"${{ matrix.camunda }}"}/' camunda-install.sh
             # potential to rework to dynamic matrix instead or local file that contains version dict
             - name: Overwrite previous version
               run: |
+                  set -euo pipefail
+
                   if [[ "${{matrix.camunda }}" =~ "SNAPSHOT" ]]; then
                       echo "CAMUNDA_PREVIOUS_VERSION=${{ env.SNAPSHOT_PREVIOUS_VERSION }}" >> "$GITHUB_ENV"
                   else
@@ -115,6 +130,8 @@ jobs:
               working-directory: aws/compute/ec2-single-region/test/src
               timeout-minutes: 61
               run: |
+                  set -euo pipefail
+
                   go test -v -timeout 60m -run TestSetup
               env:
                   ARCHITECTURE: ${{ matrix.architecture }}
@@ -127,7 +144,8 @@ jobs:
                   CAMUNDA_VERSION: ${{ matrix.camunda }}
                   CAMUNDA_PREVIOUS_VERSION: ${{ env.CAMUNDA_PREVIOUS_VERSION }}
               run: |
-                  # shellcheck disable=SC2155
+                  set -euo pipefail
+
                   export PATH=$PATH:$(go env GOPATH)/bin
                   mkdir /home/runner/.ssh
                   touch /home/runner/.ssh/config
@@ -142,12 +160,16 @@ jobs:
               working-directory: aws/compute/ec2-single-region/test/src
               timeout-minutes: 31
               run: |
+                  set -euo pipefail
+
                   go test -v -timeout 30m -run TestTeardown
             # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
             - name: Filter logger.go from the test report (too large)
               if: always()
               working-directory: aws/compute/ec2-single-region/test/src
               run: |
+                  set -euo pipefail
+
                   sed 's/&#xA;/\n/g' < "./tests.xml" |
                   grep -E -v '^.*logger\.go.*$' |
                   sed 's/\n/&#xA;/g' > "./tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml"
@@ -161,10 +183,14 @@ jobs:
             - name: Cleanup S3 state bucket
               if: always() && steps.tf-destroy.outcome == 'success'
               run: |
+                  set -euo pipefail
+
                   aws s3 rm "s3://tf-state-multi-reg/state/${TF_PREFIX}/terraform.tfstate"
             - name: Remove profile credentials from ~/.aws/credentials
               if: always()
               run: |
+                  set -euo pipefail
+
                   rm -rf ~/.aws/credentials
 
     test-report:
@@ -184,6 +210,8 @@ jobs:
             - name: Determine if failed tests include SNAPSHOT
               id: determine-if-failed-tests-include-snapshot
               run: |
+                  set -euo pipefail
+
                   file=$(find /tmp/testreports -name "*SNAPSHOT*.xml" -type f)
                   echo "Found file: $file"
                   if grep -q "FAIL" "$file"; then

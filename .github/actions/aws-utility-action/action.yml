@@ -80,7 +80,7 @@ runs:
           shell: bash
           working-directory: /tmp
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               if ! command -v aws &> /dev/null; then
                 echo "AWS CLI not found, installing..."
@@ -96,7 +96,7 @@ runs:
           shell: bash
           id: set-terraform-variables
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
               export TFSTATE_KEY="${{ inputs.tf-state-key }}"
@@ -118,7 +118,7 @@ runs:
           id: create-s3-bucket
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               if aws s3api head-bucket --bucket ${{ inputs.s3-backend-bucket }} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
                 echo "Bucket already exists"

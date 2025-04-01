@@ -40,7 +40,7 @@ runs:
           id: delete_resources
           shell: bash
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               if [ -n "${{ inputs.s3-bucket-region }}" ]; then
                 export AWS_S3_REGION="${{ inputs.s3-bucket-region }}"

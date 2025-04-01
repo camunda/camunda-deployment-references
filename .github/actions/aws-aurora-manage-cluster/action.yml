@@ -142,7 +142,7 @@ runs:
           id: init
           working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               cp ../fixtures/backend.tf ./
               terraform version
@@ -155,7 +155,10 @@ runs:
           id: plan
           working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
           run: |
-              set -euxo pipefail
+              set -euo pipefail
+
+              # protect sensitive values
+              echo "::add-mask::${{ inputs.password }}"
 
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
               terraform plan -no-color -out aurora.plan \
@@ -173,7 +176,7 @@ runs:
           id: apply
           working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               terraform apply -no-color aurora.plan
               export aurora_endpoint="$(terraform output -raw aurora_endpoint)"
@@ -184,7 +187,7 @@ runs:
           id: fetch_outputs
           working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               all_outputs=$(terraform output -json | jq -c .)
               echo "all_terraform_outputs=$all_outputs" | tee -a "$GITHUB_OUTPUT"

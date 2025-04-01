@@ -1,0 +1,109 @@
+---
+name: Terraform Golden Plan Comparison
+
+description: >
+    This GitHub Action compares the generated Terraform plan with a golden file.
+    It regenerates the golden file, uploads the result, checks for differences,
+    and comments on the PR if changes are detected. If no changes exist, it removes
+    any previous diff comment.
+
+inputs:
+    module-dir:
+        description: Module Directory
+        required: true
+    s3-bucket-region:
+        description: S3 Bucket Region
+        required: true
+    s3-backend-bucket:
+        description: S3 Backend Bucket
+        required: true
+    s3-bucket-key:
+        description: S3 Bucket Key
+        required: true
+
+runs:
+    using: composite
+    steps:
+        - name: Compute golden
+          shell: bash
+          id: golden-prepare
+          run: |
+              set -euo pipefail
+
+              just regenerate-golden-file "${{ inputs.module-dir }}" "${{ inputs.s3-bucket-region }}" \
+                 "${{ inputs.s3-backend-bucket }}" "${{ inputs.s3-bucket-key }}" "./compare/"
+
+              module_dir="${{ inputs.module-dir }}"
+              module_dir_key="${module_dir//\//-}"
+              # Remove trailing . and -
+              module_dir_key=$(echo "$module_dir_key" | sed 's/^[.-]*//;s/[-.]*$//')
+              echo "module_dir_key=$module_dir_key" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Upload pipeline golden result
+          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          with:
+              name: ${{ steps.golden-prepare.outputs.module_dir_key }}
+              path: ${{ inputs.module-dir }}compare/tfplan-golden.json
+              retention-days: 1
+
+        - name: Compare Terraform plan with golden file
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              delta "${{ inputs.module-dir }}test/golden/tfplan-golden.json" "${{ inputs.module-dir }}compare/tfplan-golden.json"
+              delta_exit_code=$?
+              echo "delta_exit_code=$delta_exit_code" | tee -a "$GITHUB_ENV"
+              exit $delta_exit_code
+
+        - name: Manage Terraform diff comment
+          if: always() && github.event_name == 'pull_request'
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              diff_comment_url=$(gh pr view "${{ github.event.pull_request.number }}" --json comments \
+                  --jq ".comments[] | select(.body | contains(\"## Module ${{ inputs.module-dir }} - Terraform Golden Plan Diff\")) | .url")
+
+              has_diff_comment=false
+              has_diff=false
+
+              if [[ -n "$diff_comment_url" ]]; then
+                  has_diff_comment=true
+              fi
+
+              if [[ "${{ env.delta_exit_code }}" != "0" ]]; then
+                  has_diff=true
+              fi
+
+              if [[ "$has_diff_comment" == "true" && "$has_diff" == "false" ]]; then
+                  comment_id=$(echo "$diff_comment_url" | sed 's/.*#issuecomment-\([^ ]*\)/\1/')
+                  echo "Deleting diff comment $diff_comment_url (#$comment_id)"
+                  gh api --method DELETE -H "Accept: application/vnd.github+json" "/repos/${{ github.repository }}/issues/comments/$comment_id"
+                  echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
+              elif [[ "$has_diff" == "true" ]]; then
+                  echo "Diff exists, keeping or updating the comment."
+                  echo "update_or_create_diff_comment=true" | tee -a "$GITHUB_ENV"
+              else
+                  echo "No diff and no existing comment, nothing to do."
+                  echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
+              fi
+
+        - name: Post diff on PR
+          if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
+          uses: int128/diff-action@1a147f34a49636aafdb862075055908e06edaaa7 # v1
+          with:
+              base: ${{ inputs.module-dir }}test/golden/tfplan-golden.json
+              head: ${{ inputs.module-dir }}compare/tfplan-golden.json
+              comment-header: |
+                  ## Module ${{ inputs.module-dir }} - Terraform Golden Plan Diff
+              comment-footer: |
+                  🖲 **Check the delta diff**
+                  in the [workflow run](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}) for a detailed comparison.
+
+                  If the changes are expected, you can use the uploaded artifact on the workflow to update the golden file on your branch.
+
+                  📟 **Alternatively, run the following command locally** to update the golden file:
+                  ```sh
+                  just regenerate-golden-file "${{ inputs.module-dir }}" "${{ inputs.s3-bucket-region }}" "${{ inputs.s3-backend-bucket }}" "${{ inputs.s3-bucket-key }}"
+                  ```
