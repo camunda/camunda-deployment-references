@@ -250,9 +250,11 @@ runs:
               start_port_forward() {
                   local service=$1
                   local ports=$2
-                  kubectl port-forward service/$service $ports >/dev/null 2>&1 &
+                  kubectl port-forward service/$service $ports -n $TEST_NAMESPACE >/dev/null 2>&1 &
                   echo "Port-forwarding for $service on ports $ports started."
               }
+
+              # TODO: Pull out of the documentation
 
               # With domain:
               export ZEEBE_ADDRESS_REST="https://$DOMAIN_NAME/zeebe"
