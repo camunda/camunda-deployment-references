@@ -125,13 +125,14 @@ runs:
               if [[ "$CAMUNDA_DOMAIN" != "false" ]]; then
                 # shellcheck disable=SC2129
                 echo "VENOM_VAR_TEST_INGRESS_HOST=$TEST_INGRESS_HOST" >> "$VARIABLES_ENV_FILE"
-                echo "VENOM_VAR_TEST_CLIENT_ID=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" >> "$VARIABLES_ENV_FILE"
-                echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" >> "$VARIABLES_ENV_FILE"
                 echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
               else
                 # Some variables are not working correctly, patching it with yq directly
                 echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
               fi
+
+              echo "VENOM_VAR_TEST_CLIENT_ID=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" >> "$VARIABLES_ENV_FILE"
+              echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" >> "$VARIABLES_ENV_FILE"
 
               ZEEBE_VERSION=$(yq '.zeebe.image.tag' "$TEST_CHART_DIR_STATIC/values.yaml")
               # shellcheck disable=SC2129
