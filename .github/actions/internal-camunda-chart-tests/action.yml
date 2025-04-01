@@ -145,6 +145,10 @@ runs:
               else
                 # Some variables are not working correctly, patching it with yq directly
                 echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
+
+                # fix wrong default zeebeGatewayGRPC port
+                yq eval '.coreVars.baseURLs.zeebeGatewayGRPC |= sub(":9600$", ":26500")' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
               fi
 
               echo "VENOM_VAR_TEST_CLIENT_ID=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" >> "$VARIABLES_ENV_FILE"
@@ -163,12 +167,6 @@ runs:
               sed -i "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
                 "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
                 "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
-
-              # echo "Skip test ingress is also broken, fixing it"
-              # yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
-              #   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-              # yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
-              #   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
 
               if [[ "$ELASTICSEARCH_ENABLED" != "true" ]]; then
                 echo "Disable Elasticsearch in the core tests as it's not enabled"
