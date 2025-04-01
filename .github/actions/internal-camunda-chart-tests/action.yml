@@ -214,14 +214,25 @@ runs:
               export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
               export ZEEBE_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
 
+              # function to help with port-forwarding in the background
+              start_port_forward() {
+                  local service=$1
+                  local ports=$2
+                  kubectl port-forward service/$service $ports >/dev/null 2>&1 &
+                  echo "Port-forwarding for $service on ports $ports started."
+              }
+
               # With domain:
-              ZEEBE_ADDRESS_REST="https://$DOMAIN_NAME/zeebe"
-              ZEEBE_AUTHORIZATION_SERVER_URL="https://$DOMAIN_NAME/auth/realms/camunda-platform/protocol/openid-connect/token"
+              export ZEEBE_ADDRESS_REST="https://$DOMAIN_NAME/zeebe"
+              export ZEEBE_AUTHORIZATION_SERVER_URL="https://$DOMAIN_NAME/auth/realms/camunda-platform/protocol/openid-connect/token"
 
               if [[ "$DOMAIN_NAME" == "false" ]]; then
                 # Without domain:
-                ZEEBE_ADDRESS_REST="http://camunda-zeebe-gateway:8080"
-                ZEEBE_AUTHORIZATION_SERVER_URL="http://camunda-keycloak/auth/realms/camunda-platform/protocol/openid-connect/token"
+                export ZEEBE_ADDRESS_REST="http://localhost:8080"
+                export ZEEBE_AUTHORIZATION_SERVER_URL="http://localhost:18080/auth/realms/camunda-platform/protocol/openid-connect/token"
+
+                start_port_forward camunda-zeebe-gateway 8080:8080
+                start_port_forward camunda-keycloak 18080:80
               fi
 
               # Execute the script and capture the output in a variable
