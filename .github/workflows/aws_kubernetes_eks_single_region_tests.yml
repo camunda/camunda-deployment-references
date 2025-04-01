@@ -371,218 +371,238 @@ jobs:
                   kubectl config current-context
                   kubectl get nodes
 
-            - name: 📁 Get a copy of the reference architecture
-              timeout-minutes: 10
-              run: |
-                  # run it as specified in the doc
-                  set -euo pipefail
-
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/get-your-copy.sh
-                  tree
-
-            - name: 🏗️ Prepare a fresh namespace for the tests
-              run: |
-                  set -euo pipefail
-
-                  # Delete the namespace to ensure a fresh start
-                  if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
-                  kubectl delete namespace "$TEST_NAMESPACE" --wait
-                  while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
-                      echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
-                      sleep 5
-                  done
-                  fi
-
-                  # Create the namespace
-                  kubectl create namespace "$TEST_NAMESPACE"
-
-            - name: Clean up databases
-              run: |
-                  set -euo pipefail
-
-                  # Requires db secrets to be created
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-db-secret.sh
-
-                  if [[ "${{ matrix.scenario}}" =~ "irsa" ]]; then
-                      ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-os-secret.sh
-                  else
-                    # for non irsa, we don't need credentials but want to reuse the same job
-                    kubectl create secret generic setup-os-secret --namespace camunda \
-                    --from-literal=OPENSEARCH_HOST="$OPENSEARCH_HOST" \
-                    --from-literal=OPENSEARCH_MASTER_USERNAME="" \
-                    --from-literal=OPENSEARCH_MASTER_PASSWORD=""
-                  fi
-
-                  # Reset PostgreSQL
-                  kubectl apply -f ./aws/kubernetes/test/reset-aurora-postgres.yml --namespace camunda
-
-                  # Wait for the job to complete
-                  while true; do
-                      STATUS=$(kubectl get job reset-aurora-postgres --namespace camunda -o jsonpath='{.status.succeeded}')
-
-                      if [[ "$STATUS" == "1" ]]; then
-                          echo "Job completed successfully."
-                          break
-                      fi
-
-                      echo "Waiting for job to complete..."
-                      sleep 5
-                  done
-                  echo "[DEBUG] Job log:"
-                  kubectl logs job/reset-aurora-postgres --namespace camunda
-                  kubectl delete job reset-aurora-postgres --namespace camunda
-
-                  kubectl delete secret setup-db-secret --namespace camunda
-
-                  # Reset OpenSearch
-                  kubectl apply -f ./aws/kubernetes/test/reset-opensearch.yml --namespace camunda
-
-                  # Wait for the job to complete
-                  while true; do
-                      STATUS=$(kubectl get job reset-opensearch --namespace camunda -o jsonpath='{.status.succeeded}')
-
-                      if [[ "$STATUS" == "1" ]]; then
-                          echo "Job completed successfully."
-                          break
-                      fi
-
-                      echo "Waiting for job to complete..."
-                      sleep 5
-                  done
-                  echo "[DEBUG] Job log:"
-                  kubectl logs job/reset-opensearch --namespace camunda
-                  kubectl delete job reset-opensearch --namespace camunda
-
-                  kubectl delete secret setup-os-secret --namespace camunda
-
-            - name: 🛠️ Assemble deployment values of aws/kubernetes/${{ matrix.scenario }}/${{ matrix.declination }}
-              timeout-minutes: 10
-              run: |
-                  set -o errexit
-                  set -euxo pipefail
-
-                  echo "Construct the values.yml file"
-
-                  cp -f aws/kubernetes/${{ matrix.scenario }}/helm-values/values-${{ matrix.declination }}.yml ./values.yml
-
-                  if [[ "${{ matrix.declination }}" == "domain" ]]; then
-                    echo "CAMUNDA_DOMAIN=${{ env.CLUSTER_NAME }}.camunda.ie" | tee -a "$GITHUB_ENV"
-                  fi
-
-                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
-                    echo "Enabling WebModeler"
-                    yq -i '.webModeler.enabled = true' values.yml
-                    yq -i '.postgresql.enabled = true' values.yml
-                  fi
-
-                  if [ "$CONSOLE_ENABLED" == "true" ]; then
-                    echo "Enabling Console"
-                    yq -i '.console.enabled = true' values.yml
-                  fi
-
-                  # Add integration tests values
-                  if [ "$TESTS_ENABLED" == "true" ]; then
-                    for file in registry.yml identity.yml; do
-                      yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
-                    done
-                  fi
-
-                  ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
-
-            - name: Configure the database and associated access
-              timeout-minutes: 10
-              run: |
-                  set -euo pipefail
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/check-env-variables.sh
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-db-secret.sh
-
-                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario }}/setup-postgres-create-db.yml --namespace camunda
-
-                  # Wait for the job to complete
-                  while true; do
-                      STATUS=$(kubectl get job create-setup-user-db --namespace camunda -o jsonpath='{.status.succeeded}')
-
-                      if [[ "$STATUS" == "1" ]]; then
-                          echo "Job completed successfully."
-                          break
-                      fi
-
-                      echo "Waiting for job to complete..."
-                      sleep 5
-                  done
-
-                  echo "[DEBUG] Job log:"
-                  kubectl logs job/create-setup-user-db --namespace camunda
-
-                  kubectl delete job create-setup-user-db --namespace camunda
-                  kubectl delete secret setup-db-secret --namespace camunda
-
-            # TODO: double check what for and where from
-            # - name: Execute non irsa procedure scripts
-            #   if: ${{ !contains(matrix.scenario, 'irsa') }}
+            # - name: 📁 Get a copy of the reference architecture
             #   timeout-minutes: 10
             #   run: |
-            #       ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-external-db-secrets.sh
+            #       # run it as specified in the doc
+            #       set -euo pipefail
 
-            - name: Configure OpenSearch fine grained access control
-              if: contains(matrix.scenario, 'irsa')
-              timeout-minutes: 10
+            #       ./aws/kubernetes/${{ matrix.scenario }}/procedure/get-your-copy.sh
+            #       tree
+
+            # - name: 🏗️ Prepare a fresh namespace for the tests
+            #   run: |
+            #       set -euo pipefail
+
+            #       # Delete the namespace to ensure a fresh start
+            #       if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
+            #       kubectl delete namespace "$TEST_NAMESPACE" --wait
+            #       while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
+            #           echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
+            #           sleep 5
+            #       done
+            #       fi
+
+            #       # Create the namespace
+            #       kubectl create namespace "$TEST_NAMESPACE"
+
+            # - name: Clean up databases
+            #   run: |
+            #       set -euo pipefail
+
+            #       # Requires db secrets to be created
+            #       ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-db-secret.sh
+
+            #       if [[ "${{ matrix.scenario}}" =~ "irsa" ]]; then
+            #           ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-os-secret.sh
+            #       else
+            #         # for non irsa, we don't need credentials but want to reuse the same job
+            #         kubectl create secret generic setup-os-secret --namespace camunda \
+            #         --from-literal=OPENSEARCH_HOST="$OPENSEARCH_HOST" \
+            #         --from-literal=OPENSEARCH_MASTER_USERNAME="" \
+            #         --from-literal=OPENSEARCH_MASTER_PASSWORD=""
+            #       fi
+
+            #       # Reset PostgreSQL
+            #       kubectl apply -f ./aws/kubernetes/test/reset-aurora-postgres.yml --namespace camunda
+
+            #       # Wait for the job to complete
+            #       while true; do
+            #           STATUS=$(kubectl get job reset-aurora-postgres --namespace camunda -o jsonpath='{.status.succeeded}')
+
+            #           if [[ "$STATUS" == "1" ]]; then
+            #               echo "Job completed successfully."
+            #               break
+            #           fi
+
+            #           echo "Waiting for job to complete..."
+            #           sleep 5
+            #       done
+            #       echo "[DEBUG] Job log:"
+            #       kubectl logs job/reset-aurora-postgres --namespace camunda
+            #       kubectl delete job reset-aurora-postgres --namespace camunda
+
+            #       kubectl delete secret setup-db-secret --namespace camunda
+
+            #       # Reset OpenSearch
+            #       kubectl apply -f ./aws/kubernetes/test/reset-opensearch.yml --namespace camunda
+
+            #       # Wait for the job to complete
+            #       while true; do
+            #           STATUS=$(kubectl get job reset-opensearch --namespace camunda -o jsonpath='{.status.succeeded}')
+
+            #           if [[ "$STATUS" == "1" ]]; then
+            #               echo "Job completed successfully."
+            #               break
+            #           fi
+
+            #           echo "Waiting for job to complete..."
+            #           sleep 5
+            #       done
+            #       echo "[DEBUG] Job log:"
+            #       kubectl logs job/reset-opensearch --namespace camunda
+            #       kubectl delete job reset-opensearch --namespace camunda
+
+            #       kubectl delete secret setup-os-secret --namespace camunda
+
+            # - name: 🛠️ Assemble deployment values of aws/kubernetes/${{ matrix.scenario }}/${{ matrix.declination }}
+            #   timeout-minutes: 10
+            #   run: |
+            #       set -o errexit
+            #       set -euxo pipefail
+
+            #       echo "Construct the values.yml file"
+
+            #       cp -f aws/kubernetes/${{ matrix.scenario }}/helm-values/values-${{ matrix.declination }}.yml ./values.yml
+
+            #       if [[ "${{ matrix.declination }}" == "domain" ]]; then
+            #         echo "CAMUNDA_DOMAIN=${{ env.CLUSTER_NAME }}.camunda.ie" | tee -a "$GITHUB_ENV"
+            #       fi
+
+            #       if [ "$WEBMODELER_ENABLED" == "true" ]; then
+            #         echo "Enabling WebModeler"
+            #         yq -i '.webModeler.enabled = true' values.yml
+            #         yq -i '.postgresql.enabled = true' values.yml
+            #       fi
+
+            #       if [ "$CONSOLE_ENABLED" == "true" ]; then
+            #         echo "Enabling Console"
+            #         yq -i '.console.enabled = true' values.yml
+            #       fi
+
+            #       # Add integration tests values
+            #       if [ "$TESTS_ENABLED" == "true" ]; then
+            #         for file in registry.yml identity.yml; do
+            #           yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
+            #           cat values-result.yml && mv values-result.yml values.yml
+            #         done
+            #       fi
+
+            #       ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
+
+            # - name: Configure the database and associated access
+            #   timeout-minutes: 10
+            #   run: |
+            #       set -euo pipefail
+            #       ./aws/kubernetes/${{ matrix.scenario }}/procedure/check-env-variables.sh
+            #       ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-db-secret.sh
+
+            #       kubectl apply -f ./aws/kubernetes/${{ matrix.scenario }}/setup-postgres-create-db.yml --namespace camunda
+
+            #       # Wait for the job to complete
+            #       while true; do
+            #           STATUS=$(kubectl get job create-setup-user-db --namespace camunda -o jsonpath='{.status.succeeded}')
+
+            #           if [[ "$STATUS" == "1" ]]; then
+            #               echo "Job completed successfully."
+            #               break
+            #           fi
+
+            #           echo "Waiting for job to complete..."
+            #           sleep 5
+            #       done
+
+            #       echo "[DEBUG] Job log:"
+            #       kubectl logs job/create-setup-user-db --namespace camunda
+
+            #       kubectl delete job create-setup-user-db --namespace camunda
+            #       kubectl delete secret setup-db-secret --namespace camunda
+
+            # # TODO: double check what for and where from
+            # # - name: Execute non irsa procedure scripts
+            # #   if: ${{ !contains(matrix.scenario, 'irsa') }}
+            # #   timeout-minutes: 10
+            # #   run: |
+            # #       ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-external-db-secrets.sh
+
+            # - name: Configure OpenSearch fine grained access control
+            #   if: contains(matrix.scenario, 'irsa')
+            #   timeout-minutes: 10
+            #   run: |
+            #       ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-os-secret.sh
+
+            #       kubectl apply -f ./aws/kubernetes/${{ matrix.scenario }}/setup-opensearch-fgac.yml --namespace camunda
+
+            #       # Wait for the job to complete
+            #       while true; do
+            #           STATUS=$(kubectl get job setup-opensearch-fgac --namespace camunda -o jsonpath='{.status.succeeded}')
+
+            #           if [[ "$STATUS" == "1" ]]; then
+            #               echo "Job completed successfully."
+            #               break
+            #           fi
+
+            #           echo "Waiting for job to complete..."
+            #           sleep 5
+            #       done
+
+            #       echo "[DEBUG] Job log:"
+            #       kubectl logs job/setup-opensearch-fgac --namespace camunda
+
+            #       kubectl delete job setup-opensearch-fgac --namespace camunda
+            #       kubectl delete secret setup-os-secret --namespace camunda
+
+            # - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
+            #   timeout-minutes: 10
+            #   run: |
+            #       set -euo pipefail
+
+            #       source generic/kubernetes/single-region/procedure/chart-env.sh
+            #       source generic/kubernetes/single-region/procedure/generate-passwords.sh
+
+            #       ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
+
+            #       # Generate tests objects
+            #       if [ "$TESTS_ENABLED" == "true" ]; then
+            #         # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml
+            #         kubectl create secret docker-registry index-docker-io \
+            #             --docker-server=index.docker.io \
+            #             --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+            #             --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+            #             --namespace="$TEST_NAMESPACE"
+
+            #         kubectl create secret generic identity-secret-for-components-integration \
+            #             --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+            #             --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+            #             --namespace="$TEST_NAMESPACE"
+            #       fi
+
+            #       ./generic/kubernetes/single-region/procedure/install-chart.sh
+
+            # - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
+            #   timeout-minutes: 10
+            #   run: |
+            #       ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+
+            - name: Set current Camunda version
+              id: camunda-version
               run: |
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-os-secret.sh
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario }}/setup-opensearch-fgac.yml --namespace camunda
-
-                  # Wait for the job to complete
-                  while true; do
-                      STATUS=$(kubectl get job setup-opensearch-fgac --namespace camunda -o jsonpath='{.status.succeeded}')
-
-                      if [[ "$STATUS" == "1" ]]; then
-                          echo "Job completed successfully."
-                          break
-                      fi
-
-                      echo "Waiting for job to complete..."
-                      sleep 5
-                  done
-
-                  echo "[DEBUG] Job log:"
-                  kubectl logs job/setup-opensearch-fgac --namespace camunda
-
-                  kubectl delete job setup-opensearch-fgac --namespace camunda
-                  kubectl delete secret setup-os-secret --namespace camunda
-
-            - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
-              timeout-minutes: 10
-              run: |
-                  set -euo pipefail
-
-                  source generic/kubernetes/single-region/procedure/chart-env.sh
-                  source generic/kubernetes/single-region/procedure/generate-passwords.sh
-
-                  ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
-
-                  # Generate tests objects
-                  if [ "$TESTS_ENABLED" == "true" ]; then
-                    # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml
-                    kubectl create secret docker-registry index-docker-io \
-                        --docker-server=index.docker.io \
-                        --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
-                        --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
-                        --namespace="$TEST_NAMESPACE"
-
-                    kubectl create secret generic identity-secret-for-components-integration \
-                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
-                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-                        --namespace="$TEST_NAMESPACE"
-                  fi
-
-                  ./generic/kubernetes/single-region/procedure/install-chart.sh
-
-            - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
-              timeout-minutes: 10
-              run: |
-                  ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+            - name: 🧪 Run Helm Chart tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 60
+              uses: ./.github/actions/internal-camunda-chart-tests
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
+                  console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
+                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
+                  test-namespace: ${{ env.TEST_NAMESPACE }}
+                  test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
