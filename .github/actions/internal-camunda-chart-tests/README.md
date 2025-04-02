@@ -13,7 +13,7 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `tests-camunda-helm-chart-repo-path` | <p>Path to the Helm chart repository</p> | `false` | `./.camunda_helm_repo` |
 | `secrets` | <p>JSON wrapped secrets for easier secret passing</p> | `true` | `""` |
 | `camunda-version` | <p>The version of the Camunda Helm chart to test</p> | `true` | `""` |
-| `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `false` |
+| `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `""` |
 | `camunda-domain-grpc` | <p>The domain to use for the gRPC tests</p> | `false` | `false` |
 | `webmodeler-enabled` | <p>Whether the Webmodeler is enabled in the chart</p> | `false` | `false` |
 | `console-enabled` | <p>Whether the Console is enabled in the chart</p> | `false` | `false` |
@@ -60,7 +60,7 @@ This action is a `composite` action.
     # The domain to use for the tests
     #
     # Required: false
-    # Default: false
+    # Default: ""
 
     camunda-domain-grpc:
     # The domain to use for the gRPC tests
