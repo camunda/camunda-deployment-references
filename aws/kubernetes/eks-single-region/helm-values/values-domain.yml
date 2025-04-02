@@ -44,6 +44,7 @@ global:
                 existingSecret:
                     name: identity-secret-for-components
             connectors:
+                redirectUrl: https://${DOMAIN_NAME}/connectors
                 existingSecret:
                     name: identity-secret-for-components
             operate:
@@ -80,6 +81,9 @@ identity:
         database: ${DB_IDENTITY_NAME}
         existingSecret: identity-postgres-secret
         existingSecretPasswordKey: password
+
+connectors:
+    contextPath: /connectors
 
 operate:
     contextPath: /operate
