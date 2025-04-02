@@ -156,7 +156,8 @@ jobs:
               run: |
                   set -euo pipefail
                   CAMUNDA_VERSION=$(cat .camunda-version)
-                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+                  #TODO: temporarily overriden
+                  echo "CAMUNDA_VERSION=alpha" | tee -a "$GITHUB_OUTPUT"
 
             - name: Generate random cluster_name
               id: generate_cluster_name
