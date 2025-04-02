@@ -504,41 +504,41 @@ jobs:
 
             #       kubectl delete secret setup-os-secret --namespace camunda
 
-            # - name: 🛠️ Assemble deployment values of aws/kubernetes/${{ matrix.scenario }}/${{ matrix.declination }}
-            #   timeout-minutes: 10
-            #   run: |
-            #       set -o errexit
-            #       set -euxo pipefail
+            - name: 🛠️ Assemble deployment values of aws/kubernetes/${{ matrix.scenario }}/${{ matrix.declination }}
+              timeout-minutes: 10
+              run: |
+                  set -o errexit
+                  set -euxo pipefail
 
-            #       echo "Construct the values.yml file"
+                  echo "Construct the values.yml file"
 
-            #       cp -f aws/kubernetes/${{ matrix.scenario }}/helm-values/values-${{ matrix.declination }}.yml ./values.yml
+                  cp -f aws/kubernetes/${{ matrix.scenario }}/helm-values/values-${{ matrix.declination }}.yml ./values.yml
 
-            #       if [[ "${{ matrix.declination }}" == "domain" ]]; then
-            #         export DOMAIN_NAME="${{ env.CLUSTER_NAME }}-${{ matrix.scenario }}.camunda.ie"
-            #         echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
-            #       fi
+                  if [[ "${{ matrix.declination }}" == "domain" ]]; then
+                    export DOMAIN_NAME="${{ env.CLUSTER_NAME }}-${{ matrix.scenario }}.camunda.ie"
+                    echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+                  fi
 
-            #       if [ "$WEBMODELER_ENABLED" == "true" ]; then
-            #         echo "Enabling WebModeler"
-            #         yq -i '.webModeler.enabled = true' values.yml
-            #         yq -i '.postgresql.enabled = true' values.yml
-            #       fi
+                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                    echo "Enabling WebModeler"
+                    yq -i '.webModeler.enabled = true' values.yml
+                    yq -i '.postgresql.enabled = true' values.yml
+                  fi
 
-            #       if [ "$CONSOLE_ENABLED" == "true" ]; then
-            #         echo "Enabling Console"
-            #         yq -i '.console.enabled = true' values.yml
-            #       fi
+                  if [ "$CONSOLE_ENABLED" == "true" ]; then
+                    echo "Enabling Console"
+                    yq -i '.console.enabled = true' values.yml
+                  fi
 
-            #       # Add integration tests values
-            #       if [ "$TESTS_ENABLED" == "true" ]; then
-            #         for file in registry.yml identity.yml; do
-            #           yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
-            #           cat values-result.yml && mv values-result.yml values.yml
-            #         done
-            #       fi
+                  # Add integration tests values
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    for file in registry.yml identity.yml; do
+                      yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
+                    done
+                  fi
 
-            #       ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
+                  ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
 
             # - name: Configure the database and associated access
             #   timeout-minutes: 10
@@ -647,7 +647,7 @@ jobs:
               with:
                   secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
-                  camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
+                  camunda-domain: ${{ env.DOMAIN_NAME }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
                   elasticsearch-enabled: 'false'
