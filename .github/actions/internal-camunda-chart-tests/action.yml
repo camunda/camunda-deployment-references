@@ -20,10 +20,9 @@ inputs:
         required: true
     camunda-domain:
         description: The domain to use for the tests
-        default: 'false'
+        default: ''
     camunda-domain-grpc:
         description: The domain to use for the gRPC tests
-        required: false
         default: 'false'
     webmodeler-enabled:
         description: Whether the Webmodeler is enabled in the chart
@@ -33,7 +32,6 @@ inputs:
         default: 'false'
     elasticsearch-enabled:
         description: Whether the Elasticsearch is enabled in the chart
-        required: false
         default: 'true'
     test-namespace:
         description: The namespace to use for the helm tests
@@ -143,10 +141,18 @@ runs:
               export VARIABLES_ENV_FILE="$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables.env"
               # Enable the ingress tests
 
-              if [[ "$CAMUNDA_DOMAIN" != "false" ]]; then
+              if [[ "$CAMUNDA_DOMAIN" != "" ]]; then
                 # shellcheck disable=SC2129
                 echo "VENOM_VAR_TEST_INGRESS_HOST=$TEST_INGRESS_HOST" >> "$VARIABLES_ENV_FILE"
                 echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
+
+                # Setting is broken and results in always skipping ingress tests
+                # This removes the faulty setting but should only be done in domain context
+                echo "Skip test ingress is also broken, fixing it"
+                yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
 
                 if [[ "$CAMUNDA_DOMAIN_GRPC" != "false" ]]; then
                   yq eval '.coreVars.baseURLs.zeebeGatewayGRPC = env(CAMUNDA_DOMAIN_GRPC)' \
