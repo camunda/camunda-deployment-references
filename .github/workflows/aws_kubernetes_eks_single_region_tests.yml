@@ -679,9 +679,11 @@ jobs:
                   kubectl delete namespace "$TEST_NAMESPACE" --wait
 
             - name: Cleanup domain specific resources
-              if: always() && ${{ matrix.declination == 'domain' }}
+              if: always() && matrix.declination == 'domain'
               run: |
                   set -euo pipefail
+
+                  echo "Let external-dns remove the domain" && sleep 45
 
                   helm uninstall ingress-nginx --namespace ingress-nginx --wait
                   helm uninstall external-dns --namespace external-dns --wait
