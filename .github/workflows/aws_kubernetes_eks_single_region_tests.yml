@@ -649,6 +649,7 @@ jobs:
                   secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.DOMAIN_NAME }}
+                  camunda-domain-grpc: zeebe.${{ env.DOMAIN_NAME }}:443
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
                   elasticsearch-enabled: 'false'

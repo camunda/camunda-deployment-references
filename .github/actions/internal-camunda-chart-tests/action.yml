@@ -21,6 +21,10 @@ inputs:
     camunda-domain:
         description: The domain to use for the tests
         default: 'false'
+    camunda-domain-grpc:
+        description: The domain to use for the gRPC tests
+        required: false
+        default: 'false'
     webmodeler-enabled:
         description: Whether the Webmodeler is enabled in the chart
         default: 'false'
@@ -96,6 +100,7 @@ runs:
           env:
               CAMUNDA_VERSION: ${{ inputs.camunda-version }}
               CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
               CONSOLE_ENABLED: ${{ inputs.console-enabled }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
@@ -142,6 +147,11 @@ runs:
                 # shellcheck disable=SC2129
                 echo "VENOM_VAR_TEST_INGRESS_HOST=$TEST_INGRESS_HOST" >> "$VARIABLES_ENV_FILE"
                 echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
+
+                if [[ "$CAMUNDA_DOMAIN_GRPC" != "false" ]]; then
+                  yq eval '.coreVars.baseURLs.zeebeGatewayGRPC = env(CAMUNDA_DOMAIN_GRPC)' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                fi
               else
                 # Some variables are not working correctly, patching it with yq directly
                 echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
