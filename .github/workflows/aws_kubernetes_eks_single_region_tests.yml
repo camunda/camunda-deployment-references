@@ -138,7 +138,7 @@ jobs:
                   # limiting factor are OpenSearch domains of maximum 28 characters
                   # echo "CLUSTER_NAME=eks-sr-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
                   # TODO: remove temporary hardcoded cluster name
-                  echo "CLUSTER_NAME=eks-sr-0-h4bfl" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+                  echo "CLUSTER_NAME=eks-sr-0-h4bfl" | tee -a "$GITHUB_ENV"
 
             - name: Create K8S cluster and login
               uses: ./.github/actions/aws-kubernetes-eks-single-region-create
@@ -165,6 +165,8 @@ jobs:
                   if [[ "${{ matrix.scenario }}" =~ "irsa" ]]; then
                       source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario }}/procedure/vars-create-os.sh
                   fi
+
+                  echo "CLUSTER_NAME=${{ env.CLUSTER_NAME }}" >> outputs_raw
 
                   # Export as outputs
                   echo "CERT_MANAGER_IRSA_ARN=$CERT_MANAGER_IRSA_ARN" >> outputs_raw
