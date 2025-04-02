@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# TODO: integrate in the doc
-
 echo "🔄 Starting port-forward..."
 kubectl --context "$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" port-forward "services/$HELM_RELEASE_NAME-zeebe-gateway" 8080:8080 >/dev/null 2>&1 &
 PORT_FORWARD_PID=$!

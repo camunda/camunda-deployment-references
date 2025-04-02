@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# TODO: integrate in https://docs.camunda.io/docs/8.7/self-managed/setup/deploy/openshift/redhat-openshift-dual-region/#advanced-cluster-management
-
 while true; do
     STATUS=$(oc --context "$CLUSTER_1_NAME" get managedclusters)
     echo "$STATUS"

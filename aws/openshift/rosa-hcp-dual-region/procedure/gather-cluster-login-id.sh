@@ -19,5 +19,3 @@ export CLUSTER_2_ADMIN_PASSWORD="$(terraform console <<<local.rosa_cluster_2_adm
 echo "CLUSTER_2_NAME=$CLUSTER_2_NAME"
 echo "CLUSTER_2_API_URL=$CLUSTER_2_API_URL"
 echo "CLUSTER_2_ADMIN_USERNAME=$CLUSTER_2_ADMIN_USERNAME"
-
-# TODO: replace in doc
