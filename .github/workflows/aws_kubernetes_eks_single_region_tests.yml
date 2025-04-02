@@ -83,9 +83,9 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-              scenario:
+                scenario:
                 # - eks-single-region
-                - eks-single-region-irsa
+                    - eks-single-region-irsa
         runs-on: ubuntu-latest
         env:
             TF_MODULES_PATH: ./.action-tf-modules/aws-kubernetes-eks-single-region-create/
@@ -304,7 +304,7 @@ jobs:
                   set -euo pipefail
 
                   echo "${{ fromJson(needs.access-info.outputs.outputs_raw).outputs_raw[matrix.scenario] }}" | base64 --decode > encrypted_outputs_raw.enc
-                  openssl enc -aes-256-cbc -d -in encrypted_outputs_raw.enc -out "$HOME/.kube/config" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  openssl enc -aes-256-cbc -d -in encrypted_outputs_raw.enc -out "outputs_raw" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   rm encrypted_outputs_raw.enc
 
                   # Export the decrypted outputs as environment variables
