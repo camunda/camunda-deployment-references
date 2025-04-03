@@ -113,29 +113,30 @@ jobs:
     #               aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
     #               aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
 
-    #         - name: Set current Camunda version
-    #           id: camunda-version
-    #           run: |
-    #               set -euo pipefail
-    #               CAMUNDA_VERSION=$(cat .camunda-version)
-    #               echo "CAMUNDA_VERSION=alpha" | tee -a "$GITHUB_OUTPUT"
-    #               # echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+            # - name: Set current Camunda version
+            #   id: camunda-version
+            #   run: |
+            #       set -euo pipefail
+            #       CAMUNDA_VERSION=$(cat .camunda-version)
+            #       echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-    #         - name: Generate random cluster_name
-    #           id: generate_cluster_name
-    #           run: |
-    #               set -euo pipefail
-    #               PR_NUMBER=0
-    #               if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-    #                   PR_NUMBER=${{ github.event.pull_request.number}}
-    #               fi
+            # - name: Generate random cluster_name
+            #   id: generate_cluster_name
+            #   run: |
+            #       set -euo pipefail
+            #       PR_NUMBER=0
+            #       if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            #           PR_NUMBER=${{ github.event.pull_request.number}}
+            #       fi
 
-    #               # limiting factor are OpenSearch domains of maximum 28 characters
-    #               echo "CLUSTER_NAME=eks-sr-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)" | tee -a "$GITHUB_ENV"
+            #       # limiting factor are OpenSearch domains of maximum 28 characters
+            #       echo "CLUSTER_NAME=eks-sr-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)" | tee -a "$GITHUB_ENV"
 
-    #         - name: Export S3_BACKEND_BUCKET based on matrix
-    #           run: |
-    #               echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario }}/" | tee -a "$GITHUB_ENV"
+            # - name: Export S3_BACKEND_BUCKET based on matrix
+            #   id: s3_prefix
+            #   run: |
+            #       set -euo pipefail
+            #       echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario }}/" | tee -a "$GITHUB_OUTPUT"
 
     #         - name: Create K8S cluster and login
     #           uses: ./.github/actions/aws-kubernetes-eks-single-region-create
@@ -147,7 +148,7 @@ jobs:
     #               aws-region: ${{ env.AWS_REGION }}
     #               s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
     #               s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-    #               s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+    #               s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
     #               tf-modules-revision: ${{ github.ref }}
     #               tf-modules-path: ${{ env.TF_MODULES_PATH }}
     #               ref-arch: ${{ matrix.scenario }}
@@ -698,14 +699,21 @@ jobs:
             #         echo "$line" | tee -a "$GITHUB_ENV"
             #       done < outputs_raw
 
-            - name: Export S3_BACKEND_BUCKET based on matrix and C8 version
-              id: s3-backend-bucket-prefix
+            - name: Set current Camunda version
               if: env.CLEANUP_CLUSTERS == 'true'
+              id: camunda-version
               run: |
+                  set -euo pipefail
                   CAMUNDA_VERSION=$(cat .camunda-version)
-                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario }}/$CAMUNDA_VERSION/" | tee -a "$GITHUB_OUTPUT"
-                  # TODO: temp workaround
-                  echo "CLUSTER_NAME=${{ matrix.cluster_name }}" | tee -a "$GITHUB_ENV"
+                  echo "CAMUNDA_VERSION=alpha" | tee -a "$GITHUB_OUTPUT"
+                  # echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Export S3_BACKEND_BUCKET based on matrix
+              if: env.CLEANUP_CLUSTERS == 'true'
+              id: s3_prefix
+              run: |
+                  set -euo pipefail
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario }}/" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand EKS Cluster
               uses: ./.github/actions/aws-kubernetes-eks-single-region-cleanup
@@ -716,7 +724,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
                   target: ${{ env.CLUSTER_NAME }}
-                  tf-bucket-key-prefix: ${{ steps.s3-backend-bucket-prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}
+                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     # report:
     #     name: Report failures
