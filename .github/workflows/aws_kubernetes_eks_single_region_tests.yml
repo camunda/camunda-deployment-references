@@ -19,10 +19,6 @@ on:
 
     workflow_dispatch:
         inputs:
-            cluster_name:
-                description: Cluster name.
-                required: false
-                type: string
             delete_clusters:
                 description: Whether to delete the clusters.
                 type: boolean
@@ -47,7 +43,6 @@ env:
     AWS_REGION: eu-north-1
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
-    S3_BACKEND_BUCKET_PREFIX: aws/kubernetes/eks-single-region-irsa/ # keep it synced with the name of the module for simplicity
 
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
@@ -137,6 +132,10 @@ jobs:
 
                   # limiting factor are OpenSearch domains of maximum 28 characters
                   echo "CLUSTER_NAME=eks-sr-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)" | tee -a "$GITHUB_ENV"
+
+            - name: Export S3_BACKEND_BUCKET based on matrix
+              run: |
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario }}/" | tee -a "$GITHUB_ENV"
 
             - name: Create K8S cluster and login
               uses: ./.github/actions/aws-kubernetes-eks-single-region-create
@@ -635,83 +634,96 @@ jobs:
                   helm uninstall external-dns --namespace external-dns --wait
                   helm uninstall cert-manager --namespace cert-manager --wait
 
-    # cleanup-clusters:
-    #     name: Cleanup ROSA clusters
-    #     if: always()
-    #     runs-on: ubuntu-latest
-    #     needs:
-    #         - clusters-info
-    #         - integration-tests
-    #     strategy:
-    #         fail-fast: false
-    #         matrix:
-    #             distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
-    #     steps:
-    #         - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-    #           if: env.CLEANUP_CLUSTERS == 'true'
-    #           with:
-    #               fetch-depth: 0
+    cleanup-clusters:
+        name: Cleanup EKS clusters
+        if: always()
+        runs-on: ubuntu-latest
+        needs:
+            - access-info
+            - integration-tests
+        strategy:
+            fail-fast: false
+            matrix:
+                scenario:
+                    - eks-single-region
+                    - eks-single-region-irsa
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              if: env.CLEANUP_CLUSTERS == 'true'
+              with:
+                  fetch-depth: 0
 
-    #         - name: Install asdf tools with cache
-    #           if: env.CLEANUP_CLUSTERS == 'true'
-    #           uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+            - name: Install asdf tools with cache
+              if: env.CLEANUP_CLUSTERS == 'true'
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
 
-    #         - name: Import Secrets
-    #           id: secrets
-    #           uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
-    #           if: env.CLEANUP_CLUSTERS == 'true'
-    #           with:
-    #               url: ${{ secrets.VAULT_ADDR }}
-    #               method: approle
-    #               roleId: ${{ secrets.VAULT_ROLE_ID }}
-    #               secretId: ${{ secrets.VAULT_SECRET_ID }}
-    #               exportEnv: false
-    #               secrets: |
-    #                   secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
-    #                   secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
-    #                   secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              if: env.CLEANUP_CLUSTERS == 'true'
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
-    #         - name: Add profile credentials to ~/.aws/credentials
-    #           shell: bash
-    #           if: env.CLEANUP_CLUSTERS == 'true'
-    #           run: |
-    #               aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-    #               aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-    #               aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
+            - name: Add profile credentials to ~/.aws/credentials
+              shell: bash
+              if: env.CLEANUP_CLUSTERS == 'true'
+              run: |
+                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
 
-    #         - name: Set current Camunda version
-    #           id: camunda-version
-    #           if: env.CLEANUP_CLUSTERS == 'true'
-    #           run: |
-    #               CAMUNDA_VERSION=$(cat .camunda-version)
-    #               echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+            - name: Export outputs as environment variables
+              run: |
+                  set -euo pipefail
 
-    #         - name: Delete on-demand ROSA HCP Cluster
-    #           uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-cleanup
-    #           if: always() && env.CLEANUP_CLUSTERS == 'true'
-    #           timeout-minutes: 125
-    #           env:
-    #               RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
-    #           with:
-    #               tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
-    #               tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-    #               max-age-hours-cluster: 0
-    #               target: ${{ matrix.distro.clusterName }}
-    #               tf-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  echo "${{ fromJson(needs.access-info.outputs.outputs_raw).outputs_raw[matrix.scenario] }}" | base64 --decode > encrypted_outputs_raw.enc
+                  openssl enc -aes-256-cbc -d -in encrypted_outputs_raw.enc -out "outputs_raw" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  rm encrypted_outputs_raw.enc
 
-    # report:
-    #     name: Report failures
-    #     if: failure()
-    #     runs-on: ubuntu-latest
-    #     needs:
-    #         - integration-tests
-    #         - cleanup-clusters
-    #     steps:
-    #         - name: Notify in Slack in case of failure
-    #           id: slack-notification
-    #           if: ${{ env.IS_SCHEDULE == 'true' }}
-    #           uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
-    #           with:
-    #               vault_addr: ${{ secrets.VAULT_ADDR }}
-    #               vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
-    #               vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  # Export the decrypted outputs as environment variables
+                  while IFS= read -r line; do
+                    echo "$line" | tee -a "$GITHUB_ENV"
+                  done < outputs_raw
+
+            - name: Export S3_BACKEND_BUCKET based on matrix and C8 version
+              id: s3-backend-bucket-prefix
+              if: env.CLEANUP_CLUSTERS == 'true'
+              run: |
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario }}/" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Delete on-demand EKS Cluster
+              uses: ./.github/actions/aws-kubernetes-eks-single-region-cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 125
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours-cluster: 0
+                  target: ${{ env.CLUSTER_NAME }}
+                  tf-bucket-key-prefix: ${{ steps.s3-backend-bucket-prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}
+
+    report:
+        name: Report failures
+        if: failure()
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+            - cleanup-clusters
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: ${{ env.IS_SCHEDULE == 'true' }}
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
