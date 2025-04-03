@@ -15,6 +15,7 @@ module "network" {
   vnet_address_space        = var.vnet_address_space
   aks_subnet_address_prefix = var.aks_subnet_address_prefix
   db_subnet_address_prefix  = var.db_subnet_address_prefix
+  pe_subnet_address_prefix  = var.pe_subnet_address_prefix
 
   tags = var.tags
 }
@@ -71,8 +72,8 @@ module "postgres_db" {
   zone                        = var.postgres_zone
   standby_availability_zone   = var.postgres_standby_zone
 
-  databases          = var.databases
-  database_passwords = var.database_passwords
+  private_endpoint_subnet_id = module.network.pe_subnet_id
+  private_dns_zone_id        = module.network.postgres_private_dns_zone_id
 
   depends_on = [module.network]
 }

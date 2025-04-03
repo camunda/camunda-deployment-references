@@ -24,9 +24,10 @@ output "postgres_admin_username" {
   sensitive   = true
 }
 
-output "postgres_databases" {
-  description = "List of created database names"
-  value       = module.postgres_db.databases
+output "postgres_admin_password" {
+  description = "PostgreSQL admin password"
+  value       = var.db_admin_password
+  sensitive   = true
 }
 
 # Output deployment info in a format suitable for testing

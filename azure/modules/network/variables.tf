@@ -49,3 +49,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "pe_subnet_address_prefix" {
+  description = "Address prefix for the private endpoint subnet"
+  type        = list(string)
+  default     = ["10.1.2.0/24"]
+}

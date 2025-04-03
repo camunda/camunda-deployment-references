@@ -28,6 +28,14 @@ resource "azurerm_subnet" "db_subnet" {
   }
 }
 
+resource "azurerm_subnet" "pe_subnet" {
+  name                 = "${var.resource_prefix}-pe-subnet"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.aks_vnet.name
+  address_prefixes     = var.pe_subnet_address_prefix
+}
+
+
 # Simple NSG with permissive rules for testing
 resource "azurerm_network_security_group" "aks_nsg" {
   name                = var.nsg_name
@@ -67,9 +75,8 @@ resource "azurerm_subnet_network_security_group_association" "aks_nsg_associatio
   network_security_group_id = azurerm_network_security_group.aks_nsg.id
 }
 
-# Simple DNS zone for testing
 resource "azurerm_private_dns_zone" "postgres" {
-  name                = "${var.resource_prefix}-postgres.private.postgres.database.azure.com"
+  name                = "privatelink.postgres.database.azure.com"
   resource_group_name = var.resource_group_name
   tags                = var.tags
 }

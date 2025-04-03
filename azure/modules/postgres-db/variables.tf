@@ -72,19 +72,12 @@ variable "standby_availability_zone" {
   default     = "2"
 }
 
-# Simplified database configurations using map for better organization
-# Non-sensitive information only
-variable "databases" {
-  description = "Map of database configurations (non-sensitive information)"
-  type = map(object({
-    name     = string
-    username = string
-  }))
+variable "private_endpoint_subnet_id" {
+  description = "Subnet ID for the PostgreSQL private endpoint"
+  type        = string
 }
 
-# Store passwords separately to avoid for_each with sensitive values
-variable "database_passwords" {
-  description = "Map of database passwords (sensitive)"
-  type        = map(string)
-  sensitive   = true
+variable "private_dns_zone_id" {
+  description = "Private DNS Zone ID for PostgreSQL"
+  type        = string
 }

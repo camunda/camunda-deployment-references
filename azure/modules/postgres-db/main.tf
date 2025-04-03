@@ -18,54 +18,33 @@ resource "azurerm_postgresql_flexible_server" "this" {
     standby_availability_zone = var.standby_availability_zone
   }
 
-  # For testing purposes, we're enabling public access
-  # In production, you would restrict this and use private endpoints
-  public_network_access_enabled = true
+  public_network_access_enabled = false
 
-  # For testing simplicity, allow all IP addresses to connect
-  # NOT RECOMMENDED FOR PRODUCTION
   lifecycle {
     ignore_changes = [
-      # This allows automated tests to run without worrying about IP changes
+      # Ignore changes to this specific tag during terraform operations
       tags["testing"],
     ]
   }
 }
 
-# For testing purposes, allow all IPs to connect to the PostgreSQL server
-# NOT RECOMMENDED FOR PRODUCTION
-resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_all" {
-  name             = "AllowAll"
-  server_id        = azurerm_postgresql_flexible_server.this.id
-  start_ip_address = "0.0.0.0"
-  end_ip_address   = "255.255.255.255"
-}
+# Private endpoint for secure access to PostgreSQL
+resource "azurerm_private_endpoint" "postgres" {
+  name                = "${var.server_name}-endpoint"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  subnet_id           = var.private_endpoint_subnet_id
+  tags                = var.tags
 
-resource "azurerm_postgresql_flexible_server_database" "databases" {
-  for_each = var.databases
+  private_service_connection {
+    name                           = "${var.server_name}-privateserviceconnection"
+    private_connection_resource_id = azurerm_postgresql_flexible_server.this.id
+    subresource_names              = ["postgresqlServer"]
+    is_manual_connection           = false
+  }
 
-  name      = each.value.name
-  server_id = azurerm_postgresql_flexible_server.this.id
-  charset   = "UTF8"
-  collation = "en_US.utf8"
-
-  depends_on = [
-    azurerm_postgresql_flexible_server_firewall_rule.allow_all
-  ]
-}
-
-resource "local_file" "connection_info" {
-  content = templatefile("${path.module}/templates/connection.tpl", {
-    server_name = azurerm_postgresql_flexible_server.this.fqdn
-    admin_user  = var.admin_username
-    admin_pass  = var.admin_password
-    databases = {
-      for k, v in var.databases : k => {
-        name     = v.name
-        username = v.username
-        password = lookup(var.database_passwords, k, "")
-      }
-    }
-  })
-  filename = "${path.module}/connection_info.txt"
+  private_dns_zone_group {
+    name                 = "postgresql-dns-group"
+    private_dns_zone_ids = [var.private_dns_zone_id]
+  }
 }

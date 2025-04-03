@@ -72,6 +72,12 @@ variable "aks_dns_service_ip" {
   default     = "10.0.0.10"
 }
 
+variable "pe_subnet_address_prefix" {
+  description = "Address prefix for the private endpoint subnet"
+  type        = list(string)
+  default     = ["10.1.2.0/24"]
+}
+
 variable "tags" {
   description = "A map of tags to add to all resources"
   type        = map(string)
@@ -161,39 +167,4 @@ variable "postgres_standby_zone" {
   type        = string
   default     = "2"
   # Must be different from primary zone for zone-redundant high availability
-}
-
-# Database Definitions - Split into non-sensitive data and sensitive passwords
-variable "databases" {
-  description = "Map of database configurations (non-sensitive)"
-  type = map(object({
-    name     = string
-    username = string
-  }))
-  default = {
-    keycloak = {
-      name     = "camunda_keycloak"
-      username = "keycloak_user"
-    },
-    identity = {
-      name     = "camunda_identity"
-      username = "identity_user"
-    },
-    webmodeler = {
-      name     = "camunda_webmodeler"
-      username = "webmodeler_user"
-    }
-  }
-}
-
-# Store passwords separately to avoid for_each with sensitive values
-variable "database_passwords" {
-  description = "Map of database passwords (sensitive)"
-  type        = map(string)
-  default = {
-    keycloak   = "Keycloak1234!"   # FOR TESTING ONLY
-    identity   = "Identity1234!"   # FOR TESTING ONLY
-    webmodeler = "Webmodeler1234!" # FOR TESTING ONLY
-  }
-  sensitive = true
 }
