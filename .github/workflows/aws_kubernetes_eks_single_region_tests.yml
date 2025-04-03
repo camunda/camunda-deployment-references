@@ -714,6 +714,7 @@ jobs:
               run: |
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario }}/" | tee -a "$GITHUB_OUTPUT"
+                  echo "CLUSTER_NAME=${{ matrix.cluster_name }}" | tee -a "$GITHUB_ENV"
 
             - name: Delete on-demand EKS Cluster
               uses: ./.github/actions/aws-kubernetes-eks-single-region-cleanup
