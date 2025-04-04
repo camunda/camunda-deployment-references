@@ -38,7 +38,7 @@ env:
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infraex
-    AWS_REGION: eu-west-1
+    AWS_REGION: eu-west-2
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
 
@@ -152,7 +152,9 @@ jobs:
                   ref-arch: ${{ matrix.scenario }}
 
             # We are exporting everything for irsa and non-irsa, worst case it's empty and not used
+            # Reason for skipping pipefail in the next step
             - name: Export relevant Terraform outputs
+              if: always()
               working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario }}/
               id: export-terraform-outputs
               run: |
@@ -214,6 +216,7 @@ jobs:
                   } >> outputs_raw
 
             - name: Export outputs and encrypt it # this is required to pass matrix outputs securely using artifacts
+              if: always()
               working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario }}/
               id: encrypt_outputs
               run: |
@@ -225,6 +228,7 @@ jobs:
 
             # Write for matrix outputs workaround
             - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
+              if: always()
               id: out
               with:
                   matrix-step-name: ${{ github.job }}
@@ -235,6 +239,7 @@ jobs:
     access-info:
         name: Read outputs from matrix
         runs-on: ubuntu-latest
+        if: always()
         needs: prepare-clusters
         outputs:
             outputs_raw: ${{ steps.read-workflow.outputs.result }}
