@@ -1,3 +1,6 @@
+# Not called `.tf` as terraform-docs and actions docs are fighting for the README
+# Neither have a good way to ignore
+
 terraform {
   required_providers {
     aws = {

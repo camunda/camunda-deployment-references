@@ -1,5 +1,7 @@
 ---
-# this manifest creates the database
+# this manifest deletes all indices on an opensearch cluster
+# it requires the secrets to be present in the setup-os-secret secret
+# for non fine grained environments an empty username/password should be set in the secret
 apiVersion: batch/v1
 kind: Job
 metadata:
