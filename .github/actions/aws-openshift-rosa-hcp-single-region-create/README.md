@@ -18,7 +18,7 @@ The kube context will be set on the created cluster.
 | `aws-region` | <p>AWS region where the ROSA cluster will be deployed</p> | `true` | `""` |
 | `availability-zones` | <p>Comma separated list of availability zones (letters only, e.g., a,b,c)</p> | `true` | `a,b,c` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `true` | `latest` |
-| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.18.4` |
+| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.18.5` |
 | `replicas` | <p>Number of replicas for the ROSA cluster (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
@@ -26,6 +26,7 @@ The kube context will be set on the created cluster.
 | `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `main` |
 | `tf-modules-path` | <p>Path where the tf rosa modules will be cloned</p> | `true` | `./.action-tf-modules/aws-openshift-rosa-hcp-single-region-create/` |
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `true` | `true` |
+| `cleanup-tf-modules-path` | <p>Whether to clean up the tf modules path</p> | `false` | `false` |
 
 
 ## Outputs
@@ -92,7 +93,7 @@ This action is a `composite` action.
     # Version of the OpenShift to install
     #
     # Required: true
-    # Default: 4.18.4
+    # Default: 4.18.5
 
     replicas:
     # Number of replicas for the ROSA cluster (empty will fallback on default value of the module)
@@ -135,4 +136,10 @@ This action is a `composite` action.
     #
     # Required: true
     # Default: true
+
+    cleanup-tf-modules-path:
+    # Whether to clean up the tf modules path
+    #
+    # Required: false
+    # Default: false
 ```

@@ -89,7 +89,7 @@ runs:
               CONSOLE_ENABLED: ${{ inputs.console-enabled }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
           run: |
-              set -euxo pipefail
+              set -euo pipefail
 
               # export test variables to be used in other steps
               echo "TEST_NAMESPACE=${{ inputs.test-namespace }}" | tee -a "$GITHUB_ENV"
@@ -211,11 +211,15 @@ runs:
         - name: 🧪 TESTS - Run Preflight TestSuite
           shell: bash
           run: |
+              set -euo pipefail
+
               task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.preflight
 
         - name: 🧪 TESTS - Run Core TestSuite
           shell: bash
           run: |
+              set -euo pipefail
+
               task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.core
 
         - name: 🧪 TESTS - Run additional tests
