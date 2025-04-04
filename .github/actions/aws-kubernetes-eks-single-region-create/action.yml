@@ -1,5 +1,5 @@
 ---
-name: Deploy AWS ROSA HCP Single Region Cluster
+name: Deploy AWS Kubernetes EKS Single Region Cluster
 
 description: |
     This GitHub Action automates the deployment of the aws/kubernetes/eks-single-region(-irsa) reference architecture cluster using Terraform.
@@ -7,10 +7,10 @@ description: |
 
 inputs:
     cluster-name:
-        description: Name of the ROSA cluster to deploy
+        description: Name of the EKS cluster to deploy
         required: true
     aws-region:
-        description: AWS region where the ROSA cluster will be deployed
+        description: AWS region where the EKS cluster will be deployed
         required: true
     kubernetes-version:
         description: Version of Kubernetes to install
@@ -30,7 +30,7 @@ inputs:
         default: main
         required: true
     tf-modules-path:
-        description: Path where the tf rosa modules will be cloned
+        description: Path where the tf eks modules will be cloned
         default: ./.action-tf-modules/aws-kubernetes-eks-single-region-create/
         required: true
     login:
