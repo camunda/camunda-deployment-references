@@ -2,12 +2,6 @@
 # Neither have a good way to ignore
 
 terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.69" # Adjust version as needed
-    }
-  }
 
   backend "s3" {
     encrypt = true
