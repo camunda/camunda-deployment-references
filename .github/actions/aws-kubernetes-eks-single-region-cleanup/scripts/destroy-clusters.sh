@@ -60,11 +60,15 @@ fi
 # Function to perform terraform destroy
 destroy_cluster() {
   local key=$1
-  local cluster_id=$(echo "$key" | sed 's|.*/tfstate-\([^/]*\)/.*|\1|')
-  local cluster_folder=$(echo "$key" | sed 's|\(.*\)/.*|\1|')
+  local cluster_id
+  local cluster_folder
+  # shellcheck disable=SC2001 # the alternative is multiple bash expansions
+  cluster_id=$(echo "$key" | sed 's|.*/tfstate-\([^/]*\)/.*|\1|')
+  # shellcheck disable=SC2001 # the alternative is multiple bash expansions
+  cluster_folder=$(echo "$key" | sed 's|\(.*\)/.*|\1|')
 
   mkdir -p "/tmp/$cluster_id"
-  cp "$SCRIPT_DIR/config.tf" "/tmp/$cluster_id/config.tf"
+  cp "$SCRIPT_DIR/config" "/tmp/$cluster_id/config.tf"
   cd "/tmp/$cluster_id" || exit 1
 
   if [[ "$RETRY_DESTROY" == "true" ]]; then

@@ -1,6 +1,6 @@
 locals {
   eks_cluster_name   = "cluster-name-std" # Change this to a name of your choice
-  eks_cluster_region = "eu-north-1"       # Change this to your desired AWS region
+  eks_cluster_region = "eu-west-1"        # Change this to your desired AWS region
   # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
   kubernetes_version = "1.32" # Change this to your desired Kubernetes version (eks - major.minor)
 }
