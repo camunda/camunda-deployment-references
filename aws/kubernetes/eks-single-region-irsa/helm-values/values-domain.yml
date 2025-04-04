@@ -119,6 +119,8 @@ identity:
         - name: SPRING_DATASOURCE_USERNAME
           value: ${DB_IDENTITY_USERNAME}
 
+connectors:
+    contextPath: /connectors
 
 operate:
     contextPath: /operate
