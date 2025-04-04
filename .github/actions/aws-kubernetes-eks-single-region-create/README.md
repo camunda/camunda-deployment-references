@@ -1,4 +1,4 @@
-# Deploy AWS ROSA HCP Single Region Cluster
+# Deploy AWS Kubernetes EKS Single Region Cluster
 
 ## Description
 
@@ -10,14 +10,14 @@ The kube context will be set on the created cluster.
 
 | name | description | required | default |
 | --- | --- | --- | --- |
-| `cluster-name` | <p>Name of the ROSA cluster to deploy</p> | `true` | `""` |
-| `aws-region` | <p>AWS region where the ROSA cluster will be deployed</p> | `true` | `""` |
+| `cluster-name` | <p>Name of the EKS cluster to deploy</p> | `true` | `""` |
+| `aws-region` | <p>AWS region where the EKS cluster will be deployed</p> | `true` | `""` |
 | `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.32` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
 | `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `main` |
-| `tf-modules-path` | <p>Path where the tf rosa modules will be cloned</p> | `true` | `./.action-tf-modules/aws-kubernetes-eks-single-region-create/` |
+| `tf-modules-path` | <p>Path where the tf eks modules will be cloned</p> | `true` | `./.action-tf-modules/aws-kubernetes-eks-single-region-create/` |
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `true` | `true` |
 | `ref-arch` | <p>Reference architecture to deploy</p> | `false` | `eks-single-region-irsa` |
 
@@ -39,13 +39,13 @@ This action is a `composite` action.
 - uses: camunda/camunda-deployment-references/.github/actions/aws-kubernetes-eks-single-region-create@main
   with:
     cluster-name:
-    # Name of the ROSA cluster to deploy
+    # Name of the EKS cluster to deploy
     #
     # Required: true
     # Default: ""
 
     aws-region:
-    # AWS region where the ROSA cluster will be deployed
+    # AWS region where the EKS cluster will be deployed
     #
     # Required: true
     # Default: ""
@@ -81,7 +81,7 @@ This action is a `composite` action.
     # Default: main
 
     tf-modules-path:
-    # Path where the tf rosa modules will be cloned
+    # Path where the tf eks modules will be cloned
     #
     # Required: true
     # Default: ./.action-tf-modules/aws-kubernetes-eks-single-region-create/
