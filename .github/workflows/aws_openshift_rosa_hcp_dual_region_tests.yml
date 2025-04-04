@@ -523,91 +523,34 @@ jobs:
 
                   ./generic/openshift/dual-region/procedure/check-deployment-ready.sh
 
-            # TODO: integrate helm chart dual region tests if they exists
-            # TODO: integrate c8-multi-region tests as a lego test
 
-            - name: 🧪 TESTS - Run additional tests
-              if: env.TESTS_ENABLED == 'true'
-              timeout-minutes: 20
+            - name: Set current Camunda version
+              id: camunda-version
               run: |
                   set -euo pipefail
 
-                  echo "Show zeebe cluster topology using generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh:"
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-                  # Execute the script and capture the output file (zeebe-topology.json)
-                  ./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh
+            # TODO: integrate c8-multi-region tests as a lego test
 
-                  check_zeebe_topology_output=$(<zeebe-topology.json)
-
-                  # Checks
-                  error_found=false
-                  check_zeebe_topology_all_healthy=$(echo "$check_zeebe_topology_output" | jq '[.brokers[].partitions[].health == "healthy"] | all')
-                  check_zeebe_topology_cluster_size=$(echo "$check_zeebe_topology_output" | jq '.clusterSize')
-                  check_zeebe_topology_partitions_count=$(echo "$check_zeebe_topology_output" | jq '.partitionsCount')
-
-                  if [ "$check_zeebe_topology_all_healthy" = "true" ]; then
-                    echo "✅ All partitions are healthy."
-                  else
-                    echo "❌ Not all partitions are healthy"
-                    error_found=true
-                  fi
-
-                  if [ "$check_zeebe_topology_cluster_size" -eq 8 ]; then
-                    echo "✅ Cluster size is 8."
-                  else
-                    echo "❌ Cluster size is not 8."
-                    error_found=true
-                  fi
-
-                  if [ "$check_zeebe_topology_partitions_count" -eq 8 ]; then
-                    echo "✅ Partitions count is 8."
-                  else
-                    echo "❌ Partitions count is not 8."
-                    error_found=true
-                  fi
-
-                  echo "Comparing golden file of the zeebe topology output..."
-
-                  reference_file="./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology-output.json"
-                  # Save the output to a temporary file
-                  temp_output=$(mktemp)
-                  echo "$check_zeebe_topology_output" > "$temp_output"
-
-                  # Replace patch version
-                  yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$temp_output"
-                  yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$reference_file"
-
-                  # Replace namespaces names with cluster names, we don't proceed to replacement of local-cluster as this one is hard-coded
-                  sed -e "s/cluster-region-2/$CLUSTER_2_NAME/g" \
-                      -e "s/camunda-cluster-region-2\.svc/$CAMUNDA_NAMESPACE_2\.svc/g" \
-                      -e "s/camunda-cluster-region-1\.svc/$CAMUNDA_NAMESPACE_1\.svc/g" \
-                      -i "$reference_file"
-
-                  # Order each file also remove not predictable fields
-                  yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$temp_output"
-                  yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$reference_file"
-
-                  # Compare the two files using diff (in compacted JSON format)
-                  diff_output=$(delta <(jq -S . "$temp_output") <(jq -S . "$reference_file") || true)
-
-                  if [[ -n "$diff_output" ]]; then
-                    # If differences are found, print the error and the diff
-                    echo "❌ Error: The golden files of zeebe topology files do not match."
-                    echo "Differences found:"
-                    echo "$diff_output"
-
-                    # Display the new generated version
-                    echo "New version:"
-                    cat "$temp_output"
-
-                    error_found=true
-                  fi
-
-                  if [ "$error_found" = true ]; then
-                    echo "❌ Some tests failed."
-                    exit 1
-                  fi
-                  echo "✅ The cluster meets all the expected criteria."
+            - name: 🧪 Run Helm Chart tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 60
+              uses: ./.github/actions/internal-camunda-chart-tests
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
+                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
+                  test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+                  enable-helm-chart-tests: 'false' # TODO: integrate helm chart dual region tests if they exists
+                  zeebe-authenticated: 'false'
+                  zeebe-topology-check-script: ./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh
+                  zeebe-topology-golden-file: ./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology-output.json
+                  camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  cluster-2-name: ${{ env.CLUSTER_2_NAME }}
+                  camunda-namespace-2: ${{ env.CAMUNDA_NAMESPACE_2 }}
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
