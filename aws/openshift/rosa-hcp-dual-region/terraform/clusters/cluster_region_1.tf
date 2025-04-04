@@ -17,7 +17,7 @@ module "rosa_cluster_1" {
     aws = aws.cluster_1
   }
 
-  source = "git::https://github.com/camunda/camunda-tf-rosa//modules/rosa-hcp?ref=v2.2.0"
+  source = "../../../../modules/rosa-hcp"
 
   cluster_name = local.rosa_cluster_1_name
 

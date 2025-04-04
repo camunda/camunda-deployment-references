@@ -11,4 +11,9 @@ TOKEN=$(curl --location --request POST "${ZEEBE_AUTHORIZATION_SERVER_URL}" \
 --data-urlencode "grant_type=client_credentials" | jq '.access_token' -r)
 
 # Show the zeebe cluster topology
-curl --header "Authorization: Bearer ${TOKEN}" "${ZEEBE_ADDRESS_REST}/v2/topology"
+echo "📡 Fetching Zeebe cluster topology..."
+topology=$(curl --header "Authorization: Bearer ${TOKEN}" "${ZEEBE_ADDRESS_REST}/v2/topology")
+
+echo "$topology" > zeebe-topology.json
+
+jq . zeebe-topology.json
