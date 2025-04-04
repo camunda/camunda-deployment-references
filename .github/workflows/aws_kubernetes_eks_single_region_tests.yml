@@ -413,7 +413,7 @@ jobs:
                   kubectl delete secret setup-db-secret --namespace camunda
 
                   # Reset OpenSearch
-                  kubectl apply -f .aws/kubernetes/eks-single-region/test/reset-opensearch.yml --namespace camunda
+                  kubectl apply -f ./aws/kubernetes/eks-single-region/test/reset-opensearch.yml --namespace camunda
 
                   # Wait for the job to complete
                   while true; do
