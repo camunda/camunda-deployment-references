@@ -1,5 +1,6 @@
 ---
-# this manifest creates the database
+# this manifest deletes all databases on a postgresql aurora cluster
+# it requires the secrets to be present in the setup-db-secret secret
 apiVersion: batch/v1
 kind: Job
 metadata:
