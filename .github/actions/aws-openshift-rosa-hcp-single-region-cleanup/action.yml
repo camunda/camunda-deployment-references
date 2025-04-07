@@ -34,6 +34,10 @@ inputs:
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
         default: 4.18.5
 
+    delete-ghost-clusters:
+        description: Specify whether to delete ghost clusters (true or false)
+        default: 'true'
+
 runs:
     using: composite
     steps:
@@ -65,7 +69,7 @@ runs:
           working-directory: /tmp
           env:
               # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
-              CLOUD_NUKE_VERSION: v0.39.0
+              CLOUD_NUKE_VERSION: v0.40.0
           run: |
               set -euo pipefail
 
@@ -93,3 +97,7 @@ runs:
               ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
                 ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-single-region/ /tmp/cleanup/ \
                 ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
+
+              if [ "${{ inputs.delete-ghost-clusters }}" == "true" ]; then
+                ${{ github.action_path }}/scripts/cleanup-ghost-clusters.sh
+              fi
