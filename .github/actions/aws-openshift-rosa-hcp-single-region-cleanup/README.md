@@ -15,7 +15,8 @@ This GitHub Action automates the deletion of aws/openshift/rosa-hcp-single-regio
 | `max-age-hours-cluster` | <p>Maximum age of clusters in hours</p> | `false` | `20` |
 | `target` | <p>Specify an ID to destroy specific resources or "all" to destroy all resources</p> | `false` | `all` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
-| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.18.4` |
+| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.18.5` |
+| `delete-ghost-clusters` | <p>Specify whether to delete ghost clusters (true or false)</p> | `false` | `true` |
 
 
 ## Runs
@@ -67,5 +68,11 @@ This action is a `composite` action.
     # Version of the OpenShift to install
     #
     # Required: true
-    # Default: 4.18.4
+    # Default: 4.18.5
+
+    delete-ghost-clusters:
+    # Specify whether to delete ghost clusters (true or false)
+    #
+    # Required: false
+    # Default: true
 ```
