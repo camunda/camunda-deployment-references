@@ -42,8 +42,8 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   AWS_REGION="$region_id" rosa delete cluster -c "$cluser_name" -y --watch
 
 
-  AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluser_name}-operator"
-  AWS_REGION="$region_id" rosa delete oidc-provider --oidc-config-id "${oidc_config_id}"
+  AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluser_name}-operator" --yes --mode auto
+  AWS_REGION="$region_id" rosa delete oidc-provider --oidc-config-id "${oidc_config_id}" --yes --mode auto
 
 done
 
