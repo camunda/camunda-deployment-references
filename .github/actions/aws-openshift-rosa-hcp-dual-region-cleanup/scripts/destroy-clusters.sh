@@ -135,14 +135,17 @@ destroy_resource() {
     TF_VAR_cluster_1_vpc_id=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_1_name}*" --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_1_AWS_REGION")
     TF_VAR_cluster_2_vpc_id=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_2_name}*" --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_2_AWS_REGION")
 
-    if [[ "$TF_VAR_cluster_1_vpc_id" == "None" || -z "$TF_VAR_cluster_1_vpc_id" ]]; then
-      echo "Error: VPC for cluster_1 ($cluster_1_name) not found in region $CLUSTER_1_AWS_REGION."
-      return 1
-    fi
+    if [[ "$TF_VAR_cluster_1_vpc_id" == "None" || -z "$TF_VAR_cluster_1_vpc_id" || \
+          "$TF_VAR_cluster_2_vpc_id" == "None" || -z "$TF_VAR_cluster_2_vpc_id" ]]; then
+      echo "Error: At least one of the VPCs (cluster_1: $TF_VAR_cluster_1_vpc_id, cluster_2: $TF_VAR_cluster_2_vpc_id) not found."
 
-    if [[ "$TF_VAR_cluster_2_vpc_id" == "None" || -z "$TF_VAR_cluster_2_vpc_id" ]]; then
-        echo "Error: VPC for cluster_2 ($cluster_2_name) not found in region $CLUSTER_2_AWS_REGION."
-        return 1
+      echo "Assuming it was deleted by Cloud Nuke. Cleaning up Terraform state..."
+      aws s3 rm "s3://$BUCKET/$module_tfstate" --recursive || return 1
+      aws s3api delete-object --bucket "$BUCKET" --key "$module_tfstate" || return 1
+      cd - || return 1
+      rm -rf "$temp_dir" || return 1
+
+      return 0
     fi
 
     export TF_VAR_cluster_1_vpc_id
