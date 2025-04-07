@@ -28,6 +28,7 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   cluster_id=$(echo "$cluster" | jq -r '.id')
   cluser_name=$(echo "$cluster" | jq -r '.name')
   region_id=$(echo "$cluster" | jq -r '.region.id')
+  oidc_config_id=$(echo "$cluster" | jq -r '.aws.sts.oidc_config.id')
 
   echo "----------------------------------------"
   echo "🔧 Cluster ID: $cluster_id"
@@ -39,6 +40,10 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
 
   echo "💣 Deleting cluster: $cluser_name"
   AWS_REGION="$region_id" rosa delete cluster -c "$cluser_name" -y --watch
+
+
+  AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluser_name}-operator"
+  AWS_REGION="$region_id" rosa delete oidc-provider --oidc-config-id "${oidc_config_id}"
 
 done
 
