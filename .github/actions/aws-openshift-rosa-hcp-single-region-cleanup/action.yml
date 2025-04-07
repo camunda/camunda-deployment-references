@@ -99,5 +99,5 @@ runs:
                 ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
 
               if [ "${{ inputs.delete-ghost-clusters }}" == "true" ]; then
-                ${{ github.action_path }}/scripts/cleanup-ghost-clusters.sh
+                ${{ github.action_path }}/scripts/cleanup-ghost-clusters.sh ${{ inputs.max-age-hours-cluster }}
               fi
