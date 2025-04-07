@@ -34,6 +34,10 @@ inputs:
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
         default: 4.18.5
 
+    delete-ghost-clusters:
+        description: Specify whether to delete ghost clusters (true or false)
+        default: 'true'
+
 runs:
     using: composite
     steps:
@@ -94,4 +98,6 @@ runs:
                 ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-single-region/ /tmp/cleanup/ \
                 ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
 
-              ${{ github.action_path }}/scripts/cleanup-ghost-clusters.sh
+              if [ "${{ inputs.delete-ghost-clusters }}" == "true" ]; then
+                ${{ github.action_path }}/scripts/cleanup-ghost-clusters.sh
+              fi

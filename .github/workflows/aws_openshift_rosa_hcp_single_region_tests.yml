@@ -525,6 +525,7 @@ jobs:
                   max-age-hours-cluster: 0
                   target: ${{ matrix.distro.clusterName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  delete-ghost-clusters: 'false'
 
     report:
         name: Report failures
