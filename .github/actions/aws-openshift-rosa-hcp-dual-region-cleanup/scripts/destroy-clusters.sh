@@ -159,11 +159,12 @@ destroy_resource() {
 
   echo "Destroying module $module_name in group $group_id"
   if ! output_tf_destroy=$(terraform destroy -auto-approve 2>&1); then
+    echo "$output_tf_destroy"
+
     if [[ "$module_name" == "clusters" && "$output_tf_destroy" == *"CLUSTERS-MGMT-404"* ]]; then
       echo "The cluster appears to have already been deleted (error: CLUSTERS-MGMT-404). Considering the deletion successful (likely due to cloud-nuke)."
     else
       echo "Error destroying module $module_name in group $group_id"
-      echo "$output_tf_destroy"
       return 1
     fi
   fi
