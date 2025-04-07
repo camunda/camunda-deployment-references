@@ -95,10 +95,10 @@ jobs:
                   target: all
 
             # There are cases where the deletion of resources fails due to dependencies.
-            - name: Retry delete orphaned resources
+            - name: Retry delete orphaned resources (schedule only)
               id: retry-delete-orphaned-resources
               timeout-minutes: 360
-              if: failure() && steps.delete-orphaned-resources.outcome == 'failure'
+              if: failure() && steps.delete-orphaned-resources.outcome == 'failure' && env.IS_SCHEDULE == 'true'
               uses: ./.github/actions/aws-eks-cleanup-resources
               with:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}

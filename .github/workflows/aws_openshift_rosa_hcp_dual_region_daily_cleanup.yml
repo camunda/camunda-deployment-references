@@ -111,9 +111,9 @@ jobs:
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
             # There are cases where the deletion of resources fails due to dependencies.
-            - name: Retry delete clusters
+            - name: Retry delete clusters (schedule only)
               id: retry_delete_clusters
-              if: failure() && steps.delete_clusters.outcome == 'failure'
+              if: failure() && steps.delete_clusters.outcome == 'failure' && env.IS_SCHEDULE == 'true'
               timeout-minutes: 125
               uses: ./.github/actions/aws-openshift-rosa-hcp-dual-region-cleanup
               env:
