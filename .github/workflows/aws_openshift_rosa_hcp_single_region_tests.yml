@@ -79,7 +79,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@0f44c132019ad2023661e1d747a264f54acd563d # 1.3.3
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
 
             - id: matrix
               # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
@@ -132,7 +132,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@0f44c132019ad2023661e1d747a264f54acd563d # 1.3.3
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
 
             - name: Import Secrets
               id: secrets
@@ -230,7 +230,7 @@ jobs:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@0f44c132019ad2023661e1d747a264f54acd563d # 1.3.3
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
 
             - name: Install CLI tools from OpenShift Mirror
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -583,7 +583,7 @@ jobs:
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
-              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@492e5215f5212ad6ac825fa28fca1d2feff322ef # main
+              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@3a58144d5db1ed01461e0327e674c4d49f019ef2 # main
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
@@ -604,7 +604,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@0f44c132019ad2023661e1d747a264f54acd563d # 1.3.3
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
 
             - name: Import Secrets
               id: secrets
