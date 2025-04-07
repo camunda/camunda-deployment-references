@@ -1,26 +1,19 @@
 ---
-# TODO: [release-duty] when release update the link with 8.7
-# keep it synced with https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform-alpha/test/integration/scenarios/common/values-integration-test.yaml
+# keep it synced with https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform-8.7/test/integration/scenarios/common/values-integration-test.yaml
 # it generates the CI user used to connect to the platform
 
 identity:
     # Keycloak client seed which is used to query Camunda APIs.
     env:
         - name: KEYCLOAK_CLIENTS_2_ID
-          valueFrom:
-              secretKeyRef:
-                  name: identity-secret-for-components-integration
-                  key: identity-admin-client-id
+          value: venom
         - name: KEYCLOAK_CLIENTS_2_NAME
-          valueFrom:
-              secretKeyRef:
-                  name: identity-secret-for-components-integration
-                  key: identity-admin-client-id
+          value: Venom
         - name: KEYCLOAK_CLIENTS_2_SECRET
           valueFrom:
               secretKeyRef:
-                  name: identity-secret-for-components-integration
-                  key: identity-admin-client-secret
+                  name: integration-test-credentials
+                  key: identity-admin-client-password
         - name: KEYCLOAK_CLIENTS_2_REDIRECT_URIS_0
           value: /dummy
         - name: KEYCLOAK_CLIENTS_2_ROOT_URL
