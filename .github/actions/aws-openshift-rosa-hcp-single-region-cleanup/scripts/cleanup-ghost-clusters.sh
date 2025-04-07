@@ -11,7 +11,9 @@ if [ -z "$RHCS_TOKEN" ]; then
   exit 1
 fi
 
-# Fetch clusters matching the criteria
+rosa login --token="$RHCS_TOKEN"
+
+# Fetch clusters matching the criteria (if no node pool and error reported)
 raw_clusters=$(rosa list cluster --output json | jq '[.[] | select((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1)]')
 
 # Check if there are any clusters
@@ -22,9 +24,7 @@ if [ "$cluster_count" -eq 0 ]; then
   exit 0
 fi
 
-# For each cluster object
 echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
-  # Extract cluster ID and region ID using jq
   cluster_id=$(echo "$cluster" | jq -r '.id')
   cluser_name=$(echo "$cluster" | jq -r '.name')
   region_id=$(echo "$cluster" | jq -r '.region.id')
