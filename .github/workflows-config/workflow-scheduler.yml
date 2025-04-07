@@ -8,9 +8,6 @@ schedules:
           # AWS OpenShift ROSA HCP single region
           - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
 
-          # AWS EC2
-          - .github/workflows/aws_ec2_tests.yml
-
     - name: Everyday schedules 8.6
       branch: stable/8.6
       cron_every_day:
