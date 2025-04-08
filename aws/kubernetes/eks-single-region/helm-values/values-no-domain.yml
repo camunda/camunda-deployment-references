@@ -72,6 +72,11 @@ identity:
         existingSecret: identity-postgres-secret
         existingSecretPasswordKey: password
 
+postgresql:
+    # Will deploy a postgresql datbase for webModeler.
+    # If you enable webModeler, you either need to turn it true or use an external database
+    enabled: false
+
 webModeler:
     enabled: false # by default, webModeler is not enabled
 
