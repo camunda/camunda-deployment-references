@@ -260,6 +260,7 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         env:
             TEST_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
@@ -302,42 +303,38 @@ jobs:
                   rm encrypted_kubeconfig.enc
                   chmod 600 "$HOME/.kube/config"
 
+                  oc config current-context
+                  oc get nodes
+
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
               run: |
-                  set -euo pipefail
                   # run it as specified in the doc
+                  set -euo pipefail
 
                   ./aws/openshift/rosa-hcp-single-region/procedure/get-your-copy.sh
                   tree
 
             - name: 🏗️ Prepare a fresh namespace for the tests
-              # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
-              uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3
-              with:
-                  timeout_minutes: 10
-                  max_attempts: 40
-                  shell: bash
-                  retry_wait_seconds: 15
-                  command: |
-                      set -o errexit # this is required https://github.com/nick-fields/retry/issues/133
-                      set -o pipefail
+              run: |
+                  set -o errexit
+                  set -euo pipefail
 
-                      # Delete the namespace to ensure a fresh start
-                      if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
-                        kubectl delete namespace "$TEST_NAMESPACE" --wait
-                        while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
-                          echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
-                          sleep 5
-                        done
-                      fi
+                  # Delete the namespace to ensure a fresh start
+                  if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
+                    kubectl delete namespace "$TEST_NAMESPACE" --wait
+                    while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
+                      echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
+                      sleep 5
+                    done
+                  fi
 
-                      oc new-project "$TEST_NAMESPACE" \
-                        --description="Integration project of $TEST_NAMESPACE" \
-                        --display-name="$TEST_NAMESPACE"
+                  oc new-project "$TEST_NAMESPACE" \
+                    --description="Integration project of $TEST_NAMESPACE" \
+                    --display-name="$TEST_NAMESPACE"
 
-                      echo "Sleeping 30s"
-                      sleep 30
+                  echo "Sleeping 30s"
+                  sleep 30
 
             - name: 🛠️ Assemble deployment values of generic/openshift/single-region
               timeout-minutes: 10
@@ -352,18 +349,32 @@ jobs:
 
                   cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
 
-                  source ./generic/openshift/single-region/procedure/setup-application-domain.sh
-                  echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+                  echo "Applying declination: ${{ matrix.declination }}"
 
-                  source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+                  if [[ ${{ matrix.declination }} == "domain" ]]; then
 
-                  ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
+                    source ./generic/openshift/single-region/procedure/setup-application-domain.sh
+                    echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
-                  # Enable Routes
-                  for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
-                      yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
+                    source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+
+                    ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
+
+                    # Enable Routes
+                    for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
+                        yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
+                        cat values-result.yml && mv values-result.yml values.yml
+                    done
+                  elif [[ ${{ matrix.declination }} == "no-domain" ]]; then
+                      # explicitely set no domain
+                      echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
+
+                      yq ". *d load(\"generic/openshift/single-region/helm-values/no-domain.yml\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
-                  done
+                  else
+                    echo "Error: matrix.declaration must be set to 'domain' or 'no-domain'" >&2
+                    exit 1
+                  fi
 
                   # Enable SCC
                   yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
@@ -442,6 +453,7 @@ jobs:
                   secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
+                  camunda-domain-grpc: zeebe-${{ env.DOMAIN_NAME }}:443
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}

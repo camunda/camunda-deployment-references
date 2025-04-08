@@ -44,3 +44,7 @@ matrix:
         - name: Chart Setup
           desc: Setup chart in production-like setup with Ingress and TLS.
           flow: install
+
+    declination:
+        - no-domain
+        - domain
