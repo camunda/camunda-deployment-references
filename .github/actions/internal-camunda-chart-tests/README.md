@@ -17,9 +17,8 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `camunda-domain-grpc` | <p>The domain to use for the gRPC tests</p> | `false` | `false` |
 | `webmodeler-enabled` | <p>Whether the Webmodeler is enabled in the chart</p> | `false` | `false` |
 | `console-enabled` | <p>Whether the Console is enabled in the chart</p> | `false` | `false` |
-| `test-namespace` | <p>The namespace to use for the helm tests</p> | `false` | `camunda` |
 | `elasticsearch-enabled` | <p>Whether the Elasticsearch is enabled in the chart</p> | `false` | `true` |
-| `test-namespace` | <p>The namespace to use for the tests</p> | `false` | `camunda` |
+| `test-namespace` | <p>The namespace to use for the helm tests</p> | `false` | `camunda` |
 | `test-cluster-type` | <p>The type of the cluster to use for the tests</p> | `false` | `kubernetes` |
 | `zeebe-topology-golden-file` | <p>The golden file to compare the Zeebe topology output against.</p> | `false` | `./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json` |
 | `zeebe-topology-check-script` | <p>The script called to the current Zeebe topology.</p> | `false` | `./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh` |
