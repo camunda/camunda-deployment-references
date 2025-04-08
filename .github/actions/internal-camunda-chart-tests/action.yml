@@ -270,16 +270,12 @@ runs:
                   echo "Port-forwarding for $service on ports $ports started."
               }
 
-              # TODO: Pull out of the documentation
-
               # With domain:
-              export ZEEBE_ADDRESS_REST="https://$DOMAIN_NAME/zeebe"
-              export ZEEBE_AUTHORIZATION_SERVER_URL="https://$DOMAIN_NAME/auth/realms/camunda-platform/protocol/openid-connect/token"
+              source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-domain.sh
 
               if [[ "$DOMAIN_NAME" == "" ]]; then
                 # Without domain:
-                export ZEEBE_ADDRESS_REST="http://localhost:8080"
-                export ZEEBE_AUTHORIZATION_SERVER_URL="http://localhost:18080/auth/realms/camunda-platform/protocol/openid-connect/token"
+                source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 
                 start_port_forward camunda-zeebe-gateway 8080:8080
                 start_port_forward camunda-keycloak 18080:80
