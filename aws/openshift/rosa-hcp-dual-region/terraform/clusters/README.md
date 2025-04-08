@@ -5,8 +5,8 @@
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_rosa_cluster_1"></a> [rosa\_cluster\_1](#module\_rosa\_cluster\_1) | git::https://github.com/camunda/camunda-tf-rosa//modules/rosa-hcp | v2.2.0 |
-| <a name="module_rosa_cluster_2"></a> [rosa\_cluster\_2](#module\_rosa\_cluster\_2) | git::https://github.com/camunda/camunda-tf-rosa//modules/rosa-hcp | v2.2.0 |
+| <a name="module_rosa_cluster_1"></a> [rosa\_cluster\_1](#module\_rosa\_cluster\_1) | ../../../../modules/rosa-hcp | n/a |
+| <a name="module_rosa_cluster_2"></a> [rosa\_cluster\_2](#module\_rosa\_cluster\_2) | ../../../../modules/rosa-hcp | n/a |
 ## Resources
 
 No resources.
