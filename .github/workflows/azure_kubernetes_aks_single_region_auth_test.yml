@@ -11,7 +11,7 @@ permissions:
     contents: read
 
 jobs:
-    deploy:
+    auth-test:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -38,7 +38,12 @@ jobs:
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
                   subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
 
-            - name: Terraform Apply
+            - name: Install Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_version: 1.11.3
+
+            - name: Terraform Plan
               run: |
                   cd azure/kubernetes/aks-single-region/
                   terraform init
