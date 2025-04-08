@@ -32,7 +32,7 @@ jobs:
 
 
             - name: Azure Login with OIDC
-              uses: azure/login@b5d2f270d4216bba6fbc594fb34e07eb799fadc2 # v1.6.1
+              uses: azure/login@v1.6.1
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
