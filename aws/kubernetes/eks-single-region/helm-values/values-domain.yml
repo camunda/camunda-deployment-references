@@ -100,6 +100,9 @@ webModeler:
             user: ${DB_WEBMODELER_USERNAME}
             existingSecret: webmodeler-postgres-secret
             existingSecretPasswordKey: password
+        env:
+            - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+              value: software.amazon.jdbc.Driver
         mail:
             existingSecret: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
