@@ -1,19 +1,262 @@
 {
-  "child_modules": [
-    {
-      "address": "module.eks_cluster",
-      "child_modules": [
-        {
-          "address": "module.eks_cluster.module.eks",
-          "child_modules": [
-            {
-              "address": "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"]",
-              "child_modules": [
-                {
-                  "address": "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].module.user_data",
-                  "resources": [
-                    {
-                      "address": "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].module.user_data.null_resource.validate_cluster_service_cidr",
+  "child_modules": {
+    "module.eks_cluster": {
+      "child_modules": {
+        "module.eks_cluster.module.cert_manager_role": {
+          "resources": {
+            "module.eks_cluster.module.cert_manager_role.aws_iam_role.this[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "inline_policy": [],
+                "managed_policy_arns": [],
+                "tags_all": {}
+              },
+              "type": "aws_iam_role",
+              "values": {
+                "description": null,
+                "force_detach_policies": true,
+                "max_session_duration": 3600,
+                "name": "cluster-name-std-cert-manager-role",
+                "path": "/",
+                "permissions_boundary": null,
+                "tags": null
+              }
+            },
+            "module.eks_cluster.module.cert_manager_role.aws_iam_role_policy_attachment.this[\"policy\"]": {
+              "index": "policy",
+              "mode": "managed",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "aws_iam_role_policy_attachment",
+              "values": {
+                "role": "cluster-name-std-cert-manager-role"
+              }
+            },
+            "module.eks_cluster.module.cert_manager_role.data.aws_iam_policy_document.this[0]": {
+              "index": 0,
+              "mode": "data",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "statement": [
+                  {
+                    "actions": [
+                      false
+                    ],
+                    "condition": [
+                      {
+                        "values": [
+                          false
+                        ]
+                      },
+                      {
+                        "values": [
+                          false
+                        ]
+                      }
+                    ],
+                    "not_principals": [],
+                    "principals": [
+                      {
+                        "identifiers": [
+                          false
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "type": "aws_iam_policy_document",
+              "values": {
+                "override_json": null,
+                "override_policy_documents": null,
+                "policy_id": null,
+                "source_json": null,
+                "source_policy_documents": null,
+                "statement": [
+                  {
+                    "actions": [
+                      "sts:AssumeRoleWithWebIdentity"
+                    ],
+                    "condition": [
+                      {
+                        "test": "StringEquals",
+                        "values": [
+                          "sts.amazonaws.com"
+                        ]
+                      },
+                      {
+                        "test": "StringEquals",
+                        "values": [
+                          "system:serviceaccount:cert-manager:cert-manager"
+                        ]
+                      }
+                    ],
+                    "effect": "Allow",
+                    "not_actions": null,
+                    "not_principals": [],
+                    "not_resources": null,
+                    "principals": [
+                      {
+                        "identifiers": [
+                          null
+                        ],
+                        "type": "Federated"
+                      }
+                    ],
+                    "resources": null,
+                    "sid": null
+                  }
+                ],
+                "version": null
+              }
+            }
+          }
+        },
+        "module.eks_cluster.module.ebs_cs_role": {
+          "resources": {
+            "module.eks_cluster.module.ebs_cs_role.aws_iam_role.this[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "inline_policy": [],
+                "managed_policy_arns": [],
+                "tags_all": {}
+              },
+              "type": "aws_iam_role",
+              "values": {
+                "description": null,
+                "force_detach_policies": true,
+                "max_session_duration": 3600,
+                "name": "cluster-name-std-ebs-cs-role",
+                "path": "/",
+                "permissions_boundary": null,
+                "tags": null
+              }
+            },
+            "module.eks_cluster.module.ebs_cs_role.aws_iam_role_policy_attachment.this[\"policy\"]": {
+              "index": "policy",
+              "mode": "managed",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "aws_iam_role_policy_attachment",
+              "values": {
+                "role": "cluster-name-std-ebs-cs-role"
+              }
+            },
+            "module.eks_cluster.module.ebs_cs_role.aws_iam_role_policy_attachment.this[\"policy_2\"]": {
+              "index": "policy_2",
+              "mode": "managed",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "aws_iam_role_policy_attachment",
+              "values": {
+                "role": "cluster-name-std-ebs-cs-role"
+              }
+            },
+            "module.eks_cluster.module.ebs_cs_role.data.aws_iam_policy_document.this[0]": {
+              "index": 0,
+              "mode": "data",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "statement": [
+                  {
+                    "actions": [
+                      false
+                    ],
+                    "condition": [
+                      {
+                        "values": [
+                          false
+                        ]
+                      },
+                      {
+                        "values": [
+                          false
+                        ]
+                      }
+                    ],
+                    "not_principals": [],
+                    "principals": [
+                      {
+                        "identifiers": [
+                          false
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "type": "aws_iam_policy_document",
+              "values": {
+                "override_json": null,
+                "override_policy_documents": null,
+                "policy_id": null,
+                "source_json": null,
+                "source_policy_documents": null,
+                "statement": [
+                  {
+                    "actions": [
+                      "sts:AssumeRoleWithWebIdentity"
+                    ],
+                    "condition": [
+                      {
+                        "test": "StringEquals",
+                        "values": [
+                          "sts.amazonaws.com"
+                        ]
+                      },
+                      {
+                        "test": "StringEquals",
+                        "values": [
+                          "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+                        ]
+                      }
+                    ],
+                    "effect": "Allow",
+                    "not_actions": null,
+                    "not_principals": [],
+                    "not_resources": null,
+                    "principals": [
+                      {
+                        "identifiers": [
+                          null
+                        ],
+                        "type": "Federated"
+                      }
+                    ],
+                    "resources": null,
+                    "sid": null
+                  }
+                ],
+                "version": null
+              }
+            }
+          }
+        },
+        "module.eks_cluster.module.eks": {
+          "child_modules": {
+            "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"]": {
+              "child_modules": {
+                "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].module.user_data": {
+                  "resources": {
+                    "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].module.user_data.null_resource.validate_cluster_service_cidr": {
                       "mode": "managed",
                       "name": "validate_cluster_service_cidr",
                       "provider_name": "registry.terraform.io/hashicorp/null",
@@ -24,36 +267,18 @@
                         "triggers": null
                       }
                     }
-                  ]
+                  }
                 }
-              ],
-              "resources": [
-                {
-                  "address": "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_eks_node_group.this[0]",
+              },
+              "resources": {
+                "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_eks_node_group.this[0]": {
                   "index": 0,
                   "mode": "managed",
                   "name": "this",
                   "provider_name": "registry.terraform.io/hashicorp/aws",
                   "schema_version": 0,
                   "sensitive_values": {
-                    "instance_types": [
-                      false
-                    ],
-                    "launch_template": [],
-                    "node_repair_config": [],
-                    "remote_access": [],
-                    "resources": [],
-                    "scaling_config": [
-                      {}
-                    ],
-                    "subnet_ids": [],
-                    "tags": {},
-                    "tags_all": {},
-                    "taint": [],
-                    "timeouts": {},
-                    "update_config": [
-                      {}
-                    ]
+                    "resources": {}
                   },
                   "type": "aws_eks_node_group",
                   "values": {
@@ -96,8 +321,7 @@
                     "version": "1.32"
                   }
                 },
-                {
-                  "address": "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role.this[0]",
+                "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role.this[0]": {
                   "index": 0,
                   "mode": "managed",
                   "name": "this",
@@ -120,8 +344,7 @@
                     "tags": null
                   }
                 },
-                {
-                  "address": "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role_policy_attachment.this[\"AmazonEC2ContainerRegistryReadOnly\"]",
+                "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role_policy_attachment.this[\"AmazonEC2ContainerRegistryReadOnly\"]": {
                   "index": "AmazonEC2ContainerRegistryReadOnly",
                   "mode": "managed",
                   "name": "this",
@@ -133,8 +356,7 @@
                     "policy_arn": "ARN_REDACTED"
                   }
                 },
-                {
-                  "address": "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role_policy_attachment.this[\"AmazonEKSWorkerNodePolicy\"]",
+                "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role_policy_attachment.this[\"AmazonEKSWorkerNodePolicy\"]": {
                   "index": "AmazonEKSWorkerNodePolicy",
                   "mode": "managed",
                   "name": "this",
@@ -146,8 +368,7 @@
                     "policy_arn": "ARN_REDACTED"
                   }
                 },
-                {
-                  "address": "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role_policy_attachment.this[\"AmazonEKS_CNI_Policy\"]",
+                "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role_policy_attachment.this[\"AmazonEKS_CNI_Policy\"]": {
                   "index": "AmazonEKS_CNI_Policy",
                   "mode": "managed",
                   "name": "this",
@@ -159,13 +380,11 @@
                     "policy_arn": "ARN_REDACTED"
                   }
                 }
-              ]
+              }
             },
-            {
-              "address": "module.eks_cluster.module.eks.module.kms",
-              "resources": [
-                {
-                  "address": "module.eks_cluster.module.eks.module.kms.aws_kms_alias.this[\"cluster\"]",
+            "module.eks_cluster.module.eks.module.kms": {
+              "resources": {
+                "module.eks_cluster.module.eks.module.kms.aws_kms_alias.this[\"cluster\"]": {
                   "index": "cluster",
                   "mode": "managed",
                   "name": "this",
@@ -177,8 +396,7 @@
                     "name": "alias/eks/cluster-name-std"
                   }
                 },
-                {
-                  "address": "module.eks_cluster.module.eks.module.kms.aws_kms_key.this[0]",
+                "module.eks_cluster.module.eks.module.kms.aws_kms_key.this[0]": {
                   "index": 0,
                   "mode": "managed",
                   "name": "this",
@@ -209,8 +427,7 @@
                     "xks_key_id": null
                   }
                 },
-                {
-                  "address": "module.eks_cluster.module.eks.module.kms.data.aws_iam_policy_document.this[0]",
+                "module.eks_cluster.module.eks.module.kms.data.aws_iam_policy_document.this[0]": {
                   "index": 0,
                   "mode": "data",
                   "name": "this",
@@ -389,12 +606,11 @@
                     "version": null
                   }
                 }
-              ]
+              }
             }
-          ],
-          "resources": [
-            {
-              "address": "module.eks_cluster.module.eks.aws_cloudwatch_log_group.this[0]",
+          },
+          "resources": {
+            "module.eks_cluster.module.eks.aws_cloudwatch_log_group.this[0]": {
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -418,8 +634,7 @@
                 }
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_eks_access_entry.this[\"cluster_creator\"]",
+            "module.eks_cluster.module.eks.aws_eks_access_entry.this[\"cluster_creator\"]": {
               "index": "cluster_creator",
               "mode": "managed",
               "name": "this",
@@ -437,8 +652,7 @@
                 "type": "STANDARD"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_eks_access_policy_association.this[\"cluster_creator_admin\"]",
+            "module.eks_cluster.module.eks.aws_eks_access_policy_association.this[\"cluster_creator_admin\"]": {
               "index": "cluster_creator_admin",
               "mode": "managed",
               "name": "this",
@@ -462,8 +676,7 @@
                 "timeouts": null
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_eks_addon.before_compute[\"aws-ebs-csi-driver\"]",
+            "module.eks_cluster.module.eks.aws_eks_addon.before_compute[\"aws-ebs-csi-driver\"]": {
               "index": "aws-ebs-csi-driver",
               "mode": "managed",
               "name": "before_compute",
@@ -490,8 +703,7 @@
                 }
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_eks_addon.this[\"coredns\"]",
+            "module.eks_cluster.module.eks.aws_eks_addon.this[\"coredns\"]": {
               "index": "coredns",
               "mode": "managed",
               "name": "this",
@@ -519,8 +731,7 @@
                 }
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_eks_addon.this[\"kube-proxy\"]",
+            "module.eks_cluster.module.eks.aws_eks_addon.this[\"kube-proxy\"]": {
               "index": "kube-proxy",
               "mode": "managed",
               "name": "this",
@@ -548,8 +759,7 @@
                 }
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_eks_addon.this[\"vpc-cni\"]",
+            "module.eks_cluster.module.eks.aws_eks_addon.this[\"vpc-cni\"]": {
               "index": "vpc-cni",
               "mode": "managed",
               "name": "this",
@@ -577,8 +787,7 @@
                 }
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_eks_cluster.this[0]",
+            "module.eks_cluster.module.eks.aws_eks_cluster.this[0]": {
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -688,8 +897,7 @@
                 "zonal_shift_config": []
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_iam_openid_connect_provider.oidc_provider[0]",
+            "module.eks_cluster.module.eks.aws_iam_openid_connect_provider.oidc_provider[0]": {
               "index": 0,
               "mode": "managed",
               "name": "oidc_provider",
@@ -716,8 +924,7 @@
                 }
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_iam_policy.cluster_encryption[0]",
+            "module.eks_cluster.module.eks.aws_iam_policy.cluster_encryption[0]": {
               "index": 0,
               "mode": "managed",
               "name": "cluster_encryption",
@@ -734,8 +941,7 @@
                 "tags": null
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_iam_policy.custom[0]",
+            "module.eks_cluster.module.eks.aws_iam_policy.custom[0]": {
               "index": 0,
               "mode": "managed",
               "name": "custom",
@@ -753,8 +959,7 @@
                 "tags": null
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_iam_role.this[0]",
+            "module.eks_cluster.module.eks.aws_iam_role.this[0]": {
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -777,8 +982,7 @@
                 "tags": null
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.additional[\"AmazonEC2ContainerRegistryReadOnly\"]",
+            "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.additional[\"AmazonEC2ContainerRegistryReadOnly\"]": {
               "index": "AmazonEC2ContainerRegistryReadOnly",
               "mode": "managed",
               "name": "additional",
@@ -791,8 +995,7 @@
                 "role": "cluster-name-std-eks-iam-role"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.cluster_encryption[0]",
+            "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.cluster_encryption[0]": {
               "index": 0,
               "mode": "managed",
               "name": "cluster_encryption",
@@ -804,8 +1007,7 @@
                 "role": "cluster-name-std-eks-iam-role"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.custom[0]",
+            "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.custom[0]": {
               "index": 0,
               "mode": "managed",
               "name": "custom",
@@ -817,8 +1019,7 @@
                 "role": "cluster-name-std-eks-iam-role"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.this[\"AmazonEKSClusterPolicy\"]",
+            "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.this[\"AmazonEKSClusterPolicy\"]": {
               "index": "AmazonEKSClusterPolicy",
               "mode": "managed",
               "name": "this",
@@ -831,8 +1032,7 @@
                 "role": "cluster-name-std-eks-iam-role"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.this[\"AmazonEKSVPCResourceController\"]",
+            "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.this[\"AmazonEKSVPCResourceController\"]": {
               "index": "AmazonEKSVPCResourceController",
               "mode": "managed",
               "name": "this",
@@ -845,8 +1045,7 @@
                 "role": "cluster-name-std-eks-iam-role"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group.cluster[0]",
+            "module.eks_cluster.module.eks.aws_security_group.cluster[0]": {
               "index": 0,
               "mode": "managed",
               "name": "cluster",
@@ -872,8 +1071,7 @@
                 "timeouts": null
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group.node[0]",
+            "module.eks_cluster.module.eks.aws_security_group.node[0]": {
               "index": 0,
               "mode": "managed",
               "name": "node",
@@ -901,8 +1099,7 @@
                 "timeouts": null
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.cluster[\"egress_nodes_ephemeral_ports_tcp\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.cluster[\"egress_nodes_ephemeral_ports_tcp\"]": {
               "index": "egress_nodes_ephemeral_ports_tcp",
               "mode": "managed",
               "name": "cluster",
@@ -923,8 +1120,7 @@
                 "type": "egress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.cluster[\"ingress_nodes_443\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.cluster[\"ingress_nodes_443\"]": {
               "index": "ingress_nodes_443",
               "mode": "managed",
               "name": "cluster",
@@ -945,8 +1141,7 @@
                 "type": "ingress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.node[\"egress_all\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.node[\"egress_all\"]": {
               "index": "egress_all",
               "mode": "managed",
               "name": "node",
@@ -979,8 +1174,7 @@
                 "type": "egress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_443\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_443\"]": {
               "index": "ingress_cluster_443",
               "mode": "managed",
               "name": "node",
@@ -1003,8 +1197,7 @@
                 "type": "ingress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_4443_webhook\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_4443_webhook\"]": {
               "index": "ingress_cluster_4443_webhook",
               "mode": "managed",
               "name": "node",
@@ -1027,8 +1220,7 @@
                 "type": "ingress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_6443_webhook\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_6443_webhook\"]": {
               "index": "ingress_cluster_6443_webhook",
               "mode": "managed",
               "name": "node",
@@ -1051,8 +1243,7 @@
                 "type": "ingress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_8443_webhook\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_8443_webhook\"]": {
               "index": "ingress_cluster_8443_webhook",
               "mode": "managed",
               "name": "node",
@@ -1075,8 +1266,7 @@
                 "type": "ingress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_9443_webhook\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_9443_webhook\"]": {
               "index": "ingress_cluster_9443_webhook",
               "mode": "managed",
               "name": "node",
@@ -1099,8 +1289,7 @@
                 "type": "ingress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_kubelet\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_kubelet\"]": {
               "index": "ingress_cluster_kubelet",
               "mode": "managed",
               "name": "node",
@@ -1123,8 +1312,7 @@
                 "type": "ingress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_nodes_ephemeral\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_nodes_ephemeral\"]": {
               "index": "ingress_nodes_ephemeral",
               "mode": "managed",
               "name": "node",
@@ -1147,8 +1335,7 @@
                 "type": "ingress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_self_all\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_self_all\"]": {
               "index": "ingress_self_all",
               "mode": "managed",
               "name": "node",
@@ -1171,8 +1358,7 @@
                 "type": "ingress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_self_coredns_tcp\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_self_coredns_tcp\"]": {
               "index": "ingress_self_coredns_tcp",
               "mode": "managed",
               "name": "node",
@@ -1195,8 +1381,7 @@
                 "type": "ingress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_self_coredns_udp\"]",
+            "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_self_coredns_udp\"]": {
               "index": "ingress_self_coredns_udp",
               "mode": "managed",
               "name": "node",
@@ -1219,8 +1404,7 @@
                 "type": "ingress"
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.data.aws_eks_addon_version.this[\"aws-ebs-csi-driver\"]",
+            "module.eks_cluster.module.eks.data.aws_eks_addon_version.this[\"aws-ebs-csi-driver\"]": {
               "index": "aws-ebs-csi-driver",
               "mode": "data",
               "name": "this",
@@ -1234,8 +1418,7 @@
                 "most_recent": true
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.data.aws_eks_addon_version.this[\"coredns\"]",
+            "module.eks_cluster.module.eks.data.aws_eks_addon_version.this[\"coredns\"]": {
               "index": "coredns",
               "mode": "data",
               "name": "this",
@@ -1249,8 +1432,7 @@
                 "most_recent": true
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.data.aws_eks_addon_version.this[\"kube-proxy\"]",
+            "module.eks_cluster.module.eks.data.aws_eks_addon_version.this[\"kube-proxy\"]": {
               "index": "kube-proxy",
               "mode": "data",
               "name": "this",
@@ -1264,8 +1446,7 @@
                 "most_recent": true
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.data.aws_eks_addon_version.this[\"vpc-cni\"]",
+            "module.eks_cluster.module.eks.data.aws_eks_addon_version.this[\"vpc-cni\"]": {
               "index": "vpc-cni",
               "mode": "data",
               "name": "this",
@@ -1279,8 +1460,7 @@
                 "most_recent": true
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.data.tls_certificate.this[0]",
+            "module.eks_cluster.module.eks.data.tls_certificate.this[0]": {
               "index": 0,
               "mode": "data",
               "name": "this",
@@ -1295,8 +1475,7 @@
                 "verify_chain": null
               }
             },
-            {
-              "address": "module.eks_cluster.module.eks.time_sleep.this[0]",
+            "module.eks_cluster.module.eks.time_sleep.this[0]": {
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -1314,1037 +1493,11 @@
                 }
               }
             }
-          ]
+          }
         },
-        {
-          "address": "module.eks_cluster.module.vpc",
-          "resources": [
-            {
-              "address": "module.eks_cluster.module.vpc.aws_default_network_acl.this[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "egress": [
-                  {},
-                  {}
-                ],
-                "ingress": [
-                  {},
-                  {}
-                ],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_default_network_acl",
-              "values": {
-                "egress": [
-                  {
-                    "action": "allow",
-                    "cidr_block": "",
-                    "from_port": 0,
-                    "icmp_code": null,
-                    "icmp_type": null,
-                    "ipv6_cidr_block": "::/0",
-                    "protocol": "-1",
-                    "rule_no": 101,
-                    "to_port": 0
-                  },
-                  {
-                    "action": "allow",
-                    "cidr_block": "0.0.0.0/0",
-                    "from_port": 0,
-                    "icmp_code": null,
-                    "icmp_type": null,
-                    "ipv6_cidr_block": "",
-                    "protocol": "-1",
-                    "rule_no": 100,
-                    "to_port": 0
-                  }
-                ],
-                "ingress": [
-                  {
-                    "action": "allow",
-                    "cidr_block": "",
-                    "from_port": 0,
-                    "icmp_code": null,
-                    "icmp_type": null,
-                    "ipv6_cidr_block": "::/0",
-                    "protocol": "-1",
-                    "rule_no": 101,
-                    "to_port": 0
-                  },
-                  {
-                    "action": "allow",
-                    "cidr_block": "0.0.0.0/0",
-                    "from_port": 0,
-                    "icmp_code": null,
-                    "icmp_type": null,
-                    "ipv6_cidr_block": "",
-                    "protocol": "-1",
-                    "rule_no": 100,
-                    "to_port": 0
-                  }
-                ],
-                "subnet_ids": null,
-                "tags": {
-                  "Name": "cluster-name-std-vpc-default"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-default"
-                }
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_default_route_table.default[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "default",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "route": [],
-                "tags": {},
-                "tags_all": {},
-                "timeouts": {}
-              },
-              "type": "aws_default_route_table",
-              "values": {
-                "propagating_vgws": null,
-                "tags": {
-                  "Name": "cluster-name-std-vpc-default"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-default"
-                },
-                "timeouts": {
-                  "create": "5m",
-                  "update": "5m"
-                }
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_default_security_group.this[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "egress": [
-                  {
-                    "cidr_blocks": [],
-                    "ipv6_cidr_blocks": [],
-                    "prefix_list_ids": [],
-                    "security_groups": []
-                  }
-                ],
-                "ingress": [
-                  {
-                    "cidr_blocks": [],
-                    "ipv6_cidr_blocks": [],
-                    "prefix_list_ids": [],
-                    "security_groups": []
-                  }
-                ],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_default_security_group",
-              "values": {
-                "egress": [
-                  {
-                    "cidr_blocks": [],
-                    "description": "cluster-name-std-vpc default SG Egress",
-                    "from_port": 0,
-                    "ipv6_cidr_blocks": [],
-                    "prefix_list_ids": [],
-                    "protocol": "-1",
-                    "security_groups": [],
-                    "self": false,
-                    "to_port": 0
-                  }
-                ],
-                "ingress": [
-                  {
-                    "cidr_blocks": [],
-                    "description": "cluster-name-std-vpc default SG Ingress",
-                    "from_port": 0,
-                    "ipv6_cidr_blocks": [],
-                    "prefix_list_ids": [],
-                    "protocol": "-1",
-                    "security_groups": [],
-                    "self": false,
-                    "to_port": 0
-                  }
-                ],
-                "revoke_rules_on_delete": false,
-                "tags": {
-                  "Name": "cluster-name-std-vpc-default"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-default"
-                }
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_eip.nat[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "nat",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_eip",
-              "values": {
-                "address": null,
-                "associate_with_private_ip": null,
-                "customer_owned_ipv4_pool": null,
-                "domain": "vpc",
-                "tags": {
-                  "Name": "cluster-name-std-vpc-eu-west-2a"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-eu-west-2a"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_eip.nat[1]",
-              "index": 1,
-              "mode": "managed",
-              "name": "nat",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_eip",
-              "values": {
-                "address": null,
-                "associate_with_private_ip": null,
-                "customer_owned_ipv4_pool": null,
-                "domain": "vpc",
-                "tags": {
-                  "Name": "cluster-name-std-vpc-eu-west-2b"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-eu-west-2b"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_eip.nat[2]",
-              "index": 2,
-              "mode": "managed",
-              "name": "nat",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_eip",
-              "values": {
-                "address": null,
-                "associate_with_private_ip": null,
-                "customer_owned_ipv4_pool": null,
-                "domain": "vpc",
-                "tags": {
-                  "Name": "cluster-name-std-vpc-eu-west-2c"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-eu-west-2c"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_internet_gateway.this[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_internet_gateway",
-              "values": {
-                "tags": {
-                  "Name": "cluster-name-std-vpc"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_nat_gateway.this[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "secondary_private_ip_addresses": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_nat_gateway",
-              "values": {
-                "connectivity_type": "public",
-                "secondary_allocation_ids": null,
-                "tags": {
-                  "Name": "cluster-name-std-vpc-eu-west-2a"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-eu-west-2a"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_nat_gateway.this[1]",
-              "index": 1,
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "secondary_private_ip_addresses": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_nat_gateway",
-              "values": {
-                "connectivity_type": "public",
-                "secondary_allocation_ids": null,
-                "tags": {
-                  "Name": "cluster-name-std-vpc-eu-west-2b"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-eu-west-2b"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_nat_gateway.this[2]",
-              "index": 2,
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "secondary_private_ip_addresses": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_nat_gateway",
-              "values": {
-                "connectivity_type": "public",
-                "secondary_allocation_ids": null,
-                "tags": {
-                  "Name": "cluster-name-std-vpc-eu-west-2c"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-eu-west-2c"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route.private_nat_gateway[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "private_nat_gateway",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "timeouts": {}
-              },
-              "type": "aws_route",
-              "values": {
-                "carrier_gateway_id": null,
-                "core_network_arn": null,
-                "destination_cidr_block": "0.0.0.0/0",
-                "destination_ipv6_cidr_block": null,
-                "destination_prefix_list_id": null,
-                "egress_only_gateway_id": null,
-                "gateway_id": null,
-                "local_gateway_id": null,
-                "timeouts": {
-                  "create": "5m",
-                  "delete": null,
-                  "update": null
-                },
-                "transit_gateway_id": null,
-                "vpc_endpoint_id": null,
-                "vpc_peering_connection_id": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route.private_nat_gateway[1]",
-              "index": 1,
-              "mode": "managed",
-              "name": "private_nat_gateway",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "timeouts": {}
-              },
-              "type": "aws_route",
-              "values": {
-                "carrier_gateway_id": null,
-                "core_network_arn": null,
-                "destination_cidr_block": "0.0.0.0/0",
-                "destination_ipv6_cidr_block": null,
-                "destination_prefix_list_id": null,
-                "egress_only_gateway_id": null,
-                "gateway_id": null,
-                "local_gateway_id": null,
-                "timeouts": {
-                  "create": "5m",
-                  "delete": null,
-                  "update": null
-                },
-                "transit_gateway_id": null,
-                "vpc_endpoint_id": null,
-                "vpc_peering_connection_id": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route.private_nat_gateway[2]",
-              "index": 2,
-              "mode": "managed",
-              "name": "private_nat_gateway",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "timeouts": {}
-              },
-              "type": "aws_route",
-              "values": {
-                "carrier_gateway_id": null,
-                "core_network_arn": null,
-                "destination_cidr_block": "0.0.0.0/0",
-                "destination_ipv6_cidr_block": null,
-                "destination_prefix_list_id": null,
-                "egress_only_gateway_id": null,
-                "gateway_id": null,
-                "local_gateway_id": null,
-                "timeouts": {
-                  "create": "5m",
-                  "delete": null,
-                  "update": null
-                },
-                "transit_gateway_id": null,
-                "vpc_endpoint_id": null,
-                "vpc_peering_connection_id": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route.public_internet_gateway[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "public_internet_gateway",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "timeouts": {}
-              },
-              "type": "aws_route",
-              "values": {
-                "carrier_gateway_id": null,
-                "core_network_arn": null,
-                "destination_cidr_block": "0.0.0.0/0",
-                "destination_ipv6_cidr_block": null,
-                "destination_prefix_list_id": null,
-                "egress_only_gateway_id": null,
-                "local_gateway_id": null,
-                "nat_gateway_id": null,
-                "timeouts": {
-                  "create": "5m",
-                  "delete": null,
-                  "update": null
-                },
-                "transit_gateway_id": null,
-                "vpc_endpoint_id": null,
-                "vpc_peering_connection_id": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route_table.private[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "private",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "propagating_vgws": [],
-                "route": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_route_table",
-              "values": {
-                "tags": {
-                  "Name": "cluster-name-std-vpc-private-eu-west-2a"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-private-eu-west-2a"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route_table.private[1]",
-              "index": 1,
-              "mode": "managed",
-              "name": "private",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "propagating_vgws": [],
-                "route": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_route_table",
-              "values": {
-                "tags": {
-                  "Name": "cluster-name-std-vpc-private-eu-west-2b"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-private-eu-west-2b"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route_table.private[2]",
-              "index": 2,
-              "mode": "managed",
-              "name": "private",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "propagating_vgws": [],
-                "route": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_route_table",
-              "values": {
-                "tags": {
-                  "Name": "cluster-name-std-vpc-private-eu-west-2c"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-private-eu-west-2c"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route_table.public[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "public",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "propagating_vgws": [],
-                "route": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_route_table",
-              "values": {
-                "tags": {
-                  "Name": "cluster-name-std-vpc-public"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-public"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route_table_association.private[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "private",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route_table_association",
-              "values": {
-                "gateway_id": null,
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route_table_association.private[1]",
-              "index": 1,
-              "mode": "managed",
-              "name": "private",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route_table_association",
-              "values": {
-                "gateway_id": null,
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route_table_association.private[2]",
-              "index": 2,
-              "mode": "managed",
-              "name": "private",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route_table_association",
-              "values": {
-                "gateway_id": null,
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route_table_association.public[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "public",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route_table_association",
-              "values": {
-                "gateway_id": null,
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route_table_association.public[1]",
-              "index": 1,
-              "mode": "managed",
-              "name": "public",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route_table_association",
-              "values": {
-                "gateway_id": null,
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_route_table_association.public[2]",
-              "index": 2,
-              "mode": "managed",
-              "name": "public",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route_table_association",
-              "values": {
-                "gateway_id": null,
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_subnet.private[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "private",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_subnet",
-              "values": {
-                "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-west-2a",
-                "cidr_block": "10.192.0.0/19",
-                "customer_owned_ipv4_pool": null,
-                "enable_dns64": false,
-                "enable_lni_at_device_index": null,
-                "enable_resource_name_dns_a_record_on_launch": false,
-                "enable_resource_name_dns_aaaa_record_on_launch": false,
-                "ipv6_cidr_block": null,
-                "ipv6_native": false,
-                "map_customer_owned_ip_on_launch": null,
-                "map_public_ip_on_launch": false,
-                "outpost_arn": null,
-                "tags": {
-                  "Name": "cluster-name-std-vpc-private-eu-west-2a",
-                  "kubernetes.io/role/internal-elb": "1"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-private-eu-west-2a",
-                  "kubernetes.io/role/internal-elb": "1"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_subnet.private[1]",
-              "index": 1,
-              "mode": "managed",
-              "name": "private",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_subnet",
-              "values": {
-                "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-west-2b",
-                "cidr_block": "10.192.32.0/19",
-                "customer_owned_ipv4_pool": null,
-                "enable_dns64": false,
-                "enable_lni_at_device_index": null,
-                "enable_resource_name_dns_a_record_on_launch": false,
-                "enable_resource_name_dns_aaaa_record_on_launch": false,
-                "ipv6_cidr_block": null,
-                "ipv6_native": false,
-                "map_customer_owned_ip_on_launch": null,
-                "map_public_ip_on_launch": false,
-                "outpost_arn": null,
-                "tags": {
-                  "Name": "cluster-name-std-vpc-private-eu-west-2b",
-                  "kubernetes.io/role/internal-elb": "1"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-private-eu-west-2b",
-                  "kubernetes.io/role/internal-elb": "1"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_subnet.private[2]",
-              "index": 2,
-              "mode": "managed",
-              "name": "private",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_subnet",
-              "values": {
-                "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-west-2c",
-                "cidr_block": "10.192.64.0/19",
-                "customer_owned_ipv4_pool": null,
-                "enable_dns64": false,
-                "enable_lni_at_device_index": null,
-                "enable_resource_name_dns_a_record_on_launch": false,
-                "enable_resource_name_dns_aaaa_record_on_launch": false,
-                "ipv6_cidr_block": null,
-                "ipv6_native": false,
-                "map_customer_owned_ip_on_launch": null,
-                "map_public_ip_on_launch": false,
-                "outpost_arn": null,
-                "tags": {
-                  "Name": "cluster-name-std-vpc-private-eu-west-2c",
-                  "kubernetes.io/role/internal-elb": "1"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-private-eu-west-2c",
-                  "kubernetes.io/role/internal-elb": "1"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_subnet.public[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "public",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_subnet",
-              "values": {
-                "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-west-2a",
-                "cidr_block": "10.192.96.0/19",
-                "customer_owned_ipv4_pool": null,
-                "enable_dns64": false,
-                "enable_lni_at_device_index": null,
-                "enable_resource_name_dns_a_record_on_launch": false,
-                "enable_resource_name_dns_aaaa_record_on_launch": false,
-                "ipv6_cidr_block": null,
-                "ipv6_native": false,
-                "map_customer_owned_ip_on_launch": null,
-                "map_public_ip_on_launch": false,
-                "outpost_arn": null,
-                "tags": {
-                  "Name": "cluster-name-std-vpc-public-eu-west-2a",
-                  "kubernetes.io/role/elb": "1"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-public-eu-west-2a",
-                  "kubernetes.io/role/elb": "1"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_subnet.public[1]",
-              "index": 1,
-              "mode": "managed",
-              "name": "public",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_subnet",
-              "values": {
-                "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-west-2b",
-                "cidr_block": "10.192.128.0/19",
-                "customer_owned_ipv4_pool": null,
-                "enable_dns64": false,
-                "enable_lni_at_device_index": null,
-                "enable_resource_name_dns_a_record_on_launch": false,
-                "enable_resource_name_dns_aaaa_record_on_launch": false,
-                "ipv6_cidr_block": null,
-                "ipv6_native": false,
-                "map_customer_owned_ip_on_launch": null,
-                "map_public_ip_on_launch": false,
-                "outpost_arn": null,
-                "tags": {
-                  "Name": "cluster-name-std-vpc-public-eu-west-2b",
-                  "kubernetes.io/role/elb": "1"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-public-eu-west-2b",
-                  "kubernetes.io/role/elb": "1"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_subnet.public[2]",
-              "index": 2,
-              "mode": "managed",
-              "name": "public",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_subnet",
-              "values": {
-                "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-west-2c",
-                "cidr_block": "10.192.160.0/19",
-                "customer_owned_ipv4_pool": null,
-                "enable_dns64": false,
-                "enable_lni_at_device_index": null,
-                "enable_resource_name_dns_a_record_on_launch": false,
-                "enable_resource_name_dns_aaaa_record_on_launch": false,
-                "ipv6_cidr_block": null,
-                "ipv6_native": false,
-                "map_customer_owned_ip_on_launch": null,
-                "map_public_ip_on_launch": false,
-                "outpost_arn": null,
-                "tags": {
-                  "Name": "cluster-name-std-vpc-public-eu-west-2c",
-                  "kubernetes.io/role/elb": "1"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc-public-eu-west-2c",
-                  "kubernetes.io/role/elb": "1"
-                },
-                "timeouts": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.vpc.aws_vpc.this[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_vpc",
-              "values": {
-                "assign_generated_ipv6_cidr_block": null,
-                "cidr_block": "10.192.0.0/16",
-                "enable_dns_hostnames": true,
-                "enable_dns_support": true,
-                "instance_tenancy": "default",
-                "ipv4_ipam_pool_id": null,
-                "ipv4_netmask_length": null,
-                "ipv6_ipam_pool_id": null,
-                "ipv6_netmask_length": null,
-                "tags": {
-                  "Name": "cluster-name-std-vpc"
-                },
-                "tags_all": {
-                  "Name": "cluster-name-std-vpc"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "address": "module.eks_cluster.module.cert_manager_role",
-          "resources": [
-            {
-              "address": "module.eks_cluster.module.cert_manager_role.aws_iam_role.this[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "inline_policy": [],
-                "managed_policy_arns": [],
-                "tags_all": {}
-              },
-              "type": "aws_iam_role",
-              "values": {
-                "description": null,
-                "force_detach_policies": true,
-                "max_session_duration": 3600,
-                "name": "cluster-name-std-cert-manager-role",
-                "path": "/",
-                "permissions_boundary": null,
-                "tags": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.cert_manager_role.aws_iam_role_policy_attachment.this[\"policy\"]",
-              "index": "policy",
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_iam_role_policy_attachment",
-              "values": {
-                "role": "cluster-name-std-cert-manager-role"
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.cert_manager_role.data.aws_iam_policy_document.this[0]",
-              "index": 0,
-              "mode": "data",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "statement": [
-                  {
-                    "actions": [
-                      false
-                    ],
-                    "condition": [
-                      {
-                        "values": [
-                          false
-                        ]
-                      },
-                      {
-                        "values": [
-                          false
-                        ]
-                      }
-                    ],
-                    "not_principals": [],
-                    "principals": [
-                      {
-                        "identifiers": [
-                          false
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              },
-              "type": "aws_iam_policy_document",
-              "values": {
-                "override_json": null,
-                "override_policy_documents": null,
-                "policy_id": null,
-                "source_json": null,
-                "source_policy_documents": null,
-                "statement": [
-                  {
-                    "actions": [
-                      "sts:AssumeRoleWithWebIdentity"
-                    ],
-                    "condition": [
-                      {
-                        "test": "StringEquals",
-                        "values": [
-                          "sts.amazonaws.com"
-                        ]
-                      },
-                      {
-                        "test": "StringEquals",
-                        "values": [
-                          "system:serviceaccount:cert-manager:cert-manager"
-                        ]
-                      }
-                    ],
-                    "effect": "Allow",
-                    "not_actions": null,
-                    "not_principals": [],
-                    "not_resources": null,
-                    "principals": [
-                      {
-                        "identifiers": [
-                          null
-                        ],
-                        "type": "Federated"
-                      }
-                    ],
-                    "resources": null,
-                    "sid": null
-                  }
-                ],
-                "version": null
-              }
-            }
-          ]
-        },
-        {
-          "address": "module.eks_cluster.module.external_dns_role",
-          "resources": [
-            {
-              "address": "module.eks_cluster.module.external_dns_role.aws_iam_role.this[0]",
+        "module.eks_cluster.module.external_dns_role": {
+          "resources": {
+            "module.eks_cluster.module.external_dns_role.aws_iam_role.this[0]": {
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -2366,8 +1519,7 @@
                 "tags": null
               }
             },
-            {
-              "address": "module.eks_cluster.module.external_dns_role.aws_iam_role_policy_attachment.this[\"policy\"]",
+            "module.eks_cluster.module.external_dns_role.aws_iam_role_policy_attachment.this[\"policy\"]": {
               "index": "policy",
               "mode": "managed",
               "name": "this",
@@ -2379,8 +1531,7 @@
                 "role": "cluster-name-std-external-dns-role"
               }
             },
-            {
-              "address": "module.eks_cluster.module.external_dns_role.data.aws_iam_policy_document.this[0]",
+            "module.eks_cluster.module.external_dns_role.data.aws_iam_policy_document.this[0]": {
               "index": 0,
               "mode": "data",
               "name": "this",
@@ -2460,147 +1611,881 @@
                 "version": null
               }
             }
-          ]
+          }
         },
-        {
-          "address": "module.eks_cluster.module.ebs_cs_role",
-          "resources": [
-            {
-              "address": "module.eks_cluster.module.ebs_cs_role.aws_iam_role.this[0]",
+        "module.eks_cluster.module.vpc": {
+          "resources": {
+            "module.eks_cluster.module.vpc.aws_default_network_acl.this[0]": {
               "index": 0,
               "mode": "managed",
               "name": "this",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
-                "inline_policy": [],
-                "managed_policy_arns": [],
+                "egress": [
+                  {},
+                  {}
+                ],
+                "ingress": [
+                  {},
+                  {}
+                ],
+                "tags": {},
                 "tags_all": {}
               },
-              "type": "aws_iam_role",
+              "type": "aws_default_network_acl",
               "values": {
-                "description": null,
-                "force_detach_policies": true,
-                "max_session_duration": 3600,
-                "name": "cluster-name-std-ebs-cs-role",
-                "path": "/",
-                "permissions_boundary": null,
-                "tags": null
+                "egress": [
+                  {
+                    "action": "allow",
+                    "cidr_block": "",
+                    "from_port": 0,
+                    "icmp_code": null,
+                    "icmp_type": null,
+                    "ipv6_cidr_block": "::/0",
+                    "protocol": "-1",
+                    "rule_no": 101,
+                    "to_port": 0
+                  },
+                  {
+                    "action": "allow",
+                    "cidr_block": "0.0.0.0/0",
+                    "from_port": 0,
+                    "icmp_code": null,
+                    "icmp_type": null,
+                    "ipv6_cidr_block": "",
+                    "protocol": "-1",
+                    "rule_no": 100,
+                    "to_port": 0
+                  }
+                ],
+                "ingress": [
+                  {
+                    "action": "allow",
+                    "cidr_block": "",
+                    "from_port": 0,
+                    "icmp_code": null,
+                    "icmp_type": null,
+                    "ipv6_cidr_block": "::/0",
+                    "protocol": "-1",
+                    "rule_no": 101,
+                    "to_port": 0
+                  },
+                  {
+                    "action": "allow",
+                    "cidr_block": "0.0.0.0/0",
+                    "from_port": 0,
+                    "icmp_code": null,
+                    "icmp_type": null,
+                    "ipv6_cidr_block": "",
+                    "protocol": "-1",
+                    "rule_no": 100,
+                    "to_port": 0
+                  }
+                ],
+                "subnet_ids": null,
+                "tags": {
+                  "Name": "cluster-name-std-vpc-default"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-default"
+                }
               }
             },
-            {
-              "address": "module.eks_cluster.module.ebs_cs_role.aws_iam_role_policy_attachment.this[\"policy\"]",
-              "index": "policy",
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_iam_role_policy_attachment",
-              "values": {
-                "role": "cluster-name-std-ebs-cs-role"
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.ebs_cs_role.aws_iam_role_policy_attachment.this[\"policy_2\"]",
-              "index": "policy_2",
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_iam_role_policy_attachment",
-              "values": {
-                "role": "cluster-name-std-ebs-cs-role"
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.ebs_cs_role.data.aws_iam_policy_document.this[0]",
+            "module.eks_cluster.module.vpc.aws_default_route_table.default[0]": {
               "index": 0,
-              "mode": "data",
+              "mode": "managed",
+              "name": "default",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "route": [],
+                "tags": {},
+                "tags_all": {},
+                "timeouts": {}
+              },
+              "type": "aws_default_route_table",
+              "values": {
+                "propagating_vgws": null,
+                "tags": {
+                  "Name": "cluster-name-std-vpc-default"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-default"
+                },
+                "timeouts": {
+                  "create": "5m",
+                  "update": "5m"
+                }
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_default_security_group.this[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 1,
+              "sensitive_values": {
+                "egress": [
+                  {
+                    "cidr_blocks": [],
+                    "ipv6_cidr_blocks": [],
+                    "prefix_list_ids": [],
+                    "security_groups": []
+                  }
+                ],
+                "ingress": [
+                  {
+                    "cidr_blocks": [],
+                    "ipv6_cidr_blocks": [],
+                    "prefix_list_ids": [],
+                    "security_groups": []
+                  }
+                ],
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_default_security_group",
+              "values": {
+                "egress": [
+                  {
+                    "cidr_blocks": [],
+                    "description": "cluster-name-std-vpc default SG Egress",
+                    "from_port": 0,
+                    "ipv6_cidr_blocks": [],
+                    "prefix_list_ids": [],
+                    "protocol": "-1",
+                    "security_groups": [],
+                    "self": false,
+                    "to_port": 0
+                  }
+                ],
+                "ingress": [
+                  {
+                    "cidr_blocks": [],
+                    "description": "cluster-name-std-vpc default SG Ingress",
+                    "from_port": 0,
+                    "ipv6_cidr_blocks": [],
+                    "prefix_list_ids": [],
+                    "protocol": "-1",
+                    "security_groups": [],
+                    "self": false,
+                    "to_port": 0
+                  }
+                ],
+                "revoke_rules_on_delete": false,
+                "tags": {
+                  "Name": "cluster-name-std-vpc-default"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-default"
+                }
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_eip.nat[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "nat",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_eip",
+              "values": {
+                "address": null,
+                "associate_with_private_ip": null,
+                "customer_owned_ipv4_pool": null,
+                "domain": "vpc",
+                "tags": {
+                  "Name": "cluster-name-std-vpc-eu-west-2a"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-eu-west-2a"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_eip.nat[1]": {
+              "index": 1,
+              "mode": "managed",
+              "name": "nat",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_eip",
+              "values": {
+                "address": null,
+                "associate_with_private_ip": null,
+                "customer_owned_ipv4_pool": null,
+                "domain": "vpc",
+                "tags": {
+                  "Name": "cluster-name-std-vpc-eu-west-2b"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-eu-west-2b"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_eip.nat[2]": {
+              "index": 2,
+              "mode": "managed",
+              "name": "nat",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_eip",
+              "values": {
+                "address": null,
+                "associate_with_private_ip": null,
+                "customer_owned_ipv4_pool": null,
+                "domain": "vpc",
+                "tags": {
+                  "Name": "cluster-name-std-vpc-eu-west-2c"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-eu-west-2c"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_internet_gateway.this[0]": {
+              "index": 0,
+              "mode": "managed",
               "name": "this",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
-                "statement": [
-                  {
-                    "actions": [
-                      false
-                    ],
-                    "condition": [
-                      {
-                        "values": [
-                          false
-                        ]
-                      },
-                      {
-                        "values": [
-                          false
-                        ]
-                      }
-                    ],
-                    "not_principals": [],
-                    "principals": [
-                      {
-                        "identifiers": [
-                          false
-                        ]
-                      }
-                    ]
-                  }
-                ]
+                "tags": {},
+                "tags_all": {}
               },
-              "type": "aws_iam_policy_document",
+              "type": "aws_internet_gateway",
               "values": {
-                "override_json": null,
-                "override_policy_documents": null,
-                "policy_id": null,
-                "source_json": null,
-                "source_policy_documents": null,
-                "statement": [
-                  {
-                    "actions": [
-                      "sts:AssumeRoleWithWebIdentity"
-                    ],
-                    "condition": [
-                      {
-                        "test": "StringEquals",
-                        "values": [
-                          "sts.amazonaws.com"
-                        ]
-                      },
-                      {
-                        "test": "StringEquals",
-                        "values": [
-                          "system:serviceaccount:kube-system:ebs-csi-controller-sa"
-                        ]
-                      }
-                    ],
-                    "effect": "Allow",
-                    "not_actions": null,
-                    "not_principals": [],
-                    "not_resources": null,
-                    "principals": [
-                      {
-                        "identifiers": [
-                          null
-                        ],
-                        "type": "Federated"
-                      }
-                    ],
-                    "resources": null,
-                    "sid": null
-                  }
-                ],
-                "version": null
+                "tags": {
+                  "Name": "cluster-name-std-vpc"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_nat_gateway.this[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "secondary_private_ip_addresses": [],
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_nat_gateway",
+              "values": {
+                "connectivity_type": "public",
+                "secondary_allocation_ids": null,
+                "tags": {
+                  "Name": "cluster-name-std-vpc-eu-west-2a"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-eu-west-2a"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_nat_gateway.this[1]": {
+              "index": 1,
+              "mode": "managed",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "secondary_private_ip_addresses": [],
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_nat_gateway",
+              "values": {
+                "connectivity_type": "public",
+                "secondary_allocation_ids": null,
+                "tags": {
+                  "Name": "cluster-name-std-vpc-eu-west-2b"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-eu-west-2b"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_nat_gateway.this[2]": {
+              "index": 2,
+              "mode": "managed",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "secondary_private_ip_addresses": [],
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_nat_gateway",
+              "values": {
+                "connectivity_type": "public",
+                "secondary_allocation_ids": null,
+                "tags": {
+                  "Name": "cluster-name-std-vpc-eu-west-2c"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-eu-west-2c"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route.private_nat_gateway[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "private_nat_gateway",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "timeouts": {}
+              },
+              "type": "aws_route",
+              "values": {
+                "carrier_gateway_id": null,
+                "core_network_arn": null,
+                "destination_cidr_block": "0.0.0.0/0",
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "egress_only_gateway_id": null,
+                "gateway_id": null,
+                "local_gateway_id": null,
+                "timeouts": {
+                  "create": "5m",
+                  "delete": null,
+                  "update": null
+                },
+                "transit_gateway_id": null,
+                "vpc_endpoint_id": null,
+                "vpc_peering_connection_id": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route.private_nat_gateway[1]": {
+              "index": 1,
+              "mode": "managed",
+              "name": "private_nat_gateway",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "timeouts": {}
+              },
+              "type": "aws_route",
+              "values": {
+                "carrier_gateway_id": null,
+                "core_network_arn": null,
+                "destination_cidr_block": "0.0.0.0/0",
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "egress_only_gateway_id": null,
+                "gateway_id": null,
+                "local_gateway_id": null,
+                "timeouts": {
+                  "create": "5m",
+                  "delete": null,
+                  "update": null
+                },
+                "transit_gateway_id": null,
+                "vpc_endpoint_id": null,
+                "vpc_peering_connection_id": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route.private_nat_gateway[2]": {
+              "index": 2,
+              "mode": "managed",
+              "name": "private_nat_gateway",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "timeouts": {}
+              },
+              "type": "aws_route",
+              "values": {
+                "carrier_gateway_id": null,
+                "core_network_arn": null,
+                "destination_cidr_block": "0.0.0.0/0",
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "egress_only_gateway_id": null,
+                "gateway_id": null,
+                "local_gateway_id": null,
+                "timeouts": {
+                  "create": "5m",
+                  "delete": null,
+                  "update": null
+                },
+                "transit_gateway_id": null,
+                "vpc_endpoint_id": null,
+                "vpc_peering_connection_id": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route.public_internet_gateway[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "public_internet_gateway",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "timeouts": {}
+              },
+              "type": "aws_route",
+              "values": {
+                "carrier_gateway_id": null,
+                "core_network_arn": null,
+                "destination_cidr_block": "0.0.0.0/0",
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "egress_only_gateway_id": null,
+                "local_gateway_id": null,
+                "nat_gateway_id": null,
+                "timeouts": {
+                  "create": "5m",
+                  "delete": null,
+                  "update": null
+                },
+                "transit_gateway_id": null,
+                "vpc_endpoint_id": null,
+                "vpc_peering_connection_id": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route_table.private[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "private",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "propagating_vgws": [],
+                "route": [],
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_route_table",
+              "values": {
+                "tags": {
+                  "Name": "cluster-name-std-vpc-private-eu-west-2a"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-private-eu-west-2a"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route_table.private[1]": {
+              "index": 1,
+              "mode": "managed",
+              "name": "private",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "propagating_vgws": [],
+                "route": [],
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_route_table",
+              "values": {
+                "tags": {
+                  "Name": "cluster-name-std-vpc-private-eu-west-2b"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-private-eu-west-2b"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route_table.private[2]": {
+              "index": 2,
+              "mode": "managed",
+              "name": "private",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "propagating_vgws": [],
+                "route": [],
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_route_table",
+              "values": {
+                "tags": {
+                  "Name": "cluster-name-std-vpc-private-eu-west-2c"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-private-eu-west-2c"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route_table.public[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "public",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "propagating_vgws": [],
+                "route": [],
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_route_table",
+              "values": {
+                "tags": {
+                  "Name": "cluster-name-std-vpc-public"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-public"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route_table_association.private[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "private",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "aws_route_table_association",
+              "values": {
+                "gateway_id": null,
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route_table_association.private[1]": {
+              "index": 1,
+              "mode": "managed",
+              "name": "private",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "aws_route_table_association",
+              "values": {
+                "gateway_id": null,
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route_table_association.private[2]": {
+              "index": 2,
+              "mode": "managed",
+              "name": "private",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "aws_route_table_association",
+              "values": {
+                "gateway_id": null,
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route_table_association.public[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "public",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "aws_route_table_association",
+              "values": {
+                "gateway_id": null,
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route_table_association.public[1]": {
+              "index": 1,
+              "mode": "managed",
+              "name": "public",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "aws_route_table_association",
+              "values": {
+                "gateway_id": null,
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_route_table_association.public[2]": {
+              "index": 2,
+              "mode": "managed",
+              "name": "public",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "aws_route_table_association",
+              "values": {
+                "gateway_id": null,
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_subnet.private[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "private",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 1,
+              "sensitive_values": {
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_subnet",
+              "values": {
+                "assign_ipv6_address_on_creation": false,
+                "availability_zone": "eu-west-2a",
+                "cidr_block": "10.192.0.0/19",
+                "customer_owned_ipv4_pool": null,
+                "enable_dns64": false,
+                "enable_lni_at_device_index": null,
+                "enable_resource_name_dns_a_record_on_launch": false,
+                "enable_resource_name_dns_aaaa_record_on_launch": false,
+                "ipv6_cidr_block": null,
+                "ipv6_native": false,
+                "map_customer_owned_ip_on_launch": null,
+                "map_public_ip_on_launch": false,
+                "outpost_arn": null,
+                "tags": {
+                  "Name": "cluster-name-std-vpc-private-eu-west-2a",
+                  "kubernetes.io/role/internal-elb": "1"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-private-eu-west-2a",
+                  "kubernetes.io/role/internal-elb": "1"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_subnet.private[1]": {
+              "index": 1,
+              "mode": "managed",
+              "name": "private",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 1,
+              "sensitive_values": {
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_subnet",
+              "values": {
+                "assign_ipv6_address_on_creation": false,
+                "availability_zone": "eu-west-2b",
+                "cidr_block": "10.192.32.0/19",
+                "customer_owned_ipv4_pool": null,
+                "enable_dns64": false,
+                "enable_lni_at_device_index": null,
+                "enable_resource_name_dns_a_record_on_launch": false,
+                "enable_resource_name_dns_aaaa_record_on_launch": false,
+                "ipv6_cidr_block": null,
+                "ipv6_native": false,
+                "map_customer_owned_ip_on_launch": null,
+                "map_public_ip_on_launch": false,
+                "outpost_arn": null,
+                "tags": {
+                  "Name": "cluster-name-std-vpc-private-eu-west-2b",
+                  "kubernetes.io/role/internal-elb": "1"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-private-eu-west-2b",
+                  "kubernetes.io/role/internal-elb": "1"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_subnet.private[2]": {
+              "index": 2,
+              "mode": "managed",
+              "name": "private",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 1,
+              "sensitive_values": {
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_subnet",
+              "values": {
+                "assign_ipv6_address_on_creation": false,
+                "availability_zone": "eu-west-2c",
+                "cidr_block": "10.192.64.0/19",
+                "customer_owned_ipv4_pool": null,
+                "enable_dns64": false,
+                "enable_lni_at_device_index": null,
+                "enable_resource_name_dns_a_record_on_launch": false,
+                "enable_resource_name_dns_aaaa_record_on_launch": false,
+                "ipv6_cidr_block": null,
+                "ipv6_native": false,
+                "map_customer_owned_ip_on_launch": null,
+                "map_public_ip_on_launch": false,
+                "outpost_arn": null,
+                "tags": {
+                  "Name": "cluster-name-std-vpc-private-eu-west-2c",
+                  "kubernetes.io/role/internal-elb": "1"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-private-eu-west-2c",
+                  "kubernetes.io/role/internal-elb": "1"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_subnet.public[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "public",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 1,
+              "sensitive_values": {
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_subnet",
+              "values": {
+                "assign_ipv6_address_on_creation": false,
+                "availability_zone": "eu-west-2a",
+                "cidr_block": "10.192.96.0/19",
+                "customer_owned_ipv4_pool": null,
+                "enable_dns64": false,
+                "enable_lni_at_device_index": null,
+                "enable_resource_name_dns_a_record_on_launch": false,
+                "enable_resource_name_dns_aaaa_record_on_launch": false,
+                "ipv6_cidr_block": null,
+                "ipv6_native": false,
+                "map_customer_owned_ip_on_launch": null,
+                "map_public_ip_on_launch": false,
+                "outpost_arn": null,
+                "tags": {
+                  "Name": "cluster-name-std-vpc-public-eu-west-2a",
+                  "kubernetes.io/role/elb": "1"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-public-eu-west-2a",
+                  "kubernetes.io/role/elb": "1"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_subnet.public[1]": {
+              "index": 1,
+              "mode": "managed",
+              "name": "public",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 1,
+              "sensitive_values": {
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_subnet",
+              "values": {
+                "assign_ipv6_address_on_creation": false,
+                "availability_zone": "eu-west-2b",
+                "cidr_block": "10.192.128.0/19",
+                "customer_owned_ipv4_pool": null,
+                "enable_dns64": false,
+                "enable_lni_at_device_index": null,
+                "enable_resource_name_dns_a_record_on_launch": false,
+                "enable_resource_name_dns_aaaa_record_on_launch": false,
+                "ipv6_cidr_block": null,
+                "ipv6_native": false,
+                "map_customer_owned_ip_on_launch": null,
+                "map_public_ip_on_launch": false,
+                "outpost_arn": null,
+                "tags": {
+                  "Name": "cluster-name-std-vpc-public-eu-west-2b",
+                  "kubernetes.io/role/elb": "1"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-public-eu-west-2b",
+                  "kubernetes.io/role/elb": "1"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_subnet.public[2]": {
+              "index": 2,
+              "mode": "managed",
+              "name": "public",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 1,
+              "sensitive_values": {
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_subnet",
+              "values": {
+                "assign_ipv6_address_on_creation": false,
+                "availability_zone": "eu-west-2c",
+                "cidr_block": "10.192.160.0/19",
+                "customer_owned_ipv4_pool": null,
+                "enable_dns64": false,
+                "enable_lni_at_device_index": null,
+                "enable_resource_name_dns_a_record_on_launch": false,
+                "enable_resource_name_dns_aaaa_record_on_launch": false,
+                "ipv6_cidr_block": null,
+                "ipv6_native": false,
+                "map_customer_owned_ip_on_launch": null,
+                "map_public_ip_on_launch": false,
+                "outpost_arn": null,
+                "tags": {
+                  "Name": "cluster-name-std-vpc-public-eu-west-2c",
+                  "kubernetes.io/role/elb": "1"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc-public-eu-west-2c",
+                  "kubernetes.io/role/elb": "1"
+                },
+                "timeouts": null
+              }
+            },
+            "module.eks_cluster.module.vpc.aws_vpc.this[0]": {
+              "index": 0,
+              "mode": "managed",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 1,
+              "sensitive_values": {
+                "tags": {},
+                "tags_all": {}
+              },
+              "type": "aws_vpc",
+              "values": {
+                "assign_generated_ipv6_cidr_block": null,
+                "cidr_block": "10.192.0.0/16",
+                "enable_dns_hostnames": true,
+                "enable_dns_support": true,
+                "instance_tenancy": "default",
+                "ipv4_ipam_pool_id": null,
+                "ipv4_netmask_length": null,
+                "ipv6_ipam_pool_id": null,
+                "ipv6_netmask_length": null,
+                "tags": {
+                  "Name": "cluster-name-std-vpc"
+                },
+                "tags_all": {
+                  "Name": "cluster-name-std-vpc"
+                }
               }
             }
-          ]
+          }
         }
-      ],
-      "resources": [
-        {
-          "address": "module.eks_cluster.aws_iam_policy.cert_manager_policy",
+      },
+      "resources": {
+        "module.eks_cluster.aws_iam_policy.cert_manager_policy": {
           "mode": "managed",
           "name": "cert_manager_policy",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2617,8 +2502,7 @@
             "tags": null
           }
         },
-        {
-          "address": "module.eks_cluster.aws_iam_policy.ebs_sc_access",
+        "module.eks_cluster.aws_iam_policy.ebs_sc_access": {
           "mode": "managed",
           "name": "ebs_sc_access",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2634,8 +2518,7 @@
             "tags": null
           }
         },
-        {
-          "address": "module.eks_cluster.aws_iam_policy.ebs_sc_access_2",
+        "module.eks_cluster.aws_iam_policy.ebs_sc_access_2": {
           "mode": "managed",
           "name": "ebs_sc_access_2",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2652,8 +2535,7 @@
             "tags": null
           }
         },
-        {
-          "address": "module.eks_cluster.aws_iam_policy.eks_admin_policy",
+        "module.eks_cluster.aws_iam_policy.eks_admin_policy": {
           "mode": "managed",
           "name": "eks_admin_policy",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2670,8 +2552,7 @@
             "tags": null
           }
         },
-        {
-          "address": "module.eks_cluster.aws_iam_policy.external_dns_policy",
+        "module.eks_cluster.aws_iam_policy.external_dns_policy": {
           "mode": "managed",
           "name": "external_dns_policy",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2688,8 +2569,7 @@
             "tags": null
           }
         },
-        {
-          "address": "module.eks_cluster.aws_kms_key.eks",
+        "module.eks_cluster.aws_kms_key.eks": {
           "mode": "managed",
           "name": "eks",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2712,8 +2592,7 @@
             "xks_key_id": null
           }
         },
-        {
-          "address": "module.eks_cluster.aws_security_group_rule.cluster_api_to_nodes",
+        "module.eks_cluster.aws_security_group_rule.cluster_api_to_nodes": {
           "mode": "managed",
           "name": "cluster_api_to_nodes",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2733,8 +2612,7 @@
             "type": "ingress"
           }
         },
-        {
-          "address": "module.eks_cluster.kubernetes_storage_class_v1.ebs_sc[0]",
+        "module.eks_cluster.kubernetes_storage_class_v1.ebs_sc[0]": {
           "index": 0,
           "mode": "managed",
           "name": "ebs_sc",
@@ -2772,8 +2650,7 @@
             "volume_binding_mode": "WaitForFirstConsumer"
           }
         },
-        {
-          "address": "module.eks_cluster.time_sleep.eks_cluster_warmup",
+        "module.eks_cluster.time_sleep.eks_cluster_warmup": {
           "mode": "managed",
           "name": "eks_cluster_warmup",
           "provider_name": "registry.terraform.io/hashicorp/time",
@@ -2790,13 +2667,11 @@
             }
           }
         }
-      ]
+      }
     },
-    {
-      "address": "module.opensearch_domain",
-      "resources": [
-        {
-          "address": "module.opensearch_domain.aws_kms_key.kms",
+    "module.opensearch_domain": {
+      "resources": {
+        "module.opensearch_domain.aws_kms_key.kms": {
           "mode": "managed",
           "name": "kms",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2819,8 +2694,7 @@
             "xks_key_id": null
           }
         },
-        {
-          "address": "module.opensearch_domain.aws_opensearch_domain.opensearch_cluster",
+        "module.opensearch_domain.aws_opensearch_domain.opensearch_cluster": {
           "mode": "managed",
           "name": "opensearch_cluster",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2998,8 +2872,7 @@
             ]
           }
         },
-        {
-          "address": "module.opensearch_domain.aws_security_group.this",
+        "module.opensearch_domain.aws_security_group.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3018,8 +2891,7 @@
             "timeouts": null
           }
         },
-        {
-          "address": "module.opensearch_domain.aws_security_group_rule.allow_egress",
+        "module.opensearch_domain.aws_security_group_rule.allow_egress": {
           "mode": "managed",
           "name": "allow_egress",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3055,8 +2927,7 @@
             "type": "egress"
           }
         },
-        {
-          "address": "module.opensearch_domain.aws_security_group_rule.allow_ingress",
+        "module.opensearch_domain.aws_security_group_rule.allow_ingress": {
           "mode": "managed",
           "name": "allow_ingress",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3092,13 +2963,11 @@
             "type": "ingress"
           }
         }
-      ]
+      }
     },
-    {
-      "address": "module.postgresql",
-      "resources": [
-        {
-          "address": "module.postgresql.aws_db_subnet_group.this",
+    "module.postgresql": {
+      "resources": {
+        "module.postgresql.aws_db_subnet_group.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3115,8 +2984,7 @@
             "tags": null
           }
         },
-        {
-          "address": "module.postgresql.aws_kms_key.this",
+        "module.postgresql.aws_kms_key.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3139,8 +3007,7 @@
             "xks_key_id": null
           }
         },
-        {
-          "address": "module.postgresql.aws_rds_cluster.aurora_cluster",
+        "module.postgresql.aws_rds_cluster.aurora_cluster": {
           "mode": "managed",
           "name": "aurora_cluster",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3214,8 +3081,7 @@
             "timeouts": null
           }
         },
-        {
-          "address": "module.postgresql.aws_rds_cluster_instance.aurora_instance[0]",
+        "module.postgresql.aws_rds_cluster_instance.aurora_instance[0]": {
           "index": 0,
           "mode": "managed",
           "name": "aurora_instance",
@@ -3244,8 +3110,7 @@
             "timeouts": null
           }
         },
-        {
-          "address": "module.postgresql.aws_security_group.this",
+        "module.postgresql.aws_security_group.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3264,8 +3129,7 @@
             "timeouts": null
           }
         },
-        {
-          "address": "module.postgresql.aws_security_group_rule.allow_egress",
+        "module.postgresql.aws_security_group_rule.allow_egress": {
           "mode": "managed",
           "name": "allow_egress",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3301,8 +3165,7 @@
             "type": "egress"
           }
         },
-        {
-          "address": "module.postgresql.aws_security_group_rule.allow_ingress",
+        "module.postgresql.aws_security_group_rule.allow_ingress": {
           "mode": "managed",
           "name": "allow_ingress",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3338,7 +3201,7 @@
             "type": "ingress"
           }
         }
-      ]
+      }
     }
-  ]
+  }
 }
