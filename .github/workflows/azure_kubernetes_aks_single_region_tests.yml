@@ -161,6 +161,9 @@ jobs:
     cleanup-clusters:
         name: Cleanup AKS clusters
         if: always()
+        needs:
+            - prepare-clusters
+            - triage
         runs-on: ubuntu-latest
 
         steps:
