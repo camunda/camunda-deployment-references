@@ -9,6 +9,10 @@ inputs:
     cluster-name:
         description: Name of the AKS cluster to deploy
         required: true
+    resource-group-name:
+        description: Name of the resource group to deploy the AKS cluster
+        required: true
+        default: 'camunda-rg'
     kubernetes-version:
         description: Version of Kubernetes to install
         required: false
@@ -117,7 +121,7 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              az aks get-credentials --resource-group ${{ inputs.cluster-name }}-rg --name ${{ inputs.cluster-name }} --overwrite-existing
+              az aks get-credentials --resource-group ${{ inputs.resource-group-name }} --name ${{ inputs.cluster-name }} --overwrite-existing
 
               kubectl config current-context
               kubectl get nodes
