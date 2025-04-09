@@ -139,7 +139,9 @@ jobs:
                   fi
 
                   # limiting factor are OpenSearch domains of maximum 28 characters
-                  echo "CLUSTER_NAME=aks-sr-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)" | tee -a "$GITHUB_ENV"
+                  # shellcheck disable=SC2034
+                  # echo "CLUSTER_NAME=aks-sr-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)" | tee -a "$GITHUB_ENV"
+                  echo "CLUSTER_NAME=camunda-aks" | tee -a "$GITHUB_ENV"
 
             - name: Export S3_BACKEND_BUCKET based on matrix
               id: s3_prefix
@@ -216,7 +218,7 @@ jobs:
               id: s3_prefix
               run: |
                   set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/aks-single-region/" | tee -a "$GITHUB_OUTPUT"
+                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/aks-single-region/" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand AKS Cluster
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup

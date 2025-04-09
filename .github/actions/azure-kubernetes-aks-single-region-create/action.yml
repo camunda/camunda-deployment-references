@@ -25,7 +25,7 @@ inputs:
         default: ''
     tf-modules-revision:
         description: Git revision of the tf modules to use
-        default: main
+        default: add-azure-tests # TODO: Revert to main
         required: true
     tf-modules-path:
         description: Path where the tf eks modules will be cloned
