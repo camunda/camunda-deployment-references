@@ -348,16 +348,16 @@ jobs:
                   # Overwriting the mail
                   export MAIL=${{ env.MAIL_OVERWRITE }}
 
-                  ./generic/kubernetes/single-region/procedure/install-ingress-nginx.sh
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/install-ingress-nginx.sh
 
                   export EXTERNAL_DNS_OWNER_ID="external-dns-${{ env.CLUSTER_NAME }}-${{ matrix.scenario }}"
-                  ./generic/kubernetes/single-region/procedure/install-external-dns.sh
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/install-external-dns.sh
 
                   ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
-                  ./generic/kubernetes/single-region/procedure/install-cert-manager.sh
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/install-cert-manager.sh
 
-                  ./generic/kubernetes/single-region/procedure/install-cert-manager-issuer.sh
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/install-cert-manager-issuer.sh
 
             - name: 🏗️ Prepare a fresh namespace for the tests
               run: |
@@ -610,114 +610,114 @@ jobs:
                   helm uninstall camunda --namespace "$TEST_NAMESPACE" --wait
                   kubectl delete namespace "$TEST_NAMESPACE" --wait
 
-            # - name: 🧹 Cleanup domain specific resources
-            #   if: always() && matrix.declination == 'domain'
-            #   run: |
-            #       set -euo pipefail
+            - name: 🧹 Cleanup domain specific resources
+              if: always() && matrix.declination == 'domain'
+              run: |
+                  set -euo pipefail
 
-            #       echo "Let external-dns remove the domain" && sleep 45
+                  echo "Let external-dns remove the domain" && sleep 45
 
-            #       helm uninstall ingress-nginx --namespace ingress-nginx --wait
-            #       helm uninstall external-dns --namespace external-dns --wait
-            #       helm uninstall cert-manager --namespace cert-manager --wait
+                  helm uninstall ingress-nginx --namespace ingress-nginx --wait
+                  helm uninstall external-dns --namespace external-dns --wait
+                  helm uninstall cert-manager --namespace cert-manager --wait
 
-    # cleanup-clusters:
-    #     name: Cleanup EKS clusters
-    #     if: always()
-    #     runs-on: ubuntu-latest
-    #     needs:
-    #         - access-info
-    #         - integration-tests
-    #     strategy:
-    #         fail-fast: false
-    #         matrix:
-    #             scenario:
-    #                 - eks-single-region
-    #                 - eks-single-region-irsa
-    #     steps:
-    #         - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-    #           if: env.CLEANUP_CLUSTERS == 'true'
-    #           with:
-    #               fetch-depth: 0
+    cleanup-clusters:
+        name: Cleanup EKS clusters
+        if: always()
+        runs-on: ubuntu-latest
+        needs:
+            - access-info
+            - integration-tests
+        strategy:
+            fail-fast: false
+            matrix:
+                scenario:
+                    - eks-single-region
+                    - eks-single-region-irsa
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              if: env.CLEANUP_CLUSTERS == 'true'
+              with:
+                  fetch-depth: 0
 
-    #         - name: Install asdf tools with cache
-    #           if: env.CLEANUP_CLUSTERS == 'true'
-    #           uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+            - name: Install asdf tools with cache
+              if: env.CLEANUP_CLUSTERS == 'true'
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
 
-    #         - name: Import Secrets
-    #           id: secrets
-    #           uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
-    #           if: env.CLEANUP_CLUSTERS == 'true'
-    #           with:
-    #               url: ${{ secrets.VAULT_ADDR }}
-    #               method: approle
-    #               roleId: ${{ secrets.VAULT_ROLE_ID }}
-    #               secretId: ${{ secrets.VAULT_SECRET_ID }}
-    #               exportEnv: false
-    #               secrets: |
-    #                   secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              if: env.CLEANUP_CLUSTERS == 'true'
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
-    #         - name: Configure AWS CLI
-    #           uses: ./.github/actions/aws-configure-cli
-    #           with:
-    #               vault-addr: ${{ secrets.VAULT_ADDR }}
-    #               vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-    #               vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-    #               aws-profile: ${{ env.AWS_PROFILE }}
-    #               aws-region: ${{ env.AWS_REGION }}
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
 
-    #         - name: Export outputs as environment variables
-    #           run: |
-    #               set -euo pipefail
+            - name: Export outputs as environment variables
+              run: |
+                  set -euo pipefail
 
-    #               echo "${{ fromJson(needs.access-info.outputs.outputs_raw).outputs_raw[matrix.scenario] }}" | base64 --decode > encrypted_outputs_raw.enc
-    #               openssl enc -aes-256-cbc -d -in encrypted_outputs_raw.enc -out "outputs_raw" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-    #               rm encrypted_outputs_raw.enc
+                  echo "${{ fromJson(needs.access-info.outputs.outputs_raw).outputs_raw[matrix.scenario] }}" | base64 --decode > encrypted_outputs_raw.enc
+                  openssl enc -aes-256-cbc -d -in encrypted_outputs_raw.enc -out "outputs_raw" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  rm encrypted_outputs_raw.enc
 
-    #               # Export the decrypted outputs as environment variables
-    #               while IFS= read -r line; do
-    #                 echo "$line" | tee -a "$GITHUB_ENV"
-    #               done < outputs_raw
+                  # Export the decrypted outputs as environment variables
+                  while IFS= read -r line; do
+                    echo "$line" | tee -a "$GITHUB_ENV"
+                  done < outputs_raw
 
-    #         - name: Set current Camunda version
-    #           if: env.CLEANUP_CLUSTERS == 'true'
-    #           id: camunda-version
-    #           run: |
-    #               set -euo pipefail
-    #               CAMUNDA_VERSION=$(cat .camunda-version)
-    #               echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+            - name: Set current Camunda version
+              if: env.CLEANUP_CLUSTERS == 'true'
+              id: camunda-version
+              run: |
+                  set -euo pipefail
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-    #         - name: Export S3_BACKEND_BUCKET based on matrix
-    #           if: env.CLEANUP_CLUSTERS == 'true'
-    #           id: s3_prefix
-    #           run: |
-    #               set -euo pipefail
-    #               echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario }}/" | tee -a "$GITHUB_OUTPUT"
+            - name: Export S3_BACKEND_BUCKET based on matrix
+              if: env.CLEANUP_CLUSTERS == 'true'
+              id: s3_prefix
+              run: |
+                  set -euo pipefail
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario }}/" | tee -a "$GITHUB_OUTPUT"
 
-    #         - name: Delete on-demand EKS Cluster
-    #           uses: ./.github/actions/aws-kubernetes-eks-single-region-cleanup
-    #           if: always() && env.CLEANUP_CLUSTERS == 'true'
-    #           timeout-minutes: 125
-    #           with:
-    #               tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
-    #               tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-    #               max-age-hours-cluster: 0
-    #               target: ${{ env.CLUSTER_NAME }}
-    #               tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+            - name: Delete on-demand EKS Cluster
+              uses: ./.github/actions/aws-kubernetes-eks-single-region-cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 125
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours-cluster: 0
+                  target: ${{ env.CLUSTER_NAME }}
+                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
-    # report:
-    #     name: Report failures
-    #     if: failure()
-    #     runs-on: ubuntu-latest
-    #     needs:
-    #         - integration-tests
-    #         - cleanup-clusters
-    #     steps:
-    #         - name: Notify in Slack in case of failure
-    #           id: slack-notification
-    #           if: ${{ env.IS_SCHEDULE == 'true' }}
-    #           uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
-    #           with:
-    #               vault_addr: ${{ secrets.VAULT_ADDR }}
-    #               vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
-    #               vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+    report:
+        name: Report failures
+        if: failure()
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+            - cleanup-clusters
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: ${{ env.IS_SCHEDULE == 'true' }}
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
