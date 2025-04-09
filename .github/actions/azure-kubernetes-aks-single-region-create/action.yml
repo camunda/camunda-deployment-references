@@ -82,7 +82,7 @@ runs:
 
         - name: Terraform Init
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
           run: |
               set -euo pipefail
