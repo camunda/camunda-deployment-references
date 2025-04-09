@@ -2219,6 +2219,128 @@
           ]
         },
         {
+          "address": "module.eks_cluster.module.cert_manager_role",
+          "resources": [
+            {
+              "address": "module.eks_cluster.module.cert_manager_role.aws_iam_role.this[0]",
+              "index": 0,
+              "mode": "managed",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "inline_policy": [],
+                "managed_policy_arns": [],
+                "tags_all": {}
+              },
+              "type": "aws_iam_role",
+              "values": {
+                "description": null,
+                "force_detach_policies": true,
+                "max_session_duration": 3600,
+                "name": "cluster-name-std-cert-manager-role",
+                "path": "/",
+                "permissions_boundary": null,
+                "tags": null
+              }
+            },
+            {
+              "address": "module.eks_cluster.module.cert_manager_role.aws_iam_role_policy_attachment.this[\"policy\"]",
+              "index": "policy",
+              "mode": "managed",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "aws_iam_role_policy_attachment",
+              "values": {
+                "role": "cluster-name-std-cert-manager-role"
+              }
+            },
+            {
+              "address": "module.eks_cluster.module.cert_manager_role.data.aws_iam_policy_document.this[0]",
+              "index": 0,
+              "mode": "data",
+              "name": "this",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "statement": [
+                  {
+                    "actions": [
+                      false
+                    ],
+                    "condition": [
+                      {
+                        "values": [
+                          false
+                        ]
+                      },
+                      {
+                        "values": [
+                          false
+                        ]
+                      }
+                    ],
+                    "not_principals": [],
+                    "principals": [
+                      {
+                        "identifiers": [
+                          false
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "type": "aws_iam_policy_document",
+              "values": {
+                "override_json": null,
+                "override_policy_documents": null,
+                "policy_id": null,
+                "source_json": null,
+                "source_policy_documents": null,
+                "statement": [
+                  {
+                    "actions": [
+                      "sts:AssumeRoleWithWebIdentity"
+                    ],
+                    "condition": [
+                      {
+                        "test": "StringEquals",
+                        "values": [
+                          "sts.amazonaws.com"
+                        ]
+                      },
+                      {
+                        "test": "StringEquals",
+                        "values": [
+                          "system:serviceaccount:cert-manager:cert-manager"
+                        ]
+                      }
+                    ],
+                    "effect": "Allow",
+                    "not_actions": null,
+                    "not_principals": [],
+                    "not_resources": null,
+                    "principals": [
+                      {
+                        "identifiers": [
+                          null
+                        ],
+                        "type": "Federated"
+                      }
+                    ],
+                    "resources": null,
+                    "sid": null
+                  }
+                ],
+                "version": null
+              }
+            }
+          ]
+        },
+        {
           "address": "module.eks_cluster.module.external_dns_role",
           "resources": [
             {
@@ -2451,128 +2573,6 @@
                         "test": "StringEquals",
                         "values": [
                           "system:serviceaccount:kube-system:ebs-csi-controller-sa"
-                        ]
-                      }
-                    ],
-                    "effect": "Allow",
-                    "not_actions": null,
-                    "not_principals": [],
-                    "not_resources": null,
-                    "principals": [
-                      {
-                        "identifiers": [
-                          null
-                        ],
-                        "type": "Federated"
-                      }
-                    ],
-                    "resources": null,
-                    "sid": null
-                  }
-                ],
-                "version": null
-              }
-            }
-          ]
-        },
-        {
-          "address": "module.eks_cluster.module.cert_manager_role",
-          "resources": [
-            {
-              "address": "module.eks_cluster.module.cert_manager_role.aws_iam_role.this[0]",
-              "index": 0,
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "inline_policy": [],
-                "managed_policy_arns": [],
-                "tags_all": {}
-              },
-              "type": "aws_iam_role",
-              "values": {
-                "description": null,
-                "force_detach_policies": true,
-                "max_session_duration": 3600,
-                "name": "cluster-name-std-cert-manager-role",
-                "path": "/",
-                "permissions_boundary": null,
-                "tags": null
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.cert_manager_role.aws_iam_role_policy_attachment.this[\"policy\"]",
-              "index": "policy",
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_iam_role_policy_attachment",
-              "values": {
-                "role": "cluster-name-std-cert-manager-role"
-              }
-            },
-            {
-              "address": "module.eks_cluster.module.cert_manager_role.data.aws_iam_policy_document.this[0]",
-              "index": 0,
-              "mode": "data",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "statement": [
-                  {
-                    "actions": [
-                      false
-                    ],
-                    "condition": [
-                      {
-                        "values": [
-                          false
-                        ]
-                      },
-                      {
-                        "values": [
-                          false
-                        ]
-                      }
-                    ],
-                    "not_principals": [],
-                    "principals": [
-                      {
-                        "identifiers": [
-                          false
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              },
-              "type": "aws_iam_policy_document",
-              "values": {
-                "override_json": null,
-                "override_policy_documents": null,
-                "policy_id": null,
-                "source_json": null,
-                "source_policy_documents": null,
-                "statement": [
-                  {
-                    "actions": [
-                      "sts:AssumeRoleWithWebIdentity"
-                    ],
-                    "condition": [
-                      {
-                        "test": "StringEquals",
-                        "values": [
-                          "sts.amazonaws.com"
-                        ]
-                      },
-                      {
-                        "test": "StringEquals",
-                        "values": [
-                          "system:serviceaccount:cert-manager:cert-manager"
                         ]
                       }
                     ],
