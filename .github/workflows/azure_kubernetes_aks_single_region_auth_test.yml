@@ -2,9 +2,7 @@
 name: Tests - Integration - Azure Kubernetes AKS Single Region
 
 on:
-    push:
-        branches:
-            - add-azure-tests
+    workflow_dispatch:
 
 permissions:
     id-token: write
