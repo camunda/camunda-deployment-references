@@ -202,7 +202,7 @@ runs:
               # Tests are failing for some reason with no-domain, can't replicate locally
               # Assumption is that the jwt issuer is different in the test than expected
               # Disabling for now for no-domain setups
-              if [ "$CONSOLE_ENABLED" != "true" || "$CAMUNDA_DOMAIN" == "" ]; then
+              if [[ "$CONSOLE_ENABLED" != "true" || "$CAMUNDA_DOMAIN" == "" ]]; then
                 echo "Disable Console in the core tests as it's not enabled"
 
                 yq eval 'del(.. | select(has("component") and .component == "Console"))' \
