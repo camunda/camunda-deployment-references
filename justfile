@@ -68,7 +68,7 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
   jq 'def transform:
       if type == "array" then
         . as $arr |
-        if ($arr | length > 0 and all(. ; type == "object" and has("address"))) then
+        if $arr | length > 0 and (.[0] | type == "object" and has("address")) then
           # Transform array elements into an object with address as the key
           map({ (.address): with_entries(select(.key != "address")) | map_values(transform) }) | add
         else
