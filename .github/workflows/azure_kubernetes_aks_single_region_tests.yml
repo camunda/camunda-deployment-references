@@ -65,7 +65,9 @@ env:
     WEBMODELER_ENABLED: 'true'
     CONSOLE_ENABLED: 'true'
 
+    # hardcoded envvars temporarily
     RESOURCE_GROUP_NAME: 'camunda-rg'
+    CLUSTER_NAME: 'camunda-aks'
 
 jobs:
     triage:
@@ -285,6 +287,7 @@ jobs:
         needs:
             - prepare-clusters
             - triage
+            - integration-tests
         runs-on: ubuntu-latest
 
         steps:
