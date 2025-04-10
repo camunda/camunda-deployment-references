@@ -232,15 +232,6 @@ jobs:
                     kubectl config current-context
                     kubectl get nodes    
 
-            - name: 📁 Get a copy of the reference architecture
-              timeout-minutes: 10
-              run: |
-                  # run it as specified in the doc
-                  set -euo pipefail
-
-                  ./azure/kubernetes/aks-single-region/procedure/get-your-copy.sh
-                  tree
-
             - name: 🏗️ Ingress Setup prerequisites
               if: ${{ matrix.declination == 'domain' }}
               run: |
