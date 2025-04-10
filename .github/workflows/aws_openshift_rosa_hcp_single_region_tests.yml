@@ -113,12 +113,12 @@ jobs:
                   # Vars are exported to pass them to yq instead of local inline syntax.
                   # shellcheck disable=SC2086
                   for distro_index in ${distro_indexes}; do
-                    cluster_name_input="${{ inputs.cluster_name }}"
-                    cluster_name_fallback="hci-$(uuidgen | head -c 8)"
-                    export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
+                    #cluster_name_input="${{ inputs.cluster_name }}"
+                    #cluster_name_fallback="hci-$(uuidgen | head -c 8)"
 
                     # TODO: revert this before merge
-                    export cluster_name="leo"
+                    #export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
+                    export cluster_name="hci-6cfa0320"
                     export distro_index="${distro_index}"
                     yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
                   done
@@ -514,6 +514,7 @@ jobs:
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
+              if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
