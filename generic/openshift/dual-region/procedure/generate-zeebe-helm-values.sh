@@ -36,7 +36,7 @@ namespace_0=${CAMUNDA_NAMESPACE_1:-""}
 namespace_1=${CAMUNDA_NAMESPACE_2:-""}
 namespace_0_failover=${CAMUNDA_NAMESPACE_1_FAILOVER:-""}
 namespace_1_failover=${CAMUNDA_NAMESPACE_2_FAILOVER:-""}
-helm_release_name=${HELM_RELEASE_NAME:-""}
+helm_release_name=${CAMUNDA_RELEASE_NAME:-""}
 
 mode="normal"
 target_text="in the base Camunda Helm chart values file 'camunda-values.yml'"

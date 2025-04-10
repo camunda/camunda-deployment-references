@@ -36,6 +36,9 @@ inputs:
     test-namespace:
         description: The namespace to use for the helm tests
         default: camunda
+    test-release-name:
+        description: The helm release name to used for by the helm tests
+        default: camunda
     test-cluster-type:
         description: The type of the cluster to use for the tests
         default: kubernetes
@@ -134,7 +137,7 @@ runs:
               echo "TEST_VALUES_BASE_DIR=$TEST_VALUES_BASE_DIR" | tee -a "$GITHUB_ENV"
 
               # replace integration with the camunda release name as part of adaptation required to run the tests in our environment
-              find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i 's/integration/camunda/g'
+              find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i "s/integration/$CAMUNDA_RELEASE_NAME/g"
 
               echo "Configure Venom tests"
               # (adapted from https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L56)
@@ -249,6 +252,7 @@ runs:
               CLUSTER_2_NAME: ${{ inputs.cluster-2-name || '' }}
               CAMUNDA_NAMESPACE_2: ${{ inputs.camunda-namespace-2 || '' }}
               CAMUNDA_NAMESPACE_1: ${{ inputs.camunda-namespace-1 || '' }}
+              CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name || '' }}
           run: |
               set -euo pipefail
 
@@ -280,8 +284,8 @@ runs:
                 # Without domain:
                 source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 
-                start_port_forward camunda-zeebe-gateway 8080:8080
-                start_port_forward camunda-keycloak 18080:80
+                start_port_forward "$CAMUNDA_RELEASE_NAME-zeebe-gateway" 8080:8080
+                start_port_forward "$CAMUNDA_RELEASE_NAME-keycloak" 18080:80
 
                 echo "Waiting for port-forwarding to be established..." && sleep 10
               fi
@@ -290,7 +294,7 @@ runs:
               start_port_forward() {
                   local service=$1
                   local ports=$2
-                  kubectl port-forward service/$service $ports -n $TEST_NAMESPACE >/dev/null 2>&1 &
+                  kubectl port-forward service/$service $ports -n "$TEST_NAMESPACE" >/dev/null 2>&1 &
                   echo "Port-forwarding for $service on ports $ports started."
               }
 
@@ -305,8 +309,8 @@ runs:
                 export ZEEBE_ADDRESS_REST="http://localhost:8080"
                 export ZEEBE_AUTHORIZATION_SERVER_URL="http://localhost:18080/auth/realms/camunda-platform/protocol/openid-connect/token"
 
-                start_port_forward camunda-zeebe-gateway 8080:8080
-                start_port_forward camunda-keycloak 18080:80
+                start_port_forward "$CAMUNDA_RELEASE_NAME-zeebe-gateway" 8080:8080
+                start_port_forward "$CAMUNDA_RELEASE_NAME-keycloak" 18080:80
 
                 echo "Waiting for port-forwarding to be established..." && sleep 10
               fi
@@ -363,6 +367,8 @@ runs:
                     -e "s/camunda-cluster-region-1\.svc/$CAMUNDA_NAMESPACE_1\.svc/g" \
                     -i "$reference_file"
               fi
+
+              # TODO: replace release name
 
               # Order each file also remove not predictable fields
               yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$temp_output"
