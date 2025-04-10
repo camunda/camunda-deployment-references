@@ -2,7 +2,7 @@ locals {
   opensearch_domain_name = "domain-name-os-irsa" # Replace "domain-name" with your domain name
 
   opensearch_master_username = "secret_user"    # Replace with your opensearch username
-  opensearch_master_password = "Secretvalue$23" # Replace with your opensearch password, password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.
+  opensearch_master_password = "Secretvalue%23" # Replace with your opensearch password, password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.
 
   opensearch_iam_role_name = "OpenSearchRole-${local.opensearch_domain_name}" # Ensure uniqueness
 
