@@ -41,10 +41,10 @@ matrix:
           platform: rosa
 
     scenario:
-        - name: Chart Setup
-          desc: Setup chart in production-like setup with Ingress and TLS.
-          flow: install
+        - name: rosa-hcp-single-region
 
     declination:
-        - no-domain
-        - domain
+        - name: no-domain
+          desc: Setup chart in production-like setup with Ingress and TLS.
+        - name: domain
+          desc: Setup chart in production-like setup without Ingress and TLS.

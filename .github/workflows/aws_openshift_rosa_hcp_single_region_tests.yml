@@ -146,6 +146,7 @@ jobs:
             fail-fast: false
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -224,7 +225,7 @@ jobs:
               id: out
               with:
                   matrix-step-name: ${{ github.job }}
-                  matrix-key: ${{ matrix.distro.name }}
+                  matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
                       kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
 
@@ -235,7 +236,7 @@ jobs:
 
                   # Here we verify the extraction of the env variables as presented in the documentation
 
-                  cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/rosa-hcp-single-region/
+                  cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/${{ matrix.scenario.name }}/
                   source ./procedure/gather-cluster-login-id.sh
                   cd -
 
@@ -255,7 +256,7 @@ jobs:
                   matrix-step-name: prepare-clusters
 
     integration-tests:
-        name: Run integration tests - ${{ matrix.distro.name }}
+        name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }}
         runs-on: ubuntu-latest
         needs:
             - clusters-info
@@ -266,6 +267,12 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
+        concurrency:
+            # instead of running sequentially in a matrix, we use concurrency to run the different scenarios
+            # in parallel but the declinations sequentially
+            # max-parallel would limit us to run 1 matrix job but this way we can run 2 jobs in parallel.
+            group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.scenario.name }}
+            cancel-in-progress: false
         env:
             TEST_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
@@ -303,7 +310,11 @@ jobs:
                   set -euo pipefail
 
                   mkdir -p "$HOME/.kube"
-                  echo "${{ fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[matrix.distro.name] }}" | base64 --decode > encrypted_kubeconfig.enc
+                  echo "${{
+                      fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[
+                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
+                      ]
+                    }}" | base64 --decode > encrypted_kubeconfig.enc
                   openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   rm encrypted_kubeconfig.enc
                   chmod 600 "$HOME/.kube/config"
@@ -317,7 +328,7 @@ jobs:
                   # run it as specified in the doc
                   set -euo pipefail
 
-                  ./aws/openshift/rosa-hcp-single-region/procedure/get-your-copy.sh
+                  ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
             - name: 🏗️ Prepare a fresh namespace for the tests
@@ -347,16 +358,16 @@ jobs:
                   set -o errexit
                   set -euo pipefail
 
-                  # As this action can be retried due to OpenShift API error, it must
-                  # be stateless (all commmands can be rerun without issue)
+                  # the chart env should be loaded by the client at the very first step of his installation
+                  source generic/openshift/single-region/procedure/chart-env.sh
 
                   echo "Construct the values.yml file"
 
                   cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
 
-                  echo "Applying declination: ${{ matrix.declination }}"
+                  echo "Applying declination: ${{ matrix.declination.name }}"
 
-                  if [[ ${{ matrix.declination }} == "domain" ]]; then
+                  if [[ ${{ matrix.declination.name }} == "domain" ]]; then
 
                     source ./generic/openshift/single-region/procedure/setup-application-domain.sh
                     echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
@@ -370,7 +381,7 @@ jobs:
                         yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
                         cat values-result.yml && mv values-result.yml values.yml
                     done
-                  elif [[ ${{ matrix.declination }} == "no-domain" ]]; then
+                  elif [[ ${{ matrix.declination.name }} == "no-domain" ]]; then
                       # explicitely set no domain
                       echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
 
@@ -412,7 +423,9 @@ jobs:
               run: |
                   set -euo pipefail
 
+                  # the chart env should be loaded by the client at the very first step of his installation
                   source generic/openshift/single-region/procedure/chart-env.sh
+
                   source generic/openshift/single-region/procedure/generate-passwords.sh
 
                   ./generic/openshift/single-region/procedure/create-identity-secret.sh
