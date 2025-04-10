@@ -1,0 +1,65 @@
+Cluster "api-o8u5k0r6u4s7t8a-7gbb-p3-openshiftapps-com:443"
+ ✓ Detecting broker(s)
+NAMESPACE            NAME                COMPONENTS   GLOBALNET   GLOBALNET CIDR   DEFAULT GLOBALNET SIZE   DEFAULT DOMAINS
+oc-clusters-broker   submariner-broker                no                           0
+
+ ✓ Showing Connections
+GATEWAY          CLUSTER            REMOTE IP     NAT   CABLE DRIVER   SUBNETS                       STATUS      RTT avg.
+ip-10-1-13-153   cluster-region-2   10.1.13.153   no    libreswan      10.1.128.0/18, 10.1.64.0/18   connected   10.406614ms
+
+ ✓ Showing Endpoints
+CLUSTER            ENDPOINT IP   PUBLIC IP   CABLE DRIVER   TYPE
+local-cluster      10.0.14.37                libreswan      local
+cluster-region-2   10.1.13.153               libreswan      remote
+
+ ✓ Showing Gateways
+NODE            HA STATUS   SUMMARY
+ip-10-0-14-37   active      All connections (1) are established
+
+ ✓ Showing Network details
+    Discovered network details via Submariner:
+        Network plugin:  OVNKubernetes
+        Service CIDRs:   [10.0.128.0/18]
+        Cluster CIDRs:   [10.0.64.0/18]
+
+ ✓ Showing versions
+COMPONENT                       REPOSITORY                  CONFIGURED                                                         RUNNING   ARCH
+submariner-gateway              registry.redhat.io/rhacm2   2aed1902352cb7771b01ec3e3e7b052a054e3f1d64ef36e4ab210962b93fb499   v0.19.0   amd64
+submariner-routeagent           registry.redhat.io/rhacm2   b480b19fab9c0c72bce6b517451942189ef193c068ed18c466ed71d185057be1   v0.19.0   amd64
+submariner-metrics-proxy        registry.redhat.io/rhacm2   94de4a3f3df3e0bbbd5657194af597036358c62dc60cfa19a5ee7a49dd4f3b17   v0.19.0   amd64
+submariner-operator             registry.redhat.io/rhacm2   71c39dcb8bcef9b711e1f367dd187c2d0472b884814317d13be017d7716d118b   v0.19.0   amd64
+submariner-lighthouse-agent     registry.redhat.io/rhacm2   e6a81a97c0626e2f1b9e789d66c8d37b548a59a21100fc9ba52d49f9c378cbb2   v0.19.0   amd64
+submariner-lighthouse-coredns   registry.redhat.io/rhacm2   e51a1ffb9cb59243e4a5525157f5fd109b4e3485b910e4d7a82f69847afcccf5   v0.19.0   amd64
+
+
+Cluster "api-q6t6p1q0y8l8e3t-r00e-p3-openshiftapps-com:443"
+ ✓ Detecting broker(s)
+ ✓ No brokers found
+
+ ✓ Showing Connections
+GATEWAY         CLUSTER         REMOTE IP    NAT   CABLE DRIVER   SUBNETS                       STATUS      RTT avg.
+ip-10-0-14-37   local-cluster   10.0.14.37   no    libreswan      10.0.128.0/18, 10.0.64.0/18   connected   10.398993ms
+
+ ✓ Showing Endpoints
+CLUSTER            ENDPOINT IP   PUBLIC IP   CABLE DRIVER   TYPE
+cluster-region-2   10.1.13.153               libreswan      local
+local-cluster      10.0.14.37                libreswan      remote
+
+ ✓ Showing Gateways
+NODE             HA STATUS   SUMMARY
+ip-10-1-13-153   active      All connections (1) are established
+
+ ✓ Showing Network details
+    Discovered network details via Submariner:
+        Network plugin:  OVNKubernetes
+        Service CIDRs:   [10.1.128.0/18]
+        Cluster CIDRs:   [10.1.64.0/18]
+
+ ✓ Showing versions
+COMPONENT                       REPOSITORY                  CONFIGURED                                                         RUNNING   ARCH
+submariner-gateway              registry.redhat.io/rhacm2   2aed1902352cb7771b01ec3e3e7b052a054e3f1d64ef36e4ab210962b93fb499   v0.19.0   amd64
+submariner-routeagent           registry.redhat.io/rhacm2   b480b19fab9c0c72bce6b517451942189ef193c068ed18c466ed71d185057be1   v0.19.0   amd64
+submariner-metrics-proxy        registry.redhat.io/rhacm2   94de4a3f3df3e0bbbd5657194af597036358c62dc60cfa19a5ee7a49dd4f3b17   v0.19.0   amd64
+submariner-operator             registry.redhat.io/rhacm2   71c39dcb8bcef9b711e1f367dd187c2d0472b884814317d13be017d7716d118b   v0.19.0   amd64
+submariner-lighthouse-agent     registry.redhat.io/rhacm2   e6a81a97c0626e2f1b9e789d66c8d37b548a59a21100fc9ba52d49f9c378cbb2   v0.19.0   amd64
+submariner-lighthouse-coredns   registry.redhat.io/rhacm2   e51a1ffb9cb59243e4a5525157f5fd109b4e3485b910e4d7a82f69847afcccf5   v0.19.0   amd64

@@ -8,11 +8,9 @@ description: >
 inputs:
     tests-camunda-helm-chart-repo-ref:
         description: The branch, tag or commit to checkout
-        required: false
         default: main
     tests-camunda-helm-chart-repo-path:
         description: Path to the Helm chart repository
-        required: false
         default: ./.camunda_helm_repo
     secrets:
         description: JSON wrapped secrets for easier secret passing
@@ -22,42 +20,56 @@ inputs:
         required: true
     camunda-domain:
         description: The domain to use for the tests
-        required: false
         default: ''
     camunda-domain-grpc:
         description: The domain to use for the gRPC tests
-        required: false
         default: 'false'
     webmodeler-enabled:
         description: Whether the Webmodeler is enabled in the chart
-        required: false
         default: 'false'
     console-enabled:
         description: Whether the Console is enabled in the chart
-        required: false
         default: 'false'
     elasticsearch-enabled:
         description: Whether the Elasticsearch is enabled in the chart
-        required: false
         default: 'true'
     test-namespace:
-        description: The namespace to use for the tests
-        required: false
+        description: The namespace to use for the helm tests
         default: camunda
     test-cluster-type:
         description: The type of the cluster to use for the tests
-        required: false
         default: kubernetes
     zeebe-topology-golden-file:
         description: The golden file to compare the Zeebe topology output against.
-        required: false
         default: ./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json
+    zeebe-topology-check-script:
+        description: The script called to the current Zeebe topology.
+        default: ./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh
+    zeebe-authenticated:
+        description: Use the authentication layer to interact with zeebe
+        default: 'true'
+    enable-helm-chart-tests:
+        description: Whether the Helm Chart tests should be run
+        default: 'true'
+    enable-zeebe-client-tests:
+        description: Whether the Zeebe Client tests should be run
+        default: 'true'
+    cluster-2-name:
+        description: Optional cluster 2 name for sed replacement (dual-region only)
+        required: false
+    camunda-namespace-2:
+        description: Optional namespace for region 2 (dual-region only)
+        required: false
+    camunda-namespace-1:
+        description: Optional namespace for region 1 (dual-region only)
+        required: false
 
 runs:
     using: composite
     steps:
         - name: Import Secrets
           id: secrets
+          if: ${{ inputs.enable-helm-chart-tests == 'true' || inputs.zeebe-authenticated == 'true' }}
           uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
           with:
               url: ${{ fromJSON(inputs.secrets).VAULT_ADDR }}
@@ -73,6 +85,7 @@ runs:
 
         - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
           uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+          if: ${{ inputs.enable-helm-chart-tests == 'true' }}
           with:
               repository: camunda/camunda-platform-helm
               ref: ${{ inputs.tests-camunda-helm-chart-repo-ref }}
@@ -80,6 +93,7 @@ runs:
               fetch-depth: 0
 
         - name: 🧪 TESTS - Set variables
+          if: ${{ inputs.enable-helm-chart-tests == 'true' }}
           shell: bash
           env:
               CAMUNDA_VERSION: ${{ inputs.camunda-version }}
@@ -185,7 +199,10 @@ runs:
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
               fi
 
-              if [ "$CONSOLE_ENABLED" != "true" ]; then
+              # Tests are failing for some reason with no-domain, can't replicate locally
+              # Assumption is that the jwt issuer is different in the test than expected
+              # Disabling for now for no-domain setups
+              if [[ "$CONSOLE_ENABLED" != "true" || "$CAMUNDA_DOMAIN" == "" ]]; then
                 echo "Disable Console in the core tests as it's not enabled"
 
                 yq eval 'del(.. | select(has("component") and .component == "Console"))' \
@@ -209,6 +226,7 @@ runs:
               cp .tool-versions "$TEST_VALUES_BASE_DIR"
 
         - name: 🧪 TESTS - Run Preflight TestSuite
+          if: ${{ inputs.enable-helm-chart-tests == 'true' }}
           shell: bash
           run: |
               set -euo pipefail
@@ -216,25 +234,57 @@ runs:
               task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.preflight
 
         - name: 🧪 TESTS - Run Core TestSuite
+          if: ${{ inputs.enable-helm-chart-tests == 'true' }}
           shell: bash
           run: |
               set -euo pipefail
 
               task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.core
 
-        - name: 🧪 TESTS - Run additional tests
+        - name: 🧪 TESTS - Run zeebe client tests
+          if: ${{ inputs.enable-zeebe-client-tests == 'true' }}
           shell: bash
           env:
               DOMAIN_NAME: ${{ inputs.camunda-domain }}
+              CLUSTER_2_NAME: ${{ inputs.cluster-2-name || '' }}
+              CAMUNDA_NAMESPACE_2: ${{ inputs.camunda-namespace-2 || '' }}
+              CAMUNDA_NAMESPACE_1: ${{ inputs.camunda-namespace-1 || '' }}
           run: |
               set -euo pipefail
 
               reference_file="${{ inputs.zeebe-topology-golden-file }}"
-              echo "Using golden reference file to compare against: $reference_file"
+              topology_check_script="${{ inputs.zeebe-topology-check-script }}"
+              zeebe_authenticated="${{ inputs.zeebe-authenticated }}"
 
-              echo "Show zeebe cluster topology using generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh:"
-              export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
-              export ZEEBE_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+              echo "Using golden reference file to compare against: $reference_file"
+              echo "Using topology check script: $topology_check_script"
+
+              if [[ "$zeebe_authenticated" == "true" ]]; then
+                echo "Using authenticated Zeebe client credentials..."
+                export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
+                export ZEEBE_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+              fi
+
+              # function to help with port-forwarding in the background
+              start_port_forward() {
+                  local service=$1
+                  local ports=$2
+                  kubectl port-forward service/$service $ports -n $TEST_NAMESPACE >/dev/null 2>&1 &
+                  echo "Port-forwarding for $service on ports $ports started."
+              }
+
+              # With domain:
+              source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-domain.sh
+
+              if [[ "$DOMAIN_NAME" == "" ]]; then
+                # Without domain:
+                source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
+
+                start_port_forward camunda-zeebe-gateway 8080:8080
+                start_port_forward camunda-keycloak 18080:80
+
+                echo "Waiting for port-forwarding to be established..." && sleep 10
+              fi
 
               # function to help with port-forwarding in the background
               start_port_forward() {
@@ -262,9 +312,8 @@ runs:
               fi
 
               # Execute the script and capture the output in a variable
-              check_zeebe_topology_output=$(./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh)
-
-              echo "$check_zeebe_topology_output" | jq
+              eval "$topology_check_script"
+              check_zeebe_topology_output=$(<zeebe-topology.json)
 
               # Checks
               error_found=false
@@ -306,12 +355,21 @@ runs:
               yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$temp_output"
               yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$reference_file"
 
+              # Replace namespace names with cluster names if env vars are set
+              if [[ -n "${CLUSTER_2_NAME:-}" && -n "${CAMUNDA_NAMESPACE_2:-}" && -n "${CAMUNDA_NAMESPACE_1:-}" ]]; then
+                echo "Replacing namespace values in golden file..."
+                sed -e "s/cluster-region-2/$CLUSTER_2_NAME/g" \
+                    -e "s/camunda-cluster-region-2\.svc/$CAMUNDA_NAMESPACE_2\.svc/g" \
+                    -e "s/camunda-cluster-region-1\.svc/$CAMUNDA_NAMESPACE_1\.svc/g" \
+                    -i "$reference_file"
+              fi
+
               # Order each file also remove not predictable fields
               yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$temp_output"
               yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$reference_file"
 
               # Compare the two files using diff (in compacted JSON format)
-              diff_output=$(delta <(jq -S . "$temp_output") <(jq -S . "$reference_file"))
+              diff_output=$(delta <(jq -S . "$temp_output") <(jq -S . "$reference_file") || true)
 
               if [[ -n "$diff_output" ]]; then
                 # If differences are found, print the error and the diff

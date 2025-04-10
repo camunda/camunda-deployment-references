@@ -109,7 +109,18 @@ destroy_cluster() {
   # Edit the name of the cluster
   sed -i -e "s/\(rosa_cluster_name\s*=\s*\"\)[^\"]*\(\"\)/\1${cluster_id}\2/" cluster.tf
 
-  if ! terraform destroy -auto-approve; then return 1; fi
+  echo "Destroying cluster"
+  if ! output_tf_destroy=$(terraform destroy -auto-approve 2>&1); then
+    echo "$output_tf_destroy"
+
+    if [[ "$output_tf_destroy" == *"CLUSTERS-MGMT-404"* ]]; then
+      echo "The cluster appears to have already been deleted (error: CLUSTERS-MGMT-404). Considering the deletion successful (likely due to cloud-nuke)."
+    else
+      echo "Error destroying module cluster in group"
+      return 1
+    fi
+  fi
+
 
   # Cleanup S3
   echo "Deleting s3://$BUCKET/$cluster_folder"

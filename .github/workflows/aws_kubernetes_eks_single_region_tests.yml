@@ -49,13 +49,14 @@ env:
     # Docker Hub auth to avoid image pull rate limit.
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+    # TODO: [release-duty] before the release, update repo ref!
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
     TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Optional components that are not enabled by default in the doc
-    WEBMODELER_ENABLED: 'false'
-    CONSOLE_ENABLED: 'false'
+    WEBMODELER_ENABLED: 'true'
+    CONSOLE_ENABLED: 'true'
 
 jobs:
     triage:
@@ -269,7 +270,6 @@ jobs:
                     - no-domain
                     - domain
         env:
-            # TODO: check how this can work as we deploy 2 camunda in the same namespace
             TEST_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: kubernetes
@@ -348,20 +348,19 @@ jobs:
                   # Overwriting the mail
                   export MAIL=${{ env.MAIL_OVERWRITE }}
 
-                  ./generic/kubernetes/single-region/procedure/install-ingress-nginx.sh
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/install-ingress-nginx.sh
 
                   export EXTERNAL_DNS_OWNER_ID="external-dns-${{ env.CLUSTER_NAME }}-${{ matrix.scenario }}"
-                  ./generic/kubernetes/single-region/procedure/install-external-dns.sh
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/install-external-dns.sh
 
                   ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
-                  ./generic/kubernetes/single-region/procedure/install-cert-manager.sh
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/install-cert-manager.sh
 
-                  ./generic/kubernetes/single-region/procedure/install-cert-manager-issuer.sh
+                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/install-cert-manager-issuer.sh
 
             - name: 🏗️ Prepare a fresh namespace for the tests
               run: |
-                  set -o errexit
                   set -euo pipefail
 
                   # Delete the namespace to ensure a fresh start
@@ -454,7 +453,6 @@ jobs:
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
                     echo "Enabling WebModeler"
                     yq -i '.webModeler.enabled = true' values.yml
-                    yq -i '.postgresql.enabled = true' values.yml
                   fi
 
                   if [ "$CONSOLE_ENABLED" == "true" ]; then

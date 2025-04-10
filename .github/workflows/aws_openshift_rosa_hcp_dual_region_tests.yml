@@ -1,0 +1,640 @@
+---
+name: Tests - Integration - AWS OpenShift ROSA HCP Dual Region
+
+on:
+    schedule:
+        - cron: 0 3 * * 2 # Runs at 3 AM on Tuesday
+    pull_request:
+        paths:
+            - .github/workflows/aws_openshift_rosa_hcp_dual_region_tests.yml
+            - .github/workflows-config/aws-openshift-rosa-hcp-dual-region/test_matrix.yml
+            - .tool-versions
+            - generic/kubernetes/dual-region/**
+            - generic/openshift/dual-region/**
+            - aws/openshift/rosa-hcp-dual-region/**
+            - '!aws/openshift/rosa-hcp-dual-region/terraform/*/test/golden/**'
+            - .github/actions/aws-openshift-rosa-hcp-dual-region-create/**
+            - .github/actions/aws-openshift-rosa-hcp-dual-region-cleanup/**
+            - .github/actions/aws-configure-cli/**
+
+    workflow_dispatch:
+        inputs:
+            cluster_name:
+                description: Cluster name.
+                required: false
+                type: string
+            delete_clusters:
+                description: Whether to delete the clusters.
+                type: boolean
+                default: true
+            enable_tests:
+                description: Whether to enable the tests.
+                type: boolean
+                default: true
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    # in case of renovate we don't cancel the previous run, so it can finish it
+    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
+    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
+
+env:
+    IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+
+    AWS_PROFILE: infex
+
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-dual-region/ # keep it synced with the name of the module for simplicity
+    TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
+
+    CLUSTER_1_AWS_REGION: eu-west-2
+    CLUSTER_2_AWS_REGION: eu-west-3
+
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+
+    # TEST VARIABLES
+
+    # Vars with "CI_" prefix are used in the CI workflow only.
+    CI_MATRIX_FILE: .github/workflows-config/aws-openshift-rosa-hcp-dual-region/test_matrix.yml
+
+    # Docker Hub auth to avoid image pull rate limit.
+    # Vars with "TEST_" prefix are used in the test runner tool (Task).
+    TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
+
+    ROSA_CLI_VERSION: latest
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    clusters-info:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        name: Define Matrix
+        runs-on: ubuntu-latest
+        outputs:
+            platform-matrix: ${{ steps.matrix.outputs.platform-matrix }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+
+            - id: matrix
+              # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
+              run: |
+                  set -euo pipefail
+
+                  # Generate cluster name.
+                  # shellcheck disable=SC2086
+                  distro_indexes="$(yq '.matrix.distro | to_entries | .[] | .key' ${CI_MATRIX_FILE})"
+
+                  # Loop over clusters.
+                  # Vars are exported to pass them to yq instead of local inline syntax.
+                  # shellcheck disable=SC2086
+                  for distro_index in ${distro_indexes}; do
+                    cluster_name_input="${{ inputs.cluster_name }}"
+                    cluster_name_fallback="hci-$(uuidgen | head -c 8)"
+                    export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
+                    export distro_index="${distro_index}"
+                    yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
+                  done
+
+                  echo "Filtering the matrix with strategy IS_SCHEDULE=$IS_SCHEDULE"
+                  if [[ "$IS_SCHEDULE" == "true" ]]; then
+                    # shellcheck disable=SC2086
+                    platform_matrix="$(yq '.matrix |= (.distro |= map(select(.schedule_only == true)))' \
+                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                  else
+                    # shellcheck disable=SC2086
+                    platform_matrix="$(yq '.matrix |= (.distro |= map(select(.schedule_only == null or .schedule_only == false)))' \
+                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                  fi
+
+                  platform_matrix="$(echo "$platform_matrix" | yq '.matrix' --indent=0 --output-format json)"
+                  echo "${platform_matrix}" | jq
+                  echo "platform-matrix=${platform_matrix}" > "$GITHUB_OUTPUT"
+
+    prepare-clusters:
+        name: Prepare clusters
+        needs:
+            - clusters-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  ref: ${{ github.ref }}
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+                      secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_PASSWORD;
+                      secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_USERNAME;
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
+
+            - name: Set current Camunda version
+              id: camunda-version
+              run: |
+                  set -euo pipefail
+
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
+            # Also remove the versioning
+            - name: Create ROSA cluster and login
+              uses: ./.github/actions/aws-openshift-rosa-hcp-dual-region-create
+              id: create_clusters
+              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+              if: always() && success()
+              with:
+                  rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+                  cluster-name-1: ${{ matrix.distro.clusterName }}-1
+                  cluster-name-2: ${{ matrix.distro.clusterName }}-2
+                  admin-username-cluster-1: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
+                  admin-username-cluster-2: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
+                  admin-password-cluster-1: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
+                  admin-password-cluster-2: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
+                  aws-region-cluster-1: ${{ env.CLUSTER_1_AWS_REGION }}
+                  aws-region-cluster-2: ${{ env.CLUSTER_2_AWS_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  openshift-version-cluster-1: ${{ matrix.distro.version }}
+                  openshift-version-cluster-2: ${{ matrix.distro.version }}
+                  tf-modules-revision: ${{ github.ref }}
+                  tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
+                  cleanup-tf-modules-path: 'false'
+
+            - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
+              id: export_kube_config
+              run: |
+                  set -euo pipefail
+
+                  # shellcheck disable=SC2005
+                  kubectl config view --raw > kubeconfig.yaml 2>/dev/null
+                  openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  encrypted_kubeconfig_base64=$(base64 -w 0 encrypted_kubeconfig.enc)
+                  echo "kubeconfig_raw=${encrypted_kubeconfig_base64}" >> "$GITHUB_OUTPUT"
+
+            - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
+              id: export_secrets
+              run: |
+                  set -euo pipefail
+
+                  yq eval -n \
+                    '.["backup-bucket-s3-aws-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-access-key }}" |
+                    .["backup-bucket-s3-aws-secret-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-secret-access-key }}" |
+                    .["backup-bucket-s3-bucket-name"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-bucket-name }}"' > sensitive_values.yaml
+
+                  openssl enc -aes-256-cbc -salt -in sensitive_values.yaml \
+                    -out encrypted_sensitive_values.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  encrypted_base64=$(base64 -w 0 encrypted_sensitive_values.enc)
+                  echo "encrypted_sensitive_values_raw=$encrypted_base64" >> "$GITHUB_OUTPUT"
+
+            ## Write for matrix outputs workaround
+            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
+              id: out
+              with:
+                  matrix-step-name: ${{ github.job }}
+                  matrix-key: ${{ matrix.distro.name }}
+                  outputs: |-
+                      kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
+                      sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_sensitive_values_raw }}
+
+            - name: 🌐 Post-creation steps
+              timeout-minutes: 20
+              run: |
+                  set -euo pipefail
+
+                  # Here we verify the extraction of the env variables as presented in the documentation
+
+                  cd ${{ env.TF_MODULES_DIRECTORY }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+                  source ../../procedure/gather-cluster-login-id.sh
+                  cd -
+
+                  ./aws/openshift/rosa-hcp-dual-region/procedure/verify-cluster-nodes.sh
+
+
+    access-info:
+        name: Read kube configs from matrix
+        runs-on: ubuntu-latest
+        needs: prepare-clusters
+        outputs:
+            kubeconfig: ${{ steps.read-workflow.outputs.result }}
+        steps:
+            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+              id: read-workflow
+              with:
+                  matrix-step-name: prepare-clusters
+
+    integration-tests:
+        name: Run integration tests - ${{ matrix.distro.name }}
+        runs-on: ubuntu-latest
+        needs:
+            - clusters-info
+            - access-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        env:
+            # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
+            TEST_CLUSTER_TYPE: openshift
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+            - name: Install asdf tools with cache for the project
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6158b7c7534f6dbeb3fa7c3c836f6e6aa6881b2e # 1.3.0
+
+            - name: Install CLI tools from OpenShift Mirror
+              uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+              with:
+                  oc: ${{ matrix.distro.version }}
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
+                      secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+
+            - name: 🔐 Login into the clusters
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  mkdir -p "$HOME/.kube"
+                  echo "${{ fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[matrix.distro.name] }}" | base64 --decode > encrypted_kubeconfig.enc
+                  openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  rm encrypted_kubeconfig.enc
+                  chmod 600 "$HOME/.kube/config"
+
+            - name: 🏷️ Configure clusters informations
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  sed -i -e 's/^export CLUSTER_1_NAME=".*"/export CLUSTER_1_NAME="${{ matrix.distro.clusterName }}-1"/' \
+                         -e 's/^export CLUSTER_2_NAME=".*"/export CLUSTER_2_NAME="${{ matrix.distro.clusterName }}-2"/' \
+                        generic/openshift/dual-region/procedure/set-cluster-names.sh
+
+                  source ./generic/openshift/dual-region/procedure/set-cluster-names.sh
+
+                  echo "CLUSTER_1_NAME=$CLUSTER_1_NAME" | tee -a "$GITHUB_ENV"
+                  echo "CLUSTER_2_NAME=$CLUSTER_2_NAME" | tee -a "$GITHUB_ENV"
+
+                  echo "📤 Export all env variables in GITHUB_ENV for consistency between steps"
+                  env | while IFS= read -r line; do echo "$line" >> "$GITHUB_ENV"; done
+
+            - name: 📁 Get a copy of the reference architecture
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  ./aws/openshift/rosa-hcp-dual-region/procedure/get-your-copy.sh
+                  tree
+
+            - name: 🚢 Configure ACM
+              timeout-minutes: 20
+              env:
+                  RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+              run: |
+                  set -euo pipefail
+
+                  echo "Install ACM"
+                  cd ./generic/openshift/dual-region/procedure/acm/
+                  ./install-acm.sh
+                  ./verify-acm.sh
+
+                  echo "Configure MultiClusterHub"
+                  ./install-multi-cluster-hub.sh
+                  ./verify-multi-cluster-hub.sh
+
+                  echo "Configure ManagedClusterSet"
+                  ./install-managed-cluster-set.sh
+                  ./verify-managed-cluster-set.sh
+
+                  echo "Import Cluster 2 in the ManagedClusterSet"
+                  ./initiate-cluster-set.sh
+                  ./verify-managed-cluster-set.sh
+
+
+            - name: 🐠 Configure Submariner
+              timeout-minutes: 20
+              run: |
+                  set -euo pipefail
+
+                  echo "Install Submariner"
+                  cd ./generic/openshift/dual-region/procedure/submariner/
+
+                  ./list-nodes-brokers.sh
+                  ./label-nodes-brokers.sh
+                  ./install-submariner.sh
+                  ./verify-submariner.sh
+
+                  source ./install-subctl.sh
+                  echo "PATH=$PATH" | tee -a "$GITHUB_ENV"
+
+                  ./verify-subctl.sh
+
+            - name: 🏗️ Prepare the environment for the deployment
+              timeout-minutes: 20
+              run: |
+                  set -euo pipefail
+
+                  echo "Load outputs values from creation of the clusters"
+                  echo "${{ fromJson(needs.access-info.outputs.kubeconfig).sensitive_values_raw[matrix.distro.name] }}" | base64 --decode > encrypted_sensitive.enc
+                  openssl enc -aes-256-cbc -d -in encrypted_sensitive.enc -out ./encrypted_sensitive.yaml -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  rm encrypted_sensitive.enc
+
+                  # shellcheck disable=SC2086
+                  export BACKUP_BUCKET_S3_AWS_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-access-key"]' ./encrypted_sensitive.yaml)
+                  # protect sensitive values
+                  echo "::add-mask::$BACKUP_BUCKET_S3_AWS_ACCESS_KEY"
+                  # shellcheck disable=SC2086
+                  export BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-secret-access-key"]' ./encrypted_sensitive.yaml)
+                  # protect sensitive values
+                  echo "::add-mask::$BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY"
+                  # shellcheck disable=SC2086
+                  export BACKUP_BUCKET_S3_BUCKET_NAME=$(yq eval '.["backup-bucket-s3-bucket-name"]' ./encrypted_sensitive.yaml)
+                  rm ./encrypted_sensitive.yaml
+
+                  echo "Setup environment values"
+                  sed -i \
+                    -e "s#^export CLUSTER_1_NAME=\".*\"#export CLUSTER_1_NAME=\"${{ matrix.distro.clusterName }}-1\"#" \
+                    -e "s#^export CLUSTER_2_NAME=\".*\"#export CLUSTER_2_NAME=\"${{ matrix.distro.clusterName }}-2\"#" \
+                    -e "s#^export CLUSTER_1_REGION=\".*\"#export CLUSTER_1_REGION=\"${{ env.CLUSTER_1_AWS_REGION }}\"#" \
+                    -e "s#^export CLUSTER_2_REGION=\".*\"#export CLUSTER_2_REGION=\"${{ env.CLUSTER_2_AWS_REGION }}\"#" \
+                    -e "s#^export AWS_ACCESS_KEY_ES=\".*\"#export AWS_ACCESS_KEY_ES=\"${BACKUP_BUCKET_S3_AWS_ACCESS_KEY}\"#" \
+                    -e "s#^export AWS_SECRET_ACCESS_KEY_ES=\".*\"#export AWS_SECRET_ACCESS_KEY_ES=\"${BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY}\"#" \
+                    -e "s#^export AWS_ES_BUCKET_NAME=\".*\"#export AWS_ES_BUCKET_NAME=\"${BACKUP_BUCKET_S3_BUCKET_NAME}\"#" \
+                    -e "s#^export AWS_ES_BUCKET_REGION=\".*\"#export AWS_ES_BUCKET_REGION=\"${{ env.CLUSTER_1_AWS_REGION }}\"#" \
+                    generic/openshift/dual-region/procedure/chart-env.sh
+
+                  source ./generic/openshift/dual-region/procedure/chart-env.sh
+
+                  echo "Delete the namespaces to ensure a fresh start"
+                  if kubectl --context "$CLUSTER_1_NAME" get namespace "$CAMUNDA_NAMESPACE_1" &>/dev/null; then
+                    kubectl --context "$CLUSTER_1_NAME" delete namespace "$CAMUNDA_NAMESPACE_1" --wait
+                    while kubectl --context "$CLUSTER_1_NAME" get namespace "$CAMUNDA_NAMESPACE_1" &>/dev/null; do
+                      echo "Namespace $CAMUNDA_NAMESPACE_1 still being deleted, waiting..."
+                      sleep 5
+                    done
+                  fi
+
+                  if kubectl --context "$CLUSTER_2_NAME" get namespace "$CAMUNDA_NAMESPACE_2" &>/dev/null; then
+                    kubectl --context "$CLUSTER_2_NAME" delete namespace "$CAMUNDA_NAMESPACE_2" --wait
+                    while kubectl --context "$CLUSTER_2_NAME" get namespace "$CAMUNDA_NAMESPACE_2" &>/dev/null; do
+                      echo "Namespace $CAMUNDA_NAMESPACE_2 still being deleted, waiting..."
+                      sleep 5
+                    done
+                  fi
+
+                  echo "Setup namespaces and initial secrets"
+                  source ./generic/openshift/dual-region/procedure/setup-namespaces-secrets.sh
+
+                  echo "Generate dual-region variables"
+                  CLUSTER_1_NAME='local-cluster' ZEEBE_CLUSTER_SIZE=8 source ./generic/openshift/dual-region/procedure/generate-zeebe-helm-values.sh
+
+                  echo "📤 Export all env variables in GITHUB_ENV for consistency between steps"
+                  env | while IFS= read -r line; do echo "$line" >> "$GITHUB_ENV"; done
+
+            - name: 🛠️ Assemble deployment values of generic/openshift/dual-region
+              timeout-minutes: 10
+              run: |
+                  set -o errexit
+                  set -euo pipefail
+
+                  echo "Construct the values.yml file for each cluster"
+
+                  cp -f generic/openshift/dual-region/helm-values/values-base.yml ./values.yml
+
+                  echo "Region 1:"
+                  yq '. *d load("generic/openshift/dual-region/helm-values/values-region-1.yml")' values.yml > values-region-1-result.yml
+                  cat values-region-1-result.yml && mv values-region-1-result.yml values-region-1.yml
+
+                  echo "Region 2:"
+                  yq '. *d load("generic/openshift/dual-region/helm-values/values-region-2.yml")' values.yml > values-region-2-result.yml
+                  cat values-region-2-result.yml && mv values-region-2-result.yml values-region-2.yml
+
+                  # Add integration tests values
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    echo "Enabling test files"
+                    for file in registry.yml; do
+
+                      echo "Region 1:"
+                      yq ". *d load(\"generic/kubernetes/dual-region/tests/helm-values/$file\")" values-region-1.yml > values-region-1-result.yml
+                      cat values-region-1-result.yml && mv values-region-1-result.yml values-region-1.yml
+
+                      echo "Region 2:"
+                      yq ". *d load(\"generic/kubernetes/dual-region/tests/helm-values/$file\")" values-region-2.yml > values-region-2-result.yml
+                      cat values-region-2-result.yml && mv values-region-2-result.yml values-region-2.yml
+
+                    done
+                  fi
+
+                  ./generic/openshift/dual-region/procedure/assemble-envsubst-values.sh
+
+
+            - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
+              timeout-minutes: 30
+              run: |
+                  set -euo pipefail
+
+                  # Generate tests objects
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    # Create the pull secrets described in generic/kubernetes/dual-region/tests/helm-values/registry.yml
+                    kubectl create secret docker-registry index-docker-io \
+                        --docker-server=index.docker.io \
+                        --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                        --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                        --context="$CLUSTER_1_NAME" \
+                        --namespace="$CAMUNDA_NAMESPACE_1"
+
+                    kubectl create secret docker-registry index-docker-io \
+                        --docker-server=index.docker.io \
+                        --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                        --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                        --context="$CLUSTER_2_NAME" \
+                        --namespace="$CAMUNDA_NAMESPACE_2"
+                  fi
+
+                  ./generic/openshift/dual-region/procedure/install-chart.sh
+                  echo "Waiting for the manifests to be applied"
+                  sleep 30
+
+                  ./generic/openshift/dual-region/procedure/export-services-submariner.sh
+                  ./generic/openshift/dual-region/procedure/verify-exported-services.sh
+
+            - name: 👀⏳ Wait for the deployment to be healthy using generic/openshift/dual-region
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  ./generic/openshift/dual-region/procedure/check-deployment-ready.sh
+
+
+            - name: Set current Camunda version
+              id: camunda-version
+              run: |
+                  set -euo pipefail
+
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
+            # TODO: integrate c8-multi-region tests as a lego test
+
+            - name: 🧪 Run Helm Chart tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 60
+              uses: ./.github/actions/internal-camunda-chart-tests
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
+                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
+                  test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+                  enable-helm-chart-tests: 'false' # TODO: integrate helm chart dual region tests if they exists
+                  zeebe-authenticated: 'false'
+                  zeebe-topology-check-script: ./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh
+                  zeebe-topology-golden-file: ./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology-output.json
+                  camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  cluster-2-name: ${{ env.CLUSTER_2_NAME }}
+                  camunda-namespace-2: ${{ env.CAMUNDA_NAMESPACE_2 }}
+
+            - name: 🔬🚨 Get failed Pods info
+              if: failure()
+              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@52f7c04dc9817a2f8a5b7b1c5450a80a8a6996ae # main
+
+    cleanup-clusters:
+        name: Cleanup ROSA clusters
+        if: always()
+        runs-on: ubuntu-latest
+        needs:
+            - clusters-info
+            - integration-tests
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              if: env.CLEANUP_CLUSTERS == 'true'
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              if: env.CLEANUP_CLUSTERS == 'true'
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              if: env.CLEANUP_CLUSTERS == 'true'
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              if: env.CLEANUP_CLUSTERS == 'true'
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
+
+            - name: Set current Camunda version
+              id: camunda-version
+              if: env.CLEANUP_CLUSTERS == 'true'
+              run: |
+                  set -euo pipefail
+
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Delete on-demand ROSA HCP Cluster
+              uses: ./.github/actions/aws-openshift-rosa-hcp-dual-region-cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 125
+              env:
+                  RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours-cluster: 0
+                  target: ${{ matrix.distro.clusterName }}
+                  tf-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+
+    report:
+        name: Report failures
+        if: failure()
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+            - cleanup-clusters
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: ${{ env.IS_SCHEDULE == 'true' }}
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

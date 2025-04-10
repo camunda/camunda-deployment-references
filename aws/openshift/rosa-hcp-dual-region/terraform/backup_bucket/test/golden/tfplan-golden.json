@@ -1,0 +1,288 @@
+{
+  "resources": {
+    "aws_iam_access_key.service_account_access_key": {
+      "mode": "managed",
+      "name": "service_account_access_key",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret": true,
+        "ses_smtp_password_v4": true
+      },
+      "type": "aws_iam_access_key",
+      "values": {
+        "pgp_key": null,
+        "status": "Active",
+        "user": "camunda-elastic-backup-rosa-dual-s3-service-account"
+      }
+    },
+    "aws_iam_policy.s3_access_policy": {
+      "mode": "managed",
+      "name": "s3_access_policy",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_iam_policy",
+      "values": {
+        "description": "Policy for accessing S3 bucket",
+        "name": "camunda-elastic-backup-rosa-dual-s3-access-policy",
+        "path": "/",
+        "tags": null
+      }
+    },
+    "aws_iam_user.service_account": {
+      "mode": "managed",
+      "name": "service_account",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_iam_user",
+      "values": {
+        "force_destroy": false,
+        "name": "camunda-elastic-backup-rosa-dual-s3-service-account",
+        "path": "/",
+        "permissions_boundary": null,
+        "tags": null
+      }
+    },
+    "aws_iam_user_policy_attachment.s3_access_attachment": {
+      "mode": "managed",
+      "name": "s3_access_attachment",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_iam_user_policy_attachment",
+      "values": {
+        "user": "camunda-elastic-backup-rosa-dual-s3-service-account"
+      }
+    },
+    "aws_kms_key.backup_bucket_key": {
+      "mode": "managed",
+      "name": "backup_bucket_key",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_kms_key",
+      "values": {
+        "bypass_policy_lockout_safety_check": false,
+        "custom_key_store_id": null,
+        "customer_master_key_spec": "SYMMETRIC_DEFAULT",
+        "deletion_window_in_days": 10,
+        "description": "This key is used to encrypt bucket camunda-elastic-backup-rosa-dual",
+        "enable_key_rotation": true,
+        "is_enabled": true,
+        "key_usage": "ENCRYPT_DECRYPT",
+        "tags": null,
+        "timeouts": null,
+        "xks_key_id": null
+      }
+    },
+    "aws_s3_bucket.elastic_backup": {
+      "mode": "managed",
+      "name": "elastic_backup",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "cors_rule": [],
+        "grant": [],
+        "lifecycle_rule": [],
+        "logging": [],
+        "object_lock_configuration": [],
+        "replication_configuration": [],
+        "server_side_encryption_configuration": [],
+        "tags": {},
+        "tags_all": {},
+        "versioning": [],
+        "website": []
+      },
+      "type": "aws_s3_bucket",
+      "values": {
+        "bucket": "camunda-elastic-backup-rosa-dual",
+        "force_destroy": false,
+        "tags": {
+          "Name": "camunda-elastic-backup-rosa-dual"
+        },
+        "tags_all": {
+          "Name": "camunda-elastic-backup-rosa-dual"
+        },
+        "timeouts": null
+      }
+    },
+    "aws_s3_bucket.log_bucket": {
+      "mode": "managed",
+      "name": "log_bucket",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "cors_rule": [],
+        "grant": [],
+        "lifecycle_rule": [],
+        "logging": [],
+        "object_lock_configuration": [],
+        "replication_configuration": [],
+        "server_side_encryption_configuration": [],
+        "tags_all": {},
+        "versioning": [],
+        "website": []
+      },
+      "type": "aws_s3_bucket",
+      "values": {
+        "bucket": "camunda-elastic-backup-rosa-dual-log",
+        "force_destroy": false,
+        "tags": null,
+        "timeouts": null
+      }
+    },
+    "aws_s3_bucket_logging.this": {
+      "mode": "managed",
+      "name": "this",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "target_grant": [],
+        "target_object_key_format": []
+      },
+      "type": "aws_s3_bucket_logging",
+      "values": {
+        "expected_bucket_owner": null,
+        "target_grant": [],
+        "target_object_key_format": [],
+        "target_prefix": "log/"
+      }
+    },
+    "aws_s3_bucket_public_access_block.block_public_policy": {
+      "mode": "managed",
+      "name": "block_public_policy",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_s3_bucket_public_access_block",
+      "values": {
+        "block_public_acls": true,
+        "block_public_policy": true,
+        "ignore_public_acls": true,
+        "restrict_public_buckets": true
+      }
+    },
+    "aws_s3_bucket_public_access_block.block_public_policy_logs": {
+      "mode": "managed",
+      "name": "block_public_policy_logs",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_s3_bucket_public_access_block",
+      "values": {
+        "block_public_acls": true,
+        "block_public_policy": true,
+        "ignore_public_acls": true,
+        "restrict_public_buckets": true
+      }
+    },
+    "aws_s3_bucket_server_side_encryption_configuration.encrypt_bucket": {
+      "mode": "managed",
+      "name": "encrypt_bucket",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "rule": [
+          {
+            "apply_server_side_encryption_by_default": [
+              {}
+            ]
+          }
+        ]
+      },
+      "type": "aws_s3_bucket_server_side_encryption_configuration",
+      "values": {
+        "expected_bucket_owner": null,
+        "rule": [
+          {
+            "apply_server_side_encryption_by_default": [
+              {
+                "sse_algorithm": "aws:kms"
+              }
+            ],
+            "bucket_key_enabled": null
+          }
+        ]
+      }
+    },
+    "aws_s3_bucket_server_side_encryption_configuration.encrypt_log_bucket": {
+      "mode": "managed",
+      "name": "encrypt_log_bucket",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "rule": [
+          {
+            "apply_server_side_encryption_by_default": [
+              {}
+            ]
+          }
+        ]
+      },
+      "type": "aws_s3_bucket_server_side_encryption_configuration",
+      "values": {
+        "expected_bucket_owner": null,
+        "rule": [
+          {
+            "apply_server_side_encryption_by_default": [
+              {
+                "sse_algorithm": "aws:kms"
+              }
+            ],
+            "bucket_key_enabled": null
+          }
+        ]
+      }
+    },
+    "aws_s3_bucket_versioning.versionning_backup": {
+      "mode": "managed",
+      "name": "versionning_backup",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "versioning_configuration": [
+          {}
+        ]
+      },
+      "type": "aws_s3_bucket_versioning",
+      "values": {
+        "expected_bucket_owner": null,
+        "mfa": null,
+        "versioning_configuration": [
+          {
+            "status": "Enabled"
+          }
+        ]
+      }
+    },
+    "aws_s3_bucket_versioning.versionning_logs": {
+      "mode": "managed",
+      "name": "versionning_logs",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "versioning_configuration": [
+          {}
+        ]
+      },
+      "type": "aws_s3_bucket_versioning",
+      "values": {
+        "expected_bucket_owner": null,
+        "mfa": null,
+        "versioning_configuration": [
+          {
+            "status": "Enabled"
+          }
+        ]
+      }
+    }
+  }
+}
