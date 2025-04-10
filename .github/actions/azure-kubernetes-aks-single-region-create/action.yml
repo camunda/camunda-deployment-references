@@ -2,7 +2,7 @@
 name: Deploy Azure Kubernetes AKS Single Region Cluster
 
 description: |
-    This GitHub Action automates the deployment of the aws/kubernetes/eks-single-region(-irsa) reference architecture cluster using Terraform.
+    This GitHub Action automates the deployment of the azure/kubernetes/eks-single-region reference architecture cluster using Terraform.
     The kube context will be set on the created cluster.
 
 inputs:
