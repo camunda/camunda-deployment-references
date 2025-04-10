@@ -70,9 +70,19 @@ jobs:
                   set -euo pipefail
 
                   # Creation and versioning of S3 Bucket
+                  echo "Creating S3 bucket ${BUCKET_NAME} for Terraform state management"
                   ./s3-bucket-creation.sh
+
+                  # previous step export is encapsulated to its execution
+                  export S3_TF_BUCKET_NAME="${BUCKET_NAME}"
+
+                  echo "Enabling versioning for S3 bucket ${BUCKET_NAME}"
                   ./s3-bucket-versioning.sh
+
+                  echo "Enabling private bucket policy for S3 bucket ${BUCKET_NAME}"
                   ./s3-bucket-private.sh
+
+                  echo "Verifying S3 bucket ${BUCKET_NAME}"
                   ./s3-bucket-verify.sh
 
                   # Terraform init part
@@ -82,11 +92,13 @@ jobs:
                   }
                   EOF
 
+                  echo "Initializing Terraform with S3 backend"
                   ./s3-bucket-tf-init.sh
 
                   rm -rf config.tf
 
             - name: Delete S3 bucket
+              if: always()
               run: |
                   set -euo pipefail
 
