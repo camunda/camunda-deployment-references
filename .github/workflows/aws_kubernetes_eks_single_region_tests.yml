@@ -157,7 +157,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         env:
             TF_MODULES_PATH: ./.action-tf-modules/aws-kubernetes-eks-single-region-create/
