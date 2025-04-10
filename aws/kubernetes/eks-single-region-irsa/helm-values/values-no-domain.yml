@@ -84,7 +84,8 @@ webModeler:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
         mail:
-            existingSecret: identity-secret-for-components # reference the smtp password
+            existingSecret:
+                name: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
 
 identity:
@@ -140,6 +141,7 @@ optimize:
 
 console:
     enabled: false # by default, console is not enabled
+    contextPath: /
 
 elasticsearch:
     enabled: false
