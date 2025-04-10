@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Download a copy of the reference architecture
-BRANCH="feature/migrate-dual-region-rosa"  # TODO: [release-duty] before the release, update this!
+BRANCH="main"  # TODO: [release-duty] before the release, update this!
 
 git clone --depth 1 --branch "$BRANCH" https://github.com/camunda/camunda-deployment-references.git
 

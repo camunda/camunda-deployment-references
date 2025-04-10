@@ -23,7 +23,7 @@ inputs:
         default: ''
     camunda-domain-grpc:
         description: The domain to use for the gRPC tests
-        default: 'false'
+        default: ''
     webmodeler-enabled:
         description: Whether the Webmodeler is enabled in the chart
         default: 'false'
@@ -157,7 +157,7 @@ runs:
                 yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
 
-                if [[ "$CAMUNDA_DOMAIN_GRPC" != "false" ]]; then
+                if [[ "$CAMUNDA_DOMAIN_GRPC" != "" ]]; then
                   yq eval '.coreVars.baseURLs.zeebeGatewayGRPC = env(CAMUNDA_DOMAIN_GRPC)' \
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
                 fi
@@ -202,6 +202,7 @@ runs:
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
               fi
 
+              # TODO: Fix later for Console and re-investigate
               # Tests are failing for some reason with no-domain, can't replicate locally
               # Assumption is that the jwt issuer is different in the test than expected
               # Disabling for now for no-domain setups
@@ -274,45 +275,33 @@ runs:
                   local service=$1
                   local ports=$2
                   kubectl port-forward service/$service $ports -n $TEST_NAMESPACE >/dev/null 2>&1 &
+                  local pid=$!
+                  PORT_FORWARD_PIDS+=($pid)
                   echo "Port-forwarding for $service on ports $ports started."
               }
 
-              # With domain:
-              source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-domain.sh
+              cleanup() {
+                for pid in "${PORT_FORWARD_PIDS[@]}"; do
+                  echo "🛑 Stopping port-forward (PID: $pid)..."
+                  kill "$pid"
+                done
+              }
+
+              trap cleanup EXIT
+
+              PORT_FORWARD_PIDS=()
 
               if [[ "$DOMAIN_NAME" == "" ]]; then
                 # Without domain:
                 source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 
-                start_port_forward "$CAMUNDA_RELEASE_NAME-zeebe-gateway" 8080:8080
-                start_port_forward "$CAMUNDA_RELEASE_NAME-keycloak" 18080:80
+                start_port_forward camunda-zeebe-gateway 8080:8080
+                start_port_forward camunda-keycloak 18080:80
 
                 echo "Waiting for port-forwarding to be established..." && sleep 10
-              fi
-
-              # function to help with port-forwarding in the background
-              start_port_forward() {
-                  local service=$1
-                  local ports=$2
-                  kubectl port-forward service/$service $ports -n "$TEST_NAMESPACE" >/dev/null 2>&1 &
-                  echo "Port-forwarding for $service on ports $ports started."
-              }
-
-              # TODO: Pull out of the documentation
-
-              # With domain:
-              export ZEEBE_ADDRESS_REST="https://$DOMAIN_NAME/zeebe"
-              export ZEEBE_AUTHORIZATION_SERVER_URL="https://$DOMAIN_NAME/auth/realms/camunda-platform/protocol/openid-connect/token"
-
-              if [[ "$DOMAIN_NAME" == "" ]]; then
-                # Without domain:
-                export ZEEBE_ADDRESS_REST="http://localhost:8080"
-                export ZEEBE_AUTHORIZATION_SERVER_URL="http://localhost:18080/auth/realms/camunda-platform/protocol/openid-connect/token"
-
-                start_port_forward "$CAMUNDA_RELEASE_NAME-zeebe-gateway" 8080:8080
-                start_port_forward "$CAMUNDA_RELEASE_NAME-keycloak" 18080:80
-
-                echo "Waiting for port-forwarding to be established..." && sleep 10
+              else
+                # With domain:
+                source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-domain.sh
               fi
 
               # Execute the script and capture the output in a variable

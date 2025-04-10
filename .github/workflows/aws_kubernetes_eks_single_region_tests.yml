@@ -9,14 +9,18 @@ on:
             - .github/workflows/aws_kubernetes_eks_single_region_tests.yml
             - .tool-versions
             - generic/kubernetes/single-region/**
-            - aws/kubernetes/eks-single-region/**
-            - aws/kubernetes/eks-single-region-irsa/**
+            - aws/kubernetes/eks-single-region*/**
             - '!aws/kubernetes/eks-single-region/test/golden/**'
             - '!aws/kubernetes/eks-single-region-irsa/test/golden/**'
             - .github/actions/aws-kubernetes-eks-single-region-create/**
+            - .github/actions/aws-configure-cli/**
 
     workflow_dispatch:
         inputs:
+            cluster_name:
+                description: Cluster name.
+                required: false
+                type: string
             delete_clusters:
                 description: Whether to delete the clusters.
                 type: boolean
@@ -25,6 +29,14 @@ on:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
+            ref-arch:
+                description: |
+                    Reference architecture to use, can only deploy one at a time.
+                    Use a different trigger with unique names for each ref-arch.
+                    Valid values are `eks-single-region` and `eks-single-region-irsa`.
+                required: false
+                type: string
+                default: eks-single-region
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -41,10 +53,15 @@ env:
     AWS_REGION: eu-west-2
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
+    TLD: camunda.ie
+    MAIL_OVERWRITE: admin@camunda.ie
 
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
+
+    # Vars with "CI_" prefix are used in the CI workflow only.
+    CI_MATRIX_FILE: .github/workflows-config/aws-kubernetes-eks-single-region/test_matrix.yml
 
     # Docker Hub auth to avoid image pull rate limit.
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
@@ -69,16 +86,78 @@ jobs:
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
 
+    clusters-info:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        name: Define Matrix
+        runs-on: ubuntu-latest
+        outputs:
+            platform-matrix: ${{ steps.matrix.outputs.platform-matrix }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
+
+            - id: matrix
+              # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
+              run: |
+                  set -euo pipefail
+
+                  # Generate cluster name.
+                  # shellcheck disable=SC2086
+                  scenario_indexes="$(yq '.matrix.scenario | to_entries | .[] | .key' ${CI_MATRIX_FILE})"
+
+                  PR_NUMBER=0
+                  if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+                      PR_NUMBER=${{ github.event.pull_request.number}}
+                  fi
+
+                  # Loop over scenarios.
+                  # Vars are exported to pass them to yq instead of local inline syntax.
+                  # shellcheck disable=SC2086
+                  for scenario_index in ${scenario_indexes}; do
+                    cluster_name_input="${{ inputs.cluster_name }}"
+                    # limiting factor are OpenSearch domains of maximum 28 characters
+                    cluster_name_fallback="eks-sr-$PR_NUMBER-$(uuidgen | head -c 5)"
+                    export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
+                    export scenario_index="${scenario_index}"
+                    yq -i '.matrix.scenario[env(scenario_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
+                  done
+
+                  echo "Filtering the matrix with strategy IS_SCHEDULE=$IS_SCHEDULE or IS_RENOVATE_PR=$IS_RENOVATE_PR"
+                  if [[ "$IS_SCHEDULE" == "true" || "$IS_RENOVATE_PR" == "true" ]]; then
+                    # shellcheck disable=SC2086
+                    platform_matrix="$(yq '.matrix |= (.scenario |= map(select(.schedule_only == true)))' \
+                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                  else
+                    # shellcheck disable=SC2086
+                    platform_matrix="$(yq '.matrix |= (.scenario |= map(select(.schedule_only == null or .schedule_only == false)))' \
+                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                  fi
+
+                  if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+                    echo "Filtering based on supplied ref-arch ${{ inputs.ref-arch }}"
+                    # shellcheck disable=SC2086
+                    platform_matrix="$(yq '.matrix |= (.scenario |= map(select(.name == env(ref_arch))))' \
+                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                  fi
+
+                  platform_matrix="$(echo "$platform_matrix" | yq '.matrix' --indent=0 --output-format json)"
+                  echo "${platform_matrix}" | jq
+                  echo "platform-matrix=${platform_matrix}" > "$GITHUB_OUTPUT"
+
     prepare-clusters:
         name: Prepare clusters
         needs:
-            - triage
+            - clusters-info
         strategy:
             fail-fast: false
             matrix:
-                scenario:
-                    - eks-single-region
-                    - eks-single-region-irsa
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         env:
             TF_MODULES_PATH: ./.action-tf-modules/aws-kubernetes-eks-single-region-create/
@@ -119,23 +198,11 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-            - name: Generate random cluster_name
-              id: generate_cluster_name
-              run: |
-                  set -euo pipefail
-                  PR_NUMBER=0
-                  if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-                      PR_NUMBER=${{ github.event.pull_request.number}}
-                  fi
-
-                  # limiting factor are OpenSearch domains of maximum 28 characters
-                  echo "CLUSTER_NAME=eks-sr-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)" | tee -a "$GITHUB_ENV"
-
             - name: Export S3_BACKEND_BUCKET based on matrix
               id: s3_prefix
               run: |
                   set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario }}/" | tee -a "$GITHUB_OUTPUT"
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
             - name: Create K8S cluster and login
               uses: ./.github/actions/aws-kubernetes-eks-single-region-create
@@ -143,32 +210,30 @@ jobs:
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               with:
-                  cluster-name: ${{ env.CLUSTER_NAME }}
+                  cluster-name: ${{ matrix.scenario.clusterName }}
                   aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
-                  ref-arch: ${{ matrix.scenario }}
+                  ref-arch: ${{ matrix.scenario.name }}
 
             # We are exporting everything for irsa and non-irsa, worst case it's empty and not used
             # Reason for skipping pipefail in the next step
             - name: Export relevant Terraform outputs
               if: always()
-              working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario }}/
-              id: export-terraform-outputs
+              working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario.name }}/
+              id: encrypt_outputs
               run: |
-                  source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario }}/procedure/export-helm-values.sh
-                  source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario }}/procedure/vars-create-db.sh
+                  source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/export-helm-values.sh
+                  source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
 
-                  if [[ "${{ matrix.scenario }}" =~ "irsa" ]]; then
-                      source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario }}/procedure/vars-create-os.sh
+                  if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
+                      source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh
                   fi
 
                   {
-                    echo "CLUSTER_NAME=${{ env.CLUSTER_NAME }}"
-
                     # Export to file to pass to other jobs
                     echo "CERT_MANAGER_IRSA_ARN=$CERT_MANAGER_IRSA_ARN"
                     echo "EXTERNAL_DNS_IRSA_ARN=$EXTERNAL_DNS_IRSA_ARN"
@@ -216,13 +281,6 @@ jobs:
                     echo "OPENSEARCH_MASTER_PASSWORD=$OPENSEARCH_MASTER_PASSWORD"
                   } >> outputs_raw
 
-            - name: Export outputs and encrypt it # this is required to pass matrix outputs securely using artifacts
-              if: always()
-              working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario }}/
-              id: encrypt_outputs
-              run: |
-                  set -euo pipefail
-
                   openssl enc -aes-256-cbc -salt -in outputs_raw -out encrypted_outputs_raw.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   encrypted_outputs_raw_base64=$(base64 -w 0 encrypted_outputs_raw.enc)
                   echo "outputs_raw=${encrypted_outputs_raw_base64}" >> "$GITHUB_OUTPUT"
@@ -233,7 +291,7 @@ jobs:
               id: out
               with:
                   matrix-step-name: ${{ github.job }}
-                  matrix-key: ${{ matrix.scenario }}
+                  matrix-key: ${{ matrix.scenario.name }}
                   outputs: |-
                       outputs_raw: ${{ steps.encrypt_outputs.outputs.outputs_raw }}
 
@@ -251,29 +309,26 @@ jobs:
                   matrix-step-name: prepare-clusters
 
     integration-tests:
-        name: Run integration tests - ${{ matrix.scenario }} - ${{ matrix.declination }}
+        name: Run integration tests - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
         runs-on: ubuntu-latest
         concurrency:
-            # instead of running sequentially in a matrix, we use concurrency to run the different scenarios in parallel
-            group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.scenario }}
+            # instead of running sequentially in a matrix, we use concurrency to run the different scenarios in parallel but the declinations sequentially
+            # max-parallel would limit us to run 1 matrix job but this way we can run 2 jobs in parallel.
+            group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.scenario.name }}
             cancel-in-progress: false
         needs:
             - prepare-clusters
             - access-info
+            - clusters-info
         strategy:
             fail-fast: false
             matrix:
-                scenario:
-                    - eks-single-region
-                    - eks-single-region-irsa
-                declination:
-                    - no-domain
-                    - domain
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         env:
             TEST_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: kubernetes
-            MAIL_OVERWRITE: admin@camunda.ie
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
@@ -306,10 +361,11 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: 🚢 Export outputs as environment variables
+              timeout-minutes: 3
               run: |
                   set -euo pipefail
 
-                  echo "${{ fromJson(needs.access-info.outputs.outputs_raw).outputs_raw[matrix.scenario] }}" | base64 --decode > encrypted_outputs_raw.enc
+                  echo "${{ fromJson(needs.access-info.outputs.outputs_raw).outputs_raw[matrix.scenario.name] }}" | base64 --decode > encrypted_outputs_raw.enc
                   openssl enc -aes-256-cbc -d -in encrypted_outputs_raw.enc -out "outputs_raw" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   rm encrypted_outputs_raw.enc
 
@@ -322,7 +378,7 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-                  aws eks --region "${{ env.AWS_REGION }}" update-kubeconfig --name "${{ env.CLUSTER_NAME }}" --alias "${{ env.CLUSTER_NAME }}"
+                  aws eks --region "${{ env.AWS_REGION }}" update-kubeconfig --name "${{ matrix.scenario.clusterName }}" --alias "${{ matrix.scenario.clusterName }}"
 
                   kubectl config current-context
                   kubectl get nodes
@@ -333,11 +389,11 @@ jobs:
                   # run it as specified in the doc
                   set -euo pipefail
 
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/get-your-copy.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
             - name: 🏗️ Ingress Setup prerequisites
-              if: ${{ matrix.declination == 'domain' }}
+              if: ${{ matrix.declination.name == 'domain' }}
               run: |
                   set -euo pipefail
 
@@ -348,18 +404,19 @@ jobs:
                   # Overwriting the mail
                   export MAIL=${{ env.MAIL_OVERWRITE }}
 
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/install-ingress-nginx.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-ingress-nginx.sh
 
-                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ env.CLUSTER_NAME }}-${{ matrix.scenario }}"
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/install-external-dns.sh
+                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ matrix.scenario.clusterName }}-${{ matrix.scenario.name }}"
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-external-dns.sh
 
                   ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/install-cert-manager.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager.sh
 
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/install-cert-manager-issuer.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager-issuer.sh
 
             - name: 🏗️ Prepare a fresh namespace for the tests
+              timeout-minutes: 3
               run: |
                   set -euo pipefail
 
@@ -376,15 +433,15 @@ jobs:
                   kubectl create namespace "$TEST_NAMESPACE"
 
             - name: 🧹 Clean up databases
-              timeout-minutes: 15
+              timeout-minutes: 10
               run: |
                   set -euo pipefail
 
                   # Requires db secrets to be created
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-db-secret.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
 
-                  if [[ "${{ matrix.scenario}}" =~ "irsa" ]]; then
-                      ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-os-secret.sh
+                  if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
+                      ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-os-secret.sh
                   else
                     # for non irsa, we don't need credentials but want to reuse the same job
                     kubectl create secret generic setup-os-secret --namespace "$TEST_NAMESPACE" \
@@ -435,7 +492,7 @@ jobs:
 
                   kubectl delete secret setup-os-secret --namespace "$TEST_NAMESPACE"
 
-            - name: 🛠️ Assemble deployment values of aws/kubernetes/${{ matrix.scenario }}/${{ matrix.declination }}
+            - name: 🛠️ Assemble deployment values of aws/kubernetes/${{ matrix.scenario.name }}/${{ matrix.declination.name }}
               timeout-minutes: 10
               run: |
                   set -o errexit
@@ -443,11 +500,14 @@ jobs:
 
                   echo "Construct the values.yml file"
 
-                  cp -f aws/kubernetes/${{ matrix.scenario }}/helm-values/values-${{ matrix.declination }}.yml ./values.yml
+                  cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
 
-                  if [[ "${{ matrix.declination }}" == "domain" ]]; then
-                    export DOMAIN_NAME="${{ env.CLUSTER_NAME }}-${{ matrix.scenario }}.camunda.ie"
+                  if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
+                    export DOMAIN_NAME="${{ matrix.scenario.clusterName }}-${{ matrix.scenario.name }}.${{ env.TLD }}"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+
+                    export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"
+                    echo "DOMAIN_NAME_GRPC=$DOMAIN_NAME_GRPC" | tee -a "$GITHUB_ENV"
                   fi
 
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
@@ -474,10 +534,10 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/check-env-variables.sh
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-db-secret.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/check-env-variables.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
 
-                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario }}/setup-postgres-create-db.yml --namespace "$TEST_NAMESPACE"
+                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/setup-postgres-create-db.yml --namespace "$TEST_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
@@ -499,21 +559,21 @@ jobs:
                   kubectl delete secret setup-db-secret --namespace "$TEST_NAMESPACE"
 
             - name: 💪 Execute DB secret creation scripts
-              if: ${{ !contains(matrix.scenario, 'irsa') }}
+              if: ${{ !contains(matrix.scenario.name, 'irsa') }}
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-external-db-secrets.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
 
             - name: 🛠️ Configure OpenSearch fine grained access control
-              if: contains(matrix.scenario, 'irsa')
+              if: contains(matrix.scenario.name, 'irsa')
               timeout-minutes: 10
               run: |
                   set -euo pipefail
 
-                  ./aws/kubernetes/${{ matrix.scenario }}/procedure/create-setup-os-secret.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-os-secret.sh
 
-                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario }}/setup-opensearch-fgac.yml --namespace "$TEST_NAMESPACE"
+                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/setup-opensearch-fgac.yml --namespace "$TEST_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
@@ -582,7 +642,7 @@ jobs:
                   secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.DOMAIN_NAME }}
-                  camunda-domain-grpc: zeebe.${{ env.DOMAIN_NAME }}:443
+                  camunda-domain-grpc: ${{ env.DOMAIN_NAME_GRPC }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
                   elasticsearch-enabled: 'false'
@@ -592,6 +652,7 @@ jobs:
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
 
             - name: 🔬🚨 Get failed Pods info
+              timeout-minutes: 10
               if: failure()
               run: |
                   set -euo pipefail
@@ -604,7 +665,7 @@ jobs:
                   done
 
             - name: 🧹 Cleanup Namespace
-              if: always()
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
               run: |
                   set -euo pipefail
 
@@ -612,7 +673,7 @@ jobs:
                   kubectl delete namespace "$TEST_NAMESPACE" --wait
 
             - name: 🧹 Cleanup domain specific resources
-              if: always() && matrix.declination == 'domain'
+              if: always() && matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'true'
               run: |
                   set -euo pipefail
 
@@ -627,14 +688,12 @@ jobs:
         if: always()
         runs-on: ubuntu-latest
         needs:
-            - access-info
             - integration-tests
+            - clusters-info
         strategy:
             fail-fast: false
             matrix:
-                scenario:
-                    - eks-single-region
-                    - eks-single-region-irsa
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -667,19 +726,6 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            - name: Export outputs as environment variables
-              run: |
-                  set -euo pipefail
-
-                  echo "${{ fromJson(needs.access-info.outputs.outputs_raw).outputs_raw[matrix.scenario] }}" | base64 --decode > encrypted_outputs_raw.enc
-                  openssl enc -aes-256-cbc -d -in encrypted_outputs_raw.enc -out "outputs_raw" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-                  rm encrypted_outputs_raw.enc
-
-                  # Export the decrypted outputs as environment variables
-                  while IFS= read -r line; do
-                    echo "$line" | tee -a "$GITHUB_ENV"
-                  done < outputs_raw
-
             - name: Set current Camunda version
               if: env.CLEANUP_CLUSTERS == 'true'
               id: camunda-version
@@ -693,7 +739,7 @@ jobs:
               id: s3_prefix
               run: |
                   set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario }}/" | tee -a "$GITHUB_OUTPUT"
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand EKS Cluster
               uses: ./.github/actions/aws-kubernetes-eks-single-region-cleanup
@@ -703,7 +749,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
-                  target: ${{ env.CLUSTER_NAME }}
+                  target: ${{ matrix.scenario.clusterName }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     report:

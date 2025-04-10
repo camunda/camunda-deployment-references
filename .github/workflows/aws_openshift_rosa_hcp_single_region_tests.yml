@@ -116,6 +116,9 @@ jobs:
                     cluster_name_input="${{ inputs.cluster_name }}"
                     cluster_name_fallback="hci-$(uuidgen | head -c 8)"
                     export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
+
+                    # TODO: revert this before merge
+                    export cluster_name="leo"
                     export distro_index="${distro_index}"
                     yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
                   done
