@@ -140,7 +140,7 @@ jobs:
                   fi
 
                   if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-                    echo "Filtering based on supplied ref-arch ${{ github.event.inputs.ref-arch }}"
+                    echo "Filtering based on supplied ref-arch ${{ inputs.ref-arch }}"
                     # shellcheck disable=SC2086
                     platform_matrix="$(yq '.matrix |= (.scenario |= map(select(.name == env(ref_arch))))' \
                       --indent=0 --output-format json ${CI_MATRIX_FILE})"
@@ -204,109 +204,109 @@ jobs:
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
-            # - name: Create K8S cluster and login
-            #   uses: ./.github/actions/aws-kubernetes-eks-single-region-create
-            #   id: create_cluster
-            #   # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
-            #   if: always() && success()
-            #   with:
-            #       cluster-name: ${{ matrix.scenario.clusterName }}
-            #       aws-region: ${{ env.AWS_REGION }}
-            #       s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
-            #       s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-            #       s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
-            #       tf-modules-revision: ${{ github.ref }}
-            #       tf-modules-path: ${{ env.TF_MODULES_PATH }}
-            #       ref-arch: ${{ matrix.scenario.name }}
+            - name: Create K8S cluster and login
+              uses: ./.github/actions/aws-kubernetes-eks-single-region-create
+              id: create_cluster
+              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+              if: always() && success()
+              with:
+                  cluster-name: ${{ matrix.scenario.clusterName }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  tf-modules-revision: ${{ github.ref }}
+                  tf-modules-path: ${{ env.TF_MODULES_PATH }}
+                  ref-arch: ${{ matrix.scenario.name }}
 
-            # # We are exporting everything for irsa and non-irsa, worst case it's empty and not used
-            # # Reason for skipping pipefail in the next step
-            # - name: Export relevant Terraform outputs
-            #   if: always()
-            #   working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario.name }}/
-            #   id: encrypt_outputs
-            #   run: |
-            #       source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/export-helm-values.sh
-            #       source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
+            # We are exporting everything for irsa and non-irsa, worst case it's empty and not used
+            # Reason for skipping pipefail in the next step
+            - name: Export relevant Terraform outputs
+              if: always()
+              working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario.name }}/
+              id: encrypt_outputs
+              run: |
+                  source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/export-helm-values.sh
+                  source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
 
-            #       if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
-            #           source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh
-            #       fi
+                  if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
+                      source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh
+                  fi
 
-            #       {
-            #         # Export to file to pass to other jobs
-            #         echo "CERT_MANAGER_IRSA_ARN=$CERT_MANAGER_IRSA_ARN"
-            #         echo "EXTERNAL_DNS_IRSA_ARN=$EXTERNAL_DNS_IRSA_ARN"
+                  {
+                    # Export to file to pass to other jobs
+                    echo "CERT_MANAGER_IRSA_ARN=$CERT_MANAGER_IRSA_ARN"
+                    echo "EXTERNAL_DNS_IRSA_ARN=$EXTERNAL_DNS_IRSA_ARN"
 
-            #         # PostgreSQL
-            #         echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
-            #         echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
-            #         echo "CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME=$CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME"
-            #         echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
+                    # PostgreSQL
+                    echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
+                    echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
+                    echo "CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME=$CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME"
+                    echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
 
 
-            #         echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME"
-            #         echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME"
-            #         echo "CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME=$CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME"
-            #         echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD"
+                    echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME"
+                    echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME"
+                    echo "CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME=$CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME"
+                    echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD"
 
-            #         echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME"
-            #         echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME"
-            #         echo "CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME=$CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME"
-            #         echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
+                    echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME"
+                    echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME"
+                    echo "CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME=$CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME"
+                    echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
 
-            #         echo "DB_HOST=$DB_HOST"
-            #         echo "DB_ROLE_KEYCLOAK_NAME=$DB_ROLE_KEYCLOAK_NAME"
-            #         echo "DB_ROLE_KEYCLOAK_ARN=$DB_ROLE_KEYCLOAK_ARN"
-            #         echo "DB_ROLE_IDENTITY_NAME=$DB_ROLE_IDENTITY_NAME"
-            #         echo "DB_ROLE_IDENTITY_ARN=$DB_ROLE_IDENTITY_ARN"
-            #         echo "DB_ROLE_WEBMODELER_NAME=$DB_ROLE_WEBMODELER_NAME"
-            #         echo "DB_ROLE_WEBMODELER_ARN=$DB_ROLE_WEBMODELER_ARN"
+                    echo "DB_HOST=$DB_HOST"
+                    echo "DB_ROLE_KEYCLOAK_NAME=$DB_ROLE_KEYCLOAK_NAME"
+                    echo "DB_ROLE_KEYCLOAK_ARN=$DB_ROLE_KEYCLOAK_ARN"
+                    echo "DB_ROLE_IDENTITY_NAME=$DB_ROLE_IDENTITY_NAME"
+                    echo "DB_ROLE_IDENTITY_ARN=$DB_ROLE_IDENTITY_ARN"
+                    echo "DB_ROLE_WEBMODELER_NAME=$DB_ROLE_WEBMODELER_NAME"
+                    echo "DB_ROLE_WEBMODELER_ARN=$DB_ROLE_WEBMODELER_ARN"
 
-            #         # OpenSearch
-            #         echo "OPENSEARCH_HOST=$OPENSEARCH_HOST"
-            #         echo "OPENSEARCH_ROLE_NAME=$OPENSEARCH_ROLE_NAME"
-            #         echo "OPENSEARCH_ROLE_ARN=$OPENSEARCH_ROLE_ARN"
-            #         echo "CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME=$CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME"
-            #         echo "CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME=$CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME"
-            #         echo "CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME=$CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME"
-            #         echo "CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME=$CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME"
+                    # OpenSearch
+                    echo "OPENSEARCH_HOST=$OPENSEARCH_HOST"
+                    echo "OPENSEARCH_ROLE_NAME=$OPENSEARCH_ROLE_NAME"
+                    echo "OPENSEARCH_ROLE_ARN=$OPENSEARCH_ROLE_ARN"
+                    echo "CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME=$CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME"
+                    echo "CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME=$CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME"
+                    echo "CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME=$CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME"
+                    echo "CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME=$CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME"
 
-            #         echo "AURORA_ENDPOINT=$AURORA_ENDPOINT"
-            #         echo "AURORA_PORT=$AURORA_PORT"
-            #         echo "AURORA_USERNAME=$AURORA_USERNAME"
-            #         echo "AURORA_PASSWORD=$AURORA_PASSWORD"
+                    echo "AURORA_ENDPOINT=$AURORA_ENDPOINT"
+                    echo "AURORA_PORT=$AURORA_PORT"
+                    echo "AURORA_USERNAME=$AURORA_USERNAME"
+                    echo "AURORA_PASSWORD=$AURORA_PASSWORD"
 
-            #         echo "OPENSEARCH_MASTER_USERNAME=$OPENSEARCH_MASTER_USERNAME"
-            #         echo "OPENSEARCH_MASTER_PASSWORD=$OPENSEARCH_MASTER_PASSWORD"
-            #       } >> outputs_raw
+                    echo "OPENSEARCH_MASTER_USERNAME=$OPENSEARCH_MASTER_USERNAME"
+                    echo "OPENSEARCH_MASTER_PASSWORD=$OPENSEARCH_MASTER_PASSWORD"
+                  } >> outputs_raw
 
-            #       openssl enc -aes-256-cbc -salt -in outputs_raw -out encrypted_outputs_raw.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-            #       encrypted_outputs_raw_base64=$(base64 -w 0 encrypted_outputs_raw.enc)
-            #       echo "outputs_raw=${encrypted_outputs_raw_base64}" >> "$GITHUB_OUTPUT"
+                  openssl enc -aes-256-cbc -salt -in outputs_raw -out encrypted_outputs_raw.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  encrypted_outputs_raw_base64=$(base64 -w 0 encrypted_outputs_raw.enc)
+                  echo "outputs_raw=${encrypted_outputs_raw_base64}" >> "$GITHUB_OUTPUT"
 
-            # # Write for matrix outputs workaround
-            # - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
-            #   if: always()
-            #   id: out
-            #   with:
-            #       matrix-step-name: ${{ github.job }}
-            #       matrix-key: ${{ matrix.scenario.name }}
-            #       outputs: |-
-            #           outputs_raw: ${{ steps.encrypt_outputs.outputs.outputs_raw }}
+            # Write for matrix outputs workaround
+            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
+              if: always()
+              id: out
+              with:
+                  matrix-step-name: ${{ github.job }}
+                  matrix-key: ${{ matrix.scenario.name }}
+                  outputs: |-
+                      outputs_raw: ${{ steps.encrypt_outputs.outputs.outputs_raw }}
 
-    # access-info:
-    #     name: Read outputs from matrix
-    #     runs-on: ubuntu-latest
-    #     if: always()
-    #     needs: prepare-clusters
-    #     outputs:
-    #         outputs_raw: ${{ steps.read-workflow.outputs.result }}
-    #     steps:
-    #         - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
-    #           id: read-workflow
-    #           with:
-    #               matrix-step-name: prepare-clusters
+    access-info:
+        name: Read outputs from matrix
+        runs-on: ubuntu-latest
+        if: always()
+        needs: prepare-clusters
+        outputs:
+            outputs_raw: ${{ steps.read-workflow.outputs.result }}
+        steps:
+            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+              id: read-workflow
+              with:
+                  matrix-step-name: prepare-clusters
 
     integration-tests:
         name: Run integration tests - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
@@ -318,7 +318,7 @@ jobs:
             cancel-in-progress: false
         needs:
             - prepare-clusters
-            # - access-info
+            - access-info
             - clusters-info
         strategy:
             fail-fast: false
@@ -360,28 +360,28 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            # - name: 🚢 Export outputs as environment variables
-            #   timeout-minutes: 3
-            #   run: |
-            #       set -euo pipefail
+            - name: 🚢 Export outputs as environment variables
+              timeout-minutes: 3
+              run: |
+                  set -euo pipefail
 
-            #       echo "${{ fromJson(needs.access-info.outputs.outputs_raw).outputs_raw[matrix.scenario.name] }}" | base64 --decode > encrypted_outputs_raw.enc
-            #       openssl enc -aes-256-cbc -d -in encrypted_outputs_raw.enc -out "outputs_raw" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-            #       rm encrypted_outputs_raw.enc
+                  echo "${{ fromJson(needs.access-info.outputs.outputs_raw).outputs_raw[matrix.scenario.name] }}" | base64 --decode > encrypted_outputs_raw.enc
+                  openssl enc -aes-256-cbc -d -in encrypted_outputs_raw.enc -out "outputs_raw" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  rm encrypted_outputs_raw.enc
 
-            #       # Export the decrypted outputs as environment variables
-            #       while IFS= read -r line; do
-            #         echo "$line" | tee -a "$GITHUB_ENV"
-            #       done < outputs_raw
+                  # Export the decrypted outputs as environment variables
+                  while IFS= read -r line; do
+                    echo "$line" | tee -a "$GITHUB_ENV"
+                  done < outputs_raw
 
-            # - name: 🔐 Login into the cluster
-            #   timeout-minutes: 10
-            #   run: |
-            #       set -euo pipefail
-            #       aws eks --region "${{ env.AWS_REGION }}" update-kubeconfig --name "${{ matrix.scenario.clusterName }}" --alias "${{ matrix.scenario.clusterName }}"
+            - name: 🔐 Login into the cluster
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+                  aws eks --region "${{ env.AWS_REGION }}" update-kubeconfig --name "${{ matrix.scenario.clusterName }}" --alias "${{ matrix.scenario.clusterName }}"
 
-            #       kubectl config current-context
-            #       kubectl get nodes
+                  kubectl config current-context
+                  kubectl get nodes
 
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
@@ -392,105 +392,105 @@ jobs:
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
-            # - name: 🏗️ Ingress Setup prerequisites
-            #   if: ${{ matrix.declination.name == 'domain' }}
-            #   run: |
-            #       set -euo pipefail
+            - name: 🏗️ Ingress Setup prerequisites
+              if: ${{ matrix.declination.name == 'domain' }}
+              run: |
+                  set -euo pipefail
 
-            #       export REGION=${{ env.AWS_REGION }}
+                  export REGION=${{ env.AWS_REGION }}
 
-            #       source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
+                  source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
 
-            #       # Overwriting the mail
-            #       export MAIL=${{ env.MAIL_OVERWRITE }}
+                  # Overwriting the mail
+                  export MAIL=${{ env.MAIL_OVERWRITE }}
 
-            #       ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-ingress-nginx.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-ingress-nginx.sh
 
-            #       export EXTERNAL_DNS_OWNER_ID="external-dns-${{ matrix.scenario.clusterName }}-${{ matrix.scenario.name }}"
-            #       ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-external-dns.sh
+                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ matrix.scenario.clusterName }}-${{ matrix.scenario.name }}"
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-external-dns.sh
 
-            #       ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
+                  ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
-            #       ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager.sh
 
-            #       ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager-issuer.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager-issuer.sh
 
-            # - name: 🏗️ Prepare a fresh namespace for the tests
-            #   timeout-minutes: 3
-            #   run: |
-            #       set -euo pipefail
+            - name: 🏗️ Prepare a fresh namespace for the tests
+              timeout-minutes: 3
+              run: |
+                  set -euo pipefail
 
-            #       # Delete the namespace to ensure a fresh start
-            #       if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
-            #       kubectl delete namespace "$TEST_NAMESPACE" --wait
-            #       while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
-            #           echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
-            #           sleep 5
-            #       done
-            #       fi
+                  # Delete the namespace to ensure a fresh start
+                  if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
+                  kubectl delete namespace "$TEST_NAMESPACE" --wait
+                  while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
+                      echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
+                      sleep 5
+                  done
+                  fi
 
-            #       # Create the namespace
-            #       kubectl create namespace "$TEST_NAMESPACE"
+                  # Create the namespace
+                  kubectl create namespace "$TEST_NAMESPACE"
 
-            # - name: 🧹 Clean up databases
-            #   timeout-minutes: 10
-            #   run: |
-            #       set -euo pipefail
+            - name: 🧹 Clean up databases
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
 
-            #       # Requires db secrets to be created
-            #       ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
+                  # Requires db secrets to be created
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
 
-            #       if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
-            #           ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-os-secret.sh
-            #       else
-            #         # for non irsa, we don't need credentials but want to reuse the same job
-            #         kubectl create secret generic setup-os-secret --namespace "$TEST_NAMESPACE" \
-            #         --from-literal=OPENSEARCH_HOST="$OPENSEARCH_HOST" \
-            #         --from-literal=OPENSEARCH_MASTER_USERNAME="" \
-            #         --from-literal=OPENSEARCH_MASTER_PASSWORD=""
-            #       fi
+                  if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
+                      ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-os-secret.sh
+                  else
+                    # for non irsa, we don't need credentials but want to reuse the same job
+                    kubectl create secret generic setup-os-secret --namespace "$TEST_NAMESPACE" \
+                    --from-literal=OPENSEARCH_HOST="$OPENSEARCH_HOST" \
+                    --from-literal=OPENSEARCH_MASTER_USERNAME="" \
+                    --from-literal=OPENSEARCH_MASTER_PASSWORD=""
+                  fi
 
-            #       # Reset PostgreSQL
-            #       kubectl apply -f ./aws/kubernetes/eks-single-region/test/reset-aurora-postgres.yml --namespace "$TEST_NAMESPACE"
+                  # Reset PostgreSQL
+                  kubectl apply -f ./aws/kubernetes/eks-single-region/test/reset-aurora-postgres.yml --namespace "$TEST_NAMESPACE"
 
-            #       # Wait for the job to complete
-            #       while true; do
-            #           STATUS=$(kubectl get job reset-aurora-postgres --namespace "$TEST_NAMESPACE" -o jsonpath='{.status.succeeded}')
+                  # Wait for the job to complete
+                  while true; do
+                      STATUS=$(kubectl get job reset-aurora-postgres --namespace "$TEST_NAMESPACE" -o jsonpath='{.status.succeeded}')
 
-            #           if [[ "$STATUS" == "1" ]]; then
-            #               echo "Job completed successfully."
-            #               break
-            #           fi
+                      if [[ "$STATUS" == "1" ]]; then
+                          echo "Job completed successfully."
+                          break
+                      fi
 
-            #           echo "Waiting for job to complete..."
-            #           sleep 5
-            #       done
-            #       echo "[DEBUG] Job log:"
-            #       kubectl logs job/reset-aurora-postgres --namespace "$TEST_NAMESPACE"
-            #       kubectl delete job reset-aurora-postgres --namespace "$TEST_NAMESPACE"
+                      echo "Waiting for job to complete..."
+                      sleep 5
+                  done
+                  echo "[DEBUG] Job log:"
+                  kubectl logs job/reset-aurora-postgres --namespace "$TEST_NAMESPACE"
+                  kubectl delete job reset-aurora-postgres --namespace "$TEST_NAMESPACE"
 
-            #       kubectl delete secret setup-db-secret --namespace "$TEST_NAMESPACE"
+                  kubectl delete secret setup-db-secret --namespace "$TEST_NAMESPACE"
 
-            #       # Reset OpenSearch
-            #       kubectl apply -f ./aws/kubernetes/eks-single-region/test/reset-opensearch.yml --namespace "$TEST_NAMESPACE"
+                  # Reset OpenSearch
+                  kubectl apply -f ./aws/kubernetes/eks-single-region/test/reset-opensearch.yml --namespace "$TEST_NAMESPACE"
 
-            #       # Wait for the job to complete
-            #       while true; do
-            #           STATUS=$(kubectl get job reset-opensearch --namespace "$TEST_NAMESPACE" -o jsonpath='{.status.succeeded}')
+                  # Wait for the job to complete
+                  while true; do
+                      STATUS=$(kubectl get job reset-opensearch --namespace "$TEST_NAMESPACE" -o jsonpath='{.status.succeeded}')
 
-            #           if [[ "$STATUS" == "1" ]]; then
-            #               echo "Job completed successfully."
-            #               break
-            #           fi
+                      if [[ "$STATUS" == "1" ]]; then
+                          echo "Job completed successfully."
+                          break
+                      fi
 
-            #           echo "Waiting for job to complete..."
-            #           sleep 5
-            #       done
-            #       echo "[DEBUG] Job log:"
-            #       kubectl logs job/reset-opensearch --namespace "$TEST_NAMESPACE"
-            #       kubectl delete job reset-opensearch --namespace "$TEST_NAMESPACE"
+                      echo "Waiting for job to complete..."
+                      sleep 5
+                  done
+                  echo "[DEBUG] Job log:"
+                  kubectl logs job/reset-opensearch --namespace "$TEST_NAMESPACE"
+                  kubectl delete job reset-opensearch --namespace "$TEST_NAMESPACE"
 
-            #       kubectl delete secret setup-os-secret --namespace "$TEST_NAMESPACE"
+                  kubectl delete secret setup-os-secret --namespace "$TEST_NAMESPACE"
 
             - name: 🛠️ Assemble deployment values of aws/kubernetes/${{ matrix.scenario.name }}/${{ matrix.declination.name }}
               timeout-minutes: 10
@@ -530,102 +530,102 @@ jobs:
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
 
-            # - name: 🛠️ Configure the PSQL database and associated access
-            #   timeout-minutes: 10
-            #   run: |
-            #       set -euo pipefail
-            #       ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/check-env-variables.sh
-            #       ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
+            - name: 🛠️ Configure the PSQL database and associated access
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/check-env-variables.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
 
-            #       kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/setup-postgres-create-db.yml --namespace "$TEST_NAMESPACE"
+                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/setup-postgres-create-db.yml --namespace "$TEST_NAMESPACE"
 
-            #       # Wait for the job to complete
-            #       while true; do
-            #           STATUS=$(kubectl get job create-setup-user-db --namespace "$TEST_NAMESPACE" -o jsonpath='{.status.succeeded}')
+                  # Wait for the job to complete
+                  while true; do
+                      STATUS=$(kubectl get job create-setup-user-db --namespace "$TEST_NAMESPACE" -o jsonpath='{.status.succeeded}')
 
-            #           if [[ "$STATUS" == "1" ]]; then
-            #               echo "Job completed successfully."
-            #               break
-            #           fi
+                      if [[ "$STATUS" == "1" ]]; then
+                          echo "Job completed successfully."
+                          break
+                      fi
 
-            #           echo "Waiting for job to complete..."
-            #           sleep 5
-            #       done
+                      echo "Waiting for job to complete..."
+                      sleep 5
+                  done
 
-            #       echo "[DEBUG] Job log:"
-            #       kubectl logs job/create-setup-user-db --namespace "$TEST_NAMESPACE"
+                  echo "[DEBUG] Job log:"
+                  kubectl logs job/create-setup-user-db --namespace "$TEST_NAMESPACE"
 
-            #       kubectl delete job create-setup-user-db --namespace "$TEST_NAMESPACE"
-            #       kubectl delete secret setup-db-secret --namespace "$TEST_NAMESPACE"
+                  kubectl delete job create-setup-user-db --namespace "$TEST_NAMESPACE"
+                  kubectl delete secret setup-db-secret --namespace "$TEST_NAMESPACE"
 
-            # - name: 💪 Execute DB secret creation scripts
-            #   if: ${{ !contains(matrix.scenario.name, 'irsa') }}
-            #   timeout-minutes: 10
-            #   run: |
-            #       set -euo pipefail
-            #       ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
+            - name: 💪 Execute DB secret creation scripts
+              if: ${{ !contains(matrix.scenario.name, 'irsa') }}
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
 
-            # - name: 🛠️ Configure OpenSearch fine grained access control
-            #   if: contains(matrix.scenario.name, 'irsa')
-            #   timeout-minutes: 10
-            #   run: |
-            #       set -euo pipefail
+            - name: 🛠️ Configure OpenSearch fine grained access control
+              if: contains(matrix.scenario.name, 'irsa')
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
 
-            #       ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-os-secret.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-os-secret.sh
 
-            #       kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/setup-opensearch-fgac.yml --namespace "$TEST_NAMESPACE"
+                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/setup-opensearch-fgac.yml --namespace "$TEST_NAMESPACE"
 
-            #       # Wait for the job to complete
-            #       while true; do
-            #           STATUS=$(kubectl get job setup-opensearch-fgac --namespace "$TEST_NAMESPACE" -o jsonpath='{.status.succeeded}')
+                  # Wait for the job to complete
+                  while true; do
+                      STATUS=$(kubectl get job setup-opensearch-fgac --namespace "$TEST_NAMESPACE" -o jsonpath='{.status.succeeded}')
 
-            #           if [[ "$STATUS" == "1" ]]; then
-            #               echo "Job completed successfully."
-            #               break
-            #           fi
+                      if [[ "$STATUS" == "1" ]]; then
+                          echo "Job completed successfully."
+                          break
+                      fi
 
-            #           echo "Waiting for job to complete..."
-            #           sleep 5
-            #       done
+                      echo "Waiting for job to complete..."
+                      sleep 5
+                  done
 
-            #       echo "[DEBUG] Job log:"
-            #       kubectl logs job/setup-opensearch-fgac --namespace "$TEST_NAMESPACE"
+                  echo "[DEBUG] Job log:"
+                  kubectl logs job/setup-opensearch-fgac --namespace "$TEST_NAMESPACE"
 
-            #       kubectl delete job setup-opensearch-fgac --namespace "$TEST_NAMESPACE"
-            #       kubectl delete secret setup-os-secret --namespace "$TEST_NAMESPACE"
+                  kubectl delete job setup-opensearch-fgac --namespace "$TEST_NAMESPACE"
+                  kubectl delete secret setup-os-secret --namespace "$TEST_NAMESPACE"
 
-            # - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
-            #   timeout-minutes: 10
-            #   run: |
-            #       set -euo pipefail
+            - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
 
-            #       source generic/kubernetes/single-region/procedure/chart-env.sh
-            #       source generic/kubernetes/single-region/procedure/generate-passwords.sh
+                  source generic/kubernetes/single-region/procedure/chart-env.sh
+                  source generic/kubernetes/single-region/procedure/generate-passwords.sh
 
-            #       ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
+                  ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
 
-            #       # Generate tests objects
-            #       if [ "$TESTS_ENABLED" == "true" ]; then
-            #         # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml
-            #         kubectl create secret docker-registry index-docker-io \
-            #             --docker-server=index.docker.io \
-            #             --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
-            #             --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
-            #             --namespace="$TEST_NAMESPACE"
+                  # Generate tests objects
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml
+                    kubectl create secret docker-registry index-docker-io \
+                        --docker-server=index.docker.io \
+                        --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                        --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                        --namespace="$TEST_NAMESPACE"
 
-            #         kubectl create secret generic identity-secret-for-components-integration \
-            #             --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
-            #             --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-            #             --namespace="$TEST_NAMESPACE"
-            #       fi
+                    kubectl create secret generic identity-secret-for-components-integration \
+                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+                        --namespace="$TEST_NAMESPACE"
+                  fi
 
-            #       ./generic/kubernetes/single-region/procedure/install-chart.sh
+                  ./generic/kubernetes/single-region/procedure/install-chart.sh
 
-            # - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
-            #   timeout-minutes: 10
-            #   run: |
-            #       set -euo pipefail
-            #       ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+            - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+                  ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
             - name: 📐 Set current Camunda version
               id: camunda-version
@@ -634,54 +634,54 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-            # - name: 🧪 Run Helm Chart tests
-            #   if: env.TESTS_ENABLED == 'true'
-            #   timeout-minutes: 60
-            #   uses: ./.github/actions/internal-camunda-chart-tests
-            #   with:
-            #       secrets: ${{ toJSON(secrets) }}
-            #       camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
-            #       camunda-domain: ${{ env.DOMAIN_NAME }}
-            #       camunda-domain-grpc: ${{ env.DOMAIN_NAME_GRPC }}
-            #       webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-            #       console-enabled: ${{ env.CONSOLE_ENABLED }}
-            #       elasticsearch-enabled: 'false'
-            #       tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
-            #       tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
-            #       test-namespace: ${{ env.TEST_NAMESPACE }}
-            #       test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+            - name: 🧪 Run Helm Chart tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 60
+              uses: ./.github/actions/internal-camunda-chart-tests
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  camunda-domain: ${{ env.DOMAIN_NAME }}
+                  camunda-domain-grpc: ${{ env.DOMAIN_NAME_GRPC }}
+                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
+                  console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  elasticsearch-enabled: 'false'
+                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
+                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
+                  test-namespace: ${{ env.TEST_NAMESPACE }}
+                  test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
 
-            # - name: 🔬🚨 Get failed Pods info
-            #   timeout-minutes: 10
-            #   if: failure()
-            #   run: |
-            #       set -euo pipefail
+            - name: 🔬🚨 Get failed Pods info
+              timeout-minutes: 10
+              if: failure()
+              run: |
+                  set -euo pipefail
 
-            #       kubectl -n "$TEST_NAMESPACE" get po
-            #       kubectl -n "$TEST_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
-            #         echo -e "\n###Failed Pod: ${pod_name}###\n";
-            #         kubectl -n "$TEST_NAMESPACE" describe po "$pod_name";
-            #         kubectl -n "$TEST_NAMESPACE" logs "$pod_name";
-            #       done
+                  kubectl -n "$TEST_NAMESPACE" get po
+                  kubectl -n "$TEST_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                    echo -e "\n###Failed Pod: ${pod_name}###\n";
+                    kubectl -n "$TEST_NAMESPACE" describe po "$pod_name";
+                    kubectl -n "$TEST_NAMESPACE" logs "$pod_name";
+                  done
 
-            # - name: 🧹 Cleanup Namespace
-            #   if: always() && env.CLEANUP_CLUSTERS == 'true'
-            #   run: |
-            #       set -euo pipefail
+            - name: 🧹 Cleanup Namespace
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              run: |
+                  set -euo pipefail
 
-            #       helm uninstall camunda --namespace "$TEST_NAMESPACE" --wait
-            #       kubectl delete namespace "$TEST_NAMESPACE" --wait
+                  helm uninstall camunda --namespace "$TEST_NAMESPACE" --wait
+                  kubectl delete namespace "$TEST_NAMESPACE" --wait
 
-            # - name: 🧹 Cleanup domain specific resources
-            #   if: always() && matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'true'
-            #   run: |
-            #       set -euo pipefail
+            - name: 🧹 Cleanup domain specific resources
+              if: always() && matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'true'
+              run: |
+                  set -euo pipefail
 
-            #       echo "Let external-dns remove the domain" && sleep 45
+                  echo "Let external-dns remove the domain" && sleep 45
 
-            #       helm uninstall ingress-nginx --namespace ingress-nginx --wait
-            #       helm uninstall external-dns --namespace external-dns --wait
-            #       helm uninstall cert-manager --namespace cert-manager --wait
+                  helm uninstall ingress-nginx --namespace ingress-nginx --wait
+                  helm uninstall external-dns --namespace external-dns --wait
+                  helm uninstall cert-manager --namespace cert-manager --wait
 
     cleanup-clusters:
         name: Cleanup EKS clusters
@@ -741,16 +741,16 @@ jobs:
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
-            # - name: Delete on-demand EKS Cluster
-            #   uses: ./.github/actions/aws-kubernetes-eks-single-region-cleanup
-            #   if: always() && env.CLEANUP_CLUSTERS == 'true'
-            #   timeout-minutes: 125
-            #   with:
-            #       tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
-            #       tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-            #       max-age-hours-cluster: 0
-            #       target: ${{ matrix.scenario.clusterName }}
-            #       tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+            - name: Delete on-demand EKS Cluster
+              uses: ./.github/actions/aws-kubernetes-eks-single-region-cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 125
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours-cluster: 0
+                  target: ${{ matrix.scenario.clusterName }}
+                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     report:
         name: Report failures
