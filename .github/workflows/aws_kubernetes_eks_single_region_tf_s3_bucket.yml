@@ -4,7 +4,6 @@ name: Tests - Integration - AWS S3 bucket for Terraform backend
 # https://docs.camunda.io/docs/self-managed/setup/deploy/amazon/amazon-eks/eks-terraform/#create-an-s3-bucket-for-terraform-state-management
 
 on:
-    push:
     workflow_dispatch:
     pull_request:
         paths:
@@ -17,9 +16,7 @@ on:
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # in case of renovate we don't cancel the previous run, so it can finish it
-    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
-    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
+    cancel-in-progress: true
 
 env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
