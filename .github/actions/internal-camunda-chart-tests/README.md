@@ -19,6 +19,7 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `console-enabled` | <p>Whether the Console is enabled in the chart</p> | `false` | `false` |
 | `elasticsearch-enabled` | <p>Whether the Elasticsearch is enabled in the chart</p> | `false` | `true` |
 | `test-namespace` | <p>The namespace to use for the helm tests</p> | `false` | `camunda` |
+| `test-release-name` | <p>The helm release name to used for by the helm tests</p> | `false` | `camunda` |
 | `test-cluster-type` | <p>The type of the cluster to use for the tests</p> | `false` | `kubernetes` |
 | `zeebe-topology-golden-file` | <p>The golden file to compare the Zeebe topology output against.</p> | `false` | `./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json` |
 | `zeebe-topology-check-script` | <p>The script called to the current Zeebe topology.</p> | `false` | `./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh` |
@@ -95,6 +96,12 @@ This action is a `composite` action.
 
     test-namespace:
     # The namespace to use for the helm tests
+    #
+    # Required: false
+    # Default: camunda
+
+    test-release-name:
+    # The helm release name to used for by the helm tests
     #
     # Required: false
     # Default: camunda
