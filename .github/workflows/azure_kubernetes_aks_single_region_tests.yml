@@ -274,7 +274,7 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup AKS clusters
-        if: false
+        if: always()
         needs:
             - prepare-clusters
             - triage
