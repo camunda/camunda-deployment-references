@@ -271,10 +271,38 @@ jobs:
                   # Create the namespace
                   kubectl create namespace "$TEST_NAMESPACE"
 
+            - name: 🧹 Clean up databases
+              run: |
+                  set -euo pipefail
+
+                  # Requires db secrets to be created
+                  ./azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh
+
+                  # Reset PostgreSQL
+                  kubectl apply -f ./aws/kubernetes/eks-single-region/test/reset-postgres.yml --namespace camunda
+
+                  # Wait for the job to complete
+                  while true; do
+                      STATUS=$(kubectl get job reset-aurora-postgres --namespace camunda -o jsonpath='{.status.succeeded}')
+
+                      if [[ "$STATUS" == "1" ]]; then
+                          echo "Job completed successfully."
+                          break
+                      fi
+
+                      echo "Waiting for job to complete..."
+                      sleep 5
+                  done
+                  echo "[DEBUG] Job log:"
+                  kubectl logs job/reset-aurora-postgres --namespace camunda
+                  kubectl delete job reset-aurora-postgres --namespace camunda
+
+                  kubectl delete secret setup-db-secret --namespace camunda
+
 
     cleanup-clusters:
         name: Cleanup AKS clusters
-        if: always()
+        if: false
         needs:
             - prepare-clusters
             - triage
