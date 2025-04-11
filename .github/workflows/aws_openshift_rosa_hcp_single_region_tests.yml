@@ -52,7 +52,7 @@ env:
     S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-single-region/ # keep it synced with the name of the module for simplicity
 
     # TODO: revert this before merge
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
