@@ -95,7 +95,7 @@ jobs:
                   exit $?
             - name: Post diff on PR
               if: always() && github.event_name == 'pull_request'
-              uses: int128/diff-action@1a147f34a49636aafdb862075055908e06edaaa7 # v1
+              uses: int128/diff-action@020919da2937bfb7f3e4b39e513ec02a26f76b5a # v1
               with:
                   base: ${{ env.GOLDEN_PATH }}//tfplan.json
                   head: ${{ env.TF_PATH }}/tfplan_extracted.json
