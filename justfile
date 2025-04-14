@@ -81,7 +81,7 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
           if (.resources | length == 0) then
             { "resources": {} }
           else
-            { "resources": (.resources | map(transform) | add) }
+            { "resources": map(transform) | add }
           end
         elif has("child_modules") then
           { "child_modules": map(transform) | add }
