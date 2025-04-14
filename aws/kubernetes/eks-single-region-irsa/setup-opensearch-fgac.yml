@@ -23,7 +23,8 @@ spec:
 
                         echo "Configuring Fine-Grained Access Control for OpenSearch..."
 
-                        # If the following script moves outside of lines 27 - 41, adjust the documentation referencing this file.
+                        # If the following script moves outside of lines 28 - 42, adjust the documentation referencing this file.
+                        # Beginning of Script
 
                         # Send the PATCH request to map the IAM role to OpenSearch role
                         curl -sS -u "$OPENSEARCH_MASTER_USERNAME:$OPENSEARCH_MASTER_PASSWORD" \
@@ -39,6 +40,7 @@ spec:
                             }
                           ]'
 
+                        # End of Script
                         EOF
                   env:
                       - name: OPENSEARCH_HOST
