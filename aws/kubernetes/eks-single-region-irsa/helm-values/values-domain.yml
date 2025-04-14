@@ -69,7 +69,7 @@ global:
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: https://${DOMAIN_NAME}/console
+                redirectUrl: https://${DOMAIN_NAME}
                 existingSecret:
                     name: identity-secret-for-components
 
@@ -92,7 +92,8 @@ webModeler:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
         mail:
-            existingSecret: identity-secret-for-components # reference the smtp password
+            existingSecret:
+                name: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
 
 identity:
@@ -119,6 +120,8 @@ identity:
         - name: SPRING_DATASOURCE_USERNAME
           value: ${DB_IDENTITY_USERNAME}
 
+connectors:
+    contextPath: /connectors
 
 operate:
     contextPath: /operate
@@ -168,7 +171,7 @@ zeebeGateway:
 
 console:
     enabled: false # by default, console is not enabled
-    contextPath: /console
+    contextPath: /
 
 elasticsearch:
     enabled: false

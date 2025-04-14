@@ -13,9 +13,11 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `tests-camunda-helm-chart-repo-path` | <p>Path to the Helm chart repository</p> | `false` | `./.camunda_helm_repo` |
 | `secrets` | <p>JSON wrapped secrets for easier secret passing</p> | `true` | `""` |
 | `camunda-version` | <p>The version of the Camunda Helm chart to test</p> | `true` | `""` |
-| `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `false` |
+| `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `""` |
+| `camunda-domain-grpc` | <p>The domain to use for the gRPC tests</p> | `false` | `""` |
 | `webmodeler-enabled` | <p>Whether the Webmodeler is enabled in the chart</p> | `false` | `false` |
 | `console-enabled` | <p>Whether the Console is enabled in the chart</p> | `false` | `false` |
+| `elasticsearch-enabled` | <p>Whether the Elasticsearch is enabled in the chart</p> | `false` | `true` |
 | `test-namespace` | <p>The namespace to use for the helm tests</p> | `false` | `camunda` |
 | `test-cluster-type` | <p>The type of the cluster to use for the tests</p> | `false` | `kubernetes` |
 | `zeebe-topology-golden-file` | <p>The golden file to compare the Zeebe topology output against.</p> | `false` | `./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json` |
@@ -65,7 +67,13 @@ This action is a `composite` action.
     # The domain to use for the tests
     #
     # Required: false
-    # Default: false
+    # Default: ""
+
+    camunda-domain-grpc:
+    # The domain to use for the gRPC tests
+    #
+    # Required: false
+    # Default: ""
 
     webmodeler-enabled:
     # Whether the Webmodeler is enabled in the chart
@@ -78,6 +86,12 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: false
+
+    elasticsearch-enabled:
+    # Whether the Elasticsearch is enabled in the chart
+    #
+    # Required: false
+    # Default: true
 
     test-namespace:
     # The namespace to use for the helm tests

@@ -1,6 +1,8 @@
 locals {
   eks_cluster_name   = "cluster-name-std" # Change this to a name of your choice
   eks_cluster_region = "eu-west-2"        # Change this to your desired AWS region
+  # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
+  kubernetes_version = "1.32" # Change this to your desired Kubernetes version (eks - major.minor)
 }
 
 module "eks_cluster" {
@@ -8,6 +10,8 @@ module "eks_cluster" {
 
   name   = local.eks_cluster_name
   region = local.eks_cluster_region
+
+  kubernetes_version = local.kubernetes_version
 
   # Set CIDR ranges or use the defaults
   cluster_service_ipv4_cidr = "10.190.0.0/16"

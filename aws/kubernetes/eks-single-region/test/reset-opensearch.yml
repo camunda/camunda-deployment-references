@@ -1,0 +1,65 @@
+---
+# this manifest deletes all indices on an opensearch cluster
+# it requires the secrets to be present in the setup-os-secret secret
+# for non fine grained environments an empty username/password should be set in the secret
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: reset-opensearch
+    labels:
+        app: reset-opensearch
+spec:
+    backoffLimit: 0
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: reset-opensearch
+                  image: amazonlinux:latest
+                  command:
+                      - sh
+                      - -c
+                      - |
+                        /bin/bash <<'EOF'
+                        set -o pipefail
+
+                        EXTRA_ARGS=""
+
+                        if [ -n "$OPENSEARCH_MASTER_USERNAME" ]; then
+                            EXTRA_ARGS="-u $OPENSEARCH_MASTER_USERNAME:$OPENSEARCH_MASTER_PASSWORD"
+                        fi
+
+                        echo "Deleting all indices from OpenSearch..."
+
+                        PROTECTED_INDICES="\.opendistro_security|\.kibana|\.plugins-|\.opensearch-"
+
+                        for index in $(curl -sS $EXTRA_ARGS \
+                            -X GET "https://$OPENSEARCH_HOST/_cat/indices?h=index" | grep -Ev "$PROTECTED_INDICES"); do
+                            echo "Deleting index: $index"
+                            curl -sS $EXTRA_ARGS \
+                                -X DELETE "https://$OPENSEARCH_HOST/$index"
+                        done
+
+                        echo "All indices deleted except for protected ones."
+                        echo "Listing remaining indices..."
+
+                        curl -sS $EXTRA_ARGS \
+                          -X GET "https://$OPENSEARCH_HOST/_cat/indices?h=index" | sort
+
+                        EOF
+                  env:
+                      - name: OPENSEARCH_HOST
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-os-secret
+                                key: OPENSEARCH_HOST
+                      - name: OPENSEARCH_MASTER_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-os-secret
+                                key: OPENSEARCH_MASTER_USERNAME
+                      - name: OPENSEARCH_MASTER_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-os-secret
+                                key: OPENSEARCH_MASTER_PASSWORD

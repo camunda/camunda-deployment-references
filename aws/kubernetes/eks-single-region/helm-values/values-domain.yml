@@ -61,7 +61,7 @@ global:
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: https://${DOMAIN_NAME}/console
+                redirectUrl: https://${DOMAIN_NAME}
                 existingSecret:
                     name: identity-secret-for-components
 
@@ -81,6 +81,9 @@ identity:
         existingSecret: identity-postgres-secret
         existingSecretPasswordKey: password
 
+connectors:
+    contextPath: /connectors
+
 operate:
     contextPath: /operate
 
@@ -95,10 +98,15 @@ webModeler:
         externalDatabase:
             url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}
             user: ${DB_WEBMODELER_USERNAME}
-            existingSecret: webmodeler-postgres-secret
+            existingSecret:
+                name: webmodeler-postgres-secret
             existingSecretPasswordKey: password
+        env:
+            - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+              value: software.amazon.jdbc.Driver
         mail:
-            existingSecret: identity-secret-for-components # reference the smtp password
+            existingSecret:
+                name: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
 
 optimize:
@@ -122,4 +130,4 @@ zeebeGateway:
 
 console:
     enabled: false # by default, console is not enabled
-    contextPath: /console
+    contextPath: /

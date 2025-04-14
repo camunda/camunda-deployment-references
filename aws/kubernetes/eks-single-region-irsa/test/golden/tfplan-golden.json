@@ -2828,7 +2828,7 @@
                   {
                     "master_user_arn": null,
                     "master_user_name": "secret_user",
-                    "master_user_password": "Secretvalue$23"
+                    "master_user_password": "Secretvalue%23"
                   }
                 ]
               }

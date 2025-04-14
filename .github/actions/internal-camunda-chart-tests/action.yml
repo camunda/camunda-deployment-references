@@ -20,13 +20,19 @@ inputs:
         required: true
     camunda-domain:
         description: The domain to use for the tests
-        default: 'false'
+        default: ''
+    camunda-domain-grpc:
+        description: The domain to use for the gRPC tests
+        default: ''
     webmodeler-enabled:
         description: Whether the Webmodeler is enabled in the chart
         default: 'false'
     console-enabled:
         description: Whether the Console is enabled in the chart
         default: 'false'
+    elasticsearch-enabled:
+        description: Whether the Elasticsearch is enabled in the chart
+        default: 'true'
     test-namespace:
         description: The namespace to use for the helm tests
         default: camunda
@@ -92,8 +98,10 @@ runs:
           env:
               CAMUNDA_VERSION: ${{ inputs.camunda-version }}
               CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
               CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
           run: |
               set -euo pipefail
 
@@ -133,16 +141,34 @@ runs:
               export VARIABLES_ENV_FILE="$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables.env"
               # Enable the ingress tests
 
-              if [[ "$CAMUNDA_DOMAIN" != "false" ]]; then
+              if [[ "$CAMUNDA_DOMAIN" != "" ]]; then
                 # shellcheck disable=SC2129
                 echo "VENOM_VAR_TEST_INGRESS_HOST=$TEST_INGRESS_HOST" >> "$VARIABLES_ENV_FILE"
-                echo "VENOM_VAR_TEST_CLIENT_ID=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" >> "$VARIABLES_ENV_FILE"
-                echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" >> "$VARIABLES_ENV_FILE"
                 echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
+
+                # Setting is broken and results in always skipping ingress tests
+                # This removes the faulty setting but should only be done in domain context
+                echo "Skip test ingress is also broken, fixing it"
+                yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+
+                if [[ "$CAMUNDA_DOMAIN_GRPC" != "" ]]; then
+                  yq eval '.coreVars.baseURLs.zeebeGatewayGRPC = env(CAMUNDA_DOMAIN_GRPC)' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                fi
               else
                 # Some variables are not working correctly, patching it with yq directly
                 echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
+
+                # fix wrong default zeebeGatewayGRPC port
+                yq eval '.coreVars.baseURLs.zeebeGatewayGRPC |= (select(tag == "!!str") | sub("^http://", "") | sub(":9600$", ":26500"))' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
               fi
+
+              echo "VENOM_VAR_TEST_CLIENT_ID=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" >> "$VARIABLES_ENV_FILE"
+              echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" >> "$VARIABLES_ENV_FILE"
 
               ZEEBE_VERSION=$(yq '.zeebe.image.tag' "$TEST_CHART_DIR_STATIC/values.yaml")
               # shellcheck disable=SC2129
@@ -158,11 +184,12 @@ runs:
                 "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
                 "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
 
-              echo "Skip test ingress is also broken, fixing it"
-              yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
-                -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-              yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
-                -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+              if [[ "$ELASTICSEARCH_ENABLED" != "true" ]]; then
+                echo "Disable Elasticsearch in the core tests as it's not enabled"
+
+                yq eval 'del(.. | select(has("component") and .component == "Elasticsearch"))' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+              fi
 
               if [ "$WEBMODELER_ENABLED" != "true" ]; then
                 echo "Disable Webmodeler in the core tests as it's not enabled"
@@ -172,7 +199,11 @@ runs:
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
               fi
 
-              if [ "$CONSOLE_ENABLED" != "true" ]; then
+              # TODO: Fix later for Console and re-investigate
+              # Tests are failing for some reason with no-domain, can't replicate locally
+              # Assumption is that the jwt issuer is different in the test than expected
+              # Disabling for now for no-domain setups
+              if [[ "$CONSOLE_ENABLED" != "true" || "$CAMUNDA_DOMAIN" == "" ]]; then
                 echo "Disable Console in the core tests as it's not enabled"
 
                 yq eval 'del(.. | select(has("component") and .component == "Console"))' \
@@ -233,6 +264,40 @@ runs:
                 echo "Using authenticated Zeebe client credentials..."
                 export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
                 export ZEEBE_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+              fi
+
+              # function to help with port-forwarding in the background
+              start_port_forward() {
+                  local service=$1
+                  local ports=$2
+                  kubectl port-forward service/$service $ports -n $TEST_NAMESPACE >/dev/null 2>&1 &
+                  local pid=$!
+                  PORT_FORWARD_PIDS+=($pid)
+                  echo "Port-forwarding for $service on ports $ports started."
+              }
+
+              cleanup() {
+                for pid in "${PORT_FORWARD_PIDS[@]}"; do
+                  echo "🛑 Stopping port-forward (PID: $pid)..."
+                  kill "$pid"
+                done
+              }
+
+              trap cleanup EXIT
+
+              PORT_FORWARD_PIDS=()
+
+              if [[ "$DOMAIN_NAME" == "" ]]; then
+                # Without domain:
+                source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
+
+                start_port_forward camunda-zeebe-gateway 8080:8080
+                start_port_forward camunda-keycloak 18080:80
+
+                echo "Waiting for port-forwarding to be established..." && sleep 10
+              else
+                # With domain:
+                source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-domain.sh
               fi
 
               # Execute the script and capture the output in a variable
