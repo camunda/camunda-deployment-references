@@ -1,34 +1,17 @@
 ---
 name: Tests - Integration - AWS EC2
-
 on:
-    # Disabling for the time being due to focus shift with 8.7
-    # schedule:
-    #     - cron: 0 3 * * 1-5
     workflow_dispatch:
-    # pull_request:
-    #     paths:
-    #         - .github/workflows/aws_ec2_tests.yml
-    #         - .tool-versions
-    #         - aws/ec2/**
-    #         - '!aws/ec2/test/golden/**'
-
-# limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # in case of renovate we don't cancel the previous run, so it can finish it
-    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
     cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
-
 env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
-
     AWS_PROFILE: infex
     AWS_REGION: eu-west-2
     S3_BACKEND_BUCKET: tf-state-multi-reg
     S3_BUCKET_REGION: eu-central-1
-    SNAPSHOT_PREVIOUS_VERSION: 8.7.0-alpha3-rc4 # potential to be reworked to dynamic matrix instead
-
+    SNAPSHOT_PREVIOUS_VERSION: 8.7.0-alpha3-rc4
 jobs:
     test:
         runs-on: ubuntu-latest
@@ -36,7 +19,6 @@ jobs:
             fail-fast: false
             matrix:
                 camunda:
-                    # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
                     - 8.6.13
                     - 8.7.0-SNAPSHOT
                 architecture:
@@ -46,21 +28,17 @@ jobs:
                     - ${{ github.event_name == 'pull_request' && !contains(github.head_ref, 'SNAPSHOT') }}
                 previous_camunda:
                     - 8.6.2
-                # we don't include SNAPSHOT in PR due to the instability of its nature except if it's explicitly mentioned
                 exclude:
                     - camunda: 8.7.0-SNAPSHOT
                       isPR: true
-
         steps:
             - name: Checkout repository
-              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -70,16 +48,12 @@ jobs:
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
-
-            ################ AWS Config ##################
-            # Official action does not support profiles
             - name: Add profile credentials to ~/.aws/credentials
               shell: bash
               run: |
                   aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
-            ################ Prerequisites ##################
             - name: Export test prefix
               run: |
                   prefix="ec2-test-$(tr -dc 'a-z0-9' </dev/urandom | head -c 5)"
@@ -88,19 +62,16 @@ jobs:
               run: |
                   version=$(echo "${{ matrix.camunda }}" | tr '.' '-')
                   echo "CAMUNDA_HYPHENS=$version" >> "$GITHUB_ENV"
-            # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
                   cp ${{ github.workspace }}/aws/ec2/test/fixtures/*.tf ${{ github.workspace }}/aws/ec2/terraform/
                   echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.TF_PREFIX }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
-            # yamllint enable rule:line-length
             - name: Set Camunda version
               working-directory: aws/ec2/scripts
               run: |
                   # We need to replace the string without substitution except for that of GitHub Actions
                   # shellcheck disable=SC2016
                   sed -i '0,/CAMUNDA_VERSION/s/CAMUNDA_VERSION=.*/CAMUNDA_VERSION=${CAMUNDA_VERSION:-"${{ matrix.camunda }}"}/' camunda-install.sh
-            # potential to rework to dynamic matrix instead or local file that contains version dict
             - name: Overwrite previous version
               run: |
                   if [[ "${{matrix.camunda }}" =~ "SNAPSHOT" ]]; then
@@ -108,7 +79,6 @@ jobs:
                   else
                       echo "CAMUNDA_PREVIOUS_VERSION=${{ matrix.previous_camunda }}" >> "$GITHUB_ENV"
                   fi
-            ########## Create Infrastructure ############
             - name: Terratest - Terraform Apply
               if: always() && success()
               working-directory: aws/ec2/test/src
@@ -117,7 +87,6 @@ jobs:
                   go test -v -timeout 60m -run TestSetup
               env:
                   ARCHITECTURE: ${{ matrix.architecture }}
-            ################ Run Tests ##################
             - name: Terratest - Run all Tests
               id: terratest
               working-directory: aws/ec2/test/src
@@ -134,7 +103,6 @@ jobs:
                   go install gotest.tools/gotestsum@latest
                   # Run all tests except TestSetup and TestTeardown
                   go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m --skip 'TestSetup|TestTeardown'
-            ################ Cleanup ##################
             - name: Terratest - Terraform Destroy
               if: always()
               id: tf-destroy
@@ -142,7 +110,6 @@ jobs:
               timeout-minutes: 31
               run: |
                   go test -v -timeout 30m -run TestTeardown
-            # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
             - name: Filter logger.go from the test report (too large)
               if: always()
               working-directory: aws/ec2/test/src
@@ -152,7 +119,7 @@ jobs:
                   sed 's/\n/&#xA;/g' > "./tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml"
             - name: Upload test reports
               if: always()
-              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
               with:
                   name: test-reports-${{ env.CAMUNDA_HYPHENS }}-${{ matrix.architecture }}
                   path: ${{ github.workspace }}/aws/ec2/test/src/tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml
@@ -165,7 +132,6 @@ jobs:
               if: always()
               run: |
                   rm -rf ~/.aws/credentials
-
     test-report:
         runs-on: ubuntu-latest
         if: always()
@@ -175,7 +141,7 @@ jobs:
             SNAPSHOT_ERROR: ${{ steps.determine-if-failed-tests-include-snapshot.outputs.SNAPSHOT_ERROR }}
         steps:
             - name: Download artifacts
-              uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4
+              uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
               with:
                   pattern: test-reports-*
                   path: /tmp/testreports
@@ -193,13 +159,11 @@ jobs:
                     echo "SNAPSHOT_ERROR=false" >> "$GITHUB_OUTPUT"
                   fi
             - name: Run test-summary
-              uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2
+              uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86
               with:
                   paths: /tmp/testreports/**/*.xml
-
     notify-on-failure:
         runs-on: ubuntu-latest
-        # if only snapshot error was detected, don't report
         if: failure() && needs.test-report.outputs.SNAPSHOT_ERROR == 'false'
         needs:
             - test
@@ -208,7 +172,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
