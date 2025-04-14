@@ -55,5 +55,3 @@ tflint 0.56.0
 trivy 0.60.0
 
 yq 4.45.1
-
-azure-cli 2.70.0
