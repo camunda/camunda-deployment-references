@@ -20,6 +20,8 @@ module "rosa_cluster" {
   service_cidr_block = "10.0.128.0/18"
   pod_cidr_block     = "10.0.64.0/18"
 
+  host_prefix = "23"
+
   # admin access
   htpasswd_username = local.rosa_admin_username
   htpasswd_password = local.rosa_admin_password

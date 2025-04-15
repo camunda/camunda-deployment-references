@@ -10,6 +10,8 @@ locals {
   rosa_cluster_2_machine_cidr_block = "10.1.0.0/18"
   rosa_cluster_2_service_cidr_block = "10.1.128.0/18"
   rosa_cluster_2_pod_cidr_block     = "10.1.64.0/18"
+
+  host_prefix = "23" # The host prefix is the number of bits used for the host portion of the IP address. A smaller number means more hosts per subnet, while a larger number means fewer hosts per subnet. The default value is 23.
 }
 
 module "rosa_cluster_2" {
@@ -28,6 +30,8 @@ module "rosa_cluster_2" {
   machine_cidr_block = local.rosa_cluster_2_machine_cidr_block
   service_cidr_block = local.rosa_cluster_2_service_cidr_block
   pod_cidr_block     = local.rosa_cluster_2_pod_cidr_block
+
+  host_prefix = local.host_prefix
 
   # admin access
   htpasswd_username = local.rosa_cluster_2_admin_username
