@@ -44,12 +44,12 @@ runs:
         - name: Apply label to the current PR
           shell: bash
           run: |
-              pr_number=$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")
-              gh api -X POST repos/${{ github.repository }}/issues/$pr_number/labels -f labels="[]${{ env.skip_label_name }}"
+              pr_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
+              gh issue edit "$pr_number" --add-label "${{ env.skip_label_name }}"
 
         - name: Add comment to the PR
           shell: bash
           run: |
-              pr_number=$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")
+              pr_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
               comment="🏷️ The label `${{ env.skip_label_name }}` has been applied ${{ inputs.comment-message }}"
               gh api -X POST repos/${{ github.repository }}/issues/$pr_number/comments -f body="$comment"
