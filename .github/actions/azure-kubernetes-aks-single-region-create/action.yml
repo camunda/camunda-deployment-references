@@ -146,6 +146,7 @@ runs:
 
         - name: create setup-db-secret
           shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
           run: |
               . ./azure/kubernetes/aks-single-region/procedure/vars-create-db.sh
               ./azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh
