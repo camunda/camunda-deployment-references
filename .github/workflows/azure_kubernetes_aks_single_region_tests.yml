@@ -87,6 +87,7 @@ jobs:
         runs-on: ubuntu-latest
         env:
             TF_MODULES_PATH: ./.action-tf-modules/azure-kubernetes-aks-single-region-create/
+            TEST_NAMESPACE: camunda  
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
