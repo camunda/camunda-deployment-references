@@ -190,7 +190,7 @@ jobs:
                   set -euo pipefail
   
                   # Source the shell script that exports your DB-related variables
-                  source ../../azure/kubernetes/aks-single-region/procedure/vars-create-db.sh
+                  source "$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/vars-create-db.sh"
   
                   # Mask these variables from logs
                   echo "::add-mask::$POSTGRES_FQDN"
