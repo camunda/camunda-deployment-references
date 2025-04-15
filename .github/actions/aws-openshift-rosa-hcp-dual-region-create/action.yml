@@ -273,6 +273,15 @@ runs:
                      -e "s/\(rosa_cluster_1_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS_CLUSTER_1]/" \
                      cluster_region_1.tf
 
+              if [[ "${{ inputs.availability-zones-cluster-1 }}" == "a" ]]; then
+                # The VPC module of ROSA does a bad cidr calculation with single zones
+                echo "Patching cluster.tf for single AZ deployment"
+                sed -i -e 's/\(machine_cidr_block\s*=\s*"\)[^"]*\("\)/\110.0.64.0\/20\2/' \
+                       -e 's/\(service_cidr_block\s*=\s*"\)[^"]*\("\)/\110.0.80.0\/20\2/' \
+                       -e 's/\(pod_cidr_block\s*=\s*"\)[^"]*\("\)/\110.0.96.0\/20\2/' \
+                       cluster_region_1.tf
+              fi
+
               if [ -n "${{ inputs.replicas-cluster-1 }}" ]; then
                 sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas-cluster-1 }}/' cluster_region_1.tf
               else
@@ -292,6 +301,15 @@ runs:
                      -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version-cluster-2 }}\2/' \
                      -e "s/\(rosa_cluster_2_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS_CLUSTER_2]/" \
                      cluster_region_2.tf
+
+              if [[ "${{ inputs.availability-zones-cluster-2 }}" == "a" ]]; then
+                # The VPC module of ROSA does a bad cidr calculation with single zones
+                echo "Patching cluster.tf for single AZ deployment"
+                sed -i -e 's/\(machine_cidr_block\s*=\s*"\)[^"]*\("\)/\110.1.64.0\/20\2/' \
+                       -e 's/\(service_cidr_block\s*=\s*"\)[^"]*\("\)/\110.1.80.0\/20\2/' \
+                       -e 's/\(pod_cidr_block\s*=\s*"\)[^"]*\("\)/\110.1.96.0\/20\2/' \
+                       cluster_region_2.tf
+              fi
 
               if [ -n "${{ inputs.replicas-cluster-2 }}" ]; then
                 sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas-cluster-2 }}/' cluster_region_2.tf
