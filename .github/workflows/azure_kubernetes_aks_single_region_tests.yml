@@ -180,8 +180,6 @@ jobs:
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
                   ref-arch: aks-single-region
 
-
-
             - name: Source env from Terraform
               id: db_env
               shell: bash
@@ -190,7 +188,7 @@ jobs:
                   set -euo pipefail
   
                   # Source the shell script that exports your DB-related variables
-                  source "$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/vars-create-db.sh"
+                  source $GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/vars-create-db.sh
   
                   # Mask these variables from logs
                   echo "::add-mask::$POSTGRES_FQDN"
@@ -204,7 +202,6 @@ jobs:
                   echo "::add-mask::$DB_WEBMODELER_NAME"
                   echo "::add-mask::$DB_WEBMODELER_PASSWORD"
   
-                  # Now set them as step outputs so you can use them in another job:
                   echo "POSTGRES_FQDN=$POSTGRES_FQDN" >> "$GITHUB_OUTPUT"
                   echo "POSTGRES_PORT=$POSTGRES_PORT" >> "$GITHUB_OUTPUT"
                   echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME" >> "$GITHUB_OUTPUT"
@@ -232,14 +229,17 @@ jobs:
             TEST_CLUSTER_TYPE: kubernetes
             MAIL_OVERWRITE: admin@camunda.ie
             POSTGRES_FQDN: ${{ needs.prepare-clusters.outputs.POSTGRES_FQDN }}
-            POSTGRES_PORT: ${{ needs.prepare-clusters.outputs.POSTGRES_PORT }}
             POSTGRES_ADMIN_USERNAME: ${{ needs.prepare-clusters.outputs.POSTGRES_ADMIN_USERNAME }}
             POSTGRES_ADMIN_PASSWORD: ${{ needs.prepare-clusters.outputs.POSTGRES_ADMIN_PASSWORD }}
+            POSTGRES_PORT: ${{ needs.prepare-clusters.outputs.POSTGRES_PORT }}
             DB_KEYCLOAK_NAME: ${{ needs.prepare-clusters.outputs.DB_KEYCLOAK_NAME }}
+            DB_KEYCLOAK_USERNAME: ${{ needs.prepare-clusters.outputs.DB_KEYCLOAK_USERNAME }}
             DB_KEYCLOAK_PASSWORD: ${{ needs.prepare-clusters.outputs.DB_KEYCLOAK_PASSWORD }}
             DB_IDENTITY_NAME: ${{ needs.prepare-clusters.outputs.DB_IDENTITY_NAME }}
+            DB_IDENTITY_USERNAME: ${{ needs.prepare-clusters.outputs.DB_IDENTITY_USERNAME }}
             DB_IDENTITY_PASSWORD: ${{ needs.prepare-clusters.outputs.DB_IDENTITY_PASSWORD }}
             DB_WEBMODELER_NAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_NAME }}
+            DB_WEBMODELER_USERNAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_USERNAME }}
             DB_WEBMODELER_PASSWORD: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_PASSWORD }}
 
         steps:
