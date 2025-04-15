@@ -12,7 +12,6 @@ on:
             - aws/kubernetes/eks-single-region*/**
             - '!aws/kubernetes/eks-single-region/test/golden/**'
             - '!aws/kubernetes/eks-single-region-irsa/test/golden/**'
-            - '!aws/kubernetes/eks-single-region/procedure/s3*.sh'
             - .github/actions/aws-kubernetes-eks-single-region-create/**
             - .github/actions/aws-configure-cli/**
 

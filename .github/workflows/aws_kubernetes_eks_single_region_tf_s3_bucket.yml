@@ -9,7 +9,7 @@ on:
         paths:
             - .github/workflows/aws_kubernetes_eks_single_region_tf_s3_bucket.yml
             - .tool-versions
-            - aws/kubernetes/eks-single-region/procedure/s3*.sh
+            - aws/common/procedure/s3-bucket/**
             - .github/actions/aws-configure-cli/**
     schedule:
         - cron: 0 0 * * 4 # every Thursday at midnight
@@ -65,7 +65,7 @@ jobs:
                   sed -i "s/^export S3_TF_BUCKET_NAME=\".*\"/export S3_TF_BUCKET_NAME=\"$BUCKET_NAME\"/" ./s3-bucket-creation.sh
 
             - name: Execute S3 scripts
-              working-directory: aws/kubernetes/eks-single-region/procedure
+              working-directory: aws/common/procedure/s3-bucket
               run: |
                   set -euo pipefail
 
