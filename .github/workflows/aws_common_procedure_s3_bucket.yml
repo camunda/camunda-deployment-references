@@ -7,7 +7,7 @@ on:
     workflow_dispatch:
     pull_request:
         paths:
-            - .github/workflows/aws_kubernetes_eks_single_region_tf_s3_bucket.yml
+            - .github/workflows/aws_common_procedure_s3_bucket.yml
             - .tool-versions
             - aws/common/procedure/s3-bucket/**
             - .github/actions/aws-configure-cli/**
