@@ -168,6 +168,12 @@ jobs:
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
                   ref-arch: aks-single-region
 
+            - name: create setup-db-secret
+              run: |
+                    . ./azure/kubernetes/aks-single-region/procedure/vars-create-db.sh
+                    ./azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh
+
+
     integration-tests:
         name: Run integration tests - ${{ matrix.scenario }} - ${{ matrix.declination }}
         runs-on: ubuntu-latest
@@ -274,10 +280,6 @@ jobs:
             - name: 🧹 Clean up databases
               run: |
                   set -euo pipefail
-
-                  # Requires db secrets to be created
-                  . ./azure/kubernetes/aks-single-region/procedure/vars-create-db.sh
-                  ./azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh
 
                   # Reset PostgreSQL
                   kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/reset-postgres.yml --namespace camunda
