@@ -149,4 +149,6 @@ jobs:
             - name: Prevent other runs for renovate
               # if: ${{ success() && env.IS_RENOVATE_PR == 'true' }}
               if: success()
+              env:
+                  GH_TOKEN: ${{ github.token }}
               uses: ./.github/actions/internal-apply-skip-label
