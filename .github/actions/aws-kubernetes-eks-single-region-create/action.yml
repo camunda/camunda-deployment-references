@@ -17,6 +17,9 @@ inputs:
         required: false
         # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
         default: '1.32'
+    single-nat-gateway:
+        description: Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.
+        default: 'true'
     s3-backend-bucket:
         description: Name of the S3 bucket to store Terraform state
         required: true
@@ -112,6 +115,7 @@ runs:
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
               sed -i -e 's/\(eks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
                      -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
+                     -e 's/\(single_nat_gateway\s*=\s*\)[^"]*\("\)/\1${{ inputs.single-nat-gateway }}\2/' \
                      cluster.tf
 
               echo "Displaying templated cluster.tf file:"

@@ -37,11 +37,14 @@ check "elastic_ip_quota_check" {
 
   # Only check the condition when no existing vpc is there
   assert {
-    condition     = length(data.aws_vpcs.current_vpcs.ids) > 0 || (data.aws_servicequotas_service_quota.elastic_ip_quota.value - length(data.aws_eips.current_usage.public_ips)) >= length(local.azs)
-    error_message = "Not enough available Elastic IPs to cover all local availability zones (need: ${length(local.azs)}, have: ${(data.aws_servicequotas_service_quota.elastic_ip_quota.value - length(data.aws_eips.current_usage.public_ips))})."
+    condition = length(data.aws_vpcs.current_vpcs.ids) > 0 || (
+      (data.aws_servicequotas_service_quota.elastic_ip_quota.value - length(data.aws_eips.current_usage.public_ips)) >= (
+        var.single_nat_gateway ? 1 : length(local.azs)
+      )
+    )
+    error_message = "Not enough available Elastic IPs to cover required NAT gateways (need: ${var.single_nat_gateway ? 1 : length(local.azs)}, have: ${(data.aws_servicequotas_service_quota.elastic_ip_quota.value - length(data.aws_eips.current_usage.public_ips))})."
   }
 }
-
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
