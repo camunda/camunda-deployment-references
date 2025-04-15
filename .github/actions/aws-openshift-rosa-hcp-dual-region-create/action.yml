@@ -35,12 +35,13 @@ inputs:
     aws-region-cluster-2:
         description: AWS region where the ROSA cluster 2 will be deployed
         required: true
+    # We're limiting the AZs to 1 within tests as each consumes 1 IP for NAT
     availability-zones-cluster-1:
         description: Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)
-        default: a,b,c
+        default: a
     availability-zones-cluster-2:
         description: Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)
-        default: a,b,c
+        default: a
     rosa-cli-version:
         description: Version of the ROSA CLI to use
         default: latest

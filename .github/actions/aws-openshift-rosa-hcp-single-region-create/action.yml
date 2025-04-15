@@ -23,10 +23,11 @@ inputs:
     aws-region:
         description: AWS region where the ROSA cluster will be deployed
         required: true
+    # We're limiting the AZs to 1 within tests as each consumes 1 IP for NAT
     availability-zones:
         description: Comma separated list of availability zones (letters only, e.g., a,b,c)
         required: true
-        default: a,b,c
+        default: a
     rosa-cli-version:
         description: Version of the ROSA CLI to use
         required: true

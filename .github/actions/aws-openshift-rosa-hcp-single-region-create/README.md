@@ -16,7 +16,7 @@ The kube context will be set on the created cluster.
 | `admin-password` | <p>Admin password for the ROSA cluster</p> | `true` | `""` |
 | `admin-username` | <p>Admin username for the ROSA cluster</p> | `true` | `kube-admin` |
 | `aws-region` | <p>AWS region where the ROSA cluster will be deployed</p> | `true` | `""` |
-| `availability-zones` | <p>Comma separated list of availability zones (letters only, e.g., a,b,c)</p> | `true` | `a,b,c` |
+| `availability-zones` | <p>Comma separated list of availability zones (letters only, e.g., a,b,c)</p> | `true` | `a` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `true` | `latest` |
 | `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.18.5` |
 | `replicas` | <p>Number of replicas for the ROSA cluster (empty will fallback on default value of the module)</p> | `false` | `""` |
@@ -81,7 +81,7 @@ This action is a `composite` action.
     # Comma separated list of availability zones (letters only, e.g., a,b,c)
     #
     # Required: true
-    # Default: a,b,c
+    # Default: a
 
     rosa-cli-version:
     # Version of the ROSA CLI to use

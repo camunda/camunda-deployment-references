@@ -21,8 +21,8 @@ Each cluster will be added to the kube config with the name of the cluster as co
 | `admin-username-cluster-2` | <p>Admin username for the ROSA cluster 2</p> | `false` | `kube-admin` |
 | `aws-region-cluster-1` | <p>AWS region where the ROSA cluster 1 will be deployed</p> | `true` | `""` |
 | `aws-region-cluster-2` | <p>AWS region where the ROSA cluster 2 will be deployed</p> | `true` | `""` |
-| `availability-zones-cluster-1` | <p>Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)</p> | `false` | `a,b,c` |
-| `availability-zones-cluster-2` | <p>Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)</p> | `false` | `a,b,c` |
+| `availability-zones-cluster-1` | <p>Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)</p> | `false` | `a` |
+| `availability-zones-cluster-2` | <p>Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)</p> | `false` | `a` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
 | `openshift-version-cluster-1` | <p>Version of the OpenShift to install</p> | `false` | `4.18.5` |
 | `openshift-version-cluster-2` | <p>Version of the OpenShift to install</p> | `false` | `4.18.5` |
@@ -122,13 +122,13 @@ This action is a `composite` action.
     # Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)
     #
     # Required: false
-    # Default: a,b,c
+    # Default: a
 
     availability-zones-cluster-2:
     # Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)
     #
     # Required: false
-    # Default: a,b,c
+    # Default: a
 
     rosa-cli-version:
     # Version of the ROSA CLI to use
