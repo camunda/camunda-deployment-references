@@ -308,7 +308,6 @@ jobs:
                   # Create the namespace
                   kubectl create namespace "$TEST_NAMESPACE"
 
-
             - name: 🏗️ Ingress Setup prerequisites
               if: ${{ matrix.declination == 'domain' }}
               run: |
@@ -335,6 +334,8 @@ jobs:
             - name: 🧹 Clean up databases
               run: |
                   set -euo pipefail
+
+                  $GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh
 
                   # Reset PostgreSQL
                   kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/reset-postgres.yml --namespace camunda
