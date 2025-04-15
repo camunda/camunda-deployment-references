@@ -462,6 +462,12 @@ jobs:
                     kubectl -n "$TEST_NAMESPACE" logs "$pod_name";
                   done
 
+            - name: Prevent other runs for renovate
+              if: ${{ success() && env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
     cleanup-clusters:
         name: Cleanup ROSA clusters
         if: always()

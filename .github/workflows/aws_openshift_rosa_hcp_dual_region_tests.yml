@@ -41,6 +41,7 @@ concurrency:
 
 env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infex
 
@@ -555,6 +556,12 @@ jobs:
             - name: 🔬🚨 Get failed Pods info
               if: failure()
               uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@52f7c04dc9817a2f8a5b7b1c5450a80a8a6996ae # main
+
+            - name: Prevent other runs for renovate
+              if: ${{ success() && env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
 
     cleanup-clusters:
         name: Cleanup ROSA clusters

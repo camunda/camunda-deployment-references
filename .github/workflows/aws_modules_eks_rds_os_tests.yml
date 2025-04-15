@@ -26,6 +26,7 @@ concurrency:
 
 env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     # please keep those variables synced with daily-cleanup.yml
     AWS_PROFILE: infex
@@ -185,6 +186,12 @@ jobs:
                   set -euo pipefail
 
                   rm -rf ~/.aws/credentials
+
+            - name: Prevent other runs for renovate
+              if: ${{ success() && env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
 
     test-report:
         runs-on: ubuntu-latest
