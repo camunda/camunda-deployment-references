@@ -18,6 +18,8 @@ runs:
           id: extract_workflow_name
           shell: bash
           run: |
+              set -euo pipefail
+
               workflow_file_name=$(echo "${{ github.workflow_ref }}" | sed 's/@.*//')
               workflow_file_name=$(basename "$workflow_file_name" | sed 's/\(.*\)\(\.yaml\|\.yml\)$/\1/')
               echo "workflow_file_name=$workflow_file_name" | tee -a "$GITHUB_ENV"
@@ -27,6 +29,8 @@ runs:
           id: check_label
           shell: bash
           run: |
+              set -euo pipefail
+
               if gh api repos/${{ github.repository }}/labels/${{ env.skip_label_name }} --jq '.name' > /dev/null 2>&1; then
                 echo "Label ${{ env.skip_label_name }} already exists."
                 echo "label_exists=true" | tee -a "$GITHUB_ENV"
@@ -39,17 +43,24 @@ runs:
           if: env.label_exists == 'false'
           shell: bash
           run: |
+              set -euo pipefail
+
               gh api -X POST repos/${{ github.repository }}/labels -f name="${{ env.skip_label_name }}" -f color="1D76DB"
 
         - name: Apply label to the current PR
           shell: bash
           run: |
+              set -euo pipefail
+
               pr_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
               gh issue edit "$pr_number" --add-label "${{ env.skip_label_name }}"
 
         - name: Add comment to the PR
           shell: bash
           run: |
+              set -euo pipefail
+
               pr_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-              comment="🏷️ The label `${{ env.skip_label_name }}` has been applied ${{ inputs.comment-message }}"
+              comment="🏷️ The label [${{ env.skip_label_name }}](https://github.com/${{ github.repository }}/labels/${{ env.skip_label_name }}) \
+                has been applied ${{ inputs.comment-message }}"
               gh api -X POST repos/${{ github.repository }}/issues/$pr_number/comments -f body="$comment"
