@@ -56,7 +56,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Generate random S3 bucket name
-              working-directory: aws/kubernetes/eks-single-region/procedure
+              working-directory: aws/common/procedure/s3-bucket
               run: |
                   set -euo pipefail
                   export BUCKET_NAME="camunda-s3-tf-docs-$(date +%s)-$(uuidgen | head -c 8)"
