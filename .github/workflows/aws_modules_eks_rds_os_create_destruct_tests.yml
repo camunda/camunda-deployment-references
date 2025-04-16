@@ -53,6 +53,7 @@ on:
             - .github/actions/aws-eks-cleanup-resources/**
             - .github/actions/aws-utility-action/**
             - .github/actions/aws-configure-cli/**
+            - .github/actions/internal-apply-skip-label/**
 
 # limit to a single execution per ref of this workflow
 concurrency:
@@ -249,7 +250,7 @@ jobs:
                   tf-modules-revision: ${{ steps.commit_info.outputs.tf_modules_revision }}
 
             - name: Prevent other runs for renovate
-              if: ${{ success() && env.IS_RENOVATE_PR == 'true' }}
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
               env:
                   GH_TOKEN: ${{ github.token }}
               uses: ./.github/actions/internal-apply-skip-label
