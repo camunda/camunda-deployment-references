@@ -41,6 +41,7 @@ concurrency:
 
 env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infex
 
@@ -115,10 +116,8 @@ jobs:
                   done
 
                   echo "Filtering the matrix with strategy IS_SCHEDULE=$IS_SCHEDULE"
-                  if [[ "$IS_SCHEDULE" == "true" ]]; then
-                    # shellcheck disable=SC2086
-                    platform_matrix="$(yq '.matrix |= (.distro |= map(select(.schedule_only == true)))' \
-                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                  if [[ "$IS_SCHEDULE" == "true" || "$IS_RENOVATE_PR" == "true" ]]; then
+                    echo "This PR is scheduled or coming from renovate, we test all scenarios without filtering."
                   else
                     # shellcheck disable=SC2086
                     platform_matrix="$(yq '.matrix |= (.distro |= map(select(.schedule_only == null or .schedule_only == false)))' \
