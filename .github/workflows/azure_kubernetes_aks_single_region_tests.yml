@@ -354,7 +354,7 @@ jobs:
 
                   echo "Construct the values.yml file"
 
-                  cp -f azure/kubernetes/aks-single-region/helm-values/values-domain.yml ./values.yml
+                  cp -f azure/kubernetes/aks-single-region/helm-values/values-no-domain.yml ./values.yml
 
                   if [[ "${{ matrix.declination }}" == "domain" ]]; then
                     export DOMAIN_NAME="${{ env.CLUSTER_NAME }}-${{ matrix.scenario }}.camunda.ie"
