@@ -234,10 +234,6 @@ jobs:
     integration-tests:
         name: Run integration tests - ${{ matrix.scenario }} - ${{ matrix.declination }}
         runs-on: ubuntu-latest
-        concurrency:
-            # instead of running sequentially in a matrix, we use concurrency to run the different scenarios in parallel
-            group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.scenario }}
-            cancel-in-progress: false
         needs:
             - prepare-clusters
         env:
@@ -356,10 +352,6 @@ jobs:
                   echo "POSTGRES_FQDN: $POSTGRES_FQDN"
                   echo "POSTGRES_PORT: $POSTGRES_PORT"
                   echo "POSTGRES_ADMIN_USERNAME: $POSTGRES_ADMIN_USERNAME"
-                  echo "POSTGRES_ADMIN_PASSWORD: [redacted]"
-                  echo "DB_KEYCLOAK_NAME: $DB_KEYCLOAK_NAME"
-                  echo "DB_IDENTITY_NAME: $DB_IDENTITY_NAME"
-                  echo "DB_WEBMODELER_NAME: $DB_WEBMODELER_NAME"
                 
 
                   $GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh
