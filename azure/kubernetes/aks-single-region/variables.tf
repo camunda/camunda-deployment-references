@@ -91,7 +91,7 @@ variable "tags" {
 variable "system_node_pool_count" {
   description = "Number of nodes in the system node pool"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "system_node_pool_vm_size" {
@@ -103,7 +103,7 @@ variable "system_node_pool_vm_size" {
 variable "user_node_pool_count" {
   description = "Number of nodes in the user node pool"
   type        = number
-  default     = 5
+  default     = 4
 }
 
 variable "user_node_pool_vm_size" {
