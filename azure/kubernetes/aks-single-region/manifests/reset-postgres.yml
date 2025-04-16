@@ -21,7 +21,7 @@ spec:
                         set -o pipefail
 
                         echo "Installing dependencies..."
-                        yum install -y postgresql15
+                        yum install -y postgresql15 findutils
 
                         echo "Resetting Azure PostgreSQL Flexible Server databases..."
 
