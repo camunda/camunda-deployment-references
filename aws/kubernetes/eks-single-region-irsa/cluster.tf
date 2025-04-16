@@ -3,6 +3,8 @@ locals {
   eks_cluster_region = "eu-west-2"         # Change this to your desired AWS region
   # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
   kubernetes_version = "1.32" # Change this to your desired Kubernetes version (eks - major.minor)
+  # Default - 1 NAT per Subnet = 3 IPs
+  single_nat_gateway = "false" # Change this to true if you want a single NAT gateway (1 IP vs 3 IPs)
 }
 
 module "eks_cluster" {
@@ -20,6 +22,8 @@ module "eks_cluster" {
   # Default node type for the Kubernetes cluster
   np_instance_types     = ["m6i.xlarge"]
   np_desired_node_count = 4
+
+  single_nat_gateway = local.single_nat_gateway
 }
 
 output "cert_manager_arn" {
