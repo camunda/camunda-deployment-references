@@ -194,19 +194,6 @@ jobs:
 
                   echo "[DEBUG] POSTGRES_FQDN: $POSTGRES_FQDN"
 
-                  echo "::add-mask::$POSTGRES_FQDN"
-                  echo "::add-mask::$POSTGRES_PORT"
-                  echo "::add-mask::$POSTGRES_ADMIN_USERNAME"
-                  echo "::add-mask::$POSTGRES_ADMIN_PASSWORD"
-                  echo "::add-mask::$DB_KEYCLOAK_NAME"
-                  echo "::add-mask::$DB_KEYCLOAK_USERNAME"
-                  echo "::add-mask::$DB_KEYCLOAK_PASSWORD"
-                  echo "::add-mask::$DB_IDENTITY_NAME"
-                  echo "::add-mask::$DB_IDENTITY_USERNAME"
-                  echo "::add-mask::$DB_IDENTITY_PASSWORD"
-                  echo "::add-mask::$DB_WEBMODELER_NAME"
-                  echo "::add-mask::$DB_WEBMODELER_USERNAME"
-                  echo "::add-mask::$DB_WEBMODELER_PASSWORD"  
                   echo "POSTGRES_FQDN=$POSTGRES_FQDN" >> "$GITHUB_OUTPUT"
                   echo "POSTGRES_PORT=$POSTGRES_PORT" >> "$GITHUB_OUTPUT"
                   echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME" >> "$GITHUB_OUTPUT"
@@ -220,16 +207,6 @@ jobs:
                   echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME" >> "$GITHUB_OUTPUT"
                   echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME" >> "$GITHUB_OUTPUT"
                   echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD" >> "$GITHUB_OUTPUT"
-
-            - name: Confirm job outputs
-              if: always()
-              run: |
-                  echo "Job output for POSTGRES_FQDN is: ${{ steps.db_env.outputs.POSTGRES_FQDN }}"
-                  echo "Job output for POSTGRES_PORT is: ${{ steps.db_env.outputs.POSTGRES_PORT }}"
-                  echo "Job output for POSTGRES_ADMIN_USERNAME is: ${{ steps.db_env.outputs.POSTGRES_ADMIN_USERNAME }}"
-                  echo "Job output for POSTGRES_ADMIN_PASSWORD is: ${{ steps.db_env.outputs.POSTGRES_ADMIN_PASSWORD }}"
-
-
 
     integration-tests:
         name: Run integration tests - ${{ matrix.scenario }} - ${{ matrix.declination }}
