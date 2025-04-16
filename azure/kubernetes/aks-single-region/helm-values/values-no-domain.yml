@@ -18,7 +18,7 @@ global:
     elasticsearch:
         enabled: true
     opensearch:
-        enabled: true
+        enabled: false
         aws:
             enabled: false # we rely on anonymous auth, not irsa, basic auth is not supported on managed OpenSearch
         auth:
