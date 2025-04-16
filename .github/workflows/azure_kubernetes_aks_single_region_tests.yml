@@ -182,7 +182,6 @@ jobs:
 
             - name: Source env from Terraform
               id: db_env
-              shell: bash
               working-directory: ${{ env.TF_MODULES_PATH }}/azure/kubernetes/aks-single-region/
               run: |
                   set -euo pipefail

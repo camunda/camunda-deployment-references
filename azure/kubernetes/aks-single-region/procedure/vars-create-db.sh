@@ -2,6 +2,7 @@
 
 # PostgreSQL connection details
 export POSTGRES_FQDN=$(terraform output -raw postgres_fqdn)
+echo "PostgreSQL FQDN: $POSTGRES_FQDN"
 export POSTGRES_PORT=5432
 
 # PostgreSQL Admin Credentials
