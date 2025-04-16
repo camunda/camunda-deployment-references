@@ -335,6 +335,16 @@ jobs:
               run: |
                   set -euo pipefail
 
+                  # Debug: Print all DB-related environment variables to verify they're set
+                  echo "POSTGRES_FQDN: $POSTGRES_FQDN"
+                  echo "POSTGRES_PORT: $POSTGRES_PORT"
+                  echo "POSTGRES_ADMIN_USERNAME: $POSTGRES_ADMIN_USERNAME"
+                  echo "POSTGRES_ADMIN_PASSWORD: [redacted]"
+                  echo "DB_KEYCLOAK_NAME: $DB_KEYCLOAK_NAME"
+                  echo "DB_IDENTITY_NAME: $DB_IDENTITY_NAME"
+                  echo "DB_WEBMODELER_NAME: $DB_WEBMODELER_NAME"
+                
+
                   $GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh
 
                   # Reset PostgreSQL
