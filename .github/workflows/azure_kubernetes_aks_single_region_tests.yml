@@ -88,10 +88,13 @@ jobs:
             POSTGRES_ADMIN_USERNAME: ${{ steps.db_env.outputs.POSTGRES_ADMIN_USERNAME }}
             POSTGRES_ADMIN_PASSWORD: ${{ steps.db_env.outputs.POSTGRES_ADMIN_PASSWORD }}
             DB_KEYCLOAK_NAME: ${{ steps.db_env.outputs.DB_KEYCLOAK_NAME }}
+            DB_KEYCLOAK_USERNAME: ${{ steps.db_env.outputs.DB_KEYCLOAK_USERNAME }}
             DB_KEYCLOAK_PASSWORD: ${{ steps.db_env.outputs.DB_KEYCLOAK_PASSWORD }}
             DB_IDENTITY_NAME: ${{ steps.db_env.outputs.DB_IDENTITY_NAME }}
+            DB_IDENTITY_USERNAME: ${{ steps.db_env.outputs.DB_IDENTITY_USERNAME }}
             DB_IDENTITY_PASSWORD: ${{ steps.db_env.outputs.DB_IDENTITY_PASSWORD }}
             DB_WEBMODELER_NAME: ${{ steps.db_env.outputs.DB_WEBMODELER_NAME }}
+            DB_WEBMODELER_USERNAME: ${{ steps.db_env.outputs.DB_WEBMODELER_USERNAME }}
             DB_WEBMODELER_PASSWORD: ${{ steps.db_env.outputs.DB_WEBMODELER_PASSWORD }}
         needs:
             - triage
