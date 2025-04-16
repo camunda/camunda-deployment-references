@@ -416,6 +416,46 @@ jobs:
                   set -euo pipefail
                   ./azure/kubernetes/aks-single-region/procedure/create-external-db-secrets.sh
 
+            - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  source generic/kubernetes/single-region/procedure/chart-env.sh
+                  source generic/kubernetes/single-region/procedure/generate-passwords.sh
+
+                  ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
+
+                  # Generate tests objects
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml
+                    kubectl create secret docker-registry index-docker-io \
+                        --docker-server=index.docker.io \
+                        --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                        --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                        --namespace="$TEST_NAMESPACE"
+
+                    kubectl create secret generic identity-secret-for-components-integration \
+                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+                        --namespace="$TEST_NAMESPACE"
+                  fi
+
+                  ./generic/kubernetes/single-region/procedure/install-chart.sh
+
+            - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+                  ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+
+            - name: 📐 Set current Camunda version
+              id: camunda-version
+              run: |
+                  set -euo pipefail
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
 
     cleanup-clusters:
         name: Cleanup AKS clusters
