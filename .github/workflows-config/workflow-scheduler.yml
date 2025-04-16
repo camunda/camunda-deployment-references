@@ -22,9 +22,14 @@ schedules:
       workflow_files:
           # AWS OpenShift ROSA HCP single region
           - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
+          # AWS OpenShift ROSA HCP dual region
+          - .github/workflows/aws_openshift_rosa_hcp_dual_region_tests.yml
           # AWS EKS Modules tests
           - .github/workflows/aws_modules_eks_rds_os_tests.yml
           - .github/workflows/aws_modules_eks_rds_os_create_destruct_tests.yml
+          # AWS EKS Single Region
+          - .github/workflows/aws_kubernetes_eks_single_region_tests.yml
+          - .github/workflows/aws_common_procedure_s3_bucket.yml
 
     - name: Everyday schedules 8.7
       branch: stable/8.7
@@ -32,4 +37,5 @@ schedules:
       cron_every_hours: '1'
       workflow_files:
           - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
+          - .github/workflows/aws_openshift_rosa_hcp_dual_region_daily_cleanup.yml
           - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
