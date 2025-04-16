@@ -221,6 +221,15 @@ jobs:
                   echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME" >> "$GITHUB_OUTPUT"
                   echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD" >> "$GITHUB_OUTPUT"
 
+            - name: Confirm job outputs
+              if: always()
+              run: |
+                  echo "Job output for POSTGRES_FQDN is: ${{ steps.db_env.outputs.POSTGRES_FQDN }}"
+                  echo "Job output for POSTGRES_PORT is: ${{ steps.db_env.outputs.POSTGRES_PORT }}"
+                  echo "Job output for POSTGRES_ADMIN_USERNAME is: ${{ steps.db_env.outputs.POSTGRES_ADMIN_USERNAME }}"
+                  echo "Job output for POSTGRES_ADMIN_PASSWORD is: ${{ steps.db_env.outputs.POSTGRES_ADMIN_PASSWORD }}"
+
+
 
     integration-tests:
         name: Run integration tests - ${{ matrix.scenario }} - ${{ matrix.declination }}
