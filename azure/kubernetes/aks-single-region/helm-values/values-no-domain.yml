@@ -73,22 +73,24 @@ identity:
         existingSecretPasswordKey: password
 
 webModeler:
-    enabled: false # by default, webModeler is not enabled
+    enabled: true # Enable Web Modeler
 
     restapi:
         externalDatabase:
-            url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}
+            url: jdbc:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?sslmode=require
             user: ${DB_WEBMODELER_USERNAME}
             existingSecret:
                 name: webmodeler-postgres-secret
             existingSecretPasswordKey: password
+
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
-              value: software.amazon.jdbc.Driver
+              value: org.postgresql.Driver
+
         mail:
             existingSecret:
-                name: identity-secret-for-components # reference the smtp password
-            fromAddress: changeme@example.com   # change this required value
+                name: identity-secret-for-components
+            fromAddress: changeme@example.com
 
 optimize:
     migration:
