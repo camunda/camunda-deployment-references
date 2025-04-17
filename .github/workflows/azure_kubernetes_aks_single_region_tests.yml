@@ -217,6 +217,7 @@ jobs:
             TEST_CLUSTER_TYPE: kubernetes
             MAIL_OVERWRITE: admin@camunda.ie
             POSTGRES_FQDN: ${{ needs.prepare-clusters.outputs.POSTGRES_FQDN }}
+            DB_HOST: ${{ needs.prepare-clusters.outputs.POSTGRES_FQDN }}
             POSTGRES_PORT: ${{ needs.prepare-clusters.outputs.POSTGRES_PORT }}
             POSTGRES_ADMIN_USERNAME: ${{ needs.prepare-clusters.outputs.POSTGRES_ADMIN_USERNAME }}
             POSTGRES_ADMIN_PASSWORD: ${{ needs.prepare-clusters.outputs.POSTGRES_ADMIN_PASSWORD }}
