@@ -3,7 +3,7 @@ schedules:
     - name: Mondays schedules 8.6
       branch: stable/8.6
       cron_every_day: Monday   # left null to run it everyday, otherwise separate days with a coma
-      cron_every_hours: '3'   # left null to run it every hour, otherwise separate hours with a coma
+      cron_every_hours: '22'   # left null to run it every hour, otherwise separate hours with a coma
       workflow_files:
           # AWS OpenShift ROSA HCP single region
           - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
@@ -18,7 +18,7 @@ schedules:
     - name: Tuesday schedules 8.7
       branch: stable/8.7
       cron_every_day: Tuesday
-      cron_every_hours: '3'
+      cron_every_hours: '22'
       workflow_files:
           # AWS OpenShift ROSA HCP single region
           - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
