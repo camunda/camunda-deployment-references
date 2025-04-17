@@ -457,6 +457,54 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
+            - name: 🧪 Run Helm Chart tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 60
+              uses: ./.github/actions/internal-camunda-chart-tests
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  camunda-domain: ${{ env.DOMAIN_NAME }}
+                  camunda-domain-grpc: zeebe.${{ env.DOMAIN_NAME }}:443
+                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
+                  console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  elasticsearch-enabled: 'false'
+                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
+                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
+                  test-namespace: ${{ env.TEST_NAMESPACE }}
+                  test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+
+            - name: 🔬🚨 Get failed Pods info
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  kubectl -n "$TEST_NAMESPACE" get po
+                  kubectl -n "$TEST_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                    echo -e "\n###Failed Pod: ${pod_name}###\n";
+                    kubectl -n "$TEST_NAMESPACE" describe po "$pod_name";
+                    kubectl -n "$TEST_NAMESPACE" logs "$pod_name";
+                  done
+
+            - name: 🧹 Cleanup Namespace
+              if: always()
+              run: |
+                  set -euo pipefail
+
+                  helm uninstall camunda --namespace "$TEST_NAMESPACE" --wait
+                  kubectl delete namespace "$TEST_NAMESPACE" --wait
+
+            - name: 🧹 Cleanup domain specific resources
+              if: always() && matrix.declination == 'domain'
+              run: |
+                  set -euo pipefail
+
+                  echo "Let external-dns remove the domain" && sleep 45
+
+                  helm uninstall ingress-nginx --namespace ingress-nginx --wait
+                  helm uninstall external-dns --namespace external-dns --wait
+                  helm uninstall cert-manager --namespace cert-manager --wait
+
 
     cleanup-clusters:
         name: Cleanup AKS clusters
