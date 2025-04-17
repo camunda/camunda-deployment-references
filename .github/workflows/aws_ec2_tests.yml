@@ -12,6 +12,7 @@ on:
     #         - .tool-versions
     #         - aws/ec2/**
     #         - '!aws/ec2/test/golden/**'
+    #         - .github/actions/internal-apply-skip-label/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -197,13 +198,29 @@ jobs:
               with:
                   paths: /tmp/testreports/**/*.xml
 
-    notify-on-failure:
+    report-success:
+        name: Report success
+        runs-on: ubuntu-latest
+        needs:
+            - test
+            - test-report
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+            - name: Prevent other runs for renovate
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
+    report-failure:
+        name: Report failure
         runs-on: ubuntu-latest
         # if only snapshot error was detected, don't report
         if: failure() && needs.test-report.outputs.SNAPSHOT_ERROR == 'false'
         needs:
-            - test
             - test-report
+            - report-success
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
