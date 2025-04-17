@@ -103,7 +103,7 @@ variable "system_node_pool_vm_size" {
 variable "user_node_pool_count" {
   description = "Number of nodes in the user node pool"
   type        = number
-  default     = 4
+  default     = 5
 }
 
 variable "user_node_pool_vm_size" {
