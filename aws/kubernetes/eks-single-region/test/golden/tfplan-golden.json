@@ -863,6 +863,7 @@
                     ]
                   }
                 ],
+                "force_update_version": null,
                 "kubernetes_network_config": [
                   {
                     "ip_family": "ipv4",
