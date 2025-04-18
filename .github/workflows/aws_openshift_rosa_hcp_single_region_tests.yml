@@ -131,7 +131,6 @@ jobs:
                       --indent=0 --output-format json ${CI_MATRIX_FILE})"
                   fi
 
-                  platform_matrix="$(echo "$platform_matrix" | yq '.matrix' --indent=0 --output-format json)"
                   echo "${platform_matrix}" | jq
                   echo "platform-matrix=${platform_matrix}" > "$GITHUB_OUTPUT"
 
