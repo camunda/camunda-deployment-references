@@ -136,9 +136,8 @@ jobs:
                     platform_matrix="$(yq '.matrix' --indent=0 --output-format json ${CI_MATRIX_FILE})"
                   else
                     # shellcheck disable=SC2086
-                    platform_matrix="$(yq '.matrix' --indent=0 --output-format json ${CI_MATRIX_FILE})"
-                    # platform_matrix="$(yq '.matrix |= (.scenario |= map(select(.schedule_only == null or .schedule_only == false)))' \
-                    #  --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                    platform_matrix="$(yq '.matrix |= (.scenario |= map(select(.schedule_only == null or .schedule_only == false)))' \
+                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
                   fi
 
                   if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
