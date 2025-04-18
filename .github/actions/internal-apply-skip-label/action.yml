@@ -49,14 +49,24 @@ runs:
 
         - name: Apply label to the current PR
           shell: bash
+          id: label
           run: |
               set -euo pipefail
 
               pr_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-              gh issue edit "$pr_number" --add-label "${{ env.skip_label_name }}"
+
+              if gh pr view "$pr_number" --json labels | jq -e --arg LABEL "${{ env.skip_label_name }}" '.labels[] | select(.name == $LABEL)' > /dev/null; then
+                echo "Label already present. Skipping."
+                echo "applied=false" | tee -a "$GITHUB_OUTPUT"
+              else
+                echo "Applying label '${{ env.skip_label_name }}' to PR #$pr_number."
+                gh issue edit "$pr_number" --add-label "${{ env.skip_label_name }}"
+                echo "applied=true" | tee -a "$GITHUB_OUTPUT"
+              fi
 
         - name: Add comment to the PR
           shell: bash
+          if: steps.label.outputs.applied == 'true'
           run: |
               set -euo pipefail
 
