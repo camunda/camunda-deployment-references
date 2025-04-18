@@ -16,6 +16,7 @@ on:
             - .github/workflows/aws_modules_eks_rds_os_tests.yml
             - justfile
             - .github/actions/aws-configure-cli/**
+            - .github/actions/internal-apply-skip-label/**
 
 # limit to a single execution per ref of this workflow
 concurrency:
@@ -26,6 +27,7 @@ concurrency:
 
 env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     # please keep those variables synced with daily-cleanup.yml
     AWS_PROFILE: infex
@@ -240,14 +242,29 @@ jobs:
                   max-age-hours: '0'
                   target: ${{ needs.configure-tests.outputs.cluster_id }}
 
-    notify-on-failure:
+    report-success:
+        name: Report success
         runs-on: ubuntu-latest
-        if: failure()
         needs:
             - configure-tests
             - integration-tests
             - test-report
             - cleanup-resources
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+            - name: Prevent other runs for renovate
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
+    report-failure:
+        name: Report failure
+        runs-on: ubuntu-latest
+        if: failure()
+        needs:
+            - report-success
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
