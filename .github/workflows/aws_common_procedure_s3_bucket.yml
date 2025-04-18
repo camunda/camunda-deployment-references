@@ -139,7 +139,7 @@ jobs:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
             - name: Prevent other runs for renovate
-              if: ${{ env.IS_RENOVATE_PR == 'true' }}
+              # if: ${{ env.IS_RENOVATE_PR == 'true' }}
               env:
                   GH_TOKEN: ${{ github.token }}
               uses: ./.github/actions/internal-apply-skip-label
