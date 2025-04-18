@@ -422,7 +422,9 @@ jobs:
                     -e "s#^export AWS_ES_BUCKET_REGION=\".*\"#export AWS_ES_BUCKET_REGION=\"${{ env.CLUSTER_1_AWS_REGION }}\"#" \
                     generic/openshift/dual-region/procedure/chart-env.sh
 
-                  source ./generic/openshift/dual-region/procedure/chart-env.sh
+                  # the chart env should be loaded by the client at the very first step of his installation
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars ./generic/openshift/dual-region/procedure/chart-env.sh
 
                   echo "Delete the namespaces to ensure a fresh start"
                   if kubectl --context "$CLUSTER_1_NAME" get namespace "$CAMUNDA_NAMESPACE_1" &>/dev/null; then

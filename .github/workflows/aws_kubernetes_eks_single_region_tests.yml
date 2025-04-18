@@ -498,9 +498,9 @@ jobs:
                   set -o errexit
                   set -euxo pipefail
 
-
                   # the chart env should be loaded by the client at the very first step of his installation
-                  source generic/kubernetes/single-region/procedure/chart-env.sh
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars generic/kubernetes/single-region/procedure/chart-env.sh
 
                   echo "Construct the values.yml file"
 
@@ -602,10 +602,6 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-
-
-                  # the chart env should be loaded by the client at the very first step of his installation
-                  source generic/kubernetes/single-region/procedure/chart-env.sh
 
                   source generic/kubernetes/single-region/procedure/generate-passwords.sh
 

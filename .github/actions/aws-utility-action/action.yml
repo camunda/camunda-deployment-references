@@ -1,7 +1,5 @@
 ---
-name: Utility Actions
-
-# TODO: this action should be extracted and made available as a global reusable action (see https://github.com/camunda/camunda-tf-eks-module/pull/112#discussion_r1761274718)
+name: AWS Utility Actions
 
 description: |
     A set of utility steps to be used across different workflows, including:
