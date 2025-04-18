@@ -250,11 +250,11 @@ jobs:
 
                   # Here we verify the extraction of the env variables as presented in the documentation
 
-                  cd ${{ env.TF_MODULES_DIRECTORY }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+                  cd ${{ env.TF_MODULES_DIRECTORY }}/aws/openshift/${{ matrix.scenario.name }}/terraform/clusters/
                   source ../../procedure/gather-cluster-login-id.sh
                   cd -
 
-                  ./aws/openshift/rosa-hcp-dual-region/procedure/verify-cluster-nodes.sh
+                  ./aws/openshift/${{ matrix.scenario.name }}/procedure/verify-cluster-nodes.sh
 
 
     access-info:
@@ -348,7 +348,7 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  ./aws/openshift/rosa-hcp-dual-region/procedure/get-your-copy.sh
+                  ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
             - name: 🚢 Configure ACM
