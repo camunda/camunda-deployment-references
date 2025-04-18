@@ -534,7 +534,6 @@ jobs:
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
 
-            # TODO: check release name replacement
             - name: 🛠️ Configure the PSQL database and associated access
               timeout-minutes: 10
               run: |

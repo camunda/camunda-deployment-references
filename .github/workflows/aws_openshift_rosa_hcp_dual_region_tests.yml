@@ -138,6 +138,8 @@ jobs:
             fail-fast: false
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -236,7 +238,7 @@ jobs:
               id: out
               with:
                   matrix-step-name: ${{ github.job }}
-                  matrix-key: ${{ matrix.distro.name }}
+                  matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
                       kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
                       sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_sensitive_values_raw }}
@@ -268,7 +270,7 @@ jobs:
                   matrix-step-name: prepare-clusters
 
     integration-tests:
-        name: Run integration tests - ${{ matrix.distro.name }}
+        name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }}
         runs-on: ubuntu-latest
         needs:
             - clusters-info
@@ -315,7 +317,11 @@ jobs:
                   set -euo pipefail
 
                   mkdir -p "$HOME/.kube"
-                  echo "${{ fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[matrix.distro.name] }}" | base64 --decode > encrypted_kubeconfig.enc
+                  echo "${{
+                      fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[
+                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
+                      ]
+                    }}" | base64 --decode > encrypted_kubeconfig.enc
                   openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   rm encrypted_kubeconfig.enc
                   chmod 600 "$HOME/.kube/config"
@@ -394,7 +400,11 @@ jobs:
                   set -euo pipefail
 
                   echo "Load outputs values from creation of the clusters"
-                  echo "${{ fromJson(needs.access-info.outputs.kubeconfig).sensitive_values_raw[matrix.distro.name] }}" | base64 --decode > encrypted_sensitive.enc
+                  echo "${{
+                      fromJson(needs.access-info.outputs.kubeconfig).sensible_values_raw[
+                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
+                      ]
+                    }}" | base64 --decode > encrypted_sensitive.enc
                   openssl enc -aes-256-cbc -d -in encrypted_sensitive.enc -out ./encrypted_sensitive.yaml -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   rm encrypted_sensitive.enc
 
@@ -571,6 +581,8 @@ jobs:
             fail-fast: false
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               if: env.CLEANUP_CLUSTERS == 'true'
