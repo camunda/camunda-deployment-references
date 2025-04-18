@@ -129,6 +129,8 @@ jobs:
                     yq -i '.matrix.scenario[env(scenario_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
                   done
 
+                  cat "${CI_MATRIX_FILE}"
+
                   echo "Filtering the matrix with strategy IS_SCHEDULE=$IS_SCHEDULE or IS_RENOVATE_PR=$IS_RENOVATE_PR"
                   if [[ "$IS_SCHEDULE" == "true" || "$IS_RENOVATE_PR" == "true" ]]; then
                     echo "This PR is scheduled or coming from renovate, we test all scenarios without filtering."
