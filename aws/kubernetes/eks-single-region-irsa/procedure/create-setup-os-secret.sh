@@ -1,6 +1,6 @@
 #!/bin/bash
 
-kubectl create secret generic setup-os-secret --namespace camunda \
+kubectl create secret generic setup-os-secret --namespace "$CAMUNDA_NAMESPACE" \
   --from-literal=OPENSEARCH_HOST="$OPENSEARCH_HOST" \
   --from-literal=OPENSEARCH_ROLE_ARN="$OPENSEARCH_ROLE_ARN" \
   --from-literal=OPENSEARCH_MASTER_USERNAME="$OPENSEARCH_MASTER_USERNAME" \
