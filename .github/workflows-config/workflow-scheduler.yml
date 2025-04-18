@@ -3,13 +3,10 @@ schedules:
     - name: Mondays schedules 8.6
       branch: stable/8.6
       cron_every_day: Monday   # left null to run it everyday, otherwise separate days with a coma
-      cron_every_hours: '3'   # left null to run it every hour, otherwise separate hours with a coma
+      cron_every_hours: '22'   # left null to run it every hour, otherwise separate hours with a coma
       workflow_files:
           # AWS OpenShift ROSA HCP single region
           - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
-
-          # AWS EC2
-          - .github/workflows/aws_ec2_tests.yml
 
     - name: Everyday schedules 8.6
       branch: stable/8.6
@@ -17,3 +14,28 @@ schedules:
       cron_every_hours: '1'
       workflow_files:
           - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
+
+    - name: Tuesday schedules 8.7
+      branch: stable/8.7
+      cron_every_day: Tuesday
+      cron_every_hours: '22'
+      workflow_files:
+          # AWS OpenShift ROSA HCP single region
+          - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
+          # AWS OpenShift ROSA HCP dual region
+          - .github/workflows/aws_openshift_rosa_hcp_dual_region_tests.yml
+          # AWS EKS Modules tests
+          - .github/workflows/aws_modules_eks_rds_os_tests.yml
+          - .github/workflows/aws_modules_eks_rds_os_create_destruct_tests.yml
+          # AWS EKS Single Region
+          - .github/workflows/aws_kubernetes_eks_single_region_tests.yml
+          - .github/workflows/aws_common_procedure_s3_bucket.yml
+
+    - name: Everyday schedules 8.7
+      branch: stable/8.7
+      cron_every_day:
+      cron_every_hours: '1'
+      workflow_files:
+          - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
+          - .github/workflows/aws_openshift_rosa_hcp_dual_region_daily_cleanup.yml
+          - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml

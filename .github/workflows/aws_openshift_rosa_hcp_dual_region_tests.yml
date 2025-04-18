@@ -16,6 +16,7 @@ on:
             - .github/actions/aws-openshift-rosa-hcp-dual-region-create/**
             - .github/actions/aws-openshift-rosa-hcp-dual-region-cleanup/**
             - .github/actions/aws-configure-cli/**
+            - .github/actions/internal-apply-skip-label/**
 
     workflow_dispatch:
         inputs:
@@ -623,13 +624,28 @@ jobs:
                   target: ${{ matrix.distro.clusterName }}
                   tf-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
-    report:
-        name: Report failures
-        if: failure()
+    report-success:
+        name: Report success
         runs-on: ubuntu-latest
         needs:
             - integration-tests
             - cleanup-clusters
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+            - name: Prevent other runs for renovate
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
+
+    report-failure:
+        name: Report failures
+        if: failure()
+        runs-on: ubuntu-latest
+        needs:
+            - report-success
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
