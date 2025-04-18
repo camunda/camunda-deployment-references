@@ -110,6 +110,7 @@ runs:
 
               # export test variables to be used in other steps
               echo "TEST_NAMESPACE=${{ inputs.test-namespace }}" | tee -a "$GITHUB_ENV"
+              echo "TEST_CHART_NAME=${{ inputs.test-release-name }}" | tee -a "$GITHUB_ENV"
               echo "TEST_CLUSTER_TYPE=$TEST_CLUSTER_TYPE" | tee -a "$GITHUB_ENV"
               export TESTS_CAMUNDA_HELM_CHART_REPO_PATH="${{ inputs.tests-camunda-helm-chart-repo-path }}"
               echo "TESTS_CAMUNDA_HELM_CHART_REPO_PATH=$TESTS_CAMUNDA_HELM_CHART_REPO_PATH" | tee -a "$GITHUB_ENV"
@@ -295,8 +296,8 @@ runs:
                 # Without domain:
                 source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 
-                start_port_forward camunda-zeebe-gateway 8080:8080
-                start_port_forward camunda-keycloak 18080:80
+                start_port_forward "${CAMUNDA_RELEASE_NAME}-zeebe-gateway" 8080:8080
+                start_port_forward "${CAMUNDA_RELEASE_NAME}-keycloak" 18080:80
 
                 echo "Waiting for port-forwarding to be established..." && sleep 10
               else
@@ -357,7 +358,11 @@ runs:
                     -i "$reference_file"
               fi
 
-              # TODO: replace release name
+              if [[ -n "${CAMUNDA_RELEASE_NAME:-}" ]]; then
+                echo "Replacing release name value in golden file..."
+                sed -e "s/camunda-zeebe/${CAMUNDA_RELEASE_NAME}-zeebe/g" \
+                    -i "$reference_file"
+              fi
 
               # Order each file also remove not predictable fields
               yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$temp_output"

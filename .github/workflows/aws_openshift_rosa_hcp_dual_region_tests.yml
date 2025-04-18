@@ -554,6 +554,7 @@ jobs:
                   camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   cluster-2-name: ${{ env.CLUSTER_2_NAME }}
                   camunda-namespace-2: ${{ env.CAMUNDA_NAMESPACE_2 }}
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()

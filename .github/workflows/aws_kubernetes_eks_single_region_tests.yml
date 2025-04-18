@@ -534,6 +534,7 @@ jobs:
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
 
+            # TODO: check release name replacement
             - name: 🛠️ Configure the PSQL database and associated access
               timeout-minutes: 10
               run: |
@@ -653,6 +654,7 @@ jobs:
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   test-namespace: ${{ env.TEST_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
 
             - name: 🔬🚨 Get failed Pods info
               timeout-minutes: 10

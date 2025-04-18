@@ -476,6 +476,7 @@ jobs:
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   test-namespace: ${{ env.TEST_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
