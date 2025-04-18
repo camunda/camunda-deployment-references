@@ -117,3 +117,9 @@ variable "availability_zones" {
   description = "A list of availability zone names in the region. By default, this is set to `null` and is not used; instead, `availability_zones_count` manages the number of availability zones. This value should not be updated directly. To make changes, please create a new resource."
   default     = null
 }
+
+variable "single_nat_gateway" {
+  type        = bool
+  default     = false
+  description = "If set to true, a single NAT Gateway will be created for the VPC. If set to false, a NAT Gateway will be created for each subnet and requiring an IP per subnet."
+}
