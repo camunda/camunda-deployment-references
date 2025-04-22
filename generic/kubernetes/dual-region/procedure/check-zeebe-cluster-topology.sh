@@ -7,7 +7,7 @@ PORT_FORWARD_PID=$!
 # Cleanup on exit
 cleanup() {
   echo "🛑 Stopping port-forward (PID: $PORT_FORWARD_PID)..."
-  kill $PORT_FORWARD_PID
+  kill "$PORT_FORWARD_PID" 2>/dev/null || echo "⚠️ Failed to kill PID $PORT_FORWARD_PID"
 }
 trap cleanup EXIT
 
