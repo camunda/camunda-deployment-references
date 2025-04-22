@@ -10,3 +10,6 @@ cluster_tags = {
 np_labels = {
   Environment = "tests"
 }
+
+# We use a single NAT gateway to save IPs
+single_nat_gateway = true
