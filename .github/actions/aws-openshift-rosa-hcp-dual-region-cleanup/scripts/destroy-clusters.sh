@@ -211,14 +211,6 @@ pids=()
 log_dir="./logs"
 mkdir -p "$log_dir"
 
-# Start tail -f in background
-{
-  echo "=== Live logs ==="
-  tail -n 0 -f "$log_dir"/*.log &
-  tail_pid=$!
-} 2>/dev/null
-
-
 for group_id in $groups; do
   log_file="$log_dir/$group_id.log"
 
@@ -273,6 +265,13 @@ for group_id in $groups; do
 
   pids+=($!)
 done
+
+# Start tail -f in background
+{
+  echo "=== Live logs ==="
+  tail -n 0 -f "$log_dir"/*.log &
+  tail_pid=$!
+} 2>/dev/null
 
 # Wait and track exit codes
 FAILED=0
