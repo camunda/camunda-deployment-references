@@ -66,4 +66,4 @@ runs:
           with:
               name: logs-${{ github.action }}-${{ github.job }}
               path: ./logs/
-              retention-days: 1
+              retention-days: 7
