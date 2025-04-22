@@ -722,6 +722,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
             - name: Configure AWS CLI
+              if: env.CLEANUP_CLUSTERS == 'true'
               uses: ./.github/actions/aws-configure-cli
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
