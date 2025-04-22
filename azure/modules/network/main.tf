@@ -28,6 +28,7 @@ resource "azurerm_subnet" "db_subnet" {
   }
 }
 
+# This subnet is used for the private endpoint, as the db_subnet is delegated to the PostgreSQL Flexible Server and cannot be used for the private endpoint
 resource "azurerm_subnet" "pe_subnet" {
   name                 = "${var.resource_prefix}-pe-subnet"
   resource_group_name  = var.resource_group_name
