@@ -77,14 +77,3 @@ module "postgres_db" {
 
   depends_on = [module.network]
 }
-
-# Local resource to indicate test readiness
-resource "local_file" "deployment_complete" {
-  content  = "Deployment completed on ${timestamp()}"
-  filename = "${path.module}/deployment_complete.txt"
-
-  depends_on = [
-    module.aks,
-    module.postgres_db
-  ]
-}
