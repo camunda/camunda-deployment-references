@@ -154,44 +154,70 @@ fi
 
 current_timestamp=$($date_command +%s)
 
+pids=()
+log_dir="./logs"
+mkdir -p "$log_dir"
+
+# Start tail -f in background
+{
+  echo "=== Live logs ==="
+  tail -n 0 -f "$log_dir"/*.log &
+  tail_pid=$!
+} 2>/dev/null
+
 for cluster_id in $clusters; do
-  cd "$CURRENT_DIR" || return 1
+  log_file="$log_dir/$cluster_id.log"
+
+  (
+    cd "$CURRENT_DIR" || return 1
 
 
-  cluster_folder="tfstate-$cluster_id"
-  echo "Checking cluster $cluster_id in $cluster_folder"
+    cluster_folder="tfstate-$cluster_id"
+    echo "Checking cluster $cluster_id in $cluster_folder"
 
-  last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate" --output json | grep LastModified | awk -F '"' '{print $4}')
-  if [ -z "$last_modified" ]; then
-    echo "Error: Failed to retrieve last modified timestamp for cluster $cluster_id"
-    exit 1
-  fi
-
-  last_modified_timestamp=$($date_command -d "$last_modified" +%s)
-  if [ -z "$last_modified_timestamp" ]; then
-    echo "Error: Failed to convert last modified timestamp to seconds since epoch for cluster $cluster_id"
-    exit 1
-  fi
-  echo "Cluster $cluster_id last modification: $last_modified ($last_modified_timestamp)"
-
-  file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
-  if [ -z "$file_age_hours" ]; then
-    echo "Error: Failed to calculate file age in hours for cluster $cluster_id"
-    exit 1
-  fi
-  echo "Cluster $cluster_id is $file_age_hours hours old"
-
-  if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
-    echo "Destroying cluster $cluster_id in $cluster_folder"
-
-    if ! destroy_cluster "$cluster_id" "$cluster_folder"; then
-      echo "Error destroying cluster $cluster_id"
-      FAILED=1
+    last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate" --output json | grep LastModified | awk -F '"' '{print $4}')
+    if [ -z "$last_modified" ]; then
+      echo "Error: Failed to retrieve last modified timestamp for cluster $cluster_id"
+      exit 1
     fi
-  else
-    echo "Skipping cluster $cluster_id as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
-  fi
+
+    last_modified_timestamp=$($date_command -d "$last_modified" +%s)
+    if [ -z "$last_modified_timestamp" ]; then
+      echo "Error: Failed to convert last modified timestamp to seconds since epoch for cluster $cluster_id"
+      exit 1
+    fi
+    echo "Cluster $cluster_id last modification: $last_modified ($last_modified_timestamp)"
+
+    file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
+    if [ -z "$file_age_hours" ]; then
+      echo "Error: Failed to calculate file age in hours for cluster $cluster_id"
+      exit 1
+    fi
+    echo "Cluster $cluster_id is $file_age_hours hours old"
+
+    if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
+      echo "Destroying cluster $cluster_id in $cluster_folder"
+
+      if ! destroy_cluster "$cluster_id" "$cluster_folder"; then
+        echo "Error destroying cluster $cluster_id"
+        FAILED=1
+      fi
+    else
+      echo "Skipping cluster $cluster_id as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
+    fi
+  ) >"$log_file" 2>&1 &
+
+  pids+=($!)
 done
+
+# Wait and track exit codes
+FAILED=0
+for pid in "${pids[@]}"; do
+  wait "$pid" || FAILED=1
+done
+
+# Stop tail once all processes are done
+kill "$tail_pid" 2>/dev/null
 
 # Exit with the appropriate status
 if [ $FAILED -ne 0 ]; then

@@ -207,54 +207,81 @@ fi
 
 current_timestamp=$($date_command +%s)
 
+pids=()
+log_dir="./logs"
+mkdir -p "$log_dir"
+
+# Start tail -f in background
+{
+  echo "=== Live logs ==="
+  tail -n 0 -f "$log_dir"/*.log &
+  tail_pid=$!
+} 2>/dev/null
+
+
 for group_id in $groups; do
-  cd "$CURRENT_DIR" || return 1
+  log_file="$log_dir/$group_id.log"
 
-  echo "Processing group: $group_id"
-  module_order=("backup_bucket" "peering" "clusters")
-  group_folder="${KEY_PREFIX}tfstate-$group_id/"
+  (
+    cd "$CURRENT_DIR" || return 1
 
-  for module_name in "${module_order[@]}"; do
-    module_path="${group_folder}${module_name}.tfstate"
+    echo "Processing group: $group_id"
+    module_order=("backup_bucket" "peering" "clusters")
+    group_folder="${KEY_PREFIX}tfstate-$group_id/"
 
-    # Check if the module exists
-    if ! aws s3 ls "s3://$BUCKET/$module_path" >/dev/null 2>&1; then
-      echo "Module $module_name not found for group $group_id, skipping..."
-      continue
-    fi
+    for module_name in "${module_order[@]}"; do
+      module_path="${group_folder}${module_name}.tfstate"
 
-    last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$module_path" --output json | grep LastModified | awk -F '"' '{print $4}')
-    if [ -z "$last_modified" ]; then
-      echo "Warning: Could not retrieve last modified timestamp for $module_path, skipping."
-      continue
-    fi
-
-    last_modified_timestamp=$($date_command -d "$last_modified" +%s)
-    if [ -z "$last_modified_timestamp" ]; then
-      echo "Error: Failed to convert last modified timestamp for $module_path"
-      exit 1
-    fi
-    echo "Module $module_name last modified: $last_modified ($last_modified_timestamp)"
-
-    file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
-    if [ -z "$file_age_hours" ]; then
-      echo "Error: Failed to calculate file age in hours for $module_path"
-      exit 1
-    fi
-    echo "Module $module_name is $file_age_hours hours old"
-
-    if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
-      echo "Destroying module $module_name in group $group_id"
-
-      if ! destroy_resource "$group_id" "$module_name"; then
-        echo "Error destroying module $module_name in group $group_id"
-        FAILED=1
+      # Check if the module exists
+      if ! aws s3 ls "s3://$BUCKET/$module_path" >/dev/null 2>&1; then
+        echo "Module $module_name not found for group $group_id, skipping..."
+        continue
       fi
-    else
-      echo "Skipping $module_name as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
-    fi
-  done
+
+      last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$module_path" --output json | grep LastModified | awk -F '"' '{print $4}')
+      if [ -z "$last_modified" ]; then
+        echo "Warning: Could not retrieve last modified timestamp for $module_path, skipping."
+        continue
+      fi
+
+      last_modified_timestamp=$($date_command -d "$last_modified" +%s)
+      if [ -z "$last_modified_timestamp" ]; then
+        echo "Error: Failed to convert last modified timestamp for $module_path"
+        exit 1
+      fi
+      echo "Module $module_name last modified: $last_modified ($last_modified_timestamp)"
+
+      file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
+      if [ -z "$file_age_hours" ]; then
+        echo "Error: Failed to calculate file age in hours for $module_path"
+        exit 1
+      fi
+      echo "Module $module_name is $file_age_hours hours old"
+
+      if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
+        echo "Destroying module $module_name in group $group_id"
+
+        if ! destroy_resource "$group_id" "$module_name"; then
+          echo "Error destroying module $module_name in group $group_id"
+          FAILED=1
+        fi
+      else
+        echo "Skipping $module_name as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
+      fi
+    done
+  ) >"$log_file" 2>&1 &
+
+  pids+=($!)
 done
+
+# Wait and track exit codes
+FAILED=0
+for pid in "${pids[@]}"; do
+  wait "$pid" || FAILED=1
+done
+
+# Stop tail once all processes are done
+kill "$tail_pid" 2>/dev/null
 
 # Function to check if a folder is empty
 is_empty_folder() {
