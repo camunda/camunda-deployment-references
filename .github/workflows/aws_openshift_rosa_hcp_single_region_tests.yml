@@ -498,6 +498,7 @@ jobs:
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
+              if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
