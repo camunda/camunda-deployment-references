@@ -7,7 +7,7 @@ on:
             max_age_hours_cluster:
                 description: Maximum age of clusters in hours
                 required: true
-                default: '20'
+                default: '12'
     pull_request:
         paths:
             - .github/workflows/aws_openshift_rosa_hcp_dual_region_daily_cleanup.yml
@@ -30,7 +30,7 @@ concurrency:
 env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
 
-    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '20' }}
+    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
 
     # please keep those variables synced with aws_rosa_hcp_tests.yml
     AWS_PROFILE: infex
