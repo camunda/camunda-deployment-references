@@ -129,37 +129,37 @@ for cluster_id in $clusters; do
   (
 
     cluster_folder="tfstate-$cluster_id"
-    echo "Checking cluster $cluster_id in $cluster_folder"
+    echo "[$cluster_id] Checking cluster $cluster_id in $cluster_folder"
 
     last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate" --output json | grep LastModified | awk -F '"' '{print $4}')
     if [ -z "$last_modified" ]; then
-      echo "Error: Failed to retrieve last modified timestamp for cluster $cluster_id"
+      echo "[$cluster_id] Error: Failed to retrieve last modified timestamp for cluster $cluster_id"
       exit 1
     fi
 
     last_modified_timestamp=$($date_command -d "$last_modified" +%s)
     if [ -z "$last_modified_timestamp" ]; then
-      echo "Error: Failed to convert last modified timestamp to seconds since epoch for cluster $cluster_id"
+      echo "[$cluster_id] Error: Failed to convert last modified timestamp to seconds since epoch for cluster $cluster_id"
       exit 1
     fi
-    echo "Cluster $cluster_id last modification: $last_modified ($last_modified_timestamp)"
+    echo "[$cluster_id] Cluster $cluster_id last modification: $last_modified ($last_modified_timestamp)"
 
     file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
     if [ -z "$file_age_hours" ]; then
-      echo "Error: Failed to calculate file age in hours for cluster $cluster_id"
+      echo "[$cluster_id] Error: Failed to calculate file age in hours for cluster $cluster_id"
       exit 1
     fi
-    echo "Cluster $cluster_id is $file_age_hours hours old"
+    echo "[$cluster_id] Cluster $cluster_id is $file_age_hours hours old"
 
     if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
-      echo "Destroying cluster $cluster_id in $cluster_folder"
+      echo "[$cluster_id] Destroying cluster $cluster_id in $cluster_folder"
 
       if ! destroy_cluster "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate"; then
-        echo "Error destroying cluster $cluster_id"
+        echo "[$cluster_id] Error destroying cluster $cluster_id"
         FAILED=1
       fi
     else
-      echo "Skipping cluster $cluster_id as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
+      echo "[$cluster_id] Skipping cluster $cluster_id as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
     fi
   ) >"$log_file" 2>&1 &
 

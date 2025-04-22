@@ -217,7 +217,7 @@ for group_id in $groups; do
   (
     cd "$CURRENT_DIR" || return 1
 
-    echo "Processing group: $group_id"
+    echo "[$group_id] Processing group: $group_id"
     module_order=("backup_bucket" "peering" "clusters")
     group_folder="${KEY_PREFIX}tfstate-$group_id/"
 
@@ -226,39 +226,39 @@ for group_id in $groups; do
 
       # Check if the module exists
       if ! aws s3 ls "s3://$BUCKET/$module_path" >/dev/null 2>&1; then
-        echo "Module $module_name not found for group $group_id, skipping..."
+        echo "[$group_id] Module $module_name not found for group $group_id, skipping..."
         continue
       fi
 
       last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$module_path" --output json | grep LastModified | awk -F '"' '{print $4}')
       if [ -z "$last_modified" ]; then
-        echo "Warning: Could not retrieve last modified timestamp for $module_path, skipping."
+        echo "[$group_id] Warning: Could not retrieve last modified timestamp for $module_path, skipping."
         continue
       fi
 
       last_modified_timestamp=$($date_command -d "$last_modified" +%s)
       if [ -z "$last_modified_timestamp" ]; then
-        echo "Error: Failed to convert last modified timestamp for $module_path"
+        echo "[$group_id] Error: Failed to convert last modified timestamp for $module_path"
         exit 1
       fi
-      echo "Module $module_name last modified: $last_modified ($last_modified_timestamp)"
+      echo "[$group_id] Module $module_name last modified: $last_modified ($last_modified_timestamp)"
 
       file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
       if [ -z "$file_age_hours" ]; then
-        echo "Error: Failed to calculate file age in hours for $module_path"
+        echo "[$group_id] Error: Failed to calculate file age in hours for $module_path"
         exit 1
       fi
-      echo "Module $module_name is $file_age_hours hours old"
+      echo "[$group_id] Module $module_name is $file_age_hours hours old"
 
       if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
-        echo "Destroying module $module_name in group $group_id"
+        echo "[$group_id] Destroying module $module_name in group $group_id"
 
         if ! destroy_resource "$group_id" "$module_name"; then
-          echo "Error destroying module $module_name in group $group_id"
+          echo "[$group_id] Error destroying module $module_name in group $group_id"
           FAILED=1
         fi
       else
-        echo "Skipping $module_name as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
+        echo "[$group_id] Skipping $module_name as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
       fi
     done
   ) >"$log_file" 2>&1 &
