@@ -284,7 +284,7 @@ runs:
               cleanup() {
                 for pid in "${PORT_FORWARD_PIDS[@]}"; do
                   echo "🛑 Stopping port-forward (PID: $pid)..."
-                  kill "$pid"
+                  kill "$pid" 2>/dev/null || echo "⚠️ Failed to kill PID $pid"
                 done
               }
 
