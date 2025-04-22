@@ -136,14 +136,14 @@ jobs:
                     platform_matrix="$(yq '.matrix' --indent=0 --output-format json ${CI_MATRIX_FILE})"
                   else
                     # shellcheck disable=SC2086
-                    platform_matrix="$(yq '(.matrix |= (.scenario |= map(select(.schedule_only == null or .schedule_only == false))) | .matrix)' \
-                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                    platform_matrix="$(yq '(.matrix |= (.distro |= map(select(.schedule_only == null or .schedule_only == false)))) | .matrix' \
+                        --indent=0 --output-format json "${CI_MATRIX_FILE}")"
                   fi
 
                   if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
                     echo "Filtering based on supplied ref-arch ${{ inputs.ref-arch }}"
                     # shellcheck disable=SC2086
-                    platform_matrix="$(yq '(.matrix |= (.scenario |= map(select(.name == env(ref_arch)))) | .matrix)' \
+                    platform_matrix="$(yq '(.matrix |= (.scenario |= map(select(.name == env(ref_arch)))) | .matrix' \
                       --indent=0 --output-format json ${CI_MATRIX_FILE})"
                   fi
 
