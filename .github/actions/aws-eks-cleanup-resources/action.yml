@@ -19,7 +19,7 @@ inputs:
 
     max-age-hours:
         description: Maximum age of resources in hours
-        default: '20'
+        default: '12'
 
     target:
         description: Specify an ID to destroy specific resources or "all" to destroy all resources

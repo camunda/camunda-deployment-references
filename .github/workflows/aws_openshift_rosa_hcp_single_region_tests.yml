@@ -17,6 +17,7 @@ on:
             - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-helm-chart-tests/**
+            - .github/actions/internal-apply-skip-label/**
 
     workflow_dispatch:
         inputs:
@@ -121,14 +122,15 @@ jobs:
 
                   echo "Filtering the matrix with strategy IS_SCHEDULE=$IS_SCHEDULE or IS_RENOVATE_PR=$IS_RENOVATE_PR"
                   if [[ "$IS_SCHEDULE" == "true" || "$IS_RENOVATE_PR" == "true" ]]; then
-                      echo "This PR is scheduled or coming from renovate, we test all scenarios without filtering."
+                    echo "This PR is scheduled or coming from renovate, we test all scenarios without filtering."
+                    # shellcheck disable=SC2086
+                    platform_matrix="$(yq '.matrix' --indent=0 --output-format json ${CI_MATRIX_FILE})"
                   else
                     # shellcheck disable=SC2086
-                    platform_matrix="$(yq '.matrix |= (.distro |= map(select(.schedule_only == null or .schedule_only == false)))' \
-                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                    platform_matrix="$(yq '(.matrix |= (.distro |= map(select(.schedule_only == null or .schedule_only == false)))) | .matrix' \
+                        --indent=0 --output-format json "${CI_MATRIX_FILE}")"
                   fi
 
-                  platform_matrix="$(echo "$platform_matrix" | yq '.matrix' --indent=0 --output-format json)"
                   echo "${platform_matrix}" | jq
                   echo "platform-matrix=${platform_matrix}" > "$GITHUB_OUTPUT"
 
@@ -496,6 +498,7 @@ jobs:
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
+              if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
@@ -526,13 +529,27 @@ jobs:
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   delete-ghost-clusters: 'false'
 
-    report:
-        name: Report failures
-        if: failure()
+    report-success:
+        name: Report success
         runs-on: ubuntu-latest
         needs:
             - integration-tests
             - cleanup-clusters
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+            - name: Prevent other runs for renovate
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
+    report-failures:
+        name: Report failures
+        if: failure()
+        runs-on: ubuntu-latest
+        needs:
+            - report-success
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
