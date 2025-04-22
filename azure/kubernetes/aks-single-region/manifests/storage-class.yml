@@ -7,7 +7,7 @@ metadata:
         storageclass.kubernetes.io/is-default-class: 'true'
 provisioner: kubernetes.io/azure-disk
 parameters:
-    storageaccounttype: Premium_LRS
+    storageaccounttype: PremiumV2_LRS
     kind: Managed
 reclaimPolicy: Retain
 volumeBindingMode: WaitForFirstConsumer
