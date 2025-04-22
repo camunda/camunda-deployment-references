@@ -47,7 +47,7 @@ module "aks" {
   # User node pool configuration (for Camunda workloads)
   user_node_pool_vm_size = var.user_node_pool_vm_size
   user_node_pool_count   = var.user_node_pool_count
-  user_node_disk_size_gb = 50
+  user_node_disk_size_gb = 30
 
   depends_on = [module.network]
 }
