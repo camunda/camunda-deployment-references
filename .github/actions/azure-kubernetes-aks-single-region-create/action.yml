@@ -12,7 +12,7 @@ inputs:
     resource-group-name:
         description: Name of the resource group to deploy the AKS cluster
         required: true
-        default: 'camunda-rg'
+        default: camunda-rg
     kubernetes-version:
         description: Version of Kubernetes to install
         required: false
@@ -43,6 +43,10 @@ inputs:
         description: Reference architecture to deploy
         default: aks-single-region
         required: false
+    location:
+        description: Azure region where the AKS cluster will be deployed
+        required: true
+        default: swedencentral
 
 outputs:
     terraform-state-url:
@@ -106,7 +110,13 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              terraform plan -no-color -out tf.plan
+              terraform plan \
+                -no-color \
+                -out tf.plan \
+                -var "aks_cluster_name=${{ inputs.cluster-name }}" \
+                -var "resource_group_name=${{ inputs.resource-group-name }}" \
+                -var "location=${{ inputs.location }}" \
+                -var "kubernetes_version=${{ inputs.kubernetes-version }}"
 
         - name: Terraform Apply
           id: apply
