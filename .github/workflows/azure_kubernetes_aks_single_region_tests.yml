@@ -96,6 +96,10 @@ jobs:
             DB_WEBMODELER_NAME: ${{ steps.db_env.outputs.DB_WEBMODELER_NAME }}
             DB_WEBMODELER_USERNAME: ${{ steps.db_env.outputs.DB_WEBMODELER_USERNAME }}
             DB_WEBMODELER_PASSWORD: ${{ steps.db_env.outputs.DB_WEBMODELER_PASSWORD }}
+            RESOURCE_GROUP_NAME: ${{ steps.db_env.outputs.RESOURCE_GROUP_NAME }}
+            CLUSTER_NAME: ${{ steps.db_env.outputs.CLUSTER_NAME }}
+            RESOURCE_PREFIX: ${{ steps.db_env.outputs.RESOURCE_PREFIX }}
+            
         needs:
             - triage
         runs-on: ubuntu-latest
