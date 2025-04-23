@@ -148,8 +148,8 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-            - name: Generate random cluster_name
-              id: generate_cluster_name
+            - name: Generate random resource_prefix
+              id: generate_resource_prefix
               run: |
                   set -euo pipefail
   
@@ -177,7 +177,7 @@ jobs:
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               with:
-                  resource-prefix: ${{ env.CLUSTER_NAME }}
+                  resource-prefix: ${{ env.RESOURCE_PREFIX }}
                   # aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -208,6 +208,9 @@ jobs:
                   echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME" >> "$GITHUB_OUTPUT"
                   echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME" >> "$GITHUB_OUTPUT"
                   echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD" >> "$GITHUB_OUTPUT"
+                  echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME" >> "$GITHUB_OUTPUT"
+                  echo "CLUSTER_NAME=$CLUSTER_NAME" >> "$GITHUB_OUTPUT"
+                  echo "RESOURCE_PREFIX=$RESOURCE_PREFIX" >> "$GITHUB_OUTPUT"
 
     integration-tests:
         name: Run integration tests - ${{ matrix.scenario }} - ${{ matrix.declination }}
@@ -233,6 +236,9 @@ jobs:
             DB_WEBMODELER_NAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_NAME }}
             DB_WEBMODELER_USERNAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_USERNAME }}
             DB_WEBMODELER_PASSWORD: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_PASSWORD }}
+            RESOURCE_GROUP_NAME: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
+            CLUSTER_NAME: ${{ needs.prepare-clusters.outputs.CLUSTER_NAME }} 
+            RESOURCE_PREFIX: ${{ needs.prepare-clusters.outputs.RESOURCE_PREFIX }}
 
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -511,7 +517,7 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup AKS clusters
-        if: false
+        if: always()
         needs:
             - prepare-clusters
             - triage
@@ -571,6 +577,7 @@ jobs:
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 125
               with:
+                  resource-group-name: ${{ env.RESOURCE_GROUP_NAME }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
