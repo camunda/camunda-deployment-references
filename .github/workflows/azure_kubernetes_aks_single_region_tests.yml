@@ -152,17 +152,18 @@ jobs:
               id: generate_cluster_name
               run: |
                   set -euo pipefail
+  
                   PR_NUMBER=0
                   if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-                      PR_NUMBER=${{ github.event.pull_request.number}}
+                    PR_NUMBER=${{ github.event.pull_request.number }}
                   fi
-
-                  # limiting factor are OpenSearch domains of maximum 28 characters
-                  # shellcheck disable=SC2034
+  
+                  # OpenSearch domains max 28 characters
                   RESOURCE_PREFIX=camunda-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)
-                  echo "$RESOURCE_PREFIX" | tee -a "$GITHUB_ENV"
-                  echo "CLUSTER_NAME=$RESOURCE_PREFIX-aks" | tee -a "$GITHUB_ENV"
-                  echo "RESOURCE_GROUP_NAME=$RESOURCE_PREFIX-rg" | tee -a "$GITHUB_ENV"
+  
+                  echo "RESOURCE_PREFIX=$RESOURCE_PREFIX" >> "$GITHUB_ENV"
+                  echo "CLUSTER_NAME=$RESOURCE_PREFIX-aks" >> "$GITHUB_ENV"
+                  echo "RESOURCE_GROUP_NAME=$RESOURCE_PREFIX-rg" >> "$GITHUB_ENV"
 
             - name: Export S3_BACKEND_BUCKET
               id: s3_prefix
