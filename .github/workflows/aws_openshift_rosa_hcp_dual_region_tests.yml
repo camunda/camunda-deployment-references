@@ -566,9 +566,29 @@ jobs:
                   camunda-namespace-2: ${{ env.CAMUNDA_NAMESPACE_2 }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
 
-            - name: 🔬🚨 Get failed Pods info
+            - name: 🔬🚨 Get failed Pods info - Cluster 1
               if: failure()
-              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@52f7c04dc9817a2f8a5b7b1c5450a80a8a6996ae # main
+              run: |
+                  set -euo pipefail
+
+                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po
+                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                    echo -e "\n### Failed Pod: ${pod_name} ###\n"
+                    kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" describe po "$pod_name"
+                    kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" logs "$pod_name"
+                  done
+
+            - name: 🔬🚨 Get failed Pods info - Cluster 2
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get po
+                  kubectl -n "$CAMUNDA_NAMESPACE_2" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                    echo -e "\n### Failed Pod: ${pod_name} ###\n"
+                    kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" describe po "$pod_name"
+                    kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name"
+                  done
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
