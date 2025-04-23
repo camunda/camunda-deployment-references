@@ -29,15 +29,3 @@ output "postgres_admin_password" {
   value       = var.db_admin_password
   sensitive   = true
 }
-
-# Output deployment info in a format suitable for testing
-output "deployment_info" {
-  description = "Deployment information for testing"
-  value = {
-    timestamp       = timestamp()
-    location        = var.location
-    environment     = "testing"
-    postgres_server = module.postgres_db.fqdn
-    aks_cluster     = module.aks.aks_fqdn
-  }
-}

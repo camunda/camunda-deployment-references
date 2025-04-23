@@ -47,7 +47,7 @@ module "aks" {
   # User node pool configuration (for Camunda workloads)
   user_node_pool_vm_size = var.user_node_pool_vm_size
   user_node_pool_count   = var.user_node_pool_count
-  user_node_disk_size_gb = 50
+  user_node_disk_size_gb = 30
 
   depends_on = [module.network]
 }
@@ -76,15 +76,4 @@ module "postgres_db" {
   private_dns_zone_id        = module.network.postgres_private_dns_zone_id
 
   depends_on = [module.network]
-}
-
-# Local resource to indicate test readiness
-resource "local_file" "deployment_complete" {
-  content  = "Deployment completed on ${timestamp()}"
-  filename = "${path.module}/deployment_complete.txt"
-
-  depends_on = [
-    module.aks,
-    module.postgres_db
-  ]
 }

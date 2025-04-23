@@ -59,7 +59,7 @@ variable "user_node_pool_vm_size" {
 variable "user_node_disk_size_gb" {
   description = "OS disk size in GB for user nodes"
   type        = number
-  default     = 50
+  default     = 30
 }
 
 variable "user_node_pool_count" {
