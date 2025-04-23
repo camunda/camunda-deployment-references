@@ -525,6 +525,9 @@ jobs:
             - triage
             - integration-tests
         runs-on: ubuntu-latest
+        env: 
+          CLUSTER_NAME: ${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}
+          RESOURCE_GROUP_NAME: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
 
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
