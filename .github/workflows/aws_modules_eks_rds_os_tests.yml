@@ -26,7 +26,7 @@ concurrency:
     cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
 
 env:
-    IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     # please keep those variables synced with daily-cleanup.yml
