@@ -402,7 +402,7 @@ jobs:
 
                   echo "Load outputs values from creation of the clusters"
                   echo "${{
-                      fromJson(needs.access-info.outputs.kubeconfig).sensible_values_raw[
+                      fromJson(needs.access-info.outputs.kubeconfig).sensitive_values_raw[
                         format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
                       ]
                     }}" | base64 --decode > encrypted_sensitive.enc
