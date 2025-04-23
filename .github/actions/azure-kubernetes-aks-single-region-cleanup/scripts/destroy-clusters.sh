@@ -72,9 +72,12 @@ destroy_cluster() {
   cd "/tmp/$cluster_id" || exit 1
 
   if [[ "$RETRY_DESTROY" == "true" ]]; then
-      echo "Performing cloud-nuke on VPC to ensure that resources managed outside of Terraform are deleted."
-      yq eval ".VPC.include.names_regex = [\"^$cluster_id.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
-      cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$AWS_REGION" --force
+      RG_NAME="${RESOURCE_GROUP_NAME}"
+      echo "Forcing deletion of Azure Resource Group '$RG_NAME' to clean up any unmanaged resources."
+      az group delete \
+        --name "$RG_NAME" \
+        --yes \
+        --no-wait
   fi
 
   echo "tf state: bucket=$BUCKET key=$key region=$AWS_S3_REGION"
