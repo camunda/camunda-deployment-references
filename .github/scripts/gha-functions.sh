@@ -1,12 +1,20 @@
 #!/bin/bash
 
 # ------------------------------------------------------------------------------
+# Function: export_new_env_vars
 #
 # Description:
-#   This file contains reusable utility functions for GitHub Actions workflows.
+#   Sources a given shell script and detects any new environment variables
+#   it exports, then appends those variables to the GITHUB_ENV file so they
+#   persist across subsequent GitHub Actions steps.
 #
-#   You can source this file in any workflow step to make the functions
-#   available within that step.
+# Parameters:
+#   $1 - Path to the shell script to source
+#
+#
+# Notes:
+#   - Only variables newly introduced or modified by the script are captured.
+#   - Requires the GITHUB_ENV environment variable to be available (set by GitHub Actions).
 #
 # Usage:
 #   source .github/scripts/gha-functions.sh
