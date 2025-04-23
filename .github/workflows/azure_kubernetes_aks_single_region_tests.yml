@@ -66,8 +66,8 @@ env:
     CONSOLE_ENABLED: 'true'
 
     # hardcoded envvars temporarily
-    RESOURCE_GROUP_NAME: 'camunda-rg'
-    CLUSTER_NAME: 'camunda-aks'
+    RESOURCE_GROUP_NAME: camunda-rg
+    CLUSTER_NAME: camunda-aks
 
 jobs:
     triage:
@@ -101,7 +101,7 @@ jobs:
         runs-on: ubuntu-latest
         env:
             TF_MODULES_PATH: ./.action-tf-modules/azure-kubernetes-aks-single-region-create/
-            TEST_NAMESPACE: camunda  
+            TEST_NAMESPACE: camunda
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
@@ -159,8 +159,9 @@ jobs:
 
                   # limiting factor are OpenSearch domains of maximum 28 characters
                   # shellcheck disable=SC2034
-                  # echo "CLUSTER_NAME=aks-sr-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)" | tee -a "$GITHUB_ENV"
-                  echo "CLUSTER_NAME=camunda-aks" | tee -a "$GITHUB_ENV"
+                  echo "RESOURCE_PREFIX=$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)" | tee -a "$GITHUB_ENV"
+                  echo "CLUSTER_NAME=$RESOURCE_PREFIX-aks" | tee -a "$GITHUB_ENV"
+                  echo "RESOURCE_GROUP_NAME=$RESOURCE_PREFIX-rg" | tee -a "$GITHUB_ENV"
 
             - name: Export S3_BACKEND_BUCKET
               id: s3_prefix
@@ -188,7 +189,7 @@ jobs:
               working-directory: ${{ env.TF_MODULES_PATH }}/azure/kubernetes/aks-single-region/
               run: |
                   set -euo pipefail
-  
+
                   # Source the shell script that exports your DB-related variables
                   source $GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/vars-create-db.sh
 
@@ -275,11 +276,11 @@ jobs:
             - name: 🔐 Login into the cluster
               timeout-minutes: 10
               run: |
-                    set -euo pipefail
-                    az aks get-credentials --resource-group "${{ env.RESOURCE_GROUP_NAME }}" --name "${{ env.CLUSTER_NAME }}" --overwrite-existing
+                  set -euo pipefail
+                  az aks get-credentials --resource-group "${{ env.RESOURCE_GROUP_NAME }}" --name "${{ env.CLUSTER_NAME }}" --overwrite-existing
 
-                    kubectl config current-context
-                    kubectl get nodes    
+                  kubectl config current-context
+                  kubectl get nodes
 
             - name: 🏗️ Prepare a fresh namespace for the tests
               run: |
@@ -347,7 +348,7 @@ jobs:
 
                   kubectl delete secret setup-db-secret --namespace camunda
 
-            - name: 🛠️ Assemble deployment values 
+            - name: 🛠️ Assemble deployment values
               timeout-minutes: 10
               run: |
                   set -o errexit
