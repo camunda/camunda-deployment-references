@@ -54,8 +54,7 @@ env:
     CLUSTER_1_AWS_REGION: eu-west-2
     CLUSTER_2_AWS_REGION: eu-west-3
 
-    # TODO: revert before merge
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
@@ -110,11 +109,9 @@ jobs:
                   # Vars are exported to pass them to yq instead of local inline syntax.
                   # shellcheck disable=SC2086
                   for distro_index in ${distro_indexes}; do
-                    # TODO: revert that before merge
-                    # cluster_name_input="${{ inputs.cluster_name }}"
-                    # cluster_name_fallback="hci-$(uuidgen | head -c 8)"
-                    # export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
-                    export cluster_name="hci-0f47237d"
+                    cluster_name_input="${{ inputs.cluster_name }}"
+                    cluster_name_fallback="hci-$(uuidgen | head -c 8)"
+                    export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
 
                     export distro_index="${distro_index}"
                     yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
