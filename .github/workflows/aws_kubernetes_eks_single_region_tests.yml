@@ -15,6 +15,7 @@ on:
             - .github/actions/aws-kubernetes-eks-single-region-create/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/aws-kubernetes-eks-single-region-cleanup/**
 
     workflow_dispatch:
         inputs:
