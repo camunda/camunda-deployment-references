@@ -31,7 +31,8 @@ spec:
 
                         # Get all user databases (excluding system databases)
                         PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $POSTGRES_FQDN -p $POSTGRES_PORT "sslmode=require dbname=postgres user=$POSTGRES_ADMIN_USERNAME" \
-                          -t -c "SELECT datname FROM pg_database WHERE datname NOT IN ('template0', 'template1', 'postgres', 'azure_maintenance', 'azure_sys');" | while read dbname; do
+                          -t -c "SELECT datname FROM pg_database WHERE datname NOT IN \
+                          ('template0', 'template1', 'postgres', 'azure_maintenance', 'azure_sys');" | while read dbname; do \
                           dbname=$(echo $dbname | xargs)  # Trim whitespace
                           if [ -n "$dbname" ]; then
                             echo "Dropping database: $dbname"
