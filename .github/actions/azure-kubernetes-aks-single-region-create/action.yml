@@ -9,7 +9,7 @@ inputs:
     resource-prefix:
         description: Prefix for the resources to be created
         required: true
-        default: 'camunda'
+        default: camunda
     kubernetes-version:
         description: Version of Kubernetes to install
         required: false
@@ -110,7 +110,7 @@ runs:
               terraform plan \
                 -no-color \
                 -out tf.plan \
-                -var "resource_prefix"=${{ inputs.resource-prefix }}" \
+                -var "resource_prefix=${{ inputs.resource-prefix }}" \
                 -var "location=${{ inputs.location }}" \
                 -var "kubernetes_version=${{ inputs.kubernetes-version }}"
 
