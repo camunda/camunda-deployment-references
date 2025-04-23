@@ -372,6 +372,7 @@ jobs:
 
                     source ./generic/openshift/single-region/procedure/setup-application-domain.sh
                     echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+                    echo "CAMUNDA_GRPC_DOMAIN=zeebe-$DOMAIN_NAME:443" | tee -a "$GITHUB_ENV"
 
                     source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
 
@@ -385,6 +386,7 @@ jobs:
                   elif [[ ${{ matrix.declination.name }} == "no-domain" ]]; then
                       # explicitely set no domain
                       echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
+                      echo "CAMUNDA_GRPC_DOMAIN=" | tee -a "$GITHUB_ENV"
 
                       yq ". *d load(\"generic/openshift/single-region/helm-values/no-domain.yml\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
@@ -469,7 +471,7 @@ jobs:
                   secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
-                  camunda-domain-grpc: zeebe-${{ env.DOMAIN_NAME }}:443
+                  camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
