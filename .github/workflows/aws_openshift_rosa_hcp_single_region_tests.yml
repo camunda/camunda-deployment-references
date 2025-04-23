@@ -52,8 +52,7 @@ env:
     TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
     S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-single-region/ # keep it synced with the name of the module for simplicity
 
-    # TODO: revert this before merge
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
@@ -114,12 +113,10 @@ jobs:
                   # Vars are exported to pass them to yq instead of local inline syntax.
                   # shellcheck disable=SC2086
                   for distro_index in ${distro_indexes}; do
-                    #cluster_name_input="${{ inputs.cluster_name }}"
-                    #cluster_name_fallback="hci-$(uuidgen | head -c 8)"
+                    cluster_name_input="${{ inputs.cluster_name }}"
+                    cluster_name_fallback="hci-$(uuidgen | head -c 8)"
 
-                    # TODO: revert this before merge
-                    #export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
-                    export cluster_name="hci-6cfa0320"
+                    export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
                     export distro_index="${distro_index}"
                     yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
                   done
