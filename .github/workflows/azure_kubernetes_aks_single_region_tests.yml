@@ -14,7 +14,9 @@ on:
             - .tool-versions
             - generic/kubernetes/single-region/**
             - azure/kubernetes/aks-single-region/**
+            - azure/modules/**
             - .github/actions/azure-kubernetes-aks-single-region-create/**
+            - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
 
     workflow_dispatch:
         inputs:
@@ -26,11 +28,6 @@ on:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
-
-    # TEMPORARY: run on every push for testing the workflow
-    push:
-        branches:
-            - add-azure-tests
 
 # limit to a single execution per actor of this workflow
 concurrency:
