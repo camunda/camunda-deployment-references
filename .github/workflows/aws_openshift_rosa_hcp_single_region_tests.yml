@@ -274,7 +274,6 @@ jobs:
             group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.scenario.name }}
             cancel-in-progress: false
         env:
-            TEST_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: openshift
         steps:
@@ -331,23 +330,32 @@ jobs:
                   ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
+            - name: 🌱 Register chart setup environment values
+              timeout-minutes: 3
+              run: |
+                  set -euo pipefail
+
+                  # the chart env should be loaded by the client at the very first step of his installation
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars generic/openshift/single-region/procedure/chart-env.sh
+
             - name: 🏗️ Prepare a fresh namespace for the tests
               run: |
                   set -o errexit
                   set -euo pipefail
 
                   # Delete the namespace to ensure a fresh start
-                  if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
-                    kubectl delete namespace "$TEST_NAMESPACE" --wait
-                    while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
-                      echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
+                  if kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; then
+                    kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
+                    while kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; do
+                      echo "Namespace $CAMUNDA_NAMESPACE still being deleted, waiting..."
                       sleep 5
                     done
                   fi
 
-                  oc new-project "$TEST_NAMESPACE" \
-                    --description="Integration project of $TEST_NAMESPACE" \
-                    --display-name="$TEST_NAMESPACE"
+                  oc new-project "$CAMUNDA_NAMESPACE" \
+                    --description="Integration project of $CAMUNDA_NAMESPACE" \
+                    --display-name="$CAMUNDA_NAMESPACE"
 
                   echo "Sleeping 30s"
                   sleep 30
@@ -357,10 +365,6 @@ jobs:
               run: |
                   set -o errexit
                   set -euo pipefail
-
-                  # the chart env should be loaded by the client at the very first step of his installation
-                  source .github/scripts/gha-functions.sh
-                  export_new_env_vars generic/openshift/single-region/procedure/chart-env.sh
 
                   echo "Construct the values.yml file"
 
@@ -437,12 +441,12 @@ jobs:
                         --docker-server=index.docker.io \
                         --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
-                        --namespace="$TEST_NAMESPACE"
+                        --namespace="$CAMUNDA_NAMESPACE"
 
                     kubectl create secret generic identity-secret-for-components-integration \
                         --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
                         --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-                        --namespace="$TEST_NAMESPACE"
+                        --namespace="$CAMUNDA_NAMESPACE"
                   fi
 
                   ./generic/openshift/single-region/procedure/install-chart.sh
@@ -476,7 +480,7 @@ jobs:
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
-                  test-namespace: ${{ env.TEST_NAMESPACE }}
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
 
@@ -485,11 +489,11 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  kubectl -n "$TEST_NAMESPACE" get po
-                  kubectl -n "$TEST_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                  kubectl -n "$CAMUNDA_NAMESPACE" get po
+                  kubectl -n "$CAMUNDA_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
                     echo -e "\n###Failed Pod: ${pod_name}###\n";
-                    kubectl -n "$TEST_NAMESPACE" describe po "$pod_name";
-                    kubectl -n "$TEST_NAMESPACE" logs "$pod_name";
+                    kubectl -n "$CAMUNDA_NAMESPACE" describe po "$pod_name";
+                    kubectl -n "$CAMUNDA_NAMESPACE" logs "$pod_name";
                   done
 
     cleanup-clusters:
