@@ -20,6 +20,7 @@ The kube context will be set on the created cluster.
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `true` | `latest` |
 | `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.18.5` |
 | `replicas` | <p>Number of replicas for the ROSA cluster (empty will fallback on default value of the module)</p> | `false` | `""` |
+| `private-vpc` | <p>The VPC within which the cluster resides has only a private subnet, meaning that it cannot be accessed at all from the public Internet (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
@@ -97,6 +98,12 @@ This action is a `composite` action.
 
     replicas:
     # Number of replicas for the ROSA cluster (empty will fallback on default value of the module)
+    #
+    # Required: false
+    # Default: ""
+
+    private-vpc:
+    # The VPC within which the cluster resides has only a private subnet, meaning that it cannot be accessed at all from the public Internet (empty will fallback on default value of the module)
     #
     # Required: false
     # Default: ""

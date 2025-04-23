@@ -113,7 +113,9 @@ jobs:
                   # Vars are exported to pass them to yq instead of local inline syntax.
                   # shellcheck disable=SC2086
                   for distro_index in ${distro_indexes}; do
-                    cluster_name_input="${{ inputs.cluster_name }}"
+                    # cluster_name_input="${{ inputs.cluster_name }}"
+                    # TODO: revert that before merge
+                    cluster_name_input="privateleo"
                     cluster_name_fallback="hci-$(uuidgen | head -c 8)"
                     export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
                     export distro_index="${distro_index}"
@@ -195,6 +197,7 @@ jobs:
                   cluster-name: ${{ matrix.distro.clusterName }}
                   admin-username: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
                   admin-password: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
+                  private-vpc: ${{ matrix.distro.private_vpc }}
                   aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}

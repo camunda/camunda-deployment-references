@@ -39,6 +39,10 @@ inputs:
     replicas:
         description: Number of replicas for the ROSA cluster (empty will fallback on default value of the module)
         default: ''
+    private-vpc:
+        description: The VPC within which the cluster resides has only a private subnet, meaning that it cannot be accessed at all from the public Internet
+            (empty will fallback on default value of the module)
+        default: ''
     s3-backend-bucket:
         description: Name of the S3 bucket to store Terraform state
         required: true
@@ -233,6 +237,12 @@ runs:
                 sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas }}/' cluster.tf
               else
                 echo "No replicas value provided, skipping replica modification."
+              fi
+
+              if [ -n "${{ inputs.private-vpc }}" ]; then
+                sed -i -E "s/(^\s*private\s*=\s*)[a-z]+/\1${{ inputs.private-vpc }}/" cluster.tf
+              else
+                echo "No private-vpc value provided, skipping private modification."
               fi
 
               echo "Displaying templated cluster.tf file:"

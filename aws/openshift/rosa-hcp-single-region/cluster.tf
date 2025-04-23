@@ -28,6 +28,10 @@ module "rosa_cluster" {
   compute_node_instance_type = "m7i.xlarge"
   replicas                   = 6
 
+  # The VPC within which the cluster resides has only a private subnet,
+  # meaning that it cannot be accessed at all from the public Internet
+  private = false
+
   # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
   openshift_version = "4.18.5"
 }
