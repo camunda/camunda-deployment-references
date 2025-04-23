@@ -15,6 +15,7 @@ on:
             - .github/actions/aws-kubernetes-eks-single-region-create/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/aws-kubernetes-eks-single-region-cleanup/**
 
     workflow_dispatch:
         inputs:
@@ -47,7 +48,7 @@ concurrency:
     cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
 
 env:
-    IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infraex
