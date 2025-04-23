@@ -65,10 +65,6 @@ env:
     WEBMODELER_ENABLED: 'true'
     CONSOLE_ENABLED: 'true'
 
-    # hardcoded envvars temporarily
-    RESOURCE_GROUP_NAME: camunda-rg
-    CLUSTER_NAME: camunda-aks
-
 jobs:
     triage:
         runs-on: ubuntu-latest
@@ -99,7 +95,7 @@ jobs:
             RESOURCE_GROUP_NAME: ${{ steps.db_env.outputs.RESOURCE_GROUP_NAME }}
             CLUSTER_NAME: ${{ steps.db_env.outputs.CLUSTER_NAME }}
             RESOURCE_PREFIX: ${{ steps.db_env.outputs.RESOURCE_PREFIX }}
-            
+
         needs:
             - triage
         runs-on: ubuntu-latest
