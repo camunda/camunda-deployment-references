@@ -152,18 +152,20 @@ jobs:
               id: generate_resource_prefix
               run: |
                   set -euo pipefail
-  
+
                   PR_NUMBER=0
                   if [[ "${{ github.event_name }}" == "pull_request" ]]; then
                     PR_NUMBER=${{ github.event.pull_request.number }}
                   fi
-  
+
                   # OpenSearch domains max 28 characters
                   RESOURCE_PREFIX=camunda-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)
-  
-                  echo "RESOURCE_PREFIX=$RESOURCE_PREFIX" >> "$GITHUB_ENV"
-                  echo "CLUSTER_NAME=$RESOURCE_PREFIX-aks" >> "$GITHUB_ENV"
-                  echo "RESOURCE_GROUP_NAME=$RESOURCE_PREFIX-rg" >> "$GITHUB_ENV"
+
+                  {
+                    echo "RESOURCE_PREFIX=$RESOURCE_PREFIX"
+                    echo "CLUSTER_NAME=$RESOURCE_PREFIX-aks"
+                    echo "RESOURCE_GROUP_NAME=$RESOURCE_PREFIX-rg"
+                  } >> "$GITHUB_ENV"
 
             - name: Export S3_BACKEND_BUCKET
               id: s3_prefix
@@ -180,7 +182,6 @@ jobs:
                   resource-prefix: ${{ env.RESOURCE_PREFIX }}
                   cluster-name: ${{ env.CLUSTER_NAME }}
                   resource-group-name: ${{ env.RESOURCE_GROUP_NAME }}
-                  # aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
@@ -195,27 +196,30 @@ jobs:
                   set -euo pipefail
 
                   # Source the shell script that exports your DB-related variables
+                  # shellcheck disable=SC2086
                   source $GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/vars-create-db.sh
 
-                  echo "POSTGRES_FQDN=$POSTGRES_FQDN" >> "$GITHUB_OUTPUT"
-                  echo "POSTGRES_PORT=$POSTGRES_PORT" >> "$GITHUB_OUTPUT"
-                  echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME" >> "$GITHUB_OUTPUT"
-                  echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD" >> "$GITHUB_OUTPUT"
-                  echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME" >> "$GITHUB_OUTPUT"
-                  echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME" >> "$GITHUB_OUTPUT"
-                  echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD" >> "$GITHUB_OUTPUT"
-                  echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME" >> "$GITHUB_OUTPUT"
-                  echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME" >> "$GITHUB_OUTPUT"
-                  echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD" >> "$GITHUB_OUTPUT"
-                  echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME" >> "$GITHUB_OUTPUT"
-                  echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME" >> "$GITHUB_OUTPUT"
-                  echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD" >> "$GITHUB_OUTPUT"
-                  echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME" >> "$GITHUB_OUTPUT"
-                  echo "CLUSTER_NAME=$CLUSTER_NAME" >> "$GITHUB_OUTPUT"
-                  echo "RESOURCE_PREFIX=$RESOURCE_PREFIX" >> "$GITHUB_OUTPUT"
+                  {
+                    echo "POSTGRES_FQDN=$POSTGRES_FQDN"
+                    echo "POSTGRES_PORT=$POSTGRES_PORT"
+                    echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME"
+                    echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD"
+                    echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
+                    echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
+                    echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
+                    echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME"
+                    echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME"
+                    echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD"
+                    echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME"
+                    echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME"
+                    echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
+                    echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME"
+                    echo "CLUSTER_NAME=$CLUSTER_NAME"
+                    echo "RESOURCE_PREFIX=$RESOURCE_PREFIX"
+                  } >> "$GITHUB_OUTPUT"
 
     integration-tests:
-        name: Run integration tests - ${{ matrix.scenario }} - ${{ matrix.declination }}
+        name: Run integration tests
         runs-on: ubuntu-latest
         needs:
             - prepare-clusters
@@ -239,7 +243,7 @@ jobs:
             DB_WEBMODELER_USERNAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_USERNAME }}
             DB_WEBMODELER_PASSWORD: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_PASSWORD }}
             RESOURCE_GROUP_NAME: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
-            CLUSTER_NAME: ${{ needs.prepare-clusters.outputs.CLUSTER_NAME }} 
+            CLUSTER_NAME: ${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}
             RESOURCE_PREFIX: ${{ needs.prepare-clusters.outputs.RESOURCE_PREFIX }}
 
         steps:
@@ -308,34 +312,35 @@ jobs:
                   # Create the namespace
                   kubectl create namespace "$TEST_NAMESPACE"
 
-            - name: 🏗️ Ingress Setup prerequisites
-              if: ${{ matrix.declination == 'domain' }}
-              run: |
-                  set -euo pipefail
+            # - name: 🏗️ Ingress Setup prerequisites
+            #   if: ${{ matrix.declination == 'domain' }}
+            #   run: |
+            #       set -euo pipefail
 
-                  export REGION=${{ env.AWS_REGION }}
+            #       export REGION=${{ env.AWS_REGION }}
 
-                  source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
+            #       source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
 
-                  # Overwriting the mail
-                  export MAIL=${{ env.MAIL_OVERWRITE }}
+            #       # Overwriting the mail
+            #       export MAIL=${{ env.MAIL_OVERWRITE }}
 
-                  ./azure/kubernetes/aks-single-region/procedure/install-ingress-nginx.sh
+            #       ./azure/kubernetes/aks-single-region/procedure/install-ingress-nginx.sh
 
-                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ env.CLUSTER_NAME }}-aks-single-region"
-                  ./azure/kubernetes/aks-single-region/procedure/install-external-dns.sh
+            #       export EXTERNAL_DNS_OWNER_ID="external-dns-${{ env.CLUSTER_NAME }}-aks-single-region"
+            #       ./azure/kubernetes/aks-single-region/procedure/install-external-dns.sh
 
-                  ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
+            #       ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
-                  ./azure/kubernetes/aks-single-region/procedure/install-cert-manager.sh
+            #       ./azure/kubernetes/aks-single-region/procedure/install-cert-manager.sh
 
-                  ./azure/kubernetes/aks-single-region/procedure/install-cert-manager-issuer.sh
+            #       ./azure/kubernetes/aks-single-region/procedure/install-cert-manager-issuer.sh
 
             - name: 🧹 Clean up databases
               run: |
+                  # shellcheck disable=SC2086
                   set -euo pipefail
 
-                  $GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh
+                  "$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh"
 
                   # Reset PostgreSQL
                   kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/reset-postgres.yml --namespace camunda
@@ -367,11 +372,6 @@ jobs:
                   echo "Construct the values.yml file"
 
                   cp -f azure/kubernetes/aks-single-region/helm-values/values-no-domain.yml ./values.yml
-
-                  if [[ "${{ matrix.declination }}" == "domain" ]]; then
-                    export DOMAIN_NAME="${{ env.CLUSTER_NAME }}-${{ matrix.scenario }}.camunda.ie"
-                    echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
-                  fi
 
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
                     echo "Enabling WebModeler"
@@ -422,7 +422,6 @@ jobs:
                   kubectl delete secret setup-db-secret --namespace camunda
 
             - name: 💪 Execute DB secret creation scripts
-              if: ${{ !contains(matrix.scenario, 'irsa') }}
               timeout-minutes: 10
               run: |
                   set -euo pipefail
@@ -505,16 +504,16 @@ jobs:
                   helm uninstall camunda --namespace "$TEST_NAMESPACE" --wait
                   kubectl delete namespace "$TEST_NAMESPACE" --wait
 
-            - name: 🧹 Cleanup domain specific resources
-              if: always() && matrix.declination == 'domain'
-              run: |
-                  set -euo pipefail
+            # - name: 🧹 Cleanup domain specific resources
+            #   if: always() && matrix.declination == 'domain'
+            #   run: |
+            #       set -euo pipefail
 
-                  echo "Let external-dns remove the domain" && sleep 45
+            #       echo "Let external-dns remove the domain" && sleep 45
 
-                  helm uninstall ingress-nginx --namespace ingress-nginx --wait
-                  helm uninstall external-dns --namespace external-dns --wait
-                  helm uninstall cert-manager --namespace cert-manager --wait
+            #       helm uninstall ingress-nginx --namespace ingress-nginx --wait
+            #       helm uninstall external-dns --namespace external-dns --wait
+            #       helm uninstall cert-manager --namespace cert-manager --wait
 
 
     cleanup-clusters:
@@ -525,9 +524,9 @@ jobs:
             - triage
             - integration-tests
         runs-on: ubuntu-latest
-        env: 
-          CLUSTER_NAME: ${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}
-          RESOURCE_GROUP_NAME: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
+        env:
+            CLUSTER_NAME: ${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}
+            RESOURCE_GROUP_NAME: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
 
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4

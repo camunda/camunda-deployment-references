@@ -13,11 +13,11 @@ inputs:
     resource-group-name:
         description: Name of the resource group to deploy the AKS cluster
         required: true
-        default: 'camunda-rg'
+        default: camunda-rg
     cluster-name:
         description: Name of the AKS cluster to deploy
         required: true
-        default: 'camunda-aks-cluster'
+        default: camunda-aks-cluster
     kubernetes-version:
         description: Version of Kubernetes to install
         required: false
