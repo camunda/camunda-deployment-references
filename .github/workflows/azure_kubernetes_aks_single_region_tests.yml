@@ -160,7 +160,7 @@ jobs:
                   # limiting factor are OpenSearch domains of maximum 28 characters
                   # shellcheck disable=SC2034
                   RESOURCE_PREFIX=camunda-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)
-                  echo $RESOURCE_PREFIX | tee -a "$GITHUB_ENV"
+                  echo "$RESOURCE_PREFIX" | tee -a "$GITHUB_ENV"
                   echo "CLUSTER_NAME=$RESOURCE_PREFIX-aks" | tee -a "$GITHUB_ENV"
                   echo "RESOURCE_GROUP_NAME=$RESOURCE_PREFIX-rg" | tee -a "$GITHUB_ENV"
 
