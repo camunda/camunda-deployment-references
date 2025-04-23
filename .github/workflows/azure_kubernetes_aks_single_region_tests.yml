@@ -174,7 +174,7 @@ jobs:
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               with:
-                  cluster-name: ${{ env.CLUSTER_NAME }}
+                  resource-prefix: ${{ env.CLUSTER_NAME }}
                   # aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}

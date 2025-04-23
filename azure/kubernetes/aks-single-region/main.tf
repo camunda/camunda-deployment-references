@@ -1,5 +1,5 @@
 resource "azurerm_resource_group" "app_rg" {
-  name     = var.resource_group_name
+  name     = "${var.resource_prefix}-rg"
   location = var.location
   tags     = var.tags
 }
