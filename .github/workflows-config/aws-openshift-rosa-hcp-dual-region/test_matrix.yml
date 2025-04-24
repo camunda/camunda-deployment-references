@@ -9,6 +9,4 @@ matrix:
           platform: rosa
 
     scenario:
-        - name: Chart Setup
-          desc: Setup chart in production-like setup with Ingress and TLS.
-          flow: install
+        - name: rosa-hcp-dual-region

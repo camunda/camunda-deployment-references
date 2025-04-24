@@ -1,8 +1,9 @@
 #!/bin/bash
 
 helm upgrade --install \
-  camunda camunda-platform \
+  "$CAMUNDA_RELEASE_NAME" camunda-platform \
   --repo https://helm.camunda.io \
   --version "$CAMUNDA_HELM_CHART_VERSION" \
-  --namespace camunda \
+  --namespace "$CAMUNDA_NAMESPACE" \
   -f generated-values.yml
+
