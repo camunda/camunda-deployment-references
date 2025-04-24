@@ -1,6 +1,6 @@
 #!/bin/bash
 
-kubectl create secret generic setup-db-secret --namespace camunda \
+kubectl create secret generic setup-db-secret --namespace "$CAMUNDA_NAMESPACE" \
   --from-literal=AURORA_ENDPOINT="$AURORA_ENDPOINT" \
   --from-literal=AURORA_PORT="$AURORA_PORT" \
   --from-literal=AURORA_USERNAME="$AURORA_USERNAME" \
