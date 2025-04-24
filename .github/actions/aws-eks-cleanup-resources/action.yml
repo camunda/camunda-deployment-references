@@ -52,4 +52,4 @@ runs:
 
               ${{ github.action_path }}/scripts/destroy.sh "${{ inputs.s3-backend-bucket }}" ${{ github.action_path }}/../../../aws/modules/ \
                 "${{ inputs.temp-dir }}" ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.module-name }} ${{ inputs.camunda-version }} \
-                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found"
+                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
