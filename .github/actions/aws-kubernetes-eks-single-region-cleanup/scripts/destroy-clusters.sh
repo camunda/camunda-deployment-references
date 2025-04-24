@@ -110,6 +110,11 @@ if [ "$ID_OR_ALL" == "all" ]; then
   clusters=$(echo "$all_objects" | awk '{print $NF}' | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
 else
   clusters=$(echo "$all_objects" | awk '{print $NF}' | grep "tfstate-$ID_OR_ALL/" | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
+
+  if [ -z "$clusters" ]; then
+    echo "Error: No object found for ID '$ID_OR_ALL'"
+    exit 1
+  fi
 fi
 
 if [ -z "$clusters" ]; then

@@ -204,6 +204,11 @@ if [ "$ID_OR_ALL" == "all" ]; then
   resources=$(echo "$all_objects" | grep "/*.tfstate" | grep "$CAMUNDA_VERSION" | awk '{print $4}')
 else
   resources=$(echo "$all_objects" | grep "/*.tfstate" | grep "$CAMUNDA_VERSION" | grep "$ID_OR_ALL" | awk '{print $4}')
+
+  if [ -z "$resources" ]; then
+    echo "Error: No object found for ID '$ID_OR_ALL'"
+    exit 1
+  fi
 fi
 
 # Check if resources is empty (i.e., no objects found)
