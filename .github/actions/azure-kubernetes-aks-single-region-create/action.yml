@@ -21,7 +21,6 @@ inputs:
     kubernetes-version:
         description: Version of Kubernetes to install
         required: false
-        # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
         default: '1.32'
     # using S3 backend for terraform state even with Azure, to ensure compatibility with cleanup script
     s3-backend-bucket:
