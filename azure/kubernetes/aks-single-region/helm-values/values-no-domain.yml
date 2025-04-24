@@ -17,6 +17,8 @@ identityKeycloak:
 global:
     elasticsearch:
         enabled: true
+    opensearch:
+        enabled: false
 
     identity:
 
