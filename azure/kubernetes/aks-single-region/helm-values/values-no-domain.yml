@@ -17,18 +17,6 @@ identityKeycloak:
 global:
     elasticsearch:
         enabled: true
-    opensearch:
-        enabled: false
-        aws:
-            enabled: false # we rely on anonymous auth, not irsa, basic auth is not supported on managed OpenSearch
-        auth:
-            username:
-            password:
-        url:
-            protocol: https
-            host: ${OPENSEARCH_HOST}
-            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
-            port: 443
 
     identity:
 
@@ -73,7 +61,7 @@ identity:
         existingSecretPasswordKey: password
 
 webModeler:
-    enabled: true # Enable Web Modeler
+    enabled: false
 
     restapi:
         externalDatabase:
@@ -91,10 +79,6 @@ webModeler:
             existingSecret:
                 name: identity-secret-for-components
             fromAddress: changeme@example.com
-
-optimize:
-    migration:
-        enabled: false
 
 console:
     enabled: false # by default, console is not enabled

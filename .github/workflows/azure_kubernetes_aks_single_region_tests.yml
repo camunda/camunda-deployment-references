@@ -40,9 +40,10 @@ env:
     IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
-    # terraform statefile is to be stored on S3 bucket to ensure compatibility with some existing scripts
+    # terraform statefile is to be stored in an AWS S3 bucket to benefit from existing automated cleanup capabilities
+    # AWS itself is not used to deploy resources, only Azure
     AWS_PROFILE: infraex
-    AWS_REGION: eu-west-2
+    AWS_REGION: eu-central-1
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
 
@@ -91,7 +92,6 @@ jobs:
             DB_WEBMODELER_PASSWORD: ${{ steps.db_env.outputs.DB_WEBMODELER_PASSWORD }}
             RESOURCE_GROUP_NAME: ${{ steps.db_env.outputs.RESOURCE_GROUP_NAME }}
             CLUSTER_NAME: ${{ steps.db_env.outputs.CLUSTER_NAME }}
-            RESOURCE_PREFIX: ${{ steps.db_env.outputs.RESOURCE_PREFIX }}
 
         needs:
             - triage
@@ -106,7 +106,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@main
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@14912e07221cd650bf9286e2a4733a138ca46374 # main
 
             - name: Import Secrets
               id: secrets
@@ -132,7 +132,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@v1.6.1
+              uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
@@ -155,7 +155,6 @@ jobs:
                     PR_NUMBER=${{ github.event.pull_request.number }}
                   fi
 
-                  # OpenSearch domains max 28 characters
                   RESOURCE_PREFIX=camunda-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)
 
                   {
@@ -212,7 +211,6 @@ jobs:
                     echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
                     echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME"
                     echo "CLUSTER_NAME=$CLUSTER_NAME"
-                    echo "RESOURCE_PREFIX=$RESOURCE_PREFIX"
                   } >> "$GITHUB_OUTPUT"
 
     integration-tests:
@@ -241,7 +239,6 @@ jobs:
             DB_WEBMODELER_PASSWORD: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_PASSWORD }}
             RESOURCE_GROUP_NAME: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
             CLUSTER_NAME: ${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}
-            RESOURCE_PREFIX: ${{ needs.prepare-clusters.outputs.RESOURCE_PREFIX }}
 
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -263,7 +260,6 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
-                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
                       secret/data/products/infrastructure-experience/ci/common AZURE_CLIENT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
@@ -278,7 +274,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@v1.6.1
+              uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
@@ -309,29 +305,6 @@ jobs:
                   # Create the namespace
                   kubectl create namespace "$TEST_NAMESPACE"
 
-            # - name: 🏗️ Ingress Setup prerequisites
-            #   if: ${{ matrix.declination == 'domain' }}
-            #   run: |
-            #       set -euo pipefail
-
-            #       export REGION=${{ env.AWS_REGION }}
-
-            #       source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
-
-            #       # Overwriting the mail
-            #       export MAIL=${{ env.MAIL_OVERWRITE }}
-
-            #       ./azure/kubernetes/aks-single-region/procedure/install-ingress-nginx.sh
-
-            #       export EXTERNAL_DNS_OWNER_ID="external-dns-${{ env.CLUSTER_NAME }}-aks-single-region"
-            #       ./azure/kubernetes/aks-single-region/procedure/install-external-dns.sh
-
-            #       ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
-
-            #       ./azure/kubernetes/aks-single-region/procedure/install-cert-manager.sh
-
-            #       ./azure/kubernetes/aks-single-region/procedure/install-cert-manager-issuer.sh
-
             - name: 🧹 Clean up databases
               run: |
                   # shellcheck disable=SC2086
@@ -340,11 +313,11 @@ jobs:
                   "$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh"
 
                   # Reset PostgreSQL
-                  kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/reset-postgres.yml --namespace camunda
+                  kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/reset-postgres.yml --namespace "$TEST_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
-                      STATUS=$(kubectl get job reset-azure-postgres --namespace camunda -o jsonpath='{.status.succeeded}')
+                      STATUS=$(kubectl get job reset-azure-postgres --namespace "$TEST_NAMESPACE" -o jsonpath='{.status.succeeded}')
 
                       if [[ "$STATUS" == "1" ]]; then
                           echo "Job completed successfully."
@@ -355,10 +328,10 @@ jobs:
                       sleep 5
                   done
                   echo "[DEBUG] Job log:"
-                  kubectl logs job/reset-azure-postgres --namespace camunda
-                  kubectl delete job reset-azure-postgres --namespace camunda
+                  kubectl logs job/reset-azure-postgres --namespace "$TEST_NAMESPACE"
+                  kubectl delete job reset-azure-postgres --namespace "$TEST_NAMESPACE"
 
-                  kubectl delete secret setup-db-secret --namespace camunda
+                  kubectl delete secret setup-db-secret --namespace "$TEST_NAMESPACE"
 
             - name: 🛠️ Assemble deployment values
               timeout-minutes: 10
@@ -397,11 +370,11 @@ jobs:
                   ./azure/kubernetes/aks-single-region/procedure/check-env-variables.sh
                   ./azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh
 
-                  kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/setup-postgres-create-db.yml --namespace camunda
+                  kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/setup-postgres-create-db.yml --namespace "$TEST_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
-                      STATUS=$(kubectl get job create-setup-user-db --namespace camunda -o jsonpath='{.status.succeeded}')
+                      STATUS=$(kubectl get job create-setup-user-db --namespace "$TEST_NAMESPACE" -o jsonpath='{.status.succeeded}')
 
                       if [[ "$STATUS" == "1" ]]; then
                           echo "Job completed successfully."
@@ -413,10 +386,10 @@ jobs:
                   done
 
                   echo "[DEBUG] Job log:"
-                  kubectl logs job/create-setup-user-db --namespace camunda
+                  kubectl logs job/create-setup-user-db --namespace "$TEST_NAMESPACE"
 
-                  kubectl delete job create-setup-user-db --namespace camunda
-                  kubectl delete secret setup-db-secret --namespace camunda
+                  kubectl delete job create-setup-user-db --namespace "$TEST_NAMESPACE"
+                  kubectl delete secret setup-db-secret --namespace "$TEST_NAMESPACE"
 
             - name: 💪 Execute DB secret creation scripts
               timeout-minutes: 10
@@ -471,11 +444,9 @@ jobs:
               with:
                   secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
-                  camunda-domain: ${{ env.DOMAIN_NAME }}
-                  camunda-domain-grpc: zeebe.${{ env.DOMAIN_NAME }}:443
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
-                  elasticsearch-enabled: 'false'
+                  elasticsearch-enabled: 'true'
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   test-namespace: ${{ env.TEST_NAMESPACE }}
@@ -500,18 +471,6 @@ jobs:
 
                   helm uninstall camunda --namespace "$TEST_NAMESPACE" --wait
                   kubectl delete namespace "$TEST_NAMESPACE" --wait
-
-            # - name: 🧹 Cleanup domain specific resources
-            #   if: always() && matrix.declination == 'domain'
-            #   run: |
-            #       set -euo pipefail
-
-            #       echo "Let external-dns remove the domain" && sleep 45
-
-            #       helm uninstall ingress-nginx --namespace ingress-nginx --wait
-            #       helm uninstall external-dns --namespace external-dns --wait
-            #       helm uninstall cert-manager --namespace cert-manager --wait
-
 
     cleanup-clusters:
         name: Cleanup AKS clusters
@@ -550,7 +509,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
 
             - name: Azure Login with OIDC
-              uses: azure/login@v1.6.1
+              uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}

@@ -17,7 +17,7 @@ The kube context will be set on the created cluster.
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
-| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `add-azure-tests` |
+| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `main` |
 | `tf-modules-path` | <p>Path where the tf eks modules will be cloned</p> | `true` | `./.action-tf-modules/azure-kubernetes-aks-single-region-create/` |
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `true` | `true` |
 | `ref-arch` | <p>Reference architecture to deploy</p> | `false` | `aks-single-region` |
@@ -86,7 +86,7 @@ This action is a `composite` action.
     # Git revision of the tf modules to use
     #
     # Required: true
-    # Default: add-azure-tests
+    # Default: main
 
     tf-modules-path:
     # Path where the tf eks modules will be cloned

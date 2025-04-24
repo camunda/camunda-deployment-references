@@ -22,7 +22,7 @@ inputs:
         description: Version of Kubernetes to install
         required: false
         default: '1.32'
-    # using S3 backend for terraform state even with Azure, to ensure compatibility with cleanup script
+    # using S3 backend for terraform state even with Azure, to profit from existing cleanup capabilities
     s3-backend-bucket:
         description: Name of the S3 bucket to store Terraform state
         required: true
@@ -33,7 +33,7 @@ inputs:
         default: ''
     tf-modules-revision:
         description: Git revision of the tf modules to use
-        default: add-azure-tests # TODO: Revert to main
+        default: main
         required: true
     tf-modules-path:
         description: Path where the tf eks modules will be cloned
