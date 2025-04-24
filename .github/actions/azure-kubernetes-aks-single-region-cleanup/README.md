@@ -12,7 +12,7 @@ This GitHub Action automates the deletion of azure/kubernetes/aks-single-region 
 | `tf-bucket` | <p>Bucket containing the clusters states</p> | `true` | `""` |
 | `tf-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION</p> | `false` | `""` |
 | `tf-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
-| `max-age-hours-cluster` | <p>Maximum age of clusters in hours</p> | `false` | `20` |
+| `max-age-hours-cluster` | <p>Maximum age of clusters in hours</p> | `false` | `12` |
 | `target` | <p>Specify an ID to destroy specific resources or "all" to destroy all resources</p> | `false` | `all` |
 | `resource-group-name` | <p>Name of the resource group to deploy the AKS cluster</p> | `true` | `camunda-rg` |
 
@@ -48,7 +48,7 @@ This action is a `composite` action.
     # Maximum age of clusters in hours
     #
     # Required: false
-    # Default: 20
+    # Default: 12
 
     target:
     # Specify an ID to destroy specific resources or "all" to destroy all resources
