@@ -6,4 +6,3 @@ helm upgrade --install \
   --version "$CAMUNDA_HELM_CHART_VERSION" \
   --namespace "$CAMUNDA_NAMESPACE" \
   -f generated-values.yml
-
