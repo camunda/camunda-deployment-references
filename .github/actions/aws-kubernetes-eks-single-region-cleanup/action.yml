@@ -24,6 +24,10 @@ inputs:
         description: Specify an ID to destroy specific resources or "all" to destroy all resources
         default: all
 
+    fail-on-not-found:
+        description: Whether to fail if no matching resources are found (only for target not 'all')
+        default: 'true'
+
 runs:
     using: composite
     steps:
@@ -59,7 +63,8 @@ runs:
               cp .tool-versions ~/.tool-versions
 
               ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
-                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
+                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }} \
+                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
 
         - name: Upload cleanup logs
           if: always()

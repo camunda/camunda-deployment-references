@@ -243,6 +243,7 @@ jobs:
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: '0'
                   target: ${{ needs.configure-tests.outputs.cluster_id }}
+                  fail-on-not-found: 'false' # tests are supposed to cleanup this
 
     report-success:
         name: Report success
