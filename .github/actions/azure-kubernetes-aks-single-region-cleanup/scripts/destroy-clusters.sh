@@ -8,8 +8,8 @@ set -o pipefail
 # the appropriate backend configuration, and runs `terraform destroy`. If the destroy operation
 # is successful, it removes the corresponding S3 objects.
 #
-# Additionally, if the environment variable `RETRY_DESTROY` is set, the script will invoke `cloud-nuke`
-# to ensure the deletion of any remaining VPC resources that might not have been removed by Terraform.
+# Additionally, if the environment variable `RETRY_DESTROY` is set, the script will invoke Azure
+# Resource Group deletion to clean up any unmanaged Azure resources.
 #
 # Usage:
 # ./destroy_clusters.sh <BUCKET> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX]
@@ -28,7 +28,7 @@ set -o pipefail
 # Requirements:
 # - AWS CLI installed and configured with the necessary permissions to access and modify the S3 bucket.
 # - Terraform installed and accessible in the PATH.
-# - `yq` installed when you use `RETRY_DESTROY`.
+# - Azure CLI installed and logged in when you use `RETRY_DESTROY`.
 
 # Check for required arguments
 if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
@@ -45,16 +45,16 @@ fi
 BUCKET=$1
 MIN_AGE_IN_HOURS=$2
 ID_OR_ALL=$3
-KEY_PREFIX=${4:-""}  # Key prefix is optional
+KEY_PREFIX=${4:-""}
 FAILED=0
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 AWS_S3_REGION=${AWS_S3_REGION:-$AWS_REGION}
 
 # Detect operating system and set the appropriate date command
 if [[ "$(uname)" == "Darwin" ]]; then
-    date_command="gdate"
+  date_command="gdate"
 else
-    date_command="date"
+  date_command="date"
 fi
 
 # Function to perform terraform destroy
@@ -62,6 +62,7 @@ destroy_cluster() {
   local key=$1
   local cluster_id
   local cluster_folder
+
   # shellcheck disable=SC2001 # the alternative is multiple bash expansions
   cluster_id=$(echo "$key" | sed 's|.*/tfstate-\([^/]*\)/.*|\1|')
   # shellcheck disable=SC2001 # the alternative is multiple bash expansions
@@ -71,94 +72,123 @@ destroy_cluster() {
   cp "$SCRIPT_DIR/config" "/tmp/$cluster_id/config.tf"
   cd "/tmp/$cluster_id" || exit 1
 
+  # Azure-specific retry logic (unchanged)
   if [[ "$RETRY_DESTROY" == "true" ]]; then
-      RG_NAME="${RESOURCE_GROUP_NAME}"
-      echo "Forcing deletion of Azure Resource Group '$RG_NAME' to clean up any unmanaged resources."
-      az group delete \
-        --name "$RG_NAME" \
-        --yes \
-        --no-wait
+    RG_NAME="${RESOURCE_GROUP_NAME}"
+    echo "Forcing deletion of Azure Resource Group '$RG_NAME' to clean up any unmanaged resources."
+    az group delete \
+      --name "$RG_NAME" \
+      --yes \
+      --no-wait
   fi
 
   echo "tf state: bucket=$BUCKET key=$key region=$AWS_S3_REGION"
 
-  if ! terraform init -backend-config="bucket=$BUCKET" -backend-config="key=$key" -backend-config="region=$AWS_S3_REGION"; then return 1; fi
+  if ! terraform init \
+      -backend-config="bucket=$BUCKET" \
+      -backend-config="key=$key" \
+      -backend-config="region=$AWS_S3_REGION"; then
+    return 1
+  fi
 
-  if ! terraform destroy -auto-approve; then return 1; fi
+  if ! terraform destroy -auto-approve; then
+    return 1
+  fi
 
   # Cleanup S3
   echo "Deleting s3://$BUCKET/$cluster_folder"
-  if ! aws s3 rm "s3://$BUCKET/$cluster_folder" --recursive; then return 1; fi
-  if ! aws s3api delete-object --bucket "$BUCKET" --key "$cluster_folder/"; then return 1; fi
+  aws s3 rm "s3://$BUCKET/$cluster_folder" --recursive || return 1
+  aws s3api delete-object --bucket "$BUCKET" --key "$cluster_folder/" || return 1
 
-  cd - || exit 1
+  cd - >/dev/null || exit 1
   rm -rf "/tmp/$cluster_id"
 }
 
-# List objects in the S3 bucket and parse the cluster IDs
+# Gather all state files from S3
 all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive)
 aws_exit_code=$?
 
-# don't fail on folder absent
-if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
-  echo "Error executing the aws s3 ls command (Exit Code: $aws_exit_code):" >&2
+# If listing fails but returns no objects, treat as empty
+if [ $aws_exit_code -ne 0 ] && [ -z "$all_objects" ]; then
+  echo "Error executing aws s3 ls (code $aws_exit_code)"
   exit 1
 fi
 
+# Filter cluster IDs
 if [ "$ID_OR_ALL" == "all" ]; then
-  clusters=$(echo "$all_objects" | awk '{print $NF}' | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
+  clusters=$(echo "$all_objects" | awk '{print $NF}' \
+    | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
 else
-  clusters=$(echo "$all_objects" | awk '{print $NF}' | grep "tfstate-$ID_OR_ALL/" | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
+  clusters=$(echo "$all_objects" | awk '{print $NF}' \
+    | grep "tfstate-$ID_OR_ALL/" \
+    | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
 fi
 
 if [ -z "$clusters" ]; then
-  echo "No objects found in the S3 bucket. Exiting script." >&2
+  echo "No matching clusters found; nothing to do."
   exit 0
 fi
 
 current_timestamp=$($date_command +%s)
 
+# Prepare logs directory
+log_dir="./logs"
+mkdir -p "$log_dir"
+
+# Launch destroys in parallel
+pids=()
 for cluster_id in $clusters; do
-  cluster_folder="tfstate-$cluster_id"
-  echo "Checking cluster $cluster_id in $cluster_folder"
+  log_file="$log_dir/$cluster_id.log"
 
-  last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate" --output json | grep LastModified | awk -F '"' '{print $4}')
-  if [ -z "$last_modified" ]; then
-    echo "Error: Failed to retrieve last modified timestamp for cluster $cluster_id"
-    exit 1
-  fi
+  (
+    cluster_folder="tfstate-$cluster_id"
+    echo "[$cluster_id] Checking last modified for ${cluster_id}.tfstate..."
 
-  last_modified_timestamp=$($date_command -d "$last_modified" +%s)
-  if [ -z "$last_modified_timestamp" ]; then
-    echo "Error: Failed to convert last modified timestamp to seconds since epoch for cluster $cluster_id"
-    exit 1
-  fi
-  echo "Cluster $cluster_id last modification: $last_modified ($last_modified_timestamp)"
-
-  file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
-  if [ -z "$file_age_hours" ]; then
-    echo "Error: Failed to calculate file age in hours for cluster $cluster_id"
-    exit 1
-  fi
-  echo "Cluster $cluster_id is $file_age_hours hours old"
-
-  if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
-    echo "Destroying cluster $cluster_id in $cluster_folder"
-
-    if ! destroy_cluster "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate"; then
-      echo "Error destroying cluster $cluster_id"
-      FAILED=1
+    last_modified=$(aws s3api head-object \
+      --bucket "$BUCKET" \
+      --key "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate" \
+      --query 'LastModified' --output text)
+    if [ -z "$last_modified" ]; then
+      echo "[$cluster_id] ERROR: Could not fetch LastModified"
+      exit 1
     fi
-  else
-    echo "Skipping cluster $cluster_id as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
-  fi
+
+    last_ts=$($date_command -d "$last_modified" +%s)
+    age_hours=$(( (current_timestamp - last_ts) / 3600 ))
+    echo "[$cluster_id] Last modified: $last_modified ($age_hours hours ago)"
+
+    if [ $age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
+      echo "[$cluster_id] Destroying..."
+      if ! destroy_cluster "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate"; then
+        echo "[$cluster_id] ERROR during destroy"
+        exit 1
+      fi
+      echo "[$cluster_id] Destroy succeeded"
+    else
+      echo "[$cluster_id] Skipping (only $age_hours hours old)"
+    fi
+  ) >"$log_file" 2>&1 &
+
+  pids+=($!)
 done
 
-# Exit with the appropriate status
+# Live-tail all logs
+echo "=== Live logs ==="
+tail -n 0 -f "$log_dir"/*.log &
+tail_pid=$!
+
+# Wait for all background jobs
+for pid in "${pids[@]}"; do
+  wait "$pid" || FAILED=1
+done
+
+# Stop tail
+kill $tail_pid 2>/dev/null
+
 if [ $FAILED -ne 0 ]; then
-  echo "One or more operations failed."
+  echo "One or more destroy operations failed."
   exit 1
 else
-  echo "All operations completed successfully."
+  echo "All destroys completed successfully."
   exit 0
 fi
