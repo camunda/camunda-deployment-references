@@ -197,7 +197,7 @@ fi
 if [ "$ID_OR_ALL" == "all" ]; then
   groups=$(echo "$all_objects" | awk '{print $2}' | sed -n 's#^tfstate-\(.*\)/$#\1#p')
 else
-  groups=$(echo "$all_objects" | awk '{print $2}' | grep "tfstate-$ID_OR_ALL/" | sed -n 's#^tfstate-\(.*\)/$#\1#p')
+  groups=$(echo "$all_objects" | awk '{print $2}' | grep "tfstate-$ID_OR_ALL-1-oOo-$ID_OR_ALL-2/" | sed -n 's#^tfstate-\(.*\)/$#\1#p')
 fi
 
 if [ -z "$groups" ]; then
