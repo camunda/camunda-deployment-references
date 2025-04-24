@@ -290,6 +290,16 @@ jobs:
                   kubectl config current-context
                   kubectl get nodes
 
+            - name: 🌱 Register chart setup environment values
+              timeout-minutes: 3
+              run: |
+                  set -euo pipefail
+
+                  # the chart env should be loaded by the client at the very first step of his installation
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars generic/kubernetes/single-region/procedure/chart-env.sh
+
+
             - name: 🏗️ Prepare a fresh namespace for the tests
               run: |
                   set -euo pipefail
