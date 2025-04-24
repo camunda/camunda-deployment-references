@@ -14,7 +14,7 @@ This GitHub Action automates the deletion of azure/kubernetes/aks-single-region 
 | `tf-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
 | `max-age-hours-cluster` | <p>Maximum age of clusters in hours</p> | `false` | `12` |
 | `target` | <p>Specify an ID to destroy specific resources or "all" to destroy all resources</p> | `false` | `all` |
-| `resource-group-name` | <p>Name of the resource group to deploy the AKS cluster</p> | `true` | `camunda-rg` |
+| `resource-group-name` | <p>Name of the resource group</p> | `true` | `camunda-rg` |
 
 
 ## Runs
@@ -57,7 +57,7 @@ This action is a `composite` action.
     # Default: all
 
     resource-group-name:
-    # Name of the resource group to deploy the AKS cluster
+    # Name of the resource group
     #
     # Required: true
     # Default: camunda-rg

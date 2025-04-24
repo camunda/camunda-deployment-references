@@ -25,7 +25,7 @@ inputs:
         default: all
 
     resource-group-name:
-        description: Name of the resource group to deploy the AKS cluster
+        description: Name of the resource group
         required: true
         default: camunda-rg
 

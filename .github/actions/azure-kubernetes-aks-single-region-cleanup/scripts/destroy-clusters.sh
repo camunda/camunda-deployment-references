@@ -84,10 +84,6 @@ destroy_cluster() {
 
   if ! terraform init -backend-config="bucket=$BUCKET" -backend-config="key=$key" -backend-config="region=$AWS_S3_REGION"; then return 1; fi
 
-  # Since we use a blank config.tf, we need to remove the default storage class as it otherwise it's blocking
-  # This is due to the k8s provider not being configured
-  # terraform state rm 'module.eks_cluster.kubernetes_storage_class_v1.ebs_sc[0]' TODO: remove this when we have a proper storage class set up in Azure
-
   if ! terraform destroy -auto-approve; then return 1; fi
 
   # Cleanup S3
