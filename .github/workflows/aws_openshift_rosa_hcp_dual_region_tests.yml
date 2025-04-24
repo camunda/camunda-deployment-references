@@ -112,6 +112,7 @@ jobs:
                     cluster_name_input="${{ inputs.cluster_name }}"
                     cluster_name_fallback="hci-$(uuidgen | head -c 8)"
                     export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
+
                     export distro_index="${distro_index}"
                     yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
                   done
@@ -138,6 +139,8 @@ jobs:
             fail-fast: false
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -236,7 +239,7 @@ jobs:
               id: out
               with:
                   matrix-step-name: ${{ github.job }}
-                  matrix-key: ${{ matrix.distro.name }}
+                  matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
                       kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
                       sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_sensitive_values_raw }}
@@ -248,11 +251,11 @@ jobs:
 
                   # Here we verify the extraction of the env variables as presented in the documentation
 
-                  cd ${{ env.TF_MODULES_DIRECTORY }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+                  cd ${{ env.TF_MODULES_DIRECTORY }}/aws/openshift/${{ matrix.scenario.name }}/terraform/clusters/
                   source ../../procedure/gather-cluster-login-id.sh
                   cd -
 
-                  ./aws/openshift/rosa-hcp-dual-region/procedure/verify-cluster-nodes.sh
+                  ./aws/openshift/${{ matrix.scenario.name }}/procedure/verify-cluster-nodes.sh
 
 
     access-info:
@@ -268,7 +271,7 @@ jobs:
                   matrix-step-name: prepare-clusters
 
     integration-tests:
-        name: Run integration tests - ${{ matrix.distro.name }}
+        name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }}
         runs-on: ubuntu-latest
         needs:
             - clusters-info
@@ -315,7 +318,11 @@ jobs:
                   set -euo pipefail
 
                   mkdir -p "$HOME/.kube"
-                  echo "${{ fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[matrix.distro.name] }}" | base64 --decode > encrypted_kubeconfig.enc
+                  echo "${{
+                      fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[
+                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
+                      ]
+                    }}" | base64 --decode > encrypted_kubeconfig.enc
                   openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   rm encrypted_kubeconfig.enc
                   chmod 600 "$HOME/.kube/config"
@@ -342,7 +349,7 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  ./aws/openshift/rosa-hcp-dual-region/procedure/get-your-copy.sh
+                  ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
             - name: 🚢 Configure ACM
@@ -394,7 +401,11 @@ jobs:
                   set -euo pipefail
 
                   echo "Load outputs values from creation of the clusters"
-                  echo "${{ fromJson(needs.access-info.outputs.kubeconfig).sensitive_values_raw[matrix.distro.name] }}" | base64 --decode > encrypted_sensitive.enc
+                  echo "${{
+                      fromJson(needs.access-info.outputs.kubeconfig).sensitive_values_raw[
+                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
+                      ]
+                    }}" | base64 --decode > encrypted_sensitive.enc
                   openssl enc -aes-256-cbc -d -in encrypted_sensitive.enc -out ./encrypted_sensitive.yaml -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   rm encrypted_sensitive.enc
 
@@ -422,7 +433,9 @@ jobs:
                     -e "s#^export AWS_ES_BUCKET_REGION=\".*\"#export AWS_ES_BUCKET_REGION=\"${{ env.CLUSTER_1_AWS_REGION }}\"#" \
                     generic/openshift/dual-region/procedure/chart-env.sh
 
-                  source ./generic/openshift/dual-region/procedure/chart-env.sh
+                  # the chart env should be loaded by the client at the very first step of his installation
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars ./generic/openshift/dual-region/procedure/chart-env.sh
 
                   echo "Delete the namespaces to ensure a fresh start"
                   if kubectl --context "$CLUSTER_1_NAME" get namespace "$CAMUNDA_NAMESPACE_1" &>/dev/null; then
@@ -552,10 +565,31 @@ jobs:
                   camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   cluster-2-name: ${{ env.CLUSTER_2_NAME }}
                   camunda-namespace-2: ${{ env.CAMUNDA_NAMESPACE_2 }}
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
 
-            - name: 🔬🚨 Get failed Pods info
+            - name: 🔬🚨 Get failed Pods info - Cluster 1
               if: failure()
-              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@52f7c04dc9817a2f8a5b7b1c5450a80a8a6996ae # main
+              run: |
+                  set -euo pipefail
+
+                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po
+                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                    echo -e "\n### Failed Pod: ${pod_name} ###\n"
+                    kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" describe po "$pod_name"
+                    kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" logs "$pod_name"
+                  done
+
+            - name: 🔬🚨 Get failed Pods info - Cluster 2
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get po
+                  kubectl -n "$CAMUNDA_NAMESPACE_2" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                    echo -e "\n### Failed Pod: ${pod_name} ###\n"
+                    kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" describe po "$pod_name"
+                    kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name"
+                  done
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
@@ -568,6 +602,8 @@ jobs:
             fail-fast: false
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               if: env.CLEANUP_CLUSTERS == 'true'
