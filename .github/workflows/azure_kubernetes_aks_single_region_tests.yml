@@ -15,6 +15,7 @@ on:
             - generic/kubernetes/single-region/**
             - azure/kubernetes/aks-single-region/**
             - azure/modules/**
+            - generic/kubernetes/single-region/procedure/**
             - .github/actions/azure-kubernetes-aks-single-region-create/**
             - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
 
