@@ -255,7 +255,6 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - clusters-info
-            - prepare-clusters
             - access-info
         strategy:
             fail-fast: false
