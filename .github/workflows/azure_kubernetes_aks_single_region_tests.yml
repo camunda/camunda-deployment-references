@@ -549,6 +549,13 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
 
+            - name: Azure Login with OIDC
+              uses: azure/login@v1.6.1
+              with:
+                  client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
