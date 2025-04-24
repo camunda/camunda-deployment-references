@@ -98,7 +98,7 @@ jobs:
         runs-on: ubuntu-latest
         env:
             TF_MODULES_PATH: ./.action-tf-modules/azure-kubernetes-aks-single-region-create/
-            TEST_NAMESPACE: camunda
+            CAMUNDA_NAMESPACE: camunda
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
@@ -219,7 +219,7 @@ jobs:
         needs:
             - prepare-clusters
         env:
-            TEST_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
+            CAMUNDA_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: kubernetes
             MAIL_OVERWRITE: admin@camunda.ie
@@ -294,16 +294,16 @@ jobs:
                   set -euo pipefail
 
                   # Delete the namespace to ensure a fresh start
-                  if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
-                  kubectl delete namespace "$TEST_NAMESPACE" --wait
-                  while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
-                      echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
+                  if kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; then
+                  kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
+                  while kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; do
+                      echo "Namespace $CAMUNDA_NAMESPACE still being deleted, waiting..."
                       sleep 5
                   done
                   fi
 
                   # Create the namespace
-                  kubectl create namespace "$TEST_NAMESPACE"
+                  kubectl create namespace "$CAMUNDA_NAMESPACE"
 
             - name: 🧹 Clean up databases
               run: |
@@ -312,11 +312,11 @@ jobs:
                   "${GITHUB_WORKSPACE}/azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh"
 
                   # Reset PostgreSQL
-                  kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/reset-postgres.yml --namespace "$TEST_NAMESPACE"
+                  kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/reset-postgres.yml --namespace "$CAMUNDA_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
-                      STATUS=$(kubectl get job reset-azure-postgres --namespace "$TEST_NAMESPACE" -o jsonpath='{.status.succeeded}')
+                      STATUS=$(kubectl get job reset-azure-postgres --namespace "$CAMUNDA_NAMESPACE" -o jsonpath='{.status.succeeded}')
 
                       if [[ "$STATUS" == "1" ]]; then
                           echo "Job completed successfully."
@@ -327,10 +327,10 @@ jobs:
                       sleep 5
                   done
                   echo "[DEBUG] Job log:"
-                  kubectl logs job/reset-azure-postgres --namespace "$TEST_NAMESPACE"
-                  kubectl delete job reset-azure-postgres --namespace "$TEST_NAMESPACE"
+                  kubectl logs job/reset-azure-postgres --namespace "$CAMUNDA_NAMESPACE"
+                  kubectl delete job reset-azure-postgres --namespace "$CAMUNDA_NAMESPACE"
 
-                  kubectl delete secret setup-db-secret --namespace "$TEST_NAMESPACE"
+                  kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
             - name: 🛠️ Assemble deployment values
               timeout-minutes: 10
@@ -369,11 +369,11 @@ jobs:
                   ./azure/kubernetes/aks-single-region/procedure/check-env-variables.sh
                   ./azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh
 
-                  kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/setup-postgres-create-db.yml --namespace "$TEST_NAMESPACE"
+                  kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/setup-postgres-create-db.yml --namespace "$CAMUNDA_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
-                      STATUS=$(kubectl get job create-setup-user-db --namespace "$TEST_NAMESPACE" -o jsonpath='{.status.succeeded}')
+                      STATUS=$(kubectl get job create-setup-user-db --namespace "$CAMUNDA_NAMESPACE" -o jsonpath='{.status.succeeded}')
 
                       if [[ "$STATUS" == "1" ]]; then
                           echo "Job completed successfully."
@@ -385,10 +385,10 @@ jobs:
                   done
 
                   echo "[DEBUG] Job log:"
-                  kubectl logs job/create-setup-user-db --namespace "$TEST_NAMESPACE"
+                  kubectl logs job/create-setup-user-db --namespace "$CAMUNDA_NAMESPACE"
 
-                  kubectl delete job create-setup-user-db --namespace "$TEST_NAMESPACE"
-                  kubectl delete secret setup-db-secret --namespace "$TEST_NAMESPACE"
+                  kubectl delete job create-setup-user-db --namespace "$CAMUNDA_NAMESPACE"
+                  kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
             - name: 💪 Execute DB secret creation scripts
               timeout-minutes: 10
@@ -413,12 +413,12 @@ jobs:
                         --docker-server=index.docker.io \
                         --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
-                        --namespace="$TEST_NAMESPACE"
+                        --namespace="$CAMUNDA_NAMESPACE"
 
                     kubectl create secret generic identity-secret-for-components-integration \
                         --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
                         --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-                        --namespace="$TEST_NAMESPACE"
+                        --namespace="$CAMUNDA_NAMESPACE"
                   fi
 
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
@@ -448,7 +448,7 @@ jobs:
                   elasticsearch-enabled: 'true'
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
-                  test-namespace: ${{ env.TEST_NAMESPACE }}
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
 
             - name: 🔬🚨 Get failed Pods info
@@ -456,11 +456,11 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  kubectl -n "$TEST_NAMESPACE" get po
-                  kubectl -n "$TEST_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                  kubectl -n "$CAMUNDA_NAMESPACE" get po
+                  kubectl -n "$CAMUNDA_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
                     echo -e "\n###Failed Pod: ${pod_name}###\n";
-                    kubectl -n "$TEST_NAMESPACE" describe po "$pod_name";
-                    kubectl -n "$TEST_NAMESPACE" logs "$pod_name";
+                    kubectl -n "$CAMUNDA_NAMESPACE" describe po "$pod_name";
+                    kubectl -n "$CAMUNDA_NAMESPACE" logs "$pod_name";
                   done
 
             - name: 🧹 Cleanup Namespace
@@ -468,8 +468,8 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  helm uninstall camunda --namespace "$TEST_NAMESPACE" --wait
-                  kubectl delete namespace "$TEST_NAMESPACE" --wait
+                  helm uninstall camunda --namespace "$CAMUNDA_NAMESPACE" --wait
+                  kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
 
     cleanup-clusters:
         name: Cleanup AKS clusters
