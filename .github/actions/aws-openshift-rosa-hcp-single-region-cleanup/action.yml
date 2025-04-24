@@ -38,6 +38,10 @@ inputs:
         description: Specify whether to delete ghost clusters (true or false)
         default: 'true'
 
+    fail-on-not-found:
+        description: Whether to fail if no matching resources are found (only for target not 'all')
+        default: 'true'
+
 runs:
     using: composite
     steps:
@@ -96,7 +100,8 @@ runs:
 
               ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
                 ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-single-region/ /tmp/cleanup/ \
-                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
+                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }} \
+                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found"
 
               if [ "${{ inputs.delete-ghost-clusters }}" == "true" ]; then
                 ${{ github.action_path }}/scripts/cleanup-ghost-clusters.sh ${{ inputs.max-age-hours-cluster }}

@@ -34,6 +34,10 @@ inputs:
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
         default: 4.18.4
 
+    fail-on-not-found:
+        description: Whether to fail if no matching resources are found (only for target not 'all')
+        default: 'true'
+
 runs:
     using: composite
     steps:
@@ -84,4 +88,5 @@ runs:
 
               ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
                 ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-dual-region/terraform/ /tmp/cleanup/ \
-                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
+                 ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }} \
+                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")

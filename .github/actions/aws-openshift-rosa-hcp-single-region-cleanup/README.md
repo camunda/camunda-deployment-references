@@ -17,6 +17,7 @@ This GitHub Action automates the deletion of aws/openshift/rosa-hcp-single-regio
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
 | `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.18.5` |
 | `delete-ghost-clusters` | <p>Specify whether to delete ghost clusters (true or false)</p> | `false` | `true` |
+| `fail-on-not-found` | <p>Whether to fail if no matching resources are found (only for target not 'all')</p> | `false` | `true` |
 
 
 ## Runs
@@ -72,6 +73,12 @@ This action is a `composite` action.
 
     delete-ghost-clusters:
     # Specify whether to delete ghost clusters (true or false)
+    #
+    # Required: false
+    # Default: true
+
+    fail-on-not-found:
+    # Whether to fail if no matching resources are found (only for target not 'all')
     #
     # Required: false
     # Default: true

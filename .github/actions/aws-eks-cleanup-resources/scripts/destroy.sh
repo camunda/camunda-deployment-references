@@ -9,7 +9,7 @@ set -o pipefail
 # is successful, it removes the corresponding S3 objects.
 #
 # Usage:
-# ./destroy.sh <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [MODULE_NAME]
+# ./destroy.sh <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [MODULE_NAME] [CAMUNDA_VERSION] [--fail-on-not-found]
 #
 # Arguments:
 #   BUCKET: The name of the S3 bucket containing the resource state files.
@@ -19,6 +19,7 @@ set -o pipefail
 #   ID_OR_ALL: The specific ID suffix to filter objects, or "all" to destroy all objects.
 #   MODULE_NAME (optional): The name of the module to destroy (e.g., "eks-cluster", "aurora", "opensearch"). Default is "all".
 #   CAMUNDA_VERSION: The version of Camunda Cloud to filter the resources. Default is "" - empty targeting all versions.
+#   --fail-on-not-found (optional): If set, the script will exit with an error when no matching object is found (only when ID_OR_ALL is not "all").
 #
 # Example:
 # ./destroy.sh tf-state-eks-ci-eu-west-3 ./modules/eks/ /tmp/eks/ 24 all
@@ -29,8 +30,8 @@ set -o pipefail
 # - Terraform installed and accessible in the PATH.
 
 # Check for required arguments
-if [ "$#" -lt 6 ] || [ "$#" -gt 7 ]; then
-  echo "Usage: $0 <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [MODULE_NAME]"
+if [ "$#" -lt 6 ] || [ "$#" -gt 8 ]; then
+  echo "Usage: $0 <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [MODULE_NAME] [--fail-on-not-found]"
   exit 1
 fi
 
@@ -52,11 +53,23 @@ MODULES_DIR=$2
 TEMP_DIR_PREFIX=$3
 MIN_AGE_IN_HOURS=$4
 ID_OR_ALL=$5
-MODULE_NAME=${6:-all}
-CAMUNDA_VERSION=$7
 FAILED=0
 CURRENT_DIR=$(pwd)
 AWS_S3_REGION=${AWS_S3_REGION:-$AWS_REGION}
+
+# Optional arguments with defaults
+MODULE_NAME=${6:-"all"}
+CAMUNDA_VERSION=${7:-""}
+FAIL_ON_NOT_FOUND=false
+
+if [ "$#" -eq 8 ]; then
+  if [ "$8" == "--fail-on-not-found" ]; then
+    FAIL_ON_NOT_FOUND=true
+  else
+    echo "Error: Unknown option '$8'"
+    exit 1
+  fi
+fi
 
 # Function to check if a folder is empty
 is_empty_folder() {
@@ -205,7 +218,7 @@ if [ "$ID_OR_ALL" == "all" ]; then
 else
   resources=$(echo "$all_objects" | grep "/*.tfstate" | grep "$CAMUNDA_VERSION" | grep "$ID_OR_ALL" | awk '{print $4}')
 
-  if [ -z "$resources" ]; then
+  if [ -z "$resources" ] && [ "$FAIL_ON_NOT_FOUND" = true ]; then
     echo "Error: No object found for ID '$ID_OR_ALL'"
     exit 1
   fi
