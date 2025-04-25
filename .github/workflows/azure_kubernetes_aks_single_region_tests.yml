@@ -47,7 +47,7 @@ concurrency:
     cancel-in-progress: false
 
 env:
-    IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     # terraform statefile is to be stored in an AWS S3 bucket to benefit from existing automated cleanup capabilities
