@@ -118,6 +118,8 @@ runs:
                 -no-color \
                 -out tf.plan \
                 -var "resource_prefix=${{ inputs.resource-prefix }}" \
+                -var "resource_group_name=${{ inputs.resource-group-name }}" \
+                -var "cluster_name=${{ inputs.cluster-name }}" \
                 -var "location=${{ inputs.location }}" \
                 -var "kubernetes_version=${{ inputs.kubernetes-version }}"
 

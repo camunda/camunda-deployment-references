@@ -1,5 +1,5 @@
 resource "azurerm_resource_group" "app_rg" {
-  name     = "${var.resource_prefix}-rg"
+  name     = var.resource_group_name != "" ? var.resource_group_name : "${var.resource_prefix}-rg"
   location = var.location
   tags     = var.tags
 }
@@ -24,7 +24,7 @@ module "aks" {
   source              = "../../modules/aks"
   resource_group_name = azurerm_resource_group.app_rg.name
   location            = var.location
-  aks_cluster_name    = "${var.resource_prefix}-aks"
+  aks_cluster_name    = var.cluster_name != "" ? var.cluster_name : "${var.resource_prefix}-aks"
   subnet_id           = module.network.aks_subnet_id
   tags                = var.tags
 

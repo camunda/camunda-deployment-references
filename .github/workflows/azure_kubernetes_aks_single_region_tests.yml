@@ -29,6 +29,18 @@ on:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
+            cluster_name:
+                description: Name of the cluster to deploy.
+                type: string
+                required: false
+            resource-group-name:
+                description: Name of the resource group.
+                type: string
+                required: false
+            resource-prefix:
+                description: Prefix for the resource names.
+                type: string
+                required: false
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -146,23 +158,39 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-            - name: Generate random resource_prefix
-              id: generate_resource_prefix
+            - name: Generate resource names
+              id: generate_names
+              shell: bash
               run: |
                   set -euo pipefail
 
-                  PR_NUMBER=0
-                  if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-                    PR_NUMBER=${{ github.event.pull_request.number }}
+                  PREFIX="${INPUT_RESOURCE_PREFIX:-}"
+                  CLUSTER="${INPUT_CLUSTER_NAME:-}"
+                  RG="${INPUT_RESOURCE_GROUP_NAME:-}"
+
+                  if [[ -z "$PREFIX" ]]; then
+                    PR_NUMBER=0
+                    if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+                      # for pull_request events, pull in the PR number
+                      PR_NUMBER="$(jq --raw-output .pull_request.number < "$GITHUB_EVENT_PATH")"
+                    fi
+                    SFX="$(head /dev/urandom | tr -dc 'a-z0-9' | head -c5)"
+                    PREFIX="camunda-${PR_NUMBER}-${SFX}"
                   fi
 
-                  RESOURCE_PREFIX=camunda-$PR_NUMBER-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 5)
+                  if [[ -z "$CLUSTER" ]]; then
+                    CLUSTER="${PREFIX}-aks"
+                  fi
+                  if [[ -z "$RG" ]]; then
+                    RG="${PREFIX}-rg"
+                  fi
 
                   {
-                    echo "RESOURCE_PREFIX=$RESOURCE_PREFIX"
-                    echo "CLUSTER_NAME=$RESOURCE_PREFIX-aks"
-                    echo "RESOURCE_GROUP_NAME=$RESOURCE_PREFIX-rg"
-                  } >> "$GITHUB_ENV"
+                    echo "RESOURCE_PREFIX=${PREFIX}",
+                    echo "CLUSTER_NAME=${CLUSTER}",
+                    echo "RESOURCE_GROUP_NAME=${RG}",
+                  } >>"$GITHUB_ENV"
+
 
             - name: Export S3_BACKEND_BUCKET
               id: s3_prefix

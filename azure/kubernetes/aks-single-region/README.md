@@ -23,6 +23,7 @@
 | <a name="input_aks_pod_cidr"></a> [aks\_pod\_cidr](#input\_aks\_pod\_cidr) | CIDR block for pod IP addresses (only used with kubenet) | `string` | `"10.244.0.0/16"` | no |
 | <a name="input_aks_service_cidr"></a> [aks\_service\_cidr](#input\_aks\_service\_cidr) | CIDR block for Kubernetes service IP addresses | `string` | `"10.0.0.0/16"` | no |
 | <a name="input_aks_subnet_address_prefix"></a> [aks\_subnet\_address\_prefix](#input\_aks\_subnet\_address\_prefix) | Address prefix for the AKS subnet | `list(string)` | <pre>[<br/>  "10.1.0.0/24"<br/>]</pre> | no |
+| <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Optional override for the AKS cluster name | `string` | `""` | no |
 | <a name="input_db_admin_password"></a> [db\_admin\_password](#input\_db\_admin\_password) | Administrator password for PostgreSQL | `string` | `"P@ssw0rd1234!"` | no |
 | <a name="input_db_admin_username"></a> [db\_admin\_username](#input\_db\_admin\_username) | Administrator username for PostgreSQL | `string` | `"pgadmin"` | no |
 | <a name="input_db_subnet_address_prefix"></a> [db\_subnet\_address\_prefix](#input\_db\_subnet\_address\_prefix) | Address prefix for the database subnet | `list(string)` | <pre>[<br/>  "10.1.1.0/24"<br/>]</pre> | no |
