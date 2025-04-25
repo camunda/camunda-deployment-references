@@ -19,13 +19,12 @@ output "postgres_fqdn" {
 }
 
 output "postgres_admin_username" {
-  description = "PostgreSQL admin username"
-  value       = var.db_admin_username
-  sensitive   = true
+  description = "PostgreSQL admin user"
+  value       = local.db_admin_username
 }
 
 output "postgres_admin_password" {
   description = "PostgreSQL admin password"
-  value       = var.db_admin_password
+  value       = local.db_admin_password
   sensitive   = true
 }
