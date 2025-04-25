@@ -16,6 +16,7 @@ This GitHub Action automates the deletion of EKS resources using a shell script.
 | `target` | <p>Specify an ID to destroy specific resources or "all" to destroy all resources</p> | `false` | `all` |
 | `temp-dir` | <p>Temporary directory prefix used for storing resource data during processing</p> | `false` | `./tmp/eks-cleanup/` |
 | `module-name` | <p>Name of the module to destroy (e.g., "eks-cluster", "aurora", "opensearch"), or "all" to destroy all modules</p> | `false` | `all` |
+| `fail-on-not-found` | <p>Whether to fail if no matching resources are found (only for target not 'all')</p> | `false` | `true` |
 
 
 ## Runs
@@ -68,4 +69,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: all
+
+    fail-on-not-found:
+    # Whether to fail if no matching resources are found (only for target not 'all')
+    #
+    # Required: false
+    # Default: true
 ```
