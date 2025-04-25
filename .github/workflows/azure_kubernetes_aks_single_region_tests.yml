@@ -186,9 +186,9 @@ jobs:
                   fi
 
                   {
-                    echo "RESOURCE_PREFIX=${PREFIX}",
-                    echo "CLUSTER_NAME=${CLUSTER}",
-                    echo "RESOURCE_GROUP_NAME=${RG}",
+                    echo "RESOURCE_PREFIX=${PREFIX}";
+                    echo "CLUSTER_NAME=${CLUSTER}";
+                    echo "RESOURCE_GROUP_NAME=${RG}"
                   } >>"$GITHUB_ENV"
 
 
