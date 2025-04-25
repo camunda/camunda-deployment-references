@@ -6,14 +6,23 @@ identity:
     # Keycloak client seed which is used to query Camunda APIs.
     env:
         - name: KEYCLOAK_CLIENTS_2_ID
-          value: venom
-        - name: KEYCLOAK_CLIENTS_2_NAME
-          value: Venom
-        - name: KEYCLOAK_CLIENTS_2_SECRET
+          # this part is modified for our ci tests
           valueFrom:
               secretKeyRef:
-                  name: integration-test-credentials
-                  key: identity-admin-client-password
+                  name: identity-secret-for-components-integration
+                  key: identity-admin-client-id
+        - name: KEYCLOAK_CLIENTS_2_NAME
+          # this part is modified for our ci tests
+          valueFrom:
+              secretKeyRef:
+                  name: identity-secret-for-components-integration
+                  key: identity-admin-client-id
+        - name: KEYCLOAK_CLIENTS_2_SECRET
+          # this part is modified for our ci tests
+          valueFrom:
+              secretKeyRef:
+                  name: identity-secret-for-components-integration
+                  key: identity-admin-client-secret
         - name: KEYCLOAK_CLIENTS_2_REDIRECT_URIS_0
           value: /dummy
         - name: KEYCLOAK_CLIENTS_2_ROOT_URL
