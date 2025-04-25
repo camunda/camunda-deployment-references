@@ -39,3 +39,4 @@ schedules:
           - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
           - .github/workflows/aws_openshift_rosa_hcp_dual_region_daily_cleanup.yml
           - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
+          - .github/workflows/aws_kubernetes_eks_single_region_cleanup.yml
