@@ -66,10 +66,19 @@ runs:
                 ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }} \
                 $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
 
+        # Required for matrix jobs
+        - name: Convert key prefix into slug
+          id: key-prefix-slug
+          shell: bash
+          run: |
+              set -euo pipefail
+              SLUG=$(echo "${{ inputs.tf-bucket-key-prefix }}" | tr '/' '-' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              echo "PREFIX_SLUG=${SLUG::-1}" | tee -a "$GITHUB_OUTPUT"
+
         - name: Upload cleanup logs
           if: always()
           uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
           with:
-              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}
+              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}-${{ steps.key-prefix-slug.outputs.PREFIX_SLUG }}
               path: ./logs/
               retention-days: 7
