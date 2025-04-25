@@ -2,7 +2,6 @@
 name: Tests - Daily Cleanup - AWS Kubernetes EKS Single Region (IRSA)
 
 on:
-    push:
     workflow_dispatch:
         inputs:
             max_age_hours_cluster:
