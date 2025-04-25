@@ -24,6 +24,7 @@ This action will also install Terraform, awscli, and kubectl. The kube context w
 | `tf-terraform-version` | <p>The version of Terraform CLI to install. Instead of full version string you can also specify constraint string starting with "&lt;" (for example <code>&lt;1.13.0</code>) to install the latest version satisfying the constraint. A value of <code>latest</code> will install the latest version of Terraform CLI. Defaults to <code>latest</code>.</p> | `false` | `latest` |
 | `tf-terraform-wrapper` | <p>Whether or not to install a wrapper to wrap subsequent calls of the <code>terraform</code> binary and expose its STDOUT, STDERR, and exit code as outputs named <code>stdout</code>, <code>stderr</code>, and <code>exitcode</code> respectively. Defaults to <code>true</code>.</p> | `false` | `true` |
 | `awscli-version` | <p>Version of the aws cli to use</p> | `false` | `2.15.52` |
+| `single-nat-gateway` | <p>Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.</p> | `false` | `true` |
 
 
 ## Outputs
@@ -127,4 +128,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 2.15.52
+
+    single-nat-gateway:
+    # Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.
+    #
+    # Required: false
+    # Default: true
 ```
