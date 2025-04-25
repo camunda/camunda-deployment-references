@@ -16,12 +16,13 @@ resource "azurerm_kubernetes_cluster" "aks" {
   # For differences between system and user node pools, see: https://learn.microsoft.com/en-us/azure/aks/node-pool-overview
   default_node_pool {
     name                 = "system"
+    type                 = "VirtualMachineScaleSets"
     vm_size              = var.system_node_pool_vm_size
     os_disk_size_gb      = var.system_node_disk_size_gb
     vnet_subnet_id       = var.subnet_id
     node_count           = var.system_node_pool_count
     orchestrator_version = var.kubernetes_version
-    availability_zones   = var.system_node_pool_zones
+    zones                = var.system_node_pool_zones
 
     # Node labels
     node_labels = {
