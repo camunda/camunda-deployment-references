@@ -186,3 +186,8 @@ variable "postgres_standby_zone" {
   default     = "2"
   # Must be different from primary zone for zone-redundant high availability
 }
+
+variable "subscription_id" {
+  description = "The Azure Subscription ID to deploy into"
+  type        = string
+}
