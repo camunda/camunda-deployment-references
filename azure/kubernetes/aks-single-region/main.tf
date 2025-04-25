@@ -1,5 +1,31 @@
+locals {
+  resource_prefix     = ""              # Change this to a name of your choice
+  cluster_name        = ""              # Change this to a name of your choice, if not provided, it will be set to resource_prefix-aks
+  resource_group_name = ""              # Change this to a name of your choice, if not provided, it will be set to resource_prefix-rg
+  location            = "swedencentral" # Change this to your desired Azure region
+  # renovate: datasource=endoflife-date depName=azure-aks versioning=loose
+  kubernetes_version = "1.32" # Change this to your desired Kubernetes version (aks - major.minor)
+
+  db_admin_username = "secret_user"    # Replace with your Aurora username
+  db_admin_password = "secretvalue%23" # Replace with your Aurora password, password must contain at least one letter, one number, and one special character.
+
+  camunda_database_keycloak   = "camunda_keycloak"   # Name of your camunda database for Keycloak
+  camunda_database_identity   = "camunda_identity"   # Name of your camunda database for Identity
+  camunda_database_webmodeler = "camunda_webmodeler" # Name of your camunda database for WebModeler
+
+  # Connection configuration
+  camunda_keycloak_db_username   = "keycloak_db"   # This is the username that will be used for connection to the DB on Keycloak db
+  camunda_identity_db_username   = "identity_db"   # This is the username that will be used for connection to the DB on Identity db
+  camunda_webmodeler_db_username = "webmodeler_db" # This is the username that will be used for connection to the DB on WebModeler db
+
+  camunda_keycloak_db_password   = "secretvalue%24" # Replace with a password that will be used for connection to the DB on Keycloak db
+  camunda_identity_db_password   = "secretvalue%25" # Replace with a password that will be used for connection to the DB on Identity db
+  camunda_webmodeler_db_password = "secretvalue%26" # Replace with a password that will be used for connection to the DB on WebModeler db
+}
+
+
 resource "azurerm_resource_group" "app_rg" {
-  name     = var.resource_group_name != "" ? var.resource_group_name : "${var.resource_prefix}-rg"
+  name     = local.resource_group_name != "" ? local.resource_group_name : "${local.resource_prefix}-rg"
   location = var.location
   tags     = var.tags
 }
@@ -8,8 +34,8 @@ module "network" {
   source              = "../../modules/network"
   resource_group_name = azurerm_resource_group.app_rg.name
   location            = var.location
-  resource_prefix     = var.resource_prefix
-  nsg_name            = "${var.resource_prefix}-aks-nsg"
+  resource_prefix     = local.resource_prefix
+  nsg_name            = "${local.resource_prefix}-aks-nsg"
 
   # Network address configuration
   vnet_address_space        = var.vnet_address_space
@@ -24,7 +50,7 @@ module "aks" {
   source              = "../../modules/aks"
   resource_group_name = azurerm_resource_group.app_rg.name
   location            = var.location
-  aks_cluster_name    = var.cluster_name != "" ? var.cluster_name : "${var.resource_prefix}-aks"
+  aks_cluster_name    = local.cluster_name != "" ? local.cluster_name : "${local.resource_prefix}-aks"
   subnet_id           = module.network.aks_subnet_id
   tags                = var.tags
 
@@ -61,8 +87,8 @@ module "postgres_db" {
   tags                = var.tags
 
   server_name      = "${var.resource_prefix}-pg-server"
-  admin_username   = var.db_admin_username
-  admin_password   = var.db_admin_password
+  admin_username   = local.db_admin_username
+  admin_password   = local.db_admin_password
   postgres_version = var.postgres_version
   sku_tier         = var.postgres_sku_tier
   storage_mb       = var.postgres_storage_mb
