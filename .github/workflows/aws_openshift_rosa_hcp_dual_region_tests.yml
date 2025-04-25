@@ -569,7 +569,6 @@ jobs:
 
             - name: 🔬🚨 Get failed Pods info - Cluster 1
               if: failure()
-              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@5f7f7049233539abbc258aca01a367d74dd84d96 # main
               run: |
                   set -euo pipefail
 
