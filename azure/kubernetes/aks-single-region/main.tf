@@ -69,11 +69,13 @@ module "aks" {
   system_node_pool_vm_size = var.system_node_pool_vm_size
   system_node_pool_count   = var.system_node_pool_count
   system_node_disk_size_gb = 30
+  system_node_pool_zones   = var.system_node_pool_zones
 
   # User node pool configuration (for Camunda workloads)
   user_node_pool_vm_size = var.user_node_pool_vm_size
   user_node_pool_count   = var.user_node_pool_count
   user_node_disk_size_gb = 30
+  user_node_pool_zones   = var.user_node_pool_zones
 
   depends_on = [module.network]
 }

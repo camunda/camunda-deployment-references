@@ -104,3 +104,15 @@ variable "pe_subnet_address_prefix" {
   type        = list(string)
   default     = ["10.1.2.0/24"] # Use a different range than other subnets
 }
+
+variable "system_node_pool_zones" {
+  type        = list(string)
+  description = "AZs for system node pool, e.g. [\"1\",\"2\",\"3\"]"
+  default     = ["1", "2", "3"]
+}
+
+variable "user_node_pool_zones" {
+  type        = list(string)
+  description = "AZs for user node pool"
+  default     = ["1", "2", "3"]
+}

@@ -118,6 +118,18 @@ variable "user_node_pool_vm_size" {
   default     = "Standard_D4s_v3"
 }
 
+variable "system_node_pool_zones" {
+  description = "List of AZs for the system node pool"
+  type        = list(string)
+  default     = ["1", "2", "3"]
+}
+
+variable "user_node_pool_zones" {
+  description = "List of AZs for the user node pool"
+  type        = list(string)
+  default     = ["1", "2", "3"]
+}
+
 # PostgreSQL Variables
 variable "postgres_version" {
   description = "PostgreSQL version"

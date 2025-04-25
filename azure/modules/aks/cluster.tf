@@ -21,6 +21,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
     vnet_subnet_id       = var.subnet_id
     node_count           = var.system_node_pool_count
     orchestrator_version = var.kubernetes_version
+    availability_zones   = var.system_node_pool_zones
 
     # Node labels
     node_labels = {
