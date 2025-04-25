@@ -19,7 +19,7 @@ inputs:
 
     max-age-hours:
         description: Maximum age of resources in hours
-        default: '20'
+        default: '12'
 
     target:
         description: Specify an ID to destroy specific resources or "all" to destroy all resources
@@ -32,6 +32,10 @@ inputs:
     module-name:
         description: Name of the module to destroy (e.g., "eks-cluster", "aurora", "opensearch"), or "all" to destroy all modules
         default: all
+
+    fail-on-not-found:
+        description: Whether to fail if no matching resources are found (only for target not 'all')
+        default: 'true'
 
 runs:
     using: composite
@@ -47,4 +51,5 @@ runs:
               fi
 
               ${{ github.action_path }}/scripts/destroy.sh "${{ inputs.s3-backend-bucket }}" ${{ github.action_path }}/../../../aws/modules/ \
-                "${{ inputs.temp-dir }}" ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.module-name }} ${{ inputs.camunda-version }}
+                "${{ inputs.temp-dir }}" ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.module-name }} ${{ inputs.camunda-version }} \
+                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")

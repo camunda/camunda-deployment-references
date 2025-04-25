@@ -18,7 +18,7 @@ inputs:
 
     max-age-hours-cluster:
         description: Maximum age of clusters in hours
-        default: '20'
+        default: '12'
 
     target:
         description: Specify an ID to destroy specific resources or "all" to destroy all resources
@@ -36,6 +36,10 @@ inputs:
 
     delete-ghost-clusters:
         description: Specify whether to delete ghost clusters (true or false)
+        default: 'true'
+
+    fail-on-not-found:
+        description: Whether to fail if no matching resources are found (only for target not 'all')
         default: 'true'
 
 runs:
@@ -96,8 +100,17 @@ runs:
 
               ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
                 ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-single-region/ /tmp/cleanup/ \
-                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
+                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }} \
+                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
 
               if [ "${{ inputs.delete-ghost-clusters }}" == "true" ]; then
                 ${{ github.action_path }}/scripts/cleanup-ghost-clusters.sh ${{ inputs.max-age-hours-cluster }}
               fi
+
+        - name: Upload cleanup logs
+          if: always()
+          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          with:
+              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}
+              path: ./logs/
+              retention-days: 7

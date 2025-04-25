@@ -26,7 +26,7 @@ concurrency:
     cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
 
 env:
-    IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     # please keep those variables synced with daily-cleanup.yml
@@ -158,10 +158,12 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  export TESTS_CLUSTER_ID="${{ needs.configure-tests.outputs.cluster_id }}"
-                  export TESTS_CLUSTER_REGION="${{ env.AWS_REGION }}"
-                  export TESTS_TF_BINARY_NAME="${{ env.TESTS_TF_BINARY_NAME }}"
                   just aws-tf-modules-test ${{ matrix.test_function }} "--junitfile ${{ matrix.test_function }}_unit-tests.xml"
+              env:
+                  TF_STATE_BUCKET_REGION: ${{ env.S3_BUCKET_REGION }}
+                  TESTS_CLUSTER_REGION: ${{ env.AWS_REGION }}
+                  TESTS_TF_BINARY_NAME: ${{ env.TESTS_TF_BINARY_NAME }}
+                  TESTS_CLUSTER_ID: ${{ needs.configure-tests.outputs.cluster_id }}
 
             # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
             - name: Filter logger.go from the test report (too large)
@@ -241,6 +243,7 @@ jobs:
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: '0'
                   target: ${{ needs.configure-tests.outputs.cluster_id }}
+                  fail-on-not-found: 'false' # tests are supposed to cleanup this
 
     report-success:
         name: Report success

@@ -7,7 +7,7 @@ on:
             max_age_hours:
                 description: Maximum age of resources in hours
                 required: true
-                default: '20'
+                default: '12'
     pull_request:
         # the paths should be synced with ../labeler.yml
         paths:
@@ -26,9 +26,9 @@ concurrency:
     cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
 
 env:
-    IS_SCHEDULE: ${{ contains(github.ref, 'refs/heads/schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
 
-    MAX_AGE_HOURS: ${{ github.event.inputs.max_age_hours || '20' }}
+    MAX_AGE_HOURS: ${{ github.event.inputs.max_age_hours || '12' }}
     AWS_PROFILE: infex
 
     # please keep those variables synced with tests.yml
