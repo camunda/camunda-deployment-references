@@ -77,15 +77,9 @@ module "aks" {
   user_node_disk_size_gb = 30
   user_node_pool_zones   = var.user_node_pool_zones
 
-  identity {
-    type                       = "UserAssigned"
-    user_assigned_identity_ids = [module.kms.uami_id]
-  }
-
-  key_management_service {
-    key_vault_key_id         = module.kms.key_vault_key_id
-    key_vault_network_access = "Public"
-  }
+  enable_kms = true
+  uami_id    = module.kms.uami_id
+  kms_key_id = module.kms.key_vault_key_id
 
   depends_on = [module.network]
 }
