@@ -87,6 +87,10 @@ resource "azurerm_key_vault_access_policy" "tf_kv" {
     "Delete",
     "WrapKey",
     "UnwrapKey",
+    "GetRotationPolicy",
+    "SetRotationPolicy",
+    "Update",
+    "Rotate",
   ]
 }
 
