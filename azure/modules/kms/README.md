@@ -21,6 +21,7 @@ No modules.
 | <a name="input_kv_name"></a> [kv\_name](#input\_kv\_name) | Name for the Key Vault | `string` | n/a | yes |
 | <a name="input_location"></a> [location](#input\_location) | Azure region | `string` | n/a | yes |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Name of the Resource Group to house Key Vault & UAMI | `string` | n/a | yes |
+| <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources | `map(string)` | `{}` | no |
 | <a name="input_uai_name"></a> [uai\_name](#input\_uai\_name) | Name for the User-Assigned Managed Identity | `string` | n/a | yes |
 ## Outputs
 

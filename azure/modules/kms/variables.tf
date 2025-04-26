@@ -22,3 +22,9 @@ variable "uai_name" {
   type        = string
   description = "Name for the User-Assigned Managed Identity"
 }
+
+variable "tags" {
+  description = "Tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
