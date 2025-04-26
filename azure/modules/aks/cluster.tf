@@ -42,19 +42,14 @@ resource "azurerm_kubernetes_cluster" "aks" {
     dns_service_ip = var.dns_service_ip
   }
 
-  # only attach the UAMI if KMS is enabled
   identity {
-    type         = var.enable_kms ? "UserAssigned" : "SystemAssigned"
-    identity_ids = var.enable_kms ? [var.uami_id] : []
+    type         = "UserAssigned"
+    identity_ids = [var.uami_id]
   }
 
-  # only render the KMS block if requested
-  dynamic "key_management_service" {
-    for_each = var.enable_kms ? [1] : []
-    content {
-      key_vault_key_id         = var.kms_key_id
-      key_vault_network_access = "Public"
-    }
+  key_management_service {
+    key_vault_key_id         = var.kms_key_id
+    key_vault_network_access = "Public"
   }
 
   private_cluster_enabled = false
