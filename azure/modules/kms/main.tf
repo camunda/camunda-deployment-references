@@ -11,11 +11,10 @@ resource "azurerm_key_vault" "this" {
   tags                            = var.tags
 
   network_acls {
-    default_action = "Deny"            # block everything unless explicitly allowed
-    bypass         = ["AzureServices"] # let Azure infra (AKS control-plane) through
+    default_action = "Deny"          # block everything unless explicitly allowed
+    bypass         = "AzureServices" # let Azure infra (AKS control-plane) through
   }
 
-  soft_delete_enabled        = true # ensure vault can’t be immediately purged
   soft_delete_retention_days = 90   # keep deleted objects for 90 days
   purge_protection_enabled   = true # prevent purge while soft_delete is active
 }
