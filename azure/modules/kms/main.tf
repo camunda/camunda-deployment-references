@@ -67,6 +67,12 @@ resource "azurerm_key_vault_access_policy" "aks_kms" {
   object_id    = azurerm_user_assigned_identity.this.principal_id
 
   key_permissions = [
+    "Get",
+    "List",
+    "Create",
+    "Delete",
+    "Update",
+    "Import",
     "Encrypt",
     "Decrypt",
     "WrapKey",
