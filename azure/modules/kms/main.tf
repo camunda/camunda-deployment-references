@@ -24,7 +24,7 @@ resource "azurerm_key_vault_key" "this" {
   key_vault_id = azurerm_key_vault.this.id
   key_type     = "RSA"
   key_size     = 3072
-  key_opts     = ["Encrypt", "Decrypt"]
+  key_opts     = ["encrypt", "decrypt"]
 
   expiration_date = timeadd(timestamp(), "8760h") # 1 year
 }
@@ -41,7 +41,7 @@ resource "azurerm_key_vault_access_policy" "this" {
   object_id    = azurerm_user_assigned_identity.this.principal_id
 
   key_permissions = [
-    "encrypt",
-    "decrypt",
+    "Encrypt",
+    "Decrypt",
   ]
 }
