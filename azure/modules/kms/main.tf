@@ -36,7 +36,7 @@ resource "azurerm_key_vault" "this" {
   tags                            = var.tags
 
   network_acls {
-    default_action = "Deny"
+    default_action = "Allow"
     bypass         = "AzureServices"
 
     # only allow the runner’s IP
