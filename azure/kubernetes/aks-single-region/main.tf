@@ -77,8 +77,30 @@ module "aks" {
   user_node_disk_size_gb = 30
   user_node_pool_zones   = var.user_node_pool_zones
 
+  identity {
+    type                       = "UserAssigned"
+    user_assigned_identity_ids = [module.kms.uami_id]
+  }
+
+  key_management_service {
+    key_vault_key_id         = module.kms.key_vault_key_id
+    key_vault_network_access = "Public"
+  }
+
   depends_on = [module.network]
 }
+
+module "kms" {
+  source              = "../../modules/kms"
+  resource_group_name = azurerm_resource_group.app_rg.name
+  location            = var.location
+  tags                = var.tags
+
+  kv_name  = "${var.resource_prefix}-kv"
+  key_name = "${var.resource_prefix}-kek"
+  uai_name = "${var.resource_prefix}-uai"
+}
+
 
 # PostgreSQL database
 module "postgres_db" {

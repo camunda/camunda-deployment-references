@@ -5,7 +5,6 @@ resource "azurerm_network_security_group" "aks_nsg" {
   resource_group_name = var.resource_group_name
   tags                = var.tags
 
-  # For testing - allow all internal traffic
   security_rule {
     name                       = "AllowAllInternal"
     priority                   = 100
@@ -18,7 +17,6 @@ resource "azurerm_network_security_group" "aks_nsg" {
     destination_address_prefix = "VirtualNetwork"
   }
 
-  # For testing - allow necessary external traffic
   security_rule {
     name                       = "AllowHTTPS"
     priority                   = 110

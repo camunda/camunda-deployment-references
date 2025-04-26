@@ -8,7 +8,6 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   orchestrator_version  = var.kubernetes_version
   zones                 = var.system_node_pool_zones
 
-  # Node count - simplified for testing
   node_count = var.user_node_pool_count
 
   # Node labels

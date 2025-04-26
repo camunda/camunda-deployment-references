@@ -6,6 +6,7 @@
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_aks"></a> [aks](#module\_aks) | ../../modules/aks | n/a |
+| <a name="module_kms"></a> [kms](#module\_kms) | ../../modules/kms | n/a |
 | <a name="module_network"></a> [network](#module\_network) | ../../modules/network | n/a |
 | <a name="module_postgres_db"></a> [postgres\_db](#module\_postgres\_db) | ../../modules/postgres-db | n/a |
 ## Resources
