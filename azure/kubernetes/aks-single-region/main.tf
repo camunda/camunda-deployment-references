@@ -23,10 +23,6 @@ locals {
   camunda_webmodeler_db_password = "secretvalue%26" # Replace with a password that will be used for connection to the DB on WebModeler db
 }
 
-resource "azurerm_resource_provider_registration" "kv" {
-  name = "Microsoft.KeyVault"
-}
-
 resource "azurerm_resource_group" "app_rg" {
   name     = local.resource_group_name != "" ? local.resource_group_name : "${local.resource_prefix}-rg"
   location = var.location
@@ -107,7 +103,7 @@ module "postgres_db" {
   location            = var.location
   tags                = var.tags
 
-  server_name      = "${var.resource_prefix}-pg-server"
+  server_name      = "${local.resource_prefix}-pg-server"
   admin_username   = local.db_admin_username
   admin_password   = local.db_admin_password
   postgres_version = var.postgres_version
