@@ -16,7 +16,7 @@ locals {
   # grab only the IPv4 CIDRs
   gha_ips = [
     for cidr in local.gha_meta.actions : cidr
-    if !contains(cidr, ":")
+    if length(regexall(":", cidr)) == 0
   ]
 }
 
