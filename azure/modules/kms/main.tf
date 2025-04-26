@@ -1,5 +1,10 @@
 data "azurerm_client_config" "current" {}
 
+# Look up the Terraform Service Principal by its client/app ID
+data "azuread_service_principal" "terraform_sp" {
+  client_id = var.terraform_sp_app_id
+}
+
 resource "azurerm_key_vault" "this" {
   name                            = var.kv_name
   resource_group_name             = var.resource_group_name
@@ -26,7 +31,7 @@ resource "azurerm_key_vault_key" "this" {
   key_size     = 3072
   key_opts     = ["encrypt", "decrypt"]
 
-  expiration_date = timeadd(timestamp(), "8760h") # 1 year
+  expiration_date = timeadd(timestamp(), "8760h") # key expires 1 year from now
 }
 
 resource "azurerm_user_assigned_identity" "this" {
@@ -35,10 +40,11 @@ resource "azurerm_user_assigned_identity" "this" {
   location            = var.location
 }
 
+# Grant AKS's UAMI just the crypto permissions it needs at runtime
 resource "azurerm_key_vault_access_policy" "aks_kms" {
   key_vault_id = azurerm_key_vault.this.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = azurerm_user_assigned_identity.aks_uai.principal_id
+  object_id    = azurerm_user_assigned_identity.this.principal_id
 
   key_permissions = [
     "Encrypt",
@@ -48,10 +54,7 @@ resource "azurerm_key_vault_access_policy" "aks_kms" {
   ]
 }
 
-data "azuread_service_principal" "terraform_sp" {
-  client_id = var.terraform_sp_app_id
-}
-
+# Grant the Terraform SP full key-management permissions so it can create/read/manage the key
 resource "azurerm_key_vault_access_policy" "tf_kv" {
   key_vault_id = azurerm_key_vault.this.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
