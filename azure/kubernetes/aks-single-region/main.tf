@@ -92,6 +92,8 @@ module "kms" {
   kv_name  = "${local.resource_prefix}-kv"
   key_name = "${local.resource_prefix}-kek"
   uai_name = "${local.resource_prefix}-uai"
+
+  terraform_sp_app_id = var.terraform_sp_app_id
 }
 
 

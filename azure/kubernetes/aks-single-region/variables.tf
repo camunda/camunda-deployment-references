@@ -191,3 +191,8 @@ variable "subscription_id" {
   description = "The Azure Subscription ID to deploy into"
   type        = string
 }
+
+variable "terraform_sp_app_id" {
+  type        = string
+  description = "The Service Principal’s Application (client) ID that Terraform is using"
+}

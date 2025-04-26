@@ -28,3 +28,8 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "terraform_sp_app_id" {
+  type        = string
+  description = "The Service Principal’s Application (client) ID that Terraform is using"
+}

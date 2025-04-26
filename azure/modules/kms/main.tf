@@ -35,13 +35,35 @@ resource "azurerm_user_assigned_identity" "this" {
   location            = var.location
 }
 
-resource "azurerm_key_vault_access_policy" "this" {
+resource "azurerm_key_vault_access_policy" "aks_kms" {
   key_vault_id = azurerm_key_vault.this.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = azurerm_user_assigned_identity.this.principal_id
+  object_id    = azurerm_user_assigned_identity.aks_uai.principal_id
 
   key_permissions = [
     "Encrypt",
     "Decrypt",
+    "WrapKey",
+    "UnwrapKey",
   ]
+}
+
+data "azuread_service_principal" "terraform_sp" {
+  client_id = var.terraform_sp_app_id
+}
+
+resource "azurerm_key_vault_access_policy" "tf_kv" {
+  key_vault_id = azurerm_key_vault.this.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = data.azuread_service_principal.terraform_sp.object_id
+
+  key_permissions = [
+    "Get",
+    "List",
+    "Create",
+    "Delete",
+    "WrapKey",
+    "UnwrapKey",
+  ]
+  secret_permissions = []
 }
