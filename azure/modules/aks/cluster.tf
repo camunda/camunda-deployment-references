@@ -7,11 +7,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
   kubernetes_version  = var.kubernetes_version
   tags                = var.tags
 
-  # Identity management
-  identity {
-    type = "SystemAssigned"
-  }
-
   # System node pool configuration
   # For differences between system and user node pools, see: https://learn.microsoft.com/en-us/azure/aks/node-pool-overview
   default_node_pool {
@@ -49,8 +44,8 @@ resource "azurerm_kubernetes_cluster" "aks" {
 
   # only attach the UAMI if KMS is enabled
   identity {
-    type                       = var.enable_kms ? "UserAssigned" : "SystemAssigned"
-    user_assigned_identity_ids = var.enable_kms ? [var.uami_id] : []
+    type         = var.enable_kms ? "UserAssigned" : "SystemAssigned"
+    identity_ids = var.enable_kms ? [var.uami_id] : []
   }
 
   # only render the KMS block if requested
