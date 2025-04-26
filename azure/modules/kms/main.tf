@@ -8,6 +8,7 @@ resource "azurerm_key_vault" "this" {
   sku_name                        = "standard"
   enabled_for_disk_encryption     = true
   enabled_for_template_deployment = true
+  tags                            = var.tags
 
   network_acls {
     default_action = "Deny"            # block everything unless explicitly allowed
