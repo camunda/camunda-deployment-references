@@ -1,3 +1,8 @@
+#########################################
+# providers / data sources / locals
+#########################################
+
+# Azure client info
 data "azurerm_client_config" "current" {}
 
 # Lookup the Terraform SP so we can grant it permissions
@@ -5,21 +10,20 @@ data "azuread_service_principal" "terraform_sp" {
   client_id = var.terraform_sp_app_id
 }
 
-data "http" "gha_meta" {
-  url = "https://api.github.com/meta"
+# Fetch this runner’s public IPv4 at plan time
+data "http" "my_ip" {
+  url = "https://ifconfig.me/ip"
 }
 
 locals {
-  # parse the JSON once
-  gha_meta = jsondecode(data.http.gha_meta.response_body)
-
-  # grab only the IPv4 CIDRs
-  gha_ips = [
-    for cidr in local.gha_meta.actions : cidr
-    if length(regexall(":", cidr)) == 0
-  ]
+  # strip newline and build a /32 CIDR
+  runner_cidr = "${chomp(data.http.my_ip.response_body)}/32"
 }
 
+
+#########################################
+# Key Vault
+#########################################
 
 resource "azurerm_key_vault" "this" {
   name                            = var.kv_name
@@ -33,13 +37,22 @@ resource "azurerm_key_vault" "this" {
 
   network_acls {
     default_action = "Deny"
-    bypass         = "AzureServices"
-    ip_rules       = local.gha_ips
+    bypass         = ["AzureServices"]
+
+    # only allow the runner’s IP
+    ip_rules = [
+      local.runner_cidr,
+    ]
   }
 
   soft_delete_retention_days = 90
   purge_protection_enabled   = true
 }
+
+
+#########################################
+# User-Assigned Identity & Access
+#########################################
 
 resource "azurerm_user_assigned_identity" "this" {
   name                = var.uai_name
@@ -47,7 +60,7 @@ resource "azurerm_user_assigned_identity" "this" {
   location            = var.location
 }
 
-# AKS UAMI needs wrap/unwrap at runtime
+# AKS needs wrap/unwrap
 resource "azurerm_key_vault_access_policy" "aks_kms" {
   key_vault_id = azurerm_key_vault.this.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
@@ -61,7 +74,7 @@ resource "azurerm_key_vault_access_policy" "aks_kms" {
   ]
 }
 
-# Terraform SP needs full key-management rights before key creation
+# Terraform SP needs full key rights
 resource "azurerm_key_vault_access_policy" "tf_kv" {
   key_vault_id = azurerm_key_vault.this.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
@@ -75,8 +88,11 @@ resource "azurerm_key_vault_access_policy" "tf_kv" {
     "WrapKey",
     "UnwrapKey",
   ]
-  secret_permissions = []
 }
+
+#########################################
+# Actual Key
+#########################################
 
 resource "azurerm_key_vault_key" "this" {
   depends_on      = [azurerm_key_vault_access_policy.tf_kv]
