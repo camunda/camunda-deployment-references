@@ -23,6 +23,9 @@ locals {
   camunda_webmodeler_db_password = "secretvalue%26" # Replace with a password that will be used for connection to the DB on WebModeler db
 }
 
+resource "azurerm_resource_provider_registration" "kv" {
+  namespace = "Microsoft.KeyVault"
+}
 
 resource "azurerm_resource_group" "app_rg" {
   name     = local.resource_group_name != "" ? local.resource_group_name : "${local.resource_prefix}-rg"
@@ -90,9 +93,9 @@ module "kms" {
   location            = var.location
   tags                = var.tags
 
-  kv_name  = "${var.resource_prefix}-kv"
-  key_name = "${var.resource_prefix}-kek"
-  uai_name = "${var.resource_prefix}-uai"
+  kv_name  = "${local.resource_prefix}-kv"
+  key_name = "${local.resource_prefix}-kek"
+  uai_name = "${local.resource_prefix}-uai"
 }
 
 
