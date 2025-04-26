@@ -14,6 +14,11 @@ data "http" "gha_meta" {
 
 locals {
   gha_ips = jsondecode(data.http.gha_meta.body).actions
+
+  gha_actions_ipv4 = [
+    for cidr in local.gha_meta.actions : cidr
+    if !contains(cidr, ":")
+  ]
 }
 
 
@@ -30,7 +35,7 @@ resource "azurerm_key_vault" "this" {
   network_acls {
     default_action = "Deny"
     bypass         = "AzureServices"
-    ip_rules       = local.gha_ips
+    ip_rules       = local.gha_actions_ipv4
   }
 
   soft_delete_retention_days = 90
