@@ -24,7 +24,7 @@ locals {
 }
 
 resource "azurerm_resource_provider_registration" "kv" {
-  namespace = "Microsoft.KeyVault"
+  name = "Microsoft.KeyVault"
 }
 
 resource "azurerm_resource_group" "app_rg" {
