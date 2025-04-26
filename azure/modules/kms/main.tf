@@ -5,6 +5,18 @@ data "azuread_service_principal" "terraform_sp" {
   client_id = var.terraform_sp_app_id
 }
 
+data "http" "gha_meta" {
+  url = "https://api.github.com/meta"
+  request_headers = {
+    Accept = "application/vnd.github.v3+json"
+  }
+}
+
+locals {
+  gha_ips = jsondecode(data.http.gha_meta.body).actions
+}
+
+
 resource "azurerm_key_vault" "this" {
   name                            = var.kv_name
   resource_group_name             = var.resource_group_name
@@ -18,6 +30,7 @@ resource "azurerm_key_vault" "this" {
   network_acls {
     default_action = "Deny"
     bypass         = "AzureServices"
+    ip_rules       = local.gha_ips
   }
 
   soft_delete_retention_days = 90
