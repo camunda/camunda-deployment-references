@@ -96,6 +96,7 @@ module "kms" {
   key_name = "${local.resource_prefix}-kek"
   uai_name = "${local.resource_prefix}-uai"
 
+  aks_subnet_id       = module.network.aks_subnet_id
   terraform_sp_app_id = var.terraform_sp_app_id
 }
 

@@ -33,3 +33,8 @@ variable "terraform_sp_app_id" {
   type        = string
   description = "The Service Principal’s Application (client) ID that Terraform is using"
 }
+
+variable "aks_subnet_id" {
+  type        = string
+  description = "The subnet ID for the AKS cluster"
+}

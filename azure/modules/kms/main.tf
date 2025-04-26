@@ -36,12 +36,16 @@ resource "azurerm_key_vault" "this" {
   tags                            = var.tags
 
   network_acls {
-    default_action = "Allow"
+    default_action = "Deny"
     bypass         = "AzureServices"
 
     # only allow the runner’s IP
     ip_rules = [
       local.runner_cidr,
+    ]
+
+    virtual_network_subnet_ids = [
+      var.aks_subnet_id
     ]
   }
 
