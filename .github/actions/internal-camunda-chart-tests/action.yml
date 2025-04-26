@@ -292,7 +292,8 @@ runs:
 
               PORT_FORWARD_PIDS=()
 
-              if [[ "$DOMAIN_NAME" == "" ]]; then
+              # Dual-Region includes the portforwarding itself, therefore skipping it here
+              if [[ -z "$DOMAIN_NAME" && -z "$CLUSTER_2_NAME" ]]; then
                 # Without domain:
                 source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 
