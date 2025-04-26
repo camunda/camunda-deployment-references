@@ -83,6 +83,7 @@ module "aks" {
   depends_on = [
     module.network,
     module.kms,
+    module.kms.azurerm_key_vault_access_policy.aks_kms
   ]
 }
 
