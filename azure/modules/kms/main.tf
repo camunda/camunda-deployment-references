@@ -7,15 +7,14 @@ data "azuread_service_principal" "terraform_sp" {
 
 data "http" "gha_meta" {
   url = "https://api.github.com/meta"
-  request_headers = {
-    Accept = "application/vnd.github.v3+json"
-  }
 }
 
 locals {
-  gha_ips = jsondecode(data.http.gha_meta.body).actions
+  # parse the JSON once
+  gha_meta = jsondecode(data.http.gha_meta.response_body)
 
-  gha_actions_ipv4 = [
+  # grab only the IPv4 CIDRs
+  gha_ips = [
     for cidr in local.gha_meta.actions : cidr
     if !contains(cidr, ":")
   ]
@@ -35,7 +34,7 @@ resource "azurerm_key_vault" "this" {
   network_acls {
     default_action = "Deny"
     bypass         = "AzureServices"
-    ip_rules       = local.gha_actions_ipv4
+    ip_rules       = local.gha_ips
   }
 
   soft_delete_retention_days = 90
