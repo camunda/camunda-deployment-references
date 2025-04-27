@@ -3,7 +3,7 @@ module github.com/camunda/camunda-deployment-references/aws/ec2
 go 1.23.2
 
 require (
-	github.com/aws/aws-sdk-go v1.55.6
+	github.com/aws/aws-sdk-go v1.55.7
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.46.0
 	github.com/gruntwork-io/terratest v0.48.2
