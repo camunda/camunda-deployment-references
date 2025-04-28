@@ -39,9 +39,6 @@ jobs:
 
                   python .github/scripts/get_acm_versions.py
 
-                  echo "Removing copied script .github/scripts/get_acm_versions.py"
-                  rm .github/scripts/get_acm_versions.py
-
                   echo "Printing: ./docs/openshift_acm_versions.txt"
                   cat "./docs/openshift_acm_versions.txt"
 
@@ -51,6 +48,7 @@ jobs:
                   set -euo pipefail
 
                   # stash the changes
+                  rm -f .github/scripts/get_acm_versions.py
                   git add docs/openshift_acm_versions.txt
 
                   # Check if there are any staged changes (changes added to the index)
