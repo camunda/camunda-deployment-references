@@ -1,6 +1,10 @@
 ---
 name: Tests - Golden - Azure Kubernetes AKS Single Region
 
+permissions:
+    id-token: write
+    contents: read
+
 on:
     workflow_dispatch:
     pull_request:
