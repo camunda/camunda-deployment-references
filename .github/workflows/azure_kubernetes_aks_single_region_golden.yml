@@ -1,0 +1,99 @@
+---
+name: Tests - Golden - Azure Kubernetes AKS Single Region
+
+on:
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/azure_kubernetes_aks_single_region_golden.yml
+            - .tool-versions
+            - azure/modules/aks/**
+            - azure/modules/kms/**
+            - azure/modules/network/**
+            - azure/modules/postgres-db/**
+            - azure/kubernetes/aks-single-region/**
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+
+    # keep this synced with other workflows
+    AWS_PROFILE: infraex
+    AWS_REGION: eu-west-2
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    S3_BUCKET_KEY: golden.tfstate
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    compare:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            pull-requests: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@14912e07221cd650bf9286e2a4733a138ca46374 # 1.3.6
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AZURE_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Export module_dir depending on scenario
+              id: set-module-dir
+              run: echo "MODULE_DIR=./azure/kubernetes/aks-single-region/" | tee -a "$GITHUB_ENV"
+
+            - name: Azure Login with OIDC
+              uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
+              with:
+                  client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+
+            - name: Run Terraform Golden Plan Comparison
+              uses: ./.github/actions/internal-terraform-golden-plan
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              with:
+                  module-dir: ${{ env.MODULE_DIR }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key: ${{ env.S3_BUCKET_KEY }}

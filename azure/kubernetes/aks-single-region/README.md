@@ -35,6 +35,7 @@
 | <a name="input_postgres_storage_mb"></a> [postgres\_storage\_mb](#input\_postgres\_storage\_mb) | Storage size in MB for PostgreSQL | `number` | `32768` | no |
 | <a name="input_postgres_version"></a> [postgres\_version](#input\_postgres\_version) | PostgreSQL version | `string` | `"15"` | no |
 | <a name="input_postgres_zone"></a> [postgres\_zone](#input\_postgres\_zone) | Primary Availability Zone for PostgreSQL server | `string` | `"1"` | no |
+| <a name="input_resource_prefix_placeholder"></a> [resource\_prefix\_placeholder](#input\_resource\_prefix\_placeholder) | Placeholder for the resource prefix | `string` | `""` | no |
 | <a name="input_subscription_id"></a> [subscription\_id](#input\_subscription\_id) | The Azure Subscription ID to deploy into | `string` | n/a | yes |
 | <a name="input_system_node_pool_count"></a> [system\_node\_pool\_count](#input\_system\_node\_pool\_count) | Number of nodes in the system node pool | `number` | `1` | no |
 | <a name="input_system_node_pool_vm_size"></a> [system\_node\_pool\_vm\_size](#input\_system\_node\_pool\_vm\_size) | VM size for the system node pool | `string` | `"Standard_D2s_v3"` | no |

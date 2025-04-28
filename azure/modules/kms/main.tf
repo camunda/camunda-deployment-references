@@ -10,17 +10,6 @@ data "azuread_service_principal" "terraform_sp" {
   client_id = var.terraform_sp_app_id
 }
 
-# Fetch this runner’s public IPv4 at plan time
-data "http" "my_ip" {
-  url = "https://ifconfig.me/ip"
-}
-
-locals {
-  # strip newline and build a /32 CIDR
-  runner_cidr = "${chomp(data.http.my_ip.response_body)}/32"
-}
-
-
 #########################################
 # Key Vault
 #########################################
@@ -38,11 +27,6 @@ resource "azurerm_key_vault" "this" {
   network_acls {
     default_action = "Allow"
     bypass         = "AzureServices"
-
-    # only allow the runner’s IP
-    ip_rules = [
-      local.runner_cidr,
-    ]
   }
 
   soft_delete_retention_days = 90

@@ -165,3 +165,9 @@ variable "terraform_sp_app_id" {
   type        = string
   description = "The Service Principals Application (client) ID that Terraform is using"
 }
+
+variable "resource_prefix_placeholder" {
+  description = "Placeholder for the resource prefix"
+  type        = string
+  default     = ""
+}
