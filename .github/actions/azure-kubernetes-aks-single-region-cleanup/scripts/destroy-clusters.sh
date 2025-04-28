@@ -72,14 +72,35 @@ destroy_cluster() {
   cp "$SCRIPT_DIR/config" "/tmp/$cluster_id/config.tf"
   cd "/tmp/$cluster_id" || exit 1
 
-  # Azure-specific retry logic (unchanged)
+  # ─── Azure-specific retry logic: dynamically grab the RG name ───
   if [[ "$RETRY_DESTROY" == "true" ]]; then
-    RG_NAME="${RESOURCE_GROUP_NAME}"
-    echo "Forcing deletion of Azure Resource Group '$RG_NAME' to clean up any unmanaged resources."
-    az group delete \
-      --name "$RG_NAME" \
-      --yes \
-      --no-wait
+    # initialize backend so we can pull the remote state
+    terraform init \
+      -backend-config="bucket=$BUCKET" \
+      -backend-config="key=$key" \
+      -backend-config="region=$AWS_S3_REGION" \
+      || return 1
+
+    # pull the TF state JSON and parse out the resource_group name
+    state_json=$(terraform state pull)
+    RG_NAME=$(jq -r '
+      .resources[]
+      | select(.type == "azurerm_resource_group")
+      | .instances[0].attributes.name
+    ' <<<"$state_json")
+
+    if [[ -z "$RG_NAME" || "$RG_NAME" == "null" ]]; then
+      echo "[$cluster_id] WARN: could not find any azurerm_resource_group in state"
+    else
+      echo "[$cluster_id] Forcing deletion of Azure Resource Group '$RG_NAME'…"
+      az group delete \
+        --name "$RG_NAME" \
+        --yes \
+        --no-wait
+    fi
+  else
+    # run init again later, before destroy()
+    :
   fi
 
   echo "tf state: bucket=$BUCKET key=$key region=$AWS_S3_REGION"
