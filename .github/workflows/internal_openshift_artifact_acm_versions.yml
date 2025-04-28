@@ -17,11 +17,19 @@ jobs:
 
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  ref: gh-pages
 
             - name: Retrieve OpenShift ACM versions
               shell: bash
               run: |
                   set -euo pipefail
+
+                  # Fetch the latest from the main branch
+                  git fetch origin main
+
+                  # Checkout the script from main branch
+                  git checkout origin/main -- .github/scripts/get_acm_versions.py
 
                   python3 -m venv acm-venv
                   source acm-venv/bin/activate
@@ -40,29 +48,16 @@ jobs:
 
                   # stash the changes
                   git add docs/openshift_acm_versions.txt
-                  git stash push docs/openshift_acm_versions.txt || true
-
-                  # sync branches
-                  git fetch --all
-                  git branch -r
-
-                  git checkout -b gh-pages
-                  git pull origin gh-pages --rebase
-
-                  git stash apply || true  # ignore nothing changed
 
                   # Check if there are any staged changes (changes added to the index)
                   if git diff --cached --exit-code docs/openshift_acm_versions.txt; then
-                    echo "No changes detected after applying the stash. No commit necessary."
+                    echo "No changes detected. No commit necessary."
                   else
                     git config --local user.name "github-actions[bot]"
                     git config --local user.email "github-actions[bot]@users.noreply.github.com"
 
-                    # Add and commit the changes
-                    git add docs/openshift_acm_versions.txt
                     git commit -m "Update OpenShift ACM versions"
 
-                    # Push the changes to the gh-pages branch
                     git push origin gh-pages
                   fi
               env:
