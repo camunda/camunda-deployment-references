@@ -42,13 +42,16 @@ jobs:
                   echo "Printing: ./docs/openshift_acm_versions.txt"
                   cat "./docs/openshift_acm_versions.txt"
 
+                  echo "Cleanup of the copied script"
+                  rm .github/scripts/get_acm_versions.py
+                  git restore --staged .github/scripts/get_acm_versions.py || true
+
             - name: Stash changes and checkout gh-pages branch and push OpenShift ACM versions file to gh-pages
               shell: bash
               run: |
                   set -euo pipefail
 
                   # stash the changes
-                  rm -f .github/scripts/get_acm_versions.py
                   git add docs/openshift_acm_versions.txt
 
                   # Check if there are any staged changes (changes added to the index)
