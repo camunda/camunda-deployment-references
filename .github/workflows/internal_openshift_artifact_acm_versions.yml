@@ -37,10 +37,13 @@ jobs:
 
                   pip install requests bs4
 
-                  python "$GITHUB_WORKSPACE/.github/scripts/get_acm_versions.py"
+                  python .github/scripts/get_acm_versions.py
 
-                  echo "Printing: $GITHUB_WORKSPACE/docs/openshift_acm_versions.txt"
-                  cat "$GITHUB_WORKSPACE/docs/openshift_acm_versions.txt"
+                  echo "Removing copied script .github/scripts/get_acm_versions.py"
+                  rm .github/scripts/get_acm_versions.py
+
+                  echo "Printing: ./docs/openshift_acm_versions.txt"
+                  cat "./docs/openshift_acm_versions.txt"
 
             - name: Stash changes and checkout gh-pages branch and push OpenShift ACM versions file to gh-pages
               shell: bash
