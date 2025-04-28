@@ -14,8 +14,8 @@
 | Name | Type |
 |------|------|
 | [azurerm_resource_group.app_rg](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
-| [azurerm_resource_provider_registration.aks_apiserver_vnet_preview](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_provider_registration) | resource |
 | [azurerm_resource_provider_registration.container_service](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_provider_registration) | resource |
+| [azurerm_resource_provider_registration.enable_apiserver_vnet](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_provider_registration) | resource |
 ## Inputs
 
 | Name | Description | Type | Default | Required |

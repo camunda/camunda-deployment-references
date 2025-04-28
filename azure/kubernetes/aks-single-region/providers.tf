@@ -1,6 +1,4 @@
 terraform {
-  required_version = ">= 1.5.0"
-
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
@@ -11,23 +9,26 @@ terraform {
 
 provider "azurerm" {
   features {}
-  subscription_id = var.subscription_id
+
+  # if you lack RP-registration rights, opt out of auto-registration
+  skip_provider_registration = true
 }
 
+# 1) Ensure the ContainerService RP itself is registered
 resource "azurerm_resource_provider_registration" "container_service" {
-  provider_namespace = "Microsoft.ContainerService"
+  name = "Microsoft.ContainerService"
 }
 
-
-resource "azurerm_resource_provider_registration" "aks_apiserver_vnet_preview" {
-  provider_namespace = "Microsoft.ContainerService"
+# 2) Turn on the APIServer VNet-integration preview feature
+resource "azurerm_resource_provider_registration" "enable_apiserver_vnet" {
+  # note: same provider namespace as above
+  name = "Microsoft.ContainerService"
 
   feature {
     name       = "EnableAPIServerVnetIntegrationPreview"
     registered = true
   }
 
-  # ensure the provider is registered first
   depends_on = [
     azurerm_resource_provider_registration.container_service
   ]
