@@ -572,6 +572,10 @@ jobs:
               run: |
                   set -euo pipefail
 
+                  echo "Debug MCH installation issues"
+                  # https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.13/html/release_notes/acm-release-notes#upgrade-stuck
+                  oc --context="$CLUSTER_1_NAME" get multiclusterhubs -n open-cluster-management -o yaml
+
                   kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po
                   kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
                     echo -e "\n### Failed Pod: ${pod_name} ###\n"
