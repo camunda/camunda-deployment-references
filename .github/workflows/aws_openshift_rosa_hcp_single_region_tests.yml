@@ -268,7 +268,7 @@ jobs:
             # instead of running sequentially in a matrix, we use concurrency to run the different scenarios
             # in parallel but the declinations sequentially
             # max-parallel would limit us to run 1 matrix job but this way we can run 2 jobs in parallel.
-            group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.scenario.name }}
+            group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.distro.name }}-${{ matrix.scenario.name }}
             cancel-in-progress: false
         env:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
