@@ -48,19 +48,20 @@ jobs:
                   git checkout -b gh-pages
 
                   git stash apply || true  # ignore nothing changed
-                  cat "$GITHUB_WORKSPACE/docs/openshift_acm_versions.txt"
 
-                  if ! git diff --exit-code docs/openshift_acm_versions.txt; then
-                    # If the file has changed, configure user for automatic commit
+                  # Check if there are any staged changes (changes added to the index)
+                  if git diff --cached --exit-code docs/openshift_acm_versions.txt; then
+                    echo "No changes detected after applying the stash. No commit necessary."
+                  else
                     git config --local user.name "github-actions[bot]"
                     git config --local user.email "github-actions[bot]@users.noreply.github.com"
 
+                    # Add and commit the changes
                     git add docs/openshift_acm_versions.txt
                     git commit -m "Update OpenShift ACM versions"
 
+                    # Push the changes to the gh-pages branch
                     git push origin gh-pages
-                  else
-                    echo "No differences detected after applying the stash. No commit necessary."
                   fi
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
