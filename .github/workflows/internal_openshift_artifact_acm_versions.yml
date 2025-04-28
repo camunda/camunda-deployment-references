@@ -37,7 +37,6 @@ jobs:
               shell: bash
               run: |
                   set -euo pipefail
-                  cat "$GITHUB_WORKSPACE/docs/openshift_acm_versions.txt"
 
                   # stash the changes
                   git add docs/openshift_acm_versions.txt
@@ -49,6 +48,7 @@ jobs:
                   git checkout -b gh-pages
 
                   git stash apply || true  # ignore nothing changed
+                  cat "$GITHUB_WORKSPACE/docs/openshift_acm_versions.txt"
 
                   if ! git diff --exit-code docs/openshift_acm_versions.txt; then
                     # If the file has changed, configure user for automatic commit
