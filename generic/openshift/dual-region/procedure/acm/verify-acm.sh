@@ -14,4 +14,4 @@ done
 
 # Example output:
 # NAME                                  DISPLAY                                      VERSION   REPLACES                              PHASE
-# advanced-cluster-management.v2.12.2   Advanced Cluster Management for Kubernetes   2.12.2    advanced-cluster-management.v2.12.1   Succeeded
+# advanced-cluster-management.v2.13.2   Advanced Cluster Management for Kubernetes   2.13.2    advanced-cluster-management.v2.13.2   Succeeded
