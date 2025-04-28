@@ -1,7 +1,6 @@
 locals {
   resource_prefix     = ""              # Change this to a name of your choice
-  cluster_name        = ""              # Change this to a name of your choice, if not provided, it will be set to resource_prefix-aks
-  resource_group_name = ""              # Change this to a name of your choice, if not provided, it will be set to resource_prefix-rg
+  resource_group_name = ""              # Change this to a name of your choice, if not provided, it will be set to resource_prefix-rg, if provided, it will be used as the resource group name
   location            = "swedencentral" # Change this to your desired Azure region
   # renovate: datasource=endoflife-date depName=azure-aks versioning=loose
   kubernetes_version = "1.32" # Change this to your desired Kubernetes version (aks - major.minor)
@@ -49,7 +48,7 @@ module "aks" {
   source              = "../../modules/aks"
   resource_group_name = azurerm_resource_group.app_rg.name
   location            = var.location
-  aks_cluster_name    = local.cluster_name != "" ? local.cluster_name : "${local.resource_prefix}-aks"
+  aks_cluster_name    = "${local.resource_prefix}-aks"
   subnet_id           = module.network.aks_subnet_id
   tags                = var.tags
 
