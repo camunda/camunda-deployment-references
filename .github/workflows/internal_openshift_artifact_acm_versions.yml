@@ -43,8 +43,11 @@ jobs:
                   git stash push docs/openshift_acm_versions.txt || true
 
                   # sync branches
-                  git checkout gh-pages || git checkout -b gh-pages
-                  git pull origin gh-pages
+                  git fetch --all
+                  git branch -r
+
+                  git checkout -b gh-pages
+                  git pull origin gh-pages --rebase
 
                   git stash apply || true  # ignore nothing changed
 
