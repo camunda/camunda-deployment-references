@@ -1,10 +1,6 @@
 ---
 name: Tests - Golden - Azure Kubernetes AKS Single Region
 
-permissions:
-    id-token: write
-    contents: read
-
 on:
     workflow_dispatch:
     pull_request:
@@ -49,6 +45,7 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         permissions:
+            id-token: write
             contents: write
             pull-requests: write
         steps:
