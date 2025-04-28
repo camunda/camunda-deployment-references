@@ -47,6 +47,8 @@ jobs:
                   git branch -r
                   git checkout -b gh-pages
 
+                  git stash apply || true  # ignore nothing changed
+
                   git diff --exit-code docs/openshift_acm_versions.txt || {
                     git config --local user.name "github-actions[bot]"
                     git config --local user.email "github-actions[bot]@users.noreply.github.com"
