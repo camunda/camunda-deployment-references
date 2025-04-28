@@ -4,24 +4,6 @@ variable "location" {
   default     = "swedencentral"
 }
 
-variable "resource_group_name" {
-  description = "Name of the Azure resource group"
-  type        = string
-  default     = "camunda-rg"
-}
-
-variable "resource_prefix" {
-  description = "Prefix for resource names"
-  type        = string
-  default     = "camunda"
-}
-
-variable "kubernetes_version" {
-  description = "Kubernetes version to use for the AKS cluster"
-  type        = string
-  default     = "1.30.1"
-}
-
 # Network configuration
 variable "vnet_address_space" {
   description = "Address space for the virtual network"
@@ -88,12 +70,6 @@ variable "tags" {
 }
 
 # AKS module specific variables
-variable "cluster_name" {
-  description = "Optional override for the AKS cluster name"
-  type        = string
-  default     = ""
-}
-
 variable "system_node_pool_count" {
   description = "Number of nodes in the system node pool"
   type        = number
@@ -135,19 +111,6 @@ variable "postgres_version" {
   description = "PostgreSQL version"
   type        = string
   default     = "15"
-}
-
-variable "db_admin_username" {
-  description = "Administrator username for PostgreSQL"
-  type        = string
-  default     = "pgadmin"
-}
-
-variable "db_admin_password" {
-  description = "Administrator password for PostgreSQL"
-  type        = string
-  default     = "P@ssw0rd1234!" # FOR TESTING ONLY - not for production
-  sensitive   = true
 }
 
 variable "postgres_sku_tier" {
@@ -194,5 +157,5 @@ variable "subscription_id" {
 
 variable "terraform_sp_app_id" {
   type        = string
-  description = "The Service Principal’s Application (client) ID that Terraform is using"
+  description = "The Service Principals Application (client) ID that Terraform is using"
 }
