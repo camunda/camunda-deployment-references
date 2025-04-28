@@ -41,7 +41,7 @@ jobs:
                   git add docs/openshift_acm_versions.txt
                   git stash push docs/openshift_acm_versions.txt || true
 
-                  git checkout gh-pages
+                  git checkout -b gh-pages
 
                   git diff --exit-code docs/openshift_acm_versions.txt || {
                     git config --local user.name "github-actions[bot]"
