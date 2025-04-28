@@ -37,6 +37,7 @@ jobs:
               shell: bash
               run: |
                   set -euo pipefail
+                  cat "$GITHUB_WORKSPACE/docs/openshift_acm_versions.txt"
 
                   # stash the changes
                   git add docs/openshift_acm_versions.txt
