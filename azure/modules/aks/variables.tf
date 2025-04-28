@@ -105,6 +105,11 @@ variable "pe_subnet_address_prefix" {
   default     = ["10.1.2.0/24"]
 }
 
+variable "api_server_subnet_id" {
+  description = "The subnet ID to use for AKS API-server VNet integration"
+  type        = string
+}
+
 variable "system_node_pool_zones" {
   type        = list(string)
   description = "AZs for system node pool, e.g. [\"1\",\"2\",\"3\"]"

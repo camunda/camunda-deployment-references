@@ -39,6 +39,11 @@ variable "aks_subnet_id" {
   description = "The subnet ID for the AKS cluster"
 }
 
+variable "api_server_subnet_id" {
+  description = "The subnet ID to use for AKS API-server VNet integration"
+  type        = string
+}
+
 variable "private_endpoint_subnet_id" {
   description = "The ID of the subnet where the private endpoint will be created"
   type        = string

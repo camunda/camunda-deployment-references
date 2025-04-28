@@ -41,6 +41,13 @@ variable "db_subnet_address_prefix" {
   default     = ["10.1.1.0/24"]
 }
 
+variable "apiserver_subnet_address_prefix" {
+  description = "Address prefix for the AKS API-server subnet"
+  type        = list(string)
+  default     = ["10.1.3.0/24"]
+}
+
+
 # AKS network configuration
 variable "aks_network_plugin" {
   description = "Network plugin to use for Kubernetes networking"

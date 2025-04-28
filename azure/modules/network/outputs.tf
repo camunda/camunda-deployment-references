@@ -37,3 +37,8 @@ output "keyvault_private_dns_zone_id" {
   description = "ID of the Key Vault private DNS zone"
   value       = azurerm_private_dns_zone.keyvault.id
 }
+
+output "apiserver_subnet_id" {
+  description = "ID of the subnet for AKS API server VNet integration"
+  value       = azurerm_subnet.aks_apiserver_subnet.id
+}

@@ -46,12 +46,13 @@ module "network" {
 }
 
 module "aks" {
-  source              = "../../modules/aks"
-  resource_group_name = azurerm_resource_group.app_rg.name
-  location            = var.location
-  aks_cluster_name    = local.cluster_name != "" ? local.cluster_name : "${local.resource_prefix}-aks"
-  subnet_id           = module.network.aks_subnet_id
-  tags                = var.tags
+  source               = "../../modules/aks"
+  resource_group_name  = azurerm_resource_group.app_rg.name
+  location             = var.location
+  aks_cluster_name     = local.cluster_name != "" ? local.cluster_name : "${local.resource_prefix}-aks"
+  subnet_id            = module.network.aks_subnet_id
+  api_server_subnet_id = module.network.apiserver_subnet_id
+  tags                 = var.tags
 
   # Production-grade configuration with separate node pools
   kubernetes_version = var.kubernetes_version
@@ -62,7 +63,6 @@ module "aks" {
   pod_cidr       = var.aks_pod_cidr
   service_cidr   = var.aks_service_cidr
   dns_service_ip = var.aks_dns_service_ip
-  # docker_bridge_cidr parameter removed
 
   # System node pool configuration (for Kubernetes system components)
   system_node_pool_vm_size = var.system_node_pool_vm_size

@@ -15,6 +15,7 @@ No modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_aks_cluster_name"></a> [aks\_cluster\_name](#input\_aks\_cluster\_name) | Name of the AKS cluster | `string` | n/a | yes |
+| <a name="input_api_server_subnet_id"></a> [api\_server\_subnet\_id](#input\_api\_server\_subnet\_id) | The subnet ID to use for AKS API-server VNet integration | `string` | n/a | yes |
 | <a name="input_dns_service_ip"></a> [dns\_service\_ip](#input\_dns\_service\_ip) | IP address within the service CIDR that will be used for DNS | `string` | `"10.0.0.10"` | no |
 | <a name="input_enable_kms"></a> [enable\_kms](#input\_enable\_kms) | Turn on KMS envelope-encryption for AKS secrets | `bool` | `false` | no |
 | <a name="input_kms_key_id"></a> [kms\_key\_id](#input\_kms\_key\_id) | Key Vault Key ID for envelope-encryption (required if enable\_kms=true) | `string` | `""` | no |

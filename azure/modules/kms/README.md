@@ -22,6 +22,7 @@ No modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_aks_subnet_id"></a> [aks\_subnet\_id](#input\_aks\_subnet\_id) | The subnet ID for the AKS cluster | `string` | n/a | yes |
+| <a name="input_api_server_subnet_id"></a> [api\_server\_subnet\_id](#input\_api\_server\_subnet\_id) | The subnet ID to use for AKS API-server VNet integration | `string` | n/a | yes |
 | <a name="input_key_name"></a> [key\_name](#input\_key\_name) | Name for the key inside Key Vault | `string` | n/a | yes |
 | <a name="input_keyvault_private_dns_zone_id"></a> [keyvault\_private\_dns\_zone\_id](#input\_keyvault\_private\_dns\_zone\_id) | The ID of the private DNS zone for Key Vault | `string` | n/a | yes |
 | <a name="input_kv_name"></a> [kv\_name](#input\_kv\_name) | Name for the Key Vault | `string` | n/a | yes |
