@@ -72,32 +72,17 @@ destroy_cluster() {
   cp "$SCRIPT_DIR/config" "/tmp/$cluster_id/config.tf"
   cd "/tmp/$cluster_id" || exit 1
 
-  # ─── Azure-specific retry logic: dynamically grab the RG name ───
+  # ─── Azure-specific retry logic ───
   if [[ "$RETRY_DESTROY" == "true" ]]; then
-    # initialize backend so we can pull the remote state
-    terraform init \
-      -backend-config="bucket=$BUCKET" \
-      -backend-config="key=$key" \
-      -backend-config="region=$AWS_S3_REGION" \
-      || return 1
-
-    # pull the TF state JSON and parse out the resource_group name
-    state_json=$(terraform state pull)
-    RG_NAME=$(jq -r '
-      .resources[]
-      | select(.type == "azurerm_resource_group")
-      | .instances[0].attributes.name
-    ' <<<"$state_json")
-
-    if [[ -z "$RG_NAME" || "$RG_NAME" == "null" ]]; then
-      echo "[$cluster_id] WARN: could not find any azurerm_resource_group in state"
-    else
-      echo "[$cluster_id] Forcing deletion of Azure Resource Group '$RG_NAME'…"
-      az group delete \
-        --name "$RG_NAME" \
-        --yes \
-        --no-wait
-    fi
+    # Delete all resource groups older than $MIN_AGE_IN_HOURS hours
+    for rg in $(az graph query -q "
+        ResourceContainers
+        | where type == 'microsoft.resources/subscriptions/resourcegroups'
+        | where createdTime < ago(${MIN_AGE_IN_HOURS}h)
+        | project name
+    " -o tsv); do
+      az group delete --name "$rg" --yes --no-wait
+    done
   else
     # run init again later, before destroy()
     :

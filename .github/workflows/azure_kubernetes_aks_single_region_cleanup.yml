@@ -108,6 +108,14 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
+            - name: Install Azure CLI
+              run: |
+                  curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash   # installs v2.x of az :contentReference[oaicite:1]{index=1}
+
+            - name: Install Resource Graph extension
+              run: |
+                  az extension add --name resource-graph --only-show-errors
+
             - name: Export S3_BACKEND_BUCKET based on matrix
               id: s3_prefix
               run: |
