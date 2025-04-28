@@ -35,7 +35,7 @@ env:
 
     MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
 
-    # please keep those variables synced with azure_kubernetes_eks_single_region_tests.yml
+    # please keep those variables synced with azure_kubernetes_aks_single_region_tests.yml
     AWS_PROFILE: infex
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
