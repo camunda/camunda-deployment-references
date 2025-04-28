@@ -23,8 +23,10 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_aks_subnet_id"></a> [aks\_subnet\_id](#input\_aks\_subnet\_id) | The subnet ID for the AKS cluster | `string` | n/a | yes |
 | <a name="input_key_name"></a> [key\_name](#input\_key\_name) | Name for the key inside Key Vault | `string` | n/a | yes |
+| <a name="input_keyvault_private_dns_zone_id"></a> [keyvault\_private\_dns\_zone\_id](#input\_keyvault\_private\_dns\_zone\_id) | The ID of the private DNS zone for Key Vault | `string` | n/a | yes |
 | <a name="input_kv_name"></a> [kv\_name](#input\_kv\_name) | Name for the Key Vault | `string` | n/a | yes |
 | <a name="input_location"></a> [location](#input\_location) | Azure region | `string` | n/a | yes |
+| <a name="input_private_endpoint_subnet_id"></a> [private\_endpoint\_subnet\_id](#input\_private\_endpoint\_subnet\_id) | The ID of the subnet where the private endpoint will be created | `string` | n/a | yes |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Name of the Resource Group to house Key Vault & UAMI | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources | `map(string)` | `{}` | no |
 | <a name="input_terraform_sp_app_id"></a> [terraform\_sp\_app\_id](#input\_terraform\_sp\_app\_id) | The Service Principal’s Application (client) ID that Terraform is using | `string` | n/a | yes |

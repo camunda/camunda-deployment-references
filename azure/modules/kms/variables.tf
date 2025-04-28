@@ -38,3 +38,13 @@ variable "aks_subnet_id" {
   type        = string
   description = "The subnet ID for the AKS cluster"
 }
+
+variable "private_endpoint_subnet_id" {
+  description = "The ID of the subnet where the private endpoint will be created"
+  type        = string
+}
+
+variable "keyvault_private_dns_zone_id" {
+  description = "The ID of the private DNS zone for Key Vault"
+  type        = string
+}
