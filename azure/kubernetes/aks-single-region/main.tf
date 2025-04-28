@@ -98,6 +98,9 @@ module "kms" {
 
   aks_subnet_id       = module.network.aks_subnet_id
   terraform_sp_app_id = var.terraform_sp_app_id
+
+  private_endpoint_subnet_id   = module.network.pe_subnet_id
+  keyvault_private_dns_zone_id = module.network.keyvault_private_dns_zone_id
 }
 
 

@@ -9,7 +9,9 @@ No modules.
 | Name | Type |
 |------|------|
 | [azurerm_network_security_group.aks_nsg](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_security_group) | resource |
+| [azurerm_private_dns_zone.keyvault](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone) | resource |
 | [azurerm_private_dns_zone.postgres](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone) | resource |
+| [azurerm_private_dns_zone_virtual_network_link.keyvault_vnet_link](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone_virtual_network_link) | resource |
 | [azurerm_private_dns_zone_virtual_network_link.postgres_vnet_link](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone_virtual_network_link) | resource |
 | [azurerm_subnet.aks_subnet](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet) | resource |
 | [azurerm_subnet.db_subnet](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet) | resource |
@@ -37,6 +39,7 @@ No modules.
 | <a name="output_aks_nsg_id"></a> [aks\_nsg\_id](#output\_aks\_nsg\_id) | ID of the Network Security Group for AKS |
 | <a name="output_aks_subnet_id"></a> [aks\_subnet\_id](#output\_aks\_subnet\_id) | ID of the subnet where AKS is deployed |
 | <a name="output_db_subnet_id"></a> [db\_subnet\_id](#output\_db\_subnet\_id) | Subnet ID for PostgreSQL Flexible Server |
+| <a name="output_keyvault_private_dns_zone_id"></a> [keyvault\_private\_dns\_zone\_id](#output\_keyvault\_private\_dns\_zone\_id) | ID of the Key Vault private DNS zone |
 | <a name="output_pe_subnet_id"></a> [pe\_subnet\_id](#output\_pe\_subnet\_id) | ID of the subnet for private endpoints |
 | <a name="output_postgres_private_dns_zone_id"></a> [postgres\_private\_dns\_zone\_id](#output\_postgres\_private\_dns\_zone\_id) | Private DNS Zone ID for PostgreSQL Flexible Server |
 | <a name="output_postgres_private_dns_zone_name"></a> [postgres\_private\_dns\_zone\_name](#output\_postgres\_private\_dns\_zone\_name) | Private DNS Zone name for PostgreSQL Flexible Server |

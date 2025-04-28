@@ -32,3 +32,8 @@ output "pe_subnet_id" {
   description = "ID of the subnet for private endpoints"
   value       = azurerm_subnet.pe_subnet.id
 }
+
+output "keyvault_private_dns_zone_id" {
+  description = "ID of the Key Vault private DNS zone"
+  value       = azurerm_private_dns_zone.keyvault.id
+}
