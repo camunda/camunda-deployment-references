@@ -45,7 +45,7 @@ resource "azurerm_key_vault" "this" {
     ]
 
     virtual_network_subnet_ids = [
-      var.aks_subnet_id
+      var.api_server_subnet_id
     ]
   }
 
