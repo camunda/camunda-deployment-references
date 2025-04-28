@@ -25,8 +25,8 @@ inputs:
         default: all
 
     resource-group-name:
-        description: Name of the resource group
-        required: true
+        description: Name of the resource group, used in case of explicit retry set
+        required: false
         default: camunda-rg
 
 runs:

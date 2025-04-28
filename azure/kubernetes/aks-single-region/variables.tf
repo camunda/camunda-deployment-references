@@ -70,6 +70,12 @@ variable "tags" {
 }
 
 # AKS module specific variables
+variable "cluster_name" {
+  description = "Optional override for the AKS cluster name"
+  type        = string
+  default     = ""
+}
+
 variable "system_node_pool_count" {
   description = "Number of nodes in the system node pool"
   type        = number

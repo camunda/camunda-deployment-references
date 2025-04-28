@@ -71,10 +71,6 @@ webModeler:
                 name: webmodeler-postgres-secret
             existingSecretPasswordKey: password
 
-        env:
-            - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
-              value: org.postgresql.Driver
-
         mail:
             existingSecret:
                 name: identity-secret-for-components
