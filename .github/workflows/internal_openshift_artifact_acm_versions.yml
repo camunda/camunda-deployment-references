@@ -26,11 +26,10 @@ jobs:
                   set -euo pipefail
 
                   # Fetch the latest from the main branch
-                  git fetch origin feat/openshift-acm-versions-docs
+                  git fetch origin main
 
                   # Checkout the script from main branch
-                  # TODO: change before merge feat/openshift-acm-versions-docs => main
-                  git checkout origin/feat/openshift-acm-versions-docs -- .github/scripts/get_acm_versions.py
+                  git checkout origin/main -- .github/scripts/get_acm_versions.py
 
                   python3 -m venv acm-venv
                   source acm-venv/bin/activate
