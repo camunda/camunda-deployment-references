@@ -7,7 +7,7 @@ source "${CURRENT_DIR}/helpers.sh"
 
 # Enable secure cluster communication
 SECURITY=${SECURITY:-false}
-CLOUDWATCH_ENABLED=${CLOUDWATCH_ENABLED:-false}
+CLOUDWATCH_ENABLED=${CLOUDWATCH_ENABLED:-true}
 USERNAME=${USERNAME:-"camunda"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 BROKER_PORT=${BROKER_PORT:-26502}
