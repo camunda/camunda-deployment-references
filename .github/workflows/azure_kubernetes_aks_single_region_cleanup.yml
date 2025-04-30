@@ -109,7 +109,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             # AZ cli is explicitly used in the cleanup shell script when retry is enabled, in order to directly delete RGs
-            # TODO: remove this step once installing az cli with asdf is no longer broken
+            # remove this step once installing az cli with asdf is no longer broken
             - name: Install Azure CLI
               run: |
                   curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash   # installs v2.x of az :contentReference[oaicite:1]{index=1}
