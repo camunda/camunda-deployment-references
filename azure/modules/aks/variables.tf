@@ -21,7 +21,8 @@ variable "subnet_id" {
 variable "kubernetes_version" {
   description = "Kubernetes version to use for the AKS cluster"
   type        = string
-  default     = "1.30.1"
+  # renovate: datasource=endoflife-date depName=azure-kubernetes-service versioning=loose
+  default = "1.30.1"
 }
 
 variable "tags" {
