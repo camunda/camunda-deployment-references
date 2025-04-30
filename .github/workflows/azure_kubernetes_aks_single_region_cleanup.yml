@@ -108,17 +108,6 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            # AZ cli is explicitly used in the cleanup shell script when retry is enabled, in order to directly delete RGs
-            # remove this step once installing az cli with asdf is no longer broken
-            - name: Install Azure CLI
-              run: |
-                  curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash   # installs v2.x of az :contentReference[oaicite:1]{index=1}
-
-            # In order to be able to list RGs that are older than the specified min-age, we need to install the resource graph extension
-            - name: Install Resource Graph extension
-              run: |
-                  az extension add --name resource-graph --only-show-errors
-
             - name: Export S3_BACKEND_BUCKET based on matrix
               id: s3_prefix
               run: |
