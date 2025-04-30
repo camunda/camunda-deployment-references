@@ -24,11 +24,6 @@ inputs:
         description: Specify an ID to destroy specific resources or "all" to destroy all resources
         default: all
 
-    resource-group-name:
-        description: Name of the resource group, used in case of explicit retry set
-        required: false
-        default: camunda-rg
-
 runs:
     using: composite
     steps:
@@ -39,8 +34,6 @@ runs:
         - name: Delete clusters
           id: delete_clusters
           shell: bash
-          env:
-              RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
           run: |
               if [ -n "${{ inputs.tf-bucket-region }}" ]; then
                 export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
