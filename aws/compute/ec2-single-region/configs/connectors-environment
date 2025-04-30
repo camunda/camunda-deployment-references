@@ -1,5 +1,5 @@
 SERVER_PORT=9090
-CAMUNDA_CLIENT_MODE=self-managed
+# CAMUNDA_CLIENT_MODE=self-managed
 CAMUNDA_CLIENT_RESTADDRESS=http://127.0.0.1:8080
 CAMUNDA_CLIENT_GRPCADDRESS=http://127.0.0.1:26500
 # Will be replaced with identity when ready

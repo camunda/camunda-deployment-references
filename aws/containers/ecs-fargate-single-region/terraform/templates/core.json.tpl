@@ -1,10 +1,32 @@
 [
   {
+    "name": "${prefix}-opensearch-reset",
+    "image": "alpine/curl:latest",
+    "essential": false,
+    "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/${prefix}-core",
+          "awslogs-region": "${aws_region}",
+          "awslogs-stream-prefix": "ecs"
+        }
+    },
+    "entryPoint": ["curl"],
+    "command": ["-X", "DELETE", "${opensearch_url}/_all"]
+  },
+  {
     "name": "${prefix}-core",
-    "image": "${app_image}",
-    "cpu": ${fargate_cpu},
-    "memory": ${fargate_memory},
-    "networkMode": "awsvpc",
+    "image": "${core_image}",
+    "cpu": ${core_cpu},
+    "memory": ${core_memory},
+    "essential": true,
+    "dependsOn": [
+      {
+        "containerName": "${prefix}-opensearch-reset",
+        "condition": "SUCCESS"
+      }
+    ],
+
     "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
@@ -95,6 +117,10 @@
       {
         "name": "CAMUNDA_DATABASE_URL",
         "value": "${opensearch_url}"
+      },
+      {
+        "name": "ZEEBE_BROKER_NETWORK_ADVERTISEDHOST",
+        "value": "0.0.0.0"
       }
     ],
     "portMappings": [
@@ -123,6 +149,52 @@
       {
         "sourceVolume": "camunda-volume",
         "containerPath": "/usr/local/camunda/data"
+      }
+    ]
+  },
+  {
+    "name": "${prefix}-connectors",
+    "image": "${connectors_image}",
+    "cpu": ${connectors_cpu},
+    "memory": ${connectors_memory},
+    "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/${prefix}-core",
+          "awslogs-region": "${aws_region}",
+          "awslogs-stream-prefix": "ecs"
+        }
+    },
+    "environment": [
+      {
+        "name": "SERVER_PORT",
+        "value": "9090"
+      },
+      {
+        "name": "CAMUNDA_CLIENT_RESTADDRESS",
+        "value": "http://localhost:8080"
+      },
+      {
+        "name": "CAMUNDA_CLIENT_GRPCADDRESS",
+        "value": "http://localhost:26500"
+      },
+      {
+        "name": "CAMUNDA_CLIENT_AUTH_USERNAME",
+        "value": "demo"
+      },
+      {
+        "name": "CAMUNDA_CLIENT_AUTH_PASSWORD",
+        "value": "demo"
+      },
+      {
+        "name": "CAMUNDA_CLIENT_MODE",
+        "value": "basic"
+      }
+    ],
+    "portMappings": [
+      {
+        "containerPort": 9090,
+        "hostPort": 9090
       }
     ]
   }
