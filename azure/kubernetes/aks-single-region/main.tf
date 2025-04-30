@@ -77,11 +77,6 @@ module "aks" {
   enable_kms = true
   uami_id    = module.kms.uami_id
   kms_key_id = module.kms.key_vault_key_id
-
-  depends_on = [
-    module.network,
-    module.kms,
-  ]
 }
 
 module "kms" {
