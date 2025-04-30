@@ -8,17 +8,14 @@ export POSTGRES_PORT=5432
 export POSTGRES_ADMIN_USERNAME=$(terraform output -raw postgres_admin_username)
 export POSTGRES_ADMIN_PASSWORD=$(terraform output -raw postgres_admin_password)
 
-# Database names
-export DB_KEYCLOAK_NAME="camunda_keycloak"
-export DB_IDENTITY_NAME="camunda_identity"
-export DB_WEBMODELER_NAME="camunda_webmodeler"
+export DB_KEYCLOAK_NAME="$(terraform console <<<local.camunda_database_keycloak | jq -r)"
+export DB_KEYCLOAK_USERNAME="$(terraform console <<<local.camunda_keycloak_db_username | jq -r)"
+export DB_KEYCLOAK_PASSWORD="$(terraform console <<<local.camunda_keycloak_db_password | jq -r)"
 
-# Database users
-export DB_KEYCLOAK_USERNAME="keycloak_user"
-export DB_IDENTITY_USERNAME="identity_user"
-export DB_WEBMODELER_USERNAME="webmodeler_user"
+export DB_IDENTITY_NAME="$(terraform console <<<local.camunda_database_identity | jq -r)"
+export DB_IDENTITY_USERNAME="$(terraform console <<<local.camunda_identity_db_username | jq -r)"
+export DB_IDENTITY_PASSWORD="$(terraform console <<<local.camunda_identity_db_password | jq -r)"
 
-# Database passwords
-export DB_KEYCLOAK_PASSWORD="Keycloak1234!"   # For testing only - use secure passwords in production
-export DB_IDENTITY_PASSWORD="Identity1234!"   # For testing only - use secure passwords in production
-export DB_WEBMODELER_PASSWORD="Webmodeler1234!"  # For testing only - use secure passwords in production
+export DB_WEBMODELER_NAME="$(terraform console <<<local.camunda_database_webmodeler | jq -r)"
+export DB_WEBMODELER_USERNAME="$(terraform console <<<local.camunda_webmodeler_db_username | jq -r)"
+export DB_WEBMODELER_PASSWORD="$(terraform console <<<local.camunda_webmodeler_db_password | jq -r)"

@@ -6,8 +6,8 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   os_disk_size_gb       = var.user_node_disk_size_gb
   vnet_subnet_id        = var.subnet_id
   orchestrator_version  = var.kubernetes_version
+  zones                 = var.user_node_pool_zones
 
-  # Node count - simplified for testing
   node_count = var.user_node_pool_count
 
   # Node labels

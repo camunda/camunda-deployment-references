@@ -114,14 +114,30 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
+
+              echo "Adapting the files with input values"
+              pwd
+              ls
+
+              # We use sed instead of -var because the module presented to the user
+              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
+              sed -i -e 's/\(aks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
+                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
+                     -e 's/\(resource_group_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.resource-group-name }}\2/' \
+                     -e 's/\(location\s*=\s*"\)[^"]*\("\)/\1${{ inputs.location }}\2/' \
+                     main.tf
+
+              # Set resource_prefix_placeholder to an empty string if not provided
+              resource_prefix_placeholder="${{ inputs.resource-prefix }}"
+              if [ -z "$resource_prefix_placeholder" ]; then
+                resource_prefix_placeholder=""
+              fi
+
               terraform plan \
                 -no-color \
                 -out tf.plan \
-                -var "resource_prefix=${{ inputs.resource-prefix }}" \
-                -var "resource_group_name=${{ inputs.resource-group-name }}" \
-                -var "cluster_name=${{ inputs.cluster-name }}" \
-                -var "location=${{ inputs.location }}" \
-                -var "kubernetes_version=${{ inputs.kubernetes-version }}"
+                -var "resource_prefix_placeholder=$resource_prefix_placeholder" \
+                -var-file="$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/test/fixtures/terraform.tfvars"
 
         - name: Terraform Apply
           id: apply

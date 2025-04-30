@@ -72,14 +72,20 @@ destroy_cluster() {
   cp "$SCRIPT_DIR/config" "/tmp/$cluster_id/config.tf"
   cd "/tmp/$cluster_id" || exit 1
 
-  # Azure-specific retry logic (unchanged)
+  # ─── Azure-specific retry logic ───
   if [[ "$RETRY_DESTROY" == "true" ]]; then
-    RG_NAME="${RESOURCE_GROUP_NAME}"
-    echo "Forcing deletion of Azure Resource Group '$RG_NAME' to clean up any unmanaged resources."
-    az group delete \
-      --name "$RG_NAME" \
-      --yes \
-      --no-wait
+    # Delete all resource groups older than $MIN_AGE_IN_HOURS hours
+    for rg in $(az graph query -q "
+        ResourceContainers
+        | where type == 'microsoft.resources/subscriptions/resourcegroups'
+        | where createdTime < ago(${MIN_AGE_IN_HOURS}h)
+        | project name
+    " -o tsv); do
+      az group delete --name "$rg" --yes --no-wait
+    done
+  else
+    # run init again later, before destroy()
+    :
   fi
 
   echo "tf state: bucket=$BUCKET key=$key region=$AWS_S3_REGION"
