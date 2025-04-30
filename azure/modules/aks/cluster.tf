@@ -19,13 +19,11 @@ resource "azurerm_kubernetes_cluster" "aks" {
     orchestrator_version = var.kubernetes_version
     zones                = var.system_node_pool_zones
 
-    # Node labels
     node_labels = {
       "nodepool-type" = "system"
       "environment"   = "production"
     }
 
-    # Keep things simple for testing
     max_pods                     = 30
     only_critical_addons_enabled = true
   }
@@ -36,7 +34,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
     network_policy    = var.network_policy
     load_balancer_sku = "standard"
 
-    # Configurable network CIDRs
     pod_cidr       = var.network_plugin == "kubenet" ? var.pod_cidr : null
     service_cidr   = var.service_cidr
     dns_service_ip = var.dns_service_ip
