@@ -42,29 +42,33 @@ resource "azurerm_network_security_group" "pe_nsg" {
   resource_group_name = var.resource_group_name
   tags                = var.tags
 
+  # Allow inbound PostgreSQL traffic from the AKS subnet
   security_rule {
     name                       = "AllowPostgresFromAKS"
     priority                   = 100
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
-    source_address_prefix      = var.aks_subnet_address_prefix[0] # e.g., "10.1.0.0/24"
-    destination_port_range     = "5432"
+    source_address_prefix      = var.aks_subnet_address_prefix[0] # e.g. "10.1.0.0/24"
+    source_port_range          = "*"
     destination_address_prefix = "*"
+    destination_port_range     = "5432" # PostgreSQL
   }
 
+  # Explicitly deny all other inbound traffic
   security_rule {
     name                       = "DenyAllInbound"
     priority                   = 200
     direction                  = "Inbound"
     access                     = "Deny"
     protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
     source_address_prefix      = "*"
+    source_port_range          = "*"
     destination_address_prefix = "*"
+    destination_port_range     = "*"
   }
 }
+
 
 resource "azurerm_subnet_network_security_group_association" "pe_nsg_association" {
   subnet_id                 = azurerm_subnet.pe_subnet.id
