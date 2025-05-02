@@ -211,6 +211,11 @@ jobs:
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
                   ref-arch: aks-single-region
 
+            - name: Apply storage class
+              run: |
+                  set -euo pipefail
+                  kubectl apply -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
+
             - name: Source env from Terraform
               id: db_env
               working-directory: ${{ env.TF_MODULES_PATH }}/azure/kubernetes/aks-single-region/
@@ -574,6 +579,12 @@ jobs:
               run: |
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/aks-single-region/" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Delete storage class
+              if: env.CLEANUP_CLUSTERS == 'true'
+              run: |
+                  set -euo pipefail
+                  kubectl delete -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
 
             - name: Delete on-demand AKS Cluster
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
