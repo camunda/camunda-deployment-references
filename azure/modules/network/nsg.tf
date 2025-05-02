@@ -34,3 +34,39 @@ resource "azurerm_subnet_network_security_group_association" "aks_nsg_associatio
   subnet_id                 = azurerm_subnet.aks_subnet.id
   network_security_group_id = azurerm_network_security_group.aks_nsg.id
 }
+
+
+resource "azurerm_network_security_group" "pe_nsg" {
+  name                = "${var.resource_prefix}-pe-nsg"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+
+  security_rule {
+    name                       = "AllowPostgresFromAKS"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefix      = var.aks_subnet_address_prefix[0] # e.g., "10.1.0.0/24"
+    destination_port_range     = "5432"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "DenyAllInbound"
+    priority                   = 200
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+}
+
+resource "azurerm_subnet_network_security_group_association" "pe_nsg_association" {
+  subnet_id                 = azurerm_subnet.pe_subnet.id
+  network_security_group_id = azurerm_network_security_group.pe_nsg.id
+}
