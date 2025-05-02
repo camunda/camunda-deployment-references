@@ -513,6 +513,13 @@ jobs:
                   helm uninstall camunda --namespace "$CAMUNDA_NAMESPACE" --wait
                   kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
 
+            - name: Delete storage class
+              if: env.CLEANUP_CLUSTERS == 'true'
+              run: |
+                  set -euo pipefail
+                  kubectl delete -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
+
+
     cleanup-clusters:
         name: Cleanup AKS clusters
         if: always()
@@ -579,12 +586,6 @@ jobs:
               run: |
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/aks-single-region/" | tee -a "$GITHUB_OUTPUT"
-
-            - name: Delete storage class
-              if: env.CLEANUP_CLUSTERS == 'true'
-              run: |
-                  set -euo pipefail
-                  kubectl delete -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
 
             - name: Delete on-demand AKS Cluster
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
