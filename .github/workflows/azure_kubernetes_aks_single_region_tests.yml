@@ -16,6 +16,7 @@ on:
             - azure/kubernetes/aks-single-region/**
             - azure/modules/**
             - generic/kubernetes/single-region/procedure/**
+            - '!azure/kubernetes/aks-single-region/test/golden/**'
             - .github/actions/azure-kubernetes-aks-single-region-create/**
             - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
 
@@ -105,6 +106,7 @@ jobs:
 
         needs:
             - triage
+        if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         env:
             TF_MODULES_PATH: ./.action-tf-modules/azure-kubernetes-aks-single-region-create/
