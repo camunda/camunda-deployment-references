@@ -3,7 +3,7 @@ locals {
   resource_group_name = ""                              # Change this to a name of your choice, if not provided, it will be set to resource_prefix-rg, if provided, it will be used as the resource group name
   location            = "swedencentral"                 # Change this to your desired Azure region
   # renovate: datasource=endoflife-date depName=azure-kubernetes-service versioning=loose
-  kubernetes_version = "1.30" # Change this to your desired Kubernetes version (aks - major.minor)
+  kubernetes_version = "1.31" # Change this to your desired Kubernetes version (aks - major.minor)
 
   db_admin_username = "secret_user"    # Replace with your Aurora username
   db_admin_password = "secretvalue%23" # Replace with your Aurora password, password must contain at least one letter, one number, and one special character.
