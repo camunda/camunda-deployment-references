@@ -137,7 +137,8 @@ runs:
                 -no-color \
                 -out tf.plan \
                 -var "resource_prefix_placeholder=$resource_prefix_placeholder" \
-                -var-file="$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/test/fixtures/terraform.tfvars"
+                -var-file="$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/test/fixtures/terraform.tfvars" \
+                -var-file="$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/test/fixtures/config_override.tf"
 
         - name: Terraform Apply
           id: apply
