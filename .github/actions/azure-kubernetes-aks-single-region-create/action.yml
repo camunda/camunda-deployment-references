@@ -92,6 +92,12 @@ runs:
               terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_KEY}"
               echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
 
+        - name: Copy config_override.tf to module root
+          shell: bash
+          run: |
+              cp -r ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/test/fixtures/config_override.tf \
+              ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+
         - name: Terraform Init
           id: init
           working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
@@ -100,6 +106,7 @@ runs:
               set -euo pipefail
 
               terraform version
+
 
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
@@ -137,8 +144,7 @@ runs:
                 -no-color \
                 -out tf.plan \
                 -var "resource_prefix_placeholder=$resource_prefix_placeholder" \
-                -var-file="$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/test/fixtures/terraform.tfvars" \
-                -var-file="$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/test/fixtures/config_override.tf"
+                -var-file="$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/test/fixtures/terraform.tfvars"
 
         - name: Terraform Apply
           id: apply
