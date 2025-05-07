@@ -1,0 +1,75 @@
+---
+global:
+    identity:
+        auth:
+            enabled: false
+identity:
+    enabled: false
+identityKeycloak:
+    enabled: false
+optimize:
+    enabled: false
+connectors:
+    enabled: false
+
+##### Demo Environment #####
+
+zeebe-gateway:
+    enabled: true
+    replicas: 1
+
+operate:
+    enabled: true
+    env:
+        - name: CAMUNDA_OPERATE_BACKUP_REPOSITORYNAME
+          value: camunda
+
+tasklist:
+    enabled: true
+    env:
+        - name: CAMUNDA_TASKLIST_BACKUP_REPOSITORYNAME
+          value: camunda
+
+zeebe:
+    enabled: true
+    clusterSize: 1
+    partitionCount: 1
+    replicationFactor: 1
+    pvcSize: 10Gi
+  # command: ["/usr/local/zeebe/bin/restore", "--backupId=1"]
+    env:
+        - name: ZEEBE_BROKER_DATA_BACKUP_STORE
+          value: S3
+        - name: ZEEBE_BROKER_DATA_BACKUP_S3_BUCKETNAME
+          value: ccon25-nl-elastic-backup
+        - name: ZEEBE_BROKER_DATA_BACKUP_S3_BASEPATH
+          value: zeebe
+        - name: ZEEBE_BROKER_DATA_BACKUP_S3_REGION
+          value: eu-north-1
+        - name: ZEEBE_BROKER_DATA_BACKUP_S3_ACCESSKEY
+          valueFrom:
+              secretKeyRef:
+                  name: s3-credentials
+                  key: S3_ACCESS_KEY
+        - name: ZEEBE_BROKER_DATA_BACKUP_S3_SECRETKEY
+          valueFrom:
+              secretKeyRef:
+                  name: s3-credentials
+                  key: S3_SECRET_ACCESS_KEY
+
+elasticsearch:
+    master:
+        replicaCount: 1
+        persistence:
+            size: 15Gi
+    initScripts:
+        init-keystore.sh: |
+            #!/bin/bash
+            set -e
+
+            echo "Adding S3 access keys to Elasticsearch keystore..."
+
+            # Add S3 client camunda keys to the keystore
+            echo "$S3_SECRET_ACCESS_KEY" | elasticsearch-keystore add -x s3.client.camunda.secret_key
+            echo "$S3_ACCESS_KEY" | elasticsearch-keystore add -x s3.client.camunda.access_key
+    extraEnvVarsSecret: s3-credentials
