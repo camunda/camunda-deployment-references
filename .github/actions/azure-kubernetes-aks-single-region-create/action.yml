@@ -95,7 +95,7 @@ runs:
         - name: Copy config_override.tf to module root
           shell: bash
           run: |
-              cp -r ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/test/fixtures/config_override.tf \
+              cp -r ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/test/fixtures/fixture_config_override.tf \
               ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
 
         - name: Terraform Init

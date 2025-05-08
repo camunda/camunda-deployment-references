@@ -91,7 +91,7 @@ jobs:
 
             - name: Copy config_override.tf to module dir
               run: |
-                  cp -r ./azure/kubernetes/aks-single-region/test/fixtures/config_override.tf ${{ env.MODULE_DIR }}
+                  cp -r ./azure/kubernetes/aks-single-region/test/fixtures/fixture_config_override.tf ${{ env.MODULE_DIR }}
 
             - name: Run Terraform Golden Plan Comparison
               uses: ./.github/actions/internal-terraform-golden-plan
