@@ -108,11 +108,6 @@ jobs:
                     echo "AZURE_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME}"
                   } >> "$GITHUB_ENV"
 
-            - name: Update Azure CLI
-              run: |
-                  az upgrade --yes
-                  az version
-
             - name: Create Storage Account
               id: create_storage_account
               working-directory: azure/common/procedure/storage-account
@@ -142,7 +137,6 @@ jobs:
               shell: bash
               run: |
                   set -euo pipefail
-                  chmod +x storage-acccount-tf-init.sh
                   ./storage-acccount-tf-init.sh
 
             - name: Delete Resource group
