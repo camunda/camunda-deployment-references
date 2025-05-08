@@ -1,5 +1,5 @@
 ---
-name: Tests - Integration - Azure Kubernetes AKS Single Region
+name: Tests - Integration - Azure Kubernetes Common Procedure Storage Account Creation Test
 
 permissions:
     id-token: write
