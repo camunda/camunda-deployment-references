@@ -12,8 +12,7 @@ on:
         paths:
             - .github/workflows/azure_common_procedure_storageaccount_test.yml
             - .tool-versions
-            - /azure/common/procedure/storage-account/**
-
+            - azure/common/procedure/storage-account/**
     workflow_dispatch:
         inputs:
             enable_tests:
@@ -27,7 +26,6 @@ on:
             resource-group-name:
                 description: Name of the resource group to deploy the storage account in.
                 type: string
-                required: false
                 default: storage-account-test-rg
 
 concurrency:
@@ -45,22 +43,22 @@ jobs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
 
     test-storage-account-creation:
         name: Test Storage Account Creation
-
-        needs:
-            - triage
+        needs: triage
+        if: ${{ github.event.inputs.enable_tests && needs.triage.outputs.should_skip != 'true' }}
         runs-on: ubuntu-latest
         env:
             AZURE_LOCATION: ${{ github.event.inputs.location }}
             RESOURCE_GROUP_NAME: ${{ github.event.inputs.resource-group-name }}
             AZURE_STORAGE_CONTAINER_NAME: camundatfstate
             AZURE_TF_KEY: camunda-terraform/terraform.tfstate
-
 
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -95,41 +93,57 @@ jobs:
             - name: Generate random storage account name
               id: generate_storage_account_name
               run: |
-                  echo "AZURE_STORAGE_ACCOUNT_NAME=camundatfstate$RANDOM" >> "$GITHUB_ENV"
+                  AZURE_STORAGE_ACCOUNT_NAME=camundatfstate$RANDOM
+                  echo "AZURE_STORAGE_ACCOUNT_NAME=$AZURE_STORAGE_ACCOUNT_NAME" >> "$GITHUB_ENV"
+
+            - name: Set required env vars for scripts
+              run: |
+                  {
+                    echo "AZURE_CLIENT_ID=${{ steps.secrets.outputs.AZURE_CLIENT_ID }}"
+                    echo "AZURE_TENANT_ID=${{ steps.secrets.outputs.AZURE_TENANT_ID }}"
+                    echo "AZURE_SUBSCRIPTION_ID=${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}"
+                    echo "RESOURCE_GROUP_NAME=${{ github.event.inputs.resource-group-name }}"
+                    echo "AZURE_LOCATION=${{ github.event.inputs.location }}"
+                    echo "AZURE_STORAGE_CONTAINER_NAME=camundatfstate"
+                    echo "AZURE_TF_KEY=camunda-terraform/terraform.tfstate"
+                    echo "AZURE_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME}"
+                  } >> "$GITHUB_ENV"
 
             - name: Create Storage Account
               id: create_storage_account
-              working-directory: ${{ github.workspace }}/azure/common/procedure/storage-account
+              working-directory: azure/common/procedure/storage-account
               run: |
                   set -euo pipefail
+                  chmod +x ./*.sh
                   ./storage-account-creation.sh
                   ./storage-account-versioning.sh
 
             - name: Check Storage Account Versioning
               id: check_storage_account_versioning
-              working-directory: ${{ github.workspace }}/azure/common/procedure/storage-account
+              working-directory: azure/common/procedure/storage-account
               run: |
                   set -euo pipefail
                   ./storage-account-versioning.sh
 
             - name: Create tfvars file
               id: create_tfvars_file
-              working-directory: ${{ github.workspace }}/azure/common/procedure/storage-account
+              working-directory: azure/common/procedure/storage-account
               run: |
                   set -euo pipefail
                   cp ${{ github.workspace }}/azure/kubernetes/aks-single-region/test/fixtures/terraform.tfvars .
 
             - name: Terraform Init
               id: init
-              working-directory: ${{ github.workspace }}/azure/common/procedure/storage-account
+              working-directory: azure/common/procedure/storage-account
               shell: bash
               run: |
                   set -euo pipefail
+                  chmod +x storage-acccount-tf-init.sh
                   ./storage-acccount-tf-init.sh
 
             - name: Delete Resource group
+              if: always()
               id: delete_resource_group
-              working-directory: ${{ github.workspace }}/azure/common/procedure/storage-account
               run: |
                   set -euo pipefail
                   az group delete --name "$RESOURCE_GROUP_NAME" --yes --no-wait
