@@ -114,11 +114,10 @@ destroy_cluster() {
 all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive)
 aws_exit_code=$?
 
-# Do not fail if no objects are found
-if [ $aws_exit_code -ne 0 ] && [ -n "$KEY_PREFIX" ]; then
-  echo "Warning: No objects found under prefix '$KEY_PREFIX'."
-  echo "No matching clusters found; nothing to do."
-  exit 0
+# don't fail on folder absent
+if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
+  echo "Error executing the aws s3 ls command (Exit Code: $aws_exit_code):" >&2
+  exit 1
 fi
 
 # Filter cluster IDs
