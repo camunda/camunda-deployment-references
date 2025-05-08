@@ -52,7 +52,6 @@ jobs:
     test-storage-account-creation:
         name: Test Storage Account Creation
         needs: triage
-        if: ${{ github.event.inputs.enable_tests && needs.triage.outputs.should_skip != 'true' }}
         runs-on: ubuntu-latest
         env:
             AZURE_LOCATION: ${{ github.event.inputs.location }}
