@@ -101,12 +101,17 @@ jobs:
                     echo "AZURE_CLIENT_ID=${{ steps.secrets.outputs.AZURE_CLIENT_ID }}"
                     echo "AZURE_TENANT_ID=${{ steps.secrets.outputs.AZURE_TENANT_ID }}"
                     echo "AZURE_SUBSCRIPTION_ID=${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}"
-                    echo "RESOURCE_GROUP_NAME=${{ github.event.inputs.resource-group-name }}"
-                    echo "AZURE_LOCATION=${{ github.event.inputs.location }}"
+                    echo "RESOURCE_GROUP_NAME=${{ github.event.inputs.resource-group-name || env.RESOURCE_GROUP_NAME || 'storage-account-test-rg' }}"
+                    echo "AZURE_LOCATION=${{ github.event.inputs.location || env.AZURE_LOCATION || 'swedencentral' }}"
                     echo "AZURE_STORAGE_CONTAINER_NAME=camundatfstate"
                     echo "AZURE_TF_KEY=camunda-terraform/terraform.tfstate"
                     echo "AZURE_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME}"
                   } >> "$GITHUB_ENV"
+
+            - name: Update Azure CLI
+              run: |
+                  az upgrade --yes
+                  az version
 
             - name: Create Storage Account
               id: create_storage_account
