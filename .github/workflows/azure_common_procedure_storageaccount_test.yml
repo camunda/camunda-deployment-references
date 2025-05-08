@@ -137,7 +137,7 @@ jobs:
               shell: bash
               run: |
                   set -euo pipefail
-                  ./storage-acccount-tf-init.sh
+                  ./storage-account-tf-init.sh
 
             - name: Delete Resource group
               if: always()
