@@ -32,6 +32,11 @@ on:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
+            notify_back_error_message:
+                description: Used by rerun-failed-run
+                required: false
+                type: string
+
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -352,6 +357,45 @@ jobs:
                   ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
+            - name: Check and uninstall existing ACM if installed
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  echo "Checking for existing ACM installation..."
+                  if oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management &>/dev/null; then
+                    CR="multiclusterhub"
+                  elif oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management &>/dev/null; then
+                    CR="multiclusterengine"
+                  else
+                    CR=""
+                  fi
+
+                  if [[ -n "$CR" ]]; then
+                    echo "Found $CR; uninstalling..."
+                    oc --context="$CLUSTER_1_NAME" delete "$CR" --all -n open-cluster-management
+
+                    echo "Waiting for $CR deletion (up to 5 min)…"
+                    if ! timeout 300 bash -c \
+                      'until ! oc --context="'"$CLUSTER_1_NAME"'" get '"$CR"' -n open-cluster-management &>/dev/null; do
+                          sleep 10; echo "Still waiting…";
+                        done'; then
+                      echo "Timed out waiting for $CR deletion; proceeding anyway."
+                    fi
+
+                    # Optionally remove the operator subscription and namespace:
+                    echo "Deleting subscription and namespace…"
+                    oc --context="$CLUSTER_1_NAME" delete subscription --all -n open-cluster-management || true
+                    oc --context="$CLUSTER_1_NAME" delete namespace open-cluster-management || true
+                    timeout 300 bash -c \
+                      'until ! oc --context="'"$CLUSTER_1_NAME"'" get namespace open-cluster-management &>/dev/null; do
+                        sleep 10; echo "Waiting for namespace deletion…";
+                      done' || echo "Namespace deletion timed out."
+                  else
+                    echo "No existing ACM installation found."
+                  fi
+
+
             - name: 🚢 Configure ACM
               timeout-minutes: 20
               env:
@@ -359,23 +403,39 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  echo "Install ACM"
                   cd ./generic/openshift/dual-region/procedure/acm/
-                  ./install-acm.sh
+
+                  echo "Install ACM"
+                  if ! ./install-acm.sh 2>&1; then
+                    echo "ACM installation failed."
+                    exit 1
+                  fi
+
                   ./verify-acm.sh
 
                   echo "Configure MultiClusterHub"
-                  ./install-multi-cluster-hub.sh
+                  if ! ./install-multi-cluster-hub.sh 2>&1; then
+                    echo "MultiClusterHub installation failed."
+                    exit 1
+                  fi
+
                   ./verify-multi-cluster-hub.sh
 
                   echo "Configure ManagedClusterSet"
-                  ./install-managed-cluster-set.sh
+                  if ! ./install-managed-cluster-set.sh 2>&1; then
+                    echo "ManagedClusterSet installation failed."
+                    exit 1
+                  fi
+
                   ./verify-managed-cluster-set.sh
 
                   echo "Import Cluster 2 in the ManagedClusterSet"
-                  ./initiate-cluster-set.sh
-                  ./verify-managed-cluster-set.sh
+                  if ! ./initiate-cluster-set.sh 2>&1; then
+                    echo "Cluster 2 import to ManagedClusterSet failed."
+                    exit 1
+                  fi
 
+                  ./verify-managed-cluster-set.sh
 
             - name: 🐠 Configure Submariner
               timeout-minutes: 20
@@ -662,6 +722,29 @@ jobs:
                   max-age-hours-cluster: 0
                   target: ${{ matrix.distro.clusterName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+
+    acm-installation-retry:
+        name: Retry ACM Installation
+        if: failure() && fromJSON(github.run_attempt) < 3 && inputs.notify_back_error_message == ''
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+        steps:
+            - name: Retrigger job
+              uses: camunda/infra-global-github-actions/rerun-failed-run@d9a4c94ace01e82cb4cef3fa8e809d715ac46894 # main
+              with:
+                  error-messages: |
+                      ACM installation failed
+                      MultiClusterHub installation failed
+                      ManagedClusterSet installation failed
+                      Cluster 2 import to ManagedClusterSet failed
+                  run-id: ${{ github.run_id }}
+                  repository: ${{ github.repository }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  notify-back-on-error: 'true'
+
 
     report-success:
         name: Report success
