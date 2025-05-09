@@ -681,11 +681,12 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
-        if: always()
+        if: ${{ always() && needs.acm-installation-retry.result == 'skipped' }}
         runs-on: ubuntu-latest
         needs:
             - clusters-info
             - integration-tests
+            - acm-installation-retry
         strategy:
             fail-fast: false
             matrix:
