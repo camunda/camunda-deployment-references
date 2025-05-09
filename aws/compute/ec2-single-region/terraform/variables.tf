@@ -72,7 +72,7 @@ variable "generate_ssh_key_pair" {
 variable "prefix" {
   type        = string
   description = "The prefix to use for names of resources"
-  default     = "ccon25-nl"
+  default     = "ccon25-nl-ec2"
 }
 
 ################################################################

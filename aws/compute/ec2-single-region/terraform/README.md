@@ -175,7 +175,7 @@ SECURITY: The default is false. If set to true will use self-signed certificates
 | <a name="input_enable_vpc_logging"></a> [enable\_vpc\_logging](#input\_enable\_vpc\_logging) | Enable VPC flow logging to CloudWatch Logs | `bool` | `false` | no |
 | <a name="input_generate_ssh_key_pair"></a> [generate\_ssh\_key\_pair](#input\_generate\_ssh\_key\_pair) | Generate an SSH key pair for the EC2 instances over the use of pub\_key\_path. Meant for testing purposes / temp environments. | `bool` | `false` | no |
 | <a name="input_instance_count"></a> [instance\_count](#input\_instance\_count) | The number of instances to create | `number` | `3` | no |
-| <a name="input_limit_access_to_cidrs"></a> [limit\_access\_to\_cidrs](#input\_limit\_access\_to\_cidrs) | List of CIDR blocks to allow access to ssh of Bastion and LoadBalancer | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
+| <a name="input_limit_access_to_cidrs"></a> [limit\_access\_to\_cidrs](#input\_limit\_access\_to\_cidrs) | List of CIDR blocks to allow access to ssh of Bastion and LoadBalancer | `list(string)` | <pre>[<br/>  "3.15.83.158/32",<br/>  "3.125.83.158/32"<br/>]</pre> | no |
 | <a name="input_opensearch_architecture"></a> [opensearch\_architecture](#input\_opensearch\_architecture) | The architecture of the AMI to use for the OpenSearch instances. Available options: x86\_64, arm64 | `string` | `"x86_64"` | no |
 | <a name="input_opensearch_dedicated_master_type"></a> [opensearch\_dedicated\_master\_type](#input\_opensearch\_dedicated\_master\_type) | The instance type to use for the dedicated OpenSearch master nodes | `map(string)` | <pre>{<br/>  "arm64": "m7g.large.search",<br/>  "x86_64": "m7i.large.search"<br/>}</pre> | no |
 | <a name="input_opensearch_disk_size"></a> [opensearch\_disk\_size](#input\_opensearch\_disk\_size) | The size of the OpenSearch disk in GiB | `number` | `50` | no |
@@ -184,7 +184,7 @@ SECURITY: The default is false. If set to true will use self-signed certificates
 | <a name="input_opensearch_instance_type"></a> [opensearch\_instance\_type](#input\_opensearch\_instance\_type) | The instance type to use for the OpenSearch instances | `map(string)` | <pre>{<br/>  "arm64": "m7g.large.search",<br/>  "x86_64": "m7i.large.search"<br/>}</pre> | no |
 | <a name="input_opensearch_log_types"></a> [opensearch\_log\_types](#input\_opensearch\_log\_types) | The types of logs to publish to CloudWatch Logs | `list(string)` | <pre>[<br/>  "SEARCH_SLOW_LOGS",<br/>  "INDEX_SLOW_LOGS",<br/>  "ES_APPLICATION_LOGS"<br/>]</pre> | no |
 | <a name="input_ports"></a> [ports](#input\_ports) | The ports to open for the security groups within the VPC | `map(number)` | <pre>{<br/>  "camunda_metrics_endpoint": 9600,<br/>  "camunda_web_ui": 8080,<br/>  "connectors_port": 9090,<br/>  "opensearch_https": 443,<br/>  "ssh": 22,<br/>  "zeebe_broker_network_command_api_port": 26501,<br/>  "zeebe_gateway_cluster_port": 26502,<br/>  "zeebe_gateway_network_port": 26500<br/>}</pre> | no |
-| <a name="input_prefix"></a> [prefix](#input\_prefix) | The prefix to use for names of resources | `string` | `"camunda"` | no |
+| <a name="input_prefix"></a> [prefix](#input\_prefix) | The prefix to use for names of resources | `string` | `"ccon25-nl-ec2"` | no |
 | <a name="input_pub_key_path"></a> [pub\_key\_path](#input\_pub\_key\_path) | The path to the public key to use for the EC2 instances for SSH access | `string` | `"~/.ssh/id_rsa.pub"` | no |
 ## Outputs
 

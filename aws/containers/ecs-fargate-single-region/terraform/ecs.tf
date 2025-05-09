@@ -15,14 +15,14 @@ resource "aws_ecs_task_definition" "core" {
   cpu                      = 2048
   memory                   = 4096
   container_definitions = templatefile("./templates/core.json.tpl", {
-    core_image     = "camunda/camunda:SNAPSHOT"
+    core_image     = "camunda/camunda:8.8.0-alpha4"
     core_cpu       = 1536
     core_memory    = 3072
-    aws_region     = "eu-north-1"
+    aws_region     = "eu-central-1"
     prefix         = var.prefix
     opensearch_url = "https://${join("", module.opensearch_domain[*].opensearch_domain_endpoint)}"
 
-    connectors_image  = "camunda/connectors:SNAPSHOT"
+    connectors_image  = "camunda/connectors:8.8.0-alpha4"
     connectors_cpu    = 512
     connectors_memory = 1024
   })
