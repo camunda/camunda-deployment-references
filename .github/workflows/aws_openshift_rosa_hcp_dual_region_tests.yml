@@ -655,6 +655,30 @@ jobs:
                     kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name"
                   done
 
+    acm-installation-retry:
+        name: Retry ACM Installation
+        if: failure() && fromJSON(github.run_attempt) < 3 && inputs.notify_back_error_message == ''
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+        steps:
+            - name: Retrigger job
+              uses: camunda/infra-global-github-actions/rerun-failed-run@d9a4c94ace01e82cb4cef3fa8e809d715ac46894 # main
+              with:
+                  error-messages: |
+                      ACM installation failed
+                      MultiClusterHub installation failed
+                      ManagedClusterSet installation failed
+                      Cluster 2 import to ManagedClusterSet failed
+                      The action '🚢 Configure ACM' has timed out after
+                  run-id: ${{ github.run_id }}
+                  repository: ${{ github.repository }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  notify-back-on-error: 'true'
+
+
     cleanup-clusters:
         name: Cleanup ROSA clusters
         if: always()
@@ -722,30 +746,6 @@ jobs:
                   max-age-hours-cluster: 0
                   target: ${{ matrix.distro.clusterName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
-
-    acm-installation-retry:
-        name: Retry ACM Installation
-        if: failure() && fromJSON(github.run_attempt) < 3 && inputs.notify_back_error_message == ''
-        runs-on: ubuntu-latest
-        needs:
-            - integration-tests
-        steps:
-            - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@d9a4c94ace01e82cb4cef3fa8e809d715ac46894 # main
-              with:
-                  error-messages: |
-                      ACM installation failed
-                      MultiClusterHub installation failed
-                      ManagedClusterSet installation failed
-                      Cluster 2 import to ManagedClusterSet failed
-                      The action '🚢 Configure ACM' has timed out after
-                  run-id: ${{ github.run_id }}
-                  repository: ${{ github.repository }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-                  notify-back-on-error: 'true'
-
 
     report-success:
         name: Report success
