@@ -738,6 +738,7 @@ jobs:
                       MultiClusterHub installation failed
                       ManagedClusterSet installation failed
                       Cluster 2 import to ManagedClusterSet failed
+                      The action '🚢 Configure ACM' has timed out after
                   run-id: ${{ github.run_id }}
                   repository: ${{ github.repository }}
                   vault-addr: ${{ secrets.VAULT_ADDR }}
