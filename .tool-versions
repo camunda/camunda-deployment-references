@@ -17,7 +17,7 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.7
 
-awscli 2.27.2
+awscli 2.27.7
 
 delta 0.18.2
 
@@ -50,8 +50,8 @@ terraform 1.11.4
 
 terraform-docs 0.20.0
 
-tflint 0.56.0
+tflint 0.57.0
 
 trivy 0.60.0
 
-yq 4.45.1
+yq 4.45.2

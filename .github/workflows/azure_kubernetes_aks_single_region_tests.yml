@@ -16,6 +16,7 @@ on:
             - azure/kubernetes/aks-single-region/**
             - azure/modules/**
             - generic/kubernetes/single-region/procedure/**
+            - '!azure/kubernetes/aks-single-region/test/golden/**'
             - .github/actions/azure-kubernetes-aks-single-region-create/**
             - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
 
@@ -105,6 +106,7 @@ jobs:
 
         needs:
             - triage
+        if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         env:
             TF_MODULES_PATH: ./.action-tf-modules/azure-kubernetes-aks-single-region-create/
@@ -116,7 +118,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@14912e07221cd650bf9286e2a4733a138ca46374 # main
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@76b69ba0940210c33bd7c271917d2ec1da6a5ca1 # main
 
             - name: Import Secrets
               id: secrets
@@ -142,7 +144,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
+              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
@@ -275,7 +277,7 @@ jobs:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@76b69ba0940210c33bd7c271917d2ec1da6a5ca1 # 1.3.7
 
             - name: Import Secrets
               id: secrets
@@ -305,7 +307,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
+              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
@@ -540,7 +542,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6dc218bf7ee3812a4b6b13c305bce60d5d1d46e5 # 1.3.1
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@76b69ba0940210c33bd7c271917d2ec1da6a5ca1 # 1.3.7
 
             - name: Import Secrets
               id: secrets
@@ -557,7 +559,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
 
             - name: Azure Login with OIDC
-              uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
+              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
