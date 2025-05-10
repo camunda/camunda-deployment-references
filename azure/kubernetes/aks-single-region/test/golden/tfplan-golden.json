@@ -530,6 +530,82 @@
             "timeouts": null
           }
         },
+        "module.network.azurerm_network_security_group.pe_nsg": {
+          "mode": "managed",
+          "name": "pe_nsg",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "sensitive_values": {
+            "security_rule": [
+              {
+                "destination_address_prefixes": [],
+                "destination_application_security_group_ids": [],
+                "destination_port_ranges": [],
+                "source_address_prefixes": [],
+                "source_application_security_group_ids": [],
+                "source_port_ranges": []
+              },
+              {
+                "destination_address_prefixes": [],
+                "destination_application_security_group_ids": [],
+                "destination_port_ranges": [],
+                "source_address_prefixes": [],
+                "source_application_security_group_ids": [],
+                "source_port_ranges": []
+              }
+            ],
+            "tags": {}
+          },
+          "type": "azurerm_network_security_group",
+          "values": {
+            "location": "swedencentral",
+            "name": "camunda-pe-nsg",
+            "resource_group_name": "camunda-rg",
+            "security_rule": [
+              {
+                "access": "Allow",
+                "description": "",
+                "destination_address_prefix": "*",
+                "destination_address_prefixes": [],
+                "destination_application_security_group_ids": [],
+                "destination_port_range": "5432",
+                "destination_port_ranges": [],
+                "direction": "Inbound",
+                "name": "AllowPostgresFromAKS",
+                "priority": 100,
+                "protocol": "Tcp",
+                "source_address_prefix": "10.1.0.0/24",
+                "source_address_prefixes": [],
+                "source_application_security_group_ids": [],
+                "source_port_range": "*",
+                "source_port_ranges": []
+              },
+              {
+                "access": "Deny",
+                "description": "",
+                "destination_address_prefix": "*",
+                "destination_address_prefixes": [],
+                "destination_application_security_group_ids": [],
+                "destination_port_range": "*",
+                "destination_port_ranges": [],
+                "direction": "Inbound",
+                "name": "DenyAllInbound",
+                "priority": 200,
+                "protocol": "*",
+                "source_address_prefix": "*",
+                "source_address_prefixes": [],
+                "source_application_security_group_ids": [],
+                "source_port_range": "*",
+                "source_port_ranges": []
+              }
+            ],
+            "tags": {
+              "Environment": "Testing",
+              "Purpose": "Reference Implementation"
+            },
+            "timeouts": null
+          }
+        },
         "module.network.azurerm_private_dns_zone.postgres": {
           "mode": "managed",
           "name": "postgres",
@@ -680,6 +756,17 @@
         "module.network.azurerm_subnet_network_security_group_association.aks_nsg_association": {
           "mode": "managed",
           "name": "aks_nsg_association",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "azurerm_subnet_network_security_group_association",
+          "values": {
+            "timeouts": null
+          }
+        },
+        "module.network.azurerm_subnet_network_security_group_association.pe_nsg_association": {
+          "mode": "managed",
+          "name": "pe_nsg_association",
           "provider_name": "registry.terraform.io/hashicorp/azurerm",
           "schema_version": 0,
           "sensitive_values": {},
