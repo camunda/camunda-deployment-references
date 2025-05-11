@@ -24,7 +24,7 @@ delta 0.18.2
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
 eksctl 0.206.0
 
-golang 1.24.2
+golang 1.24.3
 
 helm 3.17.3
 
@@ -54,4 +54,4 @@ tflint 0.56.0
 
 trivy 0.60.0
 
-yq 4.45.2
+yq 4.45.3
