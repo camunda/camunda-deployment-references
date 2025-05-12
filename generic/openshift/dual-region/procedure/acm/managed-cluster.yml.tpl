@@ -3,7 +3,8 @@ kind: ManagedCluster
 metadata:
   name: $CLUSTER_NAME
   labels:
-    name: $CLUSTER_NAME
+    #name: $CLUSTER_NAME TODO: revert before merge
+    name: fake
     cluster.open-cluster-management.io/clusterset: oc-clusters
   annotations: {}
 spec:
