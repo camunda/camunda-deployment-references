@@ -21,7 +21,7 @@ awscli 2.24.15
 
 delta 0.18.2
 
-golang 1.24.2
+golang 1.24.3
 
 jq 1.7.1
 
@@ -49,4 +49,4 @@ tflint 0.55.1
 
 trivy 0.59.1
 
-yq 4.45.2
+yq 4.45.4
