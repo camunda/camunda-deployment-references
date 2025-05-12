@@ -357,44 +357,36 @@ jobs:
                   ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
-            - name: Check and uninstall existing ACM if installed
-              timeout-minutes: 10
+            - name: Ensure ACM and associated MultiCluster are not installed (in case of retry)
+              timeout-minutes: 20
               run: |
                   set -euo pipefail
 
-                  echo "Checking for existing ACM installation..."
-                  if oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management &>/dev/null; then
-                    CR="multiclusterhub"
-                  elif oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management &>/dev/null; then
-                    CR="multiclusterengine"
-                  else
-                    CR=""
-                  fi
+                  echo "Uninstalling ManagedClusterSet..."
+                  oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/managed-cluster-set.yml || true
+                  echo "Waiting for ManagedClusterSet to be deleted..."
+                  while oc --context="$CLUSTER_1_NAME" get managedclusterset --all-namespaces | grep -q .; do
+                    echo "Still waiting for ManagedClusterSet to be deleted..."
+                    sleep 10
+                  done
 
-                  if [[ -n "$CR" ]]; then
-                    echo "Found $CR; uninstalling..."
-                    oc --context="$CLUSTER_1_NAME" delete "$CR" --all -n open-cluster-management
+                  echo "Uninstalling MultiClusterHub..."
+                  oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/multi-cluster-hub.yml || true
+                  echo "Waiting for MultiClusterHub to be deleted..."
+                  while oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management &>/dev/null; do
+                    echo "Still waiting for MultiClusterHub to be deleted..."
+                    sleep 10
+                  done
 
-                    echo "Waiting for $CR deletion (up to 5 min)…"
-                    if ! timeout 300 bash -c \
-                      'until ! oc --context="'"$CLUSTER_1_NAME"'" get '"$CR"' -n open-cluster-management &>/dev/null; do
-                          sleep 10; echo "Still waiting…";
-                        done'; then
-                      echo "Timed out waiting for $CR deletion; proceeding anyway."
-                    fi
+                  echo "Uninstalling ACM Install Manifest..."
+                  oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/install-manifest.yml || true
+                  echo "Waiting for MultiClusterEngine to be deleted..."
+                  while oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management &>/dev/null; do
+                    echo 'Still waiting...'
+                    sleep 10
+                  done
 
-                    # Optionally remove the operator subscription and namespace:
-                    echo "Deleting subscription and namespace…"
-                    oc --context="$CLUSTER_1_NAME" delete subscription --all -n open-cluster-management || true
-                    oc --context="$CLUSTER_1_NAME" delete namespace open-cluster-management || true
-                    timeout 300 bash -c \
-                      'until ! oc --context="'"$CLUSTER_1_NAME"'" get namespace open-cluster-management &>/dev/null; do
-                        sleep 10; echo "Waiting for namespace deletion…";
-                      done' || echo "Namespace deletion timed out."
-                  else
-                    echo "No existing ACM installation found."
-                  fi
-
+                  echo "ACM and related resources successfully uninstalled."
 
             - name: 🚢 Configure ACM
               timeout-minutes: 20
