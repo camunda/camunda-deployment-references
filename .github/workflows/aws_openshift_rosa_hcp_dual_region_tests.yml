@@ -366,7 +366,6 @@ jobs:
                   oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/managed-cluster-set.yml || true
                   echo "Waiting for ManagedClusterSet to be deleted..."
 
-                  delete_
                   while oc --context="$CLUSTER_1_NAME" get managedclusterset --all-namespaces | grep -q .; do
                     echo "Still waiting for ManagedClusterSet to be deleted..."
                     sleep 10
