@@ -58,13 +58,6 @@ resource "azurerm_role_assignment" "uami_crypto_user" {
   principal_id         = azurerm_user_assigned_identity.this.principal_id
 }
 
-
-
-# Grant the Key Vault access policy to the service principal deploying the infrastructure
-data "azuread_service_principal" "terraform_sp" {
-  client_id = var.terraform_sp_app_id
-}
-
 # grant it read‐only secret access
 resource "azurerm_role_assignment" "tf_sp_secrets_reader" {
   scope                = azurerm_key_vault.this.id
