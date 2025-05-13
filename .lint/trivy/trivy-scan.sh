@@ -7,6 +7,6 @@ find . \( -type d \( -name .terraform -o -name .test -o -name test -o -name fixt
   if [ -f "$dir/README.md" ] && [ ! -e "$dir/.trivy_ignore" ] && ls "$dir"/*.tf >/dev/null 2>&1; then
       echo "Scanning terraform module with trivy: $dir"
 
-      trivy config --config .lint/trivy/trivy.yaml --ignorefile .lint/trivy/.trivyignore "$dir"
+      trivy config --config .lint/trivy/trivy.yaml --ignorefile .trivyignore "$dir"
   fi
 done
