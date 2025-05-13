@@ -80,6 +80,11 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
+            - name: Display notify_back_error_message if present
+              if: ${{ inputs.notify_back_error_message != '' }}
+              run: |
+                  echo "A previous workflow failed but has attempted to retry: ${{ inputs.notify_back_error_message }}"
+                  exit 1
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
             - name: Check labels
               id: skip_check
@@ -660,8 +665,8 @@ jobs:
                     kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name"
                   done
 
-    acm-installation-retry:
-        name: Retry ACM Installation
+    integration-tests-retry:
+        name: Retry Tests in case of failure
         if: failure() && fromJSON(github.run_attempt) < 3 && inputs.notify_back_error_message == ''
         runs-on: ubuntu-latest
         needs:
@@ -686,13 +691,12 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
-        if: success() || needs.acm-installation-retry.result == 'skipped' || (failure() && fromJSON(github.run_attempt) >= 3 || inputs.notify_back_error_message
-            != '')
+        if: always() && needs.integration-tests-retry.result != 'success'
         runs-on: ubuntu-latest
         needs:
             - clusters-info
             - integration-tests
-            - acm-installation-retry
+            - integration-tests-retry
         strategy:
             fail-fast: false
             matrix:
@@ -757,6 +761,7 @@ jobs:
     report-success:
         name: Report success
         runs-on: ubuntu-latest
+        if: success()
         needs:
             - integration-tests
             - cleanup-clusters
@@ -772,9 +777,10 @@ jobs:
 
     report-failure:
         name: Report failures
-        if: failure()
+        if: failure() && needs.integration-tests-retry.result != 'success'
         runs-on: ubuntu-latest
         needs:
+            - integration-tests-retry
             - report-success
         steps:
             - name: Notify in Slack in case of failure
