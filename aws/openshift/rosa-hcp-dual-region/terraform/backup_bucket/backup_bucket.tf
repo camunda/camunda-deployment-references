@@ -101,7 +101,20 @@ resource "aws_iam_policy" "s3_access_policy" {
       {
         Effect = "Allow",
         Action = [
-          "s3:*"
+          # Bucket-level actions
+          "s3:ListBucket",
+          "s3:GetBucketLocation",
+          "s3:ListBucketMultipartUploads",
+
+          # Object-level actions
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:GetObjectAcl",
+          "s3:PutObjectAcl",
+          "s3:AbortMultipartUpload",
+          "s3:ListMultipartUploadParts",
+          "s3:RestoreObject"
         ],
         Resource = [
           aws_s3_bucket.elastic_backup.arn,
