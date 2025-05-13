@@ -4,24 +4,6 @@ variable "location" {
   default     = "swedencentral"
 }
 
-variable "resource_group_name" {
-  description = "Name of the Azure resource group"
-  type        = string
-  default     = "camunda-rg"
-}
-
-variable "resource_prefix" {
-  description = "Prefix for resource names"
-  type        = string
-  default     = "camunda"
-}
-
-variable "kubernetes_version" {
-  description = "Kubernetes version to use for the AKS cluster"
-  type        = string
-  default     = "1.30.1"
-}
-
 # Network configuration
 variable "vnet_address_space" {
   description = "Address space for the virtual network"
@@ -88,6 +70,12 @@ variable "tags" {
 }
 
 # AKS module specific variables
+variable "cluster_name" {
+  description = "Optional override for the AKS cluster name"
+  type        = string
+  default     = ""
+}
+
 variable "system_node_pool_count" {
   description = "Number of nodes in the system node pool"
   type        = number
@@ -103,7 +91,7 @@ variable "system_node_pool_vm_size" {
 variable "user_node_pool_count" {
   description = "Number of nodes in the user node pool"
   type        = number
-  default     = 2
+  default     = 5
 }
 
 variable "user_node_pool_vm_size" {
@@ -112,24 +100,23 @@ variable "user_node_pool_vm_size" {
   default     = "Standard_D4s_v3"
 }
 
+variable "system_node_pool_zones" {
+  description = "List of AZs for the system node pool"
+  type        = list(string)
+  default     = ["1", "2", "3"]
+}
+
+variable "user_node_pool_zones" {
+  description = "List of AZs for the user node pool"
+  type        = list(string)
+  default     = ["1", "2", "3"]
+}
+
 # PostgreSQL Variables
 variable "postgres_version" {
   description = "PostgreSQL version"
   type        = string
   default     = "15"
-}
-
-variable "db_admin_username" {
-  description = "Administrator username for PostgreSQL"
-  type        = string
-  default     = "pgadmin"
-}
-
-variable "db_admin_password" {
-  description = "Administrator password for PostgreSQL"
-  type        = string
-  default     = "P@ssw0rd1234!" # FOR TESTING ONLY - not for production
-  sensitive   = true
 }
 
 variable "postgres_sku_tier" {
@@ -167,4 +154,20 @@ variable "postgres_standby_zone" {
   type        = string
   default     = "2"
   # Must be different from primary zone for zone-redundant high availability
+}
+
+variable "subscription_id" {
+  description = "The Azure Subscription ID to deploy into"
+  type        = string
+}
+
+variable "terraform_sp_app_id" {
+  type        = string
+  description = "The Service Principals Application (client) ID that Terraform is using"
+}
+
+variable "resource_prefix_placeholder" {
+  description = "Placeholder for the resource prefix"
+  type        = string
+  default     = ""
 }

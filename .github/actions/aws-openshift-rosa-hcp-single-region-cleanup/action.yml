@@ -38,12 +38,16 @@ inputs:
         description: Specify whether to delete ghost clusters (true or false)
         default: 'true'
 
+    fail-on-not-found:
+        description: Whether to fail if no matching resources are found (only for target not 'all')
+        default: 'true'
+
 runs:
     using: composite
     steps:
 
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
 
         - name: Install ROSA CLI
           shell: bash
@@ -96,7 +100,8 @@ runs:
 
               ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
                 ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-single-region/ /tmp/cleanup/ \
-                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
+                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }} \
+                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
 
               if [ "${{ inputs.delete-ghost-clusters }}" == "true" ]; then
                 ${{ github.action_path }}/scripts/cleanup-ghost-clusters.sh ${{ inputs.max-age-hours-cluster }}
@@ -106,6 +111,6 @@ runs:
           if: always()
           uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
           with:
-              name: logs-${{ github.action }}-${{ github.job }}
+              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}
               path: ./logs/
               retention-days: 7

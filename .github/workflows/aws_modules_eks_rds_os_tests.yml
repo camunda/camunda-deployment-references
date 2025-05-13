@@ -134,7 +134,7 @@ jobs:
               uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -158,10 +158,12 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  export TESTS_CLUSTER_ID="${{ needs.configure-tests.outputs.cluster_id }}"
-                  export TESTS_CLUSTER_REGION="${{ env.AWS_REGION }}"
-                  export TESTS_TF_BINARY_NAME="${{ env.TESTS_TF_BINARY_NAME }}"
                   just aws-tf-modules-test ${{ matrix.test_function }} "--junitfile ${{ matrix.test_function }}_unit-tests.xml"
+              env:
+                  TF_STATE_BUCKET_REGION: ${{ env.S3_BUCKET_REGION }}
+                  TESTS_CLUSTER_REGION: ${{ env.AWS_REGION }}
+                  TESTS_TF_BINARY_NAME: ${{ env.TESTS_TF_BINARY_NAME }}
+                  TESTS_CLUSTER_ID: ${{ needs.configure-tests.outputs.cluster_id }}
 
             # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
             - name: Filter logger.go from the test report (too large)
@@ -196,7 +198,7 @@ jobs:
             - integration-tests
         steps:
             - name: Download artifacts
-              uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4
+              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
               with:
                   pattern: test-reports-*
                   path: /tmp/testreports
@@ -221,7 +223,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -241,6 +243,7 @@ jobs:
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: '0'
                   target: ${{ needs.configure-tests.outputs.cluster_id }}
+                  fail-on-not-found: 'false' # tests are supposed to cleanup this
 
     report-success:
         name: Report success
@@ -269,7 +272,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: env.IS_SCHEDULE == 'true'
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

@@ -21,7 +21,8 @@ variable "subnet_id" {
 variable "kubernetes_version" {
   description = "Kubernetes version to use for the AKS cluster"
   type        = string
-  default     = "1.30.1"
+  # renovate: datasource=endoflife-date depName=azure-kubernetes-service versioning=loose
+  default = "1.31"
 }
 
 variable "tags" {
@@ -102,5 +103,35 @@ variable "dns_service_ip" {
 variable "pe_subnet_address_prefix" {
   description = "Address prefix for the private endpoint subnet"
   type        = list(string)
-  default     = ["10.1.2.0/24"] # Use a different range than other subnets
+  default     = ["10.1.2.0/24"]
+}
+
+variable "system_node_pool_zones" {
+  type        = list(string)
+  description = "AZs for system node pool, e.g. [\"1\",\"2\",\"3\"]"
+  default     = ["1", "2", "3"]
+}
+
+variable "user_node_pool_zones" {
+  type        = list(string)
+  description = "AZs for user node pool"
+  default     = ["1", "2", "3"]
+}
+
+variable "enable_kms" {
+  type        = bool
+  default     = false
+  description = "Turn on KMS envelope-encryption for AKS secrets"
+}
+
+variable "uami_id" {
+  type        = string
+  default     = ""
+  description = "User-assigned identity ID to use for KMS (required if enable_kms=true)"
+}
+
+variable "kms_key_id" {
+  type        = string
+  default     = ""
+  description = "Key Vault Key ID for envelope-encryption (required if enable_kms=true)"
 }

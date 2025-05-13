@@ -43,6 +43,7 @@ concurrency:
 
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infex
@@ -99,7 +100,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
 
             - id: matrix
               # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
@@ -118,6 +119,7 @@ jobs:
                     # TODO: revert that before merge
                     cluster_name_input="privateleo"
                     cluster_name_fallback="hci-$(uuidgen | head -c 8)"
+
                     export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
                     export distro_index="${distro_index}"
                     yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
@@ -145,6 +147,7 @@ jobs:
             fail-fast: false
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -153,7 +156,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
 
             - name: Import Secrets
               id: secrets
@@ -224,7 +227,7 @@ jobs:
               id: out
               with:
                   matrix-step-name: ${{ github.job }}
-                  matrix-key: ${{ matrix.distro.name }}
+                  matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
                       kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
 
@@ -235,7 +238,7 @@ jobs:
 
                   # Here we verify the extraction of the env variables as presented in the documentation
 
-                  cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/rosa-hcp-single-region/
+                  cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/${{ matrix.scenario.name }}/
                   source ./procedure/gather-cluster-login-id.sh
                   cd -
 
@@ -255,7 +258,7 @@ jobs:
                   matrix-step-name: prepare-clusters
 
     integration-tests:
-        name: Run integration tests - ${{ matrix.distro.name }}
+        name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
         runs-on: ubuntu-latest
         needs:
             - clusters-info
@@ -265,15 +268,21 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
+        concurrency:
+            # instead of running sequentially in a matrix, we use concurrency to run the different scenarios
+            # in parallel but the declinations sequentially
+            # max-parallel would limit us to run 1 matrix job but this way we can run 2 jobs in parallel.
+            group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.distro.name }}-${{ matrix.scenario.name }}
+            cancel-in-progress: false
         env:
-            TEST_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: openshift
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
 
             - name: Install CLI tools from OpenShift Mirror
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -302,47 +311,56 @@ jobs:
                   set -euo pipefail
 
                   mkdir -p "$HOME/.kube"
-                  echo "${{ fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[matrix.distro.name] }}" | base64 --decode > encrypted_kubeconfig.enc
+                  echo "${{
+                      fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[
+                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
+                      ]
+                    }}" | base64 --decode > encrypted_kubeconfig.enc
                   openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   rm encrypted_kubeconfig.enc
                   chmod 600 "$HOME/.kube/config"
 
+                  oc config current-context
+                  oc get nodes
+
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
               run: |
-                  set -euo pipefail
                   # run it as specified in the doc
+                  set -euo pipefail
 
-                  ./aws/openshift/rosa-hcp-single-region/procedure/get-your-copy.sh
+                  ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
+            - name: 🌱 Register chart setup environment values
+              timeout-minutes: 3
+              run: |
+                  set -euo pipefail
+
+                  # the chart env should be loaded by the client at the very first step of his installation
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars generic/openshift/single-region/procedure/chart-env.sh
+
             - name: 🏗️ Prepare a fresh namespace for the tests
-              # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
-              uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3
-              with:
-                  timeout_minutes: 10
-                  max_attempts: 40
-                  shell: bash
-                  retry_wait_seconds: 15
-                  command: |
-                      set -o errexit # this is required https://github.com/nick-fields/retry/issues/133
-                      set -o pipefail
+              run: |
+                  set -o errexit
+                  set -euo pipefail
 
-                      # Delete the namespace to ensure a fresh start
-                      if kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; then
-                        kubectl delete namespace "$TEST_NAMESPACE" --wait
-                        while kubectl get namespace "$TEST_NAMESPACE" &>/dev/null; do
-                          echo "Namespace $TEST_NAMESPACE still being deleted, waiting..."
-                          sleep 5
-                        done
-                      fi
+                  # Delete the namespace to ensure a fresh start
+                  if kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; then
+                    kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
+                    while kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; do
+                      echo "Namespace $CAMUNDA_NAMESPACE still being deleted, waiting..."
+                      sleep 5
+                    done
+                  fi
 
-                      oc new-project "$TEST_NAMESPACE" \
-                        --description="Integration project of $TEST_NAMESPACE" \
-                        --display-name="$TEST_NAMESPACE"
+                  oc new-project "$CAMUNDA_NAMESPACE" \
+                    --description="Integration project of $CAMUNDA_NAMESPACE" \
+                    --display-name="$CAMUNDA_NAMESPACE"
 
-                      echo "Sleeping 30s"
-                      sleep 30
+                  echo "Sleeping 30s"
+                  sleep 30
 
             - name: 🛠️ Assemble deployment values of generic/openshift/single-region
               timeout-minutes: 10
@@ -350,25 +368,38 @@ jobs:
                   set -o errexit
                   set -euo pipefail
 
-                  # As this action can be retried due to OpenShift API error, it must
-                  # be stateless (all commmands can be rerun without issue)
-
                   echo "Construct the values.yml file"
 
                   cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
 
-                  source ./generic/openshift/single-region/procedure/setup-application-domain.sh
-                  echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+                  echo "Applying declination: ${{ matrix.declination.name }}"
 
-                  source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+                  if [[ ${{ matrix.declination.name }} == "domain" ]]; then
 
-                  ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
+                    source ./generic/openshift/single-region/procedure/setup-application-domain.sh
+                    echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+                    echo "CAMUNDA_GRPC_DOMAIN=zeebe-$DOMAIN_NAME:443" | tee -a "$GITHUB_ENV"
 
-                  # Enable Routes
-                  for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
-                      yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
+                    source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
+
+                    ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
+
+                    # Enable Routes
+                    for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
+                        yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
+                        cat values-result.yml && mv values-result.yml values.yml
+                    done
+                  elif [[ ${{ matrix.declination.name }} == "no-domain" ]]; then
+                      # explicitely set no domain
+                      echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
+                      echo "CAMUNDA_GRPC_DOMAIN=" | tee -a "$GITHUB_ENV"
+
+                      yq ". *d load(\"generic/openshift/single-region/helm-values/no-domain.yml\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
-                  done
+                  else
+                    echo "Error: matrix.declaration must be set to 'domain' or 'no-domain'" >&2
+                    exit 1
+                  fi
 
                   # Enable SCC
                   yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
@@ -401,7 +432,6 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  source generic/openshift/single-region/procedure/chart-env.sh
                   source generic/openshift/single-region/procedure/generate-passwords.sh
 
                   ./generic/openshift/single-region/procedure/create-identity-secret.sh
@@ -413,12 +443,12 @@ jobs:
                         --docker-server=index.docker.io \
                         --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
-                        --namespace="$TEST_NAMESPACE"
+                        --namespace="$CAMUNDA_NAMESPACE"
 
                     kubectl create secret generic identity-secret-for-components-integration \
                         --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
                         --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-                        --namespace="$TEST_NAMESPACE"
+                        --namespace="$CAMUNDA_NAMESPACE"
                   fi
 
                   ./generic/openshift/single-region/procedure/install-chart.sh
@@ -447,23 +477,25 @@ jobs:
                   secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
+                  camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
-                  test-namespace: ${{ env.TEST_NAMESPACE }}
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
               run: |
                   set -euo pipefail
 
-                  kubectl -n "$TEST_NAMESPACE" get po
-                  kubectl -n "$TEST_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                  kubectl -n "$CAMUNDA_NAMESPACE" get po
+                  kubectl -n "$CAMUNDA_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
                     echo -e "\n###Failed Pod: ${pod_name}###\n";
-                    kubectl -n "$TEST_NAMESPACE" describe po "$pod_name";
-                    kubectl -n "$TEST_NAMESPACE" logs "$pod_name";
+                    kubectl -n "$CAMUNDA_NAMESPACE" describe po "$pod_name";
+                    kubectl -n "$CAMUNDA_NAMESPACE" logs "$pod_name";
                   done
 
     cleanup-clusters:
@@ -477,6 +509,8 @@ jobs:
             fail-fast: false
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -485,7 +519,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
 
             - name: Import Secrets
               id: secrets
@@ -558,7 +592,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b95c5e92a23ad7a2ad0351eeac24e7a2af9ba1b7 # 1.3.4
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

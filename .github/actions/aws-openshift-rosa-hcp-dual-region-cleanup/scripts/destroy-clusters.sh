@@ -12,7 +12,7 @@ set -o pipefail
 # to ensure the deletion of any remaining VPC resources that might not have been removed by Terraform.
 #
 # Usage:
-# ./destroy_clusters.sh <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX]
+# ./destroy_clusters.sh <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX] [--fail-on-not-found]
 #
 # Arguments:
 #   BUCKET: The name of the S3 bucket containing the cluster state files.
@@ -21,6 +21,7 @@ set -o pipefail
 #   MIN_AGE_IN_HOURS: The minimum age (in hours) of clusters to be destroyed.
 #   ID_OR_ALL: The specific ID suffix to filter objects, or "all" to destroy all objects.
 #   KEY_PREFIX (optional): A prefix (with a '/' at the end) for filtering objects in the S3 bucket.
+#   --fail-on-not-found (optional): If set, the script will exit with an error when no matching object is found (only when ID_OR_ALL is not "all").
 #
 # Example:
 # ./destroy_clusters.sh tf-state-rosa-ci-eu-west-3 ./modules/rosa-hcp/ /tmp/rosa/ 24 all
@@ -34,8 +35,8 @@ set -o pipefail
 # - CLUSTER_1_AWS_REGION and CLUSTER_2_AWS_REGION variables defined on the regions of the clusters
 
 # Check for required arguments
-if [ "$#" -lt 5 ] || [ "$#" -gt 6 ]; then
-  echo "Usage: $0 <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX]"
+if [ "$#" -lt 5 ] || [ "$#" -gt 7 ]; then
+  echo "Usage: $0 <BUCKET> <MODULES_DIR> <TEMP_DIR_PREFIX> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX] [--fail-on-not-found]"
   exit 1
 fi
 
@@ -61,13 +62,22 @@ MODULES_DIR=$2
 TEMP_DIR_PREFIX=$3
 MIN_AGE_IN_HOURS=$4
 ID_OR_ALL=$5
-KEY_PREFIX=${6:-""}  # Key prefix is optional
+KEY_PREFIX=""
 FAILED=0
 CURRENT_DIR=$(pwd)
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 AWS_REGION=${AWS_REGION:-$CLUSTER_1_AWS_REGION}
 AWS_S3_REGION=${AWS_S3_REGION:-$AWS_REGION}
+FAIL_ON_NOT_FOUND=false
 
+# Handle optional KEY_PREFIX and flag
+for arg in "${@:6}"; do
+  if [ "$arg" == "--fail-on-not-found" ]; then
+    FAIL_ON_NOT_FOUND=true
+  else
+    KEY_PREFIX="$arg"
+  fi
+done
 
 # Detect operating system and set the appropriate date command
 if [[ "$(uname)" == "Darwin" ]]; then
@@ -197,7 +207,12 @@ fi
 if [ "$ID_OR_ALL" == "all" ]; then
   groups=$(echo "$all_objects" | awk '{print $2}' | sed -n 's#^tfstate-\(.*\)/$#\1#p')
 else
-  groups=$(echo "$all_objects" | awk '{print $2}' | grep "tfstate-$ID_OR_ALL/" | sed -n 's#^tfstate-\(.*\)/$#\1#p')
+  groups=$(echo "$all_objects" | awk '{print $2}' | grep "tfstate-$ID_OR_ALL-1-oOo-$ID_OR_ALL-2/" | sed -n 's#^tfstate-\(.*\)/$#\1#p')
+
+  if [ -z "$groups" ] && [ "$FAIL_ON_NOT_FOUND" = true ]; then
+    echo "Error: No object found for ID '$ID_OR_ALL'"
+    exit 1
+  fi
 fi
 
 if [ -z "$groups" ]; then
