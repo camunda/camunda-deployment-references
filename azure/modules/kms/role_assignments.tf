@@ -14,8 +14,16 @@ resource "azurerm_role_assignment" "uami_crypto_user" {
 
 # Grant the SP applying terraform access to the Key Vault
 
+# grant it read‐only secret access
 resource "azurerm_role_assignment" "tf_sp_secrets_reader" {
   scope                = azurerm_key_vault.this.id
-  role_definition_name = "Key Vault Contributor"
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = data.azuread_service_principal.terraform_sp.object_id
+}
+
+# grant it crypto operations if you need wrap/unwrap
+resource "azurerm_role_assignment" "tf_sp_crypto_user" {
+  scope                = azurerm_key_vault.this.id
+  role_definition_name = "Key Vault Crypto User"
   principal_id         = data.azuread_service_principal.terraform_sp.object_id
 }
