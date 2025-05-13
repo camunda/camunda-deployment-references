@@ -43,31 +43,3 @@ resource "azurerm_key_vault_access_policy" "tf_kv" {
     "Rotate",
   ]
 }
-
-# Grant the Key Vault access policy to AKS
-
-resource "azurerm_role_assignment" "uami_secrets_user" {
-  scope                = azurerm_key_vault.this.id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_user_assigned_identity.this.principal_id
-}
-
-resource "azurerm_role_assignment" "uami_crypto_user" {
-  scope                = azurerm_key_vault.this.id
-  role_definition_name = "Key Vault Crypto User"
-  principal_id         = azurerm_user_assigned_identity.this.principal_id
-}
-
-# grant it read‐only secret access
-resource "azurerm_role_assignment" "tf_sp_secrets_reader" {
-  scope                = azurerm_key_vault.this.id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = data.azuread_service_principal.terraform_sp.object_id
-}
-
-# grant it crypto operations if you need wrap/unwrap
-resource "azurerm_role_assignment" "tf_sp_crypto_user" {
-  scope                = azurerm_key_vault.this.id
-  role_definition_name = "Key Vault Crypto User"
-  principal_id         = data.azuread_service_principal.terraform_sp.object_id
-}
