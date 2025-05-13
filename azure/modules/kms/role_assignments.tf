@@ -12,15 +12,13 @@ resource "azurerm_role_assignment" "uami_crypto_user" {
   principal_id         = azurerm_user_assigned_identity.this.principal_id
 }
 
-# Grant the SP applying terraform access to the Key Vault
+# Grant the SP applying terraform full access to the Key Vault
 
-# full data-plane (create/read/update keys & secrets)
 resource "azurerm_role_assignment" "tf_sp_kv_admin" {
   depends_on           = [azurerm_key_vault.this]
   scope                = azurerm_key_vault.this.id
   role_definition_name = "Key Vault Administrator"
 
-  # use the SP’s object ID (not its app/client ID!)
   principal_id   = data.azuread_service_principal.terraform_sp.object_id
   principal_type = "ServicePrincipal"
 }
