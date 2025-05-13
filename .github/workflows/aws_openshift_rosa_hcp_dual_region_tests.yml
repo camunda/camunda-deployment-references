@@ -380,7 +380,9 @@ jobs:
 
                   echo "Uninstalling MultiClusterHub..."
                   # needed as described in https://access.redhat.com/solutions/7116241
-                  oc --context="$CLUSTER_1_NAME" delete clusterrole open-cluster-management:cluster-manager-admin
+                  if oc --context="$CLUSTER_1_NAME" get clusterrole open-cluster-management:cluster-manager-admin >/dev/null 2>&1; then
+                    oc --context="$CLUSTER_1_NAME" delete clusterrole open-cluster-management:cluster-manager-admin
+                  fi
 
                   oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/multi-cluster-hub.yml || true
 
@@ -392,6 +394,7 @@ jobs:
 
                     # manually finilalize as described in https://access.redhat.com/solutions/7116241
                     if [ $SECONDS -ge 100 ]; then
+                      echo "Uninstallation of MultiClusterHub is stuck - enforcing finalizers!"
                       oc --context="$CLUSTER_1_NAME" patch mch MultiClusterHub --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
                     fi
                   done
