@@ -18,5 +18,5 @@ resource "azurerm_role_assignment" "uami_crypto_user" {
 resource "azurerm_role_assignment" "tf_sp_kv_admin" {
   scope                = azurerm_key_vault.this.id
   role_definition_name = "Key Vault Administrator"
-  principal_id         = data.azuread_service_principal.tf_sp.object_id
+  principal_id         = data.azuread_service_principal.terraform_sp.client_id
 }
