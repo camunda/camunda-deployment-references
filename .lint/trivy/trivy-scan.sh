@@ -1,16 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-# ⚠️ Warning: This project is not intended for production use but rather for
-# demonstration purposes only. There are no guarantees or warranties provided.
-# As such certain Terraform configuration warnings from Trivy have deliberately
-# been ignored. For more details, see the
-# .trivyignore file in this folder.
-
-# list of the folders that we want to parse, only if a README.md exists and no .trivy_ignore
-for dir in $(find ./**/modules -type d -maxdepth 1) $(find examples -type d -maxdepth 1); do
-  if [ -f "$dir/README.md" ] && ! [ -e "$dir/.trivy_ignore" ]; then
+# list of the folders that we want to parse, only if a README.md exists and no .trivy_ignore and at least one tf file is in the directory
+# the .test, test and fixtures directories are excluded
+find . \( -type d \( -name .terraform -o -name .test -o -name test -o -name fixtures \) \) -prune -false -o -type d -print | while read -r dir; do
+  if [ -f "$dir/README.md" ] && [ ! -e "$dir/.trivy_ignore" ] && ls "$dir"/*.tf >/dev/null 2>&1; then
       echo "Scanning terraform module with trivy: $dir"
+
       trivy config --config .lint/trivy/trivy.yaml --ignorefile .lint/trivy/.trivyignore "$dir"
   fi
 done
