@@ -217,6 +217,9 @@ jobs:
               run: |
                   set -euo pipefail
                   kubectl apply -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
+                  # Remove “default” flag from the original class
+                  kubectl patch storageclass managed-csi \
+                    -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
 
             - name: Source env from Terraform
               id: db_env
