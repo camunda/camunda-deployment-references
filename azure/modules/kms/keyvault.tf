@@ -17,4 +17,9 @@ resource "azurerm_key_vault" "this" {
 
   soft_delete_retention_days = 90
   purge_protection_enabled   = true
+
+  depends_on = [
+    azurerm_role_assignment.tf_sp_kv_crypto_officer,
+    azurerm_role_assignment.tf_sp_kv_admin,
+  ]
 }
