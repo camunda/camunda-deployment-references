@@ -298,7 +298,7 @@
           },
           "type": "azurerm_key_vault",
           "values": {
-            "enable_rbac_authorization": null,
+            "enable_rbac_authorization": true,
             "enabled_for_deployment": null,
             "enabled_for_disk_encryption": true,
             "enabled_for_template_deployment": true,
@@ -432,6 +432,70 @@
             "not_before_date": null,
             "rotation_policy": [],
             "tags": null,
+            "timeouts": null
+          }
+        },
+        "module.kms.azurerm_role_assignment.tf_sp_kv_admin": {
+          "mode": "managed",
+          "name": "tf_sp_kv_admin",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "azurerm_role_assignment",
+          "values": {
+            "condition": null,
+            "delegated_managed_identity_resource_id": null,
+            "description": null,
+            "principal_id": "4138cee6-a588-4911-9ddb-3b24145d639f",
+            "principal_type": "ServicePrincipal",
+            "role_definition_name": "Key Vault Administrator",
+            "timeouts": null
+          }
+        },
+        "module.kms.azurerm_role_assignment.tf_sp_kv_crypto_officer": {
+          "mode": "managed",
+          "name": "tf_sp_kv_crypto_officer",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "azurerm_role_assignment",
+          "values": {
+            "condition": null,
+            "delegated_managed_identity_resource_id": null,
+            "description": null,
+            "principal_id": "4138cee6-a588-4911-9ddb-3b24145d639f",
+            "principal_type": "ServicePrincipal",
+            "role_definition_name": "Key Vault Crypto Officer",
+            "timeouts": null
+          }
+        },
+        "module.kms.azurerm_role_assignment.uami_crypto_user": {
+          "mode": "managed",
+          "name": "uami_crypto_user",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "azurerm_role_assignment",
+          "values": {
+            "condition": null,
+            "delegated_managed_identity_resource_id": null,
+            "description": null,
+            "role_definition_name": "Key Vault Crypto User",
+            "timeouts": null
+          }
+        },
+        "module.kms.azurerm_role_assignment.uami_secrets_user": {
+          "mode": "managed",
+          "name": "uami_secrets_user",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "azurerm_role_assignment",
+          "values": {
+            "condition": null,
+            "delegated_managed_identity_resource_id": null,
+            "description": null,
+            "role_definition_name": "Key Vault Secrets User",
             "timeouts": null
           }
         },

@@ -8,6 +8,8 @@ resource "azurerm_key_vault" "this" {
   enabled_for_template_deployment = true
   tags                            = var.tags
 
+  enable_rbac_authorization = true
+
   network_acls {
     default_action = "Allow"
     bypass         = "AzureServices"
