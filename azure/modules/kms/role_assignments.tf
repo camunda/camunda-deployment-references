@@ -22,3 +22,12 @@ resource "azurerm_role_assignment" "tf_sp_kv_admin" {
   principal_id   = data.azuread_service_principal.terraform_sp.object_id
   principal_type = "ServicePrincipal"
 }
+
+resource "azurerm_role_assignment" "tf_sp_kv_admin" {
+  depends_on           = [azurerm_key_vault.this]
+  scope                = azurerm_key_vault.this.id
+  role_definition_name = "Key Vault Crypto Officer"
+
+  principal_id   = data.azuread_service_principal.terraform_sp.object_id
+  principal_type = "ServicePrincipal"
+}
