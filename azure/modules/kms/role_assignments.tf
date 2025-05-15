@@ -23,7 +23,7 @@ resource "azurerm_role_assignment" "tf_sp_kv_admin" {
   principal_type = "ServicePrincipal"
 }
 
-resource "azurerm_role_assignment" "tf_sp_kv_admin" {
+resource "azurerm_role_assignment" "tf_sp_kv_crypto_officer" {
   depends_on           = [azurerm_key_vault.this]
   scope                = azurerm_key_vault.this.id
   role_definition_name = "Key Vault Crypto Officer"
