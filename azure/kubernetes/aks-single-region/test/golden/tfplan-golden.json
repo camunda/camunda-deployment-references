@@ -452,6 +452,23 @@
             "timeouts": null
           }
         },
+        "module.kms.azurerm_role_assignment.tf_sp_kv_crypto_officer": {
+          "mode": "managed",
+          "name": "tf_sp_kv_crypto_officer",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "azurerm_role_assignment",
+          "values": {
+            "condition": null,
+            "delegated_managed_identity_resource_id": null,
+            "description": null,
+            "principal_id": "4138cee6-a588-4911-9ddb-3b24145d639f",
+            "principal_type": "ServicePrincipal",
+            "role_definition_name": "Key Vault Crypto Officer",
+            "timeouts": null
+          }
+        },
         "module.kms.azurerm_role_assignment.uami_crypto_user": {
           "mode": "managed",
           "name": "uami_crypto_user",
