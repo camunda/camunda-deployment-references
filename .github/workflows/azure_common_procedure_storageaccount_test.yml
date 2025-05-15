@@ -15,10 +15,6 @@ on:
             - azure/common/procedure/storage-account/**
     workflow_dispatch:
         inputs:
-            enable_tests:
-                description: Whether to enable the tests.
-                type: boolean
-                default: true
             location:
                 description: Azure region where the storage account will be deployed.
                 type: string
