@@ -54,8 +54,8 @@ jobs:
         needs: triage
         runs-on: ubuntu-latest
         env:
-            AZURE_LOCATION: ${{ github.event.inputs.location }}
-            RESOURCE_GROUP_NAME: ${{ github.event.inputs.resource-group-name }}
+            AZURE_LOCATION: ${{ github.event.inputs.location || 'swedencentral' }}
+            RESOURCE_GROUP_NAME: ${{ github.event.inputs.resource-group-name || 'storage-account-test-rg' }}
             AZURE_STORAGE_CONTAINER_NAME: camundatfstate
             AZURE_TF_KEY: camunda-terraform/terraform.tfstate
 
