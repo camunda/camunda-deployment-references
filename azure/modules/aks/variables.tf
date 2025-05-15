@@ -118,12 +118,6 @@ variable "user_node_pool_zones" {
   default     = ["1", "2", "3"]
 }
 
-variable "enable_kms" {
-  type        = bool
-  default     = false
-  description = "Turn on KMS envelope-encryption for AKS secrets"
-}
-
 variable "uami_id" {
   type        = string
   default     = ""
