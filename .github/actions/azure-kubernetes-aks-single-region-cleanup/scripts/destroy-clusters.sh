@@ -82,12 +82,6 @@ destroy_cluster() {
         | project name
     " -o tsv); do
       echo "Deleting Azure resource group: $rg"
-      resource_ids=$(az resource list --resource-group "$rg" --query "[].id" -o tsv)
-      for resource_id in $resource_ids; do
-        echo "Deleting resource: $resource_id"
-        az resource delete --ids "$resource_id"
-      done
-
       az group delete --name "$rg" --yes --no-wait
     done
   fi
