@@ -119,8 +119,8 @@ all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive)
 aws_exit_code=$?
 
 # If listing fails but returns no objects, treat as empty
-if [ $aws_exit_code -ne 0 ] && [ -z "$all_objects" ]; then
-  echo "Error executing aws s3 ls (code $aws_exit_code)"
+if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
+  echo "Error executing the aws s3 ls command (Exit Code: $aws_exit_code):" >&2
   exit 1
 fi
 
