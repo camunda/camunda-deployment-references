@@ -676,7 +676,7 @@ jobs:
             - integration-tests
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@d9a4c94ace01e82cb4cef3fa8e809d715ac46894 # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@24523caae329d9322538632a9b385c690c3dcc96 # main
               with:
                   error-messages: |
                       ACM installation failed
