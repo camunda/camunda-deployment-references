@@ -28,6 +28,7 @@ provider "aws" {
 
 #### Variables
 variable "default_tags" {
+  type        = map(string)
   default     = {}
   description = "Default tags to apply to all resources"
 }
