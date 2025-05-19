@@ -87,7 +87,7 @@ destroy_cluster() {
       done
 
       # Delete the resource group
-      if az group delete --name "$rg" --yes --no-wait; then
+      if az group delete --name "$rg" --yes; then
         echo "Initiated deletion of resource group: $rg"
       else
         echo "Failed to delete resource group: $rg"
