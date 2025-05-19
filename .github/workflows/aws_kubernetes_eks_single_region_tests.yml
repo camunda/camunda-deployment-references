@@ -219,6 +219,17 @@ jobs:
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
                   ref-arch: ${{ matrix.scenario.name }}
+                  tags: >
+                      {
+                        "ci-run-id": "${{ github.run_id }}",
+                        "ci-run-number": "${{ github.run_number }}",
+                        "ci-workflow": "${{ github.workflow }}",
+                        "ci-actor": "${{ github.actor }}",
+                        "ci-ref": "${{ github.ref }}",
+                        "ci-commit": "${{ github.sha }}",
+                        "ci-repo": "${{ github.repository }}",
+                        "ci-event": "${{ github.event_name }}"
+                      }
 
             # We are exporting everything for irsa and non-irsa, worst case it's empty and not used
             # Reason for skipping pipefail in the next step
