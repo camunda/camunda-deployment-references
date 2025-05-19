@@ -1,0 +1,178 @@
+---
+name: Tests - Integration - Azure Common Procedure Storage Account Creation Test
+
+permissions:
+    id-token: write
+    contents: read
+
+on:
+    schedule:
+        - cron: 0 3 * * 3 # Runs at 3 AM on Wednesdays
+    pull_request:
+        paths:
+            - .github/workflows/azure_common_procedure_storageaccount_test.yml
+            - .tool-versions
+            - azure/common/procedure/storage-account/**
+    workflow_dispatch:
+        inputs:
+            location:
+                description: Azure region where the storage account will be deployed.
+                type: string
+                default: swedencentral
+            resource-group-name:
+                description: Name of the resource group to deploy the storage account in.
+                type: string
+                default: storage-account-test-rg
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
+
+env:
+    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  fetch-depth: 0
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    test-storage-account-creation:
+        name: Test Storage Account Creation
+        needs: triage
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  ref: ${{ github.ref }}
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@76b69ba0940210c33bd7c271917d2ec1da6a5ca1 # 1.3.7
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: true
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AZURE_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
+
+            - name: Azure Login with OIDC
+              uses: azure/login@cb79c773a3cfa27f31f25eb3f677781210c9ce3d # v1.6.1
+              with:
+                  client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+
+            - name: Source environment variables
+              id: source_env_vars
+              working-directory: azure/common/procedure/storage-account
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  source ./storage-account-env-vars.sh
+
+                  # Export variables to GitHub environment
+                  {
+                    echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME"
+                    echo "AZURE_LOCATION=$AZURE_LOCATION"
+                    echo "AZURE_STORAGE_ACCOUNT_NAME=$AZURE_STORAGE_ACCOUNT_NAME"
+                    echo "AZURE_STORAGE_CONTAINER_NAME=$AZURE_STORAGE_CONTAINER_NAME"
+                  } >> "$GITHUB_ENV"
+
+            - name: Validate configuration
+              run: |
+                  echo "Using the following configuration:"
+                  echo "  - Resource Group: $RESOURCE_GROUP_NAME"
+                  echo "  - Location: $AZURE_LOCATION"
+                  echo "  - Storage Account: $AZURE_STORAGE_ACCOUNT_NAME"
+                  echo "  - Container: $AZURE_STORAGE_CONTAINER_NAME"
+
+                  # Basic validation
+                  if [[ -z "$RESOURCE_GROUP_NAME" || -z "$AZURE_LOCATION" || -z "$AZURE_STORAGE_ACCOUNT_NAME" ]]; then
+                    echo "ERROR: One or more required variables are not set"
+                    exit 1
+                  fi
+
+            - name: Create Storage Account
+              id: create_storage_account
+              working-directory: azure/common/procedure/storage-account
+              run: |
+                  set -euo pipefail
+                  chmod +x ./*.sh
+                  ./storage-account-creation.sh
+                  ./storage-account-versioning.sh
+
+            - name: Check Storage Account Versioning
+              id: check_storage_account_versioning
+              working-directory: azure/common/procedure/storage-account
+              run: |
+                  set -euo pipefail
+                  ./storage-account-versioning.sh
+
+            - name: Create tfvars file
+              id: create_tfvars_file
+              working-directory: azure/common/procedure/storage-account
+              run: |
+                  set -euo pipefail
+                  cp ${{ github.workspace }}/azure/kubernetes/aks-single-region/test/fixtures/terraform.tfvars .
+
+            - name: Terraform Init
+              id: init
+              working-directory: azure/common/procedure/storage-account
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  ./storage-account-tf-init.sh
+
+            - name: Delete Resource group
+              if: always()
+              id: delete_resource_group
+              run: |
+                  set -euo pipefail
+                  az group delete --name "$RESOURCE_GROUP_NAME" --yes --no-wait
+
+    report-success:
+        name: Report success
+        runs-on: ubuntu-latest
+        needs:
+            - test-storage-account-creation
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+            - name: Prevent other runs for renovate
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
+    report-failure:
+        name: Report failure
+        runs-on: ubuntu-latest
+        if: failure()
+        needs:
+            - report-success
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: ${{ env.IS_SCHEDULE == 'true' }}
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@14912e07221cd650bf9286e2a4733a138ca46374 # 1.3.6
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

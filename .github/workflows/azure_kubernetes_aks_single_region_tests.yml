@@ -212,7 +212,6 @@ jobs:
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
                   ref-arch: aks-single-region
-
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -224,6 +223,14 @@ jobs:
                         "ci-repo": "${{ github.repository }}",
                         "ci-event": "${{ github.event_name }}"
                       }
+
+            - name: Apply storage class
+              run: |
+                  set -euo pipefail
+                  kubectl apply -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
+                  # Remove “default” flag from the original class
+                  kubectl patch storageclass managed-csi \
+                    -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
 
             - name: Source env from Terraform
               id: db_env
@@ -522,6 +529,13 @@ jobs:
                   helm uninstall camunda --namespace "$CAMUNDA_NAMESPACE" --wait
                   kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
 
+            - name: Delete storage class
+              if: env.CLEANUP_CLUSTERS == 'true'
+              run: |
+                  set -euo pipefail
+                  kubectl delete -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
+
+
     cleanup-clusters:
         name: Cleanup AKS clusters
         if: always()
@@ -599,3 +613,34 @@ jobs:
                   max-age-hours-cluster: 0
                   target: ${{ env.CLUSTER_NAME }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+
+    report-success:
+        name: Report success
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+            - cleanup-clusters
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+            - name: Prevent other runs for renovate
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
+    report-failure:
+        name: Report failures
+        if: failure()
+        runs-on: ubuntu-latest
+        needs:
+            - report-success
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: ${{ env.IS_SCHEDULE == 'true' }}
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@14912e07221cd650bf9286e2a4733a138ca46374 # 1.3.6
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

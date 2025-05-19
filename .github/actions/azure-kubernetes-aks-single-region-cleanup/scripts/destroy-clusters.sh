@@ -74,15 +74,25 @@ destroy_cluster() {
 
   # ─── Azure-specific retry logic ───
   if [[ "$RETRY_DESTROY" == "true" ]]; then
-    # Delete all resource groups older than $MIN_AGE_IN_HOURS hours
-    for rg in $(az graph query -q "
-        ResourceContainers
-        | where type == 'microsoft.resources/subscriptions/resourcegroups'
-        | where createdTime < ago(${MIN_AGE_IN_HOURS}h)
-        | project name
-    " -o tsv); do
-      echo "Deleting Azure resource group: $rg"
-      az group delete --name "$rg" --yes --no-wait
+    az graph query -q "
+      ResourceContainers
+      | where type == 'microsoft.resources/subscriptions/resourcegroups'
+      | where location =~ 'swedencentral'
+      | where createdTime < ago(${MIN_AGE_IN_HOURS}h)
+      | project name
+    " -o tsv | while IFS= read -r rg; do
+
+      # Delete locks
+      az lock list --resource-group "$rg" --query "[].id" -o tsv | while IFS= read -r lock; do
+        az lock delete --ids "$lock" || echo "Failed to delete lock: $lock"
+      done
+
+      # Delete the resource group
+      if az group delete --name "$rg" --yes; then
+        echo "Initiated deletion of resource group: $rg"
+      else
+        echo "Failed to delete resource group: $rg"
+      fi
     done
   fi
 
@@ -112,7 +122,7 @@ destroy_cluster() {
 all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive)
 aws_exit_code=$?
 
-# If listing fails but returns no objects, treat as empty
+# don't fail on folder absent
 if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
   echo "Error executing the aws s3 ls command (Exit Code: $aws_exit_code):" >&2
   exit 1
