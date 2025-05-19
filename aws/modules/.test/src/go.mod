@@ -5,9 +5,9 @@ go 1.24.2
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.217.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.218.0
 	github.com/aws/aws-sdk-go-v2/service/eks v1.64.0
-	github.com/aws/aws-sdk-go-v2/service/iam v1.41.1
+	github.com/aws/aws-sdk-go-v2/service/iam v1.42.0
 	github.com/aws/aws-sdk-go-v2/service/kms v1.38.3
 	github.com/aws/aws-sdk-go-v2/service/opensearch v1.46.3
 	github.com/aws/aws-sdk-go-v2/service/rds v1.95.0
@@ -18,9 +18,9 @@ require (
 	github.com/sethvargo/go-password v0.3.1
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
-	k8s.io/api v0.33.0
-	k8s.io/apimachinery v0.33.0
-	k8s.io/client-go v0.33.0
+	k8s.io/api v0.33.1
+	k8s.io/apimachinery v0.33.1
+	k8s.io/client-go v0.33.1
 	sigs.k8s.io/aws-iam-authenticator v0.7.2
 )
 
