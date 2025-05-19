@@ -77,6 +77,7 @@ destroy_cluster() {
     az graph query -q "
       ResourceContainers
       | where type == 'microsoft.resources/subscriptions/resourcegroups'
+      | where location =~ 'swedencentral'
       | where createdTime < ago(${MIN_AGE_IN_HOURS}h)
       | project name
     " -o tsv | while IFS= read -r rg; do
