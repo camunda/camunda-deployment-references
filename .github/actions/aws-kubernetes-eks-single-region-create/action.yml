@@ -113,6 +113,8 @@ runs:
               echo "Adapting the files with input values"
               pwd
               ls
+              echo "Computing tags: ${{ inputs.tags }}"
+
 
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
