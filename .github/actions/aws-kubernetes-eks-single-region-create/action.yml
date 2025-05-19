@@ -71,8 +71,6 @@ runs:
           id: set-terraform-variables
           shell: bash
           run: |
-              echo "Computing tags: ${{ inputs.tags }}"
-
               set -euo pipefail
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
               export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
@@ -111,14 +109,10 @@ runs:
           working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
           run: |
-              echo "Computing tags: ${{ inputs.tags }}"
-
               set -euo pipefail
               echo "Adapting the files with input values"
               pwd
               ls
-              echo "Computing tags: ${{ inputs.tags }}"
-
 
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
@@ -142,7 +136,6 @@ runs:
               echo "Displaying templated opensearch.tf file:"
               cat opensearch.tf
 
-              echo "Computing tags: ${{ inputs.tags }}"
               raw_tags='${{ inputs.tags }}'
               escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
 

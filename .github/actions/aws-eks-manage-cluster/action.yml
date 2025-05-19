@@ -143,7 +143,6 @@ runs:
           run: |
               set -euo pipefail
 
-              echo "Computing tags: ${{ inputs.tags }}"
               raw_tags='${{ inputs.tags }}'
               escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
 

@@ -256,6 +256,8 @@ runs:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
           run: |
+              set -euo pipefail
+
               echo "Adapting the files with input values"
               pwd
               ls
@@ -304,7 +306,6 @@ runs:
               echo "Displaying templated cluster_cluster_2.tf file:"
               cat cluster_region_2.tf
 
-              echo "Computing tags: ${{ inputs.tags }}"
               raw_tags='${{ inputs.tags }}'
               escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
 
@@ -417,7 +418,8 @@ runs:
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
           shell: bash
           run: |
-              echo "Computing tags: ${{ inputs.tags }}"
+              set -euo pipefail
+
               raw_tags='${{ inputs.tags }}'
               escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
 
@@ -467,9 +469,10 @@ runs:
           env:
               AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
           run: |
+              set -euo pipefail
+
               hash=$(echo -n "${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}" | sha256sum | cut -c1-8)
 
-              echo "Computing tags: ${{ inputs.tags }}"
               raw_tags='${{ inputs.tags }}'
               escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
 
