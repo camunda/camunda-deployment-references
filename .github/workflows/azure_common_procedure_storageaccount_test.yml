@@ -49,12 +49,6 @@ jobs:
         name: Test Storage Account Creation
         needs: triage
         runs-on: ubuntu-latest
-        env:
-            AZURE_LOCATION: ${{ github.event.inputs.location || 'swedencentral' }}
-            RESOURCE_GROUP_NAME: ${{ github.event.inputs.resource-group-name || 'storage-account-test-rg' }}
-            AZURE_STORAGE_CONTAINER_NAME: camundatfstate
-            AZURE_TF_KEY: camunda-terraform/terraform.tfstate
-
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
@@ -85,11 +79,21 @@ jobs:
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
                   subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
 
-            - name: Generate random storage account name
-              id: generate_storage_account_name
+            - name: Source environment variables
+              id: source_env_vars
+              working-directory: azure/common/procedure/storage-account
+              shell: bash
               run: |
-                  AZURE_STORAGE_ACCOUNT_NAME=camundatfstate$RANDOM
-                  echo "AZURE_STORAGE_ACCOUNT_NAME=$AZURE_STORAGE_ACCOUNT_NAME" >> "$GITHUB_ENV"
+                  set -euo pipefail
+                  source ./storage-account-env-vars.sh
+
+                  # Export variables to GitHub environment
+                  {
+                    echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME"
+                    echo "AZURE_LOCATION=$AZURE_LOCATION"
+                    echo "AZURE_STORAGE_ACCOUNT_NAME=$AZURE_STORAGE_ACCOUNT_NAME"
+                    echo "AZURE_STORAGE_CONTAINER_NAME=$AZURE_STORAGE_CONTAINER_NAME"
+                  } >> "$GITHUB_ENV"
 
             - name: Validate configuration
               run: |
