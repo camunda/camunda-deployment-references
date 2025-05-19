@@ -123,3 +123,9 @@ variable "single_nat_gateway" {
   default     = false
   description = "If set to true, a single NAT Gateway will be created for the VPC. If set to false, a NAT Gateway will be created for each subnet and requiring an IP per subnet."
 }
+
+variable "kms_key_tags" {
+  type        = map(string)
+  description = "The tags to associate with the KMS key."
+  default     = {}
+}
