@@ -21,14 +21,28 @@ terraform {
 provider "aws" {
   region = var.cluster_1_region
   alias  = "cluster_1"
+
+  default_tags {
+    tags = var.default_tags
+  }
 }
 
 provider "aws" {
   region = var.cluster_2_region
   alias  = "cluster_2"
+
+  default_tags {
+    tags = var.default_tags
+  }
 }
 
 ### Variables
+
+variable "default_tags" {
+  type        = map(string)
+  default     = {}
+  description = "Default tags to apply to all resources"
+}
 
 variable "cluster_1_region" {
   description = "Region of the cluster 1"
