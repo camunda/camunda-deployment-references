@@ -163,8 +163,8 @@ runs:
 
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
               terraform plan -no-color -out opensearch.plan \
-                -var "default_tags=$escaped_tags"
                 -var-file=/tmp/var.tfvars.json \
+                -var "default_tags=$escaped_tags" \
                 -var "domain_name=${{ inputs.domain-name }}" \
                 -var "engine_version=${{ inputs.engine-version }}" \
                 -var 'subnet_ids=${{ inputs.subnet-ids }}' \
