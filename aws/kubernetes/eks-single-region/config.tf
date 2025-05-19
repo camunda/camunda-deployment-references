@@ -14,4 +14,13 @@ terraform {
   }
 }
 
-provider "aws" {}
+provider "aws" {
+  default_tags {
+    tags = var.default_tags
+  }
+}
+
+variable "default_tags" {
+  default     = {}
+  description = "Default tags to apply to all resources"
+}

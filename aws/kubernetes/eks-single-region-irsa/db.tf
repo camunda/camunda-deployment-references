@@ -20,6 +20,8 @@ locals {
   camunda_keycloak_role_name   = "AuroraRole-Keycloak-${local.aurora_cluster_name}"   # IAM Role name use to allow access to the keycloak db
   camunda_identity_role_name   = "AuroraRole-Identity-${local.aurora_cluster_name}"   # IAM Role name use to allow access to the identity db
   camunda_webmodeler_role_name = "AuroraRole-Webmodeler-${local.aurora_cluster_name}" # IAM Role name use to allow access to the webmodeler db
+
+  db_tags = {} # additional tags that you may want to apply to the resources
 }
 
 module "postgresql" {
@@ -166,6 +168,7 @@ EOF
     }
   ]
 
+  tags       = local.db_tags
   depends_on = [module.eks_cluster]
 }
 
