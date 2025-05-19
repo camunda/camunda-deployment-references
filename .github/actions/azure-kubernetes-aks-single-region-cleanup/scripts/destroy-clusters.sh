@@ -81,7 +81,12 @@ destroy_cluster() {
         | where createdTime < ago(${MIN_AGE_IN_HOURS}h)
         | project name
     " -o tsv); do
-      az group delete --name "$rg" --yes --no-wait
+      az group delete --name "$rg" --yes
+
+      for vault in $(az keyvault list-deleted --query "[].name" -o tsv); do
+        az keyvault purge --name "$vault"
+      done
+
     done
   else
     # run init again later, before destroy()
