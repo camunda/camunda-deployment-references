@@ -74,23 +74,25 @@ destroy_cluster() {
 
   # ─── Azure-specific retry logic ───
   if [[ "$RETRY_DESTROY" == "true" ]]; then
-    # Delete all resource groups older than $MIN_AGE_IN_HOURS hours
-    for rg in $(az graph query -q "
-        ResourceContainers
-        | where type == 'microsoft.resources/subscriptions/resourcegroups'
-        | where createdTime < ago(${MIN_AGE_IN_HOURS}h)
-        | project name
-    " -o tsv); do
-      az group delete --name "$rg" --yes
+    az graph query -q "
+      ResourceContainers
+      | where type == 'microsoft.resources/subscriptions/resourcegroups'
+      | where createdTime < ago(${MIN_AGE_IN_HOURS}h)
+      | project name
+    " -o tsv | while IFS= read -r rg; do
 
-      for vault in $(az keyvault list-deleted --query "[].name" -o tsv); do
-        az keyvault purge --name "$vault"
+      # Delete locks
+      az lock list --resource-group "$rg" --query "[].id" -o tsv | while IFS= read -r lock; do
+        az lock delete --ids "$lock" || echo "Failed to delete lock: $lock"
       done
 
+      # Delete the resource group
+      if az group delete --name "$rg" --yes --no-wait; then
+        echo "Initiated deletion of resource group: $rg"
+      else
+        echo "Failed to delete resource group: $rg"
+      fi
     done
-  else
-    # run init again later, before destroy()
-    :
   fi
 
   echo "tf state: bucket=$BUCKET key=$key region=$AWS_S3_REGION"
