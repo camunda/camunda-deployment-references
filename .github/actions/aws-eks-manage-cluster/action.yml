@@ -74,6 +74,10 @@ inputs:
         description: Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.
         default: 'true'
 
+    tags:
+        description: Tags to apply to the cluster and related resources, in JSON format
+        default: '{}'
+
 outputs:
     eks-cluster-endpoint:
         description: The API endpoint of the deployed EKS cluster
@@ -139,8 +143,13 @@ runs:
           run: |
               set -euo pipefail
 
+              echo "Computing tags: ${{ inputs.tags }}"
+              raw_tags='${{ inputs.tags }}'
+              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
               terraform plan -no-color -out eks.plan \
+                -var "default_tags=$escaped_tags" \
                 -var-file=/tmp/var.tfvars.json \
                 -var "name=${{ inputs.cluster-name }}" \
                 -var "region=${{ inputs.aws-region }}" \

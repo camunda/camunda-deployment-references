@@ -29,11 +29,17 @@ provider "rhcs" {}
 provider "aws" {
   region = var.cluster_1_region
   alias  = "cluster_1"
+  default_tags {
+    tags = var.default_tags
+  }
 }
 
 provider "aws" {
   region = var.cluster_2_region
   alias  = "cluster_2"
+  default_tags {
+    tags = var.default_tags
+  }
 }
 
 #### Variables
@@ -48,4 +54,8 @@ variable "cluster_2_region" {
   description = "Region of the cluster 2"
   default     = "us-east-2"
   type        = string
+}
+variable "default_tags" {
+  default     = {}
+  description = "Default tags to apply to all resources"
 }

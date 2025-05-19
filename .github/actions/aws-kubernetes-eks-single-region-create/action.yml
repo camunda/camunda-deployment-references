@@ -20,6 +20,9 @@ inputs:
     single-nat-gateway:
         description: Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.
         default: 'true'
+    tags:
+        description: Tags to apply to the cluster and related resources, in JSON format
+        default: '{}'
     s3-backend-bucket:
         description: Name of the S3 bucket to store Terraform state
         required: true
@@ -133,7 +136,11 @@ runs:
               echo "Displaying templated opensearch.tf file:"
               cat opensearch.tf
 
-              terraform plan -no-color -out tf.plan
+              echo "Computing tags: ${{ inputs.tags }}"
+              raw_tags='${{ inputs.tags }}'
+              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+
+              terraform plan -no-color -var="default_tags=$escaped_tags" -out tf.plan
 
         - name: Terraform Apply
           id: apply

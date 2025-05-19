@@ -10,6 +10,8 @@ locals {
   rosa_cluster_1_machine_cidr_block = "10.0.0.0/18"
   rosa_cluster_1_service_cidr_block = "10.0.128.0/18"
   rosa_cluster_1_pod_cidr_block     = "10.0.64.0/18"
+
+  rosa_cluster_1_tags = {} # additional tags that you may want to apply to the resources
 }
 
 module "rosa_cluster_1" {
@@ -36,6 +38,8 @@ module "rosa_cluster_1" {
   # Default node type for the OpenShift cluster
   compute_node_instance_type = "m7i.xlarge"
   replicas                   = 6
+
+  tags = local.rosa_cluster_1_tags
 }
 
 # Outputs of the parent module

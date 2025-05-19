@@ -20,6 +20,8 @@ provider "aws" {
   }
 }
 
+#### Variables
+
 variable "default_tags" {
   default     = {}
   description = "Default tags to apply to all resources"
