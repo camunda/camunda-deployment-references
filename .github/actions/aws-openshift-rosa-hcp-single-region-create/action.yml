@@ -66,6 +66,9 @@ inputs:
     cleanup-tf-modules-path:
         description: Whether to clean up the tf modules path
         default: 'false'
+    tags:
+        description: Tags to apply to the cluster and related resources, in JSON format
+        default: '{}'
 
 outputs:
     openshift-server-api:
@@ -248,7 +251,10 @@ runs:
               echo "Displaying templated cluster.tf file:"
               cat cluster.tf
 
-              terraform plan -no-color -out rosa.plan
+              raw_tags='${{ inputs.tags }}'
+              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+
+              terraform plan -no-color -var="default_tags=$escaped_tags" -out rosa.plan
 
         - name: Terraform Apply
           id: apply

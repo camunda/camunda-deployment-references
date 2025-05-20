@@ -5,6 +5,8 @@ locals {
 
   rosa_admin_username = "kubeadmin"
   rosa_admin_password = "CHANGEME1234r!" # Change the password of your admin password
+
+  rosa_tags = {} # additional tags that you may want to apply to the resources
 }
 
 module "rosa_cluster" {
@@ -34,6 +36,8 @@ module "rosa_cluster" {
 
   # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
   openshift_version = "4.18.5"
+
+  tags = local.rosa_tags
 }
 
 # Outputs of the parent module
