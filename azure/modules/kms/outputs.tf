@@ -15,5 +15,5 @@ output "uami_id" {
 
 output "uami_object_id" {
   description = "Object ID (GUID) of the User Assigned Managed Identity"
-  value       = azurerm_user_assigned_identity.kms.principal_id
+  value       = azurerm_user_assigned_identity.this.principal_id
 }
