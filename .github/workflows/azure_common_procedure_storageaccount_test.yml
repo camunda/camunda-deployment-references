@@ -14,15 +14,6 @@ on:
             - .tool-versions
             - azure/common/procedure/storage-account/**
     workflow_dispatch:
-        inputs:
-            location:
-                description: Azure region where the storage account will be deployed.
-                type: string
-                default: swedencentral
-            resource-group-name:
-                description: Name of the resource group to deploy the storage account in.
-                type: string
-                default: storage-account-test-rg
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
