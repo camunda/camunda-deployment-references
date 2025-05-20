@@ -9,7 +9,7 @@ resource "null_resource" "download_server_and_ca_certs" {
   ]
 
   provisioner "local-exec" {
-    when    = "create"
+    when    = create
     command = <<EOT
       aws s3 cp s3://${var.s3_bucket_name}/${local.server_private_key_object_key} ${path.module}/server-key.pem
       aws s3 cp s3://${var.s3_bucket_name}/${local.server_public_key_object_key} ${path.module}/server-cert.pem

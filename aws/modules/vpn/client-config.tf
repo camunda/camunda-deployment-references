@@ -6,7 +6,7 @@ resource "null_resource" "download_certs" {
     aws_s3_object.upload_client_public_key,
   ]
   provisioner "local-exec" {
-    when    = "create"
+    when    = create
     command = <<EOT
 mkdir -p ${path.module}/certs
 %{for client in var.client_key_names~}
