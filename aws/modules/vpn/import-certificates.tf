@@ -10,10 +10,10 @@ resource "null_resource" "download_server_and_ca_certs" {
 
   provisioner "local-exec" {
     command = <<EOT
-      aws s3 cp s3://${var.s3_bucket_name}/${local.server_private_key_object_key} ./server-key.pem
-      aws s3 cp s3://${var.s3_bucket_name}/${local.server_public_key_object_key} ./server-cert.pem
-      aws s3 cp s3://${var.s3_bucket_name}/${local.ca_private_key_object_key} ./ca-key.pem
-      aws s3 cp s3://${var.s3_bucket_name}/${local.ca_public_key_object_key} ./ca-cert.pem
+      aws s3 cp s3://${var.s3_bucket_name}/${local.server_private_key_object_key} ${path.module}/server-key.pem
+      aws s3 cp s3://${var.s3_bucket_name}/${local.server_public_key_object_key} ${path.module}/server-cert.pem
+      aws s3 cp s3://${var.s3_bucket_name}/${local.ca_private_key_object_key} ${path.module}/ca-key.pem
+      aws s3 cp s3://${var.s3_bucket_name}/${local.ca_public_key_object_key} ${path.module}/ca-cert.pem
     EOT
   }
 

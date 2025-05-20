@@ -46,7 +46,6 @@ No modules.
 | [tls_private_key.server_private_key](https://registry.terraform.io/providers/hashicorp/tls/latest/docs/resources/private_key) | resource |
 | [tls_self_signed_cert.ca_public_key](https://registry.terraform.io/providers/hashicorp/tls/latest/docs/resources/self_signed_cert) | resource |
 | [local_file.ca_cert](https://registry.terraform.io/providers/hashicorp/local/latest/docs/data-sources/file) | data source |
-| [local_file.ca_cert_downloaded](https://registry.terraform.io/providers/hashicorp/local/latest/docs/data-sources/file) | data source |
 | [local_file.ca_private_key](https://registry.terraform.io/providers/hashicorp/local/latest/docs/data-sources/file) | data source |
 | [local_file.client_cert](https://registry.terraform.io/providers/hashicorp/local/latest/docs/data-sources/file) | data source |
 | [local_file.client_key](https://registry.terraform.io/providers/hashicorp/local/latest/docs/data-sources/file) | data source |
