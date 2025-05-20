@@ -284,7 +284,7 @@ runs:
                   -e "s/(^\s*s3_bucket_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.vpn-s3-bucket-name }}\2/" \
                   vpn.tf
 
-                extra_vars="-var='s3_bucket_region=${{ inputs.vpn-s3-bucket-region }}'"
+                extra_vars="-var=s3_bucket_region=${{ inputs.vpn-s3-bucket-region }}"
 
                 echo "Displaying templated vpn.tf file:"
                 cat vpn.tf
@@ -333,6 +333,16 @@ runs:
               export cluster_api=$(rosa describe cluster --output=json -c "${{ steps.apply.outputs.cluster_id }}" | jq -r '.api.url')
               echo "cluster_api=$cluster_api"
               echo "cluster_api=$cluster_api" >> "$GITHUB_OUTPUT"
+
+        - name: Configure VPN Client if enabled
+          id: vpn
+          shell: bash
+          if: inputs.vpn-enabled == 'true'
+          run: |
+              sudo apt update
+              sudo apt install -y openvpn openvpn-systemd-resolved
+
+              # TODO: download from s3 client config
 
         - name: Login and generate kubeconfig
           # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
