@@ -89,7 +89,7 @@ variable "ca_key_algorithm" {
 
 variable "ca_key_bits" {
   type        = number
-  default     = 4096
+  default     = 2048
   description = "Key size in bits for the CA private key"
 }
 

@@ -58,7 +58,7 @@ No modules.
 | <a name="input_ca_common_name"></a> [ca\_common\_name](#input\_ca\_common\_name) | Common Name (CN) field for the CA certificate | `string` | `"common.local"` | no |
 | <a name="input_ca_early_renewal_hours"></a> [ca\_early\_renewal\_hours](#input\_ca\_early\_renewal\_hours) | Time before CA certificate expiration to renew it, in hours (default: 30 days) | `number` | `720` | no |
 | <a name="input_ca_key_algorithm"></a> [ca\_key\_algorithm](#input\_ca\_key\_algorithm) | Algorithm used to generate the CA private key | `string` | `"RSA"` | no |
-| <a name="input_ca_key_bits"></a> [ca\_key\_bits](#input\_ca\_key\_bits) | Key size in bits for the CA private key | `number` | `4096` | no |
+| <a name="input_ca_key_bits"></a> [ca\_key\_bits](#input\_ca\_key\_bits) | Key size in bits for the CA private key | `number` | `2048` | no |
 | <a name="input_ca_organization"></a> [ca\_organization](#input\_ca\_organization) | Organization name for the CA certificate | `string` | `"Organization CA VPN"` | no |
 | <a name="input_ca_validity_period_hours"></a> [ca\_validity\_period\_hours](#input\_ca\_validity\_period\_hours) | Validity period of the CA certificate in hours (default: 10 years) | `number` | `87600` | no |
 | <a name="input_client_certificate_validity_period_hours"></a> [client\_certificate\_validity\_period\_hours](#input\_client\_certificate\_validity\_period\_hours) | Validity period of client certificates in hours (default: 1 year) | `number` | `8760` | no |
