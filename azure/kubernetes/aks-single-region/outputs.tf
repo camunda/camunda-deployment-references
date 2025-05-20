@@ -12,3 +12,8 @@ output "aks_fqdn" {
   description = "FQDN of the AKS cluster"
   value       = module.aks.aks_fqdn
 }
+
+output "aks_cluster_name" {
+  description = "Name of the AKS cluster"
+  value       = module.aks.aks_cluster_name
+}
