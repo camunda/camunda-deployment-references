@@ -8,7 +8,7 @@ module "vpn" {
   source = "../../modules/vpn"
 
   s3_bucket_name          = "bucket-storing-vpn-keys"
-  vpc_subnet_ids          = plit(",", module.rosa_cluster.private_subnet_ids)
+  vpc_subnet_ids          = split(",", module.rosa_cluster.private_subnet_ids)
   vpc_id                  = module.rosa_cluster.vpc_id
   vpc_target_network_cidr = module.rosa_cluster.vpc_cidr_block
 
