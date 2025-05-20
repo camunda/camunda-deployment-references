@@ -28,7 +28,7 @@ output "vpn_client_configs" {
   description = "Map of OpenVPN configs of each client"
   value = {
     for name in var.client_key_names :
-    name => "s3://${var.s3_bucket_name}/client-configs/${name}.ovpn"
+    name => "s3://${var.s3_bucket_name}/${var.s3_ca_directory}/client-configs/${name}.ovpn"
   }
 }
 

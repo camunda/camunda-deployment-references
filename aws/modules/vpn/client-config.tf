@@ -104,7 +104,7 @@ resource "aws_s3_object" "upload_vpn_config" {
 
   for_each               = local_file.vpn_config
   bucket                 = var.s3_bucket_name
-  key                    = "client-configs/${each.key}.ovpn"
+  key                    = "${var.s3_ca_directory}/client-configs/${each.key}.ovpn"
   content                = each.value.content
   kms_key_id             = aws_kms_key.certs_encryption.arn
   server_side_encryption = "aws:kms"
