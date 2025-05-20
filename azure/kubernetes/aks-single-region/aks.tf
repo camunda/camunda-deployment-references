@@ -30,4 +30,6 @@ module "aks" {
 
   uami_id    = module.kms.uami_id
   kms_key_id = module.kms.key_vault_key_id
+
+  dns_zone_id = var.dns_zone_id
 }

@@ -129,3 +129,8 @@ variable "kms_key_id" {
   default     = ""
   description = "Key Vault Key ID for envelope-encryption (required if enable_kms=true)"
 }
+
+variable "dns_zone_id" {
+  description = "The Azure DNS zone resource id for ExternalDNS or cert-manager"
+  type        = string
+}
