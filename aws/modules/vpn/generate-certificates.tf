@@ -99,8 +99,8 @@ resource "null_resource" "download_existing_ca" {
   provisioner "local-exec" {
     when    = create
     command = <<EOT
-      aws s3 cp s3://${var.s3_bucket_name}/${local.ca_private_key_object_key} ./ca-key.pem
-      aws s3 cp s3://${var.s3_bucket_name}/${local.ca_public_key_object_key} ./ca-cert.pem
+      aws s3 cp s3://${var.s3_bucket_name}/${local.ca_private_key_object_key} ./existing-ca-key.pem
+      aws s3 cp s3://${var.s3_bucket_name}/${local.ca_public_key_object_key} ./existing-ca-cert.pem
     EOT
   }
 
@@ -120,13 +120,13 @@ resource "null_resource" "wait_for_ca_download" {
 }
 
 data "local_file" "existing_ca_key" {
-  filename = "${path.module}/ca-key.pem"
+  filename = "${path.module}/existing-ca-key.pem"
 
   depends_on = [null_resource.wait_for_ca_download]
 }
 
 data "local_file" "existing_ca_cert" {
-  filename = "${path.module}/ca-cert.pem"
+  filename = "${path.module}/existing-ca-cert.pem"
 
   depends_on = [null_resource.wait_for_ca_download]
 }
@@ -139,8 +139,8 @@ resource "null_resource" "cleanup_downloaded_ca_files" {
 
   provisioner "local-exec" {
     command = <<EOT
-      rm -f ${path.module}/ca-key.pem
-      rm -f ${path.module}/ca-cert.pem
+      rm -f ${path.module}/existing-ca-key.pem
+      rm -f ${path.module}/existing-ca-cert.pem
     EOT
   }
 
