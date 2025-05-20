@@ -25,6 +25,7 @@ This action will also install Terraform, awscli, and kubectl. The kube context w
 | `tf-terraform-wrapper` | <p>Whether or not to install a wrapper to wrap subsequent calls of the <code>terraform</code> binary and expose its STDOUT, STDERR, and exit code as outputs named <code>stdout</code>, <code>stderr</code>, and <code>exitcode</code> respectively. Defaults to <code>true</code>.</p> | `false` | `true` |
 | `awscli-version` | <p>Version of the aws cli to use</p> | `false` | `2.15.52` |
 | `single-nat-gateway` | <p>Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.</p> | `false` | `true` |
+| `tags` | <p>Tags to apply to the cluster and related resources, in JSON format</p> | `false` | `{}` |
 
 
 ## Outputs
@@ -134,4 +135,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
+
+    tags:
+    # Tags to apply to the cluster and related resources, in JSON format
+    #
+    # Required: false
+    # Default: {}
 ```

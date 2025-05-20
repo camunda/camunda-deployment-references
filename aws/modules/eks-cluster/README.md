@@ -61,6 +61,7 @@ module "eks_cluster" {
 | <a name="input_cluster_tags"></a> [cluster\_tags](#input\_cluster\_tags) | A map of additional tags to add to the cluster | `map(string)` | `{}` | no |
 | <a name="input_create_ebs_gp3_default_storage_class"></a> [create\_ebs\_gp3\_default\_storage\_class](#input\_create\_ebs\_gp3\_default\_storage\_class) | Flag to determine if the kubernetes\_storage\_class should be created using EBS-CSI and set on GP3 by default. Set to 'false' to skip creating the storage class, useful for avoiding dependency issues during EKS cluster deletion. | `bool` | `true` | no |
 | <a name="input_enable_cluster_creator_admin_permissions"></a> [enable\_cluster\_creator\_admin\_permissions](#input\_enable\_cluster\_creator\_admin\_permissions) | Indicates whether or not to add the cluster creator (the identity used by Terraform) as an administrator via access entry. | `bool` | `true` | no |
+| <a name="input_kms_key_tags"></a> [kms\_key\_tags](#input\_kms\_key\_tags) | The tags to associate with the KMS key. | `map(string)` | `{}` | no |
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version to be used by EKS | `string` | `"1.32"` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name being used for relevant resources - including EKS cluster name | `string` | n/a | yes |
 | <a name="input_np_ami_type"></a> [np\_ami\_type](#input\_np\_ami\_type) | Amazon Machine Image | `string` | `"AL2_x86_64"` | no |

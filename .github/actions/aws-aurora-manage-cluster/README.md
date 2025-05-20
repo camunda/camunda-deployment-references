@@ -29,6 +29,7 @@ This action will also install Terraform and awscli. It will output the Aurora cl
 | `tf-terraform-version` | <p>The version of Terraform CLI to install. Defaults to <code>latest</code>.</p> | `false` | `latest` |
 | `tf-terraform-wrapper` | <p>Whether or not to install a wrapper to wrap subsequent calls of the <code>terraform</code> binary and expose its STDOUT, STDERR, and exit code as outputs named <code>stdout</code>, <code>stderr</code>, and <code>exitcode</code> respectively. Defaults to <code>true</code>.</p> | `false` | `true` |
 | `awscli-version` | <p>Version of the aws cli to use</p> | `false` | `2.15.52` |
+| `tags` | <p>Tags to apply to the cluster and related resources, in JSON format</p> | `false` | `{}` |
 
 
 ## Outputs
@@ -166,4 +167,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 2.15.52
+
+    tags:
+    # Tags to apply to the cluster and related resources, in JSON format
+    #
+    # Required: false
+    # Default: {}
 ```
