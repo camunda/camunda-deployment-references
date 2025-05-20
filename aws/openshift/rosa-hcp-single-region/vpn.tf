@@ -1,6 +1,9 @@
 # If your cluster is private, you will need a VPN to access it
+locals {
+  create_vpn = module.rosa_cluster.private ? true : false
+}
 module "vpn" {
-  count = module.rosa_cluster.private ? 1 : 0
+  count = local.create_vpn ? 1 : 0
 
   source = "../../modules/vpn"
 
