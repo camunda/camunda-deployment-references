@@ -88,8 +88,8 @@ jobs:
     prepare-clusters:
         name: Prepare clusters
         outputs:
-            POSTGRES_FQDN: ${{ steps.db_env.outputs.POSTGRES_FQDN }}
-            POSTGRES_PORT: ${{ steps.db_env.outputs.POSTGRES_PORT }}
+            DB_HOST: ${{ steps.db_env.outputs.DB_HOST }}
+            DB_PORT: ${{ steps.db_env.outputs.DB_PORT }}
             POSTGRES_ADMIN_USERNAME: ${{ steps.db_env.outputs.POSTGRES_ADMIN_USERNAME }}
             POSTGRES_ADMIN_PASSWORD: ${{ steps.db_env.outputs.POSTGRES_ADMIN_PASSWORD }}
             DB_KEYCLOAK_NAME: ${{ steps.db_env.outputs.DB_KEYCLOAK_NAME }}
@@ -243,8 +243,8 @@ jobs:
                   source $GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/vars-create-db.sh
 
                   {
-                    echo "POSTGRES_FQDN=$POSTGRES_FQDN"
-                    echo "POSTGRES_PORT=$POSTGRES_PORT"
+                    echo "DB_HOST=$DB_HOST"
+                    echo "DB_PORT=$DB_PORT"
                     echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME"
                     echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD"
                     echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
@@ -270,9 +270,8 @@ jobs:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: kubernetes
             MAIL_OVERWRITE: admin@camunda.ie
-            POSTGRES_FQDN: ${{ needs.prepare-clusters.outputs.POSTGRES_FQDN }}
-            DB_HOST: ${{ needs.prepare-clusters.outputs.POSTGRES_FQDN }}
-            POSTGRES_PORT: ${{ needs.prepare-clusters.outputs.POSTGRES_PORT }}
+            DB_HOST: ${{ needs.prepare-clusters.outputs.DB_HOST }}
+            DB_PORT: ${{ needs.prepare-clusters.outputs.DB_PORT }}
             POSTGRES_ADMIN_USERNAME: ${{ needs.prepare-clusters.outputs.POSTGRES_ADMIN_USERNAME }}
             POSTGRES_ADMIN_PASSWORD: ${{ needs.prepare-clusters.outputs.POSTGRES_ADMIN_PASSWORD }}
             DB_KEYCLOAK_NAME: ${{ needs.prepare-clusters.outputs.DB_KEYCLOAK_NAME }}
