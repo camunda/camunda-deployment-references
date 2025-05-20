@@ -24,3 +24,6 @@ AVD-AZU-0013 #(CRITICAL): Vault network ACL does not block access by default.
 
 # We don't have the AWS CloudWatch component enabled yet in OpenSearch, therefore we disable this domain log rule
 AVD-AWS-0042 #(MEDIUM): Domain audit logging is not enabled.
+
+# When using CloudWatch, we are fine using the default kms for the moment (VPN usage only)
+AVD-AWS-0017

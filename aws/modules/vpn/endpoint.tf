@@ -73,21 +73,10 @@ resource "aws_ec2_client_vpn_authorization_rule" "vpn_auth_rule" {
 }
 
 # Logging
-
-resource "aws_kms_key" "cloudwatch" {
-  enable_key_rotation = true
-}
-
-resource "aws_kms_alias" "cloudwatch" {
-  name          = "alias/cloudwatch-${var.vpn_name}"
-  target_key_id = aws_kms_key.cloudwatch.key_id
-}
-
 resource "aws_cloudwatch_log_group" "vpn_logs" {
   # encrypted by default
   name              = "/aws/vpn/${var.vpn_name}"
   retention_in_days = var.vpn_cloudwatch_log_group_retention
-  kms_key_id        = aws_kms_alias.cloudwatch.arn
 }
 
 resource "aws_cloudwatch_log_stream" "vpn_logs" {
