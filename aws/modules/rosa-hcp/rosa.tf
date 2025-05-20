@@ -19,9 +19,9 @@ data "aws_eips" "current_usage" {}
 
 # Data source to check if the VPC exists
 data "aws_vpcs" "current_vpcs" {
-  tags = {
+  tags = merge({
     Name = "${var.cluster_name}-vpc"
-  }
+  }, var.tags)
 }
 
 check "elastic_ip_quota_check" {
@@ -42,7 +42,7 @@ module "rosa_hcp" {
   private           = var.private
 
   compute_machine_type = var.compute_node_instance_type
-  tags                 = local.tags
+  tags                 = merge(local.tags, var.tags)
 
   machine_cidr = var.machine_cidr_block
   service_cidr = var.service_cidr_block

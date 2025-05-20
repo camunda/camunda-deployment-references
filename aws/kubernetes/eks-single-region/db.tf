@@ -16,6 +16,8 @@ locals {
   camunda_keycloak_db_password   = "secretvalue%24" # Replace with a password that will be used for connection to the DB on Keycloak db
   camunda_identity_db_password   = "secretvalue%25" # Replace with a password that will be used for connection to the DB on Identity db
   camunda_webmodeler_db_password = "secretvalue%26" # Replace with a password that will be used for connection to the DB on WebModeler db
+
+  db_tags = {} # additional tags that you may want to apply to the resources
 }
 
 module "postgresql" {
@@ -38,6 +40,7 @@ module "postgresql" {
   num_instances  = "1" # only one instance, you can add add other read-only instances if you want
   instance_class = "db.t3.medium"
 
+  tags       = local.db_tags
   depends_on = [module.eks_cluster]
 }
 

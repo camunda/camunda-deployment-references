@@ -1,5 +1,6 @@
 locals {
   opensearch_domain_name = "domain-name-os-std" # Replace "domain-name" with your domain name
+  opensearch_tags        = {}                   # additional tags that you may want to apply to the resources
 }
 
 module "opensearch_domain" {
@@ -37,6 +38,8 @@ module "opensearch_domain" {
   ]
 }
 CONFIG
+
+  tags = local.opensearch_tags
 
   depends_on = [module.eks_cluster]
 }
