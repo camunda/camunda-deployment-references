@@ -124,6 +124,12 @@ variable "uami_id" {
   description = "User-assigned identity ID to use for KMS (required if enable_kms=true)"
 }
 
+variable "uami_object_id" {
+  type        = string
+  default     = ""
+  description = "User-assigned identity object ID to use for KMS (required if enable_kms=true)"
+}
+
 variable "kms_key_id" {
   type        = string
   default     = ""
