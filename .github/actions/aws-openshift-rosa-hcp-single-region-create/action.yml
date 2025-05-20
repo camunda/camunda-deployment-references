@@ -284,7 +284,7 @@ runs:
                   -e "s/(^\s*s3_bucket_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.vpn-s3-bucket-name }}\2/" \
                   vpn.tf
 
-                extra_vars="-var=\"s3_bucket_region=${{ inputs.vpn-s3-bucket-region }}\""
+                extra_vars="-var='s3_bucket_region=${{ inputs.vpn-s3-bucket-region }}'"
 
                 echo "Displaying templated vpn.tf file:"
                 cat vpn.tf
