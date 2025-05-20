@@ -3,14 +3,9 @@ terraform {
 
   required_providers {
     aws = {
-      source  = "hashicorp/aws"
-      version = ">= 5.35.0"
-    }
-
-    # TODO: this triggers a warning, check with Lars how to fix that
-    aws-bucket = {
-      source  = "hashicorp/aws"
-      version = ">= 5.35.0"
+      source                = "hashicorp/aws"
+      version               = ">= 5.35.0"
+      configuration_aliases = [aws.vpn, aws.bucket]
     }
   }
 }

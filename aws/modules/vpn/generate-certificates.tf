@@ -1,6 +1,8 @@
 # KMS
 
 resource "aws_kms_key" "certs_encryption" {
+  provider = aws.vpn
+
   description             = "KMS key for encrypting VPN certs in S3"
   deletion_window_in_days = 10
   enable_key_rotation     = true
@@ -55,13 +57,14 @@ resource "tls_self_signed_cert" "ca_public_key" {
 ## Upload the CA in an S3 bucket
 
 resource "aws_s3_object" "upload_ca_private_key" {
+  provider = aws.bucket
+
   bucket                 = var.s3_bucket_name
   key                    = local.ca_private_key_object_key
   content                = tls_private_key.ca_private_key.private_key_pem
   kms_key_id             = aws_kms_key.certs_encryption.arn
   server_side_encryption = "aws:kms"
   content_type           = "text/plain"
-  provider               = aws-bucket
 
   # if the cert already exists, we don't update it
   lifecycle {
@@ -70,11 +73,12 @@ resource "aws_s3_object" "upload_ca_private_key" {
 }
 
 resource "aws_s3_object" "upload_ca_public_key" {
+  provider = aws.bucket
+
   bucket       = var.s3_bucket_name
   key          = local.ca_public_key_object_key
   content      = tls_self_signed_cert.ca_public_key.cert_pem
   content_type = "text/plain"
-  provider     = aws-bucket
 
   # if the cert already exists, we don't update it
   lifecycle {
@@ -177,13 +181,14 @@ resource "tls_locally_signed_cert" "server_public_key" {
 ## Upload the signed certs using the S3 bucket
 
 resource "aws_s3_object" "upload_server_private_key" {
+  provider = aws.bucket
+
   bucket                 = var.s3_bucket_name
   key                    = local.server_private_key_object_key
   content                = tls_private_key.server_private_key.private_key_pem
   kms_key_id             = aws_kms_key.certs_encryption.arn
   server_side_encryption = "aws:kms"
   content_type           = "text/plain"
-  provider               = aws-bucket
 
   # if the cert already exists, we don't update it
   lifecycle {
@@ -192,10 +197,11 @@ resource "aws_s3_object" "upload_server_private_key" {
 }
 
 resource "aws_s3_object" "upload_server_public_key" {
-  bucket   = var.s3_bucket_name
-  key      = local.server_public_key_object_key
-  content  = tls_locally_signed_cert.server_public_key.cert_pem
-  provider = aws-bucket
+  provider = aws.bucket
+
+  bucket  = var.s3_bucket_name
+  key     = local.server_public_key_object_key
+  content = tls_locally_signed_cert.server_public_key.cert_pem
 
   content_type = "text/plain"
 
@@ -240,6 +246,8 @@ resource "tls_locally_signed_cert" "client_public_key" {
 
 
 resource "aws_s3_object" "upload_client_private_key" {
+  provider = aws.bucket
+
   for_each               = tls_private_key.client_private_key
   bucket                 = var.s3_bucket_name
   key                    = local.client_keys[each.key].private_key_object_key
@@ -247,7 +255,6 @@ resource "aws_s3_object" "upload_client_private_key" {
   kms_key_id             = aws_kms_key.certs_encryption.arn
   server_side_encryption = "aws:kms"
   content_type           = "text/plain"
-  provider               = aws-bucket
 
   # if the cert already exists, we don't update it
   lifecycle {
@@ -256,12 +263,13 @@ resource "aws_s3_object" "upload_client_private_key" {
 }
 
 resource "aws_s3_object" "upload_client_public_key" {
+  provider = aws.bucket
+
   for_each     = tls_locally_signed_cert.client_public_key
   bucket       = var.s3_bucket_name
   key          = local.client_keys[each.key].public_key_object_key
   content      = each.value.cert_pem
   content_type = "text/plain"
-  provider     = aws-bucket
 
   lifecycle {
     ignore_changes = [content]

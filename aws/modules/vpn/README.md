@@ -8,13 +8,6 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [aws-bucket_aws_s3_object.upload_ca_private_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/aws_s3_object) | resource |
-| [aws-bucket_aws_s3_object.upload_ca_public_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/aws_s3_object) | resource |
-| [aws-bucket_aws_s3_object.upload_client_private_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/aws_s3_object) | resource |
-| [aws-bucket_aws_s3_object.upload_client_public_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/aws_s3_object) | resource |
-| [aws-bucket_aws_s3_object.upload_server_private_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/aws_s3_object) | resource |
-| [aws-bucket_aws_s3_object.upload_server_public_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/aws_s3_object) | resource |
-| [aws-bucket_aws_s3_object.upload_vpn_config](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/aws_s3_object) | resource |
 | [aws_acm_certificate.ca_cert](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/acm_certificate) | resource |
 | [aws_acm_certificate.vpn_cert](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/acm_certificate) | resource |
 | [aws_cloudwatch_log_group.vpn_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
@@ -23,6 +16,13 @@ No modules.
 | [aws_ec2_client_vpn_endpoint.vpn](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_client_vpn_endpoint) | resource |
 | [aws_ec2_client_vpn_network_association.vpn_subnet](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_client_vpn_network_association) | resource |
 | [aws_kms_key.certs_encryption](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
+| [aws_s3_object.upload_ca_private_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object) | resource |
+| [aws_s3_object.upload_ca_public_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object) | resource |
+| [aws_s3_object.upload_client_private_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object) | resource |
+| [aws_s3_object.upload_client_public_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object) | resource |
+| [aws_s3_object.upload_server_private_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object) | resource |
+| [aws_s3_object.upload_server_public_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object) | resource |
+| [aws_s3_object.upload_vpn_config](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object) | resource |
 | [aws_security_group.vpn](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [local_file.vpn_config](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
 | [null_resource.cleanup_certs](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |

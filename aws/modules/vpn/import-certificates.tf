@@ -74,12 +74,16 @@ resource "null_resource" "cleanup_downloaded_certs" {
 
 
 resource "aws_acm_certificate" "vpn_cert" {
+  provider = aws.vpn
+
   private_key       = data.local_file.server_private_key.content
   certificate_body  = data.local_file.server_cert.content
   certificate_chain = data.local_file.ca_cert.content
 }
 
 resource "aws_acm_certificate" "ca_cert" {
+  provider = aws.vpn
+
   private_key      = data.local_file.ca_private_key.content
   certificate_body = data.local_file.ca_cert.content
 }

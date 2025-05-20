@@ -1,6 +1,8 @@
 # Create Client VPN Endpoint
 
 resource "aws_security_group" "vpn" {
+  provider = aws.vpn
+
   name_prefix = "client-vpn-endpoint-sg-${var.vpn_name}"
   description = "Security group for Client VPN endpoint ${var.vpn_name}"
   vpc_id      = var.vpc_id
@@ -23,6 +25,8 @@ resource "aws_security_group" "vpn" {
 }
 
 resource "aws_ec2_client_vpn_endpoint" "vpn" {
+  provider = aws.vpn
+
   description            = "Client VPN endpoint of ${var.vpn_name}"
   server_certificate_arn = aws_acm_certificate.vpn_cert.arn
   client_cidr_block      = var.vpn_client_cidr
@@ -60,6 +64,8 @@ resource "aws_ec2_client_vpn_endpoint" "vpn" {
 # Associate to target network to the VPN
 
 resource "aws_ec2_client_vpn_network_association" "vpn_subnet" {
+  provider = aws.vpn
+
   for_each = var.vpc_subnet_ids
 
   client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.vpn.id
@@ -67,6 +73,8 @@ resource "aws_ec2_client_vpn_network_association" "vpn_subnet" {
 }
 
 resource "aws_ec2_client_vpn_authorization_rule" "vpn_auth_rule" {
+  provider = aws.vpn
+
   client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.vpn.id
   target_network_cidr    = var.vpc_target_network_cidr
   authorize_all_groups   = true
@@ -74,12 +82,16 @@ resource "aws_ec2_client_vpn_authorization_rule" "vpn_auth_rule" {
 
 # Logging
 resource "aws_cloudwatch_log_group" "vpn_logs" {
+  provider = aws.vpn
+
   # encrypted by default
   name              = "/aws/vpn/${var.vpn_name}"
   retention_in_days = var.vpn_cloudwatch_log_group_retention
 }
 
 resource "aws_cloudwatch_log_stream" "vpn_logs" {
+  provider = aws.vpn
+
   name           = "vpn-connection-logs-${var.vpn_name}"
   log_group_name = aws_cloudwatch_log_group.vpn_logs.name
 }

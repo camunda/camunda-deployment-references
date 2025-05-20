@@ -98,6 +98,9 @@ resource "null_resource" "cleanup_certs" {
 }
 
 resource "aws_s3_object" "upload_vpn_config" {
+  provider = aws.bucket
+
+
   for_each               = local_file.vpn_config
   bucket                 = var.s3_bucket_name
   key                    = "client-configs/${each.key}.ovpn"
@@ -105,7 +108,6 @@ resource "aws_s3_object" "upload_vpn_config" {
   kms_key_id             = aws_kms_key.certs_encryption.arn
   server_side_encryption = "aws:kms"
   content_type           = "text/plain"
-  provider               = aws-bucket
 
   lifecycle {
     ignore_changes = [content]

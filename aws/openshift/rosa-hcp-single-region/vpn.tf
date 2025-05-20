@@ -16,8 +16,8 @@ module "vpn" {
   vpn_name         = "${local.rosa_cluster_name}-vpn"
 
   providers = {
-    aws        = aws
-    aws-bucket = aws.aws_bucket_provider
+    aws.vpn    = aws
+    aws.bucket = aws.aws_bucket_provider
   }
 }
 
