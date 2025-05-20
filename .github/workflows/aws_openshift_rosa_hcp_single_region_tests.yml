@@ -234,16 +234,25 @@ jobs:
                         "ci-event": "${{ github.event_name }}"
                       }
 
-            - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
-              id: export_kube_config
+            - name: Export kubeconfig and VPN config, then encrypt them
+              # this is required to pass matrix outputs securely using artifacts
+              id: export_configs
               run: |
                   set -euo pipefail
 
-                  # shellcheck disable=SC2005
+                  # Export and encrypt kubeconfig
                   kubectl config view --raw > kubeconfig.yaml 2>/dev/null
                   openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-                  encrypted_kubeconfig_base64=$(base64 -w 0 encrypted_kubeconfig.enc)
-                  echo "kubeconfig_raw=${encrypted_kubeconfig_base64}" >> "$GITHUB_OUTPUT"
+                  encrypted_kubeconfig_base64="$(base64 -w 0 encrypted_kubeconfig.enc)"
+
+                  # Export and encrypt VPN config (assumes file exists at .vpn/client.ovpn)
+                  openssl enc -aes-256-cbc -salt -in "$GITHUB_WORKSPACE/.vpn/client.ovpn" -out encrypted_vpn_config.enc \
+                     -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  encrypted_vpn_config_base64="$(base64 -w 0 encrypted_vpn_config.enc)"
+
+                  # Export both as outputs
+                  echo "kubeconfig_raw=${encrypted_kubeconfig_base64}" | tee -a "$GITHUB_OUTPUT"
+                  echo "vpnconfig_raw=${encrypted_vpn_config_base64}" | tee -a "$GITHUB_OUTPUT"
 
             ## Write for matrix outputs workaround
             - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
@@ -252,7 +261,8 @@ jobs:
                   matrix-step-name: ${{ github.job }}
                   matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
-                      kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
+                      kubeconfig_raw: ${{ steps.export_configs.outputs.kubeconfig_raw }}
+                      vpnconfig_raw: ${{ steps.export_configs.outputs.vpnconfig_raw }}
 
             - name: 🌐 Post-creation steps
               timeout-minutes: 20
@@ -273,7 +283,7 @@ jobs:
         runs-on: ubuntu-latest
         needs: prepare-clusters
         outputs:
-            kubeconfig: ${{ steps.read-workflow.outputs.result }}
+            config: ${{ steps.read-workflow.outputs.result }}
         steps:
             - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
               id: read-workflow
@@ -328,6 +338,31 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
+            - name: 🔓 Decrypt VPN config
+              if: ${{ matrix.distro.private_vpc == true }}
+              run: |
+                  set -euo pipefail
+
+                  mkdir -p "$GITHUB_WORKSPACE/.vpn"
+                  echo "${{
+                      fromJson(needs.access-info.outputs.config).vpnconfig_raw[
+                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
+                      ]
+                    }}" | base64 --decode > encrypted_vpn_config.enc
+
+                  openssl enc -aes-256-cbc -d -in encrypted_vpn_config.enc -out "$GITHUB_WORKSPACE/.vpn/client.ovpn" \
+                    -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  rm encrypted_vpn_config.enc
+                  chmod 600 "$GITHUB_WORKSPACE/.vpn/client.ovpn"
+
+            - name: 🛡️ Connect to VPN
+              # TODO: pin this action
+              if: ${{ matrix.distro.private_vpc == true }}
+              uses: kota65535/github-openvpn-connect-action@v2
+              with:
+                  config_file: ${{ github.workspace }}/.vpn/client.ovpn
+                  echo_config: 'false'
+
             - name: 🔐 Login into the cluster
               timeout-minutes: 10
               run: |
@@ -335,7 +370,7 @@ jobs:
 
                   mkdir -p "$HOME/.kube"
                   echo "${{
-                      fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[
+                      fromJson(needs.access-info.outputs.config).kubeconfig_raw[
                         format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
                       ]
                     }}" | base64 --decode > encrypted_kubeconfig.enc
