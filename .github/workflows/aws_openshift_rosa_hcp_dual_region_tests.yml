@@ -374,8 +374,6 @@ jobs:
                   while oc --context="$CLUSTER_1_NAME" get managedclusterset --all-namespaces | grep -q .; do
                     echo "Still waiting for ManagedClusterSet to be deleted..."
                     sleep 10
-
-                    oc --context="$CLUSTER_1_NAME" patch mch MultiClusterHub --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
                   done
 
                   echo "Uninstalling MultiClusterHub..."
