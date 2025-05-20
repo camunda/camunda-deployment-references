@@ -16,8 +16,8 @@ variable "vpn_allowed_cidr_blocks" {
 }
 
 variable "vpn_split_tunnel" {
-  default     = false
-  description = "By default, when you have a Client VPN endpoint, all traffic from clients is routed over the Client VPN tunnel. When you enable split-tunnel on the Client VPN endpoint, we push the routes on the Client VPN endpoint route table to the device that is connected to the Client VPN endpoint. This ensures that only traffic with a destination to the network matching a route from the Client VPN endpoint route table is routed over the Client VPN tunnel. "
+  default     = true
+  description = "When you have a Client VPN endpoint, all traffic from clients is routed over the Client VPN tunnel if set to false. When you enable split-tunnel on the Client VPN endpoint, we push the routes on the Client VPN endpoint route table to the device that is connected to the Client VPN endpoint. This ensures that only traffic with a destination to the network matching a route from the Client VPN endpoint route table is routed over the Client VPN tunnel."
 }
 
 variable "vpc_subnet_ids" {
