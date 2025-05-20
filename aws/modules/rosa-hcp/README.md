@@ -106,6 +106,7 @@ oc new-project "$NAMESPACE"
 | <a name="input_private"></a> [private](#input\_private) | Restrict master API endpoint and application routes to direct, private connectivity. | `bool` | `false` | no |
 | <a name="input_replicas"></a> [replicas](#input\_replicas) | The number of computer nodes to create. Must be a minimum of 2 for a single-AZ cluster, 3 for multi-AZ. | `string` | `"2"` | no |
 | <a name="input_service_cidr_block"></a> [service\_cidr\_block](#input\_service\_cidr\_block) | value of the CIDR block to use for the services | `string` | `"10.0.128.0/18"` | no |
+| <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to add to the resources | `map(string)` | `{}` | no |
 | <a name="input_vpc_cidr_block"></a> [vpc\_cidr\_block](#input\_vpc\_cidr\_block) | value of the CIDR block to use for the VPC | `string` | `"10.0.0.0/16"` | no |
 ## Outputs
 

@@ -218,6 +218,18 @@ jobs:
                   tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
                   cleanup-tf-modules-path: 'false'
 
+                  tags: >
+                      {
+                        "ci-run-id": "${{ github.run_id }}",
+                        "ci-run-number": "${{ github.run_number }}",
+                        "ci-workflow": "${{ github.workflow }}",
+                        "ci-actor": "${{ github.actor }}",
+                        "ci-ref": "${{ github.ref }}",
+                        "ci-commit": "${{ github.sha }}",
+                        "ci-repo": "${{ github.repository }}",
+                        "ci-event": "${{ github.event_name }}"
+                      }
+
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
               run: |
@@ -374,8 +386,6 @@ jobs:
                   while oc --context="$CLUSTER_1_NAME" get managedclusterset --all-namespaces | grep -q .; do
                     echo "Still waiting for ManagedClusterSet to be deleted..."
                     sleep 10
-
-                    oc --context="$CLUSTER_1_NAME" patch mch MultiClusterHub --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
                   done
 
                   echo "Uninstalling MultiClusterHub..."

@@ -93,3 +93,9 @@ variable "htpasswd_password" {
   description = "htpasswd password"
   sensitive   = true
 }
+
+variable "tags" {
+  type        = map(string)
+  description = "Additional tags to add to the resources"
+  default     = {}
+}

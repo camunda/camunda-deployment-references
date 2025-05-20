@@ -3,6 +3,8 @@ resource "aws_kms_key" "eks" {
   description             = "${var.name} -  EKS Secret Encryption Key"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+
+  tags = var.kms_key_tags
 }
 
 # E.g. used for Prometheus external scraping to allow the cluster API access to node ports
