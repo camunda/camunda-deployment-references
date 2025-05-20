@@ -130,7 +130,7 @@ variable "key_algorithm" {
 
 variable "key_bits" {
   type        = number
-  default     = 4096
+  default     = 2048
   description = "Key size in bits for private keys (client, server)"
 }
 

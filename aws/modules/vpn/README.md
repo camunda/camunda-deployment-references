@@ -64,7 +64,7 @@ No modules.
 | <a name="input_client_certificate_validity_period_hours"></a> [client\_certificate\_validity\_period\_hours](#input\_client\_certificate\_validity\_period\_hours) | Validity period of client certificates in hours (default: 1 year) | `number` | `8760` | no |
 | <a name="input_client_key_names"></a> [client\_key\_names](#input\_client\_key\_names) | List of client key names to generate certificates for | `list(string)` | n/a | yes |
 | <a name="input_key_algorithm"></a> [key\_algorithm](#input\_key\_algorithm) | Algorithm used to generate private keys (client, server) | `string` | `"RSA"` | no |
-| <a name="input_key_bits"></a> [key\_bits](#input\_key\_bits) | Key size in bits for private keys (client, server) | `number` | `4096` | no |
+| <a name="input_key_bits"></a> [key\_bits](#input\_key\_bits) | Key size in bits for private keys (client, server) | `number` | `2048` | no |
 | <a name="input_kms_key_name"></a> [kms\_key\_name](#input\_kms\_key\_name) | Name of the KMS key used for encrypting certificates and keys in S3 | `string` | `"vpn-certs-kms-key"` | no |
 | <a name="input_s3_bucket_name"></a> [s3\_bucket\_name](#input\_s3\_bucket\_name) | Name of the bucket that stores the certificates and keys | `string` | n/a | yes |
 | <a name="input_s3_ca_directory"></a> [s3\_ca\_directory](#input\_s3\_ca\_directory) | Directory name inside the S3 bucket where CA and certificates are stored | `string` | `"my-ca"` | no |
