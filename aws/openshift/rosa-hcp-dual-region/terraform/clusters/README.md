@@ -16,6 +16,7 @@ No resources.
 |------|-------------|------|---------|:--------:|
 | <a name="input_cluster_1_region"></a> [cluster\_1\_region](#input\_cluster\_1\_region) | Region of the cluster 1 | `string` | `"us-east-1"` | no |
 | <a name="input_cluster_2_region"></a> [cluster\_2\_region](#input\_cluster\_2\_region) | Region of the cluster 2 | `string` | `"us-east-2"` | no |
+| <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default tags to apply to all resources | `map(string)` | `{}` | no |
 ## Outputs
 
 | Name | Description |
