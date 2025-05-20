@@ -4,7 +4,7 @@
 outputs_json=$(terraform output -json)
 
 # PostgreSQL connection details
-export DB_HOST=$(echo "$outputs_json" | jq -r .DB_HOST.value)
+export DB_HOST=$(echo "$outputs_json" | jq -r .postgres_fqdn.value)
 export DB_PORT=5432
 
 # PostgreSQL Admin Credentials
