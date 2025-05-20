@@ -351,9 +351,11 @@ runs:
 
         - name: Connect to VPN
           # TODO: pin this action
+          if: inputs.vpn-enabled == 'true'
           uses: kota65535/github-openvpn-connect-action@v2
           with:
               config_file: ${{ github.workspace }}/.vpn/client.ovpn
+              echo_config: 'false'
 
         - name: Login and generate kubeconfig
           # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
