@@ -28,8 +28,9 @@ module "aks" {
   user_node_disk_size_gb = 30
   user_node_pool_zones   = var.user_node_pool_zones
 
-  uami_id    = module.kms.uami_id
-  kms_key_id = module.kms.key_vault_key_id
+  uami_id        = module.kms.uami_id
+  uami_object_id = module.kms.uami_object_id
+  kms_key_id     = module.kms.key_vault_key_id
 
   dns_zone_id = var.dns_zone_id
 }

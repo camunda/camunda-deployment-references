@@ -37,4 +37,5 @@ No modules.
 | <a name="output_key_vault_id"></a> [key\_vault\_id](#output\_key\_vault\_id) | The Key Vault resource ID |
 | <a name="output_key_vault_key_id"></a> [key\_vault\_key\_id](#output\_key\_vault\_key\_id) | The specific Key Vault key ID for envelope encryption |
 | <a name="output_uami_id"></a> [uami\_id](#output\_uami\_id) | User-Assigned Managed Identity ID |
+| <a name="output_uami_object_id"></a> [uami\_object\_id](#output\_uami\_object\_id) | Object ID (GUID) of the User Assigned Managed Identity |
 <!-- END_TF_DOCS -->
