@@ -1,14 +1,13 @@
-# If your cluster is private, you will need a VPN to access it
 locals {
-  create_vpn = module.rosa_cluster.private ? true : false
+  # Enable the VPN is your cluster is private
+  enable_vpn = local.rosa_private_cluster ? true : false
 }
 module "vpn" {
-  count = local.create_vpn ? 1 : 0
+  count = local.enable_vpn ? 1 : 0
 
   source = "../../modules/vpn"
 
   s3_bucket_name          = "bucket-storing-vpn-keys"
-  s3_bucket_region        = "eu-central-1"
   vpc_subnet_ids          = module.rosa_cluster.private_subnet_ids
   vpc_id                  = module.rosa_cluster.vpc_id
   vpc_target_network_cidr = module.rosa_cluster.vpc_cidr_block

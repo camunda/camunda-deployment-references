@@ -253,6 +253,8 @@ runs:
               pwd
               ls
 
+              extra_vars=""
+
               # protect sensitive values
               echo "::add-mask::${{ inputs.admin-password }}"
 
@@ -280,8 +282,9 @@ runs:
               if [[ "${{ inputs.vpn-enabled }}" == "true" ]]; then
                 sed -i -E \
                   -e "s/(^\s*s3_bucket_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.vpn-s3-bucket-name }}\2/" \
-                  -e "s/(^\s*s3_bucket_region\s*=\s*\")[^\"]*(\")/\1${{ inputs.vpn-s3-bucket-region }}\2/" \
                   vpn.tf
+
+                extra_vars="-var=\"s3_bucket_region=${{ inputs.vpn-s3-bucket-region }}\""
 
                 echo "Displaying templated vpn.tf file:"
                 cat vpn.tf
@@ -296,7 +299,7 @@ runs:
               raw_tags='${{ inputs.tags }}'
               escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
 
-              terraform plan -no-color -var="default_tags=$escaped_tags" -out rosa.plan
+              terraform plan -no-color -var="default_tags=$escaped_tags" $extra_vars -out rosa.plan
 
         - name: Terraform Apply
           id: apply

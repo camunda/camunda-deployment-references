@@ -8,12 +8,3 @@ terraform {
     }
   }
 }
-
-provider "aws" {
-  alias = "aws_region_vpn"
-}
-
-provider "aws" {
-  region = var.s3_bucket_region
-  alias  = "aws_region_bucket"
-}

@@ -9,11 +9,6 @@ variable "vpn_client_cidr" {
   description = "Client CIDR, it must be different from the primary VPC CIDR"
 }
 
-variable "s3_bucket_region" {
-  type        = string
-  description = "Region of the bucket"
-}
-
 variable "vpn_allowed_cidr_blocks" {
   description = "List of CIDR blocks that are allowed to access the Client VPN endpoint on UDP port 443. Use caution when allowing wide access (e.g., 0.0.0.0/0)."
   type        = list(string)

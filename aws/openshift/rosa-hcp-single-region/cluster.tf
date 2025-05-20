@@ -6,7 +6,9 @@ locals {
   rosa_admin_username = "kubeadmin"
   rosa_admin_password = "CHANGEME1234r!" # Change the password of your admin password
 
-  rosa_tags = {} # additional tags that you may want to apply to the resources
+  # Prevent the cluster to be accessed at all from the public Internet if true
+  rosa_private_cluster = false
+  rosa_tags            = {} # additional tags that you may want to apply to the resources
 }
 
 module "rosa_cluster" {
@@ -30,9 +32,7 @@ module "rosa_cluster" {
   compute_node_instance_type = "m7i.xlarge"
   replicas                   = 6
 
-  # The VPC within which the cluster resides has only a private subnet,
-  # meaning that it cannot be accessed at all from the public Internet
-  private = false
+  private = local.rosa_private_cluster
 
   # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
   openshift_version = "4.18.5"

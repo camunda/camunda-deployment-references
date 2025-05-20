@@ -70,7 +70,6 @@ No modules.
 | <a name="input_key_bits"></a> [key\_bits](#input\_key\_bits) | Key size in bits for private keys (client, server) | `number` | `4096` | no |
 | <a name="input_kms_key_name"></a> [kms\_key\_name](#input\_kms\_key\_name) | Name of the KMS key used for encrypting certificates and keys in S3 | `string` | `"vpn-certs-kms-key"` | no |
 | <a name="input_s3_bucket_name"></a> [s3\_bucket\_name](#input\_s3\_bucket\_name) | Name of the bucket that stores the certificates and keys | `string` | n/a | yes |
-| <a name="input_s3_bucket_region"></a> [s3\_bucket\_region](#input\_s3\_bucket\_region) | Region of the bucket | `string` | n/a | yes |
 | <a name="input_s3_ca_directory"></a> [s3\_ca\_directory](#input\_s3\_ca\_directory) | Directory name inside the S3 bucket where CA and certificates are stored | `string` | `"my-ca"` | no |
 | <a name="input_server_certificate_validity_period_hours"></a> [server\_certificate\_validity\_period\_hours](#input\_server\_certificate\_validity\_period\_hours) | Validity period of server certificates in hours (default: 1 year) | `number` | `8760` | no |
 | <a name="input_server_common_name"></a> [server\_common\_name](#input\_server\_common\_name) | Common Name (CN) field for the server certificate | `string` | `"server.common.local"` | no |
