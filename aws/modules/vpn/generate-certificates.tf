@@ -1,7 +1,7 @@
 # KMS
 
 resource "aws_kms_key" "certs_encryption" {
-  provider = aws.vpn
+  provider = aws.bucket
 
   description             = "KMS key for encrypting VPN certs in S3"
   deletion_window_in_days = 10
@@ -65,6 +65,7 @@ resource "aws_s3_object" "upload_ca_private_key" {
   kms_key_id             = aws_kms_key.certs_encryption.arn
   server_side_encryption = "aws:kms"
   content_type           = "text/plain"
+  acl                    = "private"
 
   # if the cert already exists, we don't update it
   lifecycle {
@@ -79,6 +80,7 @@ resource "aws_s3_object" "upload_ca_public_key" {
   key          = local.ca_public_key_object_key
   content      = tls_self_signed_cert.ca_public_key.cert_pem
   content_type = "text/plain"
+  acl          = "private"
 
   # if the cert already exists, we don't update it
   lifecycle {
@@ -189,6 +191,7 @@ resource "aws_s3_object" "upload_server_private_key" {
   kms_key_id             = aws_kms_key.certs_encryption.arn
   server_side_encryption = "aws:kms"
   content_type           = "text/plain"
+  acl                    = "private"
 
   # if the cert already exists, we don't update it
   lifecycle {
@@ -204,6 +207,7 @@ resource "aws_s3_object" "upload_server_public_key" {
   content = tls_locally_signed_cert.server_public_key.cert_pem
 
   content_type = "text/plain"
+  acl          = "private"
 
   lifecycle {
     ignore_changes = [content]
@@ -255,6 +259,7 @@ resource "aws_s3_object" "upload_client_private_key" {
   kms_key_id             = aws_kms_key.certs_encryption.arn
   server_side_encryption = "aws:kms"
   content_type           = "text/plain"
+  acl                    = "private"
 
   # if the cert already exists, we don't update it
   lifecycle {
@@ -270,6 +275,7 @@ resource "aws_s3_object" "upload_client_public_key" {
   key          = local.client_keys[each.key].public_key_object_key
   content      = each.value.cert_pem
   content_type = "text/plain"
+  acl          = "private"
 
   lifecycle {
     ignore_changes = [content]

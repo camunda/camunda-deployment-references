@@ -108,6 +108,7 @@ resource "aws_s3_object" "upload_vpn_config" {
   kms_key_id             = aws_kms_key.certs_encryption.arn
   server_side_encryption = "aws:kms"
   content_type           = "text/plain"
+  acl                    = "private"
 
   lifecycle {
     ignore_changes = [content]
