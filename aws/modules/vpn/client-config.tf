@@ -10,8 +10,8 @@ resource "null_resource" "download_certs" {
     command = <<EOT
 mkdir -p ${path.module}/certs
 %{for client in var.client_key_names~}
-aws s3 cp s3://${var.s3_bucket_name}/${local.client_keys[client].private_key_object_key} ${path.module}/certs/${client}.crt
-aws s3 cp s3://${var.s3_bucket_name}/${local.client_keys[client].public_key_object_key} ${path.module}/certs/${client}.key
+aws s3 cp s3://${var.s3_bucket_name}/${local.client_keys[client].public_key_object_key} ${path.module}/certs/${client}.crt
+aws s3 cp s3://${var.s3_bucket_name}/${local.client_keys[client].private_key_object_key} ${path.module}/certs/${client}.key
 %{endfor~}
 EOT
   }
