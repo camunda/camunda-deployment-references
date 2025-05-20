@@ -9,4 +9,5 @@ provider "aws" {
 variable "s3_bucket_region" {
   type        = string
   description = "Region of the bucket"
+  default     = "eu-central-1"
 }

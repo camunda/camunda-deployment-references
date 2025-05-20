@@ -106,7 +106,7 @@ resource "aws_s3_object" "upload_vpn_config" {
   kms_key_id             = aws_kms_key.certs_encryption.arn
   server_side_encryption = "aws:kms"
   content_type           = "text/plain"
-  provider               = aws.aws_bucket_provider
+  provider               = aws-bucket
 
   lifecycle {
     ignore_changes = [content]

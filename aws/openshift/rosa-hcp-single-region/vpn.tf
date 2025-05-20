@@ -12,16 +12,21 @@ module "vpn" {
   vpc_id                  = module.rosa_cluster.vpc_id
   vpc_target_network_cidr = module.rosa_cluster.vpc_cidr_block
 
-  vpn_name         = "${local.rosa_cluster_name}-vpn"
   client_key_names = ["my-client"]
+  vpn_name         = "${local.rosa_cluster_name}-vpn"
+
+  providers = {
+    aws        = aws
+    aws-bucket = aws.aws_bucket_provider
+  }
 }
 
 output "vpn_endpoint" {
   description = "Endpoint of the VPN"
-  value       = module.vpn[0].vpn_endpoint
+  value       = length(module.vpn) > 0 ? module.vpn[0].vpn_endpoint : ""
 }
 
 output "vpn_client_keys_s3_urls" {
   description = "Map of S3 URLs for client private and public keys"
-  value       = module.vpn[0].vpn_client_keys_s3_urls
+  value       = length(module.vpn) > 0 ? module.vpn[0].vpn_client_keys_s3_urls : ""
 }

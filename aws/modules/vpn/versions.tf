@@ -6,5 +6,9 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 5.35.0"
     }
+    aws-bucket = {
+      source  = "hashicorp/aws"
+      version = ">= 5.35.0"
+    }
   }
 }
