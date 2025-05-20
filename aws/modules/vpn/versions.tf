@@ -10,10 +10,10 @@ terraform {
 }
 
 provider "aws" {
-  alias  = "aws_region_vpn"
+  alias = "aws_region_vpn"
 }
 
 provider "aws" {
-  region = var.aws_region_bucket
+  region = var.s3_bucket_region
   alias  = "aws_region_bucket"
 }

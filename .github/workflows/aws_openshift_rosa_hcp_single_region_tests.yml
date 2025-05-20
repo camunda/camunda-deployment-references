@@ -56,6 +56,12 @@ env:
     # TODO: revert before merge
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
 
+    # VPN Configuration (for private cluster only)
+    # TODO: max age retention policy of this bucket = 1 month
+    # TODO: create a dedicated bucket for that and change general-purpose-bucket-that-will-not-be-deleted
+    VPN_S3_BUCKET_NAME: general-purpose-bucket-that-will-not-be-deleted
+    VPN_S3_BUCKET_REGION: eu-central-1
+
     # TEST VARIABLES
 
     # Vars with "CI_" prefix are used in the CI workflow only.
@@ -210,6 +216,11 @@ jobs:
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
                   cleanup-tf-modules-path: 'false'
+
+                  vpn-enabled: ${{ matrix.distro.private_vpc }}
+                  vpn-s3-bucket-name: ${{ env.VPN_S3_BUCKET_NAME }}
+                  vpn-s3-bucket-region: ${{ env.VPN_S3_BUCKET_REGION }}
+
 
                   tags: >
                       {
@@ -511,6 +522,7 @@ jobs:
                   done
 
     cleanup-clusters:
+        # TODO: integrate in the cleanup script a cleanup of the associated VPN certs
         name: Cleanup ROSA clusters
         if: always()
         runs-on: ubuntu-latest

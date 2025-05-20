@@ -9,6 +9,7 @@ Instructions can be found on the official documentation: https://docs.camunda.io
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_rosa_cluster"></a> [rosa\_cluster](#module\_rosa\_cluster) | ../../modules/rosa-hcp | n/a |
+| <a name="module_vpn"></a> [vpn](#module\_vpn) | ../../modules/vpn | n/a |
 ## Resources
 
 No resources.
@@ -28,4 +29,6 @@ No resources.
 | <a name="output_openshift_api_url"></a> [openshift\_api\_url](#output\_openshift\_api\_url) | The endpoint URL for accessing the OpenShift API. This endpoint is used to interact with the OpenShift cluster's API server. |
 | <a name="output_private_subnet_ids"></a> [private\_subnet\_ids](#output\_private\_subnet\_ids) | A comma-separated list of private subnet IDs in the VPC. These subnets are typically used for internal resources that do not require direct internet access. |
 | <a name="output_public_subnet_ids"></a> [public\_subnet\_ids](#output\_public\_subnet\_ids) | A comma-separated list of public subnet IDs in the VPC. These subnets are typically used for resources that require internet access. |
+| <a name="output_vpn_client_keys_s3_urls"></a> [vpn\_client\_keys\_s3\_urls](#output\_vpn\_client\_keys\_s3\_urls) | Map of S3 URLs for client private and public keys |
+| <a name="output_vpn_endpoint"></a> [vpn\_endpoint](#output\_vpn\_endpoint) | Endpoint of the VPN |
 <!-- END_TF_DOCS -->

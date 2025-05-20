@@ -70,6 +70,17 @@ inputs:
         description: Tags to apply to the cluster and related resources, in JSON format
         default: '{}'
 
+    vpn-enabled:
+        description: Enable VPN setup (recommended when private_vpc is true), this will also configure the current runner to use it
+        required: false
+        default: 'false'
+    vpn-s3-bucket-name:
+        description: The name of the S3 bucket to store VPN certificates (required if vpn-enabled is true)
+        required: false
+    vpn-s3-bucket-region:
+        description: The AWS region for the S3 bucket (required if vpn-enabled is true)
+        required: false
+
 outputs:
     openshift-server-api:
         description: The server API URL of the deployed ROSA cluster
@@ -83,9 +94,27 @@ outputs:
         description: URL of the Terraform state file in the S3 bucket
         value: ${{ steps.set-terraform-variables.outputs.terraform-state-url }}
 
+    vpn_client_keys_s3_urls:
+        description: Map of S3 URLs for client private and public keys
+        value: ${{ steps.apply.outputs.vpn_client_keys_s3_urls || '' }}
+    vpn_endpoint:
+        description: Endpoint of the VPN to access the created cluster
+        value: ${{ steps.apply.outputs.vpn_endpoint || '' }}
+
+
 runs:
     using: composite
     steps:
+        - name: Validate inputs
+          shell: bash
+          run: |
+              if [[ "${{ inputs.vpn-enabled }}" == "true" ]]; then
+                if [[ -z "${{ inputs.vpn-s3-bucket-name }}" || -z "${{ inputs.vpn-s3-bucket-region }}" ]]; then
+                  echo "❌ ERROR: vpn-s3-bucket-name and vpn-s3-bucket-region are required when vpn-enabled is true"
+                  exit 1
+                fi
+              fi
+
         - name: Checkout Repository
           uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
           with:
@@ -248,6 +277,19 @@ runs:
                 echo "No private-vpc value provided, skipping private modification."
               fi
 
+              if [[ "${{ inputs.vpn-enabled }}" == "true" ]]; then
+                sed -i -E \
+                  -e "s/(^\s*s3_bucket_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.vpn-s3-bucket-name }}\2/" \
+                  -e "s/(^\s*s3_bucket_region\s*=\s*\")[^\"]*(\")/\1${{ inputs.vpn-s3-bucket-region }}\2/" \
+                  vpn.tf
+
+                echo "Displaying templated vpn.tf file:"
+                cat vpn.tf
+              else
+                echo "VPN disabled, skipping S3 bucket modifications"
+              fi
+
+
               echo "Displaying templated cluster.tf file:"
               cat cluster.tf
 
@@ -269,6 +311,14 @@ runs:
 
               export cluster_id="$(terraform output -raw cluster_id)"
               echo "cluster_id=$cluster_id" >> "$GITHUB_OUTPUT"
+
+              # Extract VPN outputs only if VPN is enabled and module applied
+              if [[ "${{ inputs.vpn-enabled }}" == "true" ]]; then
+                echo "vpn_client_keys_s3_urls=$(terraform output -json vpn_client_keys_s3_urls)" | tee -a "$GITHUB_OUTPUT"
+                echo "vpn_endpoint=$(terraform output -json vpn_endpoint)" | tee -a "$GITHUB_OUTPUT"
+              fi
+
+# TODO: handle s3 bucket cleanup when in the desctruction
 
         - name: Retrieve cluster information
           id: cluster_info

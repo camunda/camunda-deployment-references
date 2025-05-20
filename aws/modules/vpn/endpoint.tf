@@ -6,14 +6,15 @@ resource "aws_security_group" "vpn" {
   vpc_id      = var.vpc_id
 
   ingress {
+    description = "Regulate ips allowed to access to the VPN"
     from_port   = 443
     to_port     = 443
     protocol    = "udp"
     cidr_blocks = var.vpn_allowed_cidr_blocks
   }
 
-  # don't restrict the destination as it's internal network
   egress {
+    description = "Allow the VPN to access the internal network, unrestricted"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -59,7 +60,7 @@ resource "aws_ec2_client_vpn_endpoint" "vpn" {
 # Associate to target network to the VPN
 
 resource "aws_ec2_client_vpn_network_association" "vpn_subnet" {
-  for_each               = var.vpc_subnet_ids
+  for_each = var.vpc_subnet_ids
 
   client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.vpn.id
   subnet_id              = each.value
@@ -73,10 +74,20 @@ resource "aws_ec2_client_vpn_authorization_rule" "vpn_auth_rule" {
 
 # Logging
 
+resource "aws_kms_key" "cloudwatch" {
+  enable_key_rotation = true
+}
+
+resource "aws_kms_alias" "cloudwatch" {
+  name          = "alias/cloudwatch-${var.vpn_name}"
+  target_key_id = aws_kms_key.cloudwatch.key_id
+}
+
 resource "aws_cloudwatch_log_group" "vpn_logs" {
   # encrypted by default
   name              = "/aws/vpn/${var.vpn_name}"
   retention_in_days = var.vpn_cloudwatch_log_group_retention
+  kms_key_id        = aws_kms_alias.cloudwatch.arn
 }
 
 resource "aws_cloudwatch_log_stream" "vpn_logs" {

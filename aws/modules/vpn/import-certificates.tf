@@ -31,22 +31,22 @@ resource "null_resource" "wait_for_cert_download" {
 }
 
 data "local_file" "server_private_key" {
-  filename = "${path.module}/server-key.pem"
+  filename   = "${path.module}/server-key.pem"
   depends_on = [null_resource.wait_for_cert_download]
 }
 
 data "local_file" "server_cert" {
-  filename = "${path.module}/server-cert.pem"
+  filename   = "${path.module}/server-cert.pem"
   depends_on = [null_resource.wait_for_cert_download]
 }
 
 data "local_file" "ca_private_key" {
-  filename = "${path.module}/ca-key.pem"
+  filename   = "${path.module}/ca-key.pem"
   depends_on = [null_resource.wait_for_cert_download]
 }
 
 data "local_file" "ca_cert" {
-  filename = "${path.module}/ca-cert.pem"
+  filename   = "${path.module}/ca-cert.pem"
   depends_on = [null_resource.wait_for_cert_download]
 }
 
