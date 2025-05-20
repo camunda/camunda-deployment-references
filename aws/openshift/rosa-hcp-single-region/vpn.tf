@@ -26,7 +26,7 @@ output "vpn_endpoint" {
   value       = length(module.vpn) > 0 ? module.vpn[0].vpn_endpoint : ""
 }
 
-output "vpn_client_keys_s3_urls" {
-  description = "Map of S3 URLs for client private and public keys"
-  value       = length(module.vpn) > 0 ? module.vpn[0].vpn_client_keys_s3_urls : ""
+output "vpn_client_configs_s3_urls" {
+  description = "Map of S3 URLs of each VPN client config (client's name is the key)"
+  value       = length(module.vpn) > 0 ? module.vpn[0].vpn_client_configs : {}
 }

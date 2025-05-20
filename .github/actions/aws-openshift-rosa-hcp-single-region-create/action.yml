@@ -94,9 +94,9 @@ outputs:
         description: URL of the Terraform state file in the S3 bucket
         value: ${{ steps.set-terraform-variables.outputs.terraform-state-url }}
 
-    vpn_client_keys_s3_urls:
-        description: Map of S3 URLs for client private and public keys
-        value: ${{ steps.apply.outputs.vpn_client_keys_s3_urls || '' }}
+    vpn_client_configs_s3_urls:
+        description: Map of S3 URLs for client configs
+        value: ${{ steps.apply.outputs.vpn_client_configs_s3_urls || '' }}
     vpn_endpoint:
         description: Endpoint of the VPN to access the created cluster
         value: ${{ steps.apply.outputs.vpn_endpoint || '' }}
@@ -317,7 +317,7 @@ runs:
 
               # Extract VPN outputs only if VPN is enabled and module applied
               if [[ "${{ inputs.vpn-enabled }}" == "true" ]]; then
-                echo "vpn_client_keys_s3_urls=$(terraform output -json vpn_client_keys_s3_urls)" | tee -a "$GITHUB_OUTPUT"
+                echo "vpn_client_configs_s3_urls=$(terraform output -json vpn_client_configs_s3_urls)" | tee -a "$GITHUB_OUTPUT"
                 echo "vpn_endpoint=$(terraform output -json vpn_endpoint)" | tee -a "$GITHUB_OUTPUT"
               fi
 

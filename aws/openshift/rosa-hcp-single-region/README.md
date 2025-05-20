@@ -30,6 +30,6 @@ No resources.
 | <a name="output_openshift_api_url"></a> [openshift\_api\_url](#output\_openshift\_api\_url) | The endpoint URL for accessing the OpenShift API. This endpoint is used to interact with the OpenShift cluster's API server. |
 | <a name="output_private_subnet_ids"></a> [private\_subnet\_ids](#output\_private\_subnet\_ids) | A comma-separated list of private subnet IDs in the VPC. These subnets are typically used for internal resources that do not require direct internet access. |
 | <a name="output_public_subnet_ids"></a> [public\_subnet\_ids](#output\_public\_subnet\_ids) | A comma-separated list of public subnet IDs in the VPC. These subnets are typically used for resources that require internet access. |
-| <a name="output_vpn_client_keys_s3_urls"></a> [vpn\_client\_keys\_s3\_urls](#output\_vpn\_client\_keys\_s3\_urls) | Map of S3 URLs for client private and public keys |
+| <a name="output_vpn_client_configs_s3_urls"></a> [vpn\_client\_configs\_s3\_urls](#output\_vpn\_client\_configs\_s3\_urls) | Map of S3 URLs of each VPN client config (client's name is the key) |
 | <a name="output_vpn_endpoint"></a> [vpn\_endpoint](#output\_vpn\_endpoint) | Endpoint of the VPN |
 <!-- END_TF_DOCS -->

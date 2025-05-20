@@ -41,7 +41,7 @@ The kube context will be set on the created cluster.
 | `openshift-server-api` | <p>The server API URL of the deployed ROSA cluster</p> |
 | `openshift-cluster-id` | <p>The ID of the deployed ROSA cluster</p> |
 | `terraform-state-url` | <p>URL of the Terraform state file in the S3 bucket</p> |
-| `vpn_client_keys_s3_urls` | <p>Map of S3 URLs for client private and public keys</p> |
+| `vpn_client_configs_s3_urls` | <p>Map of S3 URLs for client configs</p> |
 | `vpn_endpoint` | <p>Endpoint of the VPN to access the created cluster</p> |
 
 
