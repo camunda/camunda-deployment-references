@@ -28,6 +28,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_backup_bucket_region"></a> [backup\_bucket\_region](#input\_backup\_bucket\_region) | Region of the backup bucket | `string` | `"us-east-1"` | no |
 | <a name="input_bucket_name"></a> [bucket\_name](#input\_bucket\_name) | Name of the bucket used to backup the platform | `string` | `"camunda-elastic-backup-rosa-dual"` | no |
+| <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default tags to apply to all resources | `map(string)` | `{}` | no |
 ## Outputs
 
 | Name | Description |

@@ -92,6 +92,10 @@ inputs:
         # renovate: datasource=github-releases depName=aws/aws-cli
         default: 2.15.52
 
+    tags:
+        description: Tags to apply to the cluster and related resources, in JSON format
+        default: '{}'
+
 outputs:
     aurora-endpoint:
         description: The endpoint of the deployed Aurora cluster
@@ -160,8 +164,12 @@ runs:
               # protect sensitive values
               echo "::add-mask::${{ inputs.password }}"
 
+              raw_tags='${{ inputs.tags }}'
+              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
               terraform plan -no-color -out aurora.plan \
+                -var "default_tags=$escaped_tags" \
                 -var-file=/tmp/var.tfvars.json \
                 -var "cluster_name=${{ inputs.cluster-name }}" \
                 -var "username=${{ inputs.username }}" \

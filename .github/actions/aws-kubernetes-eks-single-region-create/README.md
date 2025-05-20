@@ -14,6 +14,7 @@ The kube context will be set on the created cluster.
 | `aws-region` | <p>AWS region where the EKS cluster will be deployed</p> | `true` | `""` |
 | `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.32` |
 | `single-nat-gateway` | <p>Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.</p> | `false` | `true` |
+| `tags` | <p>Tags to apply to the cluster and related resources, in JSON format</p> | `false` | `{}` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
@@ -62,6 +63,12 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
+
+    tags:
+    # Tags to apply to the cluster and related resources, in JSON format
+    #
+    # Required: false
+    # Default: {}
 
     s3-backend-bucket:
     # Name of the S3 bucket to store Terraform state

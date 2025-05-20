@@ -184,6 +184,18 @@ jobs:
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}eks-cluster/${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   tf-modules-revision: ${{ steps.commit_info.outputs.tf_modules_revision }}
 
+                  tags: >
+                      {
+                        "ci-run-id": "${{ github.run_id }}",
+                        "ci-run-number": "${{ github.run_number }}",
+                        "ci-workflow": "${{ github.workflow }}",
+                        "ci-actor": "${{ github.actor }}",
+                        "ci-ref": "${{ github.ref }}",
+                        "ci-commit": "${{ github.sha }}",
+                        "ci-repo": "${{ github.repository }}",
+                        "ci-event": "${{ github.event_name }}"
+                      }
+
             - name: After EKS creation infos
               id: after_cluster_creation_infos
               run: |
@@ -224,6 +236,18 @@ jobs:
 
                   availability-zones: ${{ steps.after_cluster_creation_infos.outputs.availability_zones }}
 
+                  tags: >
+                      {
+                        "ci-run-id": "${{ github.run_id }}",
+                        "ci-run-number": "${{ github.run_number }}",
+                        "ci-workflow": "${{ github.workflow }}",
+                        "ci-actor": "${{ github.actor }}",
+                        "ci-ref": "${{ github.ref }}",
+                        "ci-commit": "${{ github.sha }}",
+                        "ci-repo": "${{ github.repository }}",
+                        "ci-event": "${{ github.event_name }}"
+                      }
+
             - name: Deploy OpenSearch Domain
               uses: ./.github/actions/aws-opensearch-manage-cluster
               id: deploy_opensearch_domain
@@ -248,6 +272,18 @@ jobs:
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}opensearch/${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   tf-modules-revision: ${{ steps.commit_info.outputs.tf_modules_revision }}
+
+                  tags: >
+                      {
+                        "ci-run-id": "${{ github.run_id }}",
+                        "ci-run-number": "${{ github.run_number }}",
+                        "ci-workflow": "${{ github.workflow }}",
+                        "ci-actor": "${{ github.actor }}",
+                        "ci-ref": "${{ github.ref }}",
+                        "ci-commit": "${{ github.sha }}",
+                        "ci-repo": "${{ github.repository }}",
+                        "ci-event": "${{ github.event_name }}"
+                      }
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}

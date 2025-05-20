@@ -37,6 +37,7 @@ Each cluster will be added to the kube config with the name of the cluster as co
 | `enable-vpc-peering` | <p>Whether or not to enable VPC Peering between the clusters</p> | `false` | `true` |
 | `enable-backup-bucket` | <p>Whether or not to enable Backup Bucket creation used by the clusters</p> | `false` | `true` |
 | `cleanup-tf-modules-path` | <p>Whether to clean up the tf modules path</p> | `false` | `false` |
+| `tags` | <p>Tags to apply to the cluster and related resources, in JSON format</p> | `false` | `{}` |
 
 
 ## Outputs
@@ -213,4 +214,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: false
+
+    tags:
+    # Tags to apply to the cluster and related resources, in JSON format
+    #
+    # Required: false
+    # Default: {}
 ```
