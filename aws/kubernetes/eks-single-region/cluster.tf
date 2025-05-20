@@ -1,10 +1,14 @@
 locals {
   eks_cluster_name   = "cluster-name-std" # Change this to a name of your choice
   eks_cluster_region = "eu-west-2"        # Change this to your desired AWS region
+
   # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
   kubernetes_version = "1.32" # Change this to your desired Kubernetes version (eks - major.minor)
+
   # Default - 1 NAT per Subnet = 3 IPs
   single_nat_gateway = "false" # Change this to true if you want a single NAT gateway (1 IP vs 3 IPs)
+
+  eks_tags = {} # additional tags that you may want to apply to the resources
 }
 
 module "eks_cluster" {
@@ -24,6 +28,7 @@ module "eks_cluster" {
   np_desired_node_count = 4
 
   single_nat_gateway = local.single_nat_gateway
+  cluster_tags       = local.eks_tags
 }
 
 output "cert_manager_arn" {

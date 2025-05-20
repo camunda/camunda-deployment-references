@@ -12,6 +12,8 @@ locals {
   camunda_operate_service_account  = "operate-sa"  # Replace with your Kubernetes ServiceAcccount that will be created for Operate
   camunda_tasklist_service_account = "tasklist-sa" # Replace with your Kubernetes ServiceAcccount that will be created for TaskList
   camunda_optimize_service_account = "optimize-sa" # Replace with your Kubernetes ServiceAcccount that will be created for Optimize
+
+  opensearch_tags = {} # additional tags that you may want to apply to the resources
 }
 
 module "opensearch_domain" {
@@ -116,6 +118,7 @@ EOF
 }
 CONFIG
 
+  tags = local.opensearch_tags
 
   depends_on = [module.eks_cluster]
 }

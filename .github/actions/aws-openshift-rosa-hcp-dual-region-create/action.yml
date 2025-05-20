@@ -85,6 +85,9 @@ inputs:
     cleanup-tf-modules-path:
         description: Whether to clean up the tf modules path
         default: 'false'
+    tags:
+        description: Tags to apply to the cluster and related resources, in JSON format
+        default: '{}'
 
 outputs:
     openshift-server-api-cluster-1:
@@ -253,6 +256,8 @@ runs:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
           run: |
+              set -euo pipefail
+
               echo "Adapting the files with input values"
               pwd
               ls
@@ -301,7 +306,11 @@ runs:
               echo "Displaying templated cluster_cluster_2.tf file:"
               cat cluster_region_2.tf
 
+              raw_tags='${{ inputs.tags }}'
+              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+
               terraform plan -no-color -out clusters.plan  \
+                -var="default_tags=$escaped_tags" \
                 -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
                 -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
 
@@ -409,7 +418,13 @@ runs:
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
           shell: bash
           run: |
+              set -euo pipefail
+
+              raw_tags='${{ inputs.tags }}'
+              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+
               terraform plan -no-color -out peering.plan \
+                -var="default_tags=$escaped_tags" \
                 -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
                 -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}" \
                 -var="cluster_1_vpc_id=${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}" \
@@ -454,9 +469,15 @@ runs:
           env:
               AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
           run: |
+              set -euo pipefail
+
               hash=$(echo -n "${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}" | sha256sum | cut -c1-8)
 
+              raw_tags='${{ inputs.tags }}'
+              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+
               terraform plan -no-color -out  backup_bucket.plan \
+                -var="default_tags=$escaped_tags" \
                 -var="bucket_name=cb-${hash}"
 
 

@@ -158,6 +158,32 @@ jobs:
               run: |
                   set -euo pipefail
 
+                  ci_metadata=$(jq -n \
+                    --arg run_id "${{ github.run_id }}" \
+                    --arg run_number "${{ github.run_number }}" \
+                    --arg workflow "${{ github.workflow }}" \
+                    --arg actor "${{ github.actor }}" \
+                    --arg ref "${{ github.ref }}" \
+                    --arg sha "${{ github.sha }}" \
+                    --arg repository "${{ github.repository }}" \
+                    --arg event_name "${{ github.event_name }}" \
+                    '{
+                      "ci-run-id": $run_id,
+                      "ci-run-number": $run_number,
+                      "ci-workflow": $workflow,
+                      "ci-actor": $actor,
+                      "ci-ref": $ref,
+                      "ci-commit": $sha,
+                      "ci-repo": $repository,
+                      "ci-event": $event_name
+                    }')
+
+                  # Convert to Terraform format: "key"="value", ... wrapped in braces
+                  escaped_tags=$(echo "$ci_metadata" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+
+                  echo "Final tags: $escaped_tags"
+                  export TF_VAR_default_tags="$escaped_tags"
+
                   just aws-tf-modules-test ${{ matrix.test_function }} "--junitfile ${{ matrix.test_function }}_unit-tests.xml"
               env:
                   TF_STATE_BUCKET_REGION: ${{ env.S3_BUCKET_REGION }}

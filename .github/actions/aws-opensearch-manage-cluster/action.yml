@@ -91,6 +91,10 @@ inputs:
         # renovate: datasource=github-releases depName=aws/aws-cli
         default: 2.15.52
 
+    tags:
+        description: Tags to apply to the cluster and related resources, in JSON format
+        default: '{}'
+
 outputs:
     opensearch-endpoint:
         description: The endpoint of the deployed OpenSearch domain
@@ -153,9 +157,13 @@ runs:
           run: |
               set -euo pipefail
 
+              raw_tags='${{ inputs.tags }}'
+              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
               terraform plan -no-color -out opensearch.plan \
                 -var-file=/tmp/var.tfvars.json \
+                -var "default_tags=$escaped_tags" \
                 -var "domain_name=${{ inputs.domain-name }}" \
                 -var "engine_version=${{ inputs.engine-version }}" \
                 -var 'subnet_ids=${{ inputs.subnet-ids }}' \
