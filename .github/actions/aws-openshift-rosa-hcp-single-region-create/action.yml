@@ -342,7 +342,18 @@ runs:
               sudo apt update
               sudo apt install -y openvpn openvpn-systemd-resolved
 
-              # TODO: download from s3 client config
+              client_name="my-client" # the client name is hard-coded in the reference
+              config_url=$(echo "${{ steps.apply.outputs.vpn_client_configs_s3_urls }}" | jq -r --arg client "$client_name" '.[$client]')
+
+              # Create a secure directory inside the GitHub workspace
+              mkdir -p "$GITHUB_WORKSPACE/.vpn"
+              AWS_REGION=${{ inputs.vpn-s3-bucket-region }} aws s3 cp "$config_url" "$GITHUB_WORKSPACE/.vpn/client.ovpn"
+
+        - name: Connect to VPN
+          # TODO: pin this action
+          uses: kota65535/github-openvpn-connect-action@v2
+          with:
+              config_file: ${{ github.workspace }}/.vpn/client.ovpn
 
         - name: Login and generate kubeconfig
           # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
