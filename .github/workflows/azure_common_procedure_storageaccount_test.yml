@@ -17,7 +17,7 @@ on:
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
+    cancel-in-progress: true
 
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
@@ -105,9 +105,7 @@ jobs:
               working-directory: azure/common/procedure/storage-account
               run: |
                   set -euo pipefail
-                  chmod +x ./*.sh
                   ./storage-account-creation.sh
-                  ./storage-account-versioning.sh
 
             - name: Check Storage Account Versioning
               id: check_storage_account_versioning
