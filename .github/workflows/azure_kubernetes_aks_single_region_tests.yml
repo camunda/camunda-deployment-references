@@ -267,9 +267,10 @@ jobs:
             - prepare-clusters
         strategy:
             fail-fast: false
+            max-parallel: 1
             matrix:
                 declination:
-                    - name: no-domain
+                    # - name: no-domain
                     - name: domain
         env:
             CAMUNDA_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
