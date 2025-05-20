@@ -338,10 +338,13 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
-            - name: 🔓 Decrypt VPN config
+            - name: 🔓 Prepare VPN config
               if: ${{ matrix.distro.private_vpc == true }}
               run: |
                   set -euo pipefail
+
+                  sudo apt update
+                  sudo apt install -y openvpn openvpn-systemd-resolved
 
                   mkdir -p "$GITHUB_WORKSPACE/.vpn"
                   echo "${{
