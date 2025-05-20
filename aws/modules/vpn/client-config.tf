@@ -54,7 +54,7 @@ resource "local_file" "vpn_config" {
 client
 dev tun
 proto udp
-remote ${replace(aws_ec2_client_vpn_endpoint.vpn.dns_name, "^\\*\\.", "")} 443
+remote ${replace(aws_ec2_client_vpn_endpoint.vpn.dns_name, "*.", "")} 443
 remote-random-hostname
 resolv-retry infinite
 nobind

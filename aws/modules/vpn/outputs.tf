@@ -34,5 +34,5 @@ output "vpn_client_configs" {
 
 output "vpn_endpoint" {
   description = "Endpoint of the VPN"
-  value       = replace(aws_ec2_client_vpn_endpoint.vpn.dns_name, "^\\*\\.", "")
+  value       = replace(aws_ec2_client_vpn_endpoint.vpn.dns_name, "*.", "")
 }

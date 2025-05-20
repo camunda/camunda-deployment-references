@@ -343,7 +343,7 @@ runs:
               sudo apt install -y openvpn openvpn-systemd-resolved
 
               client_name="my-client" # the client name is hard-coded in the reference
-              config_url=$(echo "${{ steps.apply.outputs.vpn_client_configs_s3_urls }}" | jq -r --arg client "$client_name" '.[$client]')
+              config_url=$(echo '${{ steps.apply.outputs.vpn_client_configs_s3_urls }}' | jq -r --arg client "$client_name" '.[$client]')
 
               # Create a secure directory inside the GitHub workspace
               mkdir -p "$GITHUB_WORKSPACE/.vpn"
