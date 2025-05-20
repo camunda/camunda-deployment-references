@@ -274,7 +274,7 @@ runs:
               fi
 
               if [ -n "${{ inputs.private-vpc }}" ]; then
-                sed -i -E "s/(^\s*private\s*=\s*)[a-z]+/\1${{ inputs.private-vpc }}/" cluster.tf
+                sed -i -E "s/(^\s*rosa_private_cluster\s*=\s*)[a-z]+/\1${{ inputs.private-vpc }}/" cluster.tf
               else
                 echo "No private-vpc value provided, skipping private modification."
               fi

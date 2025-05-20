@@ -6,6 +6,8 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 5.35.0"
     }
+
+    # TODO: this triggers a warning, check with Lars how to fix that
     aws-bucket = {
       source  = "hashicorp/aws"
       version = ">= 5.35.0"
