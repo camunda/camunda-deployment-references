@@ -291,7 +291,7 @@ runs:
 
                 if [ -n "${{ inputs.vpn-s3-bucket-key }}" ]; then
                   bucket_key="${{ inputs.vpn-s3-bucket-key }}"
-                  sed -i -E "s|(^\s*s3_ca_directory\s*=\s*).*|\1${bucket_key}|" vpn.tf
+                  sed -i -E "s|(^\s*s3_ca_directory\s*=\s*).*|\1\"${bucket_key}\"|" vpn.tf
                 fi
 
                 extra_vars="-var=s3_bucket_region=${{ inputs.vpn-s3-bucket-region }}"
