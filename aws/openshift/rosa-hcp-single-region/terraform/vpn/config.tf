@@ -1,6 +1,19 @@
 # Provider configuration file used only for the VPN
 # It configures the region used by the bucket storing certificates
+terraform {
+  required_version = ">= 1.6.0"
 
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.35.0"
+    }
+  }
+
+  backend "s3" {
+    encrypt = true
+  }
+}
 provider "aws" {
   default_tags {
     tags = var.default_tags
