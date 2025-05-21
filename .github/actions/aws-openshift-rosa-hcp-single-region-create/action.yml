@@ -199,7 +199,7 @@ runs:
               set -euo pipefail
 
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
+              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
 
               if [ -z "${{ inputs.s3-bucket-region }}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
@@ -322,13 +322,6 @@ runs:
               export vpc_id="$(terraform output -raw vpc_id)"
               echo "vpc_id=$vpc_id" | tee -a "$GITHUB_OUTPUT"
 
-              export vpc_cidr_block="$(terraform output -raw vpc_cidr_block)"
-              echo "vpc_cidr_block=$vpc_cidr_block" | tee -a "$GITHUB_OUTPUT"
-
-              export private_subnet_ids="$(terraform output -raw private_subnet_ids)"
-              echo "private_subnet_ids=$private_subnet_ids" | tee -a "$GITHUB_OUTPUT"
-
-
         - name: Terraform Init - VPN
           id: init-vpn
           if: inputs.vpn-enabled == 'true'
@@ -378,14 +371,10 @@ runs:
               raw_tags='${{ inputs.tags }}'
               escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
 
-              formatted_subnets=$(echo "${{ steps.apply-cluster.outputs.private_subnet_ids }}" | awk -F',' '{ for(i=1;i<=NF;i++) printf "\"%s\"%s", $i, (i==NF ? "" : ", ") }')
-
               terraform plan -no-color \
                 -var="default_tags=$escaped_tags" \
                 -var="s3_bucket_region=${{ inputs.vpn-s3-bucket-region }}" \
                 -var="vpc_id=${{ steps.apply-cluster.outputs.vpc_id }}" \
-                -var="vpc_target_network_cidr=${{ steps.apply-cluster.outputs.vpc_cidr_block }}" \
-                -var="vpc_subnet_ids=[$formatted_subnets]" \
                 -out vpn.plan
 
         - name: Terraform Apply - VPN

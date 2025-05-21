@@ -57,11 +57,6 @@ output "vpc_id" {
   description = "The ID of the Virtual Private Cloud (VPC) where the OpenShift cluster and related resources are deployed."
 }
 
-output "vpc_cidr_block" {
-  value       = module.rosa_cluster.vpc_cidr_block
-  description = "The CIDR block of the Virtual Private Cloud (VPC) where the OpenShift cluster and its associated resources are deployed."
-}
-
 output "cluster_id" {
   value       = module.rosa_cluster.cluster_id
   description = "The unique identifier of the OpenShift cluster created on Red Hat OpenShift Service on AWS (ROSA). This ID is used to reference the cluster in subsequent operations."

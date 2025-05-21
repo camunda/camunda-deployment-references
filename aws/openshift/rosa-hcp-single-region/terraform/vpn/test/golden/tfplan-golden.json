@@ -89,7 +89,7 @@
             "access_group_id": null,
             "authorize_all_groups": true,
             "description": null,
-            "target_network_cidr": "10.0.0.0/22",
+            "target_network_cidr": "172.31.0.0/16",
             "timeouts": null
           }
         },
@@ -155,47 +155,8 @@
               "Name": "client-vpn-my-vpn"
             },
             "transport_protocol": "udp",
-            "vpc_id": "vpc-fake",
+            "vpc_id": "vpc-0d2cc9a5681827b0a",
             "vpn_port": 443
-          }
-        },
-        "module.vpn.aws_ec2_client_vpn_network_association.vpn_subnet[\"sb-723836\"]": {
-          "index": "sb-723836",
-          "mode": "managed",
-          "name": "vpn_subnet",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "sensitive_values": {},
-          "type": "aws_ec2_client_vpn_network_association",
-          "values": {
-            "subnet_id": "sb-723836",
-            "timeouts": null
-          }
-        },
-        "module.vpn.aws_ec2_client_vpn_network_association.vpn_subnet[\"sb-723837\"]": {
-          "index": "sb-723837",
-          "mode": "managed",
-          "name": "vpn_subnet",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "sensitive_values": {},
-          "type": "aws_ec2_client_vpn_network_association",
-          "values": {
-            "subnet_id": "sb-723837",
-            "timeouts": null
-          }
-        },
-        "module.vpn.aws_ec2_client_vpn_network_association.vpn_subnet[\"sb-723838\"]": {
-          "index": "sb-723838",
-          "mode": "managed",
-          "name": "vpn_subnet",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "sensitive_values": {},
-          "type": "aws_ec2_client_vpn_network_association",
-          "values": {
-            "subnet_id": "sb-723838",
-            "timeouts": null
           }
         },
         "module.vpn.aws_kms_key.certs_encryption": {
@@ -530,7 +491,7 @@
             "revoke_rules_on_delete": false,
             "tags": null,
             "timeouts": null,
-            "vpc_id": "vpc-fake"
+            "vpc_id": "vpc-0d2cc9a5681827b0a"
           }
         },
         "module.vpn.data.local_file.ca_cert": {

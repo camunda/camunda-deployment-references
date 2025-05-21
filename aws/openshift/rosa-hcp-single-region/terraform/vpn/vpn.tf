@@ -10,35 +10,35 @@ module "vpn" {
 
   # TODO: in the doc, explains that this VPN is split by default
 
-  vpc_subnet_ids          = var.vpc_subnet_ids
   vpc_id                  = var.vpc_id
-  vpc_target_network_cidr = var.vpc_target_network_cidr
-
+  vpc_subnet_ids          = data.aws_subnets.private_subnets.ids
+  vpc_target_network_cidr = data.aws_vpc.target.cidr_block
   providers = {
     aws.vpn    = aws
     aws.bucket = aws.aws_bucket_provider
   }
 }
 
-variable "vpc_subnet_ids" {
-  description = "List of subnet IDs in the VPC to attach the VPN"
-  type        = list(string)
-  nullable    = false
+data "aws_vpc" "target" {
+  id = var.vpc_id
 }
 
+data "aws_subnets" "private_subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.target.id]
+  }
+
+  filter {
+    name   = "tag:Name"
+    values = ["*-subnet-private*"]
+  }
+}
 variable "vpc_id" {
   description = "The ID of the VPC where the VPN will be created"
   type        = string
   nullable    = false
 }
-
-variable "vpc_target_network_cidr" {
-  description = "CIDR block of the target network within the VPC"
-  type        = string
-  nullable    = false
-}
-
-
 output "vpn_endpoint" {
   description = "Endpoint of the VPN"
   value       = module.vpn.vpn_endpoint
