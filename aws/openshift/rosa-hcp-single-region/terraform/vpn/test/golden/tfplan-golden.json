@@ -1,2469 +1,997 @@
 {
   "child_modules": {
-    "module.rosa_cluster": {
-      "child_modules": {
-        "module.rosa_cluster.module.htpasswd_idp": {
-          "resources": {
-            "module.rosa_cluster.module.htpasswd_idp.rhcs_identity_provider.htpasswd_identity_provider[0]": {
-              "index": 0,
-              "mode": "managed",
-              "name": "htpasswd_identity_provider",
-              "provider_name": "registry.terraform.io/terraform-redhat/rhcs",
-              "schema_version": 0,
-              "sensitive_values": {
-                "htpasswd": {
-                  "users": true
-                }
-              },
-              "type": "rhcs_identity_provider",
-              "values": {
-                "github": null,
-                "gitlab": null,
-                "google": null,
-                "htpasswd": {
-                  "users": [
-                    {
-                      "password": "CHANGEME1234r!",
-                      "username": "kubeadmin"
-                    }
-                  ]
-                },
-                "ldap": null,
-                "mapping_method": "claim",
-                "name": "htpasswd-idp",
-                "openid": null
-              }
-            }
-          }
-        },
-        "module.rosa_cluster.module.rosa_hcp": {
-          "child_modules": {
-            "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0]": {
-              "resources": {
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role.account_role[0]": {
-                  "index": 0,
-                  "mode": "managed",
-                  "name": "account_role",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "inline_policy": [],
-                    "managed_policy_arns": [],
-                    "tags": {},
-                    "tags_all": {}
-                  },
-                  "type": "aws_iam_role",
-                  "values": {
-                    "description": null,
-                    "force_detach_policies": false,
-                    "max_session_duration": 3600,
-                    "name": "my-rosa-account-HCP-ROSA-Installer-Role",
-                    "path": "/",
-                    "permissions_boundary": "",
-                    "tags": {
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true",
-                      "rosa_role_prefix": "my-rosa-account",
-                      "rosa_role_type": "installer"
-                    },
-                    "tags_all": {
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true",
-                      "rosa_role_prefix": "my-rosa-account",
-                      "rosa_role_type": "installer"
-                    }
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role.account_role[1]": {
-                  "index": 1,
-                  "mode": "managed",
-                  "name": "account_role",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "inline_policy": [],
-                    "managed_policy_arns": [],
-                    "tags": {},
-                    "tags_all": {}
-                  },
-                  "type": "aws_iam_role",
-                  "values": {
-                    "description": null,
-                    "force_detach_policies": false,
-                    "max_session_duration": 3600,
-                    "name": "my-rosa-account-HCP-ROSA-Support-Role",
-                    "path": "/",
-                    "permissions_boundary": "",
-                    "tags": {
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true",
-                      "rosa_role_prefix": "my-rosa-account",
-                      "rosa_role_type": "support"
-                    },
-                    "tags_all": {
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true",
-                      "rosa_role_prefix": "my-rosa-account",
-                      "rosa_role_type": "support"
-                    }
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role.account_role[2]": {
-                  "index": 2,
-                  "mode": "managed",
-                  "name": "account_role",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "inline_policy": [],
-                    "managed_policy_arns": [],
-                    "tags": {},
-                    "tags_all": {}
-                  },
-                  "type": "aws_iam_role",
-                  "values": {
-                    "description": null,
-                    "force_detach_policies": false,
-                    "max_session_duration": 3600,
-                    "name": "my-rosa-account-HCP-ROSA-Worker-Role",
-                    "path": "/",
-                    "permissions_boundary": "",
-                    "tags": {
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true",
-                      "rosa_role_prefix": "my-rosa-account",
-                      "rosa_role_type": "instance_worker"
-                    },
-                    "tags_all": {
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true",
-                      "rosa_role_prefix": "my-rosa-account",
-                      "rosa_role_type": "instance_worker"
-                    }
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role_policy_attachment.account_role_policy_attachment[0]": {
-                  "index": 0,
-                  "mode": "managed",
-                  "name": "account_role_policy_attachment",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_iam_role_policy_attachment",
-                  "values": {
-                    "policy_arn": "ARN_REDACTED",
-                    "role": "my-rosa-account-HCP-ROSA-Installer-Role"
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role_policy_attachment.account_role_policy_attachment[1]": {
-                  "index": 1,
-                  "mode": "managed",
-                  "name": "account_role_policy_attachment",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_iam_role_policy_attachment",
-                  "values": {
-                    "policy_arn": "ARN_REDACTED",
-                    "role": "my-rosa-account-HCP-ROSA-Support-Role"
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role_policy_attachment.account_role_policy_attachment[2]": {
-                  "index": 2,
-                  "mode": "managed",
-                  "name": "account_role_policy_attachment",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_iam_role_policy_attachment",
-                  "values": {
-                    "policy_arn": "ARN_REDACTED",
-                    "role": "my-rosa-account-HCP-ROSA-Worker-Role"
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].data.aws_iam_policy_document.custom_trust_policy[0]": {
-                  "index": 0,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRole"
-                        ],
-                        "condition": [],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              null
-                            ],
-                            "type": "AWS"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].data.aws_iam_policy_document.custom_trust_policy[1]": {
-                  "index": 1,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRole"
-                        ],
-                        "condition": [],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              null
-                            ],
-                            "type": "AWS"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].data.aws_iam_policy_document.custom_trust_policy[2]": {
-                  "index": 2,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRole"
-                        ],
-                        "condition": [],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              "ec2.amazonaws.com"
-                            ],
-                            "type": "Service"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].data.aws_partition.current": {
-                  "mode": "data",
-                  "name": "current",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_partition"
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].data.rhcs_hcp_policies.all_policies": {
-                  "mode": "data",
-                  "name": "all_policies",
-                  "provider_name": "registry.terraform.io/terraform-redhat/rhcs",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "account_role_policies": {},
-                    "operator_role_policies": {}
-                  },
-                  "type": "rhcs_hcp_policies"
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].data.rhcs_info.current": {
-                  "mode": "data",
-                  "name": "current",
-                  "provider_name": "registry.terraform.io/terraform-redhat/rhcs",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "rhcs_info"
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].time_sleep.account_iam_resources_wait": {
-                  "mode": "managed",
-                  "name": "account_iam_resources_wait",
-                  "provider_name": "registry.terraform.io/hashicorp/time",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "triggers": {}
-                  },
-                  "type": "time_sleep",
-                  "values": {
-                    "create_duration": "10s",
-                    "destroy_duration": "10s",
-                    "triggers": {
-                      "account_iam_role_name": "[\"my-rosa-account-HCP-ROSA-Installer-Role\",\"my-rosa-account-HCP-ROSA-Support-Role\",\"my-rosa-account-HCP-ROSA-Worker-Role\"]",
-                      "account_policy_arns": "[\"ARN_REDACTED",
-                      "account_role_prefix": "my-rosa-account",
-                      "path": "/"
-                    }
-                  }
-                }
-              }
-            },
-            "module.rosa_cluster.module.rosa_hcp.module.oidc_config_and_provider[0]": {
-              "resources": {
-                "module.rosa_cluster.module.rosa_hcp.module.oidc_config_and_provider[0].aws_iam_openid_connect_provider.oidc_provider": {
-                  "mode": "managed",
-                  "name": "oidc_provider",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "client_id_list": [
-                      false,
-                      false
-                    ],
-                    "tags": {},
-                    "tags_all": {},
-                    "thumbprint_list": []
-                  },
-                  "type": "aws_iam_openid_connect_provider",
-                  "values": {
-                    "client_id_list": [
-                      "openshift",
-                      "sts.amazonaws.com"
-                    ],
-                    "tags": {
-                      "owner": "ARN_REDACTED"
-                    },
-                    "tags_all": {
-                      "owner": "ARN_REDACTED"
-                    }
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.oidc_config_and_provider[0].data.aws_region.current": {
-                  "mode": "data",
-                  "name": "current",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_region"
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.oidc_config_and_provider[0].null_resource.unmanaged_vars_validation": {
-                  "mode": "managed",
-                  "name": "unmanaged_vars_validation",
-                  "provider_name": "registry.terraform.io/hashicorp/null",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "null_resource",
-                  "values": {
-                    "triggers": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.oidc_config_and_provider[0].rhcs_rosa_oidc_config.oidc_config": {
-                  "mode": "managed",
-                  "name": "oidc_config",
-                  "provider_name": "registry.terraform.io/terraform-redhat/rhcs",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "rhcs_rosa_oidc_config",
-                  "values": {
-                    "installer_role_arn": null,
-                    "managed": true,
-                    "secret_arn": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.oidc_config_and_provider[0].time_sleep.wait_10_seconds": {
-                  "mode": "managed",
-                  "name": "wait_10_seconds",
-                  "provider_name": "registry.terraform.io/hashicorp/time",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "triggers": {}
-                  },
-                  "type": "time_sleep",
-                  "values": {
-                    "create_duration": "10s",
-                    "destroy_duration": "10s",
-                    "triggers": {
-                      "discover_doc_object": null,
-                      "policy_attached_to_bucket": null,
-                      "public_access_block_attached_to_bucket": null,
-                      "s3_object": null,
-                      "secret_arn": null
-                    }
-                  }
-                }
-              }
-            },
-            "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0]": {
-              "resources": {
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[0]": {
-                  "index": 0,
-                  "mode": "managed",
-                  "name": "operator_role",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "inline_policy": [],
-                    "managed_policy_arns": [],
-                    "tags": {},
-                    "tags_all": {}
-                  },
-                  "type": "aws_iam_role",
-                  "values": {
-                    "description": null,
-                    "force_detach_policies": false,
-                    "max_session_duration": 3600,
-                    "name": "my-rosa-operator-openshift-image-registry-installer-cloud-creden",
-                    "path": "/",
-                    "permissions_boundary": "",
-                    "tags": {
-                      "operator_name": "installer-cloud-credentials",
-                      "operator_namespace": "openshift-image-registry",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    },
-                    "tags_all": {
-                      "operator_name": "installer-cloud-credentials",
-                      "operator_namespace": "openshift-image-registry",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    }
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[1]": {
-                  "index": 1,
-                  "mode": "managed",
-                  "name": "operator_role",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "inline_policy": [],
-                    "managed_policy_arns": [],
-                    "tags": {},
-                    "tags_all": {}
-                  },
-                  "type": "aws_iam_role",
-                  "values": {
-                    "description": null,
-                    "force_detach_policies": false,
-                    "max_session_duration": 3600,
-                    "name": "my-rosa-operator-openshift-ingress-operator-cloud-credentials",
-                    "path": "/",
-                    "permissions_boundary": "",
-                    "tags": {
-                      "operator_name": "cloud-credentials",
-                      "operator_namespace": "openshift-ingress-operator",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    },
-                    "tags_all": {
-                      "operator_name": "cloud-credentials",
-                      "operator_namespace": "openshift-ingress-operator",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    }
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[2]": {
-                  "index": 2,
-                  "mode": "managed",
-                  "name": "operator_role",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "inline_policy": [],
-                    "managed_policy_arns": [],
-                    "tags": {},
-                    "tags_all": {}
-                  },
-                  "type": "aws_iam_role",
-                  "values": {
-                    "description": null,
-                    "force_detach_policies": false,
-                    "max_session_duration": 3600,
-                    "name": "my-rosa-operator-openshift-cluster-csi-drivers-ebs-cloud-credent",
-                    "path": "/",
-                    "permissions_boundary": "",
-                    "tags": {
-                      "operator_name": "ebs-cloud-credentials",
-                      "operator_namespace": "openshift-cluster-csi-drivers",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    },
-                    "tags_all": {
-                      "operator_name": "ebs-cloud-credentials",
-                      "operator_namespace": "openshift-cluster-csi-drivers",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    }
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[3]": {
-                  "index": 3,
-                  "mode": "managed",
-                  "name": "operator_role",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "inline_policy": [],
-                    "managed_policy_arns": [],
-                    "tags": {},
-                    "tags_all": {}
-                  },
-                  "type": "aws_iam_role",
-                  "values": {
-                    "description": null,
-                    "force_detach_policies": false,
-                    "max_session_duration": 3600,
-                    "name": "my-rosa-operator-openshift-cloud-network-config-controller-cloud",
-                    "path": "/",
-                    "permissions_boundary": "",
-                    "tags": {
-                      "operator_name": "cloud-credentials",
-                      "operator_namespace": "openshift-cloud-network-config-controller",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    },
-                    "tags_all": {
-                      "operator_name": "cloud-credentials",
-                      "operator_namespace": "openshift-cloud-network-config-controller",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    }
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[4]": {
-                  "index": 4,
-                  "mode": "managed",
-                  "name": "operator_role",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "inline_policy": [],
-                    "managed_policy_arns": [],
-                    "tags": {},
-                    "tags_all": {}
-                  },
-                  "type": "aws_iam_role",
-                  "values": {
-                    "description": null,
-                    "force_detach_policies": false,
-                    "max_session_duration": 3600,
-                    "name": "my-rosa-operator-kube-system-kube-controller-manager",
-                    "path": "/",
-                    "permissions_boundary": "",
-                    "tags": {
-                      "operator_name": "kube-controller-manager",
-                      "operator_namespace": "kube-system",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    },
-                    "tags_all": {
-                      "operator_name": "kube-controller-manager",
-                      "operator_namespace": "kube-system",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    }
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[5]": {
-                  "index": 5,
-                  "mode": "managed",
-                  "name": "operator_role",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "inline_policy": [],
-                    "managed_policy_arns": [],
-                    "tags": {},
-                    "tags_all": {}
-                  },
-                  "type": "aws_iam_role",
-                  "values": {
-                    "description": null,
-                    "force_detach_policies": false,
-                    "max_session_duration": 3600,
-                    "name": "my-rosa-operator-kube-system-capa-controller-manager",
-                    "path": "/",
-                    "permissions_boundary": "",
-                    "tags": {
-                      "operator_name": "capa-controller-manager",
-                      "operator_namespace": "kube-system",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    },
-                    "tags_all": {
-                      "operator_name": "capa-controller-manager",
-                      "operator_namespace": "kube-system",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    }
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[6]": {
-                  "index": 6,
-                  "mode": "managed",
-                  "name": "operator_role",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "inline_policy": [],
-                    "managed_policy_arns": [],
-                    "tags": {},
-                    "tags_all": {}
-                  },
-                  "type": "aws_iam_role",
-                  "values": {
-                    "description": null,
-                    "force_detach_policies": false,
-                    "max_session_duration": 3600,
-                    "name": "my-rosa-operator-kube-system-control-plane-operator",
-                    "path": "/",
-                    "permissions_boundary": "",
-                    "tags": {
-                      "operator_name": "control-plane-operator",
-                      "operator_namespace": "kube-system",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    },
-                    "tags_all": {
-                      "operator_name": "control-plane-operator",
-                      "operator_namespace": "kube-system",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    }
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[7]": {
-                  "index": 7,
-                  "mode": "managed",
-                  "name": "operator_role",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "inline_policy": [],
-                    "managed_policy_arns": [],
-                    "tags": {},
-                    "tags_all": {}
-                  },
-                  "type": "aws_iam_role",
-                  "values": {
-                    "description": null,
-                    "force_detach_policies": false,
-                    "max_session_duration": 3600,
-                    "name": "my-rosa-operator-kube-system-kms-provider",
-                    "path": "/",
-                    "permissions_boundary": "",
-                    "tags": {
-                      "operator_name": "kms-provider",
-                      "operator_namespace": "kube-system",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    },
-                    "tags_all": {
-                      "operator_name": "kms-provider",
-                      "operator_namespace": "kube-system",
-                      "owner": "ARN_REDACTED",
-                      "red-hat-managed": "true",
-                      "rosa_hcp_policies": "true",
-                      "rosa_managed_policies": "true"
-                    }
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[0]": {
-                  "index": 0,
-                  "mode": "managed",
-                  "name": "operator_role_policy_attachment",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_iam_role_policy_attachment",
-                  "values": {
-                    "policy_arn": "ARN_REDACTED",
-                    "role": "my-rosa-operator-openshift-image-registry-installer-cloud-creden"
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[1]": {
-                  "index": 1,
-                  "mode": "managed",
-                  "name": "operator_role_policy_attachment",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_iam_role_policy_attachment",
-                  "values": {
-                    "policy_arn": "ARN_REDACTED",
-                    "role": "my-rosa-operator-openshift-ingress-operator-cloud-credentials"
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[2]": {
-                  "index": 2,
-                  "mode": "managed",
-                  "name": "operator_role_policy_attachment",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_iam_role_policy_attachment",
-                  "values": {
-                    "policy_arn": "ARN_REDACTED",
-                    "role": "my-rosa-operator-openshift-cluster-csi-drivers-ebs-cloud-credent"
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[3]": {
-                  "index": 3,
-                  "mode": "managed",
-                  "name": "operator_role_policy_attachment",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_iam_role_policy_attachment",
-                  "values": {
-                    "policy_arn": "ARN_REDACTED",
-                    "role": "my-rosa-operator-openshift-cloud-network-config-controller-cloud"
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[4]": {
-                  "index": 4,
-                  "mode": "managed",
-                  "name": "operator_role_policy_attachment",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_iam_role_policy_attachment",
-                  "values": {
-                    "policy_arn": "ARN_REDACTED",
-                    "role": "my-rosa-operator-kube-system-kube-controller-manager"
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[5]": {
-                  "index": 5,
-                  "mode": "managed",
-                  "name": "operator_role_policy_attachment",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_iam_role_policy_attachment",
-                  "values": {
-                    "policy_arn": "ARN_REDACTED",
-                    "role": "my-rosa-operator-kube-system-capa-controller-manager"
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[6]": {
-                  "index": 6,
-                  "mode": "managed",
-                  "name": "operator_role_policy_attachment",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_iam_role_policy_attachment",
-                  "values": {
-                    "policy_arn": "ARN_REDACTED",
-                    "role": "my-rosa-operator-kube-system-control-plane-operator"
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[7]": {
-                  "index": 7,
-                  "mode": "managed",
-                  "name": "operator_role_policy_attachment",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_iam_role_policy_attachment",
-                  "values": {
-                    "policy_arn": "ARN_REDACTED",
-                    "role": "my-rosa-operator-kube-system-kms-provider"
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].data.aws_caller_identity.current": {
-                  "mode": "data",
-                  "name": "current",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_caller_identity"
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].data.aws_iam_policy_document.custom_trust_policy[0]": {
-                  "index": 0,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [
-                          {
-                            "values": [
-                              false,
-                              false
-                            ]
-                          }
-                        ],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRoleWithWebIdentity"
-                        ],
-                        "condition": [
-                          {
-                            "test": "StringEquals",
-                            "values": [
-                              "system:serviceaccount:openshift-image-registry:cluster-image-registry-operator",
-                              "system:serviceaccount:openshift-image-registry:registry"
-                            ]
-                          }
-                        ],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              null
-                            ],
-                            "type": "Federated"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].data.aws_iam_policy_document.custom_trust_policy[1]": {
-                  "index": 1,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [
-                          {
-                            "values": [
-                              false
-                            ]
-                          }
-                        ],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRoleWithWebIdentity"
-                        ],
-                        "condition": [
-                          {
-                            "test": "StringEquals",
-                            "values": [
-                              "system:serviceaccount:openshift-ingress-operator:ingress-operator"
-                            ]
-                          }
-                        ],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              null
-                            ],
-                            "type": "Federated"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].data.aws_iam_policy_document.custom_trust_policy[2]": {
-                  "index": 2,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [
-                          {
-                            "values": [
-                              false,
-                              false
-                            ]
-                          }
-                        ],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRoleWithWebIdentity"
-                        ],
-                        "condition": [
-                          {
-                            "test": "StringEquals",
-                            "values": [
-                              "system:serviceaccount:openshift-cluster-csi-drivers:aws-ebs-csi-driver-operator",
-                              "system:serviceaccount:openshift-cluster-csi-drivers:aws-ebs-csi-driver-controller-sa"
-                            ]
-                          }
-                        ],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              null
-                            ],
-                            "type": "Federated"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].data.aws_iam_policy_document.custom_trust_policy[3]": {
-                  "index": 3,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [
-                          {
-                            "values": [
-                              false
-                            ]
-                          }
-                        ],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRoleWithWebIdentity"
-                        ],
-                        "condition": [
-                          {
-                            "test": "StringEquals",
-                            "values": [
-                              "system:serviceaccount:openshift-cloud-network-config-controller:cloud-network-config-controller"
-                            ]
-                          }
-                        ],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              null
-                            ],
-                            "type": "Federated"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].data.aws_iam_policy_document.custom_trust_policy[4]": {
-                  "index": 4,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [
-                          {
-                            "values": [
-                              false
-                            ]
-                          }
-                        ],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRoleWithWebIdentity"
-                        ],
-                        "condition": [
-                          {
-                            "test": "StringEquals",
-                            "values": [
-                              "system:serviceaccount:kube-system:kube-controller-manager"
-                            ]
-                          }
-                        ],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              null
-                            ],
-                            "type": "Federated"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].data.aws_iam_policy_document.custom_trust_policy[5]": {
-                  "index": 5,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [
-                          {
-                            "values": [
-                              false
-                            ]
-                          }
-                        ],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRoleWithWebIdentity"
-                        ],
-                        "condition": [
-                          {
-                            "test": "StringEquals",
-                            "values": [
-                              "system:serviceaccount:kube-system:capa-controller-manager"
-                            ]
-                          }
-                        ],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              null
-                            ],
-                            "type": "Federated"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].data.aws_iam_policy_document.custom_trust_policy[6]": {
-                  "index": 6,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [
-                          {
-                            "values": [
-                              false
-                            ]
-                          }
-                        ],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRoleWithWebIdentity"
-                        ],
-                        "condition": [
-                          {
-                            "test": "StringEquals",
-                            "values": [
-                              "system:serviceaccount:kube-system:control-plane-operator"
-                            ]
-                          }
-                        ],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              null
-                            ],
-                            "type": "Federated"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].data.aws_iam_policy_document.custom_trust_policy[7]": {
-                  "index": 7,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [
-                          {
-                            "values": [
-                              false
-                            ]
-                          }
-                        ],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRoleWithWebIdentity"
-                        ],
-                        "condition": [
-                          {
-                            "test": "StringEquals",
-                            "values": [
-                              "system:serviceaccount:kube-system:kms-provider"
-                            ]
-                          }
-                        ],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              null
-                            ],
-                            "type": "Federated"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.operator_roles[0].time_sleep.role_resources_propagation": {
-                  "mode": "managed",
-                  "name": "role_resources_propagation",
-                  "provider_name": "registry.terraform.io/hashicorp/time",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "triggers": {}
-                  },
-                  "type": "time_sleep",
-                  "values": {
-                    "create_duration": "20s",
-                    "destroy_duration": null,
-                    "triggers": {
-                      "operator_policy_arns": "[\"ARN_REDACTED",
-                      "operator_role_prefix": "my-rosa-operator"
-                    }
-                  }
-                }
-              }
-            },
-            "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp": {
-              "resources": {
-                "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp.data.aws_caller_identity.current[0]": {
-                  "index": 0,
-                  "mode": "data",
-                  "name": "current",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_caller_identity"
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp.data.aws_region.current[0]": {
-                  "index": 0,
-                  "mode": "data",
-                  "name": "current",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "aws_region"
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp.data.aws_subnet.provided_subnet[0]": {
-                  "index": 0,
-                  "mode": "data",
-                  "name": "provided_subnet",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "filter": [],
-                    "tags": {}
-                  },
-                  "type": "aws_subnet",
-                  "values": {
-                    "filter": [],
-                    "timeouts": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp.data.aws_subnet.provided_subnet[1]": {
-                  "index": 1,
-                  "mode": "data",
-                  "name": "provided_subnet",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "filter": [],
-                    "tags": {}
-                  },
-                  "type": "aws_subnet",
-                  "values": {
-                    "filter": [],
-                    "timeouts": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp.data.aws_subnet.provided_subnet[2]": {
-                  "index": 2,
-                  "mode": "data",
-                  "name": "provided_subnet",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "filter": [],
-                    "tags": {}
-                  },
-                  "type": "aws_subnet",
-                  "values": {
-                    "filter": [],
-                    "timeouts": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp.data.aws_subnet.provided_subnet[3]": {
-                  "index": 3,
-                  "mode": "data",
-                  "name": "provided_subnet",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "filter": [],
-                    "tags": {}
-                  },
-                  "type": "aws_subnet",
-                  "values": {
-                    "filter": [],
-                    "timeouts": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp.data.aws_subnet.provided_subnet[4]": {
-                  "index": 4,
-                  "mode": "data",
-                  "name": "provided_subnet",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "filter": [],
-                    "tags": {}
-                  },
-                  "type": "aws_subnet",
-                  "values": {
-                    "filter": [],
-                    "timeouts": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp.data.aws_subnet.provided_subnet[5]": {
-                  "index": 5,
-                  "mode": "data",
-                  "name": "provided_subnet",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "filter": [],
-                    "tags": {}
-                  },
-                  "type": "aws_subnet",
-                  "values": {
-                    "filter": [],
-                    "timeouts": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp.rhcs_cluster_rosa_hcp.rosa_hcp_cluster": {
-                  "mode": "managed",
-                  "name": "rosa_hcp_cluster",
-                  "provider_name": "registry.terraform.io/terraform-redhat/rhcs",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "admin_credentials": true,
-                    "availability_zones": [
-                      false,
-                      false,
-                      false
-                    ],
-                    "aws_subnet_ids": [
-                      false,
-                      false,
-                      false,
-                      false,
-                      false,
-                      false
-                    ],
-                    "ocm_properties": {},
-                    "properties": {},
-                    "sts": {
-                      "instance_iam_roles": {}
-                    },
-                    "tags": {}
-                  },
-                  "type": "rhcs_cluster_rosa_hcp",
-                  "values": {
-                    "availability_zones": [
-                      "eu-north-1a",
-                      "eu-north-1b",
-                      "eu-north-1c"
-                    ],
-                    "aws_additional_allowed_principals": null,
-                    "aws_additional_compute_security_group_ids": null,
-                    "aws_subnet_ids": [
-                      null,
-                      null,
-                      null,
-                      null,
-                      null,
-                      null
-                    ],
-                    "channel_group": "stable",
-                    "compute_machine_type": "m7i.xlarge",
-                    "create_admin_user": null,
-                    "destroy_timeout": null,
-                    "disable_waiting_in_destroy": null,
-                    "ec2_metadata_http_tokens": "optional",
-                    "etcd_kms_key_arn": null,
-                    "host_prefix": 23,
-                    "kms_key_arn": null,
-                    "machine_cidr": "10.0.0.0/18",
-                    "max_hcp_cluster_wait_timeout_in_minutes": null,
-                    "max_machinepool_wait_timeout_in_minutes": null,
-                    "name": "my-rosa",
-                    "pod_cidr": "10.0.64.0/18",
-                    "private": false,
-                    "properties": {
-                      "rosa_creator_arn": "ARN_REDACTED"
-                    },
-                    "proxy": null,
-                    "registry_config": null,
-                    "replicas": 6,
-                    "service_cidr": "10.0.128.0/18",
-                    "shared_vpc": null,
-                    "sts": {
-                      "instance_iam_roles": {},
-                      "operator_role_prefix": "my-rosa-operator"
-                    },
-                    "tags": {
-                      "owner": "ARN_REDACTED"
-                    },
-                    "upgrade_acknowledgements_for": null,
-                    "version": "GOLDEN",
-                    "wait_for_create_complete": true,
-                    "wait_for_std_compute_nodes_complete": true,
-                    "worker_disk_size": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp.rhcs_hcp_default_ingress.default_ingress": {
-                  "mode": "managed",
-                  "name": "default_ingress",
-                  "provider_name": "registry.terraform.io/terraform-redhat/rhcs",
-                  "schema_version": 0,
-                  "sensitive_values": {},
-                  "type": "rhcs_hcp_default_ingress",
-                  "values": {
-                    "listening_method": "external"
-                  }
-                }
-              }
-            }
+    "module.vpn": {
+      "resources": {
+        "module.vpn.aws_acm_certificate.ca_cert": {
+          "mode": "managed",
+          "name": "ca_cert",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "domain_validation_options": [],
+            "options": [],
+            "private_key": true,
+            "renewal_summary": [],
+            "subject_alternative_names": [],
+            "tags_all": {},
+            "validation_emails": [],
+            "validation_option": []
           },
-          "resources": {
-            "module.rosa_cluster.module.rosa_hcp.data.aws_caller_identity.current": {
-              "mode": "data",
-              "name": "current",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_caller_identity"
-            },
-            "module.rosa_cluster.module.rosa_hcp.null_resource.validations": {
-              "mode": "managed",
-              "name": "validations",
-              "provider_name": "registry.terraform.io/hashicorp/null",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "null_resource",
-              "values": {
-                "triggers": null
-              }
-            }
+          "type": "aws_acm_certificate",
+          "values": {
+            "certificate_authority_arn": null,
+            "certificate_chain": null,
+            "early_renewal_duration": null,
+            "tags": null,
+            "validation_option": []
           }
         },
-        "module.rosa_cluster.module.vpc": {
-          "resources": {
-            "module.rosa_cluster.module.vpc.aws_eip.eip[0]": {
-              "index": 0,
-              "mode": "managed",
-              "name": "eip",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_eip",
-              "values": {
-                "address": null,
-                "associate_with_private_ip": null,
-                "customer_owned_ipv4_pool": null,
-                "domain": "vpc",
-                "tags": {
-                  "Name": "my-rosa-eip-eu-north-1a"
-                },
-                "tags_all": {
-                  "Name": "my-rosa-eip-eu-north-1a"
-                },
-                "timeouts": null
+        "module.vpn.aws_acm_certificate.vpn_cert": {
+          "mode": "managed",
+          "name": "vpn_cert",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "domain_validation_options": [],
+            "options": [],
+            "private_key": true,
+            "renewal_summary": [],
+            "subject_alternative_names": [],
+            "tags_all": {},
+            "validation_emails": [],
+            "validation_option": []
+          },
+          "type": "aws_acm_certificate",
+          "values": {
+            "certificate_authority_arn": null,
+            "early_renewal_duration": null,
+            "tags": null,
+            "validation_option": []
+          }
+        },
+        "module.vpn.aws_cloudwatch_log_group.vpn_logs": {
+          "mode": "managed",
+          "name": "vpn_logs",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_cloudwatch_log_group",
+          "values": {
+            "kms_key_id": null,
+            "name": "/aws/vpn/my-vpn",
+            "retention_in_days": 365,
+            "skip_destroy": false,
+            "tags": null
+          }
+        },
+        "module.vpn.aws_cloudwatch_log_stream.vpn_logs": {
+          "mode": "managed",
+          "name": "vpn_logs",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_cloudwatch_log_stream",
+          "values": {
+            "log_group_name": "/aws/vpn/my-vpn",
+            "name": "vpn-connection-logs-my-vpn"
+          }
+        },
+        "module.vpn.aws_ec2_client_vpn_authorization_rule.vpn_auth_rule": {
+          "mode": "managed",
+          "name": "vpn_auth_rule",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_ec2_client_vpn_authorization_rule",
+          "values": {
+            "access_group_id": null,
+            "authorize_all_groups": true,
+            "description": null,
+            "target_network_cidr": "10.0.0.0/22",
+            "timeouts": null
+          }
+        },
+        "module.vpn.aws_ec2_client_vpn_endpoint.vpn": {
+          "mode": "managed",
+          "name": "vpn",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "authentication_options": [
+              {}
+            ],
+            "client_connect_options": [],
+            "client_login_banner_options": [
+              {}
+            ],
+            "client_route_enforcement_options": [],
+            "connection_log_options": [
+              {}
+            ],
+            "dns_servers": [
+              false
+            ],
+            "security_group_ids": [],
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_ec2_client_vpn_endpoint",
+          "values": {
+            "authentication_options": [
+              {
+                "active_directory_id": "",
+                "saml_provider_arn": "",
+                "self_service_saml_provider_arn": "",
+                "type": "certificate-authentication"
               }
-            },
-            "module.rosa_cluster.module.vpc.aws_eip.eip[1]": {
-              "index": 1,
-              "mode": "managed",
-              "name": "eip",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_eip",
-              "values": {
-                "address": null,
-                "associate_with_private_ip": null,
-                "customer_owned_ipv4_pool": null,
-                "domain": "vpc",
-                "tags": {
-                  "Name": "my-rosa-eip-eu-north-1b"
-                },
-                "tags_all": {
-                  "Name": "my-rosa-eip-eu-north-1b"
-                },
-                "timeouts": null
+            ],
+            "client_cidr_block": "172.0.0.0/22",
+            "client_login_banner_options": [
+              {
+                "banner_text": "This VPN is for authorized users only. All activities may be monitored and recorded.",
+                "enabled": true
               }
-            },
-            "module.rosa_cluster.module.vpc.aws_eip.eip[2]": {
-              "index": 2,
-              "mode": "managed",
-              "name": "eip",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_eip",
-              "values": {
-                "address": null,
-                "associate_with_private_ip": null,
-                "customer_owned_ipv4_pool": null,
-                "domain": "vpc",
-                "tags": {
-                  "Name": "my-rosa-eip-eu-north-1c"
-                },
-                "tags_all": {
-                  "Name": "my-rosa-eip-eu-north-1c"
-                },
-                "timeouts": null
+            ],
+            "connection_log_options": [
+              {
+                "cloudwatch_log_group": "/aws/vpn/my-vpn",
+                "cloudwatch_log_stream": "vpn-connection-logs-my-vpn",
+                "enabled": true
               }
+            ],
+            "description": "Client VPN endpoint of my-vpn",
+            "dns_servers": [
+              "169.254.169.253"
+            ],
+            "self_service_portal": "disabled",
+            "session_timeout_hours": 8,
+            "split_tunnel": true,
+            "tags": {
+              "Name": "client-vpn-my-vpn"
             },
-            "module.rosa_cluster.module.vpc.aws_internet_gateway.internet_gateway": {
-              "mode": "managed",
-              "name": "internet_gateway",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_internet_gateway",
-              "values": {
-                "tags": {
-                  "Name": "my-rosa-igw"
-                },
-                "tags_all": {
-                  "Name": "my-rosa-igw"
-                },
-                "timeouts": null
+            "tags_all": {
+              "Name": "client-vpn-my-vpn"
+            },
+            "transport_protocol": "udp",
+            "vpc_id": "vpc-fake",
+            "vpn_port": 443
+          }
+        },
+        "module.vpn.aws_ec2_client_vpn_network_association.vpn_subnet[\"sb-723836\"]": {
+          "index": "sb-723836",
+          "mode": "managed",
+          "name": "vpn_subnet",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_ec2_client_vpn_network_association",
+          "values": {
+            "subnet_id": "sb-723836",
+            "timeouts": null
+          }
+        },
+        "module.vpn.aws_ec2_client_vpn_network_association.vpn_subnet[\"sb-723837\"]": {
+          "index": "sb-723837",
+          "mode": "managed",
+          "name": "vpn_subnet",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_ec2_client_vpn_network_association",
+          "values": {
+            "subnet_id": "sb-723837",
+            "timeouts": null
+          }
+        },
+        "module.vpn.aws_ec2_client_vpn_network_association.vpn_subnet[\"sb-723838\"]": {
+          "index": "sb-723838",
+          "mode": "managed",
+          "name": "vpn_subnet",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_ec2_client_vpn_network_association",
+          "values": {
+            "subnet_id": "sb-723838",
+            "timeouts": null
+          }
+        },
+        "module.vpn.aws_kms_key.certs_encryption": {
+          "mode": "managed",
+          "name": "certs_encryption",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_kms_key",
+          "values": {
+            "bypass_policy_lockout_safety_check": false,
+            "custom_key_store_id": null,
+            "customer_master_key_spec": "SYMMETRIC_DEFAULT",
+            "deletion_window_in_days": 10,
+            "description": "KMS key for encrypting VPN certs in S3",
+            "enable_key_rotation": true,
+            "is_enabled": true,
+            "key_usage": "ENCRYPT_DECRYPT",
+            "tags": {
+              "Name": "vpn-certs-kms-key"
+            },
+            "tags_all": {
+              "Name": "vpn-certs-kms-key"
+            },
+            "timeouts": null,
+            "xks_key_id": null
+          }
+        },
+        "module.vpn.aws_s3_object.upload_ca_private_key": {
+          "mode": "managed",
+          "name": "upload_ca_private_key",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "content": true,
+            "override_provider": [],
+            "tags_all": {}
+          },
+          "type": "aws_s3_object",
+          "values": {
+            "acl": "private",
+            "bucket": "bucket-storing-vpn-keys",
+            "cache_control": null,
+            "checksum_algorithm": null,
+            "content_base64": null,
+            "content_disposition": null,
+            "content_encoding": null,
+            "content_language": null,
+            "content_type": "text/plain",
+            "force_destroy": false,
+            "key": "key/storing/certificates//ca-key.pem",
+            "metadata": null,
+            "object_lock_legal_hold_status": null,
+            "object_lock_mode": null,
+            "object_lock_retain_until_date": null,
+            "override_provider": [],
+            "server_side_encryption": "aws:kms",
+            "source": null,
+            "source_hash": null,
+            "tags": null,
+            "website_redirect": null
+          }
+        },
+        "module.vpn.aws_s3_object.upload_ca_public_key": {
+          "mode": "managed",
+          "name": "upload_ca_public_key",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "override_provider": [],
+            "tags_all": {}
+          },
+          "type": "aws_s3_object",
+          "values": {
+            "bucket": "bucket-storing-vpn-keys",
+            "cache_control": null,
+            "checksum_algorithm": null,
+            "content_base64": null,
+            "content_disposition": null,
+            "content_encoding": null,
+            "content_language": null,
+            "content_type": "text/plain",
+            "force_destroy": false,
+            "key": "key/storing/certificates//ca-key.pub.pem",
+            "metadata": null,
+            "object_lock_legal_hold_status": null,
+            "object_lock_mode": null,
+            "object_lock_retain_until_date": null,
+            "override_provider": [],
+            "source": null,
+            "source_hash": null,
+            "tags": null,
+            "website_redirect": null
+          }
+        },
+        "module.vpn.aws_s3_object.upload_client_private_key[\"my-client\"]": {
+          "index": "my-client",
+          "mode": "managed",
+          "name": "upload_client_private_key",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "content": true,
+            "override_provider": [],
+            "tags_all": {}
+          },
+          "type": "aws_s3_object",
+          "values": {
+            "acl": "private",
+            "bucket": "bucket-storing-vpn-keys",
+            "cache_control": null,
+            "checksum_algorithm": null,
+            "content_base64": null,
+            "content_disposition": null,
+            "content_encoding": null,
+            "content_language": null,
+            "content_type": "text/plain",
+            "force_destroy": false,
+            "key": "key/storing/certificates//my-client-client-key.pem",
+            "metadata": null,
+            "object_lock_legal_hold_status": null,
+            "object_lock_mode": null,
+            "object_lock_retain_until_date": null,
+            "override_provider": [],
+            "server_side_encryption": "aws:kms",
+            "source": null,
+            "source_hash": null,
+            "tags": null,
+            "website_redirect": null
+          }
+        },
+        "module.vpn.aws_s3_object.upload_client_public_key[\"my-client\"]": {
+          "index": "my-client",
+          "mode": "managed",
+          "name": "upload_client_public_key",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "override_provider": [],
+            "tags_all": {}
+          },
+          "type": "aws_s3_object",
+          "values": {
+            "bucket": "bucket-storing-vpn-keys",
+            "cache_control": null,
+            "checksum_algorithm": null,
+            "content_base64": null,
+            "content_disposition": null,
+            "content_encoding": null,
+            "content_language": null,
+            "content_type": "text/plain",
+            "force_destroy": false,
+            "key": "key/storing/certificates//my-client-client-key.pub.pem",
+            "metadata": null,
+            "object_lock_legal_hold_status": null,
+            "object_lock_mode": null,
+            "object_lock_retain_until_date": null,
+            "override_provider": [],
+            "source": null,
+            "source_hash": null,
+            "tags": null,
+            "website_redirect": null
+          }
+        },
+        "module.vpn.aws_s3_object.upload_server_private_key": {
+          "mode": "managed",
+          "name": "upload_server_private_key",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "content": true,
+            "override_provider": [],
+            "tags_all": {}
+          },
+          "type": "aws_s3_object",
+          "values": {
+            "acl": "private",
+            "bucket": "bucket-storing-vpn-keys",
+            "cache_control": null,
+            "checksum_algorithm": null,
+            "content_base64": null,
+            "content_disposition": null,
+            "content_encoding": null,
+            "content_language": null,
+            "content_type": "text/plain",
+            "force_destroy": false,
+            "key": "key/storing/certificates//server-key.pem",
+            "metadata": null,
+            "object_lock_legal_hold_status": null,
+            "object_lock_mode": null,
+            "object_lock_retain_until_date": null,
+            "override_provider": [],
+            "server_side_encryption": "aws:kms",
+            "source": null,
+            "source_hash": null,
+            "tags": null,
+            "website_redirect": null
+          }
+        },
+        "module.vpn.aws_s3_object.upload_server_public_key": {
+          "mode": "managed",
+          "name": "upload_server_public_key",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "override_provider": [],
+            "tags_all": {}
+          },
+          "type": "aws_s3_object",
+          "values": {
+            "bucket": "bucket-storing-vpn-keys",
+            "cache_control": null,
+            "checksum_algorithm": null,
+            "content_base64": null,
+            "content_disposition": null,
+            "content_encoding": null,
+            "content_language": null,
+            "content_type": "text/plain",
+            "force_destroy": false,
+            "key": "key/storing/certificates//server-key.pub.pem",
+            "metadata": null,
+            "object_lock_legal_hold_status": null,
+            "object_lock_mode": null,
+            "object_lock_retain_until_date": null,
+            "override_provider": [],
+            "source": null,
+            "source_hash": null,
+            "tags": null,
+            "website_redirect": null
+          }
+        },
+        "module.vpn.aws_s3_object.upload_vpn_config[\"my-client\"]": {
+          "index": "my-client",
+          "mode": "managed",
+          "name": "upload_vpn_config",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "override_provider": [],
+            "tags_all": {}
+          },
+          "type": "aws_s3_object",
+          "values": {
+            "acl": "private",
+            "bucket": "bucket-storing-vpn-keys",
+            "cache_control": null,
+            "checksum_algorithm": null,
+            "content_base64": null,
+            "content_disposition": null,
+            "content_encoding": null,
+            "content_language": null,
+            "content_type": "text/plain",
+            "force_destroy": false,
+            "key": "key/storing/certificates//client-configs/my-client.ovpn",
+            "metadata": null,
+            "object_lock_legal_hold_status": null,
+            "object_lock_mode": null,
+            "object_lock_retain_until_date": null,
+            "override_provider": [],
+            "server_side_encryption": "aws:kms",
+            "source": null,
+            "source_hash": null,
+            "tags": null,
+            "website_redirect": null
+          }
+        },
+        "module.vpn.aws_security_group.vpn": {
+          "mode": "managed",
+          "name": "vpn",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "egress": [
+              {
+                "cidr_blocks": [
+                  false
+                ],
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "security_groups": []
               }
-            },
-            "module.rosa_cluster.module.vpc.aws_nat_gateway.public_nat_gateway[0]": {
-              "index": 0,
-              "mode": "managed",
-              "name": "public_nat_gateway",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "secondary_private_ip_addresses": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_nat_gateway",
-              "values": {
-                "connectivity_type": "public",
-                "secondary_allocation_ids": null,
-                "tags": {
-                  "Name": "my-rosa-nat-public0-eu-north-1a"
-                },
-                "tags_all": {
-                  "Name": "my-rosa-nat-public0-eu-north-1a"
-                },
-                "timeouts": null
+            ],
+            "ingress": [
+              {
+                "cidr_blocks": [
+                  false
+                ],
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "security_groups": []
               }
-            },
-            "module.rosa_cluster.module.vpc.aws_nat_gateway.public_nat_gateway[1]": {
-              "index": 1,
-              "mode": "managed",
-              "name": "public_nat_gateway",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "secondary_private_ip_addresses": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_nat_gateway",
-              "values": {
-                "connectivity_type": "public",
-                "secondary_allocation_ids": null,
-                "tags": {
-                  "Name": "my-rosa-nat-public1-eu-north-1b"
-                },
-                "tags_all": {
-                  "Name": "my-rosa-nat-public1-eu-north-1b"
-                },
-                "timeouts": null
+            ],
+            "tags_all": {}
+          },
+          "type": "aws_security_group",
+          "values": {
+            "description": "Security group for Client VPN endpoint my-vpn",
+            "egress": [
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "Allow the VPN to access the internal network, unrestricted",
+                "from_port": 0,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "-1",
+                "security_groups": [],
+                "self": false,
+                "to_port": 0
               }
-            },
-            "module.rosa_cluster.module.vpc.aws_nat_gateway.public_nat_gateway[2]": {
-              "index": 2,
-              "mode": "managed",
-              "name": "public_nat_gateway",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "secondary_private_ip_addresses": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_nat_gateway",
-              "values": {
-                "connectivity_type": "public",
-                "secondary_allocation_ids": null,
-                "tags": {
-                  "Name": "my-rosa-nat-public2-eu-north-1c"
-                },
-                "tags_all": {
-                  "Name": "my-rosa-nat-public2-eu-north-1c"
-                },
-                "timeouts": null
+            ],
+            "ingress": [
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "Regulate ips allowed to access to the VPN",
+                "from_port": 443,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "udp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 443
               }
-            },
-            "module.rosa_cluster.module.vpc.aws_route.ipv4_egress_route": {
-              "mode": "managed",
-              "name": "ipv4_egress_route",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route",
-              "values": {
-                "carrier_gateway_id": null,
-                "core_network_arn": null,
-                "destination_cidr_block": "0.0.0.0/0",
-                "destination_ipv6_cidr_block": null,
-                "destination_prefix_list_id": null,
-                "egress_only_gateway_id": null,
-                "local_gateway_id": null,
-                "nat_gateway_id": null,
-                "timeouts": null,
-                "transit_gateway_id": null,
-                "vpc_endpoint_id": null,
-                "vpc_peering_connection_id": null
+            ],
+            "name_prefix": "client-vpn-endpoint-sg-my-vpn",
+            "revoke_rules_on_delete": false,
+            "tags": null,
+            "timeouts": null,
+            "vpc_id": "vpc-fake"
+          }
+        },
+        "module.vpn.data.local_file.ca_cert": {
+          "mode": "data",
+          "name": "ca_cert",
+          "provider_name": "registry.terraform.io/hashicorp/local",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "local_file",
+          "values": {
+            "filename": "../../../../modules/vpn/ca-cert.pem"
+          }
+        },
+        "module.vpn.data.local_file.ca_private_key": {
+          "mode": "data",
+          "name": "ca_private_key",
+          "provider_name": "registry.terraform.io/hashicorp/local",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "local_file",
+          "values": {
+            "filename": "../../../../modules/vpn/ca-key.pem"
+          }
+        },
+        "module.vpn.data.local_file.client_cert[\"my-client\"]": {
+          "index": "my-client",
+          "mode": "data",
+          "name": "client_cert",
+          "provider_name": "registry.terraform.io/hashicorp/local",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "local_file",
+          "values": {
+            "filename": "../../../../modules/vpn/certs/my-client.crt"
+          }
+        },
+        "module.vpn.data.local_file.client_key[\"my-client\"]": {
+          "index": "my-client",
+          "mode": "data",
+          "name": "client_key",
+          "provider_name": "registry.terraform.io/hashicorp/local",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "local_file",
+          "values": {
+            "filename": "../../../../modules/vpn/certs/my-client.key"
+          }
+        },
+        "module.vpn.data.local_file.existing_ca_cert": {
+          "mode": "data",
+          "name": "existing_ca_cert",
+          "provider_name": "registry.terraform.io/hashicorp/local",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "local_file",
+          "values": {
+            "filename": "../../../../modules/vpn/existing-ca-cert.pem"
+          }
+        },
+        "module.vpn.data.local_file.existing_ca_key": {
+          "mode": "data",
+          "name": "existing_ca_key",
+          "provider_name": "registry.terraform.io/hashicorp/local",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "local_file",
+          "values": {
+            "filename": "../../../../modules/vpn/existing-ca-key.pem"
+          }
+        },
+        "module.vpn.data.local_file.server_cert": {
+          "mode": "data",
+          "name": "server_cert",
+          "provider_name": "registry.terraform.io/hashicorp/local",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "local_file",
+          "values": {
+            "filename": "../../../../modules/vpn/server-cert.pem"
+          }
+        },
+        "module.vpn.data.local_file.server_private_key": {
+          "mode": "data",
+          "name": "server_private_key",
+          "provider_name": "registry.terraform.io/hashicorp/local",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "local_file",
+          "values": {
+            "filename": "../../../../modules/vpn/server-key.pem"
+          }
+        },
+        "module.vpn.local_file.vpn_config[\"my-client\"]": {
+          "index": "my-client",
+          "mode": "managed",
+          "name": "vpn_config",
+          "provider_name": "registry.terraform.io/hashicorp/local",
+          "schema_version": 0,
+          "sensitive_values": {
+            "sensitive_content": true
+          },
+          "type": "local_file",
+          "values": {
+            "content_base64": null,
+            "directory_permission": "0777",
+            "file_permission": "0600",
+            "filename": "../../../../modules/vpn/client-configs/my-client.ovpn",
+            "sensitive_content": null,
+            "source": null
+          }
+        },
+        "module.vpn.null_resource.cleanup_certs": {
+          "mode": "managed",
+          "name": "cleanup_certs",
+          "provider_name": "registry.terraform.io/hashicorp/null",
+          "schema_version": 0,
+          "sensitive_values": {
+            "triggers": {}
+          },
+          "type": "null_resource",
+          "values": {
+            "triggers": {}
+          }
+        },
+        "module.vpn.null_resource.cleanup_client_configs": {
+          "mode": "managed",
+          "name": "cleanup_client_configs",
+          "provider_name": "registry.terraform.io/hashicorp/null",
+          "schema_version": 0,
+          "sensitive_values": {
+            "triggers": {}
+          },
+          "type": "null_resource",
+          "values": {
+            "triggers": {}
+          }
+        },
+        "module.vpn.null_resource.cleanup_downloaded_ca_files": {
+          "mode": "managed",
+          "name": "cleanup_downloaded_ca_files",
+          "provider_name": "registry.terraform.io/hashicorp/null",
+          "schema_version": 0,
+          "sensitive_values": {
+            "triggers": {}
+          },
+          "type": "null_resource",
+          "values": {
+            "triggers": {}
+          }
+        },
+        "module.vpn.null_resource.cleanup_downloaded_certs": {
+          "mode": "managed",
+          "name": "cleanup_downloaded_certs",
+          "provider_name": "registry.terraform.io/hashicorp/null",
+          "schema_version": 0,
+          "sensitive_values": {
+            "triggers": {}
+          },
+          "type": "null_resource",
+          "values": {
+            "triggers": {}
+          }
+        },
+        "module.vpn.null_resource.download_certs": {
+          "mode": "managed",
+          "name": "download_certs",
+          "provider_name": "registry.terraform.io/hashicorp/null",
+          "schema_version": 0,
+          "sensitive_values": {
+            "triggers": {}
+          },
+          "type": "null_resource",
+          "values": {
+            "triggers": {}
+          }
+        },
+        "module.vpn.null_resource.download_existing_ca": {
+          "mode": "managed",
+          "name": "download_existing_ca",
+          "provider_name": "registry.terraform.io/hashicorp/null",
+          "schema_version": 0,
+          "sensitive_values": {
+            "triggers": {}
+          },
+          "type": "null_resource",
+          "values": {
+            "triggers": {}
+          }
+        },
+        "module.vpn.null_resource.download_server_and_ca_certs": {
+          "mode": "managed",
+          "name": "download_server_and_ca_certs",
+          "provider_name": "registry.terraform.io/hashicorp/null",
+          "schema_version": 0,
+          "sensitive_values": {
+            "triggers": {}
+          },
+          "type": "null_resource",
+          "values": {
+            "triggers": {}
+          }
+        },
+        "module.vpn.null_resource.wait_for_ca_download": {
+          "mode": "managed",
+          "name": "wait_for_ca_download",
+          "provider_name": "registry.terraform.io/hashicorp/null",
+          "schema_version": 0,
+          "sensitive_values": {
+            "triggers": {}
+          },
+          "type": "null_resource",
+          "values": {
+            "triggers": {}
+          }
+        },
+        "module.vpn.null_resource.wait_for_cert_download": {
+          "mode": "managed",
+          "name": "wait_for_cert_download",
+          "provider_name": "registry.terraform.io/hashicorp/null",
+          "schema_version": 0,
+          "sensitive_values": {
+            "triggers": {}
+          },
+          "type": "null_resource",
+          "values": {
+            "triggers": {}
+          }
+        },
+        "module.vpn.null_resource.wait_for_cert_download_client": {
+          "mode": "managed",
+          "name": "wait_for_cert_download_client",
+          "provider_name": "registry.terraform.io/hashicorp/null",
+          "schema_version": 0,
+          "sensitive_values": {
+            "triggers": {}
+          },
+          "type": "null_resource",
+          "values": {
+            "triggers": {}
+          }
+        },
+        "module.vpn.tls_cert_request.client_csr[\"my-client\"]": {
+          "index": "my-client",
+          "mode": "managed",
+          "name": "client_csr",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 0,
+          "sensitive_values": {
+            "private_key_pem": true,
+            "subject": [
+              {}
+            ]
+          },
+          "type": "tls_cert_request",
+          "values": {
+            "dns_names": null,
+            "ip_addresses": null,
+            "subject": [
+              {
+                "common_name": "common.local.my-client",
+                "country": null,
+                "email_address": null,
+                "locality": null,
+                "organization": null,
+                "organizational_unit": null,
+                "postal_code": null,
+                "province": null,
+                "serial_number": null,
+                "street_address": null
               }
-            },
-            "module.rosa_cluster.module.vpc.aws_route.ipv6_egress_route": {
-              "mode": "managed",
-              "name": "ipv6_egress_route",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route",
-              "values": {
-                "carrier_gateway_id": null,
-                "core_network_arn": null,
-                "destination_cidr_block": null,
-                "destination_ipv6_cidr_block": "::/0",
-                "destination_prefix_list_id": null,
-                "egress_only_gateway_id": null,
-                "local_gateway_id": null,
-                "nat_gateway_id": null,
-                "timeouts": null,
-                "transit_gateway_id": null,
-                "vpc_endpoint_id": null,
-                "vpc_peering_connection_id": null
+            ],
+            "uris": null
+          }
+        },
+        "module.vpn.tls_cert_request.server_csr": {
+          "mode": "managed",
+          "name": "server_csr",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 0,
+          "sensitive_values": {
+            "private_key_pem": true,
+            "subject": [
+              {}
+            ]
+          },
+          "type": "tls_cert_request",
+          "values": {
+            "dns_names": null,
+            "ip_addresses": null,
+            "subject": [
+              {
+                "common_name": "server.common.local",
+                "country": null,
+                "email_address": null,
+                "locality": null,
+                "organization": null,
+                "organizational_unit": null,
+                "postal_code": null,
+                "province": null,
+                "serial_number": null,
+                "street_address": null
               }
-            },
-            "module.rosa_cluster.module.vpc.aws_route.private_nat[0]": {
-              "index": 0,
-              "mode": "managed",
-              "name": "private_nat",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route",
-              "values": {
-                "carrier_gateway_id": null,
-                "core_network_arn": null,
-                "destination_cidr_block": "0.0.0.0/0",
-                "destination_ipv6_cidr_block": null,
-                "destination_prefix_list_id": null,
-                "egress_only_gateway_id": null,
-                "gateway_id": null,
-                "local_gateway_id": null,
-                "timeouts": null,
-                "transit_gateway_id": null,
-                "vpc_endpoint_id": null,
-                "vpc_peering_connection_id": null
+            ],
+            "uris": null
+          }
+        },
+        "module.vpn.tls_locally_signed_cert.client_public_key[\"my-client\"]": {
+          "index": "my-client",
+          "mode": "managed",
+          "name": "client_public_key",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 0,
+          "sensitive_values": {
+            "allowed_uses": [
+              false,
+              false
+            ],
+            "ca_private_key_pem": true
+          },
+          "type": "tls_locally_signed_cert",
+          "values": {
+            "allowed_uses": [
+              "client_auth",
+              "digital_signature"
+            ],
+            "early_renewal_hours": 0,
+            "is_ca_certificate": false,
+            "ready_for_renewal": false,
+            "set_subject_key_id": true,
+            "validity_period_hours": 8760
+          }
+        },
+        "module.vpn.tls_locally_signed_cert.server_public_key": {
+          "mode": "managed",
+          "name": "server_public_key",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 0,
+          "sensitive_values": {
+            "allowed_uses": [
+              false,
+              false,
+              false,
+              false
+            ],
+            "ca_private_key_pem": true
+          },
+          "type": "tls_locally_signed_cert",
+          "values": {
+            "allowed_uses": [
+              "digital_signature",
+              "key_encipherment",
+              "server_auth",
+              "client_auth"
+            ],
+            "early_renewal_hours": 0,
+            "is_ca_certificate": false,
+            "ready_for_renewal": false,
+            "set_subject_key_id": true,
+            "validity_period_hours": 8760
+          }
+        },
+        "module.vpn.tls_private_key.ca_private_key": {
+          "mode": "managed",
+          "name": "ca_private_key",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 1,
+          "sensitive_values": {
+            "private_key_openssh": true,
+            "private_key_pem": true,
+            "private_key_pem_pkcs8": true
+          },
+          "type": "tls_private_key",
+          "values": {
+            "algorithm": "RSA",
+            "ecdsa_curve": "P224",
+            "rsa_bits": 2048
+          }
+        },
+        "module.vpn.tls_private_key.client_private_key[\"my-client\"]": {
+          "index": "my-client",
+          "mode": "managed",
+          "name": "client_private_key",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 1,
+          "sensitive_values": {
+            "private_key_openssh": true,
+            "private_key_pem": true,
+            "private_key_pem_pkcs8": true
+          },
+          "type": "tls_private_key",
+          "values": {
+            "algorithm": "RSA",
+            "ecdsa_curve": "P224",
+            "rsa_bits": 2048
+          }
+        },
+        "module.vpn.tls_private_key.server_private_key": {
+          "mode": "managed",
+          "name": "server_private_key",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 1,
+          "sensitive_values": {
+            "private_key_openssh": true,
+            "private_key_pem": true,
+            "private_key_pem_pkcs8": true
+          },
+          "type": "tls_private_key",
+          "values": {
+            "algorithm": "RSA",
+            "ecdsa_curve": "P224",
+            "rsa_bits": 2048
+          }
+        },
+        "module.vpn.tls_self_signed_cert.ca_public_key": {
+          "mode": "managed",
+          "name": "ca_public_key",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 0,
+          "sensitive_values": {
+            "allowed_uses": [
+              false,
+              false,
+              false,
+              false
+            ],
+            "private_key_pem": true,
+            "subject": [
+              {}
+            ]
+          },
+          "type": "tls_self_signed_cert",
+          "values": {
+            "allowed_uses": [
+              "cert_signing",
+              "crl_signing",
+              "key_encipherment",
+              "digital_signature"
+            ],
+            "dns_names": null,
+            "early_renewal_hours": 720,
+            "ip_addresses": null,
+            "is_ca_certificate": true,
+            "ready_for_renewal": false,
+            "set_authority_key_id": false,
+            "set_subject_key_id": false,
+            "subject": [
+              {
+                "common_name": "common.local",
+                "country": null,
+                "email_address": null,
+                "locality": null,
+                "organization": "Organization CA VPN",
+                "organizational_unit": null,
+                "postal_code": null,
+                "province": null,
+                "serial_number": null,
+                "street_address": null
               }
-            },
-            "module.rosa_cluster.module.vpc.aws_route.private_nat[1]": {
-              "index": 1,
-              "mode": "managed",
-              "name": "private_nat",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route",
-              "values": {
-                "carrier_gateway_id": null,
-                "core_network_arn": null,
-                "destination_cidr_block": "0.0.0.0/0",
-                "destination_ipv6_cidr_block": null,
-                "destination_prefix_list_id": null,
-                "egress_only_gateway_id": null,
-                "gateway_id": null,
-                "local_gateway_id": null,
-                "timeouts": null,
-                "transit_gateway_id": null,
-                "vpc_endpoint_id": null,
-                "vpc_peering_connection_id": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_route.private_nat[2]": {
-              "index": 2,
-              "mode": "managed",
-              "name": "private_nat",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route",
-              "values": {
-                "carrier_gateway_id": null,
-                "core_network_arn": null,
-                "destination_cidr_block": "0.0.0.0/0",
-                "destination_ipv6_cidr_block": null,
-                "destination_prefix_list_id": null,
-                "egress_only_gateway_id": null,
-                "gateway_id": null,
-                "local_gateway_id": null,
-                "timeouts": null,
-                "transit_gateway_id": null,
-                "vpc_endpoint_id": null,
-                "vpc_peering_connection_id": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_route_table.private_route_table[0]": {
-              "index": 0,
-              "mode": "managed",
-              "name": "private_route_table",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "propagating_vgws": [],
-                "route": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_route_table",
-              "values": {
-                "tags": {
-                  "Name": "my-rosa-rtb-private0-eu-north-1a"
-                },
-                "tags_all": {
-                  "Name": "my-rosa-rtb-private0-eu-north-1a"
-                },
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_route_table.private_route_table[1]": {
-              "index": 1,
-              "mode": "managed",
-              "name": "private_route_table",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "propagating_vgws": [],
-                "route": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_route_table",
-              "values": {
-                "tags": {
-                  "Name": "my-rosa-rtb-private1-eu-north-1b"
-                },
-                "tags_all": {
-                  "Name": "my-rosa-rtb-private1-eu-north-1b"
-                },
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_route_table.private_route_table[2]": {
-              "index": 2,
-              "mode": "managed",
-              "name": "private_route_table",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "propagating_vgws": [],
-                "route": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_route_table",
-              "values": {
-                "tags": {
-                  "Name": "my-rosa-rtb-private2-eu-north-1c"
-                },
-                "tags_all": {
-                  "Name": "my-rosa-rtb-private2-eu-north-1c"
-                },
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_route_table.public_route_table": {
-              "mode": "managed",
-              "name": "public_route_table",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "propagating_vgws": [],
-                "route": [],
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_route_table",
-              "values": {
-                "tags": {
-                  "Name": "my-rosa-public"
-                },
-                "tags_all": {
-                  "Name": "my-rosa-public"
-                },
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_route_table_association.private_route_table_association[0]": {
-              "index": 0,
-              "mode": "managed",
-              "name": "private_route_table_association",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route_table_association",
-              "values": {
-                "gateway_id": null,
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_route_table_association.private_route_table_association[1]": {
-              "index": 1,
-              "mode": "managed",
-              "name": "private_route_table_association",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route_table_association",
-              "values": {
-                "gateway_id": null,
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_route_table_association.private_route_table_association[2]": {
-              "index": 2,
-              "mode": "managed",
-              "name": "private_route_table_association",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route_table_association",
-              "values": {
-                "gateway_id": null,
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_route_table_association.public_route_table_association[0]": {
-              "index": 0,
-              "mode": "managed",
-              "name": "public_route_table_association",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route_table_association",
-              "values": {
-                "gateway_id": null,
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_route_table_association.public_route_table_association[1]": {
-              "index": 1,
-              "mode": "managed",
-              "name": "public_route_table_association",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route_table_association",
-              "values": {
-                "gateway_id": null,
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_route_table_association.public_route_table_association[2]": {
-              "index": 2,
-              "mode": "managed",
-              "name": "public_route_table_association",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_route_table_association",
-              "values": {
-                "gateway_id": null,
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_subnet.private_subnet[0]": {
-              "index": 0,
-              "mode": "managed",
-              "name": "private_subnet",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_subnet",
-              "values": {
-                "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-north-1a",
-                "cidr_block": "10.0.12.0/22",
-                "customer_owned_ipv4_pool": null,
-                "enable_dns64": false,
-                "enable_lni_at_device_index": null,
-                "enable_resource_name_dns_a_record_on_launch": false,
-                "enable_resource_name_dns_aaaa_record_on_launch": false,
-                "ipv6_cidr_block": null,
-                "ipv6_native": false,
-                "map_customer_owned_ip_on_launch": null,
-                "map_public_ip_on_launch": false,
-                "outpost_arn": null,
-                "tags": {
-                  "Name": "my-rosa-subnet-private1-eu-north-1a",
-                  "kubernetes.io/role/internal-elb": ""
-                },
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_subnet.private_subnet[1]": {
-              "index": 1,
-              "mode": "managed",
-              "name": "private_subnet",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_subnet",
-              "values": {
-                "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-north-1b",
-                "cidr_block": "10.0.16.0/22",
-                "customer_owned_ipv4_pool": null,
-                "enable_dns64": false,
-                "enable_lni_at_device_index": null,
-                "enable_resource_name_dns_a_record_on_launch": false,
-                "enable_resource_name_dns_aaaa_record_on_launch": false,
-                "ipv6_cidr_block": null,
-                "ipv6_native": false,
-                "map_customer_owned_ip_on_launch": null,
-                "map_public_ip_on_launch": false,
-                "outpost_arn": null,
-                "tags": {
-                  "Name": "my-rosa-subnet-private2-eu-north-1b",
-                  "kubernetes.io/role/internal-elb": ""
-                },
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_subnet.private_subnet[2]": {
-              "index": 2,
-              "mode": "managed",
-              "name": "private_subnet",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_subnet",
-              "values": {
-                "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-north-1c",
-                "cidr_block": "10.0.20.0/22",
-                "customer_owned_ipv4_pool": null,
-                "enable_dns64": false,
-                "enable_lni_at_device_index": null,
-                "enable_resource_name_dns_a_record_on_launch": false,
-                "enable_resource_name_dns_aaaa_record_on_launch": false,
-                "ipv6_cidr_block": null,
-                "ipv6_native": false,
-                "map_customer_owned_ip_on_launch": null,
-                "map_public_ip_on_launch": false,
-                "outpost_arn": null,
-                "tags": {
-                  "Name": "my-rosa-subnet-private3-eu-north-1c",
-                  "kubernetes.io/role/internal-elb": ""
-                },
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_subnet.public_subnet[0]": {
-              "index": 0,
-              "mode": "managed",
-              "name": "public_subnet",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_subnet",
-              "values": {
-                "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-north-1a",
-                "cidr_block": "10.0.0.0/22",
-                "customer_owned_ipv4_pool": null,
-                "enable_dns64": false,
-                "enable_lni_at_device_index": null,
-                "enable_resource_name_dns_a_record_on_launch": false,
-                "enable_resource_name_dns_aaaa_record_on_launch": false,
-                "ipv6_cidr_block": null,
-                "ipv6_native": false,
-                "map_customer_owned_ip_on_launch": null,
-                "map_public_ip_on_launch": false,
-                "outpost_arn": null,
-                "tags": {
-                  "Name": "my-rosa-subnet-public1-eu-north-1a",
-                  "kubernetes.io/role/elb": ""
-                },
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_subnet.public_subnet[1]": {
-              "index": 1,
-              "mode": "managed",
-              "name": "public_subnet",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_subnet",
-              "values": {
-                "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-north-1b",
-                "cidr_block": "10.0.4.0/22",
-                "customer_owned_ipv4_pool": null,
-                "enable_dns64": false,
-                "enable_lni_at_device_index": null,
-                "enable_resource_name_dns_a_record_on_launch": false,
-                "enable_resource_name_dns_aaaa_record_on_launch": false,
-                "ipv6_cidr_block": null,
-                "ipv6_native": false,
-                "map_customer_owned_ip_on_launch": null,
-                "map_public_ip_on_launch": false,
-                "outpost_arn": null,
-                "tags": {
-                  "Name": "my-rosa-subnet-public2-eu-north-1b",
-                  "kubernetes.io/role/elb": ""
-                },
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_subnet.public_subnet[2]": {
-              "index": 2,
-              "mode": "managed",
-              "name": "public_subnet",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_subnet",
-              "values": {
-                "assign_ipv6_address_on_creation": false,
-                "availability_zone": "eu-north-1c",
-                "cidr_block": "10.0.8.0/22",
-                "customer_owned_ipv4_pool": null,
-                "enable_dns64": false,
-                "enable_lni_at_device_index": null,
-                "enable_resource_name_dns_a_record_on_launch": false,
-                "enable_resource_name_dns_aaaa_record_on_launch": false,
-                "ipv6_cidr_block": null,
-                "ipv6_native": false,
-                "map_customer_owned_ip_on_launch": null,
-                "map_public_ip_on_launch": false,
-                "outpost_arn": null,
-                "tags": {
-                  "Name": "my-rosa-subnet-public3-eu-north-1c",
-                  "kubernetes.io/role/elb": ""
-                },
-                "timeouts": null
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_vpc.vpc": {
-              "mode": "managed",
-              "name": "vpc",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 1,
-              "sensitive_values": {
-                "tags": {},
-                "tags_all": {}
-              },
-              "type": "aws_vpc",
-              "values": {
-                "assign_generated_ipv6_cidr_block": null,
-                "cidr_block": "10.0.0.0/16",
-                "enable_dns_hostnames": true,
-                "enable_dns_support": true,
-                "instance_tenancy": "default",
-                "ipv4_ipam_pool_id": null,
-                "ipv4_netmask_length": null,
-                "ipv6_ipam_pool_id": null,
-                "ipv6_netmask_length": null,
-                "tags": {
-                  "Name": "my-rosa-vpc"
-                },
-                "tags_all": {
-                  "Name": "my-rosa-vpc"
-                }
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_vpc_endpoint.s3": {
-              "mode": "managed",
-              "name": "s3",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "cidr_blocks": [],
-                "dns_entry": [],
-                "dns_options": [],
-                "network_interface_ids": [],
-                "route_table_ids": [],
-                "security_group_ids": [],
-                "subnet_configuration": [],
-                "subnet_ids": [],
-                "tags_all": {}
-              },
-              "type": "aws_vpc_endpoint",
-              "values": {
-                "auto_accept": null,
-                "resource_configuration_arn": null,
-                "service_name": "com.amazonaws.eu-west-2.s3",
-                "service_network_arn": null,
-                "tags": null,
-                "timeouts": null,
-                "vpc_endpoint_type": "Gateway"
-              }
-            },
-            "module.rosa_cluster.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[0]": {
-              "index": 0,
-              "mode": "managed",
-              "name": "private_vpc_endpoint_route_table_association",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_vpc_endpoint_route_table_association"
-            },
-            "module.rosa_cluster.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[1]": {
-              "index": 1,
-              "mode": "managed",
-              "name": "private_vpc_endpoint_route_table_association",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_vpc_endpoint_route_table_association"
-            },
-            "module.rosa_cluster.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[2]": {
-              "index": 2,
-              "mode": "managed",
-              "name": "private_vpc_endpoint_route_table_association",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_vpc_endpoint_route_table_association"
-            },
-            "module.rosa_cluster.module.vpc.time_sleep.vpc_resources_wait": {
-              "mode": "managed",
-              "name": "vpc_resources_wait",
-              "provider_name": "registry.terraform.io/hashicorp/time",
-              "schema_version": 0,
-              "sensitive_values": {
-                "triggers": {}
-              },
-              "type": "time_sleep",
-              "values": {
-                "create_duration": "20s",
-                "destroy_duration": "20s",
-                "triggers": {
-                  "cidr_block": "10.0.0.0/16"
-                }
-              }
-            }
+            ],
+            "uris": null,
+            "validity_period_hours": 87600
           }
         }
       }
