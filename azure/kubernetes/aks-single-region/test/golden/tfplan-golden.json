@@ -39,7 +39,9 @@
                 "linux_os_config": [],
                 "node_labels": {},
                 "node_network_profile": [],
-                "upgrade_settings": [],
+                "upgrade_settings": [
+                  {}
+                ],
                 "zones": [
                   false,
                   false,
@@ -131,7 +133,13 @@
                 "temporary_name_for_rotation": null,
                 "type": "VirtualMachineScaleSets",
                 "ultra_ssd_enabled": false,
-                "upgrade_settings": [],
+                "upgrade_settings": [
+                  {
+                    "drain_timeout_in_minutes": 0,
+                    "max_surge": "10%",
+                    "node_soak_duration_in_minutes": 0
+                  }
+                ],
                 "vm_size": "Standard_D2s_v3",
                 "zones": [
                   "1",
