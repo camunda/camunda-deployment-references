@@ -317,7 +317,15 @@ runs:
               cat cluster_region_2.tf
 
               raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+              escaped_tags=$(echo "$raw_tags" | jq -r '
+                to_entries
+                | map("\"" + .key + "\"=\"" + (
+                    .value
+                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
+                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
+                    ) + "\"")
+                | join(", ")
+                ' | sed 's/.*/{&}/')
 
               terraform plan -no-color -out clusters.plan  \
                 -var="default_tags=$escaped_tags" \
@@ -435,7 +443,15 @@ runs:
               set -euo pipefail
 
               raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+              escaped_tags=$(echo "$raw_tags" | jq -r '
+                to_entries
+                | map("\"" + .key + "\"=\"" + (
+                    .value
+                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
+                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
+                    ) + "\"")
+                | join(", ")
+                ' | sed 's/.*/{&}/')
 
               terraform plan -no-color -out peering.plan \
                 -var="default_tags=$escaped_tags" \
@@ -492,7 +508,15 @@ runs:
               hash=$(echo -n "${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}" | sha256sum | cut -c1-8)
 
               raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+              escaped_tags=$(echo "$raw_tags" | jq -r '
+                to_entries
+                | map("\"" + .key + "\"=\"" + (
+                    .value
+                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
+                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
+                    ) + "\"")
+                | join(", ")
+                ' | sed 's/.*/{&}/')
 
               terraform plan -no-color -out  backup_bucket.plan \
                 -var="default_tags=$escaped_tags" \
