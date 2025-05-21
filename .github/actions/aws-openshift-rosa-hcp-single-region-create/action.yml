@@ -72,17 +72,16 @@ inputs:
 
     vpn-enabled:
         description: Enable VPN setup (recommended when private_vpc is true), this will also configure the current runner to use it
-        required: false
         default: 'false'
     vpn-s3-bucket-name:
         description: The name of the S3 bucket to store VPN certificates and config (required if vpn-enabled is true)
-        required: false
+        default: ''
     vpn-s3-bucket-key:
         description: The key (path) in the S3 bucket where store VPN certificates and config (default will use module value)
-        required: false
+        default: ''
     vpn-s3-bucket-region:
         description: The AWS region for the S3 bucket (required if vpn-enabled is true)
-        required: false
+        default: ''
 
 outputs:
     openshift-server-api:
@@ -291,9 +290,8 @@ runs:
                   vpn.tf
 
                 if [ -n "${{ inputs.vpn-s3-bucket-key }}" ]; then
-                  sed -i -E \
-                    -e "s/(^\s*s3_ca_directory\s*=\s*\")[^\"]*(\")/\1${{ inputs.vpn-s3-bucket-key }}\2/" \
-                    vpn.tf
+                  bucket_key="${{ inputs.vpn-s3-bucket-key }}"
+                  sed -i -E "s|(^\s*s3_ca_directory\s*=\s*\")[^\"]*(\")|\1${bucket_key}\2|" vpn.tf
                 fi
 
                 extra_vars="-var=s3_bucket_region=${{ inputs.vpn-s3-bucket-region }}"
