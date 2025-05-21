@@ -12,7 +12,7 @@ locals {
 }
 
 module "rosa_cluster" {
-  source = "../../modules/rosa-hcp"
+  source = "../../../../modules/rosa-hcp"
 
   cluster_name = local.rosa_cluster_name
 
@@ -50,6 +50,16 @@ output "public_subnet_ids" {
 output "private_subnet_ids" {
   value       = module.rosa_cluster.private_subnet_ids
   description = "A comma-separated list of private subnet IDs in the VPC. These subnets are typically used for internal resources that do not require direct internet access."
+}
+
+output "vpc_id" {
+  value       = module.rosa_cluster.vpc_id
+  description = "The ID of the Virtual Private Cloud (VPC) where the OpenShift cluster and related resources are deployed."
+}
+
+output "vpc_cidr_block" {
+  value       = module.rosa_cluster.cidr_block
+  description = "The CIDR block of the Virtual Private Cloud (VPC) where the OpenShift cluster and its associated resources are deployed."
 }
 
 output "cluster_id" {
