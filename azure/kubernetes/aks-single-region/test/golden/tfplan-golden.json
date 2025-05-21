@@ -422,6 +422,7 @@
           },
           "type": "azurerm_key_vault_key",
           "values": {
+            "expiration_date": "2035-12-31T23:59:59Z",
             "key_opts": [
               "encrypt",
               "decrypt"

@@ -14,7 +14,7 @@ on:
                 default: '12'
     pull_request:
         paths:
-            - .github/workflows/azure_kubernetes_eks_single_region_cleanup.yml
+            - .github/workflows/azure_kubernetes_aks_single_region_daily_cleanup.yml
             - .tool-versions
             - azure/kubernetes/aks-single-region*/**
             - '!azure/kubernetes/aks-single-region/test/golden/**'
@@ -116,13 +116,22 @@ jobs:
 
             - name: Delete clusters
               id: delete_clusters
-              timeout-minutes: 125
+              timeout-minutes: 90 # Auth token have a max lifetime of 60 - 90 minutes
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: ${{ env.MAX_AGE_HOURS_CLUSTER }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+
+            # Login again to Azure with OIDC to gain a new token
+            - name: Azure Login with OIDC
+              if: failure() && steps.delete_clusters.outcome == 'failure' && env.IS_SCHEDULE == 'true'
+              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              with:
+                  client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
 
             # There are cases where the deletion of resources fails due to dependencies.
             - name: Retry delete clusters (schedule only)

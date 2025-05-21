@@ -50,3 +50,11 @@ runs:
 
               ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
                 ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
+
+        - name: Upload cleanup logs
+          if: always()
+          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          with:
+              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}
+              path: ./logs/
+              retention-days: 7

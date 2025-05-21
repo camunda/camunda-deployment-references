@@ -11,3 +11,4 @@ parameters:
     kind: Managed
 reclaimPolicy: Retain
 volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
