@@ -242,7 +242,15 @@ runs:
               cat cluster.tf
 
               raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+              escaped_tags=$(echo "$raw_tags" | jq -r '
+                to_entries
+                | map("\"" + .key + "\"=\"" + (
+                    .value
+                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
+                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
+                    ) + "\"")
+                | join(", ")
+                ' | sed 's/.*/{&}/')
 
               terraform plan -no-color -var="default_tags=$escaped_tags" -out rosa.plan
 

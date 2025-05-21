@@ -158,7 +158,15 @@ runs:
               set -euo pipefail
 
               raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+              escaped_tags=$(echo "$raw_tags" | jq -r '
+                to_entries
+                | map("\"" + .key + "\"=\"" + (
+                    .value
+                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
+                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
+                    ) + "\"")
+                | join(", ")
+                ' | sed 's/.*/{&}/')
 
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
               terraform plan -no-color -out opensearch.plan \
