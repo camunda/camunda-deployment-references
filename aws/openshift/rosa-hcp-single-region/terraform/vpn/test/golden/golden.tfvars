@@ -3,5 +3,5 @@
 s3_bucket_region = "eu-central-1"
 
 vpc_id                  = "vpc-fake"
-vpc_subnet_ids          = "sb-723838"
+vpc_subnet_ids          = ["sb-723838", "sb-723837", "sb-723836"]
 vpc_target_network_cidr = "10.0.0.0/22"
