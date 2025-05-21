@@ -75,7 +75,10 @@ inputs:
         required: false
         default: 'false'
     vpn-s3-bucket-name:
-        description: The name of the S3 bucket to store VPN certificates (required if vpn-enabled is true)
+        description: The name of the S3 bucket to store VPN certificates and config (required if vpn-enabled is true)
+        required: false
+    vpn-s3-bucket-key:
+        description: The key (path) in the S3 bucket where store VPN certificates and config (default will use module value)
         required: false
     vpn-s3-bucket-region:
         description: The AWS region for the S3 bucket (required if vpn-enabled is true)
@@ -94,10 +97,13 @@ outputs:
         description: URL of the Terraform state file in the S3 bucket
         value: ${{ steps.set-terraform-variables.outputs.terraform-state-url }}
 
-    vpn_client_configs_s3_urls:
+    vpn-client-configs-s3-urls:
         description: Map of S3 URLs for client configs
         value: ${{ steps.apply.outputs.vpn_client_configs_s3_urls || '' }}
-    vpn_endpoint:
+    vpn-client-config-file:
+        description: Config file used by the VPN
+        value: ${{ steps.vpn.outputs.vpn_client_config_file || '' }}
+    vpn-endpoint:
         description: Endpoint of the VPN to access the created cluster
         value: ${{ steps.apply.outputs.vpn_endpoint || '' }}
 
@@ -284,6 +290,12 @@ runs:
                   -e "s/(^\s*s3_bucket_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.vpn-s3-bucket-name }}\2/" \
                   vpn.tf
 
+                if [ -n "${inputs.vpn-s3-bucket-key}" ]; then
+                  sed -i -E \
+                    -e "s/(^\s*s3_ca_directory\s*=\s*\")[^\"]*(\")/\1${{ inputs.vpn-s3-bucket-key }}\2/" \
+                    vpn.tf
+                fi
+
                 extra_vars="-var=s3_bucket_region=${{ inputs.vpn-s3-bucket-region }}"
 
                 echo "Displaying templated vpn.tf file:"
@@ -347,15 +359,15 @@ runs:
 
               # Create a secure directory inside the GitHub workspace
               mkdir -p "$GITHUB_WORKSPACE/.vpn"
-              AWS_REGION=${{ inputs.vpn-s3-bucket-region }} aws s3 cp "$config_url" "$GITHUB_WORKSPACE/.vpn/client.ovpn"
+              vpn_client_config_file="$GITHUB_WORKSPACE/.vpn/client.ovpn"
+              echo "vpn_client_config_file=$vpn_client_config_file" | tee -a "$GITHUB_OUTPUT"
+              AWS_REGION=${{ inputs.vpn-s3-bucket-region }} aws s3 cp "$config_url"
 
         - name: Connect to VPN
-          # TODO: pin this action
           if: inputs.vpn-enabled == 'true'
           uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
           with:
-              config_file: ${{ github.workspace }}/.vpn/client.ovpn
-              # TODO: check why leaking
+              config_file: ${{ steps.apply.vpn.vpn_client_config_file }}
               echo_config: 'false'
 
         - name: Login and generate kubeconfig

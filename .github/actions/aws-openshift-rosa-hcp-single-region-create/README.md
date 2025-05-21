@@ -30,7 +30,8 @@ The kube context will be set on the created cluster.
 | `cleanup-tf-modules-path` | <p>Whether to clean up the tf modules path</p> | `false` | `false` |
 | `tags` | <p>Tags to apply to the cluster and related resources, in JSON format</p> | `false` | `{}` |
 | `vpn-enabled` | <p>Enable VPN setup (recommended when private_vpc is true), this will also configure the current runner to use it</p> | `false` | `false` |
-| `vpn-s3-bucket-name` | <p>The name of the S3 bucket to store VPN certificates (required if vpn-enabled is true)</p> | `false` | `""` |
+| `vpn-s3-bucket-name` | <p>The name of the S3 bucket to store VPN certificates and config (required if vpn-enabled is true)</p> | `false` | `""` |
+| `vpn-s3-bucket-key` | <p>The key (path) in the S3 bucket where store VPN certificates and config (default will use module value)</p> | `false` | `""` |
 | `vpn-s3-bucket-region` | <p>The AWS region for the S3 bucket (required if vpn-enabled is true)</p> | `false` | `""` |
 
 
@@ -41,8 +42,9 @@ The kube context will be set on the created cluster.
 | `openshift-server-api` | <p>The server API URL of the deployed ROSA cluster</p> |
 | `openshift-cluster-id` | <p>The ID of the deployed ROSA cluster</p> |
 | `terraform-state-url` | <p>URL of the Terraform state file in the S3 bucket</p> |
-| `vpn_client_configs_s3_urls` | <p>Map of S3 URLs for client configs</p> |
-| `vpn_endpoint` | <p>Endpoint of the VPN to access the created cluster</p> |
+| `vpn-client-configs-s3-urls` | <p>Map of S3 URLs for client configs</p> |
+| `vpn-client-config-file` | <p>Config file used by the VPN</p> |
+| `vpn-endpoint` | <p>Endpoint of the VPN to access the created cluster</p> |
 
 
 ## Runs
@@ -169,7 +171,13 @@ This action is a `composite` action.
     # Default: false
 
     vpn-s3-bucket-name:
-    # The name of the S3 bucket to store VPN certificates (required if vpn-enabled is true)
+    # The name of the S3 bucket to store VPN certificates and config (required if vpn-enabled is true)
+    #
+    # Required: false
+    # Default: ""
+
+    vpn-s3-bucket-key:
+    # The key (path) in the S3 bucket where store VPN certificates and config (default will use module value)
     #
     # Required: false
     # Default: ""

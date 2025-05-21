@@ -57,10 +57,11 @@ env:
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
 
     # VPN Configuration (for private cluster only)
+    # please keep those values synced and unchanged
     # TODO: max age retention policy of this bucket = 1 month
-    # TODO: create a dedicated bucket for that and change general-purpose-bucket-that-will-not-be-deleted
-    VPN_S3_BUCKET_NAME: general-purpose-bucket-that-will-not-be-deleted
+    VPN_S3_BUCKET_NAME: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     VPN_S3_BUCKET_REGION: eu-central-1
+    VPN_S3_BUCKET_PREFIX: vpn-configs/
 
     # TEST VARIABLES
 
@@ -220,7 +221,7 @@ jobs:
                   vpn-enabled: ${{ matrix.distro.private_vpc }}
                   vpn-s3-bucket-name: ${{ env.VPN_S3_BUCKET_NAME }}
                   vpn-s3-bucket-region: ${{ env.VPN_S3_BUCKET_REGION }}
-
+                  vpn-s3-bucket-key: ${{ env.VPN_S3_BUCKET_PREFIX }}/${{ matrix.distro.clusterName }}
 
                   tags: >
                       {
@@ -245,8 +246,8 @@ jobs:
                   openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   encrypted_kubeconfig_base64="$(base64 -w 0 encrypted_kubeconfig.enc)"
 
-                  # Export and encrypt VPN config (assumes file exists at .vpn/client.ovpn)
-                  openssl enc -aes-256-cbc -salt -in "$GITHUB_WORKSPACE/.vpn/client.ovpn" -out encrypted_vpn_config.enc \
+                  # Export and encrypt VPN config
+                  openssl enc -aes-256-cbc -salt -in "${{ steps.create_cluster.outputs.vpn-client-config-file }}" -out encrypted_vpn_config.enc \
                      -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   encrypted_vpn_config_base64="$(base64 -w 0 encrypted_vpn_config.enc)"
 
@@ -359,7 +360,6 @@ jobs:
                   chmod 600 "$GITHUB_WORKSPACE/.vpn/client.ovpn"
 
             - name: 🛡️ Connect to VPN
-              # TODO: pin this action
               if: ${{ matrix.distro.private_vpc == true }}
               uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
               with:
