@@ -58,7 +58,7 @@ output "vpc_id" {
 }
 
 output "vpc_cidr_block" {
-  value       = module.rosa_cluster.cidr_block
+  value       = module.rosa_cluster.vpc_cidr_block
   description = "The CIDR block of the Virtual Private Cloud (VPC) where the OpenShift cluster and its associated resources are deployed."
 }
 
