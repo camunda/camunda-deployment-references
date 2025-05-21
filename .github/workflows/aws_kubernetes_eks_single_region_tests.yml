@@ -221,7 +221,7 @@ jobs:
                       {
                         "ci-run-id": "${{ github.run_id }}",
                         "ci-run-number": "${{ github.run_number }}",
-                        "ci-workflow": "eks-single-region-${{ matrix.scenario.name }}",
+                        "ci-workflow": "${{ github.workflow }}",
                         "ci-actor": "${{ github.actor }}",
                         "ci-ref": "${{ github.ref }}",
                         "ci-commit": "${{ github.sha }}",
