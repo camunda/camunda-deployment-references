@@ -14,7 +14,7 @@ on:
                 default: '12'
     pull_request:
         paths:
-            - .github/workflows/azure_kubernetes_eks_single_region_cleanup.yml
+            - .github/workflows/azure_kubernetes_aks_single_region_daily_cleanup.yml
             - .tool-versions
             - azure/kubernetes/aks-single-region*/**
             - '!azure/kubernetes/aks-single-region/test/golden/**'
