@@ -179,7 +179,15 @@ jobs:
                     }')
 
                   # Convert to Terraform format: "key"="value", ... wrapped in braces
-                  escaped_tags=$(echo "$ci_metadata" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+                  escaped_tags=$(echo "$ci_metadata" | jq -r '
+                    to_entries
+                    | map("\"" + .key + "\"=\"" + (
+                        .value
+                        | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
+                        | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
+                        ) + "\"")
+                    | join(", ")
+                    ' | sed 's/.*/{&}/')
 
                   echo "Final tags: $escaped_tags"
                   export TF_VAR_default_tags="$escaped_tags"
