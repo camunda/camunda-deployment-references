@@ -420,7 +420,7 @@ runs:
               mkdir -p "$GITHUB_WORKSPACE/.vpn"
               vpn_client_config_file="$GITHUB_WORKSPACE/.vpn/client.ovpn"
               echo "vpn_client_config_file=$vpn_client_config_file" | tee -a "$GITHUB_OUTPUT"
-              AWS_REGION=${{ inputs.vpn-s3-bucket-region }} aws s3 cp "$config_url"
+              AWS_REGION=${{ inputs.vpn-s3-bucket-region }} aws s3 cp "$config_url" "$vpn_client_config_file"
 
         - name: Connect to VPN
           if: inputs.vpn-enabled == 'true'
