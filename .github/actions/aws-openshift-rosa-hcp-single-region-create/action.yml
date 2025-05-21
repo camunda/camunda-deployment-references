@@ -40,8 +40,8 @@ inputs:
         description: Number of replicas for the ROSA cluster (empty will fallback on default value of the module)
         default: ''
     private-vpc:
-        description: The VPC within which the cluster resides has only a private subnet, meaning that it cannot be accessed at all from the public Internet
-            (empty will fallback on default value of the module)
+        description: The VPC within which the cluster resides will only have private subnets, meaning that it cannot be accessed at all from the public
+            Internet (empty will fallback on default value of the module)
         default: ''
     s3-backend-bucket:
         description: Name of the S3 bucket to store Terraform state
@@ -290,7 +290,7 @@ runs:
                   -e "s/(^\s*s3_bucket_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.vpn-s3-bucket-name }}\2/" \
                   vpn.tf
 
-                if [ -n "${inputs.vpn-s3-bucket-key}" ]; then
+                if [ -n "${{ inputs.vpn-s3-bucket-key }}" ]; then
                   sed -i -E \
                     -e "s/(^\s*s3_ca_directory\s*=\s*\")[^\"]*(\")/\1${{ inputs.vpn-s3-bucket-key }}\2/" \
                     vpn.tf
