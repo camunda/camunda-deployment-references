@@ -4,7 +4,7 @@ resource "azurerm_key_vault_key" "this" {
   key_type        = "RSA"
   key_size        = 3072
   key_opts        = ["encrypt", "decrypt"]
-  expiration_date = timeadd(timestamp(), "8760h")
+  expiration_date = "2035-12-31T23:59:59Z"
 
   depends_on = [
     azurerm_role_assignment.tf_sp_kv_admin,
