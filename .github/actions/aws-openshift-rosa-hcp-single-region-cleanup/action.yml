@@ -107,6 +107,8 @@ runs:
                 ${{ github.action_path }}/scripts/cleanup-ghost-clusters.sh ${{ inputs.max-age-hours-cluster }}
               fi
 
+              # TODO: integrate a cleanup script that deletes vpn-config matching name or all
+
         - name: Upload cleanup logs
           if: always()
           uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
