@@ -100,7 +100,7 @@ runs:
               cp .tool-versions ~/.tool-versions
 
               ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
-                ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-single-region/ /tmp/cleanup/ \
+                ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-single-region/terraform/ /tmp/cleanup/ \
                 ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }} \
                 $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
 
