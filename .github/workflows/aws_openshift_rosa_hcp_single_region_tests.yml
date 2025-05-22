@@ -53,8 +53,7 @@ env:
     TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
     S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-single-region/ # keep it synced with the name of the module for simplicity
 
-    # TODO: revert before merge
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # VPN Configuration (for private cluster only)
     # please keep those values synced and unchanged
@@ -121,9 +120,7 @@ jobs:
                   # Vars are exported to pass them to yq instead of local inline syntax.
                   # shellcheck disable=SC2086
                   for distro_index in ${distro_indexes}; do
-                    # cluster_name_input="${{ inputs.cluster_name }}"
-                    # TODO: revert that before merge
-                    cluster_name_input="privateleo"
+                    cluster_name_input="${{ inputs.cluster_name }}"
                     cluster_name_fallback="hci-$(uuidgen | head -c 8)"
 
                     export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"

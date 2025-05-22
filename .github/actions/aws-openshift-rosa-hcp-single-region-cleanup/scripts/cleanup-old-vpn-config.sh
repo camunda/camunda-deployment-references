@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# TODO: during the review discuss if we duplicate it for each or if we put it in a common
+
 # Description:
 # This script lists folders in an S3 bucket and deletes those older than a specified age.
 # It includes a dry run option to simulate the deletion without actually deleting.
