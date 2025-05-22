@@ -457,7 +457,14 @@ runs:
                   oc login --username "${{ inputs.admin-username }}" --password "${{ inputs.admin-password }}" "${{ steps.cluster_info.outputs.cluster_api }}"
                   oc whoami
 
-                  kubectl config rename-context $(oc config current-context) "${{ inputs.cluster-name }}"
+                  echo "Show existing contexts"
+                  kubectl config get-contexts
+                  if kubectl config get-contexts | awk '{print $2}' | grep -q '^${{ inputs.cluster-name }}$'; then
+                      echo "Context '${{ inputs.cluster-name }}' already exists. No changes made."
+                  else
+                      kubectl config rename-context "$(oc config current-context)" "${{ inputs.cluster-name }}"
+                  fi
+
                   kubectl config use "${{ inputs.cluster-name }}"
 
         - name: Clean up cloned modules
