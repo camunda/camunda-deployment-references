@@ -225,14 +225,6 @@ jobs:
                         "ci-event": "${{ github.event_name }}"
                       }
 
-            - name: Apply storage class
-              run: |
-                  set -euo pipefail
-                  # Remove “default” flag from the original class before applying the new one
-                  kubectl patch storageclass default \
-                    -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
-                  kubectl apply -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
-
             - name: Source env from Terraform
               id: db_env
               working-directory: ${{ env.TF_MODULES_PATH }}/azure/kubernetes/aks-single-region/
@@ -344,6 +336,14 @@ jobs:
 
                   kubectl config current-context
                   kubectl get nodes
+
+            - name: Apply storage class
+              run: |
+                  set -euo pipefail
+                  # Remove “default” flag from the original class before applying the new one
+                  kubectl patch storageclass default \
+                    -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
+                  kubectl apply -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
 
             - name: 🏗️ Ingress Setup prerequisites
               if: ${{ matrix.declination.name == 'domain' }}
