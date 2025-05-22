@@ -175,5 +175,4 @@ variable "resource_prefix_placeholder" {
 variable "dns_zone_id" {
   description = "Azure Resource ID of the shared DNS zone"
   type        = string
-  default     = ""
 }
