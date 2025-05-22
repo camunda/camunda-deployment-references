@@ -29,6 +29,12 @@ variable "tags" {
   default     = {}
 }
 
+variable "key_expiration_date" {
+  description = "Expiration date for the Key Vault key"
+  type        = string
+  default     = "2035-12-31T23:59:59Z"
+}
+
 variable "terraform_sp_app_id" {
   type        = string
   description = "The Service Principal’s Application (client) ID that Terraform is using"
