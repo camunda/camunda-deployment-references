@@ -175,6 +175,5 @@ variable "resource_prefix_placeholder" {
 variable "dns_zone_id" {
   description = "Azure Resource ID of the shared DNS zone"
   type        = string
-  # TODO: remove hardcoded value once working
-  default = "/subscriptions/5667840f-dd25-4fe1-99ee-5e752ec80b5c/resourceGroups/rg-infraex-global-permanent/providers/Microsoft.Network/dnszones/azure.camunda.ie"
+  default     = ""
 }
