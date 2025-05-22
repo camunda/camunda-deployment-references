@@ -484,7 +484,7 @@ runs:
 
               terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}backup_bucket.tfstate"
               terraform_state_url_backup_bucket="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
-              echo "terraform-state-url-backup-bucket=${terraform_state_url_peering}" | tee -a "$GITHUB_OUTPUT"
+              echo "terraform-state-url-backup-bucket=${terraform_state_url_backup_bucket}" | tee -a "$GITHUB_OUTPUT"
 
               terraform version
 
