@@ -24,6 +24,12 @@ resource "azurerm_kubernetes_cluster" "aks" {
       "environment"   = "production"
     }
 
+    upgrade_settings {
+      max_surge                     = "10%"
+      drain_timeout_in_minutes      = 0
+      node_soak_duration_in_minutes = 0
+    }
+
     max_pods                     = 30
     only_critical_addons_enabled = true
   }
@@ -49,5 +55,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
     key_vault_network_access = "Public"
   }
 
-  private_cluster_enabled = false
+  private_cluster_enabled           = false
+  role_based_access_control_enabled = true
 }

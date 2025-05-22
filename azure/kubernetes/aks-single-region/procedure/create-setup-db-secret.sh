@@ -5,8 +5,8 @@ kubectl create namespace camunda --dry-run=client -o yaml | kubectl apply -f -
 
 # Create the secret with all database credentials
 kubectl create secret generic setup-db-secret --namespace camunda \
-  --from-literal=POSTGRES_FQDN="$POSTGRES_FQDN" \
-  --from-literal=POSTGRES_PORT="$POSTGRES_PORT" \
+  --from-literal=DB_HOST="$DB_HOST" \
+  --from-literal=DB_PORT="$DB_PORT" \
   --from-literal=POSTGRES_ADMIN_USERNAME="$POSTGRES_ADMIN_USERNAME" \
   --from-literal=POSTGRES_ADMIN_PASSWORD="$POSTGRES_ADMIN_PASSWORD" \
   --from-literal=DB_KEYCLOAK_NAME="$DB_KEYCLOAK_NAME" \

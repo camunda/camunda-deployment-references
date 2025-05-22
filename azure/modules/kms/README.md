@@ -23,6 +23,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_key_expiration_date"></a> [key\_expiration\_date](#input\_key\_expiration\_date) | Expiration date for the Key Vault key | `string` | `"2035-12-31T23:59:59Z"` | no |
 | <a name="input_key_name"></a> [key\_name](#input\_key\_name) | Name for the key inside Key Vault | `string` | n/a | yes |
 | <a name="input_kv_name"></a> [kv\_name](#input\_kv\_name) | Name for the Key Vault | `string` | n/a | yes |
 | <a name="input_location"></a> [location](#input\_location) | Azure region | `string` | n/a | yes |

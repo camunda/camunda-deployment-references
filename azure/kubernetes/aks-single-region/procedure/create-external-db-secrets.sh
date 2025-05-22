@@ -3,7 +3,7 @@
 # create a secret to reference external database credentials if you use it
 kubectl create secret generic identity-keycloak-secret \
   --namespace camunda \
-  --from-literal=host="$POSTGRES_FQDN" \
+  --from-literal=host="$DB_HOST" \
   --from-literal=user="$DB_KEYCLOAK_USERNAME" \
   --from-literal=password="$DB_KEYCLOAK_PASSWORD" \
   --from-literal=database="$DB_KEYCLOAK_NAME" \

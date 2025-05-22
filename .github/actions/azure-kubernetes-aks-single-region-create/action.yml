@@ -98,7 +98,7 @@ runs:
         - name: Copy config_override.tf to module root
           shell: bash
           run: |
-              cp -r ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/test/fixtures/fixture_config_override.tf \
+              cp -r ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/test/fixtures/fixture_* \
               ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
 
         - name: Terraform Init
@@ -154,7 +154,15 @@ runs:
               }'
 
               combined_tags=$(jq -s '.[0] + .[1]' <(echo "$raw_tags") <(echo "$static_tags"))
-              escaped_tags=$(echo "$combined_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
+              escaped_tags=$(echo "$combined_tags" | jq -r '
+                to_entries
+                | map("\"" + .key + "\"=\"" + (
+                    .value
+                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
+                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
+                    ) + "\"")
+                | join(", ")
+                ' | sed 's/.*/{&}/')
 
               terraform plan \
                 -no-color \
