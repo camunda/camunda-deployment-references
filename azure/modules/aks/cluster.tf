@@ -50,14 +50,11 @@ resource "azurerm_kubernetes_cluster" "aks" {
     identity_ids = [var.uami_id]
   }
 
-  role_based_access_control {
-    enabled = true
-  }
-
   key_management_service {
     key_vault_key_id         = var.kms_key_id
     key_vault_network_access = "Public"
   }
 
-  private_cluster_enabled = false
+  private_cluster_enabled           = false
+  role_based_access_control_enabled = true
 }
