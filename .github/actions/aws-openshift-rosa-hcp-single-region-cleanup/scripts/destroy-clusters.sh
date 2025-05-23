@@ -281,9 +281,9 @@ is_empty_folder() {
     local folder="$1"
     # List all objects within the folder (excluding subfolders) and count them
     local file_count
-    if ! file_count=$(aws s3 ls "s3://$BUCKET/$folder" --recursive | grep -cv '/$')
+    if ! file_count=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX$folder" --recursive | grep -cv '/$')
     then
-        echo "Error listing contents of s3://$BUCKET/$folder"
+        echo "Error listing contents of s3://$BUCKET/$KEY_PREFIX$folder"
         exit 1
     fi
 
@@ -296,9 +296,9 @@ process_empty_folders() {
     local empty_folders_found=false
 
     # List all folders and sort them from the deepest to the shallowest
-    if ! empty_folders=$(aws s3 ls "s3://$BUCKET/" --recursive | awk '{print $4}' | grep '/$' | sort -r)
+    if ! empty_folders=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive | awk '{print $4}' | grep '/$' | sort -r)
     then
-        echo "Error listing folders in s3://$BUCKET/"
+        echo "Error listing folders in s3://$BUCKET/$KEY_PREFIX"
         exit 1
     fi
 
@@ -306,12 +306,12 @@ process_empty_folders() {
     for folder in $empty_folders; do
         if is_empty_folder "$folder"; then
             # If the folder is empty, delete it
-            if ! aws s3 rm "s3://$BUCKET/$folder" --recursive
+            if ! aws s3 rm "s3://$BUCKET/$KEY_PREFIX$folder" --recursive
             then
-                echo "Error deleting folder: s3://$BUCKET/$folder"
+                echo "Error deleting folder: s3://$BUCKET/$KEY_PREFIX$folder"
                 exit 1
             else
-                echo "Deleted empty folder: s3://$BUCKET/$folder"
+                echo "Deleted empty folder: s3://$BUCKET/$KEY_PREFIX$folder"
                 empty_folders_found=true
             fi
         fi
@@ -320,7 +320,7 @@ process_empty_folders() {
     echo $empty_folders_found
 }
 
-echo "Cleaning up empty folders in s3://$BUCKET"
+echo "Cleaning up empty folders in s3://$BUCKET/$KEY_PREFIX"
 # Loop until no empty folders are found
 while true; do
     # Process folders and check if any empty folders were found and deleted
