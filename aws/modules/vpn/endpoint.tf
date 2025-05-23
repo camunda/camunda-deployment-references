@@ -8,7 +8,7 @@ resource "aws_security_group" "vpn" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description = "Regulate ips allowed to access to the VPN"
+    description = "Allow client VPN connections from approved IP ranges"
     from_port   = 443
     to_port     = 443
     protocol    = "udp"

@@ -477,7 +477,7 @@
                 "cidr_blocks": [
                   "0.0.0.0/0"
                 ],
-                "description": "Regulate ips allowed to access to the VPN",
+                "description": "Allow client VPN connections from approved IP ranges",
                 "from_port": 443,
                 "ipv6_cidr_blocks": [],
                 "prefix_list_ids": [],

@@ -556,7 +556,6 @@ jobs:
                   done
 
     cleanup-clusters:
-        # TODO: integrate in the cleanup script a cleanup of the associated VPN certs
         name: Cleanup ROSA clusters
         if: always()
         runs-on: ubuntu-latest
