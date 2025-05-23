@@ -59,17 +59,6 @@ variable "vpn_client_banner" {
   default     = "This VPN is for authorized users only. All activities may be monitored and recorded."
 }
 
-variable "s3_bucket_name" {
-  type        = string
-  description = "Name of the bucket that stores the certificates and keys"
-}
-
-variable "s3_ca_directory" {
-  type        = string
-  default     = "my-ca"
-  description = "Directory name inside the S3 bucket where CA and certificates are stored"
-}
-
 variable "client_key_names" {
   description = "List of client key names to generate certificates for"
   type        = list(string)

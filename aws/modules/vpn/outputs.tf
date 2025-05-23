@@ -1,35 +1,35 @@
-output "vpn_ca_keys_s3_urls" {
-  description = "Map of S3 URLs for client private and public keys"
-  value = {
-    private_key_s3_url = "s3://${var.s3_bucket_name}/${local.ca_private_key_object_key}"
-    public_key_s3_url  = "s3://${var.s3_bucket_name}/${local.ca_public_key_object_key}"
-  }
+# rationale about sensitive: if we make a mistake assignment (private instead of public key), we will not leak
+output "vpn_ca_key" {
+  description = "Private key of the CA Root used for x509 auth"
+  value       = tls_private_key.ca_private_key.private_key_pem
+  sensitive   = true
+}
+output "vpn_ca_cert" {
+  description = "Public key of the CA Root used for x509 auth"
+  value       = tls_self_signed_cert.ca_public_key.cert_pem
+  sensitive   = true
+}
+output "vpn_server_cert" {
+  description = "Public key of the server cert used for x509 auth"
+  value       = tls_locally_signed_cert.server_public_key.cert_pem
+  sensitive   = true
 }
 
-output "vpn_server_keys_s3_urls" {
-  description = "Map of S3 URLs for client private and public keys"
-  value = {
-    private_key_s3_url = "s3://${var.s3_bucket_name}/${local.server_private_key_object_key}"
-    public_key_s3_url  = "s3://${var.s3_bucket_name}/${local.server_public_key_object_key}"
-  }
+output "vpn_server_key" {
+  description = "Private key of the server cert"
+  value       = tls_private_key.server_private_key.private_key_pem
+  sensitive   = true
 }
 
-output "vpn_client_keys_s3_urls" {
-  description = "Map of S3 URLs for client private and public keys"
+output "vpn_clients_keys" {
+  description = "Map of the clients public and private keys"
   value = {
     for name in var.client_key_names : name => {
-      private_key_s3_url = "s3://${var.s3_bucket_name}/${local.client_keys[name].private_key_object_key}"
-      public_key_s3_url  = "s3://${var.s3_bucket_name}/${local.client_keys[name].public_key_object_key}"
+      private_key = tls_private_key.client_private_key[name].private_key_pem
+      public_key  = tls_locally_signed_cert.client_public_key[name].cert_pem
     }
   }
-}
-
-output "vpn_client_configs" {
-  description = "Map of OpenVPN configs of each client"
-  value = {
-    for name in var.client_key_names :
-    name => "s3://${var.s3_bucket_name}/${var.s3_ca_directory}/client-configs/${name}.ovpn"
-  }
+  sensitive = true
 }
 
 output "vpn_endpoint" {
