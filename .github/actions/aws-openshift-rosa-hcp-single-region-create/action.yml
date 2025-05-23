@@ -390,8 +390,6 @@ runs:
               echo "vpn_client_configs_s3_urls=$(terraform output -json vpn_client_configs_s3_urls)" | tee -a "$GITHUB_OUTPUT"
               echo "vpn_endpoint=$(terraform output -json vpn_endpoint)" | tee -a "$GITHUB_OUTPUT"
 
-# TODO: handle s3 bucket cleanup when in the desctruction
-
         ### End of terraform
 
         - name: Retrieve cluster information
