@@ -3,6 +3,7 @@
 ## Description
 
 This GitHub Action automates the deletion of aws/openshift/rosa-hcp-single-region reference architecture clusters using a shell script.
+Environment variables required : VPN_S3_BUCKET_NAME, VPN_S3_BUCKET_REGION and VPN_S3_BUCKET_PREFIX
 
 
 ## Inputs
