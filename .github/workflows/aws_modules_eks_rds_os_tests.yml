@@ -2,8 +2,8 @@
 name: Tests - Integration - AWS EKS/RDS/OS Modules
 
 permissions:
-    contents: write # allow commits
-    pull-requests: write # allow comments, tags
+    contents: read # don't allow commits
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
 on:
     schedule:

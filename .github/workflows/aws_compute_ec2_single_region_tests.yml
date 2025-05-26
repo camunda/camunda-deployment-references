@@ -2,8 +2,8 @@
 name: Tests - Integration - AWS Compute EC2
 
 permissions:
-    contents: write # allow commits
-    pull-requests: write # allow comments, tags
+    contents: read # don't allow commits
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
 on:
     # Disabling for the time being due to focus shift with 8.7

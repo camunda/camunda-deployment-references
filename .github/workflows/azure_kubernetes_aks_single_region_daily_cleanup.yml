@@ -4,7 +4,7 @@ name: Tests - Daily Cleanup - Azure Kubernetes AKS Single Region
 permissions:
     id-token: write # this is required for azure login
     contents: write # allow commits
-    pull-requests: write # allow comments, tags
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
 on:
     workflow_dispatch:

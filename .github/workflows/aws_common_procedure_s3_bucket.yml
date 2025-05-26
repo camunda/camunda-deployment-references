@@ -5,8 +5,8 @@ name: Tests - Integration - AWS S3 bucket for Terraform backend
 
 
 permissions:
-    contents: read # allow commits
-    pull-requests: write # allow comments, tags
+    contents: read
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 on:
     workflow_dispatch:
     pull_request:
