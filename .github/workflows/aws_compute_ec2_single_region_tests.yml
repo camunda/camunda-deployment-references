@@ -1,6 +1,10 @@
 ---
 name: Tests - Integration - AWS Compute EC2
 
+permissions:
+    contents: write # allow commits
+    pull-requests: write # allow comments, tags
+
 on:
     # Disabling for the time being due to focus shift with 8.7
     # schedule:

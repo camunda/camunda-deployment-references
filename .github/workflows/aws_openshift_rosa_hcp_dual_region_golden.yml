@@ -1,6 +1,9 @@
 ---
 name: Tests - Golden - AWS OpenShift ROSA HCP Dual Region
 
+permissions:
+    contents: write # allow commits
+    pull-requests: write # allow comments, tags
 on:
     workflow_dispatch:
     pull_request:

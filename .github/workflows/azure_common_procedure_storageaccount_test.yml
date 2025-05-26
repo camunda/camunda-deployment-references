@@ -2,8 +2,9 @@
 name: Tests - Integration - Azure Common Procedure Storage Account Creation Test
 
 permissions:
-    id-token: write
-    contents: read
+    id-token: write # this is required for azure login
+    contents: write # allow commits
+    pull-requests: write # allow comments, tags
 
 on:
     schedule:

@@ -1,6 +1,10 @@
 ---
 name: Tests - Integration - AWS OpenShift ROSA HCP Single Region
 
+permissions:
+    contents: write # allow commits
+    pull-requests: write # allow comments, tags
+
 on:
     schedule:
         - cron: 0 3 * * 1 # Runs at 3 AM on Monday
