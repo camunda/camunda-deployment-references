@@ -77,15 +77,8 @@ jobs:
               shell: bash
               run: |
                   set -euo pipefail
-                  source ./storage-account-env-vars.sh
-
-                  # Export variables to GitHub environment
-                  {
-                    echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME"
-                    echo "AZURE_LOCATION=$AZURE_LOCATION"
-                    echo "AZURE_STORAGE_ACCOUNT_NAME=$AZURE_STORAGE_ACCOUNT_NAME"
-                    echo "AZURE_STORAGE_CONTAINER_NAME=$AZURE_STORAGE_CONTAINER_NAME"
-                  } >> "$GITHUB_ENV"
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars /storage-account-env-vars.sh
 
             - name: Validate configuration
               run: |
