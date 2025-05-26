@@ -40,7 +40,10 @@ module "postgres_db" {
   private_endpoint_subnet_id = module.network.pe_subnet_id
   private_dns_zone_id        = module.network.postgres_private_dns_zone_id
 
-  depends_on = [module.network]
+  depends_on = [
+    module.network,
+    module.aks
+  ]
 }
 
 # DB outputs
