@@ -51,7 +51,17 @@
 | Name | Description |
 |------|-------------|
 | <a name="output_aks_cluster_id"></a> [aks\_cluster\_id](#output\_aks\_cluster\_id) | ID of the deployed AKS cluster |
+| <a name="output_aks_cluster_name"></a> [aks\_cluster\_name](#output\_aks\_cluster\_name) | Name of the AKS cluster |
 | <a name="output_aks_fqdn"></a> [aks\_fqdn](#output\_aks\_fqdn) | FQDN of the AKS cluster |
+| <a name="output_camunda_database_identity"></a> [camunda\_database\_identity](#output\_camunda\_database\_identity) | n/a |
+| <a name="output_camunda_database_keycloak"></a> [camunda\_database\_keycloak](#output\_camunda\_database\_keycloak) | n/a |
+| <a name="output_camunda_database_webmodeler"></a> [camunda\_database\_webmodeler](#output\_camunda\_database\_webmodeler) | n/a |
+| <a name="output_camunda_identity_db_password"></a> [camunda\_identity\_db\_password](#output\_camunda\_identity\_db\_password) | n/a |
+| <a name="output_camunda_identity_db_username"></a> [camunda\_identity\_db\_username](#output\_camunda\_identity\_db\_username) | n/a |
+| <a name="output_camunda_keycloak_db_password"></a> [camunda\_keycloak\_db\_password](#output\_camunda\_keycloak\_db\_password) | n/a |
+| <a name="output_camunda_keycloak_db_username"></a> [camunda\_keycloak\_db\_username](#output\_camunda\_keycloak\_db\_username) | n/a |
+| <a name="output_camunda_webmodeler_db_password"></a> [camunda\_webmodeler\_db\_password](#output\_camunda\_webmodeler\_db\_password) | n/a |
+| <a name="output_camunda_webmodeler_db_username"></a> [camunda\_webmodeler\_db\_username](#output\_camunda\_webmodeler\_db\_username) | n/a |
 | <a name="output_postgres_admin_password"></a> [postgres\_admin\_password](#output\_postgres\_admin\_password) | PostgreSQL admin password |
 | <a name="output_postgres_admin_username"></a> [postgres\_admin\_username](#output\_postgres\_admin\_username) | PostgreSQL admin user |
 | <a name="output_postgres_fqdn"></a> [postgres\_fqdn](#output\_postgres\_fqdn) | The fully qualified domain name of the PostgreSQL Flexible Server |

@@ -10,7 +10,7 @@ on:
                 default: '12'
     pull_request:
         paths:
-            - .github/workflows/aws_kubernetes_eks_single_region_cleanup.yml
+            - .github/workflows/aws_kubernetes_eks_single_region_daily_cleanup.yml
             - .tool-versions
             - aws/kubernetes/eks-single-region*/**
             - '!aws/kubernetes/eks-single-region/test/golden/**'

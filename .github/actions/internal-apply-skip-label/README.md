@@ -2,7 +2,7 @@
 
 ## Description
 
-Creates a label named skip_<workflow_file_name> and applies it to the current PR if it doesn't exist. Adds a comment to the PR explaining the label.
+Creates a label named skip_<workflow_file_name> and applies it to the current PR if it doesn't exist. Adds a comment to the PR explaining the label. This action requeries you to provide a ``GH_TOKEN with `write` permission on `pull-requests`.
 
 
 ## Inputs

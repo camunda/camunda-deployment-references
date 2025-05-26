@@ -45,9 +45,9 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         permissions:
-            id-token: write
-            contents: write
-            pull-requests: write
+            id-token: write # this is required for azure login
+            contents: write # allow commits
+            pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
         steps:
             - name: Checkout repository
               uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
