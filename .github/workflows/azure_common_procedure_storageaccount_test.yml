@@ -73,12 +73,11 @@ jobs:
 
             - name: Source environment variables
               id: source_env_vars
-              working-directory: azure/common/procedure/storage-account
               shell: bash
               run: |
                   set -euo pipefail
-                  source ${{ github.workspace }}/.github/scripts/gha-functions.sh
-                  export_new_env_vars /storage-account-env-vars.sh
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars azure/common/procedure/storage-account/storage-account-env-vars.sh
 
             - name: Validate configuration
               run: |
