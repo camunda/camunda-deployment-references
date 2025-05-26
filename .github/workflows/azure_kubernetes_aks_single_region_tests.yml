@@ -1,10 +1,6 @@
 ---
 name: Tests - Integration - Azure Kubernetes AKS Single Region
 
-permissions:
-    id-token: write
-    contents: read
-
 on:
     schedule:
         - cron: 0 3 * * 3 # Runs at 3 AM on Wednesdays
