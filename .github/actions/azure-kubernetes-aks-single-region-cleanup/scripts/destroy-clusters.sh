@@ -8,6 +8,8 @@ set -o pipefail
 # the appropriate backend configuration, and runs `terraform destroy`. If the destroy operation
 # is successful, it removes the corresponding S3 objects.
 #
+# The target region is defined using `AZURE_REGION`.
+#
 # Additionally, if the environment variable `RETRY_DESTROY` is set, the script will invoke Azure
 # Resource Group deletion to clean up any unmanaged Azure resources.
 #
@@ -21,9 +23,9 @@ set -o pipefail
 #   KEY_PREFIX (optional): A prefix (with a '/' at the end) for filtering objects in the S3 bucket.
 #
 # Example:
-# ./destroy_clusters.sh tf-state-rosa-ci-eu-west-3 24 all
-# ./destroy_clusters.sh tf-state-rosa-ci-eu-west-3 24 eks-cluster-2883
-# ./destroy_clusters.sh tf-state-rosa-ci-eu-west-3 24 all my-prefix/
+# ./destroy_clusters.sh tf-state-ci-eu-west-3 24 all
+# ./destroy_clusters.sh tf-state-ci-eu-west-3 24 aks-cluster-2883
+# ./destroy_clusters.sh tf-state-ci-eu-west-3 24 all my-prefix/
 #
 # Requirements:
 # - AWS CLI installed and configured with the necessary permissions to access and modify the S3 bucket.
@@ -36,8 +38,13 @@ if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
   exit 1
 fi
 
-if [ -z "$AWS_REGION" ]; then
-  echo "Error: The environment variable AWS_REGION is not set."
+if [ -z "$AZURE_REGION" ]; then
+  echo "Error: The environment variable AZURE_REGION is not set."
+  exit 1
+fi
+
+if [ -z "$AWS_S3_REGION" ]; then
+  echo "Error: The environment variable AWS_S3_REGION is not set."
   exit 1
 fi
 
@@ -48,7 +55,6 @@ ID_OR_ALL=$3
 KEY_PREFIX=${4:-""}
 FAILED=0
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
-AWS_S3_REGION=${AWS_S3_REGION:-$AWS_REGION}
 
 # Detect operating system and set the appropriate date command
 if [[ "$(uname)" == "Darwin" ]]; then
@@ -77,7 +83,7 @@ destroy_cluster() {
     az graph query -q "
       ResourceContainers
       | where type == 'microsoft.resources/subscriptions/resourcegroups'
-      | where location =~ 'swedencentral'
+      | where location =~ '${AZURE_REGION}'
       | where createdTime < ago(${MIN_AGE_IN_HOURS}h)
       | project name
     " -o tsv | while IFS= read -r rg; do

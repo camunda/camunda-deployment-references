@@ -50,7 +50,6 @@ inputs:
     location:
         description: Azure region where the AKS cluster will be deployed
         required: true
-        default: swedencentral
     tags:
         description: Tags to apply to the cluster and related resources, in JSON format
         default: '{}'

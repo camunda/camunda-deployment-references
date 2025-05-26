@@ -15,15 +15,6 @@ on:
             - .tool-versions
             - azure/common/procedure/storage-account/**
     workflow_dispatch:
-        inputs:
-            location:
-                description: Azure region where the storage account will be deployed.
-                type: string
-                default: swedencentral
-            resource-group-name:
-                description: Name of the resource group to deploy the storage account in.
-                type: string
-                default: storage-account-test-rg
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,6 +23,9 @@ concurrency:
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
+
+    # Test environment for cloud provider, please keep it synced between the workflows
+    AZURE_REGION: swedencentral
 
 jobs:
     triage:
@@ -91,7 +85,6 @@ jobs:
                   # Export variables to GitHub environment
                   {
                     echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME"
-                    echo "AZURE_LOCATION=$AZURE_LOCATION"
                     echo "AZURE_STORAGE_ACCOUNT_NAME=$AZURE_STORAGE_ACCOUNT_NAME"
                     echo "AZURE_STORAGE_CONTAINER_NAME=$AZURE_STORAGE_CONTAINER_NAME"
                   } >> "$GITHUB_ENV"

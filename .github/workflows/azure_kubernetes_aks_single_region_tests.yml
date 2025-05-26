@@ -59,6 +59,9 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
 
+    # Test environment for cloud provider, please keep it synced between the workflows
+    AZURE_REGION: swedencentral
+
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
@@ -207,6 +210,7 @@ jobs:
                   resource-prefix: ${{ env.RESOURCE_PREFIX }}
                   cluster-name: ${{ env.CLUSTER_NAME }}
                   resource-group-name: ${{ env.RESOURCE_GROUP_NAME }}
+                  location: ${{ env.AZURE_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
