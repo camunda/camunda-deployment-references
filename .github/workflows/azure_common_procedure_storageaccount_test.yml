@@ -77,7 +77,7 @@ jobs:
               shell: bash
               run: |
                   set -euo pipefail
-                  source .github/scripts/gha-functions.sh
+                  source ${{ github.workspace }}/.github/scripts/gha-functions.sh
                   export_new_env_vars /storage-account-env-vars.sh
 
             - name: Validate configuration
