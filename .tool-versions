@@ -26,13 +26,11 @@ eksctl 0.208.0
 
 golang 1.24.3
 
-helm 3.18.0
+helm 3.17.3
 
 jq 1.7.1
 
 just 1.40.0
-
-helm 3.18.0
 
 kubectl 1.33.1
 
