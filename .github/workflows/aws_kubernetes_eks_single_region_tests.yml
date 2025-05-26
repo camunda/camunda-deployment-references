@@ -1,6 +1,10 @@
 ---
 name: Tests - Integration - AWS Kubernetes EKS Single Region (IRSA)
 
+permissions:
+    contents: read # don't allow commits
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+
 on:
     schedule:
         - cron: 0 3 * * 3 # Runs at 3 AM on Wednesdays

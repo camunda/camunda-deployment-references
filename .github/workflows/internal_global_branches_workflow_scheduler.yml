@@ -1,6 +1,10 @@
 ---
 name: Internal - Global - Branches Schedule Workflows
 
+permissions:
+    contents: write # allow commits to create pull requests & commits
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+
 on:
     pull_request:
         paths:
