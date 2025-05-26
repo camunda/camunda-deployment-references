@@ -1,6 +1,10 @@
 ---
 name: Tests - Integration - AWS OpenShift ROSA HCP Dual Region
 
+permissions:
+    contents: read # don't allow commits
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+
 on:
     schedule:
         - cron: 0 3 * * 2 # Runs at 3 AM on Tuesday
@@ -676,7 +680,7 @@ jobs:
             - integration-tests
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@45acc3d41c5bd882fa016fca1d0c5a8eba71bab1 # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@0e82486eaa9ef8589e051c556a1b5218efa6d37f # main
               with:
                   error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
                   run-id: ${{ github.run_id }}
