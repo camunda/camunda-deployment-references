@@ -606,7 +606,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
-                  target: ${{ env.RESOURCE_GROUP_NAME }}
+                  target: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     report-success:
