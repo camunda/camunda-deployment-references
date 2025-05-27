@@ -19,7 +19,7 @@ set -o pipefail
 # Arguments:
 #   BUCKET: The name of the S3 bucket containing the cluster state files.
 #   MIN_AGE_IN_HOURS: The minimum age (in hours) of clusters to be destroyed.
-#   ID_OR_ALL: The specific ID suffix to filter objects, or "all" to destroy all objects.
+#   ID_OR_ALL: The specific ID suffix to filter objects, or "all" to destroy all objects (likely the resources group).
 #   KEY_PREFIX (optional): A prefix (with a '/' at the end) for filtering objects in the S3 bucket.
 #
 # Example:

@@ -167,9 +167,9 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  PREFIX="${INPUT_RESOURCE_PREFIX:-}"
-                  CLUSTER="${INPUT_CLUSTER_NAME:-}"
-                  RG="${INPUT_RESOURCE_GROUP_NAME:-}"
+                  PREFIX="${{ inputs.resource-prefix }}"
+                  CLUSTER="${{ inputs.cluster_name }}"
+                  RG="${{ inputs.resource-group-name }}"
 
                   if [[ -z "$PREFIX" ]]; then
                     PR_NUMBER=0
@@ -548,10 +548,6 @@ jobs:
             - triage
             - integration-tests
         runs-on: ubuntu-latest
-        env:
-            CLUSTER_NAME: ${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}
-            RESOURCE_GROUP_NAME: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
-
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -615,7 +611,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
-                  target: ${{ env.CLUSTER_NAME }}
+                  target: ${{ env.RESOURCE_GROUP_NAME }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     report-success:
