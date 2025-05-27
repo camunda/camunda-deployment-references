@@ -34,7 +34,8 @@ concurrency:
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
 
-    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
+    # TODO: revert before merge
+    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '0' }}
 
     # please keep those variables synced with azure_kubernetes_aks_single_region_tests.yml
     AWS_PROFILE: infex
