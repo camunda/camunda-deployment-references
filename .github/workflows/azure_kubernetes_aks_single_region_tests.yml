@@ -105,8 +105,10 @@ jobs:
             DB_WEBMODELER_NAME: ${{ steps.db_env.outputs.DB_WEBMODELER_NAME }}
             DB_WEBMODELER_USERNAME: ${{ steps.db_env.outputs.DB_WEBMODELER_USERNAME }}
             DB_WEBMODELER_PASSWORD: ${{ steps.db_env.outputs.DB_WEBMODELER_PASSWORD }}
-            RESOURCE_GROUP_NAME: ${{ steps.db_env.outputs.RESOURCE_GROUP_NAME }}
-            CLUSTER_NAME: ${{ steps.db_env.outputs.CLUSTER_NAME }}
+
+            RESOURCE_PREFIX: ${{ steps.generate_names.outputs.RESOURCE_PREFIX }}
+            RESOURCE_GROUP_NAME: ${{ steps.generate_names.outputs.RESOURCE_GROUP_NAME }}
+            CLUSTER_NAME: ${{ steps.generate_names.outputs.CLUSTER_NAME }}
 
         needs:
             - triage
@@ -188,12 +190,9 @@ jobs:
                     RG="${PREFIX}-rg"
                   fi
 
-                  {
-                    echo "RESOURCE_PREFIX=${PREFIX}";
-                    echo "CLUSTER_NAME=${CLUSTER}";
-                    echo "RESOURCE_GROUP_NAME=${RG}"
-                  } >>"$GITHUB_ENV"
-
+                  echo "RESOURCE_PREFIX=${PREFIX}" | tee -a "$GITHUB_OUTPUT"
+                  echo "CLUSTER_NAME=${CLUSTER}" | tee -a "$GITHUB_OUTPUT"
+                  echo "RESOURCE_GROUP_NAME=${RG}" | tee -a "$GITHUB_OUTPUT"
 
             - name: Export S3_BACKEND_BUCKET
               id: s3_prefix
@@ -207,9 +206,9 @@ jobs:
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               with:
-                  resource-prefix: ${{ env.RESOURCE_PREFIX }}
-                  cluster-name: ${{ env.CLUSTER_NAME }}
-                  resource-group-name: ${{ env.RESOURCE_GROUP_NAME }}
+                  resource-prefix: ${{ steps.generate_names.outputs.RESOURCE_PREFIX }}
+                  cluster-name: ${{ steps.generate_names.outputs.CLUSTER_NAME }}
+                  resource-group-name: ${{ steps.generate_names.outputs.RESOURCE_GROUP_NAME }}
                   location: ${{ env.AZURE_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -247,23 +246,19 @@ jobs:
                   # shellcheck disable=SC2086
                   source $GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/vars-create-db.sh
 
-                  {
-                    echo "DB_HOST=$DB_HOST"
-                    echo "DB_PORT=$DB_PORT"
-                    echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME"
-                    echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD"
-                    echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
-                    echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
-                    echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
-                    echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME"
-                    echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME"
-                    echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD"
-                    echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME"
-                    echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME"
-                    echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
-                    echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME"
-                    echo "CLUSTER_NAME=$CLUSTER_NAME"
-                  } >> "$GITHUB_OUTPUT"
+                  echo "DB_HOST=$DB_HOST" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_PORT=$DB_PORT" | tee -a "$GITHUB_OUTPUT"
+                  echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD" | tee -a "$GITHUB_OUTPUT"
 
     integration-tests:
         name: Run integration tests
@@ -288,9 +283,6 @@ jobs:
             DB_WEBMODELER_NAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_NAME }}
             DB_WEBMODELER_USERNAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_USERNAME }}
             DB_WEBMODELER_PASSWORD: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_PASSWORD }}
-            RESOURCE_GROUP_NAME: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
-            CLUSTER_NAME: ${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}
-
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
@@ -334,8 +326,11 @@ jobs:
             - name: 🔐 Login into the cluster
               timeout-minutes: 10
               run: |
+                  # TODO: this is supposed to be part of the action that creates the cluster
+                  # in the tests, we are supposed to use the exported kubeconfig
                   set -euo pipefail
-                  az aks get-credentials --resource-group "${{ env.RESOURCE_GROUP_NAME }}" --name "${{ env.CLUSTER_NAME }}" --overwrite-existing
+                  az aks get-credentials --resource-group "${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}" \
+                    --name "${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}" --overwrite-existing
 
                   kubectl config current-context
                   kubectl get nodes
