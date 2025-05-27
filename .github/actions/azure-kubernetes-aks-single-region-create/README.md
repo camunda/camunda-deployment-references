@@ -11,7 +11,7 @@ The kube context will be set on the created cluster.
 | name | description | required | default |
 | --- | --- | --- | --- |
 | `resource-prefix` | <p>Prefix for the resources to be created</p> | `true` | `camunda` |
-| `resource-group-name` | <p>Name of the resource group</p> | `true` | `camunda-rg` |
+| `resource-group-name` | <p>Name of the resource group</p> | `true` | `""` |
 | `cluster-name` | <p>Name of the AKS cluster to deploy</p> | `true` | `camunda-aks-cluster` |
 | `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.32` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
@@ -21,7 +21,7 @@ The kube context will be set on the created cluster.
 | `tf-modules-path` | <p>Path where the tf eks modules will be cloned</p> | `true` | `./.action-tf-modules/azure-kubernetes-aks-single-region-create/` |
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `true` | `true` |
 | `ref-arch` | <p>Reference architecture to deploy</p> | `false` | `aks-single-region` |
-| `location` | <p>Azure region where the AKS cluster will be deployed</p> | `true` | `swedencentral` |
+| `location` | <p>Azure region where the AKS cluster will be deployed</p> | `true` | `""` |
 | `tags` | <p>Tags to apply to the cluster and related resources, in JSON format</p> | `false` | `{}` |
 
 
@@ -51,7 +51,7 @@ This action is a `composite` action.
     # Name of the resource group
     #
     # Required: true
-    # Default: camunda-rg
+    # Default: ""
 
     cluster-name:
     # Name of the AKS cluster to deploy
@@ -111,7 +111,7 @@ This action is a `composite` action.
     # Azure region where the AKS cluster will be deployed
     #
     # Required: true
-    # Default: swedencentral
+    # Default: ""
 
     tags:
     # Tags to apply to the cluster and related resources, in JSON format

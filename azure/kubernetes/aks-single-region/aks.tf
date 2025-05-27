@@ -1,7 +1,7 @@
 module "aks" {
   source              = "../../modules/aks"
   resource_group_name = azurerm_resource_group.app_rg.name
-  location            = var.location
+  location            = local.location
   aks_cluster_name    = "${local.resource_prefix}-aks"
   subnet_id           = module.network.aks_subnet_id
   tags                = var.tags

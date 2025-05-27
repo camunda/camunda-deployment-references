@@ -13,7 +13,6 @@ inputs:
     resource-group-name:
         description: Name of the resource group
         required: true
-        default: camunda-rg
     cluster-name:
         description: Name of the AKS cluster to deploy
         required: true
@@ -50,7 +49,6 @@ inputs:
     location:
         description: Azure region where the AKS cluster will be deployed
         required: true
-        default: swedencentral
     tags:
         description: Tags to apply to the cluster and related resources, in JSON format
         default: '{}'
@@ -80,7 +78,7 @@ runs:
           run: |
               set -euo pipefail
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
+              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.resource-group-name }}/${{ inputs.resource-group-name }}.tfstate"
 
               if [ -z "${{ inputs.s3-bucket-region }}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
@@ -136,6 +134,8 @@ runs:
                      -e 's/\(resource_group_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.resource-group-name }}\2/' \
                      -e 's/\(location\s*=\s*"\)[^"]*\("\)/\1${{ inputs.location }}\2/' \
                      main.tf
+
+              cat main.tf
 
               # Set resource_prefix_placeholder to an empty string if not provided
               resource_prefix_placeholder="${{ inputs.resource-prefix }}"
