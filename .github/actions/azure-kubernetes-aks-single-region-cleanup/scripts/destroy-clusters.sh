@@ -80,32 +80,13 @@ destroy_group() {
 
   # ─── In case of a failure, we delete the whole resource group ───
   if [[ "$RETRY_DESTROY" == "true" ]]; then
-    LIMIT_DATE=$($date_command -u -d "$MIN_AGE_IN_HOURS hours ago" +"%Y-%m-%dT%H:%M:%SZ")
+    echo "Enforcing deletion of Resource Group: $group_id"
 
-    echo "🔍 [$group_id] Checking Resource Group '$group_id' in region '$AZURE_REGION' (limit: $LIMIT_DATE)..."
+    az lock list --resource-group "$group_id" --query "[].id" -o tsv | while IFS= read -r LOCK_ID; do
+      az lock delete --ids "$LOCK_ID" 2>/dev/null || echo "Failed to delete lock: $LOCK_ID"
+    done
 
-    RG_REGION=$(az group show --name "$group_id" --query "location" -o tsv 2>/dev/null)
-
-    if [[ "$RG_REGION" != "$AZURE_REGION" || -z "$RG_REGION" ]]; then
-      echo "Skipping $group_id – region mismatch or does not exist"
-    else
-      RESOURCES=$(az resource list --resource-group "$group_id" --query "[].{created:createdTime}" -o json)
-      OLDEST_DATE=$(echo "$RESOURCES" | jq -r '.[].created' | sort | head -n 1)
-
-      if [[ -z "$OLDEST_DATE" || "$OLDEST_DATE" == "null" ]]; then
-        echo "Skipping $group_id – no creation timestamps found"
-      elif [[ "$OLDEST_DATE" < "$LIMIT_DATE" ]]; then
-        echo "Deleting Resource Group: $group_id (oldest resource created on $OLDEST_DATE)"
-
-        az lock list --resource-group "$group_id" --query "[].id" -o tsv | while IFS= read -r LOCK_ID; do
-          az lock delete --ids "$LOCK_ID" 2>/dev/null || echo "Failed to delete lock: $LOCK_ID"
-        done
-
-        az group delete --name "$group_id" --yes --no-wait
-      else
-        echo "Keeping $group_id (not old enough – oldest resource: $OLDEST_DATE)"
-      fi
-    fi
+    az group delete --name "$group_id" --yes
   fi
 
   echo "tf state: bucket=$BUCKET key=$key region=$AWS_S3_REGION"
