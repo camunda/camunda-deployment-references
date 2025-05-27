@@ -55,7 +55,6 @@ ID_OR_ALL=$3
 KEY_PREFIX=${4:-""}
 FAILED=0
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
-EXCLUDED_RG="rg-infraex-global-permanent"
 
 # Detect operating system and set the appropriate date command
 if [[ "$(uname)" == "Darwin" ]]; then
@@ -79,49 +78,34 @@ destroy_cluster() {
   cp "$SCRIPT_DIR/config" "/tmp/$cluster_id/config.tf"
   cd "/tmp/$cluster_id" || exit 1
 
-  # ─── Azure-specific retry logic ───
-  # TODO: revert that
-  if true; then
-    # Cutoff date (in UTC)
+  # ─── In case of a failure, we delete the whole resource group ───
+  if [[ "$RETRY_DESTROY" == "true" ]]; then
     LIMIT_DATE=$($date_command -u -d "$MIN_AGE_IN_HOURS hours ago" +"%Y-%m-%dT%H:%M:%SZ")
 
-    echo "🔍 Looking for Resource Groups in region '$AZURE_REGION' older than $MIN_AGE_IN_HOURS hours ($LIMIT_DATE)..."
+    echo "🔍 [Cluster: $cluster_id] Checking Resource Group '$cluster_id' in region '$AZURE_REGION' (limit: $LIMIT_DATE)..."
 
-    for RG in $(az group list --query "[].name" -o tsv); do
-      # Skip the excluded group
-      if [[ "$RG" == "$EXCLUDED_RG" ]]; then
-        continue
-      fi
+    RG_REGION=$(az group show --name "$cluster_id" --query "location" -o tsv 2>/dev/null)
 
-      RG_REGION=$(az group show --name "$RG" --query "location" -o tsv)
-
-      if [[ "$RG_REGION" != "$AZURE_REGION" ]]; then
-        continue
-      fi
-
-      RESOURCES=$(az resource list --resource-group "$RG" --query "[].{created:createdTime}" -o json)
-
-      # Extract the oldest createdTime
+    if [[ "$RG_REGION" != "$AZURE_REGION" || -z "$RG_REGION" ]]; then
+      echo "Skipping $cluster_id – region mismatch or does not exist"
+    else
+      RESOURCES=$(az resource list --resource-group "$cluster_id" --query "[].{created:createdTime}" -o json)
       OLDEST_DATE=$(echo "$RESOURCES" | jq -r '.[].created' | sort | head -n 1)
 
-      # If no createdTime available, skip
       if [[ -z "$OLDEST_DATE" || "$OLDEST_DATE" == "null" ]]; then
-        echo "Skipping $RG – no creation timestamps found"
-        continue
-      fi
+        echo "Skipping $cluster_id – no creation timestamps found"
+      elif [[ "$OLDEST_DATE" < "$LIMIT_DATE" ]]; then
+        echo "Deleting Resource Group: $cluster_id (oldest resource created on $OLDEST_DATE)"
 
-      if [[ "$OLDEST_DATE" < "$LIMIT_DATE" ]]; then
-        echo "Deleting Resource Group: $RG (oldest resource created on $OLDEST_DATE)"
-
-        az lock list --resource-group "$RG" --query "[].id" -o tsv | while IFS= read -r LOCK_ID; do
+        az lock list --resource-group "$cluster_id" --query "[].id" -o tsv | while IFS= read -r LOCK_ID; do
           az lock delete --ids "$LOCK_ID" 2>/dev/null || echo "Failed to delete lock: $LOCK_ID"
         done
 
-        az group delete --name "$RG" --yes --no-wait
+        az group delete --name "$cluster_id" --yes --no-wait
       else
-        echo "Keeping $RG (not old enough – oldest resource: $OLDEST_DATE)"
+        echo "Keeping $cluster_id (not old enough – oldest resource: $OLDEST_DATE)"
       fi
-    done
+    fi
   fi
 
   echo "tf state: bucket=$BUCKET key=$key region=$AWS_S3_REGION"
