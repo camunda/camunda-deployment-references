@@ -7,6 +7,12 @@ tasklist:
           value: /usr/local/tasklist/config/tls.crt
         - name: CAMUNDA_TASKLIST_ZEEBE_GATEWAYADDRESS
           value: ${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local:26500
+        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_ENABLED
+          value: 'true'
+        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_CERTIFICATECHAINPATH
+          value: /usr/local/zeebe/config/tls.crt
+        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_PRIVATEKEYPATH
+          value: /usr/local/zeebe/config/tls.key
     extraVolumeMounts:
         - name: certificate
           mountPath: /usr/local/tasklist/config/tls.crt
