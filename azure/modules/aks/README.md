@@ -19,7 +19,8 @@ No modules.
 | <a name="input_dns_service_ip"></a> [dns\_service\_ip](#input\_dns\_service\_ip) | IP address within the service CIDR that will be used for DNS | `string` | `"10.0.0.10"` | no |
 | <a name="input_dns_zone_id"></a> [dns\_zone\_id](#input\_dns\_zone\_id) | The Azure DNS zone resource id for ExternalDNS or cert-manager | `string` | n/a | yes |
 | <a name="input_kms_key_id"></a> [kms\_key\_id](#input\_kms\_key\_id) | Key Vault Key ID for envelope-encryption | `string` | n/a | yes |
-| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version to use for the AKS cluster | `string` | `"1.31"` | no |
+| <a name="input_kms_key_id"></a> [kms\_key\_id](#input\_kms\_key\_id) | Key Vault Key ID for envelope-encryption (required if enable\_kms=true) | `string` | `""` | no |
+| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version to use for the AKS cluster | `string` | `"1.32"` | no |
 | <a name="input_location"></a> [location](#input\_location) | Region where the AKS cluster will be deployed | `string` | n/a | yes |
 | <a name="input_network_plugin"></a> [network\_plugin](#input\_network\_plugin) | Network plugin to use for Kubernetes networking | `string` | `"azure"` | no |
 | <a name="input_network_policy"></a> [network\_policy](#input\_network\_policy) | Network policy to use for Kubernetes networking | `string` | `"calico"` | no |
