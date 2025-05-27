@@ -18,7 +18,7 @@ on:
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
+    cancel-in-progress: true
 
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
@@ -76,48 +76,18 @@ jobs:
 
             - name: Source environment variables
               id: source_env_vars
-              working-directory: azure/common/procedure/storage-account
               shell: bash
               run: |
                   set -euo pipefail
-                  source ./storage-account-env-vars.sh
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars azure/common/procedure/storage-account/storage-account-env-vars.sh
 
-                  # Export variables to GitHub environment
-                  {
-                    echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME"
-                    echo "AZURE_LOCATION=${{ env.AZURE_REGION }}"
-                    echo "AZURE_STORAGE_ACCOUNT_NAME=$AZURE_STORAGE_ACCOUNT_NAME"
-                    echo "AZURE_STORAGE_CONTAINER_NAME=$AZURE_STORAGE_CONTAINER_NAME"
-                  } >> "$GITHUB_ENV"
-
-            - name: Validate configuration
-              run: |
-                  echo "Using the following configuration:"
-                  echo "  - Resource Group: $RESOURCE_GROUP_NAME"
-                  echo "  - Location: $AZURE_LOCATION"
-                  echo "  - Storage Account: $AZURE_STORAGE_ACCOUNT_NAME"
-                  echo "  - Container: $AZURE_STORAGE_CONTAINER_NAME"
-
-                  # Basic validation
-                  if [[ -z "$RESOURCE_GROUP_NAME" || -z "$AZURE_LOCATION" || -z "$AZURE_STORAGE_ACCOUNT_NAME" ]]; then
-                    echo "ERROR: One or more required variables are not set"
-                    exit 1
-                  fi
-
-            - name: Create Storage Account
+            - name: Create Storage Account with versioning
               id: create_storage_account
               working-directory: azure/common/procedure/storage-account
               run: |
                   set -euo pipefail
-                  chmod +x ./*.sh
                   ./storage-account-creation.sh
-                  ./storage-account-versioning.sh
-
-            - name: Check Storage Account Versioning
-              id: check_storage_account_versioning
-              working-directory: azure/common/procedure/storage-account
-              run: |
-                  set -euo pipefail
                   ./storage-account-versioning.sh
 
             - name: Create tfvars file
@@ -125,7 +95,7 @@ jobs:
               working-directory: azure/common/procedure/storage-account
               run: |
                   set -euo pipefail
-                  cp ${{ github.workspace }}/azure/kubernetes/aks-single-region/test/fixtures/terraform.tfvars .
+                  cp ${{ github.workspace }}/azure/common/test/fixtures/terraform.tfvars .
 
             - name: Terraform Init
               id: init
