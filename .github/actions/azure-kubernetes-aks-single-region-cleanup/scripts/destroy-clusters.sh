@@ -80,13 +80,20 @@ destroy_group() {
 
   # ─── In case of a failure, we delete the whole resource group ───
   if [[ "$RETRY_DESTROY" == "true" ]]; then
-    echo "Enforcing deletion of Resource Group: $group_id"
+    # Get the region of the resource group
+    rg_region=$(az group show --name "$group_id" --query "location" -o tsv)
 
-    az lock list --location="$AZURE_REGION" --resource-group "$group_id" --query "[].id" -o tsv | while IFS= read -r LOCK_ID; do
-      az lock delete --location="$AZURE_REGION" --ids "$LOCK_ID" 2>/dev/null || echo "Failed to delete lock: $LOCK_ID"
-    done
+    if [[ "$rg_region" == "$AZURE_REGION" ]]; then
+      echo "Enforcing deletion of Resource Group: $group_id in region $rg_region"
 
-    az group delete --location="$AZURE_REGION" --name "$group_id" --yes
+      az lock list --resource-group "$group_id" --query "[].id" -o tsv | while IFS= read -r LOCK_ID; do
+        az lock delete --ids "$LOCK_ID" 2>/dev/null || echo "Failed to delete lock: $LOCK_ID"
+      done
+
+      az group delete --name "$group_id" --yes
+    else
+      echo "Skipping $group_id – region mismatch (expected: $AZURE_REGION, actual: $rg_region)"
+    fi
   fi
 
   echo "tf state: bucket=$BUCKET key=$key region=$AWS_S3_REGION"
