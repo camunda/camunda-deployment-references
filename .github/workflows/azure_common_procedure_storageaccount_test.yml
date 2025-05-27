@@ -85,6 +85,7 @@ jobs:
                   # Export variables to GitHub environment
                   {
                     echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME"
+                    echo "AZURE_LOCATION=${{ env.AZURE_REGION }}"
                     echo "AZURE_STORAGE_ACCOUNT_NAME=$AZURE_STORAGE_ACCOUNT_NAME"
                     echo "AZURE_STORAGE_CONTAINER_NAME=$AZURE_STORAGE_CONTAINER_NAME"
                   } >> "$GITHUB_ENV"
