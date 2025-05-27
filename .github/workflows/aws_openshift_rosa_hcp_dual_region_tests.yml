@@ -411,27 +411,36 @@ jobs:
                   fi
 
                   SECONDS=0
-                  echo "⏳ Waiting for MultiClusterHub to be deleted..."
-                  oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/multi-cluster-hub.yml || true
-                  while true; do
-                    output=$(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o yaml 2>/dev/null)
+                  echo "⏳ Checking for MultiClusterHub CRD..."
 
-                    if [[ -z "$output" || "$output" == *"items: []"* ]]; then
-                      echo "✅ MultiClusterHub resource deleted or not found."
-                      break
-                    fi
+                  # Check if the CRD exists before attempting to delete a resource
+                  if oc --context="$CLUSTER_1_NAME" get crd multiclusterhubs.operator.open-cluster-management.io >/dev/null 2>&1; then
+                    echo "CRD found, attempting to delete MultiClusterHub..."
+                    oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/multi-cluster-hub.yml || true
 
-                    echo "MultiClusterHub still exists, fetching details:"
-                    echo "$output"
+                    while true; do
+                      output=$(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o yaml 2>/dev/null)
 
-                    echo "Still waiting for MultiClusterHub to be deleted..."
-                    sleep 10
+                      if [[ -z "$output" || "$output" == *"items: []"* ]]; then
+                        echo "✅ MultiClusterHub resource deleted or not found."
+                        break
+                      fi
 
-                    if [ $SECONDS -ge 100 ]; then
-                      echo "⛔ Timeout reached - Uninstallation of MultiClusterHub is stuck - enforcing finalizer removal!"
-                      oc --context="$CLUSTER_1_NAME" patch multiclusterhub multiclusterhub --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
-                    fi
-                  done
+                      echo "MultiClusterHub still exists, fetching details:"
+                      echo "$output"
+
+                      echo "Still waiting for MultiClusterHub to be deleted..."
+                      sleep 10
+
+                      if [ $SECONDS -ge 100 ]; then
+                        echo "⛔ Timeout reached - Uninstallation of MultiClusterHub is stuck - enforcing finalizer removal!"
+                        oc --context="$CLUSTER_1_NAME" patch multiclusterhub multiclusterhub --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
+                      fi
+                    done
+
+                  else
+                    echo "MultiClusterHub CRD not found. Skipping deletion."
+                  fi
 
                   echo "Uninstalling ACM Install Manifest..."
                   oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/install-manifest.yml || true
