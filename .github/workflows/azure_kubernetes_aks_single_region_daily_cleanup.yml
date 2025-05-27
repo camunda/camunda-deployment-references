@@ -34,8 +34,7 @@ concurrency:
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
 
-    # TODO: revert before merge
-    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '0' }}
+    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
 
     # please keep those variables synced with azure_kubernetes_aks_single_region_tests.yml
     AWS_PROFILE: infex
@@ -141,9 +140,7 @@ jobs:
             # There are cases where the deletion of resources fails due to dependencies.
             - name: Retry delete clusters (schedule only)
               id: retry_delete_clusters
-              # TODO: revert that
-              if: failure() &&  steps.delete_clusters.outcome == 'failure'
-              # if: failure() && steps.delete_clusters.outcome == 'failure' && env.IS_SCHEDULE == 'true'
+              if: failure() && steps.delete_clusters.outcome == 'failure' && env.IS_SCHEDULE == 'true'
               timeout-minutes: 125
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               env:
