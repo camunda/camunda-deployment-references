@@ -135,6 +135,8 @@ runs:
                      -e 's/\(location\s*=\s*"\)[^"]*\("\)/\1${{ inputs.location }}\2/' \
                      main.tf
 
+              cat main.tf
+
               # Set resource_prefix_placeholder to an empty string if not provided
               resource_prefix_placeholder="${{ inputs.resource-prefix }}"
               if [ -z "$resource_prefix_placeholder" ]; then
