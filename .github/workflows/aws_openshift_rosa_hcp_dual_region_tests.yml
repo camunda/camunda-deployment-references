@@ -405,23 +405,29 @@ jobs:
                     echo ""
                   done
 
-                  echo "Uninstalling MultiClusterHub..."
+                  echo "⏳ Uninstalling MultiClusterHub..."
                   if oc --context="$CLUSTER_1_NAME" get clusterrole open-cluster-management:cluster-manager-admin >/dev/null 2>&1; then
                     oc --context="$CLUSTER_1_NAME" delete clusterrole open-cluster-management:cluster-manager-admin
                   fi
 
-                  oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/multi-cluster-hub.yml || true
-
-                  echo "⏳ Waiting for MultiClusterHub to be deleted..."
                   SECONDS=0
-                  while oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management &>/dev/null; do
+                  echo "⏳ Waiting for MultiClusterHub to be deleted..."
+                  oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/multi-cluster-hub.yml || true
+                  while true; do
+                    if ! oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management &>/dev/null; then
+                      echo "MultiClusterHub resource deleted or not found."
+                      break
+                    fi
+
+                    echo "MultiClusterHub still exists, fetching details:"
+                    oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o yaml
+
                     echo "Still waiting for MultiClusterHub to be deleted..."
                     sleep 10
 
-                    if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
-                      echo "⛔ Timeout reached — enforcing MultiClusterHub finalizer removal!"
-                      oc --context="$CLUSTER_1_NAME" patch mch MultiClusterHub --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
-                      break
+                    if [ $SECONDS -ge 100 ]; then
+                      echo "⛔ Timeout reached - Uninstallation of MultiClusterHub is stuck - enforcing finalizer removal!"
+                      oc --context="$CLUSTER_1_NAME" patch multiclusterhub multiclusterhub --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
                     fi
                   done
 
