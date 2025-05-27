@@ -379,7 +379,10 @@ jobs:
                   for cluster_name in "${CLUSTERS[@]}"; do
                     echo "Deleting ManagedCluster: $cluster_name"
 
-                    CLUSTER_NAME="$cluster_name" envsubst < ./generic/openshift/dual-region/procedure/acm/managed-cluster.yml.tpl | oc --context "$CLUSTER_1_NAME" delete -f -
+                    CLUSTER_NAME="$cluster_name" \
+                    envsubst < ./generic/openshift/dual-region/procedure/acm/managed-cluster.yml.tpl \
+                    | oc --context "$CLUSTER_1_NAME" delete -f - \
+                    || true
 
                     echo "⏳ Waiting for ManagedCluster '$cluster_name' to be deleted..."
                     SECONDS=0
