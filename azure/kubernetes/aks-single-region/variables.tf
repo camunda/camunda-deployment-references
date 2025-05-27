@@ -1,8 +1,3 @@
-variable "location" {
-  description = "Region where resources will be deployed"
-  type        = string
-}
-
 # Network configuration
 variable "vnet_address_space" {
   description = "Address space for the virtual network"
