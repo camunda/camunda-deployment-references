@@ -13,7 +13,6 @@ inputs:
     resource-group-name:
         description: Name of the resource group
         required: true
-        default: camunda-rg
     cluster-name:
         description: Name of the AKS cluster to deploy
         required: true
@@ -79,7 +78,7 @@ runs:
           run: |
               set -euo pipefail
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
+              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.resource-group-name }}/${{ inputs.resource-group-name }}.tfstate"
 
               if [ -z "${{ inputs.s3-bucket-region }}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"

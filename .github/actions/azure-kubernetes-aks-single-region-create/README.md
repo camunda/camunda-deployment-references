@@ -11,7 +11,7 @@ The kube context will be set on the created cluster.
 | name | description | required | default |
 | --- | --- | --- | --- |
 | `resource-prefix` | <p>Prefix for the resources to be created</p> | `true` | `camunda` |
-| `resource-group-name` | <p>Name of the resource group</p> | `true` | `camunda-rg` |
+| `resource-group-name` | <p>Name of the resource group</p> | `true` | `""` |
 | `cluster-name` | <p>Name of the AKS cluster to deploy</p> | `true` | `camunda-aks-cluster` |
 | `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.32` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
@@ -51,7 +51,7 @@ This action is a `composite` action.
     # Name of the resource group
     #
     # Required: true
-    # Default: camunda-rg
+    # Default: ""
 
     cluster-name:
     # Name of the AKS cluster to deploy
