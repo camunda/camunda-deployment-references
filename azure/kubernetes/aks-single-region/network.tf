@@ -1,7 +1,7 @@
 module "network" {
   source              = "../../modules/network"
   resource_group_name = azurerm_resource_group.app_rg.name
-  location            = var.location
+  location            = local.location
   resource_prefix     = local.resource_prefix
   nsg_name            = "${local.resource_prefix}-aks-nsg"
 

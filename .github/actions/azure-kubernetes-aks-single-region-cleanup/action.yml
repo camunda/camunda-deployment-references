@@ -21,7 +21,7 @@ inputs:
         default: '12'
 
     target:
-        description: Specify an ID to destroy specific resources or "all" to destroy all resources
+        description: Resource group target, specify an ID to destroy specific resources or "all" to destroy all resources
         default: all
 
 runs:
