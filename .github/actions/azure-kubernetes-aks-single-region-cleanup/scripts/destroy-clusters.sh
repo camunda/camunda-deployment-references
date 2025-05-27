@@ -3,7 +3,7 @@
 set -o pipefail
 
 # Description:
-# This script performs a Terraform destroy operation for clusters defined in an S3 bucket.
+# This script performs a Terraform destroy operation for resources defined in an S3 bucket.
 # It copies a dummy config.tf, initializes Terraform with
 # the appropriate backend configuration, and runs `terraform destroy`. If the destroy operation
 # is successful, it removes the corresponding S3 objects.
@@ -14,7 +14,7 @@ set -o pipefail
 # Resource Group deletion to clean up any unmanaged Azure resources.
 #
 # Usage:
-# ./destroy_clusters.sh <BUCKET> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX]
+# ./destroy-clusters.sh <BUCKET> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX]
 #
 # Arguments:
 #   BUCKET: The name of the S3 bucket containing the cluster state files.
@@ -23,9 +23,9 @@ set -o pipefail
 #   KEY_PREFIX (optional): A prefix (with a '/' at the end) for filtering objects in the S3 bucket.
 #
 # Example:
-# ./destroy_clusters.sh tf-state-ci-eu-west-3 24 all
-# ./destroy_clusters.sh tf-state-ci-eu-west-3 24 aks-cluster-2883
-# ./destroy_clusters.sh tf-state-ci-eu-west-3 24 all my-prefix/
+# ./destroy-clusters.sh tf-state-ci-eu-west-3 24 all
+# ./destroy-clusters.sh tf-state-ci-eu-west-3 24 aks-cluster-2883
+# ./destroy-clusters.sh tf-state-ci-eu-west-3 24 all my-prefix/
 #
 # Requirements:
 # - AWS CLI installed and configured with the necessary permissions to access and modify the S3 bucket.
@@ -64,46 +64,46 @@ else
 fi
 
 # Function to perform terraform destroy
-destroy_cluster() {
+destroy_group() {
   local key=$1
-  local cluster_id
-  local cluster_folder
+  local group_id
+  local group_folder
 
   # shellcheck disable=SC2001 # the alternative is multiple bash expansions
-  cluster_id=$(echo "$key" | sed 's|.*/tfstate-\([^/]*\)/.*|\1|')
+  group_id=$(echo "$key" | sed 's|.*/tfstate-\([^/]*\)/.*|\1|')
   # shellcheck disable=SC2001 # the alternative is multiple bash expansions
-  cluster_folder=$(echo "$key" | sed 's|\(.*\)/.*|\1|')
+  group_folder=$(echo "$key" | sed 's|\(.*\)/.*|\1|')
 
-  mkdir -p "/tmp/$cluster_id"
-  cp "$SCRIPT_DIR/config" "/tmp/$cluster_id/config.tf"
-  cd "/tmp/$cluster_id" || exit 1
+  mkdir -p "/tmp/$group_id"
+  cp "$SCRIPT_DIR/config" "/tmp/$group_id/config.tf"
+  cd "/tmp/$group_id" || exit 1
 
   # ─── In case of a failure, we delete the whole resource group ───
   if [[ "$RETRY_DESTROY" == "true" ]]; then
     LIMIT_DATE=$($date_command -u -d "$MIN_AGE_IN_HOURS hours ago" +"%Y-%m-%dT%H:%M:%SZ")
 
-    echo "🔍 [Cluster: $cluster_id] Checking Resource Group '$cluster_id' in region '$AZURE_REGION' (limit: $LIMIT_DATE)..."
+    echo "🔍 [$group_id] Checking Resource Group '$group_id' in region '$AZURE_REGION' (limit: $LIMIT_DATE)..."
 
-    RG_REGION=$(az group show --name "$cluster_id" --query "location" -o tsv 2>/dev/null)
+    RG_REGION=$(az group show --name "$group_id" --query "location" -o tsv 2>/dev/null)
 
     if [[ "$RG_REGION" != "$AZURE_REGION" || -z "$RG_REGION" ]]; then
-      echo "Skipping $cluster_id – region mismatch or does not exist"
+      echo "Skipping $group_id – region mismatch or does not exist"
     else
-      RESOURCES=$(az resource list --resource-group "$cluster_id" --query "[].{created:createdTime}" -o json)
+      RESOURCES=$(az resource list --resource-group "$group_id" --query "[].{created:createdTime}" -o json)
       OLDEST_DATE=$(echo "$RESOURCES" | jq -r '.[].created' | sort | head -n 1)
 
       if [[ -z "$OLDEST_DATE" || "$OLDEST_DATE" == "null" ]]; then
-        echo "Skipping $cluster_id – no creation timestamps found"
+        echo "Skipping $group_id – no creation timestamps found"
       elif [[ "$OLDEST_DATE" < "$LIMIT_DATE" ]]; then
-        echo "Deleting Resource Group: $cluster_id (oldest resource created on $OLDEST_DATE)"
+        echo "Deleting Resource Group: $group_id (oldest resource created on $OLDEST_DATE)"
 
-        az lock list --resource-group "$cluster_id" --query "[].id" -o tsv | while IFS= read -r LOCK_ID; do
+        az lock list --resource-group "$group_id" --query "[].id" -o tsv | while IFS= read -r LOCK_ID; do
           az lock delete --ids "$LOCK_ID" 2>/dev/null || echo "Failed to delete lock: $LOCK_ID"
         done
 
-        az group delete --name "$cluster_id" --yes --no-wait
+        az group delete --name "$group_id" --yes --no-wait
       else
-        echo "Keeping $cluster_id (not old enough – oldest resource: $OLDEST_DATE)"
+        echo "Keeping $group_id (not old enough – oldest resource: $OLDEST_DATE)"
       fi
     fi
   fi
@@ -122,12 +122,12 @@ destroy_cluster() {
   fi
 
   # Cleanup S3
-  echo "Deleting s3://$BUCKET/$cluster_folder"
-  aws s3 rm "s3://$BUCKET/$cluster_folder" --recursive || return 1
-  aws s3api delete-object --bucket "$BUCKET" --key "$cluster_folder/" || return 1
+  echo "Deleting s3://$BUCKET/$group_folder"
+  aws s3 rm "s3://$BUCKET/$group_folder" --recursive || return 1
+  aws s3api delete-object --bucket "$BUCKET" --key "$group_folder/" || return 1
 
   cd - >/dev/null || exit 1
-  rm -rf "/tmp/$cluster_id"
+  rm -rf "/tmp/$group_id"
 }
 
 # Gather all state files from S3
@@ -140,18 +140,18 @@ if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
   exit 1
 fi
 
-# Filter cluster IDs
+# Filter groups IDs
 if [ "$ID_OR_ALL" == "all" ]; then
-  clusters=$(echo "$all_objects" | awk '{print $NF}' \
+  groups=$(echo "$all_objects" | awk '{print $NF}' \
     | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
 else
-  clusters=$(echo "$all_objects" | awk '{print $NF}' \
+  groups=$(echo "$all_objects" | awk '{print $NF}' \
     | grep "tfstate-$ID_OR_ALL/" \
     | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
 fi
 
-if [ -z "$clusters" ]; then
-  echo "No matching clusters found; nothing to do."
+if [ -z "$groups" ]; then
+  echo "No matching group found; nothing to do."
   exit 0
 fi
 
@@ -163,35 +163,35 @@ mkdir -p "$log_dir"
 
 # Launch destroys in parallel
 pids=()
-for cluster_id in $clusters; do
-  log_file="$log_dir/$cluster_id.log"
+for group_id in $groups; do
+  log_file="$log_dir/$group_id.log"
 
   (
-    cluster_folder="tfstate-$cluster_id"
-    echo "[$cluster_id] Checking last modified for ${cluster_id}.tfstate..."
+    group_folder="tfstate-$group_id"
+    echo "[$group_id] Checking last modified for ${group_id}.tfstate..."
 
     last_modified=$(aws s3api head-object \
       --bucket "$BUCKET" \
-      --key "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate" \
+      --key "$KEY_PREFIX$group_folder/${group_id}.tfstate" \
       --query 'LastModified' --output text)
     if [ -z "$last_modified" ]; then
-      echo "[$cluster_id] ERROR: Could not fetch LastModified"
+      echo "[$group_id] ERROR: Could not fetch LastModified"
       exit 1
     fi
 
     last_ts=$($date_command -d "$last_modified" +%s)
     age_hours=$(( (current_timestamp - last_ts) / 3600 ))
-    echo "[$cluster_id] Last modified: $last_modified ($age_hours hours ago)"
+    echo "[$group_id] Last modified: $last_modified ($age_hours hours ago)"
 
     if [ $age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
-      echo "[$cluster_id] Destroying..."
-      if ! destroy_cluster "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate"; then
-        echo "[$cluster_id] ERROR during destroy"
+      echo "[$group_id] Destroying..."
+      if ! destroy_group "$KEY_PREFIX$group_folder/${group_id}.tfstate"; then
+        echo "[$group_id] ERROR during destroy"
         exit 1
       fi
-      echo "[$cluster_id] Destroy succeeded"
+      echo "[$group_id] Destroy succeeded"
     else
-      echo "[$cluster_id] Skipping (only $age_hours hours old)"
+      echo "[$group_id] Skipping (only $age_hours hours old)"
     fi
   ) >"$log_file" 2>&1 &
 
