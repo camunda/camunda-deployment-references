@@ -55,6 +55,7 @@ ID_OR_ALL=$3
 KEY_PREFIX=${4:-""}
 FAILED=0
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+EXCLUDED_RG="rg-infraex-global-permanent"
 
 # Detect operating system and set the appropriate date command
 if [[ "$(uname)" == "Darwin" ]]; then
@@ -79,25 +80,46 @@ destroy_cluster() {
   cd "/tmp/$cluster_id" || exit 1
 
   # ─── Azure-specific retry logic ───
-  if [[ "$RETRY_DESTROY" == "true" ]]; then
-    az graph query -q "
-      ResourceContainers
-      | where type == 'microsoft.resources/subscriptions/resourcegroups'
-      | where location =~ '${AZURE_REGION}'
-      | where createdTime < ago(${MIN_AGE_IN_HOURS}h)
-      | project name
-    " -o tsv | while IFS= read -r rg; do
+  # TODO: revert that
+  if true; then
+    # Cutoff date (in UTC)
+    LIMIT_DATE=$($date_command -u -d "$MIN_AGE_IN_HOURS hours ago" +"%Y-%m-%dT%H:%M:%SZ")
 
-      # Delete locks
-      az lock list --resource-group "$rg" --query "[].id" -o tsv | while IFS= read -r lock; do
-        az lock delete --ids "$lock" || echo "Failed to delete lock: $lock"
-      done
+    echo "🔍 Looking for Resource Groups in region '$AZURE_REGION' older than $MIN_AGE_IN_HOURS hours ($LIMIT_DATE)..."
 
-      # Delete the resource group
-      if az group delete --name "$rg" --yes; then
-        echo "Initiated deletion of resource group: $rg"
+    for RG in $(az group list --query "[].name" -o tsv); do
+      # Skip the excluded group
+      if [[ "$RG" == "$EXCLUDED_RG" ]]; then
+        continue
+      fi
+
+      RG_REGION=$(az group show --name "$RG" --query "location" -o tsv)
+
+      if [[ "$RG_REGION" != "$AZURE_REGION" ]]; then
+        continue
+      fi
+
+      RESOURCES=$(az resource list --resource-group "$RG" --query "[].{created:createdTime}" -o json)
+
+      # Extract the oldest createdTime
+      OLDEST_DATE=$(echo "$RESOURCES" | jq -r '.[].created' | sort | head -n 1)
+
+      # If no createdTime available, skip
+      if [[ -z "$OLDEST_DATE" || "$OLDEST_DATE" == "null" ]]; then
+        echo "Skipping $RG – no creation timestamps found"
+        continue
+      fi
+
+      if [[ "$OLDEST_DATE" < "$LIMIT_DATE" ]]; then
+        echo "Deleting Resource Group: $RG (oldest resource created on $OLDEST_DATE)"
+
+        az lock list --resource-group "$RG" --query "[].id" -o tsv | while IFS= read -r LOCK_ID; do
+          az lock delete --ids "$LOCK_ID" 2>/dev/null || echo "Failed to delete lock: $LOCK_ID"
+        done
+
+        az group delete --name "$RG" --yes --no-wait
       else
-        echo "Failed to delete resource group: $rg"
+        echo "Keeping $RG (not old enough – oldest resource: $OLDEST_DATE)"
       fi
     done
   fi
