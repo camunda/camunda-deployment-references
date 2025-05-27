@@ -141,7 +141,9 @@ jobs:
             # There are cases where the deletion of resources fails due to dependencies.
             - name: Retry delete clusters (schedule only)
               id: retry_delete_clusters
-              if: failure() && steps.delete_clusters.outcome == 'failure' && env.IS_SCHEDULE == 'true'
+              # TODO: revert that
+              if: failure() &&  steps.delete_clusters.outcome == 'failure'
+              # if: failure() && steps.delete_clusters.outcome == 'failure' && env.IS_SCHEDULE == 'true'
               timeout-minutes: 125
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               env:
