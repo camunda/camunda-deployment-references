@@ -22,7 +22,7 @@ module "postgres_db" {
   source = "../../modules/postgres-db"
 
   resource_group_name = azurerm_resource_group.app_rg.name
-  location            = var.location
+  location            = local.location
   tags                = var.tags
 
   server_name      = "${local.resource_prefix}-pg-server"
