@@ -414,13 +414,15 @@ jobs:
                   echo "⏳ Waiting for MultiClusterHub to be deleted..."
                   oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/multi-cluster-hub.yml || true
                   while true; do
-                    if ! oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management &>/dev/null; then
-                      echo "MultiClusterHub resource deleted or not found."
+                    output=$(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o yaml 2>/dev/null)
+
+                    if [[ -z "$output" || "$output" == *"items: []"* ]]; then
+                      echo "✅ MultiClusterHub resource deleted or not found."
                       break
                     fi
 
                     echo "MultiClusterHub still exists, fetching details:"
-                    oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o yaml
+                    echo "$output"
 
                     echo "Still waiting for MultiClusterHub to be deleted..."
                     sleep 10
