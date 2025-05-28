@@ -7,5 +7,8 @@ helm upgrade --install \
   --set provider=azure \
   --set txtOwnerId="${EXTERNAL_DNS_OWNER_ID:-external-dns}" \
   --set policy=sync \
+  --set azure.resourceGroup="$AZURE_DNS_RESOURCE_GROUP" \
+  --set azure.subscriptionId="$AZURE_SUBSCRIPTION_ID" \
+  --set azure.useManagedIdentity=true \
   --namespace external-dns \
   --create-namespace
