@@ -4,10 +4,6 @@ module "vpn" {
   vpn_name         = "my-vpn"
   client_key_names = ["my-client"]
 
-  # The bucket will be used to store the configuration of the VPN clients and certificates
-  s3_bucket_name  = "bucket-storing-vpn-keys"
-  s3_ca_directory = "key/storing/certificates/"
-
   # TODO: in the doc, explains that this VPN is split by default
 
   vpc_id                  = var.vpc_id
@@ -44,7 +40,8 @@ output "vpn_endpoint" {
   value       = module.vpn.vpn_endpoint
 }
 
-output "vpn_client_configs_s3_urls" {
-  description = "Map of S3 URLs of each VPN client config (client's name is the key)"
-  value       = module.vpn.vpn_client_configs
+output "vpn_client_configs" {
+  description = "Map of each VPN client config (client's name is the key)"
+  value       = module.vpn.vpn_configs
+  sensitive   = true
 }

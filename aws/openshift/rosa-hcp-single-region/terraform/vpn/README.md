@@ -22,6 +22,6 @@
 
 | Name | Description |
 |------|-------------|
-| <a name="output_vpn_client_configs_s3_urls"></a> [vpn\_client\_configs\_s3\_urls](#output\_vpn\_client\_configs\_s3\_urls) | Map of S3 URLs of each VPN client config (client's name is the key) |
+| <a name="output_vpn_client_configs"></a> [vpn\_client\_configs](#output\_vpn\_client\_configs) | Map of each VPN client config (client's name is the key) |
 | <a name="output_vpn_endpoint"></a> [vpn\_endpoint](#output\_vpn\_endpoint) | Endpoint of the VPN |
 <!-- END_TF_DOCS -->
