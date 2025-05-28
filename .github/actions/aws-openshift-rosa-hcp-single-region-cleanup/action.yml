@@ -3,7 +3,6 @@ name: Delete AWS ROSA HCP Single Region Clusters
 
 description: |
     This GitHub Action automates the deletion of aws/openshift/rosa-hcp-single-region reference architecture clusters using a shell script.
-    Environment variables required : VPN_S3_BUCKET_NAME, VPN_S3_BUCKET_REGION and VPN_S3_BUCKET_PREFIX
 
 inputs:
     tf-bucket:
@@ -107,34 +106,6 @@ runs:
               if [ "${{ inputs.delete-ghost-clusters }}" == "true" ]; then
                 ${{ github.action_path }}/scripts/cleanup-ghost-clusters.sh ${{ inputs.max-age-hours-cluster }}
               fi
-
-        - name: Cleanup old VPN configs
-          shell: bash
-          run: |
-              set -euo pipefail
-
-              # Check if required environment variables are set
-              if [ -z "${{ env.VPN_S3_BUCKET_NAME }}" ]; then
-                echo "Error: The environment variable VPN_S3_BUCKET_NAME is not set."
-                exit 1
-              fi
-
-              if [ -z "${{ env.VPN_S3_BUCKET_REGION }}" ]; then
-                echo "Error: The environment variable VPN_S3_BUCKET_REGION is not set."
-                exit 1
-              fi
-
-              if [ -z "${{ env.VPN_S3_BUCKET_PREFIX }}" ]; then
-                echo "Error: The environment variable VPN_S3_BUCKET_PREFIX is not set."
-                exit 1
-              fi
-
-              ${{ github.action_path }}/scripts/cleanup-old-vpn-config.sh \
-                "${{ env.VPN_S3_BUCKET_NAME }}" \
-                "${{ env.VPN_S3_BUCKET_REGION }}" \
-                "${{ env.VPN_S3_BUCKET_PREFIX }}" \
-                "${{ inputs.max-age-hours-cluster }}" \
-                "${{ inputs.target }}"
 
         - name: Upload cleanup logs
           if: always()
