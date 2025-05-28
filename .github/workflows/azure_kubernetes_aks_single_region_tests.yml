@@ -337,15 +337,6 @@ jobs:
                   kubectl config current-context
                   kubectl get nodes
 
-            - name: Apply storage class
-              run: |
-                  set -euo pipefail
-                  # Remove “default” flag from the original class before applying the new one
-                  kubectl patch storageclass default \
-                    -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
-                  kubectl apply -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
-                  sleep 30
-
             - name: 🏗️ Ingress Setup prerequisites
               if: ${{ matrix.declination.name == 'domain' }}
               env:
@@ -583,13 +574,6 @@ jobs:
                   helm uninstall external-dns --namespace external-dns --wait
                   helm uninstall cert-manager --namespace cert-manager --wait
 
-            - name: Delete storage class
-              if: env.CLEANUP_CLUSTERS == 'true'
-              run: |
-                  set -euo pipefail
-                  kubectl delete -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
-
-
     cleanup-clusters:
         name: Cleanup AKS clusters
         if: always()
@@ -628,6 +612,18 @@ jobs:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
                   subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+
+            - name: 🔐 Login into the cluster
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+                  az aks get-credentials --resource-group "${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}" \
+                    --name "${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}" --overwrite-existing
+
+            - name: Delete storage class
+              run: |
+                  set -euo pipefail
+                  kubectl delete -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
