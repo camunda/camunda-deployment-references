@@ -93,7 +93,6 @@ zeebeGateway:
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
-    contextPath: /zeebe
     managementServerEnabled: false
 
 console:
