@@ -94,7 +94,7 @@ outputs:
 
 
     vpn-client-configs:
-        description: Map of S3 URLs for client configs
+        description: Map of VPN client configs
         value: ${{ steps.apply-vpn.outputs.vpn_client_configs || '' }}
     vpn-client-config-file:
         description: Config file used by the VPN

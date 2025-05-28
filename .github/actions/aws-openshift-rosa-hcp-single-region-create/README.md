@@ -41,7 +41,7 @@ If the cluster is private, a VPN setup can also be configured.
 | `openshift-cluster-id` | <p>The ID of the deployed ROSA cluster</p> |
 | `terraform-state-url-cluster` | <p>URL of the module "cluster" Terraform state file in the S3 bucket</p> |
 | `terraform-state-url-vpn` | <p>URL of the module "vpn" Terraform state file in the S3 bucket</p> |
-| `vpn-client-configs` | <p>Map of S3 URLs for client configs</p> |
+| `vpn-client-configs` | <p>Map of VPN client configs</p> |
 | `vpn-client-config-file` | <p>Config file used by the VPN</p> |
 | `vpn-endpoint` | <p>Endpoint of the VPN to access the created cluster</p> |
 
