@@ -22,7 +22,7 @@ variable "kubernetes_version" {
   description = "Kubernetes version to use for the AKS cluster"
   type        = string
   # renovate: datasource=endoflife-date depName=azure-kubernetes-service versioning=loose
-  default = "1.31"
+  default = "1.32"
 }
 
 variable "tags" {

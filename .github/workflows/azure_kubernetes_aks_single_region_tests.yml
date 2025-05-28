@@ -2,8 +2,9 @@
 name: Tests - Integration - Azure Kubernetes AKS Single Region
 
 permissions:
-    id-token: write
-    contents: read
+    id-token: write # this is required for azure login
+    contents: write # allow commits
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
 on:
     schedule:
@@ -58,6 +59,9 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
 
+    # Test environment for cloud provider, please keep it synced between the workflows
+    AZURE_REGION: swedencentral
+
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
@@ -101,8 +105,10 @@ jobs:
             DB_WEBMODELER_NAME: ${{ steps.db_env.outputs.DB_WEBMODELER_NAME }}
             DB_WEBMODELER_USERNAME: ${{ steps.db_env.outputs.DB_WEBMODELER_USERNAME }}
             DB_WEBMODELER_PASSWORD: ${{ steps.db_env.outputs.DB_WEBMODELER_PASSWORD }}
-            RESOURCE_GROUP_NAME: ${{ steps.db_env.outputs.RESOURCE_GROUP_NAME }}
-            CLUSTER_NAME: ${{ steps.db_env.outputs.CLUSTER_NAME }}
+
+            RESOURCE_PREFIX: ${{ steps.generate_names.outputs.RESOURCE_PREFIX }}
+            RESOURCE_GROUP_NAME: ${{ steps.generate_names.outputs.RESOURCE_GROUP_NAME }}
+            CLUSTER_NAME: ${{ steps.generate_names.outputs.CLUSTER_NAME }}
 
         needs:
             - triage
@@ -118,7 +124,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@05434e910bba72817c935f14b37814a1917b9434 # main
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db # main
 
             - name: Import Secrets
               id: secrets
@@ -163,9 +169,9 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  PREFIX="${INPUT_RESOURCE_PREFIX:-}"
-                  CLUSTER="${INPUT_CLUSTER_NAME:-}"
-                  RG="${INPUT_RESOURCE_GROUP_NAME:-}"
+                  PREFIX="${{ inputs.resource-prefix }}"
+                  CLUSTER="${{ inputs.cluster_name }}"
+                  RG="${{ inputs.resource-group-name }}"
 
                   if [[ -z "$PREFIX" ]]; then
                     PR_NUMBER=0
@@ -184,12 +190,9 @@ jobs:
                     RG="${PREFIX}-rg"
                   fi
 
-                  {
-                    echo "RESOURCE_PREFIX=${PREFIX}";
-                    echo "CLUSTER_NAME=${CLUSTER}";
-                    echo "RESOURCE_GROUP_NAME=${RG}"
-                  } >>"$GITHUB_ENV"
-
+                  echo "RESOURCE_PREFIX=${PREFIX}" | tee -a "$GITHUB_OUTPUT"
+                  echo "CLUSTER_NAME=${CLUSTER}" | tee -a "$GITHUB_OUTPUT"
+                  echo "RESOURCE_GROUP_NAME=${RG}" | tee -a "$GITHUB_OUTPUT"
 
             - name: Export S3_BACKEND_BUCKET
               id: s3_prefix
@@ -203,9 +206,10 @@ jobs:
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               with:
-                  resource-prefix: ${{ env.RESOURCE_PREFIX }}
-                  cluster-name: ${{ env.CLUSTER_NAME }}
-                  resource-group-name: ${{ env.RESOURCE_GROUP_NAME }}
+                  resource-prefix: ${{ steps.generate_names.outputs.RESOURCE_PREFIX }}
+                  cluster-name: ${{ steps.generate_names.outputs.CLUSTER_NAME }}
+                  resource-group-name: ${{ steps.generate_names.outputs.RESOURCE_GROUP_NAME }}
+                  location: ${{ env.AZURE_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
@@ -242,23 +246,19 @@ jobs:
                   # shellcheck disable=SC2086
                   source $GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/vars-create-db.sh
 
-                  {
-                    echo "DB_HOST=$DB_HOST"
-                    echo "DB_PORT=$DB_PORT"
-                    echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME"
-                    echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD"
-                    echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
-                    echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
-                    echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
-                    echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME"
-                    echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME"
-                    echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD"
-                    echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME"
-                    echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME"
-                    echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
-                    echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME"
-                    echo "CLUSTER_NAME=$CLUSTER_NAME"
-                  } >> "$GITHUB_OUTPUT"
+                  echo "DB_HOST=$DB_HOST" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_PORT=$DB_PORT" | tee -a "$GITHUB_OUTPUT"
+                  echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME" | tee -a "$GITHUB_OUTPUT"
+                  echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD" | tee -a "$GITHUB_OUTPUT"
 
     integration-tests:
         name: Run integration tests
@@ -283,9 +283,6 @@ jobs:
             DB_WEBMODELER_NAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_NAME }}
             DB_WEBMODELER_USERNAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_USERNAME }}
             DB_WEBMODELER_PASSWORD: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_PASSWORD }}
-            RESOURCE_GROUP_NAME: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
-            CLUSTER_NAME: ${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}
-
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
@@ -329,8 +326,11 @@ jobs:
             - name: 🔐 Login into the cluster
               timeout-minutes: 10
               run: |
+                  # TODO: this is supposed to be part of the action that creates the cluster
+                  # in the tests, we are supposed to use the exported kubeconfig
                   set -euo pipefail
-                  az aks get-credentials --resource-group "${{ env.RESOURCE_GROUP_NAME }}" --name "${{ env.CLUSTER_NAME }}" --overwrite-existing
+                  az aks get-credentials --resource-group "${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}" \
+                    --name "${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}" --overwrite-existing
 
                   kubectl config current-context
                   kubectl get nodes
@@ -543,10 +543,6 @@ jobs:
             - triage
             - integration-tests
         runs-on: ubuntu-latest
-        env:
-            CLUSTER_NAME: ${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}
-            RESOURCE_GROUP_NAME: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
-
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -610,7 +606,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
-                  target: ${{ env.CLUSTER_NAME }}
+                  target: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     report-success:
@@ -638,7 +634,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@14912e07221cd650bf9286e2a4733a138ca46374 # 1.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

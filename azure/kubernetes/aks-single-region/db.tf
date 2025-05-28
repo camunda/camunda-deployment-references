@@ -22,7 +22,7 @@ module "postgres_db" {
   source = "../../modules/postgres-db"
 
   resource_group_name = azurerm_resource_group.app_rg.name
-  location            = var.location
+  location            = local.location
   tags                = var.tags
 
   server_name      = "${local.resource_prefix}-pg-server"
@@ -39,8 +39,6 @@ module "postgres_db" {
 
   private_endpoint_subnet_id = module.network.pe_subnet_id
   private_dns_zone_id        = module.network.postgres_private_dns_zone_id
-
-  depends_on = [module.network]
 }
 
 # DB outputs

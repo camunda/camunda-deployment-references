@@ -2,8 +2,9 @@
 name: Tests - Daily Cleanup - Azure Kubernetes AKS Single Region
 
 permissions:
-    id-token: write
-    contents: read
+    id-token: write # this is required for azure login
+    contents: write # allow commits
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
 on:
     workflow_dispatch:
@@ -40,6 +41,9 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     AWS_REGION: eu-central-1
+
+    # Test environment for cloud provider, please keep it synced between the workflows
+    AZURE_REGION: swedencentral
 
 jobs:
     triage:
