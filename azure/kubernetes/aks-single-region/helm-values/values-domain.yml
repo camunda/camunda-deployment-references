@@ -56,7 +56,6 @@ global:
                     name: identity-secret-for-components
 
 identity:
-    contextPath: /identity
     fullURL: https://${DOMAIN_NAME}/identity
 
     externalDatabase:
@@ -68,21 +67,8 @@ identity:
         existingSecret: identity-postgres-secret
         existingSecretPasswordKey: password
 
-connectors:
-    contextPath: /connectors
-    managementServerEnabled: false
-
-operate:
-    contextPath: /operate
-    managementServerEnabled: false
-
-tasklist:
-    contextPath: /tasklist
-    managementServerEnabled: false
-
 webModeler:
     enabled: false
-    contextPath: /modeler
 
     restapi:
         externalDatabase:
@@ -96,9 +82,6 @@ webModeler:
             existingSecret:
                 name: identity-secret-for-components
             fromAddress: changeme@example.com
-
-optimize:
-    contextPath: /optimize
 
 zeebeGateway:
     ingress:
