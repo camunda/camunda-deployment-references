@@ -1,6 +1,0 @@
-{
-  "tenantId":            "<your tenant id>",
-  "subscriptionId":      "5667840f-dd25-4fe1-99ee-5e752ec80b5c",
-  "resourceGroup":       "rg-infraex-global-permanent",
-  "useManagedIdentityExtension": true
-}
