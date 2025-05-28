@@ -271,7 +271,6 @@ jobs:
                   echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME" | tee -a "$GITHUB_OUTPUT"
                   echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME" | tee -a "$GITHUB_OUTPUT"
                   echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD" | tee -a "$GITHUB_OUTPUT"
-                  echo "UAMI_CLIENT_ID=$UAMI_CLIENT_ID" | tee -a "$GITHUB_OUTPUT"
 
     integration-tests:
         name: Run integration tests
