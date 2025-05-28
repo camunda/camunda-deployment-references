@@ -9,6 +9,8 @@ module "vpn" {
   vpc_id                  = var.vpc_id
   vpc_subnet_ids          = data.aws_subnets.private_subnets.ids
   vpc_target_network_cidr = data.aws_vpc.target.cidr_block
+
+  vpn_allowed_cidr_blocks = [data.aws_vpc.target.cidr_block]
 }
 
 data "aws_vpc" "target" {

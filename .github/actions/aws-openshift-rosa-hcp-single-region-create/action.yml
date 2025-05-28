@@ -361,7 +361,7 @@ runs:
 
               terraform apply -no-color vpn.plan
 
-              echo "vpn_client_configs=$(terraform output -json vpn_configs)" | tee -a "$GITHUB_OUTPUT"
+              echo "vpn_client_configs=$(terraform output -json vpn_client_configs)" | tee -a "$GITHUB_OUTPUT"
               echo "vpn_endpoint=$(terraform output -json vpn_endpoint)" | tee -a "$GITHUB_OUTPUT"
 
         ### End of terraform
