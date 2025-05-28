@@ -30,11 +30,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
       node_soak_duration_in_minutes = 0
     }
 
-    identity {
-      type         = "UserAssigned"
-      identity_ids = [var.uami_id]
-    }
-
     max_pods                     = 30
     only_critical_addons_enabled = true
   }
