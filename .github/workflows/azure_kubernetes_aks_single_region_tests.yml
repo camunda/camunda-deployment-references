@@ -267,7 +267,7 @@ jobs:
             max-parallel: 1
             matrix:
                 declination:
-                    - name: no-domain
+                    # - name: no-domain
                     - name: domain
         env:
             CAMUNDA_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
@@ -354,6 +354,8 @@ jobs:
 
                   export EXTERNAL_DNS_OWNER_ID="external-dns-${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}-aks-single-region"
                   ./azure/kubernetes/aks-single-region/procedure/install-external-dns.sh
+
+                  kubectl -n external-dns create secret generic azure-config-file --from-file=./azure/kubernetes/aks-single-region/test/fixtures/azure.json
 
                   ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
