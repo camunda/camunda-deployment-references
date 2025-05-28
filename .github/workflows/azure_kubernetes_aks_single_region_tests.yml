@@ -115,8 +115,6 @@ jobs:
             RESOURCE_GROUP_NAME: ${{ steps.generate_names.outputs.RESOURCE_GROUP_NAME }}
             CLUSTER_NAME: ${{ steps.generate_names.outputs.CLUSTER_NAME }}
 
-            UAMI_CLIENT_ID: ${{ steps.get_uami.outputs.UAMI_CLIENT_ID }}
-
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
@@ -235,19 +233,6 @@ jobs:
                         "ci-event": "${{ github.event_name }}"
                       }
 
-            - name: Get UAMI client-ID via az cli
-              id: get_uami
-              shell: bash
-              run: |
-                  set -euo pipefail
-                  CLIENT_ID=$(az identity show \
-                                --name "${{ steps.generate_names.outputs.RESOURCE_PREFIX }}-uai" \
-                                --resource-group "${{ steps.generate_names.outputs.RESOURCE_PREFIX }}-rg" \
-                                --query clientId -o tsv)
-
-                  echo "UAMI_CLIENT_ID=${CLIENT_ID}" | tee -a "$GITHUB_OUTPUT"
-
-
             - name: Source env from Terraform
               id: db_env
               working-directory: ${{ env.TF_MODULES_PATH }}/azure/kubernetes/aks-single-region/
@@ -301,7 +286,6 @@ jobs:
             DB_WEBMODELER_NAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_NAME }}
             DB_WEBMODELER_USERNAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_USERNAME }}
             DB_WEBMODELER_PASSWORD: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_PASSWORD }}
-            UAMI_CLIENT_ID: ${{ needs.prepare-clusters.outputs.UAMI_CLIENT_ID }}
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
@@ -365,7 +349,6 @@ jobs:
                     "subscriptionId": "${AZURE_SUBSCRIPTION_ID}",
                     "resourceGroup": "${AZURE_DNS_RESOURCE_GROUP}",
                     "useManagedIdentityExtension": true,
-                    "userAssignedIdentityID": "${UAMI_CLIENT_ID}"
                   }
                   EOF
 
