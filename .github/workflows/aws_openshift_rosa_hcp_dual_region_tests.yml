@@ -365,50 +365,96 @@ jobs:
                   tree
 
             - name: Ensure ACM and associated MultiCluster are not installed (in case of retry)
-              timeout-minutes: 20
+              timeout-minutes: 25
               run: |
                   set -euo pipefail
 
-                  echo "Uninstalling ManagedClusterSet..."
-                  oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/managed-cluster-set.yml || true
-                  echo "Waiting for ManagedClusterSet to be deleted..."
+                  TIMEOUT_SECONDS=300
+                  CLUSTERS=("local-cluster" "$CLUSTER_2_NAME")
 
-                  while oc --context="$CLUSTER_1_NAME" get managedclusterset --all-namespaces | grep -q .; do
-                    echo "Still waiting for ManagedClusterSet to be deleted..."
-                    sleep 10
+                  for cluster_name in "${CLUSTERS[@]}"; do
+                    echo "Deleting ManagedCluster: $cluster_name"
+
+                    CLUSTER_NAME="$cluster_name" \
+                    envsubst < ./generic/openshift/dual-region/procedure/acm/managed-cluster.yml.tpl \
+                    | oc --context "$CLUSTER_1_NAME" delete -f - \
+                    || true
+
+                    echo "⏳ Waiting for ManagedCluster '$cluster_name' to be deleted..."
+                    SECONDS=0
+                    while oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; do
+                      echo "Still deleting '$cluster_name'..."
+                      echo "Current state:"
+                      oc --context "$CLUSTER_1_NAME" describe managedcluster "$cluster_name" | \
+                        grep -E 'Name:|Namespace:|Status:|Conditions:' -A 5 || \
+                        echo "Describe failed or resource partially removed."
+                      sleep 5
+
+                      if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
+                        echo "⛔ Timeout reached while deleting '$cluster_name' — enforcing finalizers!"
+                        oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" --type='merge' -p '{"metadata":{"finalizers":[]}}'
+                        break
+                      fi
+                    done
+
+                    echo "✅ ManagedCluster '$cluster_name' has been successfully deleted or forced."
+                    echo ""
                   done
 
-                  echo "Uninstalling MultiClusterHub..."
-                  # needed as described in https://access.redhat.com/solutions/7116241
+                  echo "⏳ Uninstalling MultiClusterHub..."
                   if oc --context="$CLUSTER_1_NAME" get clusterrole open-cluster-management:cluster-manager-admin >/dev/null 2>&1; then
                     oc --context="$CLUSTER_1_NAME" delete clusterrole open-cluster-management:cluster-manager-admin
                   fi
 
-                  oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/multi-cluster-hub.yml || true
-
                   SECONDS=0
-                  echo "Waiting for MultiClusterHub to be deleted..."
-                  while oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management &>/dev/null; do
-                    echo "Still waiting for MultiClusterHub to be deleted..."
-                    sleep 10
+                  echo "⏳ Checking for MultiClusterHub CRD..."
 
-                    # manually finilalize as described in https://access.redhat.com/solutions/7116241
-                    if [ $SECONDS -ge 100 ]; then
-                      echo "Uninstallation of MultiClusterHub is stuck - enforcing finalizers!"
-                      oc --context="$CLUSTER_1_NAME" patch mch MultiClusterHub --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
-                    fi
-                  done
+                  # Check if the CRD exists before attempting to delete a resource
+                  if oc --context="$CLUSTER_1_NAME" get crd multiclusterhubs.operator.open-cluster-management.io >/dev/null 2>&1; then
+                    echo "CRD found, attempting to delete MultiClusterHub..."
+                    oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/multi-cluster-hub.yml || true
+
+                    while true; do
+                      output=$(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o yaml 2>/dev/null)
+
+                      if [[ -z "$output" || "$output" == *"items: []"* ]]; then
+                        echo "✅ MultiClusterHub resource deleted or not found."
+                        break
+                      fi
+
+                      echo "MultiClusterHub still exists, fetching details:"
+                      echo "$output"
+
+                      echo "Still waiting for MultiClusterHub to be deleted..."
+                      sleep 10
+
+                      if [ $SECONDS -ge 100 ]; then
+                        echo "⛔ Timeout reached - Uninstallation of MultiClusterHub is stuck - enforcing finalizer removal!"
+                        oc --context="$CLUSTER_1_NAME" patch multiclusterhub multiclusterhub --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
+                      fi
+                    done
+
+                  else
+                    echo "MultiClusterHub CRD not found. Skipping deletion."
+                  fi
 
                   echo "Uninstalling ACM Install Manifest..."
                   oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/install-manifest.yml || true
-                  echo "Waiting for MultiClusterEngine to be deleted..."
+
+                  echo "⏳ Waiting for MultiClusterEngine to be deleted..."
+                  SECONDS=0
                   while oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management &>/dev/null; do
                     echo 'Still waiting...'
                     sleep 10
+
+                    if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
+                      echo "⛔ Timeout reached — enforcing MultiClusterEngine finalizer removal!"
+                      oc --context="$CLUSTER_1_NAME" patch multiclusterengine multiclusterengine --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
+                      break
+                    fi
                   done
 
-                  echo "ACM and related resources successfully uninstalled."
-
+                  echo "✅ ACM and related resources successfully uninstalled (with finalizer enforcement if needed)."
             - name: 🚢 Configure ACM
               timeout-minutes: 20
               env:
