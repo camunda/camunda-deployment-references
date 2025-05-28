@@ -23,11 +23,11 @@ tasklist:
     extraVolumes:
         - name: key
           secret:
-            secretName: camunda-platform-internal-service-certificate
-            items:
-              - key: tls.key
-                path: tls.key
-            defaultMode: 420
+              secretName: camunda-platform-internal-service-certificate
+              items:
+                  - key: tls.key
+                    path: tls.key
+              defaultMode: 420
         - name: certificate
           secret:
               secretName: camunda-platform-internal-service-certificate
