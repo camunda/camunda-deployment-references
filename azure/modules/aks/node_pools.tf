@@ -16,6 +16,11 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
     "app"           = "camunda"
   }
 
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [var.uami_id]
+  }
+
   # Keep things simple
   max_pods = 30
   tags     = var.tags
