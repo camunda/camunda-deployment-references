@@ -10,14 +10,24 @@ tasklist:
         - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_ENABLED
           value: 'true'
         - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_CERTIFICATECHAINPATH
-          value: /usr/local/zeebe/config/tls.crt
+          value: /usr/local/tasklist/config/tls.crt
         - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_PRIVATEKEYPATH
-          value: /usr/local/zeebe/config/tls.key
+          value: /usr/local/tasklist/config/tls.key
     extraVolumeMounts:
         - name: certificate
           mountPath: /usr/local/tasklist/config/tls.crt
           subPath: tls.crt
+        - name: key
+          mountPath: /usr/local/tasklist/config/tls.key
+          subPath: tls.key
     extraVolumes:
+        - name: key
+          secret:
+            secretName: camunda-platform-internal-service-certificate
+            items:
+              - key: tls.key
+                path: tls.key
+            defaultMode: 420
         - name: certificate
           secret:
               secretName: camunda-platform-internal-service-certificate
