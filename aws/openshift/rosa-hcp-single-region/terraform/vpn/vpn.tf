@@ -10,7 +10,8 @@ module "vpn" {
   vpc_subnet_ids          = data.aws_subnets.private_subnets.ids
   vpc_target_network_cidr = data.aws_vpc.target.cidr_block
 
-  vpn_allowed_cidr_blocks = [data.aws_vpc.target.cidr_block]
+  # restrict the vpn to be accessed from a list of ip, by default allow all sources
+  vpn_allowed_cidr_blocks = ["0.0.0.0/0"]
 }
 
 data "aws_vpc" "target" {
