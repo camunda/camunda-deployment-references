@@ -72,7 +72,7 @@ runs:
                 name=$(echo "$scenario" | jq -r '.name')
                 short_sha=$(echo -n "$name" | sha1sum | cut -c1-5)
                 echo "$scenario" | jq --arg short "$short_sha" '. + {shortName: $short}'
-              done | jq -s '{scenario: .}' | jq ". + $(echo "$platform_matrix" | jq 'del(.scenario)')")"
+              done | jq -c -s '{scenario: .}' | jq -c ". + $(echo "$platform_matrix" | jq -c 'del(.scenario)')")"
 
               echo "${platform_matrix}" | jq
               echo "platform_matrix=${platform_matrix}" >> "$GITHUB_OUTPUT"
