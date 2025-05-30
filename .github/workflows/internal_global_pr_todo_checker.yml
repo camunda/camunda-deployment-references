@@ -20,21 +20,18 @@ jobs:
 
             # TODO: pin actions
             # TODO : add a cache for todos
-            - name: Install todos
+            - name: Get PR diff and TODOs
               env:
                   # renovate: datasource=github-releases depName=ianlewis/todos
                   TODOS_VERSION: v0.13.0
+                  GH_TOKEN: ${{ github.token }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
               run: |
                   export PATH=$PATH:$(go env GOPATH)/bin
 
                   go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
                   echo "$HOME/go/bin" >> "$GITHUB_PATH"
 
-            - name: Get PR diff and TODOs
-              env:
-                  GH_TOKEN: ${{ github.token }}
-                  PR_NUMBER: ${{ github.event.pull_request.number }}
-              run: |
                   echo "🔍 Extracting added lines from PR diff"
                   gh pr diff "$PR_NUMBER" > pr.diff
 
