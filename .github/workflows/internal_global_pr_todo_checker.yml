@@ -30,22 +30,25 @@ jobs:
                   export os_key=$(uname | tr '[:upper:]' '[:lower:]')
                   echo "cache_key=todos-$os_key-${{ env.TODOS_VERSION }}" | tee -a "$GITHUB_OUTPUT"
                   echo "cache_path=$(go env GOPATH)/bin/todos" >> "$GITHUB_OUTPUT"
+                  echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
             - name: Restore todos cache
-              uses: actions/cache@v4
+              uses: actions/cache/restore@v4
+              id: cache-tools
               with:
                   path: ${{ steps.cache-key.outputs.cache_path }}
                   key: ${{ steps.cache-key.outputs.cache_key }}
 
             - name: Install todos CLI if not present
+              if: ${{ steps.cache-tools.outputs.cache-hit != 'true' }}
               run: |
-                  if [ ! -f "${{ steps.cache-key.outputs.cache_path }}/todos" ]; then
-                    echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-                    go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
-                  else
-                      echo "Todos binary already installed"
-                  fi
+                  go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
 
-            # TODO: pin actions
+            - name: Save todos cache
+              if: ${{ steps.cache-tools.outputs.cache-hit != 'true' }}
+              uses: actions/cache/save@v4
+              with:
+                  path: ${{ steps.cache-key.outputs.cache_path }}
+                  key: ${{ steps.cache-key.outputs.cache_key }}
 
             - name: Get PR diff and TODOs
               env:
