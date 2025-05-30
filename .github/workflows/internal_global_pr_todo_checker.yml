@@ -38,6 +38,8 @@ jobs:
               run: |
                   set -euo pipefail
 
+                  COMMIT_ID=$(git rev-parse HEAD)
+
                   echo "🔍 Getting diff from base branch"
                   BASE_SHA=$(git merge-base origin/main HEAD)
                   git diff "$BASE_SHA"...HEAD > pr.diff
@@ -58,9 +60,6 @@ jobs:
                   }
                   /^[^-+]/ { curr++ }
                   ' pr.diff > added_lines.txt
-
-                  # TODO: remove
-                  cat added_lines.txt
 
                   echo "🧠 Running todos"
                   set +e
@@ -119,6 +118,7 @@ jobs:
                         -f body="$COMMENT_BODY" \
                         -f path="$FILE" \
                         -f line="$LINE" \
+                        -f commit_id="$COMMIT_ID" \
                         -f side="RIGHT"
                     else
                       echo "🙈 Skipping $FILE:$LINE due to ACK or Ignore"
