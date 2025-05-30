@@ -133,13 +133,17 @@ jobs:
                       <sub>Reply with \`Ignore\` to prevent further reminders for this line.</sub>"
 
                       echo "💬 Commenting on $FILE:$LINE"
-                      gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" \
-                        -f body="$COMMENT_BODY" \
-                        -f path="$FILE" \
-                        -f commit_id="$COMMIT_ID" \
-                        -f subject_type="line" \
-                        -f side="RIGHT" \
-                        -f line="$LINE"
+                        gh api \
+                            --method POST \
+                            -H "Accept: application/vnd.github+json" \
+                            -H "X-GitHub-Api-Version: 2022-11-28" \
+                            "/repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" \
+                            -f "body=$COMMENT_BODY" \
+                            -f "commit_id=$COMMIT_ID" \
+                            -f "path=$FILE" \
+                            -f subject_type="line" \
+                            -F "line=$LINE" \
+                            -f "side=RIGHT"
                     else
                       echo "🙈 Skipping $FILE:$LINE due to ACK or Ignore"
                     fi
