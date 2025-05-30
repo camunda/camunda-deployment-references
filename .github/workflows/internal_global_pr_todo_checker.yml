@@ -7,6 +7,10 @@ on:
     pull_request:
         types: [opened, synchronize, reopened]
 
+env:
+    # renovate: datasource=github-releases depName=ianlewis/todos
+    TODOS_VERSION: v0.13.0
+
 jobs:
     check-todos:
         runs-on: ubuntu-latest
@@ -20,16 +24,28 @@ jobs:
               with:
                   fetch-depth: 0 # capture all history
 
-            - name: Install todos CLI
-              env:
-                  # renovate: datasource=github-releases depName=ianlewis/todos
-                  TODOS_VERSION: v0.13.0
+            - name: Compute todos cache key
+              id: cache-key
               run: |
-                  echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-                  go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
+                  export os_key=$(uname | tr '[:upper:]' '[:lower:]')
+                  echo "cache_key=todos-$os_key-${{ env.TODOS_VERSION }}" | tee -a "$GITHUB_OUTPUT"
+                  echo "cache_path=$(go env GOPATH)/bin/todos" >> "$GITHUB_OUTPUT"
+            - name: Restore todos cache
+              uses: actions/cache@v4
+              with:
+                  path: ${{ steps.cache-key.outputs.cache_path }}
+                  key: ${{ steps.cache-key.outputs.cache_key }}
+
+            - name: Install todos CLI if not present
+              run: |
+                  if [ ! -f "${{ steps.cache-key.outputs.cache_path }}/todos" ]; then
+                    echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+                    go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
+                  else
+                      echo "Todos binary already installed"
+                  fi
 
             # TODO: pin actions
-            # TODO: add a cache for todos
 
             - name: Get PR diff and TODOs
               env:
@@ -118,6 +134,8 @@ jobs:
                         -f body="$COMMENT_BODY" \
                         -f path="$FILE" \
                         -f commit_id="$COMMIT_ID" \
+                        -f subject_type="line" \
+                        -f side="RIGHT" \
                         -f line="$LINE"
                     else
                       echo "🙈 Skipping $FILE:$LINE due to ACK or Ignore"
