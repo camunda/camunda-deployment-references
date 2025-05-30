@@ -17,6 +17,8 @@ jobs:
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0 # capture all history
 
             - name: Install todos CLI
               env:
@@ -27,7 +29,8 @@ jobs:
                   go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
 
             # TODO: pin actions
-            # TODO : add a cache for todos
+            # TODO: add a cache for todos
+
             - name: Get PR diff and TODOs
               env:
                   GH_TOKEN: ${{ github.token }}
@@ -35,90 +38,88 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  echo "🔍 Extracting added lines from PR diff"
-                  gh pr diff "$PR_NUMBER" > pr.diff
+                  echo "🔍 Getting diff from base branch"
+                  BASE_SHA=$(git merge-base origin/main HEAD)
+                  git diff "$BASE_SHA"...HEAD > pr.diff
 
-                  # Collect only added lines with file+line info
-                  grep '^+++' pr.diff | sed 's/+++ b\///' > files.txt
-                  grep '^@@' pr.diff | awk '{print $3}' | sed 's/+//' | cut -d',' -f1 > lines.txt
-                  paste -d: files.txt lines.txt > added_lines.txt
+                  echo "📄 Parsing added lines"
+                  awk '
+                  /^diff --git / { file="" }
+                  /^+++ b\//     { file=substr($0,7) }
+                  /^@@ / {
+                    split($0, a, " ")
+                    split(a[3], new, ",")
+                    new_start = substr(new[1], 2)
+                    curr = new_start
+                  }
+                  /^+/ && !/^\+\+\+/ {
+                    print file ":" curr
+                    curr++
+                  }
+                  /^[^-+]/ { curr++ }
+                  ' pr.diff > added_lines.txt
 
-                  echo "Printing diff lines:"
+                  # TODO: remove
                   cat added_lines.txt
 
                   echo "🧠 Running todos"
-                  # run todos, capture exit code without failing
                   set +e
                   todos -o json > todos.json
                   code=$?
                   if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then
-                    # tod.os returns 1 if todos are found
                     exit $code
                   fi
                   set -e
 
-                  echo "Todos found:"
-                  yq todos.json
-
-                  echo "📥 Getting current comments"
+                  echo "📥 Getting existing comments"
                   gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" > comments.json
 
-                  # shellcheck disable=SC2002
-                  cat todos.json | while read -r todo; do
-                    echo "Processing TODO: $todo"
-
+                  echo "🔁 Processing TODOs"
+                  jq -c '.[]' todos.json | while read -r todo; do
                     FILE=$(echo "$todo" | jq -r '.path')
                     LINE=$(echo "$todo" | jq -r '.line')
-                    MESSAGE=$(echo "$todo" | jq -r '.text')
+                    TEXT=$(echo "$todo" | jq -r '.text')
 
-                    echo "File: $FILE"
-                    echo "Line: $LINE"
-                    echo "Message: $MESSAGE"
+                    echo "Checking $FILE:$LINE"
 
-                    # Only comment if the TODO is on an added line
-                    if grep -q "^$FILE:$LINE$" added_lines.txt; then
-                        echo "$FILE:$LINE is in added_lines.txt"
-                    else
-                        echo "Skipping $FILE:$LINE - not an added line"
-                        continue
+                    # Only comment if line was added in PR
+                    if ! grep -q "^$FILE:$LINE$" added_lines.txt; then
+                      echo "❌ $FILE:$LINE not in added lines"
+                      continue
                     fi
 
-                    # Check if comment already exists and has ACK response
-                    echo "Checking for existing comment in comments.json"
-                    FOUND=$(jq -r --arg file "$FILE" --argjson line "$LINE" '
-                        .[] | select(.path == $file and .line == $line)
-                    ' comments.json)
+                    echo "✅ $FILE:$LINE is in added lines"
 
-                    if [[ "$FOUND" != "" ]]; then
-                        echo "Existing comment found:"
-                        echo "$FOUND"
-                        ID=$(echo "$FOUND" | jq -r '.id')
-                        echo "Comment ID: $ID"
+                    # Check for existing comment on same line
+                    EXISTING=$(jq -r --arg file "$FILE" --argjson line "$LINE" \
+                      '.[] | select(.path == $file and .line == $line)' comments.json)
 
-                        echo "Fetching replies for comment $ID"
-                        RESPONSES=$(gh api "repos/${{ github.repository }}/pulls/comments/$ID/replies")
-                        echo "Replies:"
-                        echo "$RESPONSES" | jq -r '.[].body'
+                    SKIP=false
 
-                        if echo "$RESPONSES" | jq -r '.[].body' | grep -iq 'ACK'; then
-                            echo "ACK found in replies"
-                            SKIP=true
-                        else
-                            SKIP=false
-                        fi
-                    else
-                        echo "No existing comment found"
-                        SKIP=false
+                    if [ -n "$EXISTING" ]; then
+                      ID=$(echo "$EXISTING" | jq -r '.id')
+                      RESPONSES=$(gh api "repos/${{ github.repository }}/pulls/comments/$ID/replies")
+                      if echo "$RESPONSES" | jq -r '.[].body' | grep -Ei 'ACK|Ignore' > /dev/null; then
+                        echo "🔕 Already acknowledged or ignored"
+                        SKIP=true
+                      fi
                     fi
 
                     if [ "$SKIP" = false ]; then
-                        echo "Creating comment on $FILE:$LINE"
-                        gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" \
-                        -f body="TODO found: \`$MESSAGE\`" \
+                      COMMENT_BODY="**github-actions bot**
+
+                      A new Todo was discovered. If it is not a priority right now, consider marking it for later attention.
+                        TODO: \`$TEXT\`
+
+                      <sub>Reply with \`Ignore\` to prevent further reminders for this line.</sub>"
+
+                      echo "💬 Commenting on $FILE:$LINE"
+                      gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" \
+                        -f body="$COMMENT_BODY" \
                         -f path="$FILE" \
                         -f line="$LINE" \
                         -f side="RIGHT"
                     else
-                        echo "Skipping $FILE:$LINE due to existing ACK"
+                      echo "🙈 Skipping $FILE:$LINE due to ACK or Ignore"
                     fi
                   done
