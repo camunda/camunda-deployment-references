@@ -211,14 +211,9 @@ jobs:
 
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
-              run: |
-                  set -euo pipefail
-
-                  # shellcheck disable=SC2005
-                  kubectl config view --raw > kubeconfig.yaml 2>/dev/null
-                  openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-                  encrypted_kubeconfig_base64=$(base64 -w 0 encrypted_kubeconfig.enc)
-                  echo "kubeconfig_raw=${encrypted_kubeconfig_base64}" >> "$GITHUB_OUTPUT"
+              uses: ./.github/actions/internal-kube-config-encrypt-export
+              with:
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
               id: export_secrets
@@ -242,7 +237,7 @@ jobs:
                   matrix-step-name: ${{ github.job }}
                   matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
-                      kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
+                      kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.kubeconfig_encrypted }}
                       sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_sensitive_values_raw }}
 
             - name: 🌐 Post-creation steps
@@ -314,19 +309,17 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
             - name: 🔐 Login into the clusters
-              timeout-minutes: 10
-              run: |
-                  set -euo pipefail
-
-                  mkdir -p "$HOME/.kube"
-                  echo "${{
-                      fromJson(needs.access-info.outputs.config).kubeconfig_raw[
-                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
-                      ]
-                    }}" | base64 --decode > encrypted_kubeconfig.enc
-                  openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-                  rm encrypted_kubeconfig.enc
-                  chmod 600 "$HOME/.kube/config"
+              uses: ./.github/actions/internal-kube-config-decrypt-import
+              with:
+                  encrypted_kubeconfig_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).kubeconfig_encrypted[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             - name: 🏷️ Configure clusters informations
               timeout-minutes: 10
