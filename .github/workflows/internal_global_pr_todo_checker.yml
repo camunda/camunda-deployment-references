@@ -18,6 +18,14 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
+            - name: Install todos CLI
+              env:
+                  # renovate: datasource=github-releases depName=ianlewis/todos
+                  TODOS_VERSION: v0.13.0
+              run: |
+                  echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+                  go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
+
             # TODO: remove debug
             - name: Setup tmate session
               uses: mxschmitt/action-tmate@v3
@@ -28,14 +36,9 @@ jobs:
             # TODO : add a cache for todos
             - name: Get PR diff and TODOs
               env:
-                  # renovate: datasource=github-releases depName=ianlewis/todos
-                  TODOS_VERSION: v0.13.0
                   GH_TOKEN: ${{ github.token }}
                   PR_NUMBER: ${{ github.event.pull_request.number }}
               run: |
-                  echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-                  go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
-
                   echo "🔍 Extracting added lines from PR diff"
                   gh pr diff "$PR_NUMBER" > pr.diff
 
