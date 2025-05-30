@@ -91,7 +91,7 @@ jobs:
         name: Define Matrix
         runs-on: ubuntu-latest
         outputs:
-            platform-matrix: ${{ steps.matrix.outputs.platform-matrix }}
+            platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
@@ -100,40 +100,14 @@ jobs:
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
 
-            - id: matrix
-              # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
-              run: |
-                  set -euo pipefail
-
-                  # Generate cluster name.
-                  # shellcheck disable=SC2086
-                  distro_indexes="$(yq '.matrix.distro | to_entries | .[] | .key' ${CI_MATRIX_FILE})"
-
-                  # Loop over clusters.
-                  # Vars are exported to pass them to yq instead of local inline syntax.
-                  # shellcheck disable=SC2086
-                  for distro_index in ${distro_indexes}; do
-                    cluster_name_input="${{ inputs.cluster_name }}"
-                    cluster_name_fallback="hci-$(uuidgen | head -c 8)"
-                    export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
-
-                    export distro_index="${distro_index}"
-                    yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
-                  done
-
-                  echo "Filtering the matrix with strategy IS_SCHEDULE=$IS_SCHEDULE"
-                  if [[ "$IS_SCHEDULE" == "true" || "$IS_RENOVATE_PR" == "true" ]]; then
-                    echo "This PR is scheduled or coming from renovate, we test all scenarios without filtering."
-                    # shellcheck disable=SC2086
-                    platform_matrix="$(yq '.matrix' --indent=0 --output-format json ${CI_MATRIX_FILE})"
-                  else
-                    # shellcheck disable=SC2086
-                    platform_matrix="$(yq '(.matrix |= (.distro |= map(select(.schedule_only == null or .schedule_only == false)))) | .matrix' \
-                        --indent=0 --output-format json "${CI_MATRIX_FILE}")"
-                  fi
-
-                  echo "${platform_matrix}" | jq
-                  echo "platform-matrix=${platform_matrix}" > "$GITHUB_OUTPUT"
+            - name: Define tests matrix
+              uses: ./.github/actions/internal-tests-matrix
+              id: matrix
+              with:
+                  ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
+                  cluster_name: ${{ inputs.cluster_name }}
+                  is_schedule: ${{ env.IS_SCHEDULE }}
+                  is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
     prepare-clusters:
         name: Prepare clusters
