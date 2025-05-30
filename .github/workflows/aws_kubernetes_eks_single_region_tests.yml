@@ -181,7 +181,7 @@ jobs:
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               with:
-                  cluster-name: ${{ matrix.distro.clusterName }}
+                  cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -404,7 +404,7 @@ jobs:
 
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-ingress-nginx.sh
 
-                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ matrix.distro.clusterName }}-${{ matrix.scenario.name }}"
+                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}"
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-external-dns.sh
 
                   ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
@@ -510,7 +510,7 @@ jobs:
                   cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
-                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.name }}.${{ env.TLD }}"
+                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
                     export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"
@@ -758,7 +758,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
-                  target: ${{ matrix.distro.clusterName }}
+                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     report-success:

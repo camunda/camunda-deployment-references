@@ -180,8 +180,8 @@ jobs:
               if: always() && success()
               with:
                   rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
-                  cluster-name-1: ${{ matrix.distro.clusterName }}-1
-                  cluster-name-2: ${{ matrix.distro.clusterName }}-2
+                  cluster-name-1: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1
+                  cluster-name-2: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-2
                   admin-username-cluster-1: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
                   admin-username-cluster-2: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
                   admin-password-cluster-1: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
@@ -326,8 +326,8 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  sed -i -e 's/^export CLUSTER_1_NAME=".*"/export CLUSTER_1_NAME="${{ matrix.distro.clusterName }}-1"/' \
-                         -e 's/^export CLUSTER_2_NAME=".*"/export CLUSTER_2_NAME="${{ matrix.distro.clusterName }}-2"/' \
+                  sed -i -e 's/^export CLUSTER_1_NAME=".*"/export CLUSTER_1_NAME="${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1"/' \
+                         -e 's/^export CLUSTER_2_NAME=".*"/export CLUSTER_2_NAME="${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-2"/' \
                         generic/openshift/dual-region/procedure/set-cluster-names.sh
 
                   source ./generic/openshift/dual-region/procedure/set-cluster-names.sh
@@ -526,8 +526,8 @@ jobs:
 
                   echo "Setup environment values"
                   sed -i \
-                    -e "s#^export CLUSTER_1_NAME=\".*\"#export CLUSTER_1_NAME=\"${{ matrix.distro.clusterName }}-1\"#" \
-                    -e "s#^export CLUSTER_2_NAME=\".*\"#export CLUSTER_2_NAME=\"${{ matrix.distro.clusterName }}-2\"#" \
+                    -e "s#^export CLUSTER_1_NAME=\".*\"#export CLUSTER_1_NAME=\"${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1\"#" \
+                    -e "s#^export CLUSTER_2_NAME=\".*\"#export CLUSTER_2_NAME=\"${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-2\"#" \
                     -e "s#^export CLUSTER_1_REGION=\".*\"#export CLUSTER_1_REGION=\"${{ env.CLUSTER_1_AWS_REGION }}\"#" \
                     -e "s#^export CLUSTER_2_REGION=\".*\"#export CLUSTER_2_REGION=\"${{ env.CLUSTER_2_AWS_REGION }}\"#" \
                     -e "s#^export AWS_ACCESS_KEY_ES=\".*\"#export AWS_ACCESS_KEY_ES=\"${BACKUP_BUCKET_S3_AWS_ACCESS_KEY}\"#" \
@@ -781,7 +781,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
-                  target: ${{ matrix.distro.clusterName }}
+                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     report-success:

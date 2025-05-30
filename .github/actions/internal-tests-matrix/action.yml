@@ -67,6 +67,12 @@ runs:
                 platform_matrix="$(echo "${platform_matrix}" | yq '(.scenario |= map(select(.name == "${{ inputs.ref_arch }}")))' -o=json)"
               fi
 
+              # Add shortName (short SHA of scenario.name)
+              platform_matrix="$(echo "${platform_matrix}" | jq -c '.scenario[]' | while read -r scenario; do
+                name=$(echo "$scenario" | jq -r '.name')
+                short_sha=$(echo -n "$name" | sha1sum | cut -c1-5)
+                echo "$scenario" | jq --arg short "$short_sha" '. + {shortName: $short}'
+              done | jq -s '{scenario: .}' | jq ". + $(echo "$platform_matrix" | jq 'del(.scenario)')")"
 
               echo "${platform_matrix}" | jq
               echo "platform_matrix=${platform_matrix}" >> "$GITHUB_OUTPUT"

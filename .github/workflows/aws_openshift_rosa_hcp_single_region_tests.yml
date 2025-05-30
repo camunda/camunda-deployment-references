@@ -184,7 +184,7 @@ jobs:
               if: always() && success()
               with:
                   rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
-                  cluster-name: ${{ matrix.distro.clusterName }}
+                  cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   admin-username: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
                   admin-password: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
                   aws-region: ${{ env.AWS_REGION }}
@@ -550,7 +550,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
-                  target: ${{ matrix.distro.clusterName }}
+                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   delete-ghost-clusters: 'false'
 
