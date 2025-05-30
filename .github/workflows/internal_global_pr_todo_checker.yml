@@ -26,15 +26,6 @@ jobs:
                   echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
                   go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
 
-            # TODO: remove debug
-            - name: Setup tmate session
-              uses: mxschmitt/action-tmate@v3
-              env:
-                  GH_TOKEN: ${{ github.token }}
-                  PR_NUMBER: ${{ github.event.pull_request.number }}
-              with:
-                  detached: true
-
             # TODO: pin actions
             # TODO : add a cache for todos
             - name: Get PR diff and TODOs
@@ -51,6 +42,9 @@ jobs:
                   grep '^+++' pr.diff | sed 's/+++ b\///' > files.txt
                   grep '^@@' pr.diff | awk '{print $3}' | sed 's/+//' | cut -d',' -f1 > lines.txt
                   paste -d: files.txt lines.txt > added_lines.txt
+
+                  echo "Printing diff lines:"
+                  cat added_lines.txt
 
                   echo "🧠 Running todos"
                   # run todos, capture exit code without failing
