@@ -141,7 +141,6 @@ jobs:
                             -f "body=$COMMENT_BODY" \
                             -f "commit_id=$COMMIT_ID" \
                             -f "path=$FILE" \
-                            -f "subject_type=line" \
                             -F "line=$LINE" \
                             -f "side=RIGHT"
                     else
