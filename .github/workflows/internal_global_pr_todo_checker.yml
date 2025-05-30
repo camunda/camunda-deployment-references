@@ -29,6 +29,9 @@ jobs:
             # TODO: remove debug
             - name: Setup tmate session
               uses: mxschmitt/action-tmate@v3
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
               with:
                   detached: true
 
