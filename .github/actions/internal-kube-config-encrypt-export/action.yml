@@ -1,0 +1,33 @@
+---
+name: Export and Encrypt Kubeconfig
+description: >
+    This action exports the current Kubernetes configuration (kubeconfig) using
+    `kubectl config view --raw`, then encrypts the file with openssl using AES-256-CBC
+    and a provided encryption key. The encrypted output is base64-encoded for easy
+    and secure transmission as an output.
+
+    This ensures secure handling of the kubeconfig file, useful for passing it safely
+    between jobs in a GitHub Actions workflow without exposing sensitive data.
+
+inputs:
+    encryption_key:
+        description: Encryption key to encrypt the kubeconfig
+        required: true
+
+outputs:
+    kubeconfig_encrypted:
+        description: Base64-encoded encrypted kubeconfig file
+        value: ${{ steps.encrypt.outputs.kubeconfig_encrypted }}
+
+runs:
+    using: composite
+    steps:
+        - shell: bash
+          id: encrypt
+          run: |
+              set -euo pipefail
+
+              kubectl config view --raw > kubeconfig.yaml 2>/dev/null
+              openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${{ inputs.encryption_key }}" -pbkdf2
+              encrypted_kubeconfig_base64=$(base64 -w 0 encrypted_kubeconfig.enc)
+              echo "kubeconfig_encrypted=$encrypted_kubeconfig_base64" >> "$GITHUB_OUTPUT"

@@ -1,10 +1,12 @@
 ---
 matrix:
+    distro:
+        - name: EKS
+          schedule_only: false
+
     scenario:
         - name: eks-single-region
-          schedule_only: false
         - name: eks-single-region-irsa
-          schedule_only: false
 
     declination:
         - name: no-domain
