@@ -1,144 +1,15 @@
 ---
 name: Internal - Global - Pull Request TODO checker
-
 on:
     pull_request_review_comment:
         types: [edited, deleted]
     pull_request:
         types: [opened, synchronize, reopened]
 
-env:
-    # renovate: datasource=github-releases depName=ianlewis/todos
-    TODOS_VERSION: v0.13.0
-
+# TODO: test
 jobs:
-    check-todos:
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read
-            pull-requests: write
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0 # capture all history
-
-            - name: Compute todos cache key
-              id: cache-key
-              run: |
-                  export os_key=$(uname | tr '[:upper:]' '[:lower:]')
-                  echo "cache_key=todos-$os_key-${{ env.TODOS_VERSION }}" | tee -a "$GITHUB_OUTPUT"
-                  echo "cache_path=$(go env GOPATH)/bin/todos" >> "$GITHUB_OUTPUT"
-                  echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-            - name: Restore todos cache
-              uses: actions/cache/restore@v4
-              id: cache-tools
-              with:
-                  path: ${{ steps.cache-key.outputs.cache_path }}
-                  key: ${{ steps.cache-key.outputs.cache_key }}
-
-            - name: Install todos CLI if not present
-              if: ${{ steps.cache-tools.outputs.cache-hit != 'true' }}
-              run: |
-                  go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
-
-            - name: Save todos cache
-              if: ${{ steps.cache-tools.outputs.cache-hit != 'true' }}
-              uses: actions/cache/save@v4
-              with:
-                  path: ${{ steps.cache-key.outputs.cache_path }}
-                  key: ${{ steps.cache-key.outputs.cache_key }}
-
-            - name: Get PR diff and TODOs
-              env:
-                  GH_TOKEN: ${{ github.token }}
-                  PR_NUMBER: ${{ github.event.pull_request.number }}
-              run: |
-                  set -euo pipefail
-
-                  echo "🔍 Getting diff from base branch"
-                  BASE_SHA=$(git merge-base origin/main HEAD)
-                  git diff "$BASE_SHA"...HEAD > pr.diff
-
-                  echo "📄 Parsing added lines"
-                  awk '
-                  /^diff --git / { file="" }
-                  /^+++ b\//     { file=substr($0,7) }
-                  /^@@ / {
-                    split($0, a, " ")
-                    split(a[3], new, ",")
-                    new_start = substr(new[1], 2)
-                    curr = new_start
-                  }
-                  /^+/ && !/^\+\+\+/ {
-                    print file ":" curr
-                    curr++
-                  }
-                  /^[^-+]/ { curr++ }
-                  ' pr.diff > added_lines.txt
-
-                  echo "🧠 Running todos"
-                  set +e
-                  todos -o json > todos.json
-                  code=$?
-                  if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then
-                    exit $code
-                  fi
-                  set -e
-
-                  echo "📥 Getting existing comments"
-                  gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" > comments.json
-
-                  echo "🔁 Processing TODOs"
-                  # shellcheck disable=SC2002
-                  cat todos.json | while read -r todo; do
-                    FILE=$(echo "$todo" | jq -r '.path')
-                    LINE=$(echo "$todo" | jq -r '.line')
-                    TEXT=$(echo "$todo" | jq -r '.text')
-
-                    echo "Checking $FILE:$LINE"
-
-                    # Only comment if line was added in PR
-                    if ! grep -q "^$FILE:$LINE$" added_lines.txt; then
-                      echo "❌ $FILE:$LINE not in added lines"
-                      continue
-                    fi
-
-                    echo "✅ $FILE:$LINE is in added lines"
-
-                    # Check for existing comment on same line
-                    EXISTING=$(jq -r --arg file "$FILE" --argjson line "$LINE" \
-                      '.[] | select(.path == $file and .line == $line)' comments.json)
-
-                    SKIP=false
-
-                    if [ -n "$EXISTING" ]; then
-                      ID=$(echo "$EXISTING" | jq -r '.id')
-                      RESPONSES=$(gh api "repos/${{ github.repository }}/pulls/comments/$ID/replies" || true)
-                      if echo "$RESPONSES" | jq -r '.[].body' | grep -Ei 'ACK|Ignore' > /dev/null; then
-                        echo "🔕 Already acknowledged or ignored"
-                        SKIP=true
-                      fi
-                    fi
-
-                    if [ "$SKIP" = false ]; then
-                      COMMENT_BODY="A new Todo was discovered. If it is not a priority right now, consider marking it for later attention.
-                      <br> TODO: \`$TEXT\`
-                      <br><br><sub>Reply with \`Ignore\` to prevent further reminders for this line.</sub>"
-
-                      echo "💬 Commenting on $FILE:$LINE"
-                        gh api \
-                            --method POST \
-                            -H "Accept: application/vnd.github+json" \
-                            -H "X-GitHub-Api-Version: 2022-11-28" \
-                            "/repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" \
-                            -f "body=$COMMENT_BODY" \
-                            -f "commit_id=${{ github.event.pull_request.head.sha }}" \
-                            -f "path=$FILE" \
-                            -F "line=$LINE" \
-                            -f "side=RIGHT"
-                    else
-                      echo "🙈 Skipping $FILE:$LINE due to ACK or Ignore"
-                    fi
-                  done
+    # TODO: pin on main
+    call-todo-checker:
+        uses: camunda/infraex-common-config/.github/workflows/todo-checker-global.yml@feature/todo-checker
+        secrets: inherit
