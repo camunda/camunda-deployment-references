@@ -40,6 +40,7 @@ on:
                     Reference architecture to use, can only deploy one at a time.
                     Use a different trigger with unique names for each ref-arch.
                     Valid values are `eks-single-region` and `eks-single-region-irsa`.
+                    Only for workflow_dispatch.
                 required: false
                 type: string
                 default: eks-single-region
@@ -114,55 +115,10 @@ jobs:
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
                   cluster_name: ${{ inputs.cluster_name }}
+                  ref_arch: ${{ inputs.ref-arch }}
+                  cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
-
-            - id: matrix2
-              # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
-              run: |
-                  set -euo pipefail
-
-                  # Generate cluster name.
-                  # shellcheck disable=SC2086
-                  scenario_indexes="$(yq '.matrix.scenario | to_entries | .[] | .key' ${CI_MATRIX_FILE})"
-
-                  PR_NUMBER=0
-                  if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-                      PR_NUMBER=${{ github.event.pull_request.number}}
-                  fi
-
-                  # Loop over scenarios.
-                  # Vars are exported to pass them to yq instead of local inline syntax.
-                  # shellcheck disable=SC2086
-                  for scenario_index in ${scenario_indexes}; do
-                    cluster_name_input="${{ inputs.cluster_name }}"
-                    # limiting factor are OpenSearch domains of maximum 28 characters
-                    cluster_name_fallback="eks-sr-$PR_NUMBER-$(uuidgen | head -c 5)"
-                    export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
-                    export scenario_index="${scenario_index}"
-                    yq -i '.matrix.scenario[env(scenario_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
-                  done
-
-                  echo "Filtering the matrix with strategy IS_SCHEDULE=$IS_SCHEDULE or IS_RENOVATE_PR=$IS_RENOVATE_PR"
-                  if [[ "$IS_SCHEDULE" == "true" || "$IS_RENOVATE_PR" == "true" ]]; then
-                    echo "This PR is scheduled or coming from renovate, we test all scenarios without filtering."
-                    # shellcheck disable=SC2086
-                    platform_matrix="$(yq '.matrix' --indent=0 --output-format json ${CI_MATRIX_FILE})"
-                  else
-                    # shellcheck disable=SC2086
-                    platform_matrix="$(yq '(.matrix |= (.distro |= map(select(.schedule_only == null or .schedule_only == false)))) | .matrix' \
-                        --indent=0 --output-format json "${CI_MATRIX_FILE}")"
-                  fi
-
-                  if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-                    echo "Filtering based on supplied ref-arch ${{ inputs.ref-arch }}"
-                    # shellcheck disable=SC2086
-                    platform_matrix="$(yq '(.matrix |= (.scenario |= map(select(.name == env(ref_arch)))) | .matrix' \
-                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
-                  fi
-
-                  echo "${platform_matrix}" | jq
-                  echo "platform-matrix=${platform_matrix}" > "$GITHUB_OUTPUT"
 
     prepare-clusters:
         name: Prepare clusters
@@ -171,6 +127,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         env:
@@ -224,7 +181,7 @@ jobs:
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               with:
-                  cluster-name: ${{ matrix.scenario.clusterName }}
+                  cluster-name: ${{ matrix.distro.clusterName }}
                   aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -243,6 +200,18 @@ jobs:
                         "ci-repo": "${{ github.repository }}",
                         "ci-event": "${{ github.event_name }}"
                       }
+
+            # TODO: refactor this in a reusable action
+            - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
+              id: export_kube_config
+              run: |
+                  set -euo pipefail
+
+                  # shellcheck disable=SC2005
+                  kubectl config view --raw > kubeconfig.yaml 2>/dev/null
+                  openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  encrypted_kubeconfig_base64=$(base64 -w 0 encrypted_kubeconfig.enc)
+                  echo "kubeconfig_raw=${encrypted_kubeconfig_base64}" >> "$GITHUB_OUTPUT"
 
             # We are exporting everything for irsa and non-irsa, worst case it's empty and not used
             # Reason for skipping pipefail in the next step
@@ -316,9 +285,10 @@ jobs:
               id: out
               with:
                   matrix-step-name: ${{ github.job }}
-                  matrix-key: ${{ matrix.scenario.name }}
+                  matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
                       outputs_raw: ${{ steps.encrypt_outputs.outputs.outputs_raw }}
+                      kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
 
     access-info:
         name: Read outputs from matrix
@@ -326,7 +296,7 @@ jobs:
         if: always()
         needs: prepare-clusters
         outputs:
-            outputs_raw: ${{ steps.read-workflow.outputs.result }}
+            config: ${{ steps.read-workflow.outputs.result }}
         steps:
             - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
               id: read-workflow
@@ -334,12 +304,13 @@ jobs:
                   matrix-step-name: prepare-clusters
 
     integration-tests:
-        name: Run integration tests - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
+        name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
         runs-on: ubuntu-latest
         concurrency:
-            # instead of running sequentially in a matrix, we use concurrency to run the different scenarios in parallel but the declinations sequentially
+            # instead of running sequentially in a matrix, we use concurrency to run the different scenarios
+            # in parallel but the declinations sequentially
             # max-parallel would limit us to run 1 matrix job but this way we can run 2 jobs in parallel.
-            group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.scenario.name }}
+            group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.distro.name }}-${{ matrix.scenario.name }}
             cancel-in-progress: false
         needs:
             - prepare-clusters
@@ -348,6 +319,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         env:
@@ -389,7 +361,11 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  echo "${{ fromJson(needs.access-info.outputs.outputs_raw).outputs_raw[matrix.scenario.name] }}" | base64 --decode > encrypted_outputs_raw.enc
+                  echo "${{
+                      fromJson(needs.access-info.outputs.config).outputs_raw[
+                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
+                      ]
+                    }}" | base64 --decode > encrypted_outputs_raw.enc
                   openssl enc -aes-256-cbc -d -in encrypted_outputs_raw.enc -out "outputs_raw" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
                   rm encrypted_outputs_raw.enc
 
@@ -398,11 +374,21 @@ jobs:
                     echo "$line" | tee -a "$GITHUB_ENV"
                   done < outputs_raw
 
+            # TODO: refactor in a single action reusable
             - name: 🔐 Login into the cluster
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-                  aws eks --region "${{ env.AWS_REGION }}" update-kubeconfig --name "${{ matrix.scenario.clusterName }}" --alias "${{ matrix.scenario.clusterName }}"
+
+                  mkdir -p "$HOME/.kube"
+                  echo "${{
+                      fromJson(needs.access-info.outputs.config).kubeconfig_raw[
+                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
+                      ]
+                    }}" | base64 --decode > encrypted_kubeconfig.enc
+                  openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
+                  rm encrypted_kubeconfig.enc
+                  chmod 600 "$HOME/.kube/config"
 
                   kubectl config current-context
                   kubectl get nodes
@@ -430,7 +416,7 @@ jobs:
 
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-ingress-nginx.sh
 
-                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ matrix.scenario.clusterName }}-${{ matrix.scenario.name }}"
+                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ matrix.distro.clusterName }}-${{ matrix.scenario.name }}"
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-external-dns.sh
 
                   ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
@@ -536,7 +522,7 @@ jobs:
                   cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
-                    export DOMAIN_NAME="${{ matrix.scenario.clusterName }}-${{ matrix.scenario.name }}.${{ env.TLD }}"
+                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.name }}.${{ env.TLD }}"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
                     export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"
@@ -726,6 +712,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -783,7 +770,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
-                  target: ${{ matrix.scenario.clusterName }}
+                  target: ${{ matrix.distro.clusterName }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     report-success:

@@ -38,6 +38,16 @@ on:
                 type: boolean
                 default: true
 
+            ref-arch:
+                description: |
+                    Reference architecture to use, can only deploy one at a time.
+                    Use a different trigger with unique names for each ref-arch.
+                    Valid values are `rosa-hcp-single-region`.
+                    Only for workflow_dispatch.
+                required: false
+                type: string
+                default: rosa-hcp-single-region
+
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -111,6 +121,7 @@ jobs:
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
                   cluster_name: ${{ inputs.cluster_name }}
+                  ref_arch: ${{ inputs.ref-arch }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
@@ -236,7 +247,7 @@ jobs:
         runs-on: ubuntu-latest
         needs: prepare-clusters
         outputs:
-            kubeconfig: ${{ steps.read-workflow.outputs.result }}
+            config: ${{ steps.read-workflow.outputs.result }}
         steps:
             - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
               id: read-workflow
@@ -298,7 +309,7 @@ jobs:
 
                   mkdir -p "$HOME/.kube"
                   echo "${{
-                      fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[
+                      fromJson(needs.access-info.outputs.config).kubeconfig_raw[
                         format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
                       ]
                     }}" | base64 --decode > encrypted_kubeconfig.enc

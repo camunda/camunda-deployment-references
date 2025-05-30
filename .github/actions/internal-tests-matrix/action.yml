@@ -37,16 +37,12 @@ runs:
           run: |
               set -euo pipefail
 
-              PR_NUMBER=0
-              if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-                PR_NUMBER=${{ github.event.pull_request.number }}
-              fi
-
               # Generate cluster name.
               distro_indexes="$(yq '.matrix.distro | to_entries | .[] | .key' "${{ inputs.ci_matrix_file }}")"
 
               for distro_index in ${distro_indexes}; do
-                cluster_name_fallback="${{ inputs.cluster_prefix }}$(uuidgen | head -c 8)"
+                # limiting factor are OpenSearch domains of maximum 28 characters
+                cluster_name_fallback="${{ inputs.cluster_prefix }}$(uuidgen | head -c 5)"
                 export cluster_name="${{ inputs.cluster_name || '' }}"
                 if [[ -z "$cluster_name" ]]; then
                   cluster_name="$cluster_name_fallback"
