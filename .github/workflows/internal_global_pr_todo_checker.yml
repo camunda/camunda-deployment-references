@@ -73,6 +73,33 @@ jobs:
                   echo "📥 Getting existing comments"
                   gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" > comments.json
 
+                  get_position_in_diff() {
+                    local file="$1"
+                    local line="$2"
+                    local base_sha="$3"
+
+                    git diff --unified=0 "$base_sha"...HEAD -- "$file" | \
+                    awk -v "target_line=$line" '
+                    BEGIN { pos=0; print_pos=-1; }
+                    /^@@/ {
+                        split($0, a, " ")
+                        split(a[3], new, ",")
+                        new_start = substr(new[1], 2)
+                    }
+                    /^[+-]/ {
+                        pos++
+                        if ($0 ~ /^\+/ && (new_start + pos - 1) == target_line) {
+                        print_pos = pos
+                        exit
+                        }
+                    }
+                    END {
+                        if (print_pos == -1) exit 1
+                        else print print_pos
+                    }'
+                  }
+
+
                   echo "🔁 Processing TODOs"
                   # shellcheck disable=SC2002
                   cat todos.json | while read -r todo; do
@@ -114,12 +141,16 @@ jobs:
                       <sub>Reply with \`Ignore\` to prevent further reminders for this line.</sub>"
 
                       echo "💬 Commenting on $FILE:$LINE"
+                      POSITION=$(get_position_in_diff "$FILE" "$LINE" "$BASE_SHA") || {
+                        echo "Could not find diff position for $FILE:$LINE"
+                        continue
+                      }
+
                       gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" \
                         -f body="$COMMENT_BODY" \
                         -f path="$FILE" \
-                        -f line="$LINE" \
                         -f commit_id="$COMMIT_ID" \
-                        -f side="RIGHT"
+                        -f position="$POSITION"
                     else
                       echo "🙈 Skipping $FILE:$LINE due to ACK or Ignore"
                     fi
