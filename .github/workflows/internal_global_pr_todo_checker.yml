@@ -8,14 +8,80 @@ on:
         types: [opened, synchronize, reopened]
 
 jobs:
-    find_todos:
+    check-todos:
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: write
 
         steps:
             - name: Checkout code
-              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              uses: actions/checkout@v4
 
-            - name: Check for Todos
-              uses: phntmxyz/pr_todo_checker@5d17d239637854388b338cc010d08c4f50093c4e # v1
-              with:
-                  token: ${{ secrets.GITHUB_TOKEN }}
+            - name: Install GitHub CLI
+              uses: cli/cli-action@v2
+
+            # TODO: pin actions
+            - name: Install todos
+              env:
+                  # renovate: datasource=github-releases depName=ianlewis/todos
+                  TODOS_VERSION: v0.13.0
+              run: |
+                  go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
+                  echo "$HOME/go/bin" >> "$GITHUB_PATH"
+
+            - name: Get PR diff and TODOs
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+              run: |
+                  echo "🔍 Extracting added lines from PR diff"
+                  gh pr diff "$PR_NUMBER" > pr.diff
+
+                  # Collect only added lines with file+line info
+                  grep '^+++' pr.diff | sed 's/+++ b\///' > files.txt
+                  grep '^@@' pr.diff | awk '{print $3}' | sed 's/+//' | cut -d',' -f1 > lines.txt
+                  paste -d: files.txt lines.txt > added_lines.txt
+
+                  echo "🧠 Running todos"
+                  todos -o json > todos.json
+
+                  echo "📥 Getting current comments"
+                  gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" > comments.json
+
+                  # shellcheck disable=SC2002
+                  cat todos.json | jq -c '.[]' | while read -r todo; do
+                    FILE=$(echo "$todo" | jq -r '.path')
+                    LINE=$(echo "$todo" | jq -r '.line')
+                    MESSAGE=$(echo "$todo" | jq -r '.text')
+
+                    # Only comment if the TODO is on an added line
+                    if ! grep -q "^$FILE:$LINE$" added_lines.txt; then
+                      continue
+                    fi
+
+                    # Check if comment already exists and has ACK response
+                    FOUND=$(jq -r --arg file "$FILE" --argjson line "$LINE" '
+                      .[] | select(.path == $file and .line == $line)
+                    ' comments.json)
+
+                    SKIP=false
+                    if [[ "$FOUND" != "" ]]; then
+                      ID=$(echo "$FOUND" | jq -r '.id')
+
+                      # Check if a response comment contains "ACK"
+                      RESPONSES=$(gh api "repos/${{ github.repository }}/pulls/comments/$ID/replies")
+                      echo "$RESPONSES" | jq -r '.[].body' | grep -iq 'ACK' && SKIP=true
+                    fi
+
+                    if [ "$SKIP" = false ]; then
+                      echo "💬 Creating comment on $FILE:$LINE"
+                      gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" \
+                        -f body="📝 **TODO found**: \`$MESSAGE\`" \
+                        -f path="$FILE" \
+                        -f line="$LINE" \
+                        -f side="RIGHT"
+                    else
+                      echo "✅ Skipping $FILE:$LINE due to existing ACK"
+                    fi
+                  done
