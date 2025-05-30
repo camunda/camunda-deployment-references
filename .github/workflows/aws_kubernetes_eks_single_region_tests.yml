@@ -147,9 +147,8 @@ jobs:
 
                   if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
                     echo "Filtering based on supplied ref-arch ${{ inputs.ref-arch }}"
-                    # shellcheck disable=SC2086
-                    platform_matrix="$(yq '(.matrix |= (.scenario |= map(select(.name == env(ref_arch)))) | .matrix' \
-                      --indent=0 --output-format json ${CI_MATRIX_FILE})"
+                    platform_matrix=$(yq '(.matrix |= (.scenario |= map(select(.name == "${{ inputs.ref-arch }}")))) | .matrix' \
+                      --indent=0 --output-format json "${CI_MATRIX_FILE}")
                   fi
 
                   echo "${platform_matrix}" | jq
