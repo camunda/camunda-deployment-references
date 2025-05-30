@@ -53,12 +53,15 @@ jobs:
                   paste -d: files.txt lines.txt > added_lines.txt
 
                   echo "🧠 Running todos"
+                  # run todos, capture exit code without failing
+                  set +e
                   todos -o json > todos.json
                   code=$?
                   if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then
                     # tod.os returns 1 if todos are found
                     exit $code
                   fi
+                  set -e
 
                   echo "📥 Getting current comments"
                   gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" > comments.json
