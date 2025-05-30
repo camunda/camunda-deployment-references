@@ -18,6 +18,12 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
+            # TODO: remove debug
+            - name: Setup tmate session
+              uses: mxschmitt/action-tmate@v3
+              with:
+                  detached: true
+
             # TODO: pin actions
             # TODO : add a cache for todos
             - name: Get PR diff and TODOs
@@ -30,7 +36,6 @@ jobs:
                   export PATH=$PATH:$(go env GOPATH)/bin
 
                   go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
-                  echo "$HOME/go/bin" >> "$GITHUB_PATH"
 
                   echo "🔍 Extracting added lines from PR diff"
                   gh pr diff "$PR_NUMBER" > pr.diff
