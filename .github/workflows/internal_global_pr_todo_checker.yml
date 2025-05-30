@@ -118,8 +118,7 @@ jobs:
                         -f body="$COMMENT_BODY" \
                         -f path="$FILE" \
                         -f commit_id="$COMMIT_ID" \
-                        -f line="$LINE" \
-                        -f position="RIGHT"
+                        -f line="$LINE"
                     else
                       echo "🙈 Skipping $FILE:$LINE due to ACK or Ignore"
                     fi
