@@ -115,7 +115,7 @@ jobs:
 
                     if [ -n "$EXISTING" ]; then
                       ID=$(echo "$EXISTING" | jq -r '.id')
-                      RESPONSES=$(gh api "repos/${{ github.repository }}/pulls/comments/$ID/replies")
+                      RESPONSES=$(gh api "repos/${{ github.repository }}/pulls/comments/$ID/replies" || true)
                       if echo "$RESPONSES" | jq -r '.[].body' | grep -Ei 'ACK|Ignore' > /dev/null; then
                         echo "🔕 Already acknowledged or ignored"
                         SKIP=true
@@ -123,12 +123,9 @@ jobs:
                     fi
 
                     if [ "$SKIP" = false ]; then
-                      COMMENT_BODY="**github-actions bot**
-
-                      A new Todo was discovered. If it is not a priority right now, consider marking it for later attention.
-                        TODO: \`$TEXT\`
-
-                      <sub>Reply with \`Ignore\` to prevent further reminders for this line.</sub>"
+                      COMMENT_BODY="A new Todo was discovered. If it is not a priority right now, consider marking it for later attention.
+                      <br> TODO: \`$TEXT\`
+                      <br><br><sub>Reply with \`Ignore\` to prevent further reminders for this line.</sub>"
 
                       echo "💬 Commenting on $FILE:$LINE"
                         gh api \
