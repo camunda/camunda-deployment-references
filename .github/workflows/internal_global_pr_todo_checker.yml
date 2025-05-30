@@ -33,8 +33,7 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   PR_NUMBER: ${{ github.event.pull_request.number }}
               run: |
-                  export PATH=$PATH:$(go env GOPATH)/bin
-
+                  echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
                   go install "github.com/ianlewis/todos/cmd/todos@${TODOS_VERSION}"
 
                   echo "🔍 Extracting added lines from PR diff"
