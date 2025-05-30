@@ -42,6 +42,8 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   PR_NUMBER: ${{ github.event.pull_request.number }}
               run: |
+                  set -euo pipefail
+
                   echo "🔍 Extracting added lines from PR diff"
                   gh pr diff "$PR_NUMBER" > pr.diff
 
@@ -52,6 +54,11 @@ jobs:
 
                   echo "🧠 Running todos"
                   todos -o json > todos.json
+                  code=$?
+                  if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then
+                    # tod.os returns 1 if todos are found
+                    exit $code
+                  fi
 
                   echo "📥 Getting current comments"
                   gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" > comments.json
