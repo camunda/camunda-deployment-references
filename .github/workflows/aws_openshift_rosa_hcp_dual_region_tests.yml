@@ -21,6 +21,9 @@ on:
             - .github/actions/aws-openshift-rosa-hcp-dual-region-cleanup/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-kube-config-encrypt-export/**
+            - .github/actions/internal-kube-config-decrypt-import/**
+            - .github/actions/internal-tests-matrix/**
 
     workflow_dispatch:
         inputs:
