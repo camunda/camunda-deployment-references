@@ -63,6 +63,9 @@ jobs:
                   fi
                   set -e
 
+                  echo "Todos found:"
+                  yq todos.json
+
                   echo "📥 Getting current comments"
                   gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" > comments.json
 
