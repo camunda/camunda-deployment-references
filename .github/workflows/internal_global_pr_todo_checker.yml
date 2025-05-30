@@ -70,7 +70,7 @@ jobs:
                   gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" > comments.json
 
                   # shellcheck disable=SC2002
-                  cat todos.json | jq -c '.[]' | while read -r todo; do
+                  cat todos.json | while read -r todo; do
                     echo "Processing TODO: $todo"
 
                     FILE=$(echo "$todo" | jq -r '.path')
