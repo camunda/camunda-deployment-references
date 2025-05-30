@@ -263,12 +263,20 @@ jobs:
 
                   # Here we verify the extraction of the env variables as presented in the documentation
 
-                  cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/${{ matrix.scenario.name }}/
+                  cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/${{ matrix.scenario.name }}/terraform/cluster/
+                  # TODO : double check this in the doc
                   source ./procedure/gather-cluster-login-id.sh
                   cd -
 
                   echo "CLUSTER_NAME=$CLUSTER_NAME"
                   echo "CLUSTER_API_URL=$CLUSTER_API_URL"
+
+                  if [[ -z "$CLUSTER_NAME" || -z "$CLUSTER_API_URL" ]]; then
+                    echo "❌ ERROR: CLUSTER_NAME or CLUSTER_API_URL is empty."
+                    exit 1
+                  else
+                    echo "✅ Environment variables were successfully extracted."
+                  fi
 
     access-info:
         name: Read kube configs from matrix
