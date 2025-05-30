@@ -68,37 +68,60 @@ jobs:
 
                   # shellcheck disable=SC2002
                   cat todos.json | jq -c '.[]' | while read -r todo; do
+                    echo "Processing TODO: $todo"
+
                     FILE=$(echo "$todo" | jq -r '.path')
                     LINE=$(echo "$todo" | jq -r '.line')
                     MESSAGE=$(echo "$todo" | jq -r '.text')
 
+                    echo "File: $FILE"
+                    echo "Line: $LINE"
+                    echo "Message: $MESSAGE"
+
                     # Only comment if the TODO is on an added line
-                    if ! grep -q "^$FILE:$LINE$" added_lines.txt; then
-                      continue
+                    if grep -q "^$FILE:$LINE$" added_lines.txt; then
+                        echo "$FILE:$LINE is in added_lines.txt"
+                    else
+                        echo "Skipping $FILE:$LINE - not an added line"
+                        continue
                     fi
 
                     # Check if comment already exists and has ACK response
+                    echo "Checking for existing comment in comments.json"
                     FOUND=$(jq -r --arg file "$FILE" --argjson line "$LINE" '
-                      .[] | select(.path == $file and .line == $line)
+                        .[] | select(.path == $file and .line == $line)
                     ' comments.json)
 
-                    SKIP=false
                     if [[ "$FOUND" != "" ]]; then
-                      ID=$(echo "$FOUND" | jq -r '.id')
+                        echo "Existing comment found:"
+                        echo "$FOUND"
+                        ID=$(echo "$FOUND" | jq -r '.id')
+                        echo "Comment ID: $ID"
 
-                      # Check if a response comment contains "ACK"
-                      RESPONSES=$(gh api "repos/${{ github.repository }}/pulls/comments/$ID/replies")
-                      echo "$RESPONSES" | jq -r '.[].body' | grep -iq 'ACK' && SKIP=true
+                        echo "Fetching replies for comment $ID"
+                        RESPONSES=$(gh api "repos/${{ github.repository }}/pulls/comments/$ID/replies")
+                        echo "Replies:"
+                        echo "$RESPONSES" | jq -r '.[].body'
+
+                        if echo "$RESPONSES" | jq -r '.[].body' | grep -iq 'ACK'; then
+                            echo "ACK found in replies"
+                            SKIP=true
+                        else
+                            SKIP=false
+                        fi
+                    else
+                        echo "No existing comment found"
+                        SKIP=false
                     fi
 
                     if [ "$SKIP" = false ]; then
-                      echo "💬 Creating comment on $FILE:$LINE"
-                      gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" \
-                        -f body="📝 **TODO found**: \`$MESSAGE\`" \
+                        echo "Creating comment on $FILE:$LINE"
+                        gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments" \
+                        -f body="TODO found: \`$MESSAGE\`" \
                         -f path="$FILE" \
                         -f line="$LINE" \
                         -f side="RIGHT"
                     else
-                      echo "✅ Skipping $FILE:$LINE due to existing ACK"
+                        echo "Skipping $FILE:$LINE due to existing ACK"
                     fi
                   done
