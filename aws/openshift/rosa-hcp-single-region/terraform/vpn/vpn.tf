@@ -4,8 +4,6 @@ module "vpn" {
   vpn_name         = "my-vpn"
   client_key_names = ["my-client"]
 
-  # TODO: in the doc, explains that this VPN is split by default
-
   vpc_id                  = var.vpc_id
   vpc_subnet_ids          = data.aws_subnets.private_subnets.ids
   vpc_target_network_cidr = data.aws_vpc.target.cidr_block

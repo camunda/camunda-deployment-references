@@ -264,7 +264,6 @@ jobs:
                   # Here we verify the extraction of the env variables as presented in the documentation
 
                   cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/${{ matrix.scenario.name }}/terraform/cluster/
-                  # TODO : double check this in the doc
                   source ./procedure/gather-cluster-login-id.sh
                   cd -
 
