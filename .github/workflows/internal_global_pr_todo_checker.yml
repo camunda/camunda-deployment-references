@@ -6,8 +6,6 @@ name: Internal - Global - Pull Request TODO checker
 # It helps ensure that no TODOs are accidentally left behind in merged PRs.
 
 on:
-    issue_comment:
-        types: [created, edited]
     pull_request:
         types: [opened, synchronize, reopened]
 
@@ -17,10 +15,5 @@ concurrency:
 
 jobs:
     call-todo-checker:
-        if: |
-            github.event_name == 'pull_request' ||
-            (github.event_name == 'issue_comment' &&
-            contains(github.event.comment.body, 'update todos'))
-        # TODO: revert to main
-        uses: camunda/infraex-common-config/.github/workflows/todo-checker-global.yml@fix/todo-checker-branch # 1.4.1
+        uses: camunda/infraex-common-config/.github/workflows/todo-checker-global.yml@4a6e40cedd9384a7b607ff631769d76edb2d938e # 1.4.1
         secrets: inherit
