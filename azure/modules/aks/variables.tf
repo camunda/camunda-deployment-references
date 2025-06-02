@@ -136,4 +136,5 @@ variable "kms_key_id" {
 variable "dns_zone_id" {
   description = "The Azure DNS zone resource id for ExternalDNS or cert-manager"
   type        = string
+  default     = null
 }

@@ -1,4 +1,5 @@
 resource "azurerm_role_assignment" "kubelet_dns" {
+  count                = var.dns_zone_id != null ? 1 : 0
   scope                = var.dns_zone_id
   role_definition_name = "DNS Zone Contributor"
 
