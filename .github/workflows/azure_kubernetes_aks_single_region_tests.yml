@@ -338,19 +338,6 @@ jobs:
                   kubectl config current-context
                   kubectl get nodes
 
-            - name: Create azure.json for ExternalDNS
-              if: ${{ matrix.declination.name == 'domain' }}
-              env:
-                  AZURE_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
-              run: |
-                  cat > azure.json <<EOF
-                  {
-                    "subscriptionId": "${AZURE_SUBSCRIPTION_ID}",
-                    "resourceGroup": "${AZURE_DNS_RESOURCE_GROUP}",
-                    "useManagedIdentityExtension": true,
-                  }
-                  EOF
-
             - name: 🏗️ Ingress Setup prerequisites
               if: ${{ matrix.declination.name == 'domain' }}
               run: |
@@ -366,13 +353,14 @@ jobs:
                   export EXTERNAL_DNS_OWNER_ID="external-dns-${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}-aks-single-region"
                   ./azure/kubernetes/aks-single-region/procedure/install-external-dns.sh
 
-                  kubectl -n external-dns create secret generic azure-config-file --from-file=./azure.json
+                  export AZURE_SUBSCRIPTION_ID="${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}"
+                  kubectl -n external-dns create secret generic azure-config-file \
+                  --from-literal=azure.json="{\"subscriptionId\":\"$AZURE_SUBSCRIPTION_ID\",\"resourceGroup\":\"$AZURE_DNS_RESOURCE_GROUP\",\"useManagedIdentityExtension\":true}"
 
                   ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
                   ./azure/kubernetes/aks-single-region/procedure/install-cert-manager.sh
 
-                  export AZURE_SUBSCRIPTION_ID="${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}"
                   ./azure/kubernetes/aks-single-region/procedure/install-cert-manager-issuer.sh
 
 
