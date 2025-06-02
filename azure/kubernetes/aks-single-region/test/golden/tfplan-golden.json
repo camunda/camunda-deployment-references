@@ -287,9 +287,10 @@
             ]
           }
         },
-        "module.aks.azurerm_role_assignment.dns_contributor": {
+        "module.aks.azurerm_role_assignment.kubelet_dns[0]": {
+          "index": 0,
           "mode": "managed",
-          "name": "dns_contributor",
+          "name": "kubelet_dns",
           "provider_name": "registry.terraform.io/hashicorp/azurerm",
           "schema_version": 0,
           "sensitive_values": {},
