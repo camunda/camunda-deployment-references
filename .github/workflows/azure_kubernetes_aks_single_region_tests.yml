@@ -338,7 +338,6 @@ jobs:
                   kubectl config current-context
                   kubectl get nodes
 
-            # Creates azure.json in the repository root (runs right after `terraform apply`)
             - name: Create azure.json for ExternalDNS
               if: ${{ matrix.declination.name == 'domain' }}
               env:
@@ -354,8 +353,6 @@ jobs:
 
             - name: 🏗️ Ingress Setup prerequisites
               if: ${{ matrix.declination.name == 'domain' }}
-              env:
-                  AZURE_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
               run: |
                   set -euo pipefail
 
@@ -375,6 +372,7 @@ jobs:
 
                   ./azure/kubernetes/aks-single-region/procedure/install-cert-manager.sh
 
+                  export AZURE_SUBSCRIPTION_ID="${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}"
                   ./azure/kubernetes/aks-single-region/procedure/install-cert-manager-issuer.sh
 
 
