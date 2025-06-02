@@ -56,6 +56,7 @@ global:
                     name: identity-secret-for-components
 
 identity:
+    contextPath: /identity
     fullURL: https://${DOMAIN_NAME}/identity
 
     externalDatabase:
@@ -67,8 +68,18 @@ identity:
         existingSecret: identity-postgres-secret
         existingSecretPasswordKey: password
 
+connectors:
+    contextPath: /connectors
+
+operate:
+    contextPath: /operate
+
+tasklist:
+    contextPath: /tasklist
+
 webModeler:
     enabled: false
+    contextPath: /modeler
 
     restapi:
         externalDatabase:
@@ -83,6 +94,9 @@ webModeler:
                 name: identity-secret-for-components
             fromAddress: changeme@example.com
 
+optimize:
+    contextPath: /optimize
+
 zeebeGateway:
     ingress:
         grpc:
@@ -93,7 +107,7 @@ zeebeGateway:
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
-    managementServerEnabled: false
+    contextPath: /zeebe
 
 console:
     enabled: false # by default, console is not enabled
