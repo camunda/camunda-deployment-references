@@ -21,5 +21,6 @@ jobs:
             github.event_name == 'pull_request' ||
             (github.event_name == 'issue_comment' &&
             contains(github.event.comment.body, 'update todos'))
-        uses: camunda/infraex-common-config/.github/workflows/todo-checker-global.yml@1243ee24e2ad0bcbbc0363cd4732776c87129fa7 # 1.4.0
+        # TODO: revert to main
+        uses: camunda/infraex-common-config/.github/workflows/todo-checker-global.yml@fix/todo-checker-branch # 1.4.1
         secrets: inherit
