@@ -270,7 +270,6 @@ jobs:
                     # - name: no-domain
                     - name: domain
         env:
-            CAMUNDA_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: kubernetes
             DB_HOST: ${{ needs.prepare-clusters.outputs.DB_HOST }}
