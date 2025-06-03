@@ -213,13 +213,13 @@ jobs:
 
             - name: Dump kubeconfig before encryption
               run: |
-                  kubectl config view --raw > kubeconfig.yaml
+                  kubectl config view --raw > "${{ runner.temp }}/kubeconfig.yaml"
 
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
               uses: ./.github/actions/internal-generic-encrypt-export
               with:
-                  file_path: kubeconfig.yaml
+                  file_path: ${{ runner.temp }}/kubeconfig.yaml
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             ## Write for matrix outputs workaround

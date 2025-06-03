@@ -205,13 +205,13 @@ jobs:
 
             - name: Dump kubeconfig before encryption
               run: |
-                  kubectl config view --raw > kubeconfig.yaml
+                  kubectl config view --raw > "${{ runner.temp }}/kubeconfig.yaml"
 
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
               uses: ./.github/actions/internal-generic-encrypt-export
               with:
-                  file_path: kubeconfig.yaml
+                  file_path: ${{ runner.temp }}/kubeconfig.yaml
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             # We are exporting everything for irsa and non-irsa, worst case it's empty and not used
@@ -274,14 +274,14 @@ jobs:
 
                     echo "OPENSEARCH_MASTER_USERNAME=$OPENSEARCH_MASTER_USERNAME"
                     echo "OPENSEARCH_MASTER_PASSWORD=$OPENSEARCH_MASTER_PASSWORD"
-                  } > outputs_raw
+                  } > "${{ runner.temp }}/outputs_raw"
 
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
               id: encrypt_outputs
               if: always()
               uses: ./.github/actions/internal-generic-encrypt-export
               with:
-                  file_path: outputs_raw
+                  file_path: ${{ runner.temp }}/outputs_raw
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             # Write for matrix outputs workaround

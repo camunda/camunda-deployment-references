@@ -214,13 +214,13 @@ jobs:
 
             - name: Dump kubeconfig before encryption
               run: |
-                  kubectl config view --raw > kubeconfig.yaml
+                  kubectl config view --raw > "${{ runner.temp }}/kubeconfig.yaml"
 
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
               uses: ./.github/actions/internal-generic-encrypt-export
               with:
-                  file_path: kubeconfig.yaml
+                  file_path: ${{ runner.temp }}/kubeconfig.yaml
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             - name: Dump other secrets from the action # this is required to pass matrix outputs securely using artifacts
@@ -231,13 +231,13 @@ jobs:
                   yq eval -n \
                     '.["backup-bucket-s3-aws-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-access-key }}" |
                     .["backup-bucket-s3-aws-secret-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-secret-access-key }}" |
-                    .["backup-bucket-s3-bucket-name"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-bucket-name }}"' > sensitive_values.yaml
+                    .["backup-bucket-s3-bucket-name"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-bucket-name }}"' > "${{ runner.temp }}/sensitive_values.yaml"
 
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
               id: export_secrets
               uses: ./.github/actions/internal-generic-encrypt-export
               with:
-                  file_path: sensitive_values.yaml
+                  file_path: ${{ runner.temp }}/sensitive_values.yaml
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             ## Write for matrix outputs workaround
