@@ -459,6 +459,7 @@
       "sensitive_values": {
         "access_logs": [],
         "connection_logs": [],
+        "minimum_load_balancer_capacity": [],
         "security_groups": [],
         "subnet_mapping": [],
         "subnets": [],
@@ -483,6 +484,7 @@
         "idle_timeout": null,
         "internal": false,
         "load_balancer_type": "network",
+        "minimum_load_balancer_capacity": [],
         "name": "camunda-nlb-grpc",
         "preserve_host_header": null,
         "tags": null,
@@ -502,6 +504,7 @@
       "sensitive_values": {
         "access_logs": [],
         "connection_logs": [],
+        "minimum_load_balancer_capacity": [],
         "security_groups": [],
         "subnet_mapping": [],
         "subnets": [],
@@ -526,6 +529,7 @@
         "idle_timeout": 60,
         "internal": false,
         "load_balancer_type": "application",
+        "minimum_load_balancer_capacity": [],
         "name": "camunda-alb-webui",
         "preserve_host_header": false,
         "tags": null,

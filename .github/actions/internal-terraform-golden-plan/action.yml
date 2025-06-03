@@ -91,7 +91,7 @@ runs:
 
         - name: Post diff on PR
           if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
-          uses: int128/diff-action@11d13836f3903363aa010d55be585ed77c9d6ea8 # v1
+          uses: int128/diff-action@4919d5826a9bc511508659f6eeb6afff2f21053e # v1
           with:
               base: ${{ inputs.module-dir }}test/golden/tfplan-golden.json
               head: ${{ inputs.module-dir }}compare/tfplan-golden.json
