@@ -261,8 +261,24 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  # Here we verify the extraction of the env variables as presented in the documentation
+                  # Conditionally gather VPN config if private VPC is enabled
+                  if [[ "${{ matrix.distro.private_vpc }}" == "true" ]]; then
+                    echo "🔒 Private VPC is enabled. Gathering VPN client config..."
+                    cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/${{ matrix.scenario.name }}/terraform/vpn/
+                    ./procedure/gather-vpn-config.sh
 
+                    # Verify that the .ovpn file was created and is not empty
+                    if [[ -s "my-client.ovpn" ]]; then
+                      echo "✅ VPN config file 'my-client.ovpn' created successfully."
+                    else
+                      echo "❌ ERROR: 'my-client.ovpn' is missing or empty."
+                      exit 1
+                    fi
+
+                    cd -
+                  fi
+
+                  # Here we verify the extraction of the env variables as presented in the documentation
                   cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/${{ matrix.scenario.name }}/terraform/cluster/
                   source ./procedure/gather-cluster-login-id.sh
                   cd -
