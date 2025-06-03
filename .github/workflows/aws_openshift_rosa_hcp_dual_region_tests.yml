@@ -335,9 +335,8 @@ jobs:
             - name: 🔐 Login into the clusters
               timeout-minutes: 2
               run: |
-                  oc config current context
-                  oc --context="$CLUSTER_1_NAME" get nodes
-                  oc --context="$CLUSTER_2_NAME" get nodes
+                  oc config current-context
+                  # get nodes will be performed in the next step
 
             - name: 🏷️ Configure clusters informations
               timeout-minutes: 10
@@ -352,6 +351,10 @@ jobs:
 
                   echo "CLUSTER_1_NAME=$CLUSTER_1_NAME" | tee -a "$GITHUB_ENV"
                   echo "CLUSTER_2_NAME=$CLUSTER_2_NAME" | tee -a "$GITHUB_ENV"
+
+                  # ensure we are logged in
+                  oc --context="$CLUSTER_1_NAME" get nodes
+                  oc --context="$CLUSTER_2_NAME" get nodes
 
                   echo "📤 Export all env variables in GITHUB_ENV for consistency between steps"
                   env | while IFS= read -r line; do echo "$line" >> "$GITHUB_ENV"; done

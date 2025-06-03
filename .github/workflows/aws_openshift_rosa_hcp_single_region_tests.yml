@@ -322,7 +322,7 @@ jobs:
             - name: 🔐 Login into the cluster
               timeout-minutes: 2
               run: |
-                  oc config current context
+                  oc config current-context
                   oc get nodes
 
             - name: 📁 Get a copy of the reference architecture

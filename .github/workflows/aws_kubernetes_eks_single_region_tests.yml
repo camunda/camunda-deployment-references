@@ -396,7 +396,7 @@ jobs:
             - name: 🔐 Login into the cluster
               timeout-minutes: 2
               run: |
-                  kubectl config current context
+                  kubectl config current-context
                   kubectl get nodes
 
             - name: 📁 Get a copy of the reference architecture
