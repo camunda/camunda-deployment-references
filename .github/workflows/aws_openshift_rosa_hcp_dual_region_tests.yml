@@ -21,8 +21,8 @@ on:
             - .github/actions/aws-openshift-rosa-hcp-dual-region-cleanup/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
-            - .github/actions/internal-kube-config-encrypt-export/**
-            - .github/actions/internal-kube-config-decrypt-import/**
+            - .github/actions/internal-generic-encrypt-export/**
+            - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
 
     workflow_dispatch:
@@ -212,14 +212,19 @@ jobs:
                         "ci-event": "${{ github.event_name }}"
                       }
 
+            - name: Dump kubeconfig before encryption
+              run: |
+                  kubectl config view --raw > kubeconfig.yaml
+
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
-              uses: ./.github/actions/internal-kube-config-encrypt-export
+              uses: ./.github/actions/internal-generic-encrypt-export
               with:
+                  file_path: kubeconfig.yaml
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
-            - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
-              id: export_secrets
+            - name: Dump other secrets from the action # this is required to pass matrix outputs securely using artifacts
+              id: dump_secrets
               run: |
                   set -euo pipefail
 
@@ -228,10 +233,12 @@ jobs:
                     .["backup-bucket-s3-aws-secret-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-secret-access-key }}" |
                     .["backup-bucket-s3-bucket-name"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-bucket-name }}"' > sensitive_values.yaml
 
-                  openssl enc -aes-256-cbc -salt -in sensitive_values.yaml \
-                    -out encrypted_sensitive_values.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-                  encrypted_base64=$(base64 -w 0 encrypted_sensitive_values.enc)
-                  echo "encrypted_sensitive_values_raw=$encrypted_base64" >> "$GITHUB_OUTPUT"
+            - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
+              id: export_secrets
+              uses: ./.github/actions/internal-generic-encrypt-export
+              with:
+                  file_path: sensitive_values.yaml
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             ## Write for matrix outputs workaround
             - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
@@ -240,8 +247,8 @@ jobs:
                   matrix-step-name: ${{ github.job }}
                   matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
-                      kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.kubeconfig_encrypted }}
-                      sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_sensitive_values_raw }}
+                      kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
+                      sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_file_base64 }}
 
             - name: 🌐 Post-creation steps
               timeout-minutes: 20
@@ -311,10 +318,11 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
-            - name: 🔐 Login into the clusters
-              uses: ./.github/actions/internal-kube-config-decrypt-import
+            - name: 🔐 Retrieve kubeconfig from outputs
+              uses: ./.github/actions/internal-generic-decrypt-import
               with:
-                  encrypted_kubeconfig_base64: >
+                  output_path: ~/.kube/config
+                  encrypted_file_base64: >
                       ${{ fromJson(needs.access-info.outputs.config).kubeconfig_encrypted[
                         format(
                           '{0}-{1}',
@@ -323,6 +331,13 @@ jobs:
                         )
                       ] }}
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            - name: 🔐 Login into the clusters
+              timeout-minutes: 2
+              run: |
+                  oc config current context
+                  oc --context="$CLUSTER_1_NAME" get nodes
+                  oc --context="$CLUSTER_2_NAME" get nodes
 
             - name: 🏷️ Configure clusters informations
               timeout-minutes: 10

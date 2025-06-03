@@ -22,8 +22,8 @@ on:
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-helm-chart-tests/**
             - .github/actions/internal-apply-skip-label/**
-            - .github/actions/internal-kube-config-encrypt-export/**
-            - .github/actions/internal-kube-config-decrypt-import/**
+            - .github/actions/internal-generic-encrypt-export/**
+            - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
 
     workflow_dispatch:
@@ -211,10 +211,15 @@ jobs:
                         "ci-event": "${{ github.event_name }}"
                       }
 
+            - name: Dump kubeconfig before encryption
+              run: |
+                  kubectl config view --raw > kubeconfig.yaml
+
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
-              uses: ./.github/actions/internal-kube-config-encrypt-export
+              uses: ./.github/actions/internal-generic-encrypt-export
               with:
+                  file_path: kubeconfig.yaml
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             ## Write for matrix outputs workaround
@@ -224,7 +229,7 @@ jobs:
                   matrix-step-name: ${{ github.job }}
                   matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
-                      kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.kubeconfig_encrypted }}
+                      kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
 
             - name: 🌐 Post-creation steps
               timeout-minutes: 20
@@ -300,10 +305,11 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
-            - name: 🔐 Login into the cluster
-              uses: ./.github/actions/internal-kube-config-decrypt-import
+            - name: 🔐 Retrieve kubeconfig from outputs
+              uses: ./.github/actions/internal-generic-decrypt-import
               with:
-                  encrypted_kubeconfig_base64: >
+                  output_path: ~/.kube/config
+                  encrypted_file_base64: >
                       ${{ fromJson(needs.access-info.outputs.config).kubeconfig_encrypted[
                         format(
                           '{0}-{1}',
@@ -312,6 +318,12 @@ jobs:
                         )
                       ] }}
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            - name: 🔐 Login into the cluster
+              timeout-minutes: 2
+              run: |
+                  oc config current context
+                  oc get nodes
 
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
