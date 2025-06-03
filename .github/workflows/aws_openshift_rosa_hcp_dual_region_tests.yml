@@ -321,7 +321,7 @@ jobs:
             - name: 🔐 Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
               with:
-                  output_path: ~/.kube/config
+                  output_path: ${{ runner.temp }}/kubeconfig
                   encrypted_file_base64: >
                       ${{ fromJson(needs.access-info.outputs.config).kubeconfig_encrypted[
                         format(
@@ -335,6 +335,9 @@ jobs:
             - name: 🔐 Login into the clusters
               timeout-minutes: 2
               run: |
+                  mkdir -p "$HOME/.kube"
+                  mv "${{ runner.temp }}/kubeconfig" "$HOME/.kube/config"
+
                   oc config current-context
                   # get nodes will be performed in the next step
 
@@ -519,31 +522,37 @@ jobs:
 
                   ./verify-subctl.sh
 
+            - name: 🏗️ Retrieve exported Environment values from outputs
+              uses: ./.github/actions/internal-generic-decrypt-import
+              with:
+                  output_path: ${{ runner.temp }}/sensitive.yaml
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).sensitive_values_raw[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
             - name: 🏗️ Prepare the environment for the deployment
               timeout-minutes: 20
               run: |
                   set -euo pipefail
 
                   echo "Load outputs values from creation of the clusters"
-                  echo "${{
-                      fromJson(needs.access-info.outputs.config).sensitive_values_raw[
-                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
-                      ]
-                    }}" | base64 --decode > encrypted_sensitive.enc
-                  openssl enc -aes-256-cbc -d -in encrypted_sensitive.enc -out ./encrypted_sensitive.yaml -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-                  rm encrypted_sensitive.enc
 
                   # shellcheck disable=SC2086
-                  export BACKUP_BUCKET_S3_AWS_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-access-key"]' ./encrypted_sensitive.yaml)
+                  export BACKUP_BUCKET_S3_AWS_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-access-key"]' "${{ runner.temp }}/sensitive.yaml")
                   # protect sensitive values
                   echo "::add-mask::$BACKUP_BUCKET_S3_AWS_ACCESS_KEY"
                   # shellcheck disable=SC2086
-                  export BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-secret-access-key"]' ./encrypted_sensitive.yaml)
+                  export BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml")
                   # protect sensitive values
                   echo "::add-mask::$BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY"
                   # shellcheck disable=SC2086
-                  export BACKUP_BUCKET_S3_BUCKET_NAME=$(yq eval '.["backup-bucket-s3-bucket-name"]' ./encrypted_sensitive.yaml)
-                  rm ./encrypted_sensitive.yaml
+                  export BACKUP_BUCKET_S3_BUCKET_NAME=$(yq eval '.["backup-bucket-s3-bucket-name"]' "${{ runner.temp }}/sensitive.yaml")
 
                   echo "Setup environment values"
                   sed -i \

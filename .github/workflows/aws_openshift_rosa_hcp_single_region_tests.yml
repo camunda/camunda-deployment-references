@@ -308,7 +308,7 @@ jobs:
             - name: 🔐 Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
               with:
-                  output_path: ~/.kube/config
+                  output_path: ${{ runner.temp }}/kubeconfig
                   encrypted_file_base64: >
                       ${{ fromJson(needs.access-info.outputs.config).kubeconfig_encrypted[
                         format(
@@ -322,6 +322,9 @@ jobs:
             - name: 🔐 Login into the cluster
               timeout-minutes: 2
               run: |
+                  mkdir -p "$HOME/.kube"
+                  mv "${{ runner.temp }}/kubeconfig" "$HOME/.kube/config"
+
                   oc config current-context
                   oc get nodes
 

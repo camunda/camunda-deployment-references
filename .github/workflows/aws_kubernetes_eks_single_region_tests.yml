@@ -361,28 +361,34 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
+            - name: 🚢 Retrieve nvironment variables from outputs
+              uses: ./.github/actions/internal-generic-decrypt-import
+              with:
+                  output_path: ${{ runner.temp }}/outputs_raw
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).outputs_raw[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
             - name: 🚢 Export outputs as environment variables
               timeout-minutes: 3
               run: |
                   set -euo pipefail
 
-                  echo "${{
-                      fromJson(needs.access-info.outputs.config).outputs_raw[
-                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
-                      ]
-                    }}" | base64 --decode > encrypted_outputs_raw.enc
-                  openssl enc -aes-256-cbc -d -in encrypted_outputs_raw.enc -out "outputs_raw" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-                  rm encrypted_outputs_raw.enc
-
                   # Export the decrypted outputs as environment variables
                   while IFS= read -r line; do
                     echo "$line" | tee -a "$GITHUB_ENV"
-                  done < outputs_raw
+                  done < "${{ runner.temp }}/outputs_raw"
 
             - name: 🔐 Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
               with:
-                  output_path: ~/.kube/config
+                  output_path: ${{ runner.temp }}/kubeconfig
                   encrypted_file_base64: >
                       ${{ fromJson(needs.access-info.outputs.config).kubeconfig_encrypted[
                         format(
@@ -396,6 +402,9 @@ jobs:
             - name: 🔐 Login into the cluster
               timeout-minutes: 2
               run: |
+                  mkdir -p "$HOME/.kube"
+                  mv "${{ runner.temp }}/kubeconfig" "$HOME/.kube/config"
+
                   kubectl config current-context
                   kubectl get nodes
 
