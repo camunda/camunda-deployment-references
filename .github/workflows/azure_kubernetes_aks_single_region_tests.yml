@@ -94,6 +94,27 @@ jobs:
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
 
+    generate-matrix:
+        name: Generate test matrix
+        runs-on: ubuntu-latest
+        needs: triage
+        if: needs.triage.outputs.should_skip == 'false'
+        outputs:
+            platform_matrix: ${{ steps.gen.outputs.platform_matrix }}
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Generate Tests Matrix
+              id: gen
+              uses: ./.github/actions/internal-tests-matrix
+              with:
+                  ci_matrix_file: .github/workflows-config/azure-kubernetes-aks-single-region/test_matrix.yml
+                  is_schedule: ${{ env.IS_SCHEDULE }}
+                  is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
+
+                  cluster_name: ${{ github.event.inputs.cluster_name || '' }}
+
+
     prepare-clusters:
         name: Prepare clusters
         outputs:
@@ -262,13 +283,12 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - prepare-clusters
+            - generate-matrix
         strategy:
             fail-fast: false
             max-parallel: 1
-            matrix:
-                declination:
-                    # - name: no-domain
-                    - name: domain
+            matrix: ${{ fromJson(needs.generate-matrix.outputs.platform_matrix) }}
+
         env:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: kubernetes
