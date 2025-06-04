@@ -138,6 +138,7 @@ jobs:
 
         needs:
             - triage
+            - generate-matrix
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         env:
