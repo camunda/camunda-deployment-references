@@ -115,6 +115,7 @@ jobs:
             fail-fast: false
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -612,6 +613,7 @@ jobs:
             fail-fast: false
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -663,8 +665,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
-                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
-                  delete-ghost-clusters: 'false'
+                  tf-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     report-success:
         name: Report success
