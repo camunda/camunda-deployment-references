@@ -369,6 +369,7 @@ jobs:
                   tree
 
             - name: Ensure ACM and associated MultiCluster are not installed (in case of retry)
+              if: fromJson(github.run_attempt) > 1
               timeout-minutes: 25
               run: |
                   set -euo pipefail
@@ -447,15 +448,30 @@ jobs:
 
                   echo "⏳ Waiting for MultiClusterEngine to be deleted..."
                   SECONDS=0
-                  while oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management &>/dev/null; do
-                    echo 'Still waiting...'
-                    sleep 10
+                  while true; do
+                    output=$(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o yaml 2>/dev/null)
+
+                    if [[ -z "$output" || "$output" == *"items: []"* ]]; then
+                      echo "✅ MultiClusterEngine resource deleted or not found."
+                      break
+                    fi
+
+                    echo "MultiClusterEngine still exists, fetching details:"
+                    echo "$output"
 
                     if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
                       echo "⛔ Timeout reached — enforcing MultiClusterEngine finalizer removal!"
-                      oc --context="$CLUSTER_1_NAME" patch multiclusterengine multiclusterengine --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
+
+                      for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o jsonpath='{.items[*].metadata.name}'); do
+                        oc --context="$CLUSTER_1_NAME" patch multiclusterengine "$mce" \
+                          --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
+                      done
                       break
                     fi
+
+                    echo "Still waiting for MultiClusterEngine to be deleted..."
+                    sleep 10
+
                   done
 
                   echo "✅ ACM and related resources successfully uninstalled (with finalizer enforcement if needed)."
