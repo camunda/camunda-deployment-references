@@ -84,6 +84,7 @@ jobs:
 
             - name: Delete orphaned resources
               id: delete-orphaned-resources
+              continue-on-error: ${{ env.IS_SCHEDULE == 'true' }} # don't fail the workflow in case of schedule run
               timeout-minutes: 360
               if: always()
               uses: ./.github/actions/aws-eks-cleanup-resources
@@ -94,11 +95,17 @@ jobs:
                   max-age-hours: ${{ env.MAX_AGE_HOURS }}
                   target: all
 
+            # The previous step has a continue-on-error set to true in case of schedule run.
+            # This means that the workflow is not marked as failed, but the step is.
+            # We can't use the `if: failure()` condition here, as the overall job is succeeding.
+            # Instead, we check the outcome of the previous step and if it failed, we retry the deletion.
+            # If the retry fails, then the slack notification will be triggered as normally.
+
             # There are cases where the deletion of resources fails due to dependencies.
             - name: Retry delete orphaned resources (schedule only)
               id: retry-delete-orphaned-resources
               timeout-minutes: 360
-              if: failure() && steps.delete-orphaned-resources.outcome == 'failure' && env.IS_SCHEDULE == 'true'
+              if: steps.delete-orphaned-resources.outcome == 'failure' && env.IS_SCHEDULE == 'true'
               uses: ./.github/actions/aws-eks-cleanup-resources
               with:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
