@@ -215,13 +215,21 @@ jobs:
                       }
             - name: Dump kubeconfig before encryption
               run: |
-                  kubectl config view --raw > "${{ runner.temp }}/kubeconfig.yaml"
+                  set -euo pipefail
 
+                  kubectl config view --raw > "${{ runner.temp }}/kubeconfig.yaml"
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
               uses: ./.github/actions/internal-generic-encrypt-export
               with:
                   file_path: ${{ runner.temp }}/kubeconfig.yaml
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            - name: Export VPN config and encrypt it
+              id: export_configs
+              uses: ./.github/actions/internal-generic-encrypt-export
+              with:
+                  file_path: ${{ steps.create_cluster.outputs.vpn-client-config-file }}
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             ## Write for matrix outputs workaround
@@ -232,6 +240,7 @@ jobs:
                   matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
                       kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
+                      vpnconfig_encrypted: ${{ steps.export_configs.outputs.encrypted_file_base64 }}
 
             - name: 🌐 Post-creation steps
               timeout-minutes: 20
@@ -330,7 +339,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
-            - name: 🔓 Prepare VPN config
+            - name: 🛡️ Install OpenVPN Client
               if: ${{ matrix.distro.private_vpc == true }}
               run: |
                   set -euo pipefail
@@ -338,17 +347,20 @@ jobs:
                   sudo apt update
                   sudo apt install -y openvpn openvpn-systemd-resolved
 
-                  mkdir -p "$GITHUB_WORKSPACE/.vpn"
-                  echo "${{
-                      fromJson(needs.access-info.outputs.config).vpnconfig_raw[
-                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
-                      ]
-                    }}" | base64 --decode > encrypted_vpn_config.enc
-
-                  openssl enc -aes-256-cbc -d -in encrypted_vpn_config.enc -out "$GITHUB_WORKSPACE/.vpn/client.ovpn" \
-                    -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-                  rm encrypted_vpn_config.enc
-                  chmod 600 "$GITHUB_WORKSPACE/.vpn/client.ovpn"
+            - name: 🛡️ Retrieve VPN Config from outputs
+              uses: ./.github/actions/internal-generic-decrypt-import
+              if: ${{ matrix.distro.private_vpc == true }}
+              with:
+                  output_path: ${{ github.workspace }}/.vpn/client.ovpn
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).vpnconfig_encrypted[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             - name: 🛡️ Connect to VPN
               if: ${{ matrix.distro.private_vpc == true }}
@@ -374,6 +386,8 @@ jobs:
             - name: 🔐 Login into the cluster
               timeout-minutes: 2
               run: |
+                  set -euo pipefail
+
                   mkdir -p "$HOME/.kube"
                   mv "${{ runner.temp }}/kubeconfig" "$HOME/.kube/config"
 
