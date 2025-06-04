@@ -1,0 +1,82 @@
+---
+name: Generate Tests Matrix
+description: >
+    Generates a test matrix from a CI matrix file, applies filtering based on scheduling, and sets cluster names and scenarios.
+
+inputs:
+    cluster_name:
+        description: Optional cluster name to use, otherwise a random one is generated
+        default: ''
+    cluster_prefix:
+        description: Prefix of the cluster name in case of generated name
+        default: hci-
+    ref_arch:
+        description: Scenario name to use for filtering during workflow_dispatch
+        default: ''
+    ci_matrix_file:
+        description: Path to the CI matrix file
+        required: true
+    is_schedule:
+        description: Set to true if the run is scheduled
+        required: true
+    is_renovate_pr:
+        description: Set to true if the PR is from Renovate
+        required: true
+
+outputs:
+    platform_matrix:
+        description: The final platform matrix in JSON format
+        value: ${{ steps.matrix.outputs.platform_matrix }}
+
+runs:
+    using: composite
+    steps:
+        - name: Compute tests matrix
+          shell: bash
+          id: matrix
+          run: |
+              set -euo pipefail
+
+              # Generate cluster name.
+              distro_indexes="$(yq '.matrix.distro | to_entries | .[] | .key' "${{ inputs.ci_matrix_file }}")"
+
+              for distro_index in ${distro_indexes}; do
+                # limiting factor are OpenSearch domains of maximum 28 characters
+                cluster_name_fallback="${{ inputs.cluster_prefix }}$(uuidgen | head -c 5)"
+                export cluster_name="${{ inputs.cluster_name || '' }}"
+                if [[ -z "$cluster_name" ]]; then
+                  cluster_name="$cluster_name_fallback"
+                fi
+
+                export distro_index="${distro_index}"
+
+                # Maximum lenght for OpenSearch is 28 characters
+                cluster_name="${cluster_name:0:28}"
+                export cluster_name="${cluster_name}"
+
+                yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${{ inputs.ci_matrix_file }}"
+              done
+
+              echo "Filtering the matrix with strategy IS_SCHEDULE=${{ inputs.is_schedule }} or IS_RENOVATE_PR=${{ inputs.is_renovate_pr }}"
+              if [[ "${{ inputs.is_schedule }}" == "true" || "${{ inputs.is_renovate_pr }}" == "true" ]]; then
+                echo "This PR is scheduled or coming from renovate, we test all scenarios without filtering."
+                platform_matrix="$(yq '.matrix' --indent=0 --output-format json "${{ inputs.ci_matrix_file }}")"
+              else
+                platform_matrix="$(yq '(.matrix |= (.distro |= map(select(.schedule_only == null or .schedule_only == false)))) | .matrix' \
+                  --indent=0 --output-format json "${{ inputs.ci_matrix_file }}")"
+              fi
+
+              if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.ref_arch }}" != "" ]]; then
+                echo "Filtering based on supplied ref_arch: ${{ inputs.ref_arch }}"
+                platform_matrix="$(echo "${platform_matrix}" | yq '(.scenario |= map(select(.name == "${{ inputs.ref_arch }}")))' -o=json)"
+              fi
+
+              # Add shortName (short SHA of scenario.name)
+              platform_matrix="$(echo "${platform_matrix}" | jq -c '.scenario[]' | while read -r scenario; do
+                name=$(echo "$scenario" | jq -r '.name')
+                short_sha=$(echo -n "$name" | sha1sum | cut -c1-5)
+                echo "$scenario" | jq --arg short "$short_sha" '. + {shortName: $short}'
+              done | jq -c -s '{scenario: .}' | jq -c ". + $(echo "$platform_matrix" | jq -c 'del(.scenario)')")"
+
+              echo "${platform_matrix}" | jq
+              echo "platform_matrix=${platform_matrix}" >> "$GITHUB_OUTPUT"
