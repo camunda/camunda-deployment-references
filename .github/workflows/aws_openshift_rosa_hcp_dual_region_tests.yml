@@ -21,6 +21,9 @@ on:
             - .github/actions/aws-openshift-rosa-hcp-dual-region-cleanup/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-generic-encrypt-export/**
+            - .github/actions/internal-generic-decrypt-import/**
+            - .github/actions/internal-tests-matrix/**
 
     workflow_dispatch:
         inputs:
@@ -36,6 +39,16 @@ on:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
+
+            ref-arch:
+                description: |
+                    Reference architecture to use, can only deploy one at a time.
+                    Use a different trigger with unique names for each ref-arch.
+                    Valid values are `rosa-hcp-dual-region`.
+                    Only for workflow_dispatch.
+                required: false
+                type: string
+                default: rosa-hcp-dual-region
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -91,7 +104,7 @@ jobs:
         name: Define Matrix
         runs-on: ubuntu-latest
         outputs:
-            platform-matrix: ${{ steps.matrix.outputs.platform-matrix }}
+            platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
@@ -100,40 +113,15 @@ jobs:
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@4a6e40cedd9384a7b607ff631769d76edb2d938e # 1.4.1
 
-            - id: matrix
-              # we define a global matrix in an external file due to https://github.com/orgs/community/discussions/26284
-              run: |
-                  set -euo pipefail
-
-                  # Generate cluster name.
-                  # shellcheck disable=SC2086
-                  distro_indexes="$(yq '.matrix.distro | to_entries | .[] | .key' ${CI_MATRIX_FILE})"
-
-                  # Loop over clusters.
-                  # Vars are exported to pass them to yq instead of local inline syntax.
-                  # shellcheck disable=SC2086
-                  for distro_index in ${distro_indexes}; do
-                    cluster_name_input="${{ inputs.cluster_name }}"
-                    cluster_name_fallback="hci-$(uuidgen | head -c 8)"
-                    export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
-
-                    export distro_index="${distro_index}"
-                    yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${CI_MATRIX_FILE}"
-                  done
-
-                  echo "Filtering the matrix with strategy IS_SCHEDULE=$IS_SCHEDULE"
-                  if [[ "$IS_SCHEDULE" == "true" || "$IS_RENOVATE_PR" == "true" ]]; then
-                    echo "This PR is scheduled or coming from renovate, we test all scenarios without filtering."
-                    # shellcheck disable=SC2086
-                    platform_matrix="$(yq '.matrix' --indent=0 --output-format json ${CI_MATRIX_FILE})"
-                  else
-                    # shellcheck disable=SC2086
-                    platform_matrix="$(yq '(.matrix |= (.distro |= map(select(.schedule_only == null or .schedule_only == false)))) | .matrix' \
-                        --indent=0 --output-format json "${CI_MATRIX_FILE}")"
-                  fi
-
-                  echo "${platform_matrix}" | jq
-                  echo "platform-matrix=${platform_matrix}" > "$GITHUB_OUTPUT"
+            - name: Define tests matrix
+              uses: ./.github/actions/internal-tests-matrix
+              id: matrix
+              with:
+                  ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
+                  cluster_name: ${{ inputs.cluster_name }}
+                  ref_arch: ${{ inputs.ref-arch }}
+                  is_schedule: ${{ env.IS_SCHEDULE }}
+                  is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
     prepare-clusters:
         name: Prepare clusters
@@ -195,8 +183,8 @@ jobs:
               if: always() && success()
               with:
                   rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
-                  cluster-name-1: ${{ matrix.distro.clusterName }}-1
-                  cluster-name-2: ${{ matrix.distro.clusterName }}-2
+                  cluster-name-1: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1
+                  cluster-name-2: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-2
                   admin-username-cluster-1: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
                   admin-username-cluster-2: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
                   admin-password-cluster-1: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
@@ -224,31 +212,33 @@ jobs:
                         "ci-event": "${{ github.event_name }}"
                       }
 
+            - name: Dump kubeconfig before encryption
+              run: |
+                  kubectl config view --raw > "${{ runner.temp }}/kubeconfig.yaml"
+
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
               id: export_kube_config
-              run: |
-                  set -euo pipefail
+              uses: ./.github/actions/internal-generic-encrypt-export
+              with:
+                  file_path: ${{ runner.temp }}/kubeconfig.yaml
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
-                  # shellcheck disable=SC2005
-                  kubectl config view --raw > kubeconfig.yaml 2>/dev/null
-                  openssl enc -aes-256-cbc -salt -in kubeconfig.yaml -out encrypted_kubeconfig.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-                  encrypted_kubeconfig_base64=$(base64 -w 0 encrypted_kubeconfig.enc)
-                  echo "kubeconfig_raw=${encrypted_kubeconfig_base64}" >> "$GITHUB_OUTPUT"
-
-            - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
-              id: export_secrets
+            - name: Dump other secrets from the action # this is required to pass matrix outputs securely using artifacts
+              id: dump_secrets
               run: |
                   set -euo pipefail
 
                   yq eval -n \
                     '.["backup-bucket-s3-aws-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-access-key }}" |
                     .["backup-bucket-s3-aws-secret-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-secret-access-key }}" |
-                    .["backup-bucket-s3-bucket-name"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-bucket-name }}"' > sensitive_values.yaml
+                    .["backup-bucket-s3-bucket-name"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-bucket-name }}"' > "${{ runner.temp }}/sensitive_values.yaml"
 
-                  openssl enc -aes-256-cbc -salt -in sensitive_values.yaml \
-                    -out encrypted_sensitive_values.enc -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-                  encrypted_base64=$(base64 -w 0 encrypted_sensitive_values.enc)
-                  echo "encrypted_sensitive_values_raw=$encrypted_base64" >> "$GITHUB_OUTPUT"
+            - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
+              id: export_secrets
+              uses: ./.github/actions/internal-generic-encrypt-export
+              with:
+                  file_path: ${{ runner.temp }}/sensitive_values.yaml
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             ## Write for matrix outputs workaround
             - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
@@ -257,8 +247,8 @@ jobs:
                   matrix-step-name: ${{ github.job }}
                   matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
-                      kubeconfig_raw: ${{ steps.export_kube_config.outputs.kubeconfig_raw }}
-                      sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_sensitive_values_raw }}
+                      kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
+                      sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_file_base64 }}
 
             - name: 🌐 Post-creation steps
               timeout-minutes: 20
@@ -279,7 +269,7 @@ jobs:
         runs-on: ubuntu-latest
         needs: prepare-clusters
         outputs:
-            kubeconfig: ${{ steps.read-workflow.outputs.result }}
+            config: ${{ steps.read-workflow.outputs.result }}
         steps:
             - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
               id: read-workflow
@@ -328,34 +318,46 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
-            - name: 🔐 Login into the clusters
-              timeout-minutes: 10
-              run: |
-                  set -euo pipefail
+            - name: 🔐 Retrieve kubeconfig from outputs
+              uses: ./.github/actions/internal-generic-decrypt-import
+              with:
+                  output_path: ${{ runner.temp }}/kubeconfig
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).kubeconfig_encrypted[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
+            - name: 🔐 Login into the clusters
+              timeout-minutes: 2
+              run: |
                   mkdir -p "$HOME/.kube"
-                  echo "${{
-                      fromJson(needs.access-info.outputs.kubeconfig).kubeconfig_raw[
-                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
-                      ]
-                    }}" | base64 --decode > encrypted_kubeconfig.enc
-                  openssl enc -aes-256-cbc -d -in encrypted_kubeconfig.enc -out "$HOME/.kube/config" -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-                  rm encrypted_kubeconfig.enc
-                  chmod 600 "$HOME/.kube/config"
+                  mv "${{ runner.temp }}/kubeconfig" "$HOME/.kube/config"
+
+                  oc config current-context
+                  # get nodes will be performed in the next step
 
             - name: 🏷️ Configure clusters informations
               timeout-minutes: 10
               run: |
                   set -euo pipefail
 
-                  sed -i -e 's/^export CLUSTER_1_NAME=".*"/export CLUSTER_1_NAME="${{ matrix.distro.clusterName }}-1"/' \
-                         -e 's/^export CLUSTER_2_NAME=".*"/export CLUSTER_2_NAME="${{ matrix.distro.clusterName }}-2"/' \
+                  sed -i -e 's/^export CLUSTER_1_NAME=".*"/export CLUSTER_1_NAME="${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1"/' \
+                         -e 's/^export CLUSTER_2_NAME=".*"/export CLUSTER_2_NAME="${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-2"/' \
                         generic/openshift/dual-region/procedure/set-cluster-names.sh
 
                   source ./generic/openshift/dual-region/procedure/set-cluster-names.sh
 
                   echo "CLUSTER_1_NAME=$CLUSTER_1_NAME" | tee -a "$GITHUB_ENV"
                   echo "CLUSTER_2_NAME=$CLUSTER_2_NAME" | tee -a "$GITHUB_ENV"
+
+                  # ensure we are logged in
+                  oc --context="$CLUSTER_1_NAME" get nodes
+                  oc --context="$CLUSTER_2_NAME" get nodes
 
                   echo "📤 Export all env variables in GITHUB_ENV for consistency between steps"
                   env | while IFS= read -r line; do echo "$line" >> "$GITHUB_ENV"; done
@@ -368,7 +370,9 @@ jobs:
                   ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
-            - name: Ensure ACM and associated MultiCluster are not installed (in case of retry)
+            # It's expected to always run in case an existing cluster is present.
+            # E.g. manual development deployment.
+            - name: Ensure ACM and associated MultiCluster are not installed
               timeout-minutes: 25
               run: |
                   set -euo pipefail
@@ -445,18 +449,40 @@ jobs:
                   echo "Uninstalling ACM Install Manifest..."
                   oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/install-manifest.yml || true
 
-                  echo "⏳ Waiting for MultiClusterEngine to be deleted..."
-                  SECONDS=0
-                  while oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management &>/dev/null; do
-                    echo 'Still waiting...'
-                    sleep 10
+                  # Check if the CRD exists before attempting to delete a resource
+                  if oc --context="$CLUSTER_1_NAME" get crd multiclusterengines.multicluster.openshift.io >/dev/null 2>&1; then
+                    echo "CRD found, attempting to delete MultiClusterEngine..."
 
-                    if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
-                      echo "⛔ Timeout reached — enforcing MultiClusterEngine finalizer removal!"
-                      oc --context="$CLUSTER_1_NAME" patch multiclusterengine multiclusterengine --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
-                      break
-                    fi
-                  done
+                    echo "⏳ Waiting for MultiClusterEngine to be deleted..."
+                    SECONDS=0
+                    while true; do
+                      output=$(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o yaml 2>/dev/null)
+
+                      if [[ -z "$output" || "$output" == *"items: []"* ]]; then
+                        echo "✅ MultiClusterEngine resource deleted or not found."
+                        break
+                      fi
+
+                      echo "MultiClusterEngine still exists, fetching details:"
+                      echo "$output"
+
+                      if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
+                        echo "⛔ Timeout reached — enforcing MultiClusterEngine finalizer removal!"
+
+                        for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o jsonpath='{.items[*].metadata.name}'); do
+                          oc --context="$CLUSTER_1_NAME" patch multiclusterengine "$mce" \
+                            --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
+                        done
+                        break
+                      fi
+
+                      echo "Still waiting for MultiClusterEngine to be deleted..."
+                      sleep 10
+
+                    done
+                  else
+                    echo "MultiClusterEngine CRD not found. Skipping deletion."
+                  fi
 
                   echo "✅ ACM and related resources successfully uninstalled (with finalizer enforcement if needed)."
 
@@ -520,36 +546,42 @@ jobs:
 
                   ./verify-subctl.sh
 
+            - name: 🏗️ Retrieve exported Environment values from outputs
+              uses: ./.github/actions/internal-generic-decrypt-import
+              with:
+                  output_path: ${{ runner.temp }}/sensitive.yaml
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).sensitive_values_raw[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
             - name: 🏗️ Prepare the environment for the deployment
               timeout-minutes: 20
               run: |
                   set -euo pipefail
 
                   echo "Load outputs values from creation of the clusters"
-                  echo "${{
-                      fromJson(needs.access-info.outputs.kubeconfig).sensitive_values_raw[
-                        format('{0}-{1}', matrix.distro.name, matrix.scenario.name)
-                      ]
-                    }}" | base64 --decode > encrypted_sensitive.enc
-                  openssl enc -aes-256-cbc -d -in encrypted_sensitive.enc -out ./encrypted_sensitive.yaml -pass pass:"${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}" -pbkdf2
-                  rm encrypted_sensitive.enc
 
                   # shellcheck disable=SC2086
-                  export BACKUP_BUCKET_S3_AWS_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-access-key"]' ./encrypted_sensitive.yaml)
+                  export BACKUP_BUCKET_S3_AWS_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-access-key"]' "${{ runner.temp }}/sensitive.yaml")
                   # protect sensitive values
                   echo "::add-mask::$BACKUP_BUCKET_S3_AWS_ACCESS_KEY"
                   # shellcheck disable=SC2086
-                  export BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-secret-access-key"]' ./encrypted_sensitive.yaml)
+                  export BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml")
                   # protect sensitive values
                   echo "::add-mask::$BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY"
                   # shellcheck disable=SC2086
-                  export BACKUP_BUCKET_S3_BUCKET_NAME=$(yq eval '.["backup-bucket-s3-bucket-name"]' ./encrypted_sensitive.yaml)
-                  rm ./encrypted_sensitive.yaml
+                  export BACKUP_BUCKET_S3_BUCKET_NAME=$(yq eval '.["backup-bucket-s3-bucket-name"]' "${{ runner.temp }}/sensitive.yaml")
 
                   echo "Setup environment values"
                   sed -i \
-                    -e "s#^export CLUSTER_1_NAME=\".*\"#export CLUSTER_1_NAME=\"${{ matrix.distro.clusterName }}-1\"#" \
-                    -e "s#^export CLUSTER_2_NAME=\".*\"#export CLUSTER_2_NAME=\"${{ matrix.distro.clusterName }}-2\"#" \
+                    -e "s#^export CLUSTER_1_NAME=\".*\"#export CLUSTER_1_NAME=\"${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1\"#" \
+                    -e "s#^export CLUSTER_2_NAME=\".*\"#export CLUSTER_2_NAME=\"${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-2\"#" \
                     -e "s#^export CLUSTER_1_REGION=\".*\"#export CLUSTER_1_REGION=\"${{ env.CLUSTER_1_AWS_REGION }}\"#" \
                     -e "s#^export CLUSTER_2_REGION=\".*\"#export CLUSTER_2_REGION=\"${{ env.CLUSTER_2_AWS_REGION }}\"#" \
                     -e "s#^export AWS_ACCESS_KEY_ES=\".*\"#export AWS_ACCESS_KEY_ES=\"${BACKUP_BUCKET_S3_AWS_ACCESS_KEY}\"#" \
@@ -803,7 +835,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
-                  target: ${{ matrix.distro.clusterName }}
+                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     report-success:

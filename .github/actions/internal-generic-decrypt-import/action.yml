@@ -1,0 +1,34 @@
+---
+name: Generic File Decryption
+description: |
+    This GitHub Action decrypts a base64-encoded, AES-256-CBC encrypted file
+    and writes the decrypted content to a specified output path.
+
+inputs:
+    encrypted_file_base64:
+        description: Base64-encoded encrypted file content
+        required: true
+    encryption_key:
+        description: Encryption key to decrypt the file
+        required: true
+    output_path:
+        description: Path where the decrypted file will be saved
+        required: true
+
+runs:
+    using: composite
+    steps:
+        - shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "${{ inputs.encrypted_file_base64 }}" | base64 --decode > encrypted_file.enc
+              mkdir -p "$(dirname "${{ inputs.output_path }}")"
+
+              openssl enc -aes-256-cbc -d \
+                -in encrypted_file.enc \
+                -out "${{ inputs.output_path }}" \
+                -pass pass:"${{ inputs.encryption_key }}" \
+                -pbkdf2
+              rm encrypted_file.enc
+              chmod 600 "${{ inputs.output_path }}"
