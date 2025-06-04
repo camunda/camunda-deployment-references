@@ -361,7 +361,7 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            - name: 🚢 Retrieve nvironment variables from outputs
+            - name: 🚢 Retrieve environment variables from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
               with:
                   output_path: ${{ runner.temp }}/outputs_raw
