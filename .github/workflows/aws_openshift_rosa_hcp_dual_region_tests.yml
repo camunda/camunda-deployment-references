@@ -364,7 +364,9 @@ jobs:
                   ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
-            - name: Ensure ACM and associated MultiCluster are not installed (in case of retry)
+            # It's expected to always run in case an existing cluster is present.
+            # E.g. manual development deployment.
+            - name: Ensure ACM and associated MultiCluster are not installed
               timeout-minutes: 25
               run: |
                   set -euo pipefail
@@ -441,18 +443,40 @@ jobs:
                   echo "Uninstalling ACM Install Manifest..."
                   oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/install-manifest.yml || true
 
-                  echo "⏳ Waiting for MultiClusterEngine to be deleted..."
-                  SECONDS=0
-                  while oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management &>/dev/null; do
-                    echo 'Still waiting...'
-                    sleep 10
+                  # Check if the CRD exists before attempting to delete a resource
+                  if oc --context="$CLUSTER_1_NAME" get crd multiclusterengines.multicluster.openshift.io >/dev/null 2>&1; then
+                    echo "CRD found, attempting to delete MultiClusterEngine..."
 
-                    if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
-                      echo "⛔ Timeout reached — enforcing MultiClusterEngine finalizer removal!"
-                      oc --context="$CLUSTER_1_NAME" patch multiclusterengine multiclusterengine --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
-                      break
-                    fi
-                  done
+                    echo "⏳ Waiting for MultiClusterEngine to be deleted..."
+                    SECONDS=0
+                    while true; do
+                      output=$(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o yaml 2>/dev/null)
+
+                      if [[ -z "$output" || "$output" == *"items: []"* ]]; then
+                        echo "✅ MultiClusterEngine resource deleted or not found."
+                        break
+                      fi
+
+                      echo "MultiClusterEngine still exists, fetching details:"
+                      echo "$output"
+
+                      if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
+                        echo "⛔ Timeout reached — enforcing MultiClusterEngine finalizer removal!"
+
+                        for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o jsonpath='{.items[*].metadata.name}'); do
+                          oc --context="$CLUSTER_1_NAME" patch multiclusterengine "$mce" \
+                            --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
+                        done
+                        break
+                      fi
+
+                      echo "Still waiting for MultiClusterEngine to be deleted..."
+                      sleep 10
+
+                    done
+                  else
+                    echo "MultiClusterEngine CRD not found. Skipping deletion."
+                  fi
 
                   echo "✅ ACM and related resources successfully uninstalled (with finalizer enforcement if needed)."
             - name: 🚢 Configure ACM
