@@ -1,0 +1,45 @@
+---
+name: Generic File Encryption and Export
+
+description: >
+    This GitHub Action encrypts a specified file using OpenSSL with AES-256-CBC,
+    and returns the encrypted content base64-encoded. Useful for securely handling
+    sensitive files in workflows.
+
+inputs:
+    file_path:
+        description: Path to the file to encrypt
+        required: true
+    encryption_key:
+        description: Encryption key to encrypt the file
+        required: true
+
+outputs:
+    encrypted_file_base64:
+        description: Base64-encoded encrypted file content
+        value: ${{ steps.encrypt.outputs.encrypted_file_base64 }}
+
+runs:
+    using: composite
+    steps:
+        - shell: bash
+          id: encrypt
+          run: |
+              set -euo pipefail
+
+              if [[ ! -f "${{ inputs.file_path }}" ]]; then
+                echo "File not found: ${{ inputs.file_path }}"
+                exit 1
+              fi
+
+              openssl enc -aes-256-cbc -salt \
+                -in "${{ inputs.file_path }}" \
+                -out encrypted_file.enc \
+                -pass pass:"${{ inputs.encryption_key }}" \
+                -pbkdf2
+
+              encrypted_file_base64=$(base64 -w 0 encrypted_file.enc)
+
+              echo "encrypted_file_base64=$encrypted_file_base64" >> "$GITHUB_OUTPUT"
+
+              rm -f encrypted_file.enc
