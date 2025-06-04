@@ -201,7 +201,7 @@ jobs:
               id: out
               with:
                   matrix-step-name: ${{ github.job }}
-                  matrix-key: ${{ matrix.distro.name }}
+                  matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
                       kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
 
