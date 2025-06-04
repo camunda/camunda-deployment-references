@@ -359,7 +359,7 @@ jobs:
                   kubectl get nodes
 
             - name: 🏗️ Ingress Setup prerequisites
-              if: ${{ matrix.declination.name == 'domain' }}
+              if: ${{ matrix.scenario.name == 'domain' }}
               run: |
                   set -euo pipefail
 
@@ -437,7 +437,7 @@ jobs:
 
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
-            - name: 🛠️ Assemble deployment values of azure/kubernetes/aks-single-region/${{ matrix.declination.name }}
+            - name: 🛠️ Assemble deployment values of azure/kubernetes/aks-single-region/${{ matrix.scenario.name }}
               timeout-minutes: 10
               run: |
                   set -o errexit
@@ -445,9 +445,9 @@ jobs:
 
                   echo "Construct the values.yml file"
 
-                  cp -f azure/kubernetes/aks-single-region/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
+                  cp -f azure/kubernetes/aks-single-region/helm-values/values-${{ matrix.scenario.name }}.yml ./values.yml
 
-                  if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
+                  if [[ "${{ matrix.scenario.name }}" == "domain" ]]; then
                     export DOMAIN_NAME="${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}-aks-single-region.${{ env.TLD }}"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
@@ -589,7 +589,7 @@ jobs:
                   kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
 
             - name: 🧹 Cleanup domain specific resources
-              if: always() && matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'true'
+              if: always() && matrix.scenario.name == 'domain' && env.CLEANUP_CLUSTERS == 'true'
               run: |
                   set -euo pipefail
 
