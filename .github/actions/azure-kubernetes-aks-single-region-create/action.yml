@@ -192,5 +192,6 @@ runs:
         - name: Apply and verify storage class
           shell: bash
           run: |
+              cp ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/manifests/storage-class.yml .
               ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/procedure/storageclass-configure.sh
               ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/procedure/storageclass-verify.sh
