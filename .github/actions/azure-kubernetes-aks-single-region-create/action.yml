@@ -189,12 +189,8 @@ runs:
               kubectl config current-context
               kubectl get nodes
 
-        - name: Apply storage class
+        - name: Apply and verify storage class
           shell: bash
           run: |
-              set -euo pipefail
-              # Remove “default” flag from the original class before applying the new one
-              kubectl patch storageclass default \
-                -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
-              kubectl apply -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
-              sleep 30
+              ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/procedure/storageclass-configure.sh
+              ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/procedure/storageclass-verify.sh
