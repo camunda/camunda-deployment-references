@@ -71,6 +71,7 @@ env:
 
     # TEST VARIABLES
 
+    CI_MATRIX_FILE: .github/workflows-config/azure-kubernetes-aks-single-region/test_matrix.yml
     # Docker Hub auth to avoid image pull rate limit.
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
@@ -108,7 +109,7 @@ jobs:
               id: gen
               uses: ./.github/actions/internal-tests-matrix
               with:
-                  ci_matrix_file: .github/workflows-config/azure-kubernetes-aks-single-region/test_matrix.yml
+                  ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
