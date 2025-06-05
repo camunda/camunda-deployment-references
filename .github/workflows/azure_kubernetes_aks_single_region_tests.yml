@@ -211,13 +211,7 @@ jobs:
                   RG="${{ inputs.resource-group-name }}"
 
                   if [[ -z "$PREFIX" ]]; then
-                    PR_NUMBER=0
-                    if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-                      # for pull_request events, pull in the PR number
-                      PR_NUMBER="$(jq --raw-output .pull_request.number < "$GITHUB_EVENT_PATH")"
-                    fi
-                    SFX="$(head /dev/urandom | tr -dc 'a-z0-9' | head -c5)"
-                    PREFIX="camunda-${PR_NUMBER}-${SFX}"
+                    PREFIX="${{ (fromJson(needs.clusters-info.outputs.platform_matrix).distro)[0].clusterName }}"
                   fi
 
                   if [[ -z "$CLUSTER" ]]; then
