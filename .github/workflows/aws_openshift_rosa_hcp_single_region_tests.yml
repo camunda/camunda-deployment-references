@@ -251,7 +251,7 @@ jobs:
                   if [[ "${{ matrix.distro.private_vpc }}" == "true" ]]; then
                     echo "🔒 Private VPC is enabled. Gathering VPN client config..."
                     cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/${{ matrix.scenario.name }}/terraform/vpn/
-                    ./../procedure/gather-vpn-config.sh
+                    ./../../procedure/gather-vpn-config.sh
 
                     # Verify that the .ovpn file was created and is not empty
                     if [[ -s "my-client.ovpn" ]]; then
@@ -266,7 +266,7 @@ jobs:
 
                   # Here we verify the extraction of the env variables as presented in the documentation
                   cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/${{ matrix.scenario.name }}/terraform/cluster/
-                  source ./../procedure/gather-cluster-login-id.sh
+                  source ./../../procedure/gather-cluster-login-id.sh
                   cd -
 
                   echo "CLUSTER_NAME=$CLUSTER_NAME"
