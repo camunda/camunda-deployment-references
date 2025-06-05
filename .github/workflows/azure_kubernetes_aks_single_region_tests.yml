@@ -144,12 +144,13 @@ jobs:
             DB_WEBMODELER_USERNAME: ${{ steps.db_env.outputs.DB_WEBMODELER_USERNAME }}
             DB_WEBMODELER_PASSWORD: ${{ steps.db_env.outputs.DB_WEBMODELER_PASSWORD }}
 
-            RESOURCE_PREFIX: ${{ steps.generate_names.outputs.RESOURCE_PREFIX }}
-            RESOURCE_GROUP_NAME: ${{ steps.generate_names.outputs.RESOURCE_GROUP_NAME }}
-            CLUSTER_NAME: ${{ steps.generate_names.outputs.CLUSTER_NAME }}
-
         needs:
             - clusters-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         env:
             TF_MODULES_PATH: ./.action-tf-modules/azure-kubernetes-aks-single-region-create/
@@ -200,31 +201,6 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-            - name: Generate resource names
-              id: generate_names
-              shell: bash
-              run: |
-                  set -euo pipefail
-
-                  PREFIX="${{ inputs.resource-prefix }}"
-                  CLUSTER="${{ inputs.cluster_name }}"
-                  RG="${{ inputs.resource-group-name }}"
-
-                  if [[ -z "$PREFIX" ]]; then
-                    PREFIX="${{ (fromJson(needs.clusters-info.outputs.platform-matrix).distro)[0].clusterName }}"
-                  fi
-
-                  if [[ -z "$CLUSTER" ]]; then
-                    CLUSTER="${PREFIX}-aks"
-                  fi
-                  if [[ -z "$RG" ]]; then
-                    RG="${PREFIX}-rg"
-                  fi
-
-                  echo "RESOURCE_PREFIX=${PREFIX}" | tee -a "$GITHUB_OUTPUT"
-                  echo "CLUSTER_NAME=${CLUSTER}" | tee -a "$GITHUB_OUTPUT"
-                  echo "RESOURCE_GROUP_NAME=${RG}" | tee -a "$GITHUB_OUTPUT"
-
             - name: Export S3_BACKEND_BUCKET
               id: s3_prefix
               run: |
@@ -237,9 +213,9 @@ jobs:
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               with:
-                  resource-prefix: ${{ steps.generate_names.outputs.RESOURCE_PREFIX }}
-                  cluster-name: ${{ steps.generate_names.outputs.CLUSTER_NAME }}
-                  resource-group-name: ${{ steps.generate_names.outputs.RESOURCE_GROUP_NAME }}
+                  resource-prefix: ${{ matrix.distro.clusterName }}
+                  cluster-name: ${{ matrix.distro.clusterName }}-aks
+                  resource-group-name: ${{ matrix.distro.clusterName }}-rg
                   location: ${{ env.AZURE_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -364,8 +340,8 @@ jobs:
                   # TODO: this is supposed to be part of the action that creates the cluster
                   # in the tests, we are supposed to use the exported kubeconfig
                   set -euo pipefail
-                  az aks get-credentials --resource-group "${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}" \
-                    --name "${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}" --overwrite-existing
+                  az aks get-credentials --resource-group "${{ matrix.distro.clusterName }}-rg" \
+                    --name "${{ matrix.distro.clusterName }}-aks" --overwrite-existing
 
                   kubectl config current-context
                   kubectl get nodes
@@ -573,7 +549,7 @@ jobs:
                   camunda-domain-grpc: ${{ env.DOMAIN_NAME_GRPC }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
-                  elasticsearch-enabled: 'false'
+                  elasticsearch-enabled: 'true'
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
@@ -593,7 +569,7 @@ jobs:
                   done
 
             - name: 🧹 Cleanup Namespace
-              if: always()
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
               run: |
                   set -euo pipefail
 
@@ -616,9 +592,15 @@ jobs:
         if: always()
         needs:
             - prepare-clusters
-            - triage
+            - clusters-info
             - integration-tests
         runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -654,8 +636,8 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-                  az aks get-credentials --resource-group "${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}" \
-                    --name "${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}" --overwrite-existing
+                  az aks get-credentials --resource-group "${{ matrix.distro.clusterName }}-rg" \
+                    --name "${{ matrix.distro.clusterName }}-aks" --overwrite-existing
 
             - name: Delete storage class
               run: |
@@ -684,7 +666,7 @@ jobs:
               id: s3_prefix
               run: |
                   set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/aks-single-region/" | tee -a "$GITHUB_OUTPUT"
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand AKS Cluster
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
@@ -694,7 +676,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
-                  target: ${{ needs.prepare-clusters.outputs.RESOURCE_GROUP_NAME }}
+                  target: ${{ matrix.distro.clusterName }}-rg
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
     report-success:
