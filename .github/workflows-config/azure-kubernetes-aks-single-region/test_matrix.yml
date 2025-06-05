@@ -1,9 +1,14 @@
 ---
 matrix:
     distro:
-        - {}
+        - name: AKS
+          schedule_only: false
+
     scenario:
+        - name: aks-single-region
+
+    declination:
         - name: no-domain
-          schedule_only: false
+          desc: Setup chart in production-like setup without Ingress and TLS.
         - name: domain
-          schedule_only: false
+          desc: Setup chart in production-like setup with Ingress and TLS.
