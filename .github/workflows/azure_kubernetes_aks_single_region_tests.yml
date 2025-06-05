@@ -111,7 +111,7 @@ jobs:
         needs: triage
         if: needs.triage.outputs.should_skip == 'false'
         outputs:
-            platform_matrix: ${{ steps.gen.outputs.platform_matrix }}
+            platform-matrix: ${{ steps.gen.outputs.platform_matrix }}
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
@@ -211,7 +211,7 @@ jobs:
                   RG="${{ inputs.resource-group-name }}"
 
                   if [[ -z "$PREFIX" ]]; then
-                    PREFIX="${{ (fromJson(needs.clusters-info.outputs.platform_matrix).distro)[0].clusterName }}"
+                    PREFIX="${{ (fromJson(needs.clusters-info.outputs.platform-matrix).distro)[0].clusterName }}"
                   fi
 
                   if [[ -z "$CLUSTER" ]]; then
@@ -286,13 +286,21 @@ jobs:
     integration-tests:
         name: Run integration tests
         runs-on: ubuntu-latest
+        concurrency:
+            # instead of running sequentially in a matrix, we use concurrency to run the different scenarios
+            # in parallel but the declinations sequentially
+            # max-parallel would limit us to run 1 matrix job but this way we can run 2 jobs in parallel.
+            group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.distro.name }}-${{ matrix.scenario.name }}
+            cancel-in-progress: false
         needs:
             - prepare-clusters
             - clusters-info
         strategy:
             fail-fast: false
-            max-parallel: 1
-            matrix: ${{ fromJson(needs.clusters-info.outputs.platform_matrix) }}
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
 
         env:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
@@ -374,7 +382,8 @@ jobs:
 
                   ./azure/kubernetes/aks-single-region/procedure/install-ingress-nginx.sh
 
-                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ needs.prepare-clusters.outputs.CLUSTER_NAME }}-aks-single-region"
+                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}"
+
                   ./azure/kubernetes/aks-single-region/procedure/install-external-dns.sh
 
                   export AZURE_SUBSCRIPTION_ID="${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}"
