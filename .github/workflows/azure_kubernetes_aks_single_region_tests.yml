@@ -71,7 +71,6 @@ env:
     TLD: azure.camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
     AZURE_DNS_RESOURCE_GROUP: rg-infraex-global-permanent
-    AZURE_DNS_ZONE: azure.camunda.ie
 
 
     # Test environment for cloud provider, please keep it synced between the workflows
@@ -362,6 +361,10 @@ jobs:
 
                   ./azure/kubernetes/aks-single-region/procedure/install-external-dns.sh
 
+                  source azure/kubernetes/aks-single-region/procedure/export-domain-setup-vars.sh
+
+                  # Overwriting dummy values
+                  export AZURE_DNS_RESOURCE_GROUP="${{ env.AZURE_DNS_RESOURCE_GROUP }}"
                   export AZURE_SUBSCRIPTION_ID="${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}"
                   ./azure/kubernetes/aks-single-region/procedure/external-dns-azure-config.sh
 
@@ -369,6 +372,7 @@ jobs:
 
                   ./azure/kubernetes/aks-single-region/procedure/install-cert-manager.sh
 
+                  export AZURE_DNS_ZONE="${{ env.TLD }}"
                   ./azure/kubernetes/aks-single-region/procedure/install-cert-manager-issuer.sh
 
 
