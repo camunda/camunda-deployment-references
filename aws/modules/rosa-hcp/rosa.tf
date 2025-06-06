@@ -53,8 +53,9 @@ module "rosa_hcp" {
   replicas               = var.replicas
   aws_availability_zones = length(var.aws_availability_zones) > 0 ? var.aws_availability_zones : module.vpc.availability_zones
 
-  aws_subnet_ids = concat(
-    module.vpc.public_subnets, module.vpc.private_subnets,
+  aws_subnet_ids = var.private ? module.vpc.private_subnets : concat(
+    module.vpc.public_subnets,
+    module.vpc.private_subnets
   )
 
   host_prefix = var.host_prefix

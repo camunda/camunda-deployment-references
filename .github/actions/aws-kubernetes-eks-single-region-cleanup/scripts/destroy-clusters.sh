@@ -172,7 +172,7 @@ for cluster_id in $clusters; do
 
       if ! destroy_cluster "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate"; then
         echo "[$cluster_id] Error destroying cluster $cluster_id"
-        FAILED=1
+        exit 1
       fi
     else
       echo "[$cluster_id] Skipping cluster $cluster_id as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
