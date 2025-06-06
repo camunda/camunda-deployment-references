@@ -70,6 +70,11 @@ resource "aws_ec2_client_vpn_authorization_rule" "vpn_auth_rule" {
   client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.vpn.id
   target_network_cidr    = var.vpc_target_network_cidr
   authorize_all_groups   = true
+
+  timeouts {
+    create = "10m"
+    delete = "20m"
+  }
 }
 
 # Logging
