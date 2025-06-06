@@ -270,7 +270,7 @@ for group_id in $groups; do
 
         if ! destroy_resource "$group_id" "$module_name"; then
           echo "[$group_id] Error destroying module $module_name in group $group_id"
-          FAILED=1
+          exit 1
         fi
       else
         echo "[$group_id] Skipping $module_name as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"

@@ -122,7 +122,6 @@ destroy_group() {
 all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive)
 aws_exit_code=$?
 
-
 # don't fail on folder absent
 if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
   echo "Error executing the aws s3 ls command (Exit Code: $aws_exit_code):" >&2
