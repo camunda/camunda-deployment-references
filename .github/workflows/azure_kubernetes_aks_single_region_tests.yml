@@ -243,7 +243,7 @@ jobs:
 
                   # Source the shell script that exports your DB-related variables
                   # shellcheck disable=SC2086
-                  source $GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/procedure/vars-create-db.sh
+                  source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
 
                   echo "DB_HOST=$DB_HOST" | tee -a "$GITHUB_OUTPUT"
                   echo "DB_PORT=$DB_PORT" | tee -a "$GITHUB_OUTPUT"
