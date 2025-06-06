@@ -83,14 +83,19 @@
           "name": "vpn_auth_rule",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "timeouts": {}
+          },
           "type": "aws_ec2_client_vpn_authorization_rule",
           "values": {
             "access_group_id": null,
             "authorize_all_groups": true,
             "description": null,
             "target_network_cidr": "172.31.0.0/16",
-            "timeouts": null
+            "timeouts": {
+              "create": "10m",
+              "delete": "20m"
+            }
           }
         },
         "module.vpn.aws_ec2_client_vpn_endpoint.vpn": {
