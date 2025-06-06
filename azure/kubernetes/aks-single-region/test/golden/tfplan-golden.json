@@ -286,6 +286,24 @@
               "3"
             ]
           }
+        },
+        "module.aks.azurerm_role_assignment.kubelet_dns[0]": {
+          "index": 0,
+          "mode": "managed",
+          "name": "kubelet_dns",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "azurerm_role_assignment",
+          "values": {
+            "condition": null,
+            "delegated_managed_identity_resource_id": null,
+            "description": null,
+            "principal_type": "ServicePrincipal",
+            "role_definition_name": "DNS Zone Contributor",
+            "scope": "/subscriptions/5667840f-dd25-4fe1-99ee-5e752ec80b5c/resourceGroups/rg-infraex-global-permanent/providers/Microsoft.Network/dnszones/azure.camunda.ie",
+            "timeouts": null
+          }
         }
       }
     },
