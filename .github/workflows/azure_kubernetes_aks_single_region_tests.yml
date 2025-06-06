@@ -636,18 +636,6 @@ jobs:
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
                   subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
 
-            - name: 🔐 Login into the cluster
-              timeout-minutes: 10
-              run: |
-                  set -euo pipefail
-                  az aks get-credentials --resource-group "${{ matrix.distro.clusterName }}-rg" \
-                    --name "${{ matrix.distro.clusterName }}-aks" --overwrite-existing
-
-            - name: Delete storage class
-              run: |
-                  set -euo pipefail
-                  kubectl delete -f azure/kubernetes/aks-single-region/manifests/storage-class.yml
-
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
