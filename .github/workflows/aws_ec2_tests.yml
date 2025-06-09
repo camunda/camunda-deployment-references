@@ -38,7 +38,7 @@ jobs:
             matrix:
                 camunda:
                     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
-                    - 8.6.15
+                    - 8.6.18
                     - 8.7.0-SNAPSHOT
                 architecture:
                     - x86_64
