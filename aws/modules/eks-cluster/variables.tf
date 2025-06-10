@@ -102,8 +102,14 @@ variable "enable_cluster_creator_admin_permissions" {
 
 variable "create_ebs_gp3_default_storage_class" {
   type        = bool
-  default     = true
+  default     = false
   description = "Flag to determine if the kubernetes_storage_class should be created using EBS-CSI and set on GP3 by default. Set to 'false' to skip creating the storage class, useful for avoiding dependency issues during EKS cluster deletion."
+}
+
+variable "create_efs_default_storage_class" {
+  type        = bool
+  default     = true
+  description = "Flag to determine if the kubernetes_storage_class should be created using EFS-CSI. Set to 'false' to skip creating the storage class, useful for avoiding dependency issues during EKS cluster deletion."
 }
 
 variable "availability_zones_count" {

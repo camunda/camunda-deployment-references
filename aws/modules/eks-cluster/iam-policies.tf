@@ -272,3 +272,71 @@ resource "aws_iam_policy" "external_dns_policy" {
     ]
   })
 }
+
+resource "aws_iam_policy" "efs_sc_access" {
+  name = "${var.name}-efs-sc-access"
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Sid" : "AllowDescribe",
+        "Effect" : "Allow",
+        "Action" : [
+          "elasticfilesystem:DescribeAccessPoints",
+          "elasticfilesystem:DescribeFileSystems",
+          "elasticfilesystem:DescribeMountTargets",
+          "ec2:DescribeAvailabilityZones"
+        ],
+        "Resource" : "*"
+      },
+      {
+        "Sid" : "AllowCreateAccessPoint",
+        "Effect" : "Allow",
+        "Action" : [
+          "elasticfilesystem:CreateAccessPoint"
+        ],
+        "Resource" : "*",
+        "Condition" : {
+          "Null" : {
+            "aws:RequestTag/efs.csi.aws.com/cluster" : "false"
+          },
+          "ForAllValues:StringEquals" : {
+            "aws:TagKeys" : "efs.csi.aws.com/cluster"
+          }
+        }
+      },
+      {
+        "Sid" : "AllowTagNewAccessPoints",
+        "Effect" : "Allow",
+        "Action" : [
+          "elasticfilesystem:TagResource"
+        ],
+        "Resource" : "*",
+        "Condition" : {
+          "StringEquals" : {
+            "elasticfilesystem:CreateAction" : "CreateAccessPoint"
+          },
+          "Null" : {
+            "aws:RequestTag/efs.csi.aws.com/cluster" : "false"
+          },
+          "ForAllValues:StringEquals" : {
+            "aws:TagKeys" : "efs.csi.aws.com/cluster"
+          }
+        }
+      },
+      {
+        "Sid" : "AllowDeleteAccessPoint",
+        "Effect" : "Allow",
+        "Action" : "elasticfilesystem:DeleteAccessPoint",
+        "Resource" : "*",
+        "Condition" : {
+          "Null" : {
+            "aws:ResourceTag/efs.csi.aws.com/cluster" : "false"
+          }
+        }
+      }
+    ]
+  })
+
+}

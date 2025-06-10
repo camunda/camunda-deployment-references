@@ -2,8 +2,7 @@ terraform {
   required_version = ">= 1.0"
 
   # You can override the backend configuration; this is  given as an example.
-  backend "s3" {
-    encrypt = true
+  backend "local" {
   }
 
   required_providers {

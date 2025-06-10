@@ -34,6 +34,13 @@ module "eks" {
       before_compute           = true
       service_account_role_arn = module.ebs_cs_role.iam_role_arn
     }
+    aws-efs-csi-driver = {
+      most_recent       = true
+      resolve_conflicts = "OVERWRITE"
+
+      before_compute           = true
+      service_account_role_arn = module.efs_cs_role.iam_role_arn
+    }
   }
 
   cluster_encryption_config = {
@@ -101,6 +108,8 @@ module "eks" {
     min_size     = var.np_min_node_count
     max_size     = var.np_max_node_count
     desired_size = var.np_desired_node_count
+
+    vpc_security_group_ids = [aws_security_group.efs.id]
 
   }
 
@@ -172,4 +181,26 @@ resource "kubernetes_storage_class_v1" "ebs_sc" {
   depends_on = [
     time_sleep.eks_cluster_warmup
   ]
+}
+
+resource "kubernetes_storage_class_v1" "efs_sc" {
+  count = var.create_efs_default_storage_class ? 1 : 0
+
+  metadata {
+    name = "efs-sc"
+    annotations = {
+      "storageclass.kubernetes.io/is-default-class" = "true"
+    }
+  }
+  storage_provisioner = "efs.csi.aws.com"
+  reclaim_policy      = "Retain"
+  volume_binding_mode = "Immediate"
+  parameters = {
+    file_system_id = aws_efs_file_system.efs.id
+  }
+
+  depends_on = [
+    time_sleep.eks_cluster_warmup
+  ]
+
 }

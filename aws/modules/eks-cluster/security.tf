@@ -18,3 +18,17 @@ resource "aws_security_group_rule" "cluster_api_to_nodes" {
   source_security_group_id = module.eks.cluster_security_group_id
   description              = "Cluster API to node access for Prometheus"
 }
+
+resource "aws_security_group" "efs" {
+  name        = "${var.name} efs"
+  description = "Allow traffic"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description = "nfs"
+    from_port   = 2049
+    to_port     = 2049
+    protocol    = "TCP"
+    cidr_blocks = [module.vpc.vpc_cidr_block]
+  }
+}
