@@ -860,6 +860,7 @@
             "ddos_protection_plan": [],
             "dns_servers": [],
             "encryption": [],
+            "ip_address_pool": [],
             "subnet": [],
             "tags": {}
           },
@@ -873,6 +874,7 @@
             "edge_zone": null,
             "encryption": [],
             "flow_timeout_in_minutes": null,
+            "ip_address_pool": [],
             "location": "swedencentral",
             "name": "camunda-vnet",
             "private_endpoint_vnet_policies": "Disabled",
