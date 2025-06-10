@@ -64,7 +64,7 @@ module "eks_cluster" {
 | <a name="input_kms_key_tags"></a> [kms\_key\_tags](#input\_kms\_key\_tags) | The tags to associate with the KMS key. | `map(string)` | `{}` | no |
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version to be used by EKS | `string` | `"1.33"` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name being used for relevant resources - including EKS cluster name | `string` | n/a | yes |
-| <a name="input_np_ami_type"></a> [np\_ami\_type](#input\_np\_ami\_type) | Amazon Machine Image | `string` | `"AL2_x86_64"` | no |
+| <a name="input_np_ami_type"></a> [np\_ami\_type](#input\_np\_ami\_type) | Amazon Machine Image | `string` | `"AL2023_X86_64_STANDARD"` | no |
 | <a name="input_np_capacity_type"></a> [np\_capacity\_type](#input\_np\_capacity\_type) | Allows setting the capacity type to ON\_DEMAND or SPOT to determine stable nodes | `string` | `"ON_DEMAND"` | no |
 | <a name="input_np_desired_node_count"></a> [np\_desired\_node\_count](#input\_np\_desired\_node\_count) | Actual number of nodes for the default node pool. Min-Max will be used for autoscaling | `number` | `4` | no |
 | <a name="input_np_disk_size"></a> [np\_disk\_size](#input\_np\_disk\_size) | Disk size of the nodes on the default node pool | `number` | `20` | no |
