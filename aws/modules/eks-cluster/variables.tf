@@ -62,7 +62,7 @@ variable "np_disk_size" {
 variable "np_ami_type" {
   description = "Amazon Machine Image"
   type        = string
-  default     = "AL2023_X86_64_STANDARD"
+  default     = "AL2023_x86_64_STANDARD"
 }
 
 variable "np_capacity_type" {
