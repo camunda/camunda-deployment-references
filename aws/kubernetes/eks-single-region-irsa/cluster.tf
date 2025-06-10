@@ -3,7 +3,7 @@ locals {
   eks_cluster_region = "eu-west-2"         # Change this to your desired AWS region
 
   # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
-  kubernetes_version = "1.32" # Change this to your desired Kubernetes version (eks - major.minor)
+  kubernetes_version = "1.33" # Change this to your desired Kubernetes version (eks - major.minor)
 
   # Default - 1 NAT per Subnet = 3 IPs
   single_nat_gateway = "false" # Change this to true if you want a single NAT gateway (1 IP vs 3 IPs)
