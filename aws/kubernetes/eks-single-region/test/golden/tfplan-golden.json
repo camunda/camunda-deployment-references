@@ -318,7 +318,7 @@
                         "max_unavailable_percentage": null
                       }
                     ],
-                    "version": "1.32"
+                    "version": "1.33"
                   }
                 },
                 "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role.this[0]": {
@@ -885,7 +885,7 @@
                   "delete": null,
                   "update": null
                 },
-                "version": "1.32",
+                "version": "1.33",
                 "vpc_config": [
                   {
                     "endpoint_private_access": true,
@@ -1415,7 +1415,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "aws-ebs-csi-driver",
-                "kubernetes_version": "1.32",
+                "kubernetes_version": "1.33",
                 "most_recent": true
               }
             },
@@ -1429,7 +1429,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "coredns",
-                "kubernetes_version": "1.32",
+                "kubernetes_version": "1.33",
                 "most_recent": true
               }
             },
@@ -1443,7 +1443,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "kube-proxy",
-                "kubernetes_version": "1.32",
+                "kubernetes_version": "1.33",
                 "most_recent": true
               }
             },
@@ -1457,7 +1457,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "vpc-cni",
-                "kubernetes_version": "1.32",
+                "kubernetes_version": "1.33",
                 "most_recent": true
               }
             },
@@ -1490,7 +1490,7 @@
                 "create_duration": "30s",
                 "destroy_duration": null,
                 "triggers": {
-                  "cluster_version": "1.32"
+                  "cluster_version": "1.33"
                 }
               }
             }
