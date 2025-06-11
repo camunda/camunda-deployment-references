@@ -117,6 +117,7 @@ runs:
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
               sed -i -e 's/\(eks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
+                     -e 's/\(eks_cluster_region\s*=\s*"\)[^"]*\("\)/\1${{ inputs.aws-region }}\2/' \
                      -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
                      -e 's/\(single_nat_gateway\s*=\s*"\)[^"]*\("\)/\1${{ inputs.single-nat-gateway }}\2/' \
                      cluster.tf
