@@ -233,8 +233,8 @@ jobs:
                   {
                     echo "DB_HOST=$DB_HOST"
                     echo "DB_PORT=$DB_PORT"
-                    echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAMT"
-                    echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORT"
+                    echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME"
+                    echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD"
                     echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
                     echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
                     echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
