@@ -254,6 +254,16 @@ jobs:
                   file_path: ${{ runner.temp }}/outputs_raw
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
+            # Write for matrix outputs workaround
+            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
+              if: always()
+              id: out
+              with:
+                  matrix-step-name: ${{ github.job }}
+                  matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
+                  outputs: |-
+                      outputs_raw: ${{ steps.encrypt_outputs.outputs.encrypted_file_base64 }}
+
     access-info:
         name: Read outputs from matrix
         runs-on: ubuntu-latest
