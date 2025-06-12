@@ -6,7 +6,7 @@ helm upgrade --install external-dns external-dns \
   --namespace external-dns --create-namespace \
   --set provider=azure \
   --set policy=sync \
-  --set txtOwnerId=external-dns-camunda-470-rfo3h-aks-aks-single-region \
+  --set txtOwnerId=external-dns-"$CLUSTER_NAME" \
   --set extraVolumes[0].name=azure-config-file \
   --set extraVolumes[0].secret.secretName=azure-config-file \
   --set extraVolumeMounts[0].name=azure-config-file \
