@@ -128,21 +128,6 @@ jobs:
 
     prepare-clusters:
         name: Prepare clusters
-        outputs:
-            DB_HOST: ${{ steps.db_env.outputs.DB_HOST }}
-            DB_PORT: ${{ steps.db_env.outputs.DB_PORT }}
-            POSTGRES_ADMIN_USERNAME: ${{ steps.db_env.outputs.POSTGRES_ADMIN_USERNAME }}
-            POSTGRES_ADMIN_PASSWORD: ${{ steps.db_env.outputs.POSTGRES_ADMIN_PASSWORD }}
-            DB_KEYCLOAK_NAME: ${{ steps.db_env.outputs.DB_KEYCLOAK_NAME }}
-            DB_KEYCLOAK_USERNAME: ${{ steps.db_env.outputs.DB_KEYCLOAK_USERNAME }}
-            DB_KEYCLOAK_PASSWORD: ${{ steps.db_env.outputs.DB_KEYCLOAK_PASSWORD }}
-            DB_IDENTITY_NAME: ${{ steps.db_env.outputs.DB_IDENTITY_NAME }}
-            DB_IDENTITY_USERNAME: ${{ steps.db_env.outputs.DB_IDENTITY_USERNAME }}
-            DB_IDENTITY_PASSWORD: ${{ steps.db_env.outputs.DB_IDENTITY_PASSWORD }}
-            DB_WEBMODELER_NAME: ${{ steps.db_env.outputs.DB_WEBMODELER_NAME }}
-            DB_WEBMODELER_USERNAME: ${{ steps.db_env.outputs.DB_WEBMODELER_USERNAME }}
-            DB_WEBMODELER_PASSWORD: ${{ steps.db_env.outputs.DB_WEBMODELER_PASSWORD }}
-
         needs:
             - clusters-info
         strategy:
@@ -176,6 +161,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_CLIENT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -244,19 +230,42 @@ jobs:
                   # shellcheck disable=SC2086
                   source ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
 
-                  echo "DB_HOST=$DB_HOST" | tee -a "$GITHUB_OUTPUT"
-                  echo "DB_PORT=$DB_PORT" | tee -a "$GITHUB_OUTPUT"
-                  echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME" | tee -a "$GITHUB_OUTPUT"
-                  echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD" | tee -a "$GITHUB_OUTPUT"
-                  echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME" | tee -a "$GITHUB_OUTPUT"
-                  echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME" | tee -a "$GITHUB_OUTPUT"
-                  echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD" | tee -a "$GITHUB_OUTPUT"
-                  echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME" | tee -a "$GITHUB_OUTPUT"
-                  echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME" | tee -a "$GITHUB_OUTPUT"
-                  echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD" | tee -a "$GITHUB_OUTPUT"
-                  echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME" | tee -a "$GITHUB_OUTPUT"
-                  echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME" | tee -a "$GITHUB_OUTPUT"
-                  echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD" | tee -a "$GITHUB_OUTPUT"
+                  {
+                    echo "DB_HOST=$DB_HOST"
+                    echo "DB_PORT=$DB_PORT"
+                    echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAMT"
+                    echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORT"
+                    echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
+                    echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
+                    echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
+                    echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME"
+                    echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME"
+                    echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD"
+                    echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME"
+                    echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME"
+                    echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
+                  } > "${{ runner.temp }}/outputs_raw"
+
+            - name: Export other secrets from the action
+              id: encrypt_outputs
+              if: always()
+              uses: ./.github/actions/internal-generic-encrypt-export
+              with:
+                  file_path: ${{ runner.temp }}/outputs_raw
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+    access-info:
+        name: Read outputs from matrix
+        runs-on: ubuntu-latest
+        if: always()
+        needs: prepare-clusters
+        outputs:
+            config: ${{ steps.read-workflow.outputs.result }}
+        steps:
+            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+              id: read-workflow
+              with:
+                  matrix-step-name: prepare-clusters
 
     integration-tests:
         name: Run integration tests
@@ -270,6 +279,7 @@ jobs:
         needs:
             - prepare-clusters
             - clusters-info
+            - access-info
         strategy:
             fail-fast: false
             matrix:
@@ -280,19 +290,6 @@ jobs:
         env:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: kubernetes
-            DB_HOST: ${{ needs.prepare-clusters.outputs.DB_HOST }}
-            DB_PORT: ${{ needs.prepare-clusters.outputs.DB_PORT }}
-            POSTGRES_ADMIN_USERNAME: ${{ needs.prepare-clusters.outputs.POSTGRES_ADMIN_USERNAME }}
-            POSTGRES_ADMIN_PASSWORD: ${{ needs.prepare-clusters.outputs.POSTGRES_ADMIN_PASSWORD }}
-            DB_KEYCLOAK_NAME: ${{ needs.prepare-clusters.outputs.DB_KEYCLOAK_NAME }}
-            DB_KEYCLOAK_USERNAME: ${{ needs.prepare-clusters.outputs.DB_KEYCLOAK_USERNAME }}
-            DB_KEYCLOAK_PASSWORD: ${{ needs.prepare-clusters.outputs.DB_KEYCLOAK_PASSWORD }}
-            DB_IDENTITY_NAME: ${{ needs.prepare-clusters.outputs.DB_IDENTITY_NAME }}
-            DB_IDENTITY_USERNAME: ${{ needs.prepare-clusters.outputs.DB_IDENTITY_USERNAME }}
-            DB_IDENTITY_PASSWORD: ${{ needs.prepare-clusters.outputs.DB_IDENTITY_PASSWORD }}
-            DB_WEBMODELER_NAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_NAME }}
-            DB_WEBMODELER_USERNAME: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_USERNAME }}
-            DB_WEBMODELER_PASSWORD: ${{ needs.prepare-clusters.outputs.DB_WEBMODELER_PASSWORD }}
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
@@ -316,6 +313,31 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_CLIENT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+
+            - name: 🚢 Retrieve environment variables from outputs
+              uses: ./.github/actions/internal-generic-decrypt-import
+              with:
+                  output_path: ${{ runner.temp }}/outputs_raw
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).outputs_raw[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            - name: 🚢 Export outputs as environment variables
+              timeout-minutes: 3
+              run: |
+                  set -euo pipefail
+
+                  # Export the decrypted outputs as environment variables
+                  while IFS= read -r line; do
+                    echo "$line" | tee -a "$GITHUB_ENV"
+                  done < "${{ runner.temp }}/outputs_raw"
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
