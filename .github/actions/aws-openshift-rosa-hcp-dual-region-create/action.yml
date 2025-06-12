@@ -137,7 +137,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@4a6e40cedd9384a7b607ff631769d76edb2d938e # 1.4.1
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
 
         # TODO: when available on asdf, migrate this to it
         - name: Install ROSA CLI

@@ -65,7 +65,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@4a6e40cedd9384a7b607ff631769d76edb2d938e # 1.4.1
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
 
         - name: Set Terraform variables
           id: set-terraform-variables
@@ -117,6 +117,7 @@ runs:
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
               sed -i -e 's/\(eks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
+                     -e 's/\(eks_cluster_region\s*=\s*"\)[^"]*\("\)/\1${{ inputs.aws-region }}\2/' \
                      -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
                      -e 's/\(single_nat_gateway\s*=\s*"\)[^"]*\("\)/\1${{ inputs.single-nat-gateway }}\2/' \
                      cluster.tf
