@@ -137,7 +137,7 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         env:
-            TF_MODULES_PATH: ./.action-tf-modules/azure-kubernetes-aks-single-region-create/
+            TF_MODULES_PATH: ./.action-tf-modules/azure-kubernetes-${{ matrix.scenario.name }}-create/
             CAMUNDA_NAMESPACE: camunda
         steps:
             - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -190,7 +190,7 @@ jobs:
               id: s3_prefix
               run: |
                   set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/aks-single-region/" | tee -a "$GITHUB_OUTPUT"
+                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
             - name: Create K8S cluster and login
               uses: ./.github/actions/azure-kubernetes-aks-single-region-create
@@ -207,7 +207,7 @@ jobs:
                   s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
-                  ref-arch: aks-single-region
+                  ref-arch: ${{ matrix.scenario.name }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -222,7 +222,7 @@ jobs:
 
             - name: Source env from Terraform
               id: db_env
-              working-directory: ${{ env.TF_MODULES_PATH }}/azure/kubernetes/aks-single-region/
+              working-directory: ${{ env.TF_MODULES_PATH }}/azure/kubernetes/${{ matrix.scenario.name }}/
               run: |
                   set -euo pipefail
 
@@ -377,25 +377,25 @@ jobs:
                   # Overwriting the mail
                   export MAIL=${{ env.MAIL_OVERWRITE }}
 
-                  ./azure/kubernetes/aks-single-region/procedure/install-ingress-nginx.sh
+                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/install-ingress-nginx.sh
 
                   export EXTERNAL_DNS_OWNER_ID="external-dns-${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}"
 
-                  ./azure/kubernetes/aks-single-region/procedure/install-external-dns.sh
+                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/install-external-dns.sh
 
-                  source azure/kubernetes/aks-single-region/procedure/export-domain-setup-vars.sh
+                  source azure/kubernetes/${{ matrix.scenario.name }}/procedure/export-domain-setup-vars.sh
 
                   # Overwriting dummy values
                   export AZURE_DNS_RESOURCE_GROUP="${{ env.AZURE_DNS_RESOURCE_GROUP }}"
                   export AZURE_SUBSCRIPTION_ID="${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}"
-                  ./azure/kubernetes/aks-single-region/procedure/external-dns-azure-config.sh
+                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/external-dns-azure-config.sh
 
                   ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
-                  ./azure/kubernetes/aks-single-region/procedure/install-cert-manager.sh
+                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager.sh
 
                   export AZURE_DNS_ZONE="${{ env.TLD }}"
-                  ./azure/kubernetes/aks-single-region/procedure/install-cert-manager-issuer.sh
+                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager-issuer.sh
 
 
             - name: 🌱 Register chart setup environment values
@@ -428,10 +428,10 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  "${GITHUB_WORKSPACE}/azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh"
+                  "${GITHUB_WORKSPACE}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh"
 
                   # Reset PostgreSQL
-                  kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/reset-postgres.yml --namespace "$CAMUNDA_NAMESPACE"
+                  kubectl apply -f ./azure/kubernetes/${{ matrix.scenario.name }}/manifests/reset-postgres.yml --namespace "$CAMUNDA_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
@@ -451,7 +451,7 @@ jobs:
 
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
-            - name: 🛠️ Assemble deployment values of azure/kubernetes/aks-single-region/${{ matrix.declination.name }}
+            - name: 🛠️ Assemble deployment values of azure/kubernetes/${{ matrix.scenario.name }}/${{ matrix.declination.name }}
               timeout-minutes: 10
               run: |
                   set -o errexit
@@ -459,7 +459,7 @@ jobs:
 
                   echo "Construct the values.yml file"
 
-                  cp -f azure/kubernetes/aks-single-region/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
+                  cp -f azure/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
                     export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
@@ -494,10 +494,10 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-                  ./azure/kubernetes/aks-single-region/procedure/check-env-variables.sh
-                  ./azure/kubernetes/aks-single-region/procedure/create-setup-db-secret.sh
+                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/check-env-variables.sh
+                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
 
-                  kubectl apply -f ./azure/kubernetes/aks-single-region/manifests/setup-postgres-create-db.yml --namespace "$CAMUNDA_NAMESPACE"
+                  kubectl apply -f ./azure/kubernetes/${{ matrix.scenario.name }}/manifests/setup-postgres-create-db.yml --namespace "$CAMUNDA_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
@@ -522,7 +522,7 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-                  ./azure/kubernetes/aks-single-region/procedure/create-external-db-secrets.sh
+                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
 
             - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
               timeout-minutes: 10
@@ -604,6 +604,7 @@ jobs:
 
             - name: 🧹 Cleanup domain specific resources
               if: always() && matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 10
               run: |
                   set -euo pipefail
 
