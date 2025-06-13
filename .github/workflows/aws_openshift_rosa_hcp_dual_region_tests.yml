@@ -282,6 +282,16 @@ jobs:
                   source ../../procedure/gather-cluster-login-id.sh
                   cd -
 
+                  if [[ -z "$CLUSTER_1_NAME" || -z "$CLUSTER_1_API_URL" || -z "$CLUSTER_1_ADMIN_USERNAME" || -z "$CLUSTER_1_ADMIN_PASSWORD" ]]; then
+                    echo "❌ ERROR: One or more Cluster 1 environment variables are empty."
+                    exit 1
+                  fi
+                  if [[ -z "$CLUSTER_2_NAME" || -z "$CLUSTER_2_API_URL" || -z "$CLUSTER_2_ADMIN_USERNAME" || -z "$CLUSTER_2_ADMIN_PASSWORD" ]]; then
+                    echo "❌ ERROR: One or more Cluster 2 environment variables are empty."
+                    exit 1
+                  fi
+
+
                   ./aws/openshift/${{ matrix.scenario.name }}/procedure/verify-cluster-nodes.sh
 
 

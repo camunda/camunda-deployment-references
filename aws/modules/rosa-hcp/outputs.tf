@@ -33,6 +33,11 @@ output "vpc_id" {
   description = "The ID of the Virtual Private Cloud (VPC) where the OpenShift cluster and related resources are deployed."
 }
 
+output "vpc_cidr_block" {
+  value       = module.vpc.cidr_block
+  description = "The CIDR block of the Virtual Private Cloud (VPC) where the OpenShift cluster and its associated resources are deployed."
+}
+
 output "vpc_availability_zones" {
   value       = module.vpc.availability_zones
   description = "The availability zones in which the VPC is located. This provides information about the distribution of resources across different physical locations within the AWS region."

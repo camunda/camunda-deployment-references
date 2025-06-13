@@ -222,54 +222,80 @@ fi
 
 current_timestamp=$($date_command +%s)
 
+pids=()
+log_dir="./logs"
+mkdir -p "$log_dir"
+
 for group_id in $groups; do
-  cd "$CURRENT_DIR" || return 1
+  log_file="$log_dir/$group_id.log"
 
-  echo "Processing group: $group_id"
-  module_order=("backup_bucket" "peering" "clusters")
-  group_folder="${KEY_PREFIX}tfstate-$group_id/"
+  (
+    cd "$CURRENT_DIR" || return 1
 
-  for module_name in "${module_order[@]}"; do
-    module_path="${group_folder}${module_name}.tfstate"
+    echo "[$group_id] Processing group: $group_id"
+    module_order=("backup_bucket" "peering" "clusters")
+    group_folder="${KEY_PREFIX}tfstate-$group_id/"
 
-    # Check if the module exists
-    if ! aws s3 ls "s3://$BUCKET/$module_path" >/dev/null 2>&1; then
-      echo "Module $module_name not found for group $group_id, skipping..."
-      continue
-    fi
+    for module_name in "${module_order[@]}"; do
+      module_path="${group_folder}${module_name}.tfstate"
 
-    last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$module_path" --output json | grep LastModified | awk -F '"' '{print $4}')
-    if [ -z "$last_modified" ]; then
-      echo "Warning: Could not retrieve last modified timestamp for $module_path, skipping."
-      continue
-    fi
-
-    last_modified_timestamp=$($date_command -d "$last_modified" +%s)
-    if [ -z "$last_modified_timestamp" ]; then
-      echo "Error: Failed to convert last modified timestamp for $module_path"
-      exit 1
-    fi
-    echo "Module $module_name last modified: $last_modified ($last_modified_timestamp)"
-
-    file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
-    if [ -z "$file_age_hours" ]; then
-      echo "Error: Failed to calculate file age in hours for $module_path"
-      exit 1
-    fi
-    echo "Module $module_name is $file_age_hours hours old"
-
-    if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
-      echo "Destroying module $module_name in group $group_id"
-
-      if ! destroy_resource "$group_id" "$module_name"; then
-        echo "Error destroying module $module_name in group $group_id"
-        FAILED=1
+      # Check if the module exists
+      if ! aws s3 ls "s3://$BUCKET/$module_path" >/dev/null 2>&1; then
+        echo "[$group_id] Module $module_name not found for group $group_id, skipping..."
+        continue
       fi
-    else
-      echo "Skipping $module_name as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
-    fi
-  done
+
+      last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$module_path" --output json | grep LastModified | awk -F '"' '{print $4}')
+      if [ -z "$last_modified" ]; then
+        echo "[$group_id] Warning: Could not retrieve last modified timestamp for $module_path, skipping."
+        continue
+      fi
+
+      last_modified_timestamp=$($date_command -d "$last_modified" +%s)
+      if [ -z "$last_modified_timestamp" ]; then
+        echo "[$group_id] Error: Failed to convert last modified timestamp for $module_path"
+        exit 1
+      fi
+      echo "[$group_id] Module $module_name last modified: $last_modified ($last_modified_timestamp)"
+
+      file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
+      if [ -z "$file_age_hours" ]; then
+        echo "[$group_id] Error: Failed to calculate file age in hours for $module_path"
+        exit 1
+      fi
+      echo "[$group_id] Module $module_name is $file_age_hours hours old"
+
+      if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
+        echo "[$group_id] Destroying module $module_name in group $group_id"
+
+        if ! destroy_resource "$group_id" "$module_name"; then
+          echo "[$group_id] Error destroying module $module_name in group $group_id"
+          exit 1
+        fi
+      else
+        echo "[$group_id] Skipping $module_name as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
+      fi
+    done
+  ) >"$log_file" 2>&1 &
+
+  pids+=($!)
 done
+
+# Start tail -f in background
+{
+  echo "=== Live logs ==="
+  tail -n 0 -f "$log_dir"/*.log &
+  tail_pid=$!
+} 2>/dev/null
+
+# Wait and track exit codes
+FAILED=0
+for pid in "${pids[@]}"; do
+  wait "$pid" || FAILED=1
+done
+
+# Stop tail once all processes are done
+kill "$tail_pid" 2>/dev/null
 
 # Function to check if a folder is empty
 is_empty_folder() {
@@ -291,9 +317,9 @@ process_empty_folders() {
     local empty_folders_found=false
 
     # List all folders and sort them from the deepest to the shallowest
-    if ! empty_folders=$(aws s3 ls "s3://$BUCKET/" --recursive | awk '{print $4}' | grep '/$' | sort -r)
+    if ! empty_folders=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive | awk '{print $4}' | grep '/$' | sort -r)
     then
-        echo "Error listing folders in s3://$BUCKET/"
+        echo "Error listing folders in s3://$BUCKET/$KEY_PREFIX"
         exit 1
     fi
 
@@ -301,12 +327,12 @@ process_empty_folders() {
     for folder in $empty_folders; do
         if is_empty_folder "$folder"; then
             # If the folder is empty, delete it
-            if ! aws s3 rm "s3://$BUCKET/$folder" --recursive
+            if ! aws s3 rm "s3://$BUCKET/$KEY_PREFIX$folder" --recursive
             then
-                echo "Error deleting folder: s3://$BUCKET/$folder"
+                echo "Error deleting folder: s3://$BUCKET/$KEY_PREFIX$folder"
                 exit 1
             else
-                echo "Deleted empty folder: s3://$BUCKET/$folder"
+                echo "Deleted empty folder: s3://$BUCKET/$KEY_PREFIX$folder"
                 empty_folders_found=true
             fi
         fi
@@ -316,7 +342,7 @@ process_empty_folders() {
 }
 
 
-echo "Cleaning up empty folders in s3://$BUCKET"
+echo "Cleaning up empty folders in s3://$BUCKET/$KEY_PREFIX"
 # Loop until no empty folders are found
 while true; do
     # Process folders and check if any empty folders were found and deleted

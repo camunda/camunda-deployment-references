@@ -53,7 +53,9 @@ Each cluster will be added to the kube config with the name of the cluster as co
 | `backup-bucket-s3-aws-access-key` | <p>The AWS Access Key of the S3 Backup bucket used by Camunda</p> |
 | `backup-bucket-s3-aws-secret-access-key` | <p>The AWS Secret Access Key of the S3 Backup bucket used by Camunda</p> |
 | `backup-bucket-s3-bucket-name` | <p>The name of the S3 Backup bucket used by Camunda</p> |
-| `terraform-state-url` | <p>URL of the Terraform state file in the S3 bucket</p> |
+| `terraform-state-url-clusters` | <p>URL of the module "clusters" Terraform state file in the S3 bucket</p> |
+| `terraform-state-url-peering` | <p>URL of the module "peering" Terraform state file in the S3 bucket</p> |
+| `terraform-state-url-backup-bucket` | <p>URL of the module "backup-bucket" Terraform state file in the S3 bucket</p> |
 
 
 ## Runs
