@@ -1,3 +1,8 @@
+locals {
+  # renovate: datasource=endoflife-date depName=azure-kubernetes-service versioning=loose
+  kubernetes_version = "1.32" # Change this to your desired Kubernetes version (aks - major.minor)
+}
+
 module "aks" {
   source              = "../../modules/aks"
   resource_group_name = azurerm_resource_group.app_rg.name
