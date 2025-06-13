@@ -121,9 +121,17 @@ outputs:
         description: The name of the S3 Backup bucket used by Camunda
         value: ${{ steps.apply-backup-bucket.outputs.s3_bucket_name }}
 
-    terraform-state-url:
-        description: URL of the Terraform state file in the S3 bucket
-        value: ${{ steps.set-terraform-variables.outputs.terraform-state-url }}
+    terraform-state-url-clusters:
+        description: URL of the module "clusters" Terraform state file in the S3 bucket
+        value: ${{ steps.init-clusters.outputs.terraform-state-url-clusters }}
+
+    terraform-state-url-peering:
+        description: URL of the module "peering" Terraform state file in the S3 bucket
+        value: ${{ steps.init-peering.outputs.terraform-state-url-peering }}
+
+    terraform-state-url-backup-bucket:
+        description: URL of the module "backup-bucket" Terraform state file in the S3 bucket
+        value: ${{ steps.init-backup-bucket.outputs.terraform-state-url-backup-bucket }}
 
 runs:
     using: composite
@@ -207,9 +215,6 @@ runs:
               echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
 
-              terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_KEY}"
-              echo "terraform-state-url=${terraform_state_url}" | tee -a "$GITHUB_OUTPUT"
-
         - name: Check if S3 bucket exists
           id: create-s3-bucket
           shell: bash
@@ -238,12 +243,17 @@ runs:
           run: |
               set -euo pipefail
 
+              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}clusters.tfstate"
+              terraform_state_url_clusters="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
+              echo "terraform-state-url-clusters=${terraform_state_url_clusters}" | tee -a "$GITHUB_OUTPUT"
+
+
               terraform version
 
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}clusters.tfstate" \
+                -backend-config="key=$terraform_state_key" \
                 -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
                 -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
 
@@ -413,12 +423,16 @@ runs:
           run: |
               set -euo pipefail
 
+              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}peering.tfstate"
+              terraform_state_url_peering="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
+              echo "terraform-state-url-peering=${terraform_state_url_peering}" | tee -a "$GITHUB_OUTPUT"
+
               terraform version
 
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}peering.tfstate"  \
+                -backend-config="key=$terraform_state_key"  \
                 -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
                 -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
 
@@ -472,12 +486,16 @@ runs:
           run: |
               set -euo pipefail
 
+              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}backup_bucket.tfstate"
+              terraform_state_url_backup_bucket="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
+              echo "terraform-state-url-backup-bucket=${terraform_state_url_backup_bucket}" | tee -a "$GITHUB_OUTPUT"
+
               terraform version
 
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}backup_bucket.tfstate"
+                -backend-config="key=$terraform_state_key"
 
               terraform validate -no-color
 
