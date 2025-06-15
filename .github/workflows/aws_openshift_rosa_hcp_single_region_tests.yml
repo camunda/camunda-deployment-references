@@ -128,7 +128,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -245,7 +245,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -600,7 +600,7 @@ jobs:
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
-              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@32037ead173fdfa61ee0aa3949e40494aaf0d803 # main
+              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@1dfc0824ff192a95140a6d33150ae182a0ec7eb8 # main
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
@@ -626,7 +626,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   url: ${{ secrets.VAULT_ADDR }}
