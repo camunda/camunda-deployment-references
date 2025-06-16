@@ -71,6 +71,7 @@ env:
     TLD: azure.camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
     AZURE_DNS_RESOURCE_GROUP: rg-infraex-global-permanent
+    AZURE_SP_NAME: InfraExTestingApp
 
 
     # Test environment for cloud provider, please keep it synced between the workflows
@@ -192,6 +193,13 @@ jobs:
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
+            - name: Create terraform.tfvars file
+              id: create-tfvars
+              working-directory: ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}
+              run: |
+                  set -euo pipefail
+                  ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/tfvars-domain.sh
+
             - name: Create K8S cluster and login
               uses: ./.github/actions/azure-kubernetes-aks-single-region-create
               id: create_cluster
@@ -207,6 +215,7 @@ jobs:
                   s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
+                  tfvars: ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/terraform.tfvars
                   ref-arch: ${{ matrix.scenario.name }}
                   tags: >
                       {
