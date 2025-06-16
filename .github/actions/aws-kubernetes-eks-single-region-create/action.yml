@@ -104,6 +104,12 @@ runs:
 
               terraform validate -no-color
 
+        - name: Sanatize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanatize-tags
+          with:
+              raw-tags: ${{ inputs.tags }}
+
         - name: Terraform Plan
           id: plan
           working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
@@ -137,18 +143,7 @@ runs:
               echo "Displaying templated opensearch.tf file:"
               cat opensearch.tf
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
-
-              terraform plan -no-color -var="default_tags=$escaped_tags" -out tf.plan
+              terraform plan -no-color -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' -out tf.plan
 
         - name: Terraform Apply
           id: apply

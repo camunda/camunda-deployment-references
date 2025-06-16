@@ -259,6 +259,12 @@ runs:
 
               terraform validate -no-color
 
+        - name: Sanatize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanatize-tags
+          with:
+              raw-tags: ${{ inputs.tags }}
+
         - name: Terraform Plan - Clusters
           id: plan-clusters
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
@@ -316,19 +322,8 @@ runs:
               echo "Displaying templated cluster_cluster_2.tf file:"
               cat cluster_region_2.tf
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
-
               terraform plan -no-color -out clusters.plan  \
-                -var="default_tags=$escaped_tags" \
+                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
                 -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
 
@@ -446,19 +441,8 @@ runs:
           run: |
               set -euo pipefail
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
-
               terraform plan -no-color -out peering.plan \
-                -var="default_tags=$escaped_tags" \
+                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
                 -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}" \
                 -var="cluster_1_vpc_id=${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}" \
@@ -511,21 +495,9 @@ runs:
 
               hash=$(echo -n "${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}" | sha256sum | cut -c1-8)
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
-
               terraform plan -no-color -out  backup_bucket.plan \
-                -var="default_tags=$escaped_tags" \
+                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var="bucket_name=cb-${hash}"
-
 
         - name: Terraform Apply - Backup bucket
           id: apply-backup-bucket

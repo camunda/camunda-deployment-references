@@ -116,8 +116,8 @@ runs:
 
               terraform validate -no-color
 
-        - name: Terraform Plan
-          id: plan
+        - name: Terraform Prepare
+          id: prepare
           working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
           run: |
@@ -154,22 +154,27 @@ runs:
               }'
 
               combined_tags=$(jq -s '.[0] + .[1]' <(echo "$raw_tags") <(echo "$static_tags"))
-              escaped_tags=$(echo "$combined_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
+              echo "COMBINED_TAGS=$combined_tags" | tee -a "$GITHUB_ENV"
+
+        - name: Sanatize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanatize-tags
+          with:
+              raw-tags: ${{ env.COMBINED_TAGS }}
+
+        - name: Terraform Plan
+          id: plan
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          shell: bash
+          run: |
+              set -euo pipefail
 
               terraform plan \
-                -no-color \
-                -out tf.plan \
-                -var "resource_prefix_placeholder=$resource_prefix_placeholder" \
-                -var "tags=$escaped_tags" \
-                -var-file="$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/test/fixtures/terraform.tfvars"
+                  -no-color \
+                  -out tf.plan \
+                  -var "resource_prefix_placeholder=$resource_prefix_placeholder" \
+                  -var "tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}" \
+                  -var-file="$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/test/fixtures/terraform.tfvars"
 
         - name: Terraform Apply
           id: apply

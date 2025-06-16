@@ -150,6 +150,12 @@ runs:
                 -backend-config="region=${{ steps.utility.outputs.TFSTATE_REGION }}"
               terraform validate -no-color
 
+        - name: Sanatize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanatize-tags
+          with:
+              raw-tags: ${{ inputs.tags }}
+
         - name: Terraform Plan
           shell: bash
           id: plan
@@ -157,21 +163,10 @@ runs:
           run: |
               set -euo pipefail
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
-
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
               terraform plan -no-color -out opensearch.plan \
                 -var-file=/tmp/var.tfvars.json \
-                -var "default_tags=$escaped_tags" \
+                -var 'default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var "domain_name=${{ inputs.domain-name }}" \
                 -var "engine_version=${{ inputs.engine-version }}" \
                 -var 'subnet_ids=${{ inputs.subnet-ids }}' \
