@@ -221,6 +221,7 @@ jobs:
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             - name: Export VPN config and encrypt it
+              if: ${{ matrix.distro.private_vpc == true }}
               id: export_configs
               uses: ./.github/actions/internal-generic-encrypt-export
               with:
