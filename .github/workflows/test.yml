@@ -13,8 +13,11 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
+            - name: Add custom shell to PATH
+              run: echo "${GITHUB_WORKSPACE}/scripts" >> "$GITHUB_PATH"
+
             - name: Test Bash functions
-              shell: .github/scripts/custom-bash.sh
+              shell: custom-bash.sh
               run: |
                   say_hello
                   show_time
