@@ -73,7 +73,7 @@ env:
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: camunda-platform-8.7-12.0.2
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: camunda-platform-8.7-12.1.0
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Optional components that are not enabled by default in the doc
@@ -140,7 +140,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -333,7 +333,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -736,7 +736,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   url: ${{ secrets.VAULT_ADDR }}

@@ -166,7 +166,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -334,7 +334,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -789,7 +789,7 @@ jobs:
             - integration-tests
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@e69e67a1f623d13e474bdf0362de5750e4bb9062 # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@96d2582c14dc5c3c4c680435f48bdb952234b910 # main
               with:
                   error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
                   run-id: ${{ github.run_id }}
@@ -824,7 +824,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   url: ${{ secrets.VAULT_ADDR }}

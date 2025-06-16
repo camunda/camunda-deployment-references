@@ -15,7 +15,7 @@ This GitHub Action automates the deletion of aws/openshift/rosa-hcp-dual-region 
 | `max-age-hours-cluster` | <p>Maximum age of clusters in hours</p> | `false` | `20` |
 | `target` | <p>Specify an ID to destroy specific resources or "all" to destroy all resources</p> | `false` | `all` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
-| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.18.5` |
+| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.18.16` |
 | `fail-on-not-found` | <p>Whether to fail if no matching resources are found (only for target not 'all')</p> | `false` | `true` |
 
 
@@ -68,7 +68,7 @@ This action is a `composite` action.
     # Version of the OpenShift to install
     #
     # Required: true
-    # Default: 4.18.5
+    # Default: 4.18.16
 
     fail-on-not-found:
     # Whether to fail if no matching resources are found (only for target not 'all')
