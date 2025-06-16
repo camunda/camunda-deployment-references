@@ -14,10 +14,14 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Add custom shell to PATH
-              run: echo "${GITHUB_WORKSPACE}/scripts" >> "$GITHUB_PATH"
+              run: echo "${GITHUB_WORKSPACE}/scripts" >> "$GITHUB_PATH" 
 
-            - name: Test Bash functions
-              shell: custom-bash.sh
-              run: |
-                  say_hello
-                  show_time
+            - run: |
+                touch ./bash
+                chmod +x ./bash
+                echo '#!/bin/sh' > ./bash
+                echo 'echo hello from fake bash' >> ./bash
+                echo "${PWD}" >> "${GITHUB_PATH}"
+            - run: |
+                echo "this doesn't do what you expect"
+              shell: bash
