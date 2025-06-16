@@ -71,7 +71,6 @@ env:
     TLD: azure.camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
     AZURE_DNS_RESOURCE_GROUP: rg-infraex-global-permanent
-    AZURE_SP_NAME: InfraExTestingApp
 
 
     # Test environment for cloud provider, please keep it synced between the workflows
@@ -198,6 +197,7 @@ jobs:
               working-directory: ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}
               run: |
                   set -euo pipefail
+                  export AZURE_SP_ID=$(az account show --query user.name -o tsv)
                   ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/tfvars-domain.sh
 
             - name: Create K8S cluster and login
