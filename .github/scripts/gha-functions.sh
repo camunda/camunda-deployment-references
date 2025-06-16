@@ -39,3 +39,14 @@ export_new_env_vars() {
     echo "$line" >> "$GITHUB_ENV"
   done < /tmp/env_diff
 }
+
+
+# scripts/functions.sh
+
+say_hello() {
+  echo "👋 Hello from a Bash function"
+}
+
+show_time() {
+  echo "🕒 The current time is: $(date)"
+}
