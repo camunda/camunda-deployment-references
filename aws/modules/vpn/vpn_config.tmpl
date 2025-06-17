@@ -1,0 +1,24 @@
+client
+dev tun
+proto udp
+remote ${dns_name} 443
+remote-random-hostname
+resolv-retry infinite
+nobind
+remote-cert-tls server
+cipher AES-256-GCM
+verify-x509-name ${server_common_name} name
+reneg-sec 0
+verb 3
+
+<ca>
+${ca_cert_pem}
+</ca>
+
+<cert>
+${client_cert_pem}
+</cert>
+
+<key>
+${client_key_pem}
+</key>
