@@ -14,13 +14,13 @@ jobs:
               uses: actions/checkout@v4
 
             - run: |
-                touch ./bash
-                chmod +x ./bash
-                echo '#!/bin/sh' > ./bash
-                echo 'source "${GITHUB_WORKSPACE}/gha-functions.sh"' >> ./bash
-                echo 'bash "$@"' >> ./bash
-                echo "${PWD}" >> "${GITHUB_PATH}"
+                  touch ./bash
+                  chmod +x ./bash
+                  echo '#!/bin/sh' > ./bash
+                  echo ". ${GITHUB_WORKSPACE}/gha-functions.sh" >> ./bash
+                  echo 'bash "$@"' >> ./bash
+                  echo "${PWD}" >> "${GITHUB_PATH}"
             - run: |
-                echo "this doesn't do what you expect"
-                show_time
+                  echo "this doesn't do what you expect"
+                  show_time
               shell: bash
