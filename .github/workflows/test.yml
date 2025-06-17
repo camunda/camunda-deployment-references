@@ -17,7 +17,7 @@ jobs:
                   touch ./bash
                   chmod +x ./bash
                   echo '#!/bin/sh' > ./bash
-                  echo '/usr/bin/bash --rcfile .github/scripts/gha-functions.sh "$@"' >> ./bash
+                  echo '/usr/bin/bash --rcfile .github/scripts/gha-functions.sh "$@" -i' >> ./bash
                   echo "${PWD}" >> "${GITHUB_PATH}"
               shell: bash
 
