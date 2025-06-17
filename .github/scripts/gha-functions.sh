@@ -39,6 +39,8 @@ export_new_env_vars() {
     echo "$line" >> "$GITHUB_ENV"
   done < /tmp/env_diff
 }
+export -f export_new_env_vars
+
 
 
 # scripts/functions.sh
@@ -46,7 +48,10 @@ export_new_env_vars() {
 say_hello() {
   echo "👋 Hello from a Bash function"
 }
+export -f say_hello
 
 show_time() {
   echo "🕒 The current time is: $(date)"
 }
+
+export -f show_time
