@@ -158,9 +158,9 @@ runs:
               combined_tags=$(jq -c -s '.[0] + .[1]' <(echo "$raw_tags") <(echo "$static_tags"))
               echo "COMBINED_TAGS=$combined_tags" | tee -a "$GITHUB_OUTPUT"
 
-        - name: Sanatize Tags
+        - name: Sanitize Tags
           id: sanitize-tags
-          uses: ./.github/actions/internal-sanatize-tags
+          uses: ./.github/actions/internal-sanitize-tags
           with:
               raw-tags: ${{ steps.prepare.outputs.COMBINED_TAGS }}
 

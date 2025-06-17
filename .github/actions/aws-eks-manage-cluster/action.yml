@@ -136,9 +136,9 @@ runs:
                 -backend-config="key=${{ steps.utility.outputs.TFSTATE_KEY }}" -backend-config="region=${{ steps.utility.outputs.TFSTATE_REGION }}"
               terraform validate -no-color
 
-        - name: Sanatize Tags
+        - name: Sanitize Tags
           id: sanitize-tags
-          uses: ./.github/actions/internal-sanatize-tags
+          uses: ./.github/actions/internal-sanitize-tags
           with:
               raw-tags: ${{ inputs.tags }}
 

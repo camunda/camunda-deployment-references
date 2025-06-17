@@ -1,4 +1,4 @@
-# Sanatize Tags
+# Sanitize Tags
 
 ## Description
 
@@ -26,7 +26,7 @@ This action is a `composite` action.
 ## Usage
 
 ```yaml
-- uses: camunda/camunda-deployment-references/.github/actions/internal-sanatize-tags@main
+- uses: camunda/camunda-deployment-references/.github/actions/internal-sanitize-tags@main
   with:
     raw-tags:
     # Raw tags to sanitize
