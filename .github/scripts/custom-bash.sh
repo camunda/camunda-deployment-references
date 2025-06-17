@@ -4,4 +4,4 @@
 
 # shellcheck disable=SC1091
 source "./gha-functions.sh"
-/usr/bin/env bash "$@"
+ /usr/bin/bash -e "$@"
