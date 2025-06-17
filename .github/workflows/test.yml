@@ -18,7 +18,7 @@ jobs:
                   chmod +x ./bash
                   echo '#!/bin/sh' > ./bash
                   echo ". ${GITHUB_WORKSPACE}/.github/scripts/gha-functions.sh" >> ./bash
-                  echo 'bash "$@"' >> ./bash
+                  echo '/usr/bin/bash -e "$@"' >> ./bash
                   echo "${PWD}" >> "${GITHUB_PATH}"
             - run: |
                   echo "this doesn't do what you expect"
