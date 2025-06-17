@@ -281,9 +281,11 @@ runs:
 
                   echo "Show existing contexts"
                   kubectl config get-contexts
-                  if kubectl config get-contexts | awk '{print $2}' | grep -q '^${{ inputs.cluster-name }}$'; then
+                  if kubectl config get-contexts -o name | grep -qx '${{ inputs.cluster-name }}'; then
                       echo "Context '${{ inputs.cluster-name }}' already exists. No changes made."
                   else
+                      echo "Renaming oc config current context to '${{ inputs.cluster-name }}'"
+                      kubectl config delete-context '${{ inputs.cluster-name }}' 2>/dev/null || true
                       kubectl config rename-context "$(oc config current-context)" "${{ inputs.cluster-name }}"
                   fi
 
