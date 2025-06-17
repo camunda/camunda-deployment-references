@@ -17,9 +17,10 @@ jobs:
                   touch ./bash
                   chmod +x ./bash
                   echo '#!/bin/sh' > ./bash
-                  echo ". ${GITHUB_WORKSPACE}/.github/scripts/gha-functions.sh" >> ./bash
-                  echo 'exec /usr/bin/bash "$@"' >> ./bash
+                  echo '/usr/bin/bash --rcfile .github/scripts/gha-functions.sh "$@"' >> ./bash
                   echo "${PWD}" >> "${GITHUB_PATH}"
+              shell: bash
+
             - run: |
                   echo "this doesn't do what you expect"
                   show_time
