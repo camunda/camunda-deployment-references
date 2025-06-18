@@ -141,9 +141,9 @@ runs:
               cat main.tf
 
               # Set resource_prefix_placeholder to an empty string if not provided
-              resource_prefix_placeholder="${{ inputs.resource-prefix }}"
-              if [ -z "$resource_prefix_placeholder" ]; then
-                resource_prefix_placeholder=""
+              RESOURCE_PREFIX_PLACEHOLDER="${{ inputs.resource-prefix }}"
+              if [ -z "$RESOURCE_PREFIX_PLACEHOLDER" ]; then
+                RESOURCE_PREFIX_PLACEHOLDER=""
               fi
 
               # Default tags are not supported
@@ -170,7 +170,7 @@ runs:
               terraform plan \
                 -no-color \
                 -out tf.plan \
-                -var "resource_prefix_placeholder=$resource_prefix_placeholder" \
+                -var "resource_prefix_placeholder="$RESOURCE_PREFIX_PLACEHOLDER" \
                 -var "tags=$escaped_tags" \
                 -var-file="${{ inputs.tfvars }}"
 
