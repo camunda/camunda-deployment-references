@@ -32,7 +32,7 @@ inputs:
         description: Version of the OpenShift to install
         required: true
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.18.5
+        default: 4.18.16
 
     delete-ghost-clusters:
         description: Specify whether to delete ghost clusters (true or false)
@@ -47,7 +47,7 @@ runs:
     steps:
 
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@d0b1d5e182380299c16ea63709b6b6949736b36f # 1.4.4
 
         - name: Install ROSA CLI
           shell: bash
@@ -73,7 +73,7 @@ runs:
           working-directory: /tmp
           env:
               # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
-              CLOUD_NUKE_VERSION: v0.40.0
+              CLOUD_NUKE_VERSION: v0.41.0
           run: |
               set -euo pipefail
 
