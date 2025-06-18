@@ -73,7 +73,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@d0b1d5e182380299c16ea63709b6b6949736b36f # 1.4.4
 
         - name: Set Terraform variables
           id: set-terraform-variables
@@ -119,8 +119,8 @@ runs:
 
               terraform validate -no-color
 
-        - name: Terraform Plan
-          id: plan
+        - name: Terraform Prepare
+          id: prepare
           working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
           run: |
@@ -146,6 +146,8 @@ runs:
                 RESOURCE_PREFIX_PLACEHOLDER=""
               fi
 
+              echo "RESOURCE_PREFIX_PLACEHOLDER=$resource_prefix_placeholder" | tee -a "$GITHUB_OUTPUT"
+
               # Default tags are not supported
               # https://github.com/hashicorp/terraform-provider-azurerm/issues/13776
               raw_tags='${{ inputs.tags }}'
@@ -156,16 +158,21 @@ runs:
                 "Purpose": "Reference Implementation"
               }'
 
-              combined_tags=$(jq -s '.[0] + .[1]' <(echo "$raw_tags") <(echo "$static_tags"))
-              escaped_tags=$(echo "$combined_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
+              combined_tags=$(jq -c -s '.[0] + .[1]' <(echo "$raw_tags") <(echo "$static_tags"))
+              echo "COMBINED_TAGS=$combined_tags" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Sanitize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanitize-tags
+          with:
+              raw-tags: ${{ steps.prepare.outputs.COMBINED_TAGS }}
+
+        - name: Terraform Plan
+          id: plan
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          shell: bash
+          run: |
+              set -euo pipefail
 
               terraform plan \
                 -no-color \

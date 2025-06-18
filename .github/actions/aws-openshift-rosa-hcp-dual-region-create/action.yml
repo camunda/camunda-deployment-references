@@ -47,11 +47,11 @@ inputs:
     openshift-version-cluster-1:
         description: Version of the OpenShift to install
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.18.5
+        default: 4.18.16
     openshift-version-cluster-2:
         description: Version of the OpenShift to install
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.18.5
+        default: 4.18.16
     replicas-cluster-1:
         description: Number of replicas for the ROSA cluster 1 (empty will fallback on default value of the module)
         default: ''
@@ -145,7 +145,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@d0b1d5e182380299c16ea63709b6b6949736b36f # 1.4.4
 
         # TODO: when available on asdf, migrate this to it
         - name: Install ROSA CLI
@@ -259,6 +259,12 @@ runs:
 
               terraform validate -no-color
 
+        - name: Sanitize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanitize-tags
+          with:
+              raw-tags: ${{ inputs.tags }}
+
         - name: Terraform Plan - Clusters
           id: plan-clusters
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
@@ -316,19 +322,8 @@ runs:
               echo "Displaying templated cluster_cluster_2.tf file:"
               cat cluster_region_2.tf
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
-
               terraform plan -no-color -out clusters.plan  \
-                -var="default_tags=$escaped_tags" \
+                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
                 -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
 
@@ -386,9 +381,11 @@ runs:
                   oc whoami
                   echo "Show existing contexts"
                   kubectl config get-contexts
-                  if kubectl config get-contexts | awk '{print $2}' | grep -q '^${{ inputs.cluster-name-1 }}$'; then
+                  if kubectl config get-contexts -o name | grep -qx '${{ inputs.cluster-name-1 }}'; then
                       echo "Context '${{ inputs.cluster-name-1 }}' already exists. No changes made."
                   else
+                      echo "Renaming oc config current context to '${{ inputs.cluster-name-1 }}'"
+                      kubectl config delete-context '${{ inputs.cluster-name-1 }}' 2>/dev/null || true
                       kubectl config rename-context "$(oc config current-context)" "${{ inputs.cluster-name-1 }}"
                   fi
 
@@ -407,9 +404,11 @@ runs:
                   oc whoami
                   echo "Show existing contexts"
                   kubectl config get-contexts
-                  if kubectl config get-contexts | awk '{print $2}' | grep -q '^${{ inputs.cluster-name-2 }}$'; then
+                  if kubectl config get-contexts -o name | grep -qx '${{ inputs.cluster-name-2 }}'; then
                       echo "Context '${{ inputs.cluster-name-2 }}' already exists. No changes made."
                   else
+                      echo "Renaming oc config current context to '${{ inputs.cluster-name-2 }}'"
+                      kubectl config delete-context '${{ inputs.cluster-name-2 }}' 2>/dev/null || true
                       kubectl config rename-context "$(oc config current-context)" "${{ inputs.cluster-name-2 }}"
                   fi
 
@@ -446,19 +445,8 @@ runs:
           run: |
               set -euo pipefail
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
-
               terraform plan -no-color -out peering.plan \
-                -var="default_tags=$escaped_tags" \
+                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
                 -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}" \
                 -var="cluster_1_vpc_id=${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}" \
@@ -511,21 +499,9 @@ runs:
 
               hash=$(echo -n "${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}" | sha256sum | cut -c1-8)
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
-
               terraform plan -no-color -out  backup_bucket.plan \
-                -var="default_tags=$escaped_tags" \
+                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var="bucket_name=cb-${hash}"
-
 
         - name: Terraform Apply - Backup bucket
           id: apply-backup-bucket

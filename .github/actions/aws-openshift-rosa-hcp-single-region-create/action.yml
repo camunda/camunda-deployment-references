@@ -36,7 +36,7 @@ inputs:
         description: Version of the OpenShift to install
         required: true
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.18.5
+        default: 4.18.16
     replicas:
         description: Number of replicas for the ROSA cluster (empty will fallback on default value of the module)
         default: ''
@@ -116,7 +116,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@d0b1d5e182380299c16ea63709b6b6949736b36f # 1.4.4
 
         # TODO: when available on asdf, migrate this to it
         - name: Install ROSA CLI
@@ -233,6 +233,12 @@ runs:
 
               terraform validate -no-color
 
+        - name: Sanitize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanitize-tags
+          with:
+              raw-tags: ${{ inputs.tags }}
+
         - name: Terraform Plan - Cluster
           id: plan-cluster
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
@@ -273,18 +279,7 @@ runs:
               echo "Displaying templated cluster.tf file:"
               cat cluster.tf
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
-
-              terraform plan -no-color -var="default_tags=$escaped_tags" -out rosa.plan
+              terraform plan -no-color -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' -out rosa.plan
 
         - name: Terraform Apply - Cluster
           id: apply-cluster
@@ -343,11 +338,8 @@ runs:
               echo "Displaying templated vpn.tf file:"
               cat vpn.tf
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r 'to_entries | map("\"" + .key + "\"=\"" + .value + "\"") | join(", ")' | sed 's/.*/{&}/')
-
               terraform plan -no-color \
-                -var="default_tags=$escaped_tags" \
+                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var="vpc_id=${{ steps.apply-cluster.outputs.vpc_id }}" \
                 -out vpn.plan
 
@@ -436,9 +428,11 @@ runs:
 
                   echo "Show existing contexts"
                   kubectl config get-contexts
-                  if kubectl config get-contexts | awk '{print $2}' | grep -q '^${{ inputs.cluster-name }}$'; then
+                  if kubectl config get-contexts -o name | grep -qx '${{ inputs.cluster-name }}'; then
                       echo "Context '${{ inputs.cluster-name }}' already exists. No changes made."
                   else
+                      echo "Renaming oc config current context to '${{ inputs.cluster-name }}'"
+                      kubectl config delete-context '${{ inputs.cluster-name }}' 2>/dev/null || true
                       kubectl config rename-context "$(oc config current-context)" "${{ inputs.cluster-name }}"
                   fi
 
