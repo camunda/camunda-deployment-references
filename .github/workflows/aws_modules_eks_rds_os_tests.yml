@@ -151,14 +151,12 @@ jobs:
               with:
                   modfile: ${{ github.workspace }}/aws/modules/.test/src/go.mod
 
-            - name: Launch test
-              timeout-minutes: 125
-              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
-              if: always() && success()
+            - name: Prepare ci tags
+              id: prepare-ci-tags
               run: |
                   set -euo pipefail
 
-                  ci_metadata=$(jq -n \
+                  ci_metadata=$(jq -c -n \
                     --arg run_id "${{ github.run_id }}" \
                     --arg run_number "${{ github.run_number }}" \
                     --arg workflow "${{ github.workflow }}" \
@@ -178,19 +176,23 @@ jobs:
                       "ci-event": $event_name
                     }')
 
-                  # Convert to Terraform format: "key"="value", ... wrapped in braces
-                  escaped_tags=$(echo "$ci_metadata" | jq -r '
-                    to_entries
-                    | map("\"" + .key + "\"=\"" + (
-                        .value
-                        | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                        | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                        ) + "\"")
-                    | join(", ")
-                    ' | sed 's/.*/{&}/')
+                  echo "CI_METADATA=$ci_metadata" | tee -a "$GITHUB_ENV"
 
-                  echo "Final tags: $escaped_tags"
-                  export TF_VAR_default_tags="$escaped_tags"
+            - name: Sanitize Tags
+              id: sanitize-tags
+              uses: ./.github/actions/internal-sanitize-tags
+              with:
+                  raw-tags: ${{ env.CI_METADATA }}
+
+            - name: Launch test
+              timeout-minutes: 125
+              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+              if: always() && success()
+              run: |
+                  set -euo pipefail
+
+                  echo "Final tags: ${{ steps.sanitize-tags.outputs.sanitized_tags }}"
+                  export TF_VAR_default_tags='${{ steps.sanitize-tags.outputs.sanitized_tags }}'
 
                   just aws-tf-modules-test ${{ matrix.test_function }} "--junitfile ${{ matrix.test_function }}_unit-tests.xml"
               env:
