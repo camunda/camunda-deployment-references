@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Create camunda namespace if it doesn't exist
-kubectl create namespace camunda --dry-run=client -o yaml | kubectl apply -f -
-
 # Create the secret with all database credentials
 kubectl create secret generic setup-db-secret --namespace camunda \
   --from-literal=DB_HOST="$DB_HOST" \
