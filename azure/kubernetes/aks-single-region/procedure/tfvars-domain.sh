@@ -12,3 +12,5 @@ subscription_id     = "$AZURE_SUBSCRIPTION_ID"
 terraform_sp_app_id = "$AZURE_SP_ID"
 dns_zone_id         = "$AZURE_DNS_ZONE_ID"
 EOF
+
+cat terraform.tfvars
