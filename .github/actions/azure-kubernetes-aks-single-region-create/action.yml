@@ -146,7 +146,7 @@ runs:
                 RESOURCE_PREFIX_PLACEHOLDER=""
               fi
 
-              echo "RESOURCE_PREFIX_PLACEHOLDER=$RESOURCE_PREFIX_PLACEHOLDER" | tee -a "$GITHUB_OUTPUT"
+              echo "RESOURCE_PREFIX_PLACEHOLDER=$RESOURCE_PREFIX_PLACEHOLDER" | tee -a "$GITHUB_ENV"
 
               # Default tags are not supported
               # https://github.com/hashicorp/terraform-provider-azurerm/issues/13776
