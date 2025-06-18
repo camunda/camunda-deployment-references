@@ -177,7 +177,7 @@ runs:
               terraform plan \
                 -no-color \
                 -out tf.plan \
-                -var "resource_prefix_placeholder="$RESOURCE_PREFIX_PLACEHOLDER" \
+                -var "resource_prefix_placeholder=$RESOURCE_PREFIX_PLACEHOLDER" \
                 -var "tags=$escaped_tags" \
                 -var-file="${{ inputs.tfvars }}"
 
