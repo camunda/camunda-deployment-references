@@ -154,6 +154,12 @@ runs:
                 -backend-config="region=${{ steps.utility.outputs.TFSTATE_REGION }}"
               terraform validate -no-color
 
+        - name: Sanitize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanitize-tags
+          with:
+              raw-tags: ${{ inputs.tags }}
+
         - name: Terraform Plan
           shell: bash
           id: plan
@@ -164,20 +170,9 @@ runs:
               # protect sensitive values
               echo "::add-mask::${{ inputs.password }}"
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
-
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
               terraform plan -no-color -out aurora.plan \
-                -var "default_tags=$escaped_tags" \
+                -var 'default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var-file=/tmp/var.tfvars.json \
                 -var "cluster_name=${{ inputs.cluster-name }}" \
                 -var "username=${{ inputs.username }}" \
