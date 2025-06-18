@@ -1,0 +1,38 @@
+---
+name: Sanitize Tags
+
+description: >
+    This GitHub Action sanitizes the tags given as input and outputs a sanitized version.
+    It's based on the AWS guidelines for tag keys and values, ensuring that tags are compliant with the expected format.
+
+inputs:
+    raw-tags:
+        description: Raw tags to sanitize
+        default: '{}'
+
+outputs:
+    sanitized_tags:
+        description: Sanitized tags
+        value: ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+
+runs:
+    using: composite
+    steps:
+        - name: Sanitize Tags
+          shell: bash
+          id: sanitize-tags
+          run: |
+              set -euo pipefail
+
+              raw_tags='${{ inputs.raw-tags }}'
+              escaped_tags=$(echo "$raw_tags" | jq -r '
+                    to_entries
+                    | map("\"" + .key + "\"=\"" + (
+                        .value
+                        | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace all invalid characters
+                        | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
+                        | .[0:255]                                           # Truncate to 255 characters
+                        ) + "\"")
+                    | join(", ")
+                    ' | sed 's/.*/{&}/')
+              echo "sanitized_tags=${escaped_tags}" | tee -a "$GITHUB_OUTPUT"
