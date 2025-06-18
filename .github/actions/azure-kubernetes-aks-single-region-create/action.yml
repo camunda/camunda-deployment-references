@@ -194,7 +194,8 @@ runs:
 
         - name: Apply and verify storage class
           shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
           run: |
               set -euo pipefail
-              ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/procedure/storageclass-configure.sh
-              ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/procedure/storageclass-verify.sh
+              ./procedure/storageclass-configure.sh
+              ./procedure/storageclass-verify.sh
