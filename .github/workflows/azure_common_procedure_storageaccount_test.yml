@@ -87,6 +87,10 @@ jobs:
               working-directory: azure/common/procedure/storage-account
               run: |
                   set -euo pipefail
+
+                  # Generate a random storage account name to avoid conflicts
+                  export AZURE_STORAGE_ACCOUNT_NAME="camundatfstate$RANDOM"
+
                   ./storage-account-creation.sh
                   ./storage-account-versioning.sh
 
