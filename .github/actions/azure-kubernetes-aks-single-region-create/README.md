@@ -19,6 +19,7 @@ The kube context will be set on the created cluster.
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
 | `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `main` |
 | `tf-modules-path` | <p>Path where the tf eks modules will be cloned</p> | `true` | `./.action-tf-modules/azure-kubernetes-aks-single-region-create/` |
+| `tfvars` | <p>Path to the terraform.tfvars file with the variables for the AKS cluster</p> | `true` | `""` |
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `true` | `true` |
 | `ref-arch` | <p>Reference architecture to deploy</p> | `false` | `aks-single-region` |
 | `location` | <p>Azure region where the AKS cluster will be deployed</p> | `true` | `""` |
@@ -94,6 +95,12 @@ This action is a `composite` action.
     #
     # Required: true
     # Default: ./.action-tf-modules/azure-kubernetes-aks-single-region-create/
+
+    tfvars:
+    # Path to the terraform.tfvars file with the variables for the AKS cluster
+    #
+    # Required: true
+    # Default: ""
 
     login:
     # Authenticate the current kube context on the created cluster

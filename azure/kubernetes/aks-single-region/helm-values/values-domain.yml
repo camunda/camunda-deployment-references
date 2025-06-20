@@ -18,11 +18,18 @@ global:
     elasticsearch:
         enabled: true
 
+    ingress:
+        enabled: true
+        host: ${DOMAIN_NAME}
+        tls:
+            enabled: true
+            secretName: camunda-c8-tls
+        annotations:
+            kubernetes.io/tls-acme: 'true'
+
     identity:
-
         auth:
-            publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
-
+            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
             zeebe:
                 existingSecret:
                     name: identity-secret-for-components
@@ -30,26 +37,27 @@ global:
                 existingSecret:
                     name: identity-secret-for-components
             operate:
-                redirectUrl: http://localhost:8081  # replace this with a port of your choice when you will do port forwarding
+                redirectUrl: https://${DOMAIN_NAME}/operate
                 existingSecret:
                     name: identity-secret-for-components
             tasklist:
-                redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
+                redirectUrl: https://${DOMAIN_NAME}/tasklist
                 existingSecret:
                     name: identity-secret-for-components
             optimize:
-                redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
+                redirectUrl: https://${DOMAIN_NAME}/optimize
                 existingSecret:
                     name: identity-secret-for-components
             webModeler:
-                redirectUrl: http://localhost:8084
+                redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: http://localhost:8085
+                redirectUrl: https://${DOMAIN_NAME}
                 existingSecret:
                     name: identity-secret-for-components
 
 identity:
-    fullURL: http://localhost:8080 # replace this with a port of your choice when you will do port forwarding
+    contextPath: /identity
+    fullURL: https://${DOMAIN_NAME}/identity
 
     externalDatabase:
         enabled: true
@@ -60,8 +68,18 @@ identity:
         existingSecret: identity-postgres-secret
         existingSecretPasswordKey: password
 
+connectors:
+    contextPath: /connectors
+
+operate:
+    contextPath: /operate
+
+tasklist:
+    contextPath: /tasklist
+
 webModeler:
     enabled: false
+    contextPath: /modeler
 
     restapi:
         externalDatabase:
@@ -75,6 +93,21 @@ webModeler:
             existingSecret:
                 name: identity-secret-for-components
             fromAddress: changeme@example.com
+
+optimize:
+    contextPath: /optimize
+
+zeebeGateway:
+    ingress:
+        grpc:
+            enabled: true
+            host: zeebe.${DOMAIN_NAME}
+            tls:
+                enabled: true
+                secretName: zeebe-c8-tls-grpc
+            annotations:
+                kubernetes.io/tls-acme: 'true'
+    contextPath: /zeebe
 
 console:
     enabled: false # by default, console is not enabled
