@@ -115,7 +115,7 @@ jobs:
               working-directory: azure/common/procedure/storage-account
               run: |
                   set -euo pipefail
-                  cp ${{ github.workspace }}/azure/common/test/fixtures/terraform.tfvars .
+                  cp ${{ github.workspace }}/azure/common/test/fixtures/ci/terraform.tfvars .
 
             - name: Terraform Init
               id: init
