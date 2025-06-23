@@ -1,29 +1,9 @@
 ---
 name: Tests - Integration - AWS OpenShift ROSA HCP Single Region
-
-# description: This workflow perform integration tests against ROSA HCP platform
-
 on:
     schedule:
-        - cron: 0 3 * * 1 # Runs at 3 AM on Monday
-    pull_request:
-        paths:
-            - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
-            - .github/workflows-config/aws-openshift-rosa-hcp-single-region/test_matrix.yml
-            - .tool-versions
-            - generic/kubernetes/single-region/**
-            - generic/openshift/single-region/**
-            - aws/openshift/rosa-hcp-single-region/**
-            - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
-            - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
-            - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
-            - .github/actions/aws-configure-cli/**
-            - .github/actions/internal-helm-chart-tests/**
-            - .github/actions/internal-apply-skip-label/**
-            - .github/actions/internal-generic-encrypt-export/**
-            - .github/actions/internal-generic-decrypt-import/**
-            - .github/actions/internal-tests-matrix/**
-
+        - cron: 0 3 * * 1
+    pull_request: {}
     workflow_dispatch:
         inputs:
             cluster_name:
@@ -38,7 +18,6 @@ on:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
-
             ref-arch:
                 description: |
                     Reference architecture to use, can only deploy one at a time.
@@ -48,42 +27,24 @@ on:
                 required: false
                 type: string
                 default: rosa-hcp-single-region
-
-# limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # in case of renovate we don't cancel the previous run, so it can finish it
-    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
     cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
-
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
-
     AWS_PROFILE: infex
     AWS_REGION: eu-west-2
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
-
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-
-    # TEST VARIABLES
-
-    # Vars with "CI_" prefix are used in the CI workflow only.
     CI_MATRIX_FILE: .github/workflows-config/aws-openshift-rosa-hcp-single-region/test_matrix.yml
-
-    # Docker Hub auth to avoid image pull rate limit.
-    # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
-    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
-
-    # Components that are not enabled by default in the doc, but enabled in our tests to have a better coverage
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: main
+    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo
     WEBMODELER_ENABLED: 'true'
     CONSOLE_ENABLED: 'true'
-
     ROSA_CLI_VERSION: latest
-
 jobs:
     clusters-info:
         name: Define Matrix
@@ -91,13 +52,11 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
               with:
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db # 1.3.9
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
               id: matrix
@@ -118,17 +77,15 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db # 1.3.9
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -141,25 +98,20 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
                       secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_PASSWORD;
                       secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_USERNAME;
-
             - name: Add profile credentials to ~/.aws/credentials
               shell: bash
               run: |
                   aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
-
             - name: Set current Camunda version
               id: camunda-version
               run: |
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
-
-            # Also remove the versioning
             - name: Create ROSA cluster and login
               uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-create
               id: create_cluster
-              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               with:
                   rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
@@ -172,9 +124,10 @@ jobs:
                   s3-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   openshift-version: ${{ matrix.distro.version }}
                   tf-modules-revision: ${{ github.ref }}
-
                   tags: >
                       {
+
+
                         "ci-run-id": "${{ github.run_id }}",
                         "ci-run-number": "${{ github.run_number }}",
                         "ci-workflow": "${{ github.workflow }}",
@@ -188,23 +141,19 @@ jobs:
             - name: Dump kubeconfig before encryption
               run: |
                   kubectl config view --raw > "${{ runner.temp }}/kubeconfig.yaml"
-
-            - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
+            - name: Export kubeconfig and encrypt it
               id: export_kube_config
               uses: ./.github/actions/internal-generic-encrypt-export
               with:
                   file_path: ${{ runner.temp }}/kubeconfig.yaml
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
-
-            ## Write for matrix outputs workaround
-            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
+            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375
               id: out
               with:
                   matrix-step-name: ${{ github.job }}
                   matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
                       kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
-
     access-info:
         name: Read kube configs from matrix
         runs-on: ubuntu-latest
@@ -212,11 +161,10 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
-
     integration-tests:
         name: Run integration tests - ${{ matrix.distro.name }}
         runs-on: ubuntu-latest
@@ -229,23 +177,19 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         env:
-            TEST_NAMESPACE: camunda   # This namespace is hard-coded in the documentation
-            # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
+            TEST_NAMESPACE: camunda
             TEST_CLUSTER_TYPE: openshift
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db # 1.3.9
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db
             - name: Install CLI tools from OpenShift Mirror
-              uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+              uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82
               with:
                   oc: ${{ matrix.distro.version }}
-
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -263,20 +207,21 @@ jobs:
                   output_path: ${{ runner.temp }}/kubeconfig
                   encrypted_file_base64: >
                       ${{ fromJson(needs.access-info.outputs.config).kubeconfig_encrypted[
+
+
                         format(
                           '{0}-{1}',
                           matrix.distro.name,
                           matrix.scenario.name
                         )
                       ] }}
-                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
             - name: 🔐 Login into the cluster
               timeout-minutes: 2
               run: |
                   mkdir -p "$HOME/.kube"
                   mv "${{ runner.temp }}/kubeconfig" "$HOME/.kube/config"
-
             - name: 📁 Get a copy of the reference architecture
               run: |
                   # run it as specified in the doc
@@ -284,10 +229,8 @@ jobs:
 
                   ./aws/openshift/rosa-hcp-single-region/procedure/get-your-copy.sh
                   tree
-
             - name: 🏗️ Prepare a fresh namespace for the tests
-              # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
-              uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3
+              uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08
               with:
                   timeout_minutes: 10
                   max_attempts: 40
@@ -319,7 +262,6 @@ jobs:
 
                       echo "Sleeping 30s"
                       sleep 30
-
             - name: 🛠️ Assemble deployment values of generic/openshift/single-region
               run: |
                   set -o errexit
@@ -369,8 +311,6 @@ jobs:
                   fi
 
                   ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
-
-
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               run: |
                   set -euxo pipefail # tolerate, nothing.
@@ -396,21 +336,18 @@ jobs:
                   fi
 
                   ./generic/openshift/single-region/procedure/install-chart.sh
-
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 10
               run: |
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
-
             - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
               if: env.TESTS_ENABLED == 'true'
-              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
               with:
                   repository: camunda/camunda-platform-helm
                   ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   fetch-depth: 0
-
             - name: 🧪 TESTS - Set variables
               if: env.TESTS_ENABLED == 'true'
               run: |
@@ -505,19 +442,16 @@ jobs:
 
                   echo "Ensure asdf tool is available in the test suite by using our global one"
                   cp .tool-versions "$TEST_VALUES_BASE_DIR"
-
             - name: 🧪 TESTS - Run Preflight TestSuite
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 10
               run: |
                   task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.preflight
-
             - name: 🧪 TESTS - Run Core TestSuite
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 20
               run: |
                   task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.core
-
             - name: 🧪 TESTS - Run additional tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 20
@@ -597,11 +531,9 @@ jobs:
                     exit 1
                   fi
                   echo "✅ The cluster meets all the expected criteria."
-
             - name: 🔬🚨 Get failed Pods info
               if: failure()
-              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@c3317b1eda64ab60996cdeb11d24b28f0d4fcc6a # main
-
+              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@c3317b1eda64ab60996cdeb11d24b28f0d4fcc6a
     cleanup-clusters:
         name: Cleanup ROSA clusters
         if: always()
@@ -615,18 +547,16 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db # 1.3.9
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   url: ${{ secrets.VAULT_ADDR }}
@@ -638,7 +568,6 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
-
             - name: Add profile credentials to ~/.aws/credentials
               shell: bash
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -646,14 +575,12 @@ jobs:
                   aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
                   aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
-
             - name: Set current Camunda version
               id: camunda-version
               if: env.CLEANUP_CLUSTERS == 'true'
               run: |
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
-
             - name: Delete on-demand ROSA HCP Cluster
               uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
@@ -666,7 +593,6 @@ jobs:
                   max-age-hours-cluster: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
-
     report-success:
         name: Report success
         runs-on: ubuntu-latest
@@ -674,14 +600,12 @@ jobs:
             - integration-tests
             - cleanup-clusters
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
               env:
                   GH_TOKEN: ${{ github.token }}
               uses: ./.github/actions/internal-apply-skip-label
-
     report-failures:
         name: Report failures
         if: failure()
@@ -692,7 +616,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
