@@ -18,7 +18,7 @@ concurrency:
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
 
-    AWS_PROFILE: infex
+    AWS_PROFILE: infraex
     AWS_REGION: eu-west-2
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
