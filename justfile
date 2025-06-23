@@ -1,18 +1,4 @@
 
-regenerate-aws-ec2-golden-file:
-  #!/bin/bash
-  set -euxo pipefail
-
-  cd {{justfile_directory()}}/aws/ec2/terraform
-  cp {{justfile_directory()}}/aws/ec2/test/fixtures/provider_override.tf .
-  export AWS_REGION="eu-west-2"
-  terraform init -upgrade
-  terraform plan -var aws_ami="ami" -var generate_ssh_key_pair="true" -out=tfplan
-  terraform show -json tfplan | jq > tfplan.json
-  jq --sort-keys '.planned_values.root_module' tfplan.json > ../test/golden/tfplan.json
-  rm -rf tfplan tfplan.json
-  rm -rf provider_override.tf
-
 regenerate-golden-file module_dir backend_bucket_region backend_bucket_name backend_bucket_key relative_output_path="./test/golden/":
   #!/bin/bash
   set -euxo pipefail
