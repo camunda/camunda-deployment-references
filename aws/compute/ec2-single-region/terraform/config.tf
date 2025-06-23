@@ -1,7 +1,8 @@
 terraform {
   required_version = ">= 1.7.0"
-  backend "local" {
-    path = "terraform.tfstate"
+
+  backend "s3" {
+    encrypt = true
   }
 
   required_providers {
@@ -16,14 +17,22 @@ terraform {
   }
 }
 
-# Uncomment if used as reference architecture
-# If used as module, a provider configuration is not allowed to be defined
-# provider "aws" {
-#   # set region via $AWS_REGION environment variable
+provider "aws" {
+  default_tags {
+    tags = var.default_tags
+  }
+}
 
-#   default_tags {
-#     tags = {
-#       managed_by = "Terraform"
-#     }
-#   }
-# }
+#### Variables
+
+variable "default_tags" {
+  type        = map(string)
+  default     = {}
+  description = "Default tags to apply to all resources"
+}
+
+variable "prefix" {
+  type        = string
+  description = "The prefix to use for names of resources"
+  default     = "camunda"
+}
