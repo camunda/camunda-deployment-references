@@ -59,7 +59,6 @@ jobs:
                 camunda:
                     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
                     - 8.6.18
-                    - 8.7.0-SNAPSHOT
                 architecture:
                     - x86_64
                     - arm64
@@ -67,10 +66,6 @@ jobs:
                     - ${{ github.event_name == 'pull_request' && !contains(github.head_ref, 'SNAPSHOT') }}
                 previous_camunda:
                     - 8.6.2
-                # we don't include SNAPSHOT in PR due to the instability of its nature except if it's explicitly mentioned
-                exclude:
-                    - camunda: 8.7.0-SNAPSHOT
-                      isPR: true
 
         steps:
             - name: Checkout repository
