@@ -1,7 +1,7 @@
 locals {
   opensearch_domain_name    = "${var.prefix}-os-cluster"
   opensearch_enable_logging = false
-  opensearch_enable         = false    # TOOD: temporary, will be removed in the future
+  opensearch_enable         = true
   opensearch_architecture   = "x86_64" # Default architecture, can be overridden by the user
   opensearch_instance_type = {
     x86_64 = "m7i.large.search"
