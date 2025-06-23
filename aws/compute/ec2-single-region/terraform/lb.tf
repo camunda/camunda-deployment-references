@@ -1,3 +1,8 @@
+locals {
+  enable_alb = true
+  enable_nlb = true
+}
+
 ################################################################
 #             Application Load Balancer (WebApps)              #
 ################################################################
@@ -66,7 +71,7 @@ resource "aws_lb_target_group" "connectors" {
 
 # Application Load Balancer to expose the WebApps
 resource "aws_lb" "main" {
-  count = var.enable_alb ? 1 : 0
+  count = local.enable_alb ? 1 : 0
 
   name               = "${var.prefix}-alb-webui"
   internal           = false
@@ -80,7 +85,7 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_listener" "http_8080" {
-  count = var.enable_alb ? 1 : 0
+  count = local.enable_alb ? 1 : 0
 
   load_balancer_arn = aws_lb.main[0].arn
   port              = "80"
@@ -93,7 +98,7 @@ resource "aws_lb_listener" "http_8080" {
 }
 
 resource "aws_lb_listener" "http_9090" {
-  count = var.enable_alb ? 1 : 0
+  count = local.enable_alb ? 1 : 0
 
   load_balancer_arn = aws_lb.main[0].arn
   port              = "9090"
@@ -134,7 +139,7 @@ resource "aws_lb_target_group_attachment" "grpc" {
 }
 
 resource "aws_lb" "grpc" {
-  count = var.enable_nlb ? 1 : 0
+  count = local.enable_nlb ? 1 : 0
 
   name               = "${var.prefix}-nlb-grpc"
   internal           = false
@@ -148,7 +153,7 @@ resource "aws_lb" "grpc" {
 }
 
 resource "aws_lb_listener" "grpc_26500" {
-  count = var.enable_nlb ? 1 : 0
+  count = local.enable_nlb ? 1 : 0
 
   load_balancer_arn = aws_lb.grpc[0].arn
   port              = "26500"
@@ -158,4 +163,15 @@ resource "aws_lb_listener" "grpc_26500" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.grpc.arn
   }
+}
+
+# Outputs
+output "alb_endpoint" {
+  value       = join("", aws_lb.main[*].dns_name)
+  description = "(Optional) The DNS name of the Application Load Balancer (ALB) to access the Camunda Webapp."
+}
+
+output "nlb_endpoint" {
+  value       = join("", aws_lb.grpc[*].dns_name)
+  description = "(Optional) The DNS name of the Network Load Balancer (NLB) to access the Camunda REST API."
 }
