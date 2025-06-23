@@ -22,8 +22,7 @@
           "Name": "camunda-extra-volume-0"
         },
         "tags_all": {
-          "Name": "camunda-extra-volume-0",
-          "managed_by": "Terraform"
+          "Name": "camunda-extra-volume-0"
         },
         "timeouts": null,
         "type": "gp3"
@@ -51,8 +50,7 @@
           "Name": "camunda-extra-volume-1"
         },
         "tags_all": {
-          "Name": "camunda-extra-volume-1",
-          "managed_by": "Terraform"
+          "Name": "camunda-extra-volume-1"
         },
         "timeouts": null,
         "type": "gp3"
@@ -80,8 +78,7 @@
           "Name": "camunda-extra-volume-2"
         },
         "tags_all": {
-          "Name": "camunda-extra-volume-2",
-          "managed_by": "Terraform"
+          "Name": "camunda-extra-volume-2"
         },
         "timeouts": null,
         "type": "gp3"
@@ -100,10 +97,7 @@
         "name": "camunda-cloudwatch-instance-profile",
         "path": "/",
         "role": "camunda-cloudwatch",
-        "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        }
+        "tags": null
       }
     },
     "aws_iam_policy.cloudwatch_policy": {
@@ -120,10 +114,7 @@
         "name": "camunda-cloudwatch-policy",
         "path": "/",
         "policy": "{\"Statement\":[{\"Action\":[\"cloudwatch:PutMetricData\",\"ec2:DescribeVolumes\",\"ec2:DescribeTags\",\"logs:PutLogEvents\",\"logs:PutRetentionPolicy\",\"logs:DescribeLogStreams\",\"logs:DescribeLogGroups\",\"logs:CreateLogStream\",\"logs:CreateLogGroup\",\"xray:PutTraceSegments\",\"xray:PutTelemetryRecords\",\"xray:GetSamplingRules\",\"xray:GetSamplingTargets\",\"xray:GetSamplingStatisticSummaries\"],\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"CWACloudWatchServerPermissions\"},{\"Action\":[\"ssm:GetParameter\"],\"Effect\":\"Allow\",\"Resource\":\"ARN_REDACTED",
-        "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        }
+        "tags": null
       }
     },
     "aws_iam_role.cloudwatch": {
@@ -145,10 +136,7 @@
         "name": "camunda-cloudwatch",
         "path": "/",
         "permissions_boundary": null,
-        "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        }
+        "tags": null
       }
     },
     "aws_iam_role_policy_attachment.cloudwatch_policy_attachment": {
@@ -204,8 +192,7 @@
           "Name": "camunda-bastion"
         },
         "tags_all": {
-          "Name": "camunda-bastion",
-          "managed_by": "Terraform"
+          "Name": "camunda-bastion"
         },
         "timeouts": null,
         "user_data_replace_on_change": false,
@@ -268,8 +255,7 @@
           "Name": "camunda-instance-0"
         },
         "tags_all": {
-          "Name": "camunda-instance-0",
-          "managed_by": "Terraform"
+          "Name": "camunda-instance-0"
         },
         "timeouts": null,
         "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
@@ -333,8 +319,7 @@
           "Name": "camunda-instance-1"
         },
         "tags_all": {
-          "Name": "camunda-instance-1",
-          "managed_by": "Terraform"
+          "Name": "camunda-instance-1"
         },
         "timeouts": null,
         "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
@@ -398,8 +383,7 @@
           "Name": "camunda-instance-2"
         },
         "tags_all": {
-          "Name": "camunda-instance-2",
-          "managed_by": "Terraform"
+          "Name": "camunda-instance-2"
         },
         "timeouts": null,
         "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
@@ -418,10 +402,7 @@
       "type": "aws_key_pair",
       "values": {
         "key_name": "camunda-auth-key",
-        "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        }
+        "tags": null
       }
     },
     "aws_kms_key.main": {
@@ -443,9 +424,6 @@
         "is_enabled": true,
         "key_usage": "ENCRYPT_DECRYPT",
         "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        },
         "timeouts": null,
         "xks_key_id": null
       }
@@ -488,9 +466,6 @@
         "name": "camunda-nlb-grpc",
         "preserve_host_header": null,
         "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        },
         "timeouts": null,
         "xff_header_processing_mode": null
       }
@@ -533,9 +508,6 @@
         "name": "camunda-alb-webui",
         "preserve_host_header": false,
         "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        },
         "timeouts": null,
         "xff_header_processing_mode": "append"
       }
@@ -576,9 +548,6 @@
         "port": 26500,
         "protocol": "TCP",
         "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        },
         "timeouts": null
       }
     },
@@ -618,9 +587,6 @@
         "port": 80,
         "protocol": "HTTP",
         "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        },
         "timeouts": null
       }
     },
@@ -660,9 +626,6 @@
         "port": 9090,
         "protocol": "HTTP",
         "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        },
         "timeouts": null
       }
     },
@@ -704,9 +667,6 @@
         "proxy_protocol_v2": false,
         "slow_start": 0,
         "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        },
         "target_type": "instance"
       }
     },
@@ -747,9 +707,6 @@
         "proxy_protocol_v2": false,
         "slow_start": 0,
         "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        },
         "target_type": "instance"
       }
     },
@@ -801,9 +758,6 @@
           }
         ],
         "tags": null,
-        "tags_all": {
-          "managed_by": "Terraform"
-        },
         "target_type": "instance"
       }
     },
@@ -1286,8 +1240,7 @@
           "Name": "allow_necessary_camunda_ports_within_vpc"
         },
         "tags_all": {
-          "Name": "allow_necessary_camunda_ports_within_vpc",
-          "managed_by": "Terraform"
+          "Name": "allow_necessary_camunda_ports_within_vpc"
         },
         "timeouts": null
       }
@@ -1357,8 +1310,7 @@
           "Name": "allow_package_80_443"
         },
         "tags_all": {
-          "Name": "allow_package_80_443",
-          "managed_by": "Terraform"
+          "Name": "allow_package_80_443"
         },
         "timeouts": null
       }
@@ -1473,8 +1425,7 @@
           "Name": "allow_remote_80_443"
         },
         "tags_all": {
-          "Name": "allow_remote_80_443",
-          "managed_by": "Terraform"
+          "Name": "allow_remote_80_443"
         },
         "timeouts": null
       }
@@ -1547,8 +1498,7 @@
           "Name": "allow_remote_9090"
         },
         "tags_all": {
-          "Name": "allow_remote_9090",
-          "managed_by": "Terraform"
+          "Name": "allow_remote_9090"
         },
         "timeouts": null
       }
@@ -1597,8 +1547,7 @@
           "Name": "allow_remote_grpc"
         },
         "tags_all": {
-          "Name": "allow_remote_grpc",
-          "managed_by": "Terraform"
+          "Name": "allow_remote_grpc"
         },
         "timeouts": null
       }
@@ -1647,8 +1596,7 @@
           "Name": "allow_ssh"
         },
         "tags_all": {
-          "Name": "allow_ssh",
-          "managed_by": "Terraform"
+          "Name": "allow_ssh"
         },
         "timeouts": null
       }
@@ -1722,9 +1670,6 @@
             "is_enabled": true,
             "key_usage": "ENCRYPT_DECRYPT",
             "tags": null,
-            "tags_all": {
-              "managed_by": "Terraform"
-            },
             "timeouts": null,
             "xks_key_id": null
           }
@@ -1873,7 +1818,7 @@
                 "enabled": true
               }
             ],
-            "engine_version": "OpenSearch_2.15",
+            "engine_version": "OpenSearch_2.19",
             "ip_address_type": "ipv4",
             "log_publishing_options": [],
             "node_to_node_encryption": [
@@ -1897,9 +1842,6 @@
               }
             ],
             "tags": null,
-            "tags_all": {
-              "managed_by": "Terraform"
-            },
             "timeouts": {
               "create": "2h",
               "delete": null,
@@ -1926,9 +1868,6 @@
             "name": "camunda-os-cluster-allow-all-internal-access",
             "revoke_rules_on_delete": false,
             "tags": null,
-            "tags_all": {
-              "managed_by": "Terraform"
-            },
             "timeouts": null
           }
         },
@@ -2066,13 +2005,10 @@
             ],
             "subnet_ids": null,
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-default"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-default",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-default"
             }
           }
         },
@@ -2092,13 +2028,10 @@
           "values": {
             "propagating_vgws": null,
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-default"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-default",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-default"
             },
             "timeouts": {
               "create": "5m",
@@ -2122,13 +2055,10 @@
           "values": {
             "revoke_rules_on_delete": false,
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-default"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-default",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-default"
             }
           }
         },
@@ -2149,13 +2079,10 @@
             "customer_owned_ipv4_pool": null,
             "domain": "vpc",
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-eu-west-2a"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-eu-west-2a",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-eu-west-2a"
             },
             "timeouts": null
           }
@@ -2173,13 +2100,10 @@
           "type": "aws_internet_gateway",
           "values": {
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc"
             },
             "timeouts": null
           }
@@ -2200,13 +2124,10 @@
             "connectivity_type": "public",
             "secondary_allocation_ids": null,
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-eu-west-2a"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-eu-west-2a",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-eu-west-2a"
             },
             "timeouts": null
           }
@@ -2284,13 +2205,10 @@
           "type": "aws_route_table",
           "values": {
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-private"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-private",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-private"
             },
             "timeouts": null
           }
@@ -2310,13 +2228,10 @@
           "type": "aws_route_table",
           "values": {
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-public"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-public",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-public"
             },
             "timeouts": null
           }
@@ -2425,13 +2340,10 @@
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-private-eu-west-2a"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-private-eu-west-2a",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-private-eu-west-2a"
             },
             "timeouts": null
           }
@@ -2462,13 +2374,10 @@
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-private-eu-west-2b"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-private-eu-west-2b",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-private-eu-west-2b"
             },
             "timeouts": null
           }
@@ -2499,13 +2408,10 @@
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-private-eu-west-2c"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-private-eu-west-2c",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-private-eu-west-2c"
             },
             "timeouts": null
           }
@@ -2536,13 +2442,10 @@
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-public-eu-west-2a"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-public-eu-west-2a",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-public-eu-west-2a"
             },
             "timeouts": null
           }
@@ -2573,13 +2476,10 @@
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-public-eu-west-2b"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-public-eu-west-2b",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-public-eu-west-2b"
             },
             "timeouts": null
           }
@@ -2610,13 +2510,10 @@
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc-public-eu-west-2c"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc-public-eu-west-2c",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc-public-eu-west-2c"
             },
             "timeouts": null
           }
@@ -2643,13 +2540,10 @@
             "ipv6_ipam_pool_id": null,
             "ipv6_netmask_length": null,
             "tags": {
-              "Example": "camunda-vpc",
               "Name": "camunda-vpc"
             },
             "tags_all": {
-              "Example": "camunda-vpc",
-              "Name": "camunda-vpc",
-              "managed_by": "Terraform"
+              "Name": "camunda-vpc"
             }
           }
         }
