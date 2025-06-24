@@ -16,7 +16,7 @@ global:
     # TODO: added in 8.8
     security:
         authentication:
-        method: oidc
+            method: oidc
 
     ingress:
         enabled: true
