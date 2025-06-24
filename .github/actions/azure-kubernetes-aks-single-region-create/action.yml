@@ -1,0 +1,208 @@
+---
+name: Deploy Azure Kubernetes AKS Single Region Cluster
+
+description: |
+    This GitHub Action automates the deployment of the azure/kubernetes/aks-single-region reference architecture cluster using Terraform.
+    The kube context will be set on the created cluster.
+
+inputs:
+    resource-prefix:
+        description: Prefix for the resources to be created
+        required: true
+        default: camunda
+    resource-group-name:
+        description: Name of the resource group
+        required: true
+    cluster-name:
+        description: Name of the AKS cluster to deploy
+        required: true
+        default: camunda-aks-cluster
+    kubernetes-version:
+        description: Version of Kubernetes to install
+        required: false
+        default: '1.32'
+    # using S3 backend for terraform state even with Azure, to profit from existing cleanup capabilities
+    s3-backend-bucket:
+        description: Name of the S3 bucket to store Terraform state
+        required: true
+    s3-bucket-region:
+        description: Region of the bucket containing the resources states, if not set, will fallback on aws-region
+    s3-bucket-key-prefix:
+        description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+        default: ''
+    tf-modules-revision:
+        description: Git revision of the tf modules to use
+        default: main
+        required: true
+    tf-modules-path:
+        description: Path where the tf eks modules will be cloned
+        default: ./.action-tf-modules/azure-kubernetes-aks-single-region-create/
+        required: true
+    tfvars:
+        description: Path to the terraform.tfvars file with the variables for the AKS cluster
+        required: true
+    login:
+        description: Authenticate the current kube context on the created cluster
+        default: 'true'
+        required: true
+    ref-arch:
+        description: Reference architecture to deploy
+        default: aks-single-region
+        required: false
+    location:
+        description: Azure region where the AKS cluster will be deployed
+        required: true
+    tags:
+        description: Tags to apply to the cluster and related resources, in JSON format
+        default: '{}'
+
+outputs:
+    terraform-state-url:
+        description: URL of the Terraform state file in the S3 bucket
+        value: ${{ steps.set-terraform-variables.outputs.terraform-state-url }}
+
+runs:
+    using: composite
+    steps:
+        - name: Checkout Repository
+          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+          with:
+              repository: camunda/camunda-deployment-references
+              ref: ${{ inputs.tf-modules-revision }}
+              path: ${{ inputs.tf-modules-path }}
+              fetch-depth: 0
+
+        - name: Install asdf tools with cache for the project
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@d0b1d5e182380299c16ea63709b6b6949736b36f # 1.4.4
+
+        - name: Set Terraform variables
+          id: set-terraform-variables
+          shell: bash
+          run: |
+              set -euo pipefail
+              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
+              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.resource-group-name }}/${{ inputs.resource-group-name }}.tfstate"
+
+              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+                export TFSTATE_REGION="$AWS_REGION"
+              else
+                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+              fi
+
+              echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
+              echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
+              echo "TFSTATE_KEY=${TFSTATE_KEY}" >> "$GITHUB_OUTPUT"
+
+              terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_KEY}"
+              echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
+
+        - name: Copy config_override.tf to module root
+          shell: bash
+          run: |
+              cp -r ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/test/fixtures/fixture_* \
+              ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+
+        - name: Terraform Init
+          id: init
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              terraform version
+
+
+              terraform init \
+                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_KEY }}" \
+                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
+
+              terraform validate -no-color
+
+        - name: Terraform Prepare
+          id: prepare
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "Adapting the files with input values"
+              pwd
+              ls
+
+              # We use sed instead of -var because the module presented to the user
+              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
+              sed -i -e 's/\(aks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
+                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
+                     -e 's/\(resource_group_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.resource-group-name }}\2/' \
+                     -e 's/\(location\s*=\s*"\)[^"]*\("\)/\1${{ inputs.location }}\2/' \
+                     main.tf
+
+              cat main.tf
+
+              # Set resource_prefix_placeholder to an empty string if not provided
+              resource_prefix_placeholder="${{ inputs.resource-prefix }}"
+              if [ -z "$resource_prefix_placeholder" ]; then
+                resource_prefix_placeholder=""
+              fi
+
+              echo "RESOURCE_PREFIX_PLACEHOLDER=$resource_prefix_placeholder" | tee -a "$GITHUB_OUTPUT"
+
+              # Default tags are not supported
+              # https://github.com/hashicorp/terraform-provider-azurerm/issues/13776
+              raw_tags='${{ inputs.tags }}'
+
+              # Default tags from azure/kubernetes/aks-single-region/variables.tf
+              static_tags='{
+                "Environment": "Testing",
+                "Purpose": "Reference Implementation"
+              }'
+
+              combined_tags=$(jq -c -s '.[0] + .[1]' <(echo "$raw_tags") <(echo "$static_tags"))
+              echo "COMBINED_TAGS=$combined_tags" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Sanitize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanitize-tags
+          with:
+              raw-tags: ${{ steps.prepare.outputs.COMBINED_TAGS }}
+
+        - name: Terraform Plan
+          id: plan
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              terraform plan \
+                  -no-color \
+                  -out tf.plan \
+                  -var 'resource_prefix_placeholder=${{ steps.prepare.outputs.RESOURCE_PREFIX_PLACEHOLDER }}' \
+                  -var 'tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
+                  -var-file="${{ inputs.tfvars }}"
+
+        - name: Terraform Apply
+          id: apply
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          shell: bash
+          run: |
+              set -euo pipefail
+              terraform apply -no-color tf.plan
+
+        - name: Login and generate kubeconfig
+          if: inputs.login == 'true'
+          shell: bash
+          run: |
+              set -euo pipefail
+              az aks get-credentials --resource-group ${{ inputs.resource-group-name }} --name ${{ inputs.cluster-name }} --overwrite-existing
+
+              kubectl config current-context
+              kubectl get nodes
+
+        - name: Apply and verify storage class
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          run: |
+              set -euo pipefail
+              ./procedure/storageclass-configure.sh
+              ./procedure/storageclass-verify.sh
