@@ -23,22 +23,18 @@ global:
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
             admin:
                 enabled: true
-                existingSecret:
-                    name: identity-secret-for-components
+                existingSecret: identity-secret-for-components
 
             #######################
             # Orchestration Group
             #######################
             core:
-                existingSecret:
-                    name: identity-secret-for-components
+                existingSecret: identity-secret-for-components
             connectors:
-                existingSecret:
-                    name: identity-secret-for-components
+                existingSecret: identity-secret-for-components
             optimize:
                 redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
+                existingSecret: identity-secret-for-components
 
             #######################
             # Management Group
@@ -47,8 +43,7 @@ global:
                 redirectUrl: http://localhost:8084
             console:
                 redirectUrl: http://localhost:8085
-                existingSecret:
-                    name: identity-secret-for-components
+                existingSecret: identity-secret-for-components
 
 identityKeycloak:
     serviceAccount:
@@ -73,6 +68,7 @@ identityKeycloak:
           value: aws-wrapper:postgresql
     auth:
         existingSecret: identity-secret-for-components
+        passwordSecretKey: identity-keycloak-admin-password
 
 webModeler:
     enabled: false # by default, webModeler is not enabled
@@ -92,8 +88,7 @@ webModeler:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
         mail:
-            existingSecret:
-                name: identity-secret-for-components # reference the smtp password
+            existingSecret: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
 
 identity:

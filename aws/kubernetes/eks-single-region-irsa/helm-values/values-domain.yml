@@ -33,23 +33,19 @@ global:
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
             admin:
                 enabled: true
-                existingSecret:
-                    name: identity-secret-for-components
+                existingSecret: identity-secret-for-components
 
             #######################
             # Orchestration Group
             #######################
             core:
                 redirectUrl: https://${DOMAIN_NAME}/core
-                existingSecret:
-                    name: identity-secret-for-components
+                existingSecret: identity-secret-for-components
             connectors:
-                existingSecret:
-                    name: identity-secret-for-components
+                existingSecret: identity-secret-for-components
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize
-                existingSecret:
-                    name: identity-secret-for-components
+                existingSecret: identity-secret-for-components
 
             #######################
             # Management Group
@@ -58,8 +54,7 @@ global:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
                 redirectUrl: https://${DOMAIN_NAME}
-                existingSecret:
-                    name: identity-secret-for-components
+                existingSecret: identity-secret-for-components
 
 identityKeycloak:
     serviceAccount:
@@ -85,6 +80,7 @@ identityKeycloak:
 
     auth:
         existingSecret: identity-secret-for-components
+        passwordSecretKey: identity-keycloak-admin-password
 
 
 webModeler:
@@ -106,8 +102,7 @@ webModeler:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
         mail:
-            existingSecret:
-                name: identity-secret-for-components # reference the smtp password
+            existingSecret: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
 
 identity:
