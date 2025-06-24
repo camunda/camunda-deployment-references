@@ -7,7 +7,7 @@ kubectl create secret generic identity-keycloak-secret \
   --from-literal=user="$DB_KEYCLOAK_USERNAME" \
   --from-literal=password="$DB_KEYCLOAK_PASSWORD" \
   --from-literal=database="$DB_KEYCLOAK_NAME" \
-  --from-literal=port=5432
+  --from-literal=port="$DB_PORT"
 
 # create a secret to reference external Postgres for each component of Camunda 8
 kubectl create secret generic identity-postgres-secret \
