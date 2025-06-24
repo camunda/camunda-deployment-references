@@ -105,11 +105,6 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-                # camunda:
-                #     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
-                #     - 8.6.18 # 8.8.0-alpha5
-                # previous_camunda:
-                #     - 8.6.2 # 8.8.0-alpha4.1
         steps:
             - name: Checkout repository
               uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -140,7 +135,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
-                  cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  cluster-name: lars-test-ec2 # TODO: reactivate ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -156,13 +151,67 @@ jobs:
                         "ci-repo": "${{ github.repository }}",
                         "ci-event": "${{ github.event_name }}"
                       }
+
+    integration-tests:
+        name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
+        runs-on: ubuntu-latest
+        needs:
+            - prepare-clusters
+            - clusters-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+            - name: Install asdf tools with cache for the project
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@d0b1d5e182380299c16ea63709b6b6949736b36f # 1.4.4
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Set current Camunda version
+              id: camunda-version
+              run: |
+                  set -euo pipefail
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Get Terraform outputs
+              id: terraform-outputs
+              uses: ./.github/actions/internal-generic-terraform-outputs
+              with:
+                  cluster-name: lars-test-ec2 # TODO: reactivate ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+
+            - name: Export values
+              id: export-values
+              run: |
+                  set -euo pipefail
+
+                  echo "${{ fromJson(steps.terraform-outputs.outputs.json_output).bastion_ip.value }}"
+                  echo "${{ toJson(fromJson(steps.terraform-outputs.outputs.json_output).camunda_ips.value) }}"
+                  echo "${{ steps.terraform-outputs.outputs.json_output }}"
+
     cleanup-clusters:
         name: Cleanup EKS clusters
         if: always()
         runs-on: ubuntu-latest
         needs:
-            - prepare-clusters
             - clusters-info
+            - prepare-clusters
+            - integration-tests
         strategy:
             fail-fast: false
             matrix:
@@ -227,5 +276,5 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-states: 0
-                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  target: lars-test-ec2 # TODO: reactivate ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
