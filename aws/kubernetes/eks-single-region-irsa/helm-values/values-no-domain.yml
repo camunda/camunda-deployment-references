@@ -1,4 +1,55 @@
 ---
+global:
+    elasticsearch:
+        enabled: false
+    opensearch:
+        enabled: true
+        aws:
+            enabled: true # enable IRSA auth
+        url:
+            protocol: https
+            host: ${OPENSEARCH_HOST}
+            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
+            port: 443
+
+    # TODO: added in 8.8
+    security:
+        authentication:
+        method: oidc
+
+    identity:
+        enabled: true
+        auth:
+            publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
+            admin:
+                enabled: true
+                existingSecret:
+                    name: identity-secret-for-components
+
+            #######################
+            # Orchestration Group
+            #######################
+            core:
+                existingSecret:
+                    name: identity-secret-for-components
+            connectors:
+                existingSecret:
+                    name: identity-secret-for-components
+            optimize:
+                redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
+                existingSecret:
+                    name: identity-secret-for-components
+
+            #######################
+            # Management Group
+            #######################
+            webModeler:
+                redirectUrl: http://localhost:8084
+            console:
+                redirectUrl: http://localhost:8085
+                existingSecret:
+                    name: identity-secret-for-components
+
 identityKeycloak:
     serviceAccount:
         name: ${CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME}
@@ -22,49 +73,6 @@ identityKeycloak:
           value: aws-wrapper:postgresql
     auth:
         existingSecret: identity-secret-for-components
-
-global:
-    elasticsearch:
-        enabled: false
-    opensearch:
-        enabled: true
-        aws:
-            enabled: true # enable IRSA auth
-        url:
-            protocol: https
-            host: ${OPENSEARCH_HOST}
-            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
-            port: 443
-
-    identity:
-
-        auth:
-            publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
-
-            zeebe:
-                existingSecret:
-                    name: identity-secret-for-components
-            connectors:
-                existingSecret:
-                    name: identity-secret-for-components
-            operate:
-                redirectUrl: http://localhost:8081  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            tasklist:
-                redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            optimize:
-                redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            webModeler:
-                redirectUrl: http://localhost:8084
-            console:
-                redirectUrl: http://localhost:8085
-                existingSecret:
-                    name: identity-secret-for-components
 
 webModeler:
     enabled: false # by default, webModeler is not enabled
@@ -96,6 +104,10 @@ identity:
 
     fullURL: http://localhost:8080 # replace this with a port of your choice when you will do port forwarding
 
+    # TODO: added in 8.8
+    firstUser:
+        existingSecret: identity-secret-for-components
+
     externalDatabase:
         enabled: true
         host: ${DB_HOST}
@@ -111,21 +123,9 @@ identity:
         - name: SPRING_DATASOURCE_USERNAME
           value: ${DB_IDENTITY_USERNAME}
 
-zeebe:
-    serviceAccount:
-        name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
 operate:
     serviceAccount:
         name: ${CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
-tasklist:
-    serviceAccount:
-        name: ${CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME}
         annotations:
             eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
 
@@ -138,6 +138,44 @@ optimize:
     # OpenSearch prevents migration
     migration:
         enabled: false
+
+
+core:
+    serviceAccount:
+        # TODO; change from zeebe to core in 8.8
+        name: ${CAMUNDA_CORE_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+
+    # TODO; added in 8.8
+    # giving access to venom to deploy a model. Given access to connectors
+    # TODO: Find a way to only give connectors read access
+    env:
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_0_MAPPINGID
+          value: demo-user-mapping
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_0_CLAIMNAME
+          value: preferred_username
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_0_CLAIMVALUE
+          value: demo
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_1_MAPPINGID
+          value: venom-client-mapping
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_1_CLAIMNAME
+          value: client_id
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_1_CLAIMVALUE
+          value: venom
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_2_MAPPINGID
+          value: connectors-client-mapping
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_2_CLAIMNAME
+          value: client_id
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_2_CLAIMVALUE
+          value: connectors
+        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGS_0
+          value: demo-user-mapping
+        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGS_1
+          value: venom-client-mapping
+        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGS_2
+          value: connectors-client-mapping
+
 
 console:
     enabled: false # by default, console is not enabled
