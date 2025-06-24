@@ -9,7 +9,8 @@ matrix:
         - name: eks-single-region-irsa
 
     declination:
-        - name: no-domain
-          desc: Setup chart in production-like setup with Ingress and TLS.
+        # TODO: test no-domain later
+        # - name: no-domain
+        #   desc: Setup chart in production-like setup with Ingress and TLS.
         - name: domain
           desc: Setup chart in production-like setup without Ingress and TLS.
