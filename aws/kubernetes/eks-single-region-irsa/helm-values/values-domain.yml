@@ -160,6 +160,8 @@ optimize:
 core:
     contextPath: /core
 
+    existingSecret: identity-secret-for-components
+
     ingress:
         grpc:
             enabled: true

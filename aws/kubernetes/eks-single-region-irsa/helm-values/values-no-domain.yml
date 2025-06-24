@@ -143,6 +143,8 @@ core:
         annotations:
             eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
 
+    existingSecret: identity-secret-for-components
+
     # TODO; added in 8.8
     # giving access to venom to deploy a model. Given access to connectors
     # TODO: Find a way to only give connectors read access
