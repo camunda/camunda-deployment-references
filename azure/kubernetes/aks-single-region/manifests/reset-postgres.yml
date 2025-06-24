@@ -1,0 +1,65 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: reset-azure-postgres
+    labels:
+        app: reset-azure-postgres
+spec:
+    backoffLimit: 0
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: reset-azure-postgres
+                  image: amazonlinux:latest
+                  command:
+                      - sh
+                      - -c
+                      - |
+                        /bin/bash <<'EOF'
+                        set -o pipefail
+
+                        echo "Installing dependencies..."
+                        yum install -y postgresql15 findutils
+
+                        echo "Resetting Azure PostgreSQL Flexible Server databases..."
+
+                        # List all databases
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "sslmode=require dbname=postgres user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "\l"
+
+                        # Get all user databases (excluding system databases)
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "sslmode=require dbname=postgres user=$POSTGRES_ADMIN_USERNAME" \
+                          -t -c "SELECT datname FROM pg_database WHERE datname NOT IN \
+                          ('template0', 'template1', 'postgres', 'azure_maintenance', 'azure_sys');" | while read dbname; do \
+                          dbname=$(echo $dbname | xargs)  # Trim whitespace
+                          if [ -n "$dbname" ]; then
+                            echo "Dropping database: $dbname"
+                            PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "sslmode=require dbname=postgres user=$POSTGRES_ADMIN_USERNAME" \
+                              -c "DROP DATABASE \"$dbname\" WITH (FORCE);"
+                          fi
+                        done
+
+                        EOF
+                  env:
+                      - name: DB_HOST
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_HOST
+                      - name: DB_PORT
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_PORT
+                      - name: POSTGRES_ADMIN_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: POSTGRES_ADMIN_USERNAME
+                      - name: POSTGRES_ADMIN_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: POSTGRES_ADMIN_PASSWORD
