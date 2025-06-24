@@ -18,8 +18,8 @@ global:
             method: oidc
 
     identity:
-        enabled: true
         auth:
+            enabled: true
             # TODO: this is currently broken : https://camunda.slack.com/archives/C06UYJMMETZ/p1747319551359609
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
             admin:
