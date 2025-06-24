@@ -1,0 +1,120 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: create-setup-user-db
+    labels:
+        app: create-setup-user-db
+spec:
+    backoffLimit: 0
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: create-setup-user-db
+                  image: postgres:15
+                  command:
+                      - sh
+                      - -c
+                      - |
+                        /bin/bash <<'EOF'
+                        set -o pipefail
+                        set -e  # Exit on error
+
+                        echo "Creating databases and users for Camunda Platform..."
+
+                        echo "Creating Keycloak database and user..."
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "dbname=postgres user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "CREATE DATABASE \"${DB_KEYCLOAK_NAME}\";"
+
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "dbname=$DB_KEYCLOAK_NAME user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "CREATE USER \"${DB_KEYCLOAK_USERNAME}\" WITH PASSWORD '${DB_KEYCLOAK_PASSWORD}' NOSUPERUSER CREATEDB CREATEROLE INHERIT;" \
+                          -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_KEYCLOAK_NAME}\" TO \"${DB_KEYCLOAK_USERNAME}\";" \
+                          -c "GRANT ALL ON SCHEMA public TO \"${DB_KEYCLOAK_USERNAME}\";"
+
+                        echo "Creating Identity database and user..."
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "dbname=postgres user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "CREATE DATABASE \"${DB_IDENTITY_NAME}\";"
+
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "dbname=$DB_IDENTITY_NAME user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "CREATE USER \"${DB_IDENTITY_USERNAME}\" WITH PASSWORD '${DB_IDENTITY_PASSWORD}' NOSUPERUSER CREATEDB CREATEROLE INHERIT;" \
+                          -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_IDENTITY_NAME}\" TO \"${DB_IDENTITY_USERNAME}\";" \
+                          -c "GRANT ALL ON SCHEMA public TO \"${DB_IDENTITY_USERNAME}\";"
+
+                        echo "Creating Web Modeler database and user..."
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "dbname=postgres user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "CREATE DATABASE \"${DB_WEBMODELER_NAME}\";"
+
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "dbname=$DB_WEBMODELER_NAME user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "CREATE USER \"${DB_WEBMODELER_USERNAME}\" WITH PASSWORD '${DB_WEBMODELER_PASSWORD}' NOSUPERUSER CREATEDB CREATEROLE INHERIT;" \
+                          -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_WEBMODELER_NAME}\" TO \"${DB_WEBMODELER_USERNAME}\";" \
+                          -c "GRANT ALL ON SCHEMA public TO \"${DB_WEBMODELER_USERNAME}\";"
+
+                        echo "Database setup completed successfully!"
+                        EOF
+                  env:
+                      - name: DB_HOST
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_HOST
+                      - name: DB_PORT
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_PORT
+                      - name: POSTGRES_ADMIN_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: POSTGRES_ADMIN_USERNAME
+                      - name: POSTGRES_ADMIN_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: POSTGRES_ADMIN_PASSWORD
+                      - name: DB_KEYCLOAK_NAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_KEYCLOAK_NAME
+                      - name: DB_KEYCLOAK_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_KEYCLOAK_USERNAME
+                      - name: DB_KEYCLOAK_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_KEYCLOAK_PASSWORD
+                      - name: DB_IDENTITY_NAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_IDENTITY_NAME
+                      - name: DB_IDENTITY_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_IDENTITY_USERNAME
+                      - name: DB_IDENTITY_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_IDENTITY_PASSWORD
+                      - name: DB_WEBMODELER_NAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_WEBMODELER_NAME
+                      - name: DB_WEBMODELER_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_WEBMODELER_USERNAME
+                      - name: DB_WEBMODELER_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_WEBMODELER_PASSWORD

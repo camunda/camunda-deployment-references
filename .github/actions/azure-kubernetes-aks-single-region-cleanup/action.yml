@@ -1,0 +1,60 @@
+---
+name: Delete Azure AKS Single Region Clusters
+
+description: |
+    This GitHub Action automates the deletion of azure/kubernetes/aks-single-region reference architecture clusters using a shell script.
+
+inputs:
+    tf-bucket:
+        description: Bucket containing the clusters states
+        required: true
+
+    tf-bucket-region:
+        description: Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION
+
+    tf-bucket-key-prefix:
+        description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+        default: ''
+
+    max-age-hours-cluster:
+        description: Maximum age of clusters in hours
+        default: '12'
+
+    target:
+        description: Resource group target, specify an ID to destroy specific resources or "all" to destroy all resources
+        default: all
+
+runs:
+    using: composite
+    steps:
+
+        - name: Install asdf tools with cache
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@d0b1d5e182380299c16ea63709b6b6949736b36f # 1.4.4
+
+        # In order to be able to list RGs that are older than the specified min-age, we need to install the resource graph extension
+        - name: Install Resource Graph extension
+          shell: bash
+          run: |
+              az extension add --name resource-graph --only-show-errors
+
+        - name: Delete clusters
+          id: delete_clusters
+          shell: bash
+          run: |
+              if [ -n "${{ inputs.tf-bucket-region }}" ]; then
+                export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
+              fi
+
+              # Use repo .tool-version as global version
+              cp .tool-versions ~/.tool-versions
+
+              ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
+                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
+
+        - name: Upload cleanup logs
+          if: always()
+          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          with:
+              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}
+              path: ./logs/
+              retention-days: 7
