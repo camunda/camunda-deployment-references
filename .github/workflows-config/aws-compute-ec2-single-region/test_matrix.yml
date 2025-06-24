@@ -1,0 +1,14 @@
+---
+matrix:
+    distro:
+        - name: x86_64
+          schedule_only: false
+        - name: arm64
+          schedule_only: false
+
+    scenario:
+        - name: ec2-single-region
+
+    declination:
+        - name: no-domain
+          desc: Setup in production-like setup without Ingress and TLS.
