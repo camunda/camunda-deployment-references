@@ -538,7 +538,8 @@ jobs:
                   cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
-                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
+                    # TODO; revert to export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
+                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}377.${{ env.TLD }}"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
                     export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"
