@@ -9,5 +9,6 @@ kubectl create secret generic identity-secret-for-components \
   --from-literal=identity-optimize-client-token="$OPTIMIZE_SECRET" \
   --from-literal=identity-core-client-token="$CORE_SECRET" \
   --from-literal=identity-admin-client-token="$ADMIN_PASSWORD" \
+  --from-literal=identity-keycloak-admin-password="$KEYCLOAK_ADMIN_PASSWORD" \
   --from-literal=identity-firstuser-password="$USER_PASSWORD" \
   --from-literal=smtp-password=""
