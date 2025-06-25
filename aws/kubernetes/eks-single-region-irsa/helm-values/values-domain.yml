@@ -34,19 +34,23 @@ global:
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
             admin:
                 enabled: true
-                existingSecret: identity-secret-for-components
+                existingSecret:
+                    name: identity-secret-for-components
 
             #######################
             # Orchestration Group
             #######################
             core:
                 redirectUrl: https://${DOMAIN_NAME}/core
-                existingSecret: identity-secret-for-components
+                existingSecret:
+                    name: identity-secret-for-components
             connectors:
-                existingSecret: identity-secret-for-components
+                existingSecret:
+                    name: identity-secret-for-components
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize
-                existingSecret: identity-secret-for-components
+                existingSecret:
+                    name: identity-secret-for-components
 
             #######################
             # Management Group
@@ -55,7 +59,8 @@ global:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
                 redirectUrl: https://${DOMAIN_NAME}
-                existingSecret: identity-secret-for-components
+                existingSecret:
+                    name: identity-secret-for-components
 
 identityKeycloak:
     serviceAccount:
@@ -97,13 +102,15 @@ webModeler:
         externalDatabase:
             url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?wrapperPlugins=iam
             user: ${DB_WEBMODELER_USERNAME}
-            existingSecret: identity-secret-for-components # this fake password reference is needed to let the chart deploy webmodeler
+            existingSecret:
+                name: identity-secret-for-components # this fake password reference is needed to let the chart deploy webmodeler
             existingSecretPasswordKey: password
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
         mail:
-            existingSecret: identity-secret-for-components # reference the smtp password
+            existingSecret:
+                name: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
 
 identity:
@@ -159,8 +166,6 @@ optimize:
 
 core:
     contextPath: /core
-
-    existingSecret: identity-secret-for-components
 
     ingress:
         grpc:
