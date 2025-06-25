@@ -83,8 +83,7 @@ webModeler:
         externalDatabase:
             url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?wrapperPlugins=iam
             user: ${DB_WEBMODELER_USERNAME}
-            existingSecret: '' # this fake password reference is needed to let the chart deploy webmodeler
-            existingSecretPasswordKey: password
+            existingSecret: notusedpasswd   # this fake password reference is needed to let the chart deploy webmodeler
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
