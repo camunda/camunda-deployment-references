@@ -120,13 +120,8 @@ identity:
         - name: SPRING_DATASOURCE_USERNAME
           value: ${DB_IDENTITY_USERNAME}
 
-operate:
-    serviceAccount:
-        name: ${CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
 optimize:
+    enabled: true
     serviceAccount:
         name: ${CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME}
         annotations:

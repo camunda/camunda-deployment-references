@@ -143,17 +143,11 @@ identity:
           value: ${DB_IDENTITY_USERNAME}
 
 connectors:
+    enabled: true
     contextPath: /connectors
 
-operate:
-    contextPath: /operate
-
-    serviceAccount:
-        name: ${CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
 optimize:
+    enabled: true
     contextPath: /optimize
 
     serviceAccount:
@@ -166,6 +160,7 @@ optimize:
         enabled: false
 
 core:
+    enabled: true
     contextPath: /core
 
     ingress:
