@@ -187,6 +187,99 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
+
+            - name: Get latest full Camunda version
+              id: camunda-version-full
+              run: |
+                  set -euo pipefail
+                  MAJOR_MINOR="${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}"
+                  ARTIFACTORY_API=$(curl -s "https://artifacts.camunda.com/artifactory/api/storage/zeebe/io/camunda/camunda-zeebe/")
+
+                    # Extract latest full semver release for the given MAJOR_MINOR
+                    # Needs to be true as next version has no release yet
+                    LATEST_VERSION=$(echo "$ARTIFACTORY_API" \
+                    | jq -r '.children[].uri' \
+                    | grep "^/${MAJOR_MINOR//./\\.}" \
+                    | grep -E "^/[0-9]+\.[0-9]+\.[0-9]+$" \
+                    | sed 's|/||' \
+                    | sort -V \
+                    | tail -n1 || true)
+
+                    if [ -n "$LATEST_VERSION" ]; then
+                    echo "No release version found for $MAJOR_MINOR"
+                    else
+                    echo "Latest version for $MAJOR_MINOR is: $LATEST_VERSION"
+                    fi
+
+                    # Extract latest pre-release (e.g., alpha, beta, rc) for the given MAJOR_MINOR
+                    LATEST_PRERELEASE=$(echo "$ARTIFACTORY_API" \
+                    | jq -r '.children[].uri' \
+                    | grep "^/${MAJOR_MINOR//./\\.}" \
+                    | grep -E "^/[0-9]+\.[0-9]+\.[0-9]+-[a-zA-Z0-9]+" \
+                    | sed 's|/||' \
+                    | sort -V \
+                    | tail -n1)
+
+                    if [ -n "$LATEST_PRERELEASE" ]; then
+                        echo "Latest pre-release version for $MAJOR_MINOR is: $LATEST_PRERELEASE"
+                    else
+                        echo "No pre-release version found for $MAJOR_MINOR"
+                    fi
+                    FINAL_VERSION="${LATEST_VERSION:-$LATEST_PRERELEASE}"
+                    if [ -n "$FINAL_VERSION" ]; then
+                        echo "Selected version for $MAJOR_MINOR is: $FINAL_VERSION"
+                    else
+                        echo "No version found for $MAJOR_MINOR"
+                    fi
+
+                    # Calculate previous minor version
+                    PREV_MINOR=$(echo "$MAJOR_MINOR" | awk -F. '{printf "%d.%d", $1, $2-1}')
+
+                    # Only proceed if previous minor is >= 0
+                    if [[ $(echo "$PREV_MINOR" | awk -F. '{print $2}') -ge 0 ]]; then
+                    # Extract latest full semver release for the previous minor
+                    LATEST_PREV_VERSION=$(echo "$ARTIFACTORY_API" \
+                    | jq -r '.children[].uri' \
+                    | grep "^/${PREV_MINOR//./\\.}" \
+                    | grep -E "^/[0-9]+\.[0-9]+\.[0-9]+$" \
+                    | sed 's|/||' \
+                    | sort -V \
+                    | tail -n1)
+
+                    echo "Latest version for previous minor $PREV_MINOR is: $LATEST_PREV_VERSION"
+
+                    # Extract latest pre-release for the previous minor
+                    LATEST_PREV_PRERELEASE=$(echo "$ARTIFACTORY_API" \
+                    | jq -r '.children[].uri' \
+                    | grep "^/${PREV_MINOR//./\\.}" \
+                    | grep -E "^/[0-9]+\.[0-9]+\.[0-9]+-[a-zA-Z0-9]+" \
+                    | sed 's|/||' \
+                    | sort -V \
+                    | tail -n1)
+
+                    if [ -n "$LATEST_PREV_PRERELEASE" ]; then
+                        echo "Latest pre-release version for previous minor $PREV_MINOR is: $LATEST_PREV_PRERELEASE"
+                    else
+                        echo "No pre-release version found for previous minor $PREV_MINOR"
+                    fi
+
+                    FINAL_PREV_VERSION="${LATEST_PREV_VERSION:-$LATEST_PREV_PRERELEASE}"
+                    if [ -n "$FINAL_PREV_VERSION" ]; then
+                        echo "Selected version for previous minor $PREV_MINOR is: $FINAL_PREV_VERSION"
+                    else
+                        echo "No version found for previous minor $PREV_MINOR"
+                    fi
+                    else
+                        echo "No previous minor version exists for $MAJOR_MINOR"
+                    fi
+
+                  CAMUNDA_VERSION_HYPHENS=$(echo "$FINAL_VERSION" | tr '.' '-')
+                  {
+                      echo "CAMUNDA_VERSION_HYPHENS=$CAMUNDA_VERSION_HYPHENS"
+                      echo "CAMUNDA_VERSION=$FINAL_VERSION"
+                      echo "CAMUNDA_PREVIOUS_VERSION=$FINAL_PREV_VERSION"
+                  } >> "$GITHUB_OUTPUT"
+
             - name: Get Terraform outputs
               id: terraform-outputs
               uses: ./.github/actions/internal-generic-terraform-outputs
@@ -196,28 +289,15 @@ jobs:
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
 
-            # - name: Export values
-            #   id: export-values
-            #   run: |
-            #       set -euo pipefail
-
-            #       echo "${{ steps.terraform-outputs.outputs.json_output }}"
-
-            #       {
-            #       echo "BASTION_IP=${{ fromJson(steps.terraform-outputs.outputs.json_output).bastion_ip.value }}"
-            #       echo "CAMUNDA_IPS=${{ toJson(fromJson(steps.terraform-outputs.outputs.json_output).camunda_ips.value) }}" |  base64 -w0
-            #       echo "PUBLIC_KEY=${{ fromJson(steps.terraform-outputs.outputs.json_output).public_key.value }}"
-            #       echo "PRIVATE_KEY=${{ fromJson(steps.terraform-outputs.outputs.json_output).private_key.value }}" |  base64 -w0
-            #       }  >> "$GITHUB_ENV"
-
             - name: Terratest - Run all Tests
               id: terratest
               working-directory: aws/compute/ec2-single-region/test/src
               timeout-minutes: 121
               env:
+                  # We just need the outputs from terraform to run the tests, which is initialized in above
                   TERRAFORM_DIR: ${{ github.workspace }}/.github/actions/internal-generic-terraform-outputs
-                  CAMUNDA_VERSION: 8.8.0-alpha5 # TODO: figure this out dynamically based on the `camunda-version` step
-                  CAMUNDA_PREVIOUS_VERSION: 8.8.0-alpha4
+                  CAMUNDA_VERSION: ${{ steps.camunda-version-full.outputs.CAMUNDA_VERSION }}
+                  CAMUNDA_PREVIOUS_VERSION: 8${{ steps.camunda-version-full.outputs.CAMUNDA_PREVIOUS_VERSION }}
               run: |
                   set -euo pipefail
 
@@ -227,9 +307,27 @@ jobs:
 
                   go install gotest.tools/gotestsum@latest
                   # Run all tests except TestSetup and TestTeardown
-                  # go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m --skip 'TestSetup|TestTeardown'
-                  go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m -run ^TestConnectivity$
+                  go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m --skip 'TestSetup|TestTeardown'
 
+            # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
+            - name: Filter logger.go from the test report (too large)
+              if: always()
+              working-directory: aws/compute/ec2-single-region/test/src
+              run: |
+                  set -euo pipefail
+
+                  sed 's/&#xA;/\n/g' < "./tests.xml" |
+                  grep -E -v '^.*logger\.go.*$' |
+                  sed 's/\n/&#xA;/g' > "./tests-${{ steps.camunda-version-full.outputs.CAMUNDA_VERSION_HYPHENS }}-filtered.xml"
+
+            - name: Upload test reports
+              if: always()
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              with:
+                  name: test-reports-${{ steps.camunda-version-full.outputs.CAMUNDA_VERSION_HYPHENS }}-${{ matrix.distro.name }}
+                  path: ${{ github.workspace }}/aws/compute/ec2-single-region/test/src/tests-${{ steps.camunda-version-full.outputs.CAMUNDA_VERSION_HYPHENS
+                      }}-filtered.xml
+                  retention-days: 7
 
     cleanup-clusters:
         name: Cleanup EKS clusters
@@ -305,3 +403,36 @@ jobs:
                   max-age-hours-states: 0
                   target: lars-test-ec2 # TODO: reactivate ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+
+    test-report:
+        runs-on: ubuntu-latest
+        if: always()
+        needs:
+            - integration-tests
+        outputs:
+            SNAPSHOT_ERROR: ${{ steps.determine-if-failed-tests-include-snapshot.outputs.SNAPSHOT_ERROR }}
+        steps:
+            - name: Download artifacts
+              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+              with:
+                  pattern: test-reports-*
+                  path: /tmp/testreports
+                  merge-multiple: true
+            - name: Determine if failed tests include SNAPSHOT
+              id: determine-if-failed-tests-include-snapshot
+              run: |
+                  set -euo pipefail
+
+                  file=$(find /tmp/testreports -name "*SNAPSHOT*.xml" -type f)
+                  echo "Found file: $file"
+                  if grep -q "FAIL" "$file"; then
+                    echo "File containing 'SNAPSHOT' with FAIL exists"
+                    echo "SNAPSHOT_ERROR=true" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "No file containing 'SNAPSHOT' or with FAIL found"
+                    echo "SNAPSHOT_ERROR=false" >> "$GITHUB_OUTPUT"
+                  fi
+            - name: Run test-summary
+              uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2
+              with:
+                  paths: /tmp/testreports/**/*.xml
