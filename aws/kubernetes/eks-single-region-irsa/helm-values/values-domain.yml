@@ -115,6 +115,8 @@ webModeler:
             fromAddress: changeme@example.com   # change this required value
 
 identity:
+    # TODO: in the update, make all enabled: true/false explicit
+    enabled: true
     contextPath: /identity
     fullURL: https://${DOMAIN_NAME}/identity
 
@@ -187,6 +189,7 @@ core:
     # TODO; added in 8.8
     # giving access to venom to deploy a model. Given access to connectors
     # TODO: Find a way to only give connectors read access
+    # TODO: adapt for documentation as users will not have venom( certainly need yq in the test pipeline)
     env:
         - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_0_MAPPINGID
           value: demo-user-mapping

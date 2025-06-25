@@ -93,6 +93,8 @@ webModeler:
             fromAddress: changeme@example.com   # change this required value
 
 identity:
+    enabled: true
+
     serviceAccount:
         name: ${CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME}
         annotations:
@@ -149,6 +151,7 @@ core:
     # giving access to venom to deploy a model. Given access to connectors
     # TODO: Find a way to only give connectors read access
     env:
+        # TODO: adapt for documentation as users will not have venom( certainly need yq in the test pipeline)
         - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_0_MAPPINGID
           value: demo-user-mapping
         - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_0_CLAIMNAME

@@ -7,7 +7,7 @@ kubectl create secret generic identity-secret-for-components \
   --from-literal=identity-connectors-client-token="$CONNECTORS_SECRET" \
   --from-literal=identity-console-client-token="$CONSOLE_SECRET" \
   --from-literal=identity-optimize-client-token="$OPTIMIZE_SECRET" \
-  --from-literal=identity-core-client-token="$ZEEBE_SECRET" \
+  --from-literal=identity-core-client-token="$CORE_SECRET" \
   --from-literal=identity-admin-client-token="$ADMIN_PASSWORD" \
   --from-literal=identity-firstuser-password="$USER_PASSWORD" \
   --from-literal=smtp-password=""
