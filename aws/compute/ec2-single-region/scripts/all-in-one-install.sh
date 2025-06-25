@@ -11,6 +11,7 @@ CLOUDWATCH_ENABLED=${CLOUDWATCH_ENABLED:-false}
 USERNAME=${USERNAME:-"camunda"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 BROKER_PORT=${BROKER_PORT:-26502}
+TERRAFORM_DIR=${TERRAFORM_DIR:-"${CURRENT_DIR}/../terraform"}
 
 check_tool_installed "ssh"
 check_tool_installed "openssl"
@@ -45,7 +46,7 @@ echo "[INFO] Pulling information from the Terraform state file to configure the 
 
 if [ -z "${IPS+x}" ]; then
     echo "[INFO] IPS was not overwritten via env vars... pulling from Terraform state file."
-    IPS_JSON=$(terraform -chdir="${CURRENT_DIR}/../terraform" output -json camunda_ips)
+    IPS_JSON=$(terraform -chdir="$TERRAFORM_DIR" output -json camunda_ips)
     cleaned_str=$(echo "${IPS_JSON}" | tr -d '[]"')
     read -r -a IPS <<< "$(echo "${cleaned_str}" | tr ',' ' ')"
 else
@@ -57,21 +58,21 @@ echo "[INFO] Detected following values for IPS: ${IPS[*]}"
 
 if [ -z "${BASTION_IP+x}" ]; then
     echo "[INFO] BASTION_IP was not overwritten via env vars... pulling from Terraform state file."
-    BASTION_IP=$(terraform -chdir="${CURRENT_DIR}/../terraform" output -raw bastion_ip)
+    BASTION_IP=$(terraform -chdir="$TERRAFORM_DIR" output -raw bastion_ip)
 fi
 
 echo "[INFO] Detected following values for the BASTION_IP: ${BASTION_IP}"
 
 if [ -z "${OPENSEARCH_URL+x}" ]; then
     echo "[INFO] OPENSEARCH_URL was not overwritten via env vars... pulling from Terraform state file."
-    OPENSEARCH_URL=$(terraform -chdir="${CURRENT_DIR}/../terraform" output -raw aws_opensearch_domain)
+    OPENSEARCH_URL=$(terraform -chdir="$TERRAFORM_DIR" output -raw aws_opensearch_domain)
 fi
 
 echo "[INFO] Detected following values for the OPENSEARCH_URL: ${OPENSEARCH_URL}"
 
 if [ -z "${GRPC_ENDPOINT+x}" ]; then
     echo "[INFO] GRPC_ENDPOINT was not overwritten via env vars... pulling from Terraform state file."
-    GRPC_ENDPOINT=$(terraform -chdir="${CURRENT_DIR}/../terraform" output -raw nlb_endpoint)
+    GRPC_ENDPOINT=$(terraform -chdir="$TERRAFORM_DIR" output -raw nlb_endpoint)
 fi
 
 echo "[INFO] Detected following values for the GRPC_ENDPOINT: ${GRPC_ENDPOINT}"
