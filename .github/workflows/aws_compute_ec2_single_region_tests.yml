@@ -97,6 +97,7 @@ jobs:
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
     prepare-clusters:
+        if: false
         needs:
             - clusters-info
         runs-on: ubuntu-latest
@@ -156,7 +157,7 @@ jobs:
         name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
         runs-on: ubuntu-latest
         needs:
-            - prepare-clusters
+            # - prepare-clusters
             - clusters-info
         strategy:
             fail-fast: false
@@ -195,18 +196,44 @@ jobs:
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
 
-            - name: Export values
-              id: export-values
+            # - name: Export values
+            #   id: export-values
+            #   run: |
+            #       set -euo pipefail
+
+            #       echo "${{ steps.terraform-outputs.outputs.json_output }}"
+
+            #       {
+            #       echo "BASTION_IP=${{ fromJson(steps.terraform-outputs.outputs.json_output).bastion_ip.value }}"
+            #       echo "CAMUNDA_IPS=${{ toJson(fromJson(steps.terraform-outputs.outputs.json_output).camunda_ips.value) }}" |  base64 -w0
+            #       echo "PUBLIC_KEY=${{ fromJson(steps.terraform-outputs.outputs.json_output).public_key.value }}"
+            #       echo "PRIVATE_KEY=${{ fromJson(steps.terraform-outputs.outputs.json_output).private_key.value }}" |  base64 -w0
+            #       }  >> "$GITHUB_ENV"
+
+            - name: Terratest - Run all Tests
+              id: terratest
+              working-directory: aws/compute/ec2-single-region/test/src
+              timeout-minutes: 121
+              env:
+                  TERRAFORM_DIR: ${{ github.workspace }}/.github/actions/internal-generic-terraform-outputs
+                  CAMUNDA_VERSION: 8.8.0-alpha5 # TODO: figure this out dynamically based on the `camunda-version` step
+                  CAMUNDA_PREVIOUS_VERSION: 8.8.0-alpha4
               run: |
                   set -euo pipefail
 
-                  echo "${{ fromJson(steps.terraform-outputs.outputs.json_output).bastion_ip.value }}"
-                  echo "${{ toJson(fromJson(steps.terraform-outputs.outputs.json_output).camunda_ips.value) }}"
-                  echo "${{ steps.terraform-outputs.outputs.json_output }}"
+                  export PATH=$PATH:$(go env GOPATH)/bin
+                  mkdir /home/runner/.ssh
+                  touch /home/runner/.ssh/config
+
+                  go install gotest.tools/gotestsum@latest
+                  # Run all tests except TestSetup and TestTeardown
+                  # go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m --skip 'TestSetup|TestTeardown'
+                  go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m -run ^TestConnectivity$
+
 
     cleanup-clusters:
         name: Cleanup EKS clusters
-        if: always()
+        if: false
         runs-on: ubuntu-latest
         needs:
             - clusters-info
