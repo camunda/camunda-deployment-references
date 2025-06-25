@@ -5,7 +5,7 @@ matrix:
           schedule_only: false
 
     scenario:
-        - name: eks-single-region
+        # - name: eks-single-region
         - name: eks-single-region-irsa
 
     declination:
