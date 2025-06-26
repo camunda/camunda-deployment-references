@@ -163,6 +163,7 @@ func WaitUntilKubeClusterIsReady(cluster *types.Cluster, timeout time.Duration, 
 
 // NewKubeClientSet generate a kubernetes.Clientset from an EKS Cluster
 func NewKubeClientSet(cluster *types.Cluster) (*kubernetes.Clientset, error) {
+	ctx := context.Background()
 	gen, err := token.NewGenerator(true, false)
 	if err != nil {
 		return nil, err
@@ -170,7 +171,7 @@ func NewKubeClientSet(cluster *types.Cluster) (*kubernetes.Clientset, error) {
 	opts := &token.GetTokenOptions{
 		ClusterID: *cluster.Name,
 	}
-	tok, err := gen.GetWithOptions(opts)
+	tok, err := gen.GetWithOptions(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
