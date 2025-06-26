@@ -11,4 +11,4 @@ export INGRESS_HELM_CHART_VERSION="4.12.3"
 # renovate: datasource=helm depName=external-dns registryUrl=https://kubernetes-sigs.github.io/external-dns/
 export EXTERNAL_DNS_HELM_CHART_VERSION="1.17.0"
 # renovate: datasource=helm depName=cert-manager registryUrl=https://charts.jetstack.io
-export CERT_MANAGER_HELM_CHART_VERSION="1.18.0"
+export CERT_MANAGER_HELM_CHART_VERSION="1.18.1"
