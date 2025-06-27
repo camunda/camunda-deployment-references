@@ -31,7 +31,7 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
 
   rm -Rf {{ justfile_directory() }}/{{ module_dir }}/.terraform*
 
-  # Copy *.tf files from tests/fixtures/ to the current directory before running the plan
+  # Copy *.tf files from test/fixtures/golden to the current directory before running the plan
   if ls test/fixtures/golden/fixture_*.tf 1> /dev/null 2>&1; then
     cp test/fixtures/golden/fixture_*.tf ./
   fi
