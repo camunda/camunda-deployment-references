@@ -3,6 +3,7 @@ name: Tests - Golden - AWS Compute EC2
 
 on:
     workflow_dispatch:
+    push: # TODO: temporary trigger
     pull_request:
         paths:
             - .github/workflows/aws_compute_ec2_single_region_golden.yml
