@@ -172,6 +172,12 @@ jobs:
             - name: Install asdf tools with cache for the project
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@d0b1d5e182380299c16ea63709b6b6949736b36f # 1.4.4
 
+            - name: Install zbctl
+              run: |
+                  set -euo pipefail
+                  npm i -g zbctl
+                  zbctl version
+
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -299,7 +305,7 @@ jobs:
                   # We just need the outputs from terraform to run the tests, which is initialized in above
                   TERRAFORM_DIR: ${{ github.workspace }}/.github/actions/internal-generic-terraform-outputs
                   CAMUNDA_VERSION: ${{ steps.camunda-version-full.outputs.CAMUNDA_VERSION }}
-                  CAMUNDA_PREVIOUS_VERSION: 8${{ steps.camunda-version-full.outputs.CAMUNDA_PREVIOUS_VERSION }}
+                  CAMUNDA_PREVIOUS_VERSION: ${{ steps.camunda-version-full.outputs.CAMUNDA_PREVIOUS_VERSION }}
               run: |
                   set -euo pipefail
 
