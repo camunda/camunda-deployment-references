@@ -33,6 +33,16 @@ on:
                 type: string
                 default: ec2-single-region
 
+# pull_request:
+#     paths:
+#         - .github/actions/aws-compute-ec2-single-region-cleanup/**
+#         - .github/actions/aws-compute-ec2-single-region-create/**
+#         - .github/actions/aws-configure-cli/**
+#         - .github/actions/internal-generic-terraform-outputs/**
+#         - .github/workflows/aws_compute_ec2_single_region_tests.yml
+#         - .tool-versions
+#         - aws/compute/ec2-single-region/**
+
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
