@@ -173,7 +173,8 @@ jobs:
                       "ci-ref": $ref,
                       "ci-commit": $sha,
                       "ci-repo": $repository,
-                      "ci-event": $event_name
+                      "ci-event": $event_name,
+                      "map-migrated": "migARUADZHVWZ"
                     }')
 
                   echo "CI_METADATA=$ci_metadata" | tee -a "$GITHUB_ENV"

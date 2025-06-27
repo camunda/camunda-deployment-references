@@ -206,7 +206,8 @@ jobs:
                         "ci-ref": "${{ github.ref }}",
                         "ci-commit": "${{ github.sha }}",
                         "ci-repo": "${{ github.repository }}",
-                        "ci-event": "${{ github.event_name }}"
+                        "ci-event": "${{ github.event_name }}",
+                        "map-migrated": "migARUADZHVWZ"
                       }
             - name: Dump kubeconfig before encryption
               run: |
