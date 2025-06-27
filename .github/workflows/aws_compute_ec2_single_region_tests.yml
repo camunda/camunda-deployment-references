@@ -97,7 +97,6 @@ jobs:
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
     prepare-clusters:
-        if: false
         needs:
             - clusters-info
         runs-on: ubuntu-latest
@@ -126,8 +125,10 @@ jobs:
               id: camunda-version
               run: |
                   set -euo pipefail
-                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  # TODO: Intended override CAMUNDA_VERSION=$(cat .camunda-version)
+                  CAMUNDA_VERSION=8.6
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
             - name: Create Infrastructure
               id: create_infrastructure
               uses: ./.github/actions/aws-compute-ec2-single-region-create
@@ -155,10 +156,9 @@ jobs:
 
     integration-tests:
         name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
-        if: false
         runs-on: ubuntu-latest
         needs:
-            # - prepare-clusters
+            - prepare-clusters
             - clusters-info
         strategy:
             fail-fast: false
@@ -185,7 +185,8 @@ jobs:
               id: camunda-version
               run: |
                   set -euo pipefail
-                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  # TODO: Intended override CAMUNDA_VERSION=$(cat .camunda-version)
+                  CAMUNDA_VERSION=8.6
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
 
@@ -332,7 +333,7 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup EKS clusters
-        if: always()
+        if: false # always()
         runs-on: ubuntu-latest
         needs:
             - clusters-info
@@ -391,7 +392,8 @@ jobs:
               id: camunda-version
               run: |
                   set -euo pipefail
-                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  # TODO: Intended override CAMUNDA_VERSION=$(cat .camunda-version)
+                  CAMUNDA_VERSION=8.6
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand Infrastructure
