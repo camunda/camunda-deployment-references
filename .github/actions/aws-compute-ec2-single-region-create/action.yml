@@ -81,7 +81,6 @@ runs:
           run: |
               set -euo pipefail
               cp -r ./test/fixtures/ci/fixture_* .
-              ls -lh
 
         - name: Terraform Init
           id: init
