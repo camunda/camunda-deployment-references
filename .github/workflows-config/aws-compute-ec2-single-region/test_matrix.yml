@@ -3,9 +3,8 @@ matrix:
     distro:
         - name: x86_64
           schedule_only: false
-          # TODO: Enable again after everything is implemented
-          # - name: arm64
-          #   schedule_only: false
+        - name: arm64
+          schedule_only: false
 
     scenario:
         - name: ec2-single-region
