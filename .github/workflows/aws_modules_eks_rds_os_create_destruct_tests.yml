@@ -197,7 +197,8 @@ jobs:
                         "ci-ref": "${{ github.ref }}",
                         "ci-commit": "${{ github.sha }}",
                         "ci-repo": "${{ github.repository }}",
-                        "ci-event": "${{ github.event_name }}"
+                        "ci-event": "${{ github.event_name }}",
+                        "map-migrated": "migARUADZHVWZ"
                       }
 
             - name: After EKS creation infos
@@ -249,7 +250,8 @@ jobs:
                         "ci-ref": "${{ github.ref }}",
                         "ci-commit": "${{ github.sha }}",
                         "ci-repo": "${{ github.repository }}",
-                        "ci-event": "${{ github.event_name }}"
+                        "ci-event": "${{ github.event_name }}",
+                        "map-migrated": "migARUADZHVWZ"
                       }
 
             - name: Deploy OpenSearch Domain
@@ -286,7 +288,8 @@ jobs:
                         "ci-ref": "${{ github.ref }}",
                         "ci-commit": "${{ github.sha }}",
                         "ci-repo": "${{ github.repository }}",
-                        "ci-event": "${{ github.event_name }}"
+                        "ci-event": "${{ github.event_name }}",
+                        "map-migrated": "migARUADZHVWZ"
                       }
 
             - name: Prevent other runs for renovate
