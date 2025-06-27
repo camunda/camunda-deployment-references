@@ -9,7 +9,6 @@ on:
     # Disabling for the time being due to focus shift with 8.6
     # schedule:
     #     - cron: 0 3 * * 1-5
-    push: # TODO: temporary trigger
     workflow_dispatch:
         inputs:
             # for compliance with other workflows, we use the same naming convention
