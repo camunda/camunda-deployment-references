@@ -6,7 +6,6 @@ locals {
 }
 
 resource "aws_route53_record" "opensearch" {
-  # TODO: temp hard coded
   zone_id = local.opensearch_zone_id
   name    = local.opensearch_custom_domain
   type    = "CNAME"
@@ -72,6 +71,7 @@ resource "aws_acmpca_permission" "private_ca_permission" {
   actions                   = ["IssueCertificate", "GetCertificate", "ListPermissions"]
   principal                 = "acm.amazonaws.com"
 }
+
 resource "aws_acm_certificate" "request_cert" {
   domain_name               = local.opensearch_custom_domain
   certificate_authority_arn = aws_acmpca_certificate_authority.private_ca_authority.arn
@@ -83,13 +83,8 @@ resource "aws_acm_certificate" "request_cert" {
 
   depends_on = [time_sleep.wait_30_seconds]
 }
-resource "aws_acmpca_certificate_authority_certificate" "pca_authority_cert" {
-  certificate_authority_arn = aws_acmpca_certificate_authority.private_ca_authority.arn
-  certificate               = aws_acmpca_certificate.private_ca_cert.certificate
-  certificate_chain         = aws_acmpca_certificate.private_ca_cert.certificate_chain
-}
 
 resource "time_sleep" "wait_30_seconds" {
   create_duration = "30s"
-  depends_on      = [aws_acmpca_certificate_authority_certificate.pca_authority_cert]
+  depends_on      = [aws_acmpca_certificate_authority.private_ca_authority]
 }
