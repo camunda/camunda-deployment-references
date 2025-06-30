@@ -91,6 +91,11 @@ jobs:
                   # Generate a random storage account name to avoid conflicts
                   export AZURE_STORAGE_ACCOUNT_NAME="camundatfstate$RANDOM"
 
+                  # Generate a random resource group name to avoid conflicts
+                  PR_NUMBER=${{ github.event.pull_request.number || 0 }}
+                  export RESOURCE_GROUP_NAME="azure-common-storage-test-$PR_NUMBER-$RANDOM"
+                  echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME" | tee -a "$GITHUB_ENV"
+
                   ./storage-account-creation.sh
                   ./storage-account-versioning.sh
 
