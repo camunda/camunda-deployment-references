@@ -1,0 +1,72 @@
+---
+# This workflow updates an artifact containing the OpenSearch versions,
+# it's used by renovate and published at https://camunda.github.io/camunda-deployment-references/opensearch_versions.txt
+name: Internal - AWS - Save OpenSearch Versions as an artifact
+
+on:
+    schedule:
+        - cron: 0 1 * * *
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/internal_aws_artifact_opensearch_versions.yml
+
+env:
+    AWS_REGION: eu-west-2
+    AWS_PROFILE: infreaex
+
+jobs:
+    save-opensearch-versions:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  ref: gh-pages
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6493c4661ae26f7c81689994c4c75e8f42b67f6a # 1.4.5
+
+            - uses: camunda/camunda-deployment-references/.github/actions/aws-configure-cli@main
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Output OpenSearch versions to file
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  mkdir -p docs
+                  aws opensearch list-versions --no-cli-pager \
+                    | jq -r '.Versions[] | select(startswith("OpenSearch_")) | sub("OpenSearch_"; "")' \
+                    > docs/opensearch_versions.txt
+                  cat docs/opensearch_versions.txt
+
+            - name: Commit and push OpenSearch versions file to gh-pages
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  git diff --exit-code docs/opensearch_versions.txt || {
+                    echo "Changes detected, committing and pushing to gh-pages"
+                    git config --local user.name "github-actions[bot]"
+                    git config --local user.email "github-actions[bot]@users.noreply.github.com"
+                    git add docs/opensearch_versions.txt
+                    git commit -m "Update OpenSearch versions"
+                    git push origin gh-pages
+                  }
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: failure() && github.event_name == 'schedule'
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@6493c4661ae26f7c81689994c4c75e8f42b67f6a # 1.4.5
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
