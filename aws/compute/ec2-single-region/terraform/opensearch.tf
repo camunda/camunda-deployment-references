@@ -25,7 +25,7 @@ module "opensearch_domain" {
   count = local.opensearch_enable ? 1 : 0
 
   domain_name    = local.opensearch_domain_name
-  engine_version = 2.19 # TODO: Introduce renovate
+  engine_version = 2.19
   subnet_ids     = module.vpc.private_subnets
   vpc_id         = module.vpc.vpc_id
   cidr_blocks    = module.vpc.private_subnets_cidr_blocks
