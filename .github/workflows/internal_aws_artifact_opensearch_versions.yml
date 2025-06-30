@@ -44,6 +44,7 @@ jobs:
                   aws opensearch list-versions --no-cli-pager \
                     | jq -r '.Versions[] | select(startswith("OpenSearch_")) | sub("OpenSearch_"; "")' \
                     > docs/opensearch_versions.txt
+                  cat docs/opensearch_versions.txt
 
             - name: Commit and push OpenSearch versions file to gh-pages
               shell: bash
@@ -51,6 +52,7 @@ jobs:
                   set -euo pipefail
 
                   git diff --exit-code docs/opensearch_versions.txt || {
+                    echo "Changes detected, committing and pushing to gh-pages"
                     git config --local user.name "github-actions[bot]"
                     git config --local user.email "github-actions[bot]@users.noreply.github.com"
                     git add docs/opensearch_versions.txt
