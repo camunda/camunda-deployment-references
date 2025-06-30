@@ -53,7 +53,7 @@ resource "aws_route53_record" "opensearch_custom_endpoint" {
   records = [aws_opensearch_domain.opensearch_cluster.domain_endpoint_options[0].custom_endpoint]
 }
 
-resource "aws_acmpca_certificate_authority" "example" {
+resource "aws_acmpca_certificate_authority" "private_ca_authority" {
   type = "ROOT"
 
   certificate_authority_configuration {
