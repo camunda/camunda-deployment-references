@@ -88,17 +88,28 @@ jobs:
               run: |
                   set -euo pipefail
 
+                  EVENT_NAME="${{ github.event_name }}"
+                  export EXTRA_IDENTIFIER="${EVENT_NAME//_/-}"
+
+                  if [[ ${{ github.event_name }} == 'pull_request' ]]; then
+                    export EXTRA_IDENTIFIER="pr-${{ github.event.pull_request.number }}"
+                  fi
+
+                  export RANDOM_IDENTIFIER="$RANDOM-$EXTRA_IDENTIFIER"
+
                   # Generate a random storage account name to avoid conflicts
-                  export AZURE_STORAGE_ACCOUNT_NAME="camundatfstate$RANDOM"
+                  AZURE_STORAGE_ACCOUNT_NAME="storacc-$RANDOM_IDENTIFIER" # now allowed to use hyphens
+                  AZURE_STORAGE_ACCOUNT_NAME=$(echo "$AZURE_STORAGE_ACCOUNT_NAME" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')
+                  export AZURE_STORAGE_ACCOUNT_NAME="${AZURE_STORAGE_ACCOUNT_NAME:0:24}"
+                  echo "AZURE_STORAGE_ACCOUNT_NAME=$AZURE_STORAGE_ACCOUNT_NAME" | tee -a "$GITHUB_ENV"
 
                   # Generate a random resource group name to avoid conflicts
-                  PR_NUMBER=${{ github.event.pull_request.number || 0 }}
-                  export RESOURCE_GROUP_NAME="azure-common-storage-test-$PR_NUMBER-$RANDOM"
+                  export RESOURCE_GROUP_NAME="azure-common-storage-test-$RANDOM_IDENTIFIER"
+                  export RESOURCE_GROUP_NAME="${RESOURCE_GROUP_NAME:0:64}"
                   echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME" | tee -a "$GITHUB_ENV"
 
                   ./storage-account-creation.sh
                   ./storage-account-versioning.sh
-
             - name: Create tfvars file
               id: create_tfvars_file
               working-directory: azure/common/procedure/storage-account
