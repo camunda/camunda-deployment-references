@@ -52,8 +52,7 @@ resource "tls_self_signed_cert" "root_ca_cert" {
 resource "aws_acmpca_certificate_authority_certificate" "root_ca_certificate" {
   certificate_authority_arn = aws_acmpca_certificate_authority.private_ca_authority.arn
 
-  certificate       = tls_self_signed_cert.root_ca_cert.cert_pem
-  certificate_chain = tls_self_signed_cert.root_ca_cert.cert_pem
+  certificate = tls_self_signed_cert.root_ca_cert.cert_pem
 }
 
 resource "aws_acmpca_permission" "private_ca_permission" {
