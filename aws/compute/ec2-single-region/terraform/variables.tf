@@ -162,7 +162,8 @@ variable "opensearch_instance_count" {
 }
 
 variable "opensearch_engine_version" {
-  type        = string
+  type = string
+  # renovate: datasource=custom.opensearch-camunda depName=opensearch versioning=semver
   default     = "2.15"
   description = "The engine version of the OpenSearch cluster"
 }

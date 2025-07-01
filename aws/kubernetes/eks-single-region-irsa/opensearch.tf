@@ -15,8 +15,9 @@ locals {
 }
 
 module "opensearch_domain" {
-  source         = "../../modules/opensearch"
-  domain_name    = local.opensearch_domain_name
+  source      = "../../modules/opensearch"
+  domain_name = local.opensearch_domain_name
+  # renovate: datasource=custom.opensearch-camunda depName=opensearch versioning=semver
   engine_version = "2.15"
 
   instance_type   = "m7i.large.search"
