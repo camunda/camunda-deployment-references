@@ -1,6 +1,6 @@
 locals {
-  deployment_root_domain   = "${local.eks_cluster_name}.camunda.ie"
-  opensearch_custom_domain = "${var.domain_name}.${local.deployment_root_domain}"
+  deployment_root_domain   = "${var.domain_name}.camunda.ie"
+  opensearch_custom_domain = "os.${local.deployment_root_domain}"
   opensearch_zone_id       = "Z0320975U3XESO24VAVA"
   key_algorithm            = "RSA_2048"
 }
