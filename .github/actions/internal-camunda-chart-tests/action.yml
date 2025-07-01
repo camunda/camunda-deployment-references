@@ -227,8 +227,9 @@ runs:
               yq e 'del(.spec.template.spec.containers[].env[] | select(.name == "VENOM_VAR_TEST_CLIENT_SECRET"))' \
                 -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
 
+              # we're overwriting the tool-versions of the Helm chart tests with our own
               echo "Ensure asdf tool is available in the test suite by using our global one"
-              cp .tool-versions "$TEST_VALUES_BASE_DIR/.."
+              cp .tool-versions "$TESTS_CAMUNDA_HELM_CHART_REPO_PATH"
 
         - name: 🧪 TESTS - Run Preflight TestSuite
           if: ${{ inputs.enable-helm-chart-tests == 'true' }}
