@@ -39,7 +39,7 @@ resource "tls_cert_request" "opensearch_csr" {
 }
 
 resource "aws_acmpca_certificate" "signed_cert" {
-  certificate_authority_arn   = aws_acmpca_certificate_authority.private_ca_authority.arn
+  certificate_authority_arn   = data.aws_acmpca_certificate_authority.private_ca_authority.arn
   certificate_signing_request = tls_cert_request.opensearch_csr.cert_request_pem
   signing_algorithm           = "SHA256WITHRSA"
 
