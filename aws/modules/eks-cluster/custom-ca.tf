@@ -51,7 +51,7 @@ resource "tls_self_signed_cert" "root_ca_cert" {
 resource "null_resource" "save_csr" {
   provisioner "local-exec" {
     command = <<EOT
-      echo '${aws_acmpca_certificate_authority.private_ca_authority.certificate_signing_request}' | base64 --decode > ./ca.csr
+      echo '${aws_acmpca_certificate_authority.private_ca_authority.certificate_signing_request}' > ./ca.csr
     EOT
   }
   depends_on = [aws_acmpca_certificate_authority.private_ca_authority]
