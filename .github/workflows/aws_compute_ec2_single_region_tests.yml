@@ -191,6 +191,15 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
+            - name: 📁 Get a copy of the reference architecture
+              timeout-minutes: 10
+              run: |
+                  # run it as specified in the doc
+                  set -euo pipefail
+
+                  ./aws/compute/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
+                  tree
+
             - name: Set current Camunda version
               id: camunda-version
               run: |
