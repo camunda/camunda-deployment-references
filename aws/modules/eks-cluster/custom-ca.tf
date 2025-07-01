@@ -48,11 +48,36 @@ resource "tls_self_signed_cert" "root_ca_cert" {
   ]
 }
 
+resource "null_resource" "save_csr" {
+  provisioner "local-exec" {
+    command = <<EOT
+      echo '${aws_acmpca_certificate_authority.private_ca_authority.certificate_signing_request}' | base64 --decode > ./ca.csr
+    EOT
+  }
+  depends_on = [aws_acmpca_certificate_authority.private_ca_authority]
+}
+
+resource "null_resource" "sign_csr" {
+  provisioner "local-exec" {
+    command = <<EOT
+      openssl x509 -req -in ./ca.csr -CA rootCA.pem -CAkey rootCA.key -CAcreateserial -out ./ca_cert.pem -days 3650 -sha256
+    EOT
+  }
+  depends_on = [null_resource.save_csr]
+}
+
+data "local_file" "signed_cert" {
+  filename   = "${path.module}/ca_cert.pem"
+  depends_on = [null_resource.sign_csr]
+}
+
+
 # Final step to activate the CA using the self-signed certificate
 resource "aws_acmpca_certificate_authority_certificate" "root_ca_certificate" {
   certificate_authority_arn = aws_acmpca_certificate_authority.private_ca_authority.arn
 
-  certificate = tls_self_signed_cert.root_ca_cert.cert_pem
+  certificate       = data.local_file.signed_cert.content
+  certificate_chain = data.local_file.signed_cert.content
 }
 
 resource "aws_acmpca_permission" "private_ca_permission" {
