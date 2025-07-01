@@ -30,7 +30,6 @@ resource "tls_private_key" "root_ca_key" {
 
 # Self-signed certificate to activate the Root CA
 resource "tls_self_signed_cert" "root_ca_cert" {
-  key_algorithm   = local.key_algorithm
   private_key_pem = tls_private_key.root_ca_key.private_key_pem
 
   subject {
