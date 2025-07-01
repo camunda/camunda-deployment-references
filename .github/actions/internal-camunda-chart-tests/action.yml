@@ -228,7 +228,7 @@ runs:
                 -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
 
               echo "Ensure asdf tool is available in the test suite by using our global one"
-              cp .tool-versions "$TEST_VALUES_BASE_DIR"
+              cp .tool-versions "$TEST_VALUES_BASE_DIR/.."
 
         - name: 🧪 TESTS - Run Preflight TestSuite
           if: ${{ inputs.enable-helm-chart-tests == 'true' }}
