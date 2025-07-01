@@ -1,8 +1,11 @@
 locals {
-  deployment_root_domain   = "${var.domain_name}.camunda.ie"
+  deployment_root_domain = "${var.domain_name}.camunda.ie"
+  opensearch_zone_id     = "Z0320975U3XESO24VAVA"
+  key_algorithm          = "RSA_2048"
+}
+
+locals {
   opensearch_custom_domain = "os.${local.deployment_root_domain}"
-  opensearch_zone_id       = "Z0320975U3XESO24VAVA"
-  key_algorithm            = "RSA_2048"
 }
 
 ## ROOT CA
@@ -40,8 +43,8 @@ resource "tls_private_key" "cert_os_key" {
   rsa_bits  = 2048
 }
 resource "aws_secretsmanager_secret" "opensearch_key_secret" {
-  name        = "certs/${var.domain_name}/private-key"
-  description = "Private key for OS ${var.domain_name}"
+  name        = "certs/${local.opensearch_custom_domain}/private-key"
+  description = "Private key for OS ${local.opensearch_custom_domain}"
 }
 
 resource "aws_secretsmanager_secret_version" "opensearch_key_secret_version" {
