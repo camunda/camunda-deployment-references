@@ -1,57 +1,11 @@
 locals {
-  opensearch_base_domain   = "os.camunda.ie"
-  opensearch_custom_domain = "${var.domain_name}.${local.opensearch_base_domain}"
+  deployment_root_domain   = "${local.eks_cluster_name}.camunda.ie"
+  opensearch_custom_domain = "${var.domain_name}.${local.deployment_root_domain}"
   opensearch_zone_id       = "Z0320975U3XESO24VAVA"
   key_algorithm            = "RSA_2048"
 }
 
-resource "aws_route53_record" "opensearch" {
-  zone_id = local.opensearch_zone_id
-  name    = local.opensearch_custom_domain
-  type    = "CNAME"
-  ttl     = "300"
-  records = [aws_opensearch_domain.opensearch_cluster.endpoint]
-}
-
-resource "aws_acm_certificate" "custom_endpoint_cert" {
-  domain_name       = local.opensearch_custom_domain
-  validation_method = "DNS"
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "aws_route53_record" "cert_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.custom_endpoint_cert.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  }
-
-  allow_overwrite = true
-  name            = each.value.name
-  records         = [each.value.record]
-  ttl             = 60
-  type            = each.value.type
-  zone_id         = local.opensearch_zone_id
-}
-
-resource "aws_acm_certificate_validation" "cert" {
-  certificate_arn         = aws_acm_certificate.custom_endpoint_cert.arn
-  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
-}
-
-resource "aws_route53_record" "opensearch_custom_endpoint" {
-  zone_id = local.opensearch_zone_id
-  name    = local.opensearch_custom_domain
-  type    = "CNAME"
-  ttl     = "300"
-  records = [aws_opensearch_domain.opensearch_cluster.domain_endpoint_options[0].custom_endpoint]
-}
-
+## ROOT CA
 resource "aws_acmpca_certificate_authority" "private_ca_authority" {
   type = "ROOT"
 
@@ -60,11 +14,12 @@ resource "aws_acmpca_certificate_authority" "private_ca_authority" {
     signing_algorithm = "SHA256WITHRSA"
 
     subject {
-      common_name  = local.opensearch_base_domain
+      common_name  = local.deployment_root_domain
       organization = "Your Organization"
     }
   }
 }
+
 
 resource "aws_acmpca_permission" "private_ca_permission" {
   certificate_authority_arn = aws_acmpca_certificate_authority.private_ca_authority.arn
@@ -72,19 +27,54 @@ resource "aws_acmpca_permission" "private_ca_permission" {
   principal                 = "acm.amazonaws.com"
 }
 
-resource "aws_acm_certificate" "request_cert" {
-  domain_name               = local.opensearch_custom_domain
-  certificate_authority_arn = aws_acmpca_certificate_authority.private_ca_authority.arn
-  key_algorithm             = local.key_algorithm
-
-  lifecycle {
-    create_before_destroy = true
-  }
-
-  depends_on = [time_sleep.wait_30_seconds]
-}
 
 resource "time_sleep" "wait_30_seconds" {
   create_duration = "30s"
   depends_on      = [aws_acmpca_certificate_authority.private_ca_authority]
+}
+
+## CERT FOR OS
+
+resource "tls_private_key" "cert_os_key" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+resource "aws_secretsmanager_secret" "opensearch_key_secret" {
+  name        = "certs/${var.domain_name}/private-key"
+  description = "Private key for OS ${var.domain_name}"
+}
+
+resource "aws_secretsmanager_secret_version" "opensearch_key_secret_version" {
+  secret_id     = aws_secretsmanager_secret.opensearch_key_secret.id
+  secret_string = tls_private_key.cert_os_key.private_key_pem
+}
+
+resource "tls_cert_request" "opensearch_csr" {
+  private_key_pem = tls_private_key.cert_os_key.private_key_pem
+
+  subject {
+    common_name  = local.opensearch_custom_domain
+    organization = "Your Organization"
+  }
+}
+
+resource "aws_acmpca_certificate" "signed_cert" {
+  certificate_authority_arn   = aws_acmpca_certificate_authority.private_ca_authority.arn
+  certificate_signing_request = tls_cert_request.opensearch_csr.cert_request_pem
+  signing_algorithm           = "SHA256WITHRSA"
+
+  validity {
+    type  = "DAYS"
+    value = 365
+  }
+
+  template_arn = "arn:aws:acm-pca:::template/EndEntityCertificate/V1"
+}
+
+resource "aws_route53_record" "opensearch" {
+  zone_id = local.opensearch_zone_id
+  name    = local.opensearch_custom_domain
+  type    = "CNAME"
+  ttl     = "300"
+  records = [aws_opensearch_domain.opensearch_cluster.endpoint]
 }

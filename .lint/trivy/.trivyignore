@@ -25,3 +25,5 @@ AVD-AZU-0013 #(CRITICAL): Vault network ACL does not block access by default.
 AVD-AWS-0042 #(MEDIUM): Domain audit logging is not enabled.
 
 AVD-AWS-0017 #(LOW): # When using CloudWatch, we are fine using the default kms for the moment (VPN usage only)
+
+AVD-AWS-0098 # TODO: revert
