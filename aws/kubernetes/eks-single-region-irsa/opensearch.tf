@@ -34,6 +34,8 @@ module "opensearch_domain" {
   advanced_security_master_user_name     = local.opensearch_master_username
   advanced_security_master_user_password = local.opensearch_master_password
 
+  custom_root_ca_arn = module.eks_cluster.private_ca_authority_arn
+
   # IAM IRSA
   iam_roles_with_policies = [
     {
