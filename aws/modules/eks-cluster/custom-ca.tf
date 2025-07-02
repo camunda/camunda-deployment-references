@@ -82,7 +82,7 @@ resource "tls_locally_signed_cert" "sub_ca_cert_signed" {
   ca_private_key_pem = tls_private_key.root_ca_key.private_key_pem
   ca_cert_pem        = tls_self_signed_cert.root_ca_cert.cert_pem
 
-  validity_period_hours = 8760
+  validity_period_hours = 43800
 
   allowed_uses = [
     "cert_signing",
