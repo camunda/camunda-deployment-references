@@ -17,18 +17,10 @@ data "aws_acmpca_certificate_authority" "private_ca_authority" {
 resource "aws_acm_certificate" "opensearch_cert" {
   domain_name               = local.opensearch_custom_domain
   certificate_authority_arn = data.aws_acmpca_certificate_authority.private_ca_authority.arn
-  validation_method         = "DNS"
 
   tags = {
     Name = "OS ACM cert for ${local.opensearch_custom_domain}"
   }
-}
-resource "aws_route53_record" "opensearch_cert_validation" {
-  name    = tolist(aws_acm_certificate.opensearch_cert.domain_validation_options)[0].resource_record_name
-  type    = tolist(aws_acm_certificate.opensearch_cert.domain_validation_options)[0].resource_record_type
-  zone_id = local.opensearch_zone_id
-  records = [tolist(aws_acm_certificate.opensearch_cert.domain_validation_options)[0].resource_record_value]
-  ttl     = 60
 }
 
 resource "aws_acm_certificate_validation" "opensearch_cert_validation" {
