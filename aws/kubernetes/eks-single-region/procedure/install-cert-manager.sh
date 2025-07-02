@@ -20,7 +20,7 @@ kubectl rollout status deployment/external-secrets -n "$NAMESPACE" --timeout=180
 echo "Applying ClusterSecretStore manifest..."
 
 cat <<EOF | envsubst > /tmp/clustersecretstore.yaml
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1alpha1
 kind: ClusterSecretStore
 metadata:
   name: $CLUSTER_SECRET_STORE_NAME
