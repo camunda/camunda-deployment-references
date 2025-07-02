@@ -1,8 +1,8 @@
-# Delete AWS EKS Single Region States
+# Delete AWS Compute EC2 Single Region States
 
 ## Description
 
-This GitHub Action automates the deletion of aws/kubernetes/eks-single-region(-irsa) reference architecture states using a shell script.
+This GitHub Action automates the deletion of aws/compute/ec2-single-region reference architecture states using a shell script.
 
 
 ## Inputs
