@@ -10,30 +10,16 @@ locals {
 }
 
 ## ROOT CA
-resource "aws_acmpca_certificate_authority" "private_ca_authority" {
-  type = "ROOT"
-
-  certificate_authority_configuration {
-    key_algorithm     = local.key_algorithm
-    signing_algorithm = "SHA256WITHRSA"
-
-    subject {
-      common_name  = local.deployment_root_domain
-      organization = "Your Organization"
-    }
-  }
-}
 
 resource "tls_private_key" "root_ca_key" {
   algorithm = lower(local.key_algorithm) == "rsa_2048" ? "RSA" : "ECDSA"
 }
 
-# Self-signed certificate to activate the Root CA
 resource "tls_self_signed_cert" "root_ca_cert" {
   private_key_pem = tls_private_key.root_ca_key.private_key_pem
 
   subject {
-    common_name  = local.deployment_root_domain
+    common_name  = "My ROOT CA"
     organization = "Your Organization"
   }
 
@@ -48,47 +34,65 @@ resource "tls_self_signed_cert" "root_ca_cert" {
   ]
 }
 
-resource "null_resource" "save_csr" {
-  provisioner "local-exec" {
-    command = <<EOT
-      echo '${aws_acmpca_certificate_authority.private_ca_authority.certificate_signing_request}' > ./ca.csr
-    EOT
+## SUB Root CA
+
+resource "aws_acmpca_certificate_authority" "sub_ca" {
+  type = "SUBORDINATE"
+  certificate_authority_configuration {
+    key_algorithm     = local.key_algorithm
+    signing_algorithm = "SHA256WITHRSA"
+    subject {
+      common_name  = "Subordinate Root CA"
+      organization = "Your Organization"
+    }
   }
-  depends_on = [aws_acmpca_certificate_authority.private_ca_authority]
-}
 
-resource "null_resource" "sign_csr" {
-  provisioner "local-exec" {
-    command = <<EOT
-      openssl x509 -req -in ./ca.csr -CA rootCA.pem -CAkey rootCA.key -CAcreateserial -out ./ca_cert.pem -days 3650 -sha256
-    EOT
+  revocation_configuration {
+    crl_configuration {
+      enabled = false
+    }
   }
-  depends_on = [null_resource.save_csr]
+
+  permanent_deletion_time_in_days = 7
 }
 
-data "local_file" "signed_cert" {
-  filename   = "${path.module}/ca_cert.pem"
-  depends_on = [null_resource.sign_csr]
+data "aws_acmpca_certificate_authority_csr" "sub_ca_csr" {
+  certificate_authority_arn = aws_acmpca_certificate_authority.sub_ca.arn
 }
 
+resource "tls_locally_signed_cert" "sub_ca_cert_signed" {
+  cert_request_pem   = data.aws_acmpca_certificate_authority_csr.sub_ca_csr.csr
+  ca_private_key_pem = tls_private_key.root_ca_key.private_key_pem
+  ca_cert_pem        = tls_self_signed_cert.root_ca_cert.cert_pem
+
+  validity_period_hours = 8760
+
+  allowed_uses = [
+    "cert_signing",
+    "crl_signing",
+    "key_encipherment",
+    "digital_signature"
+  ]
+
+  is_ca_certificate = true
+}
 
 # Final step to activate the CA using the self-signed certificate
-resource "aws_acmpca_certificate_authority_certificate" "root_ca_certificate" {
-  certificate_authority_arn = aws_acmpca_certificate_authority.private_ca_authority.arn
-
-  certificate       = data.local_file.signed_cert.content
-  certificate_chain = data.local_file.signed_cert.content
+resource "aws_acmpca_certificate_authority_certificate" "sub_ca_cert_import" {
+  certificate_authority_arn = aws_acmpca_certificate_authority.sub_ca.arn
+  certificate               = tls_locally_signed_cert.sub_ca_cert_signed.cert_pem
+  certificate_chain         = tls_self_signed_cert.root_ca_cert.cert_pem
 }
 
 resource "aws_acmpca_permission" "private_ca_permission" {
-  certificate_authority_arn = aws_acmpca_certificate_authority.private_ca_authority.arn
+  certificate_authority_arn = aws_acmpca_certificate_authority.sub_ca.arn
   actions                   = ["IssueCertificate", "GetCertificate", "ListPermissions"]
   principal                 = "acm.amazonaws.com"
 }
 
 resource "time_sleep" "wait_30_seconds" {
   create_duration = "30s"
-  depends_on      = [aws_acmpca_certificate_authority.private_ca_authority]
+  depends_on      = [aws_acmpca_certificate_authority.sub_ca]
 }
 
 resource "aws_secretsmanager_secret" "root_ca_private_key" {
@@ -112,7 +116,7 @@ resource "aws_secretsmanager_secret_version" "root_ca_certificate_version" {
 }
 
 output "private_ca_authority_arn" {
-  value = aws_acmpca_certificate_authority.private_ca_authority.arn
+  value = aws_acmpca_certificate_authority.sub_ca.arn
 }
 
 ### Camunda certs
@@ -151,7 +155,7 @@ resource "tls_cert_request" "camunda_csr" {
 }
 
 resource "aws_acmpca_certificate" "camunda_signed_cert" {
-  certificate_authority_arn   = aws_acmpca_certificate_authority.private_ca_authority.arn
+  certificate_authority_arn   = aws_acmpca_certificate_authority.sub_ca.arn
   certificate_signing_request = tls_cert_request.camunda_csr.cert_request_pem
   signing_algorithm           = "SHA256WITHRSA"
 
