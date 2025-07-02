@@ -45,7 +45,7 @@ resource "aws_acmpca_certificate" "signed_cert" {
 
   validity {
     type  = "DAYS"
-    value = 365
+    value = 180
   }
 
   template_arn = "arn:aws:acm-pca:::template/EndEntityCertificate/V1"
