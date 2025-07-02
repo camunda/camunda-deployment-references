@@ -24,7 +24,7 @@ env:
     S3_BUCKET_REGION: eu-central-1
     S3_BUCKET_KEY: golden.tfstate
 
-    MODULE_DIR: ./aws/compute/ec2-single-region/terraform/
+    MODULE_DIR: ./aws/compute/ec2-single-region/terraform/cluster
 
 
 jobs:
