@@ -92,6 +92,15 @@ identityKeycloak:
         existingSecret: identity-secret-for-components
         passwordSecretKey: identity-keycloak-admin-password
 
+    # TODO: added for self-signed certs
+    tls:
+        enabled: true
+
+        # The secret must have "tls-keystore-password" and "tls-truststore-password" keys for the keystore and truststore respectively.
+        ## +  "keycloak.truststore.jks" +  "keycloak.keystore.jks"
+        existingSecret: aws-pca-p12"
+        passwordsSecret: aws-pca-p12
+
 
 webModeler:
     enabled: false # by default, webModeler is not enabled

@@ -84,3 +84,15 @@ EOT
     always_run = timestamp()
   }
 }
+
+resource "aws_secretsmanager_secret" "camunda_p12_password_secret" {
+  name        = "certs/${local.camunda_custom_domain}/p12-password"
+  description = "Password for the Camunda PKCS#12 bundle"
+}
+
+resource "aws_secretsmanager_secret_version" "camunda_p12_password_secret_version" {
+  secret_id = aws_secretsmanager_secret.camunda_p12_password_secret.id
+  secret_string = jsonencode({
+    p12_password = var.camunda_p12_password
+  })
+}
