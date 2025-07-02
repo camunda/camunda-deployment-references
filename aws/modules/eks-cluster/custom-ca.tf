@@ -76,12 +76,8 @@ resource "aws_acmpca_certificate_authority" "sub_ca" {
   permanent_deletion_time_in_days = 7
 }
 
-data "aws_acmpca_certificate_authority_csr" "sub_ca_csr" {
-  certificate_authority_arn = aws_acmpca_certificate_authority.sub_ca.arn
-}
-
 resource "tls_locally_signed_cert" "sub_ca_cert_signed" {
-  cert_request_pem   = data.aws_acmpca_certificate_authority_csr.sub_ca_csr.csr
+  cert_request_pem   = aws_acmpca_certificate_authority.sub_ca.certificate_signing_request
   ca_private_key_pem = tls_private_key.root_ca_key.private_key_pem
   ca_cert_pem        = tls_self_signed_cert.root_ca_cert.cert_pem
 
