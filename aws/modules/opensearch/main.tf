@@ -106,9 +106,9 @@ resource "aws_opensearch_domain" "opensearch_cluster" {
     tls_security_policy = var.domain_endpoint_options.tls_security_policy
 
     # TODO: hard coded
-    #custom_endpoint_enabled         = true
-    #custom_endpoint                 = local.opensearch_custom_domain
-    #custom_endpoint_certificate_arn = aws_acmpca_certificate.signed_cert.arn
+    custom_endpoint_enabled         = true
+    custom_endpoint                 = local.opensearch_custom_domain
+    custom_endpoint_certificate_arn = aws_acmpca_certificate.signed_cert.arn
   }
 
   timeouts {
