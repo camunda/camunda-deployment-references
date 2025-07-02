@@ -90,7 +90,7 @@ identityKeycloak:
 
     auth:
         existingSecret: identity-secret-for-components
-        passwordSecretKey: identity-keycloak-admin-password
+        usePem: true
 
     # TODO: added for self-signed certs
     tls:

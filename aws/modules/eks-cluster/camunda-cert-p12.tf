@@ -91,8 +91,6 @@ resource "aws_secretsmanager_secret" "camunda_p12_password_secret" {
 }
 
 resource "aws_secretsmanager_secret_version" "camunda_p12_password_secret_version" {
-  secret_id = aws_secretsmanager_secret.camunda_p12_password_secret.id
-  secret_string = jsonencode({
-    p12_password = var.camunda_p12_password
-  })
+  secret_id     = aws_secretsmanager_secret.camunda_p12_password_secret.id
+  secret_string = var.camunda_p12_password
 }
