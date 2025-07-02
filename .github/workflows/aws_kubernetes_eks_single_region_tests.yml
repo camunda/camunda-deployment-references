@@ -180,13 +180,6 @@ jobs:
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
-
-            # TODO: revert
-            - name: Setup tmate session
-              uses: mxschmitt/action-tmate@v3
-              with:
-                  detached: true
-
             - name: Create K8S cluster and login
               uses: ./.github/actions/aws-kubernetes-eks-single-region-create
               id: create_cluster
@@ -241,6 +234,7 @@ jobs:
 
                   {
                     # Export to file to pass to other jobs
+                    echo "ESO_IRSA_ARN=$ESO_IRSA_ARN"
                     echo "CERT_MANAGER_IRSA_ARN=$CERT_MANAGER_IRSA_ARN"
                     echo "EXTERNAL_DNS_IRSA_ARN=$EXTERNAL_DNS_IRSA_ARN"
 
