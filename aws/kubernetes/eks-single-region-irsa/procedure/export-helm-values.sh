@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # EKS Cluster
+export ESO_IRSA_ARN="$(terraform output -raw secret_manager_arn)"
 export CERT_MANAGER_IRSA_ARN="$(terraform output -raw cert_manager_arn)"
 export EXTERNAL_DNS_IRSA_ARN="$(terraform output -raw external_dns_arn)"
 

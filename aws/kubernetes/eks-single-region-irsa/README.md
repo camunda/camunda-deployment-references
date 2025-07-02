@@ -32,4 +32,5 @@ No resources.
 | <a name="output_opensearch_endpoint"></a> [opensearch\_endpoint](#output\_opensearch\_endpoint) | The OpenSearch endpoint URL |
 | <a name="output_opensearch_iam_role_arns"></a> [opensearch\_iam\_role\_arns](#output\_opensearch\_iam\_role\_arns) | Map of IAM role names to their ARNs |
 | <a name="output_postgres_endpoint"></a> [postgres\_endpoint](#output\_postgres\_endpoint) | The Postgres endpoint URL |
+| <a name="output_secret_manager_arn"></a> [secret\_manager\_arn](#output\_secret\_manager\_arn) | The Amazon Resource Name (ARN) of the AWS IAM Roles for Service Account mapping for the eso manager |
 <!-- END_TF_DOCS -->

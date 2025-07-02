@@ -30,6 +30,7 @@ module "eks_cluster" {
 | <a name="module_ebs_cs_role"></a> [ebs\_cs\_role](#module\_ebs\_cs\_role) | terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks | 5.58.0 |
 | <a name="module_eks"></a> [eks](#module\_eks) | terraform-aws-modules/eks/aws | 20.37.1 |
 | <a name="module_external_dns_role"></a> [external\_dns\_role](#module\_external\_dns\_role) | terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks | 5.58.0 |
+| <a name="module_external_secrets_role"></a> [external\_secrets\_role](#module\_external\_secrets\_role) | terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks | 5.58.0 |
 | <a name="module_vpc"></a> [vpc](#module\_vpc) | terraform-aws-modules/vpc/aws | 5.21.0 |
 ## Resources
 
@@ -120,6 +121,7 @@ module "eks_cluster" {
 | <a name="output_private_subnet_ids"></a> [private\_subnet\_ids](#output\_private\_subnet\_ids) | Private subnet IDs |
 | <a name="output_private_vpc_cidr_blocks"></a> [private\_vpc\_cidr\_blocks](#output\_private\_vpc\_cidr\_blocks) | Private VPC CIDR blocks |
 | <a name="output_public_vpc_cidr_blocks"></a> [public\_vpc\_cidr\_blocks](#output\_public\_vpc\_cidr\_blocks) | Public VPC CIDR blocks |
+| <a name="output_secret_manager_arn"></a> [secret\_manager\_arn](#output\_secret\_manager\_arn) | Amazon Resource Name of the secret-manager IAM role used for IAM Roles to Service Accounts mappings |
 | <a name="output_vpc_azs"></a> [vpc\_azs](#output\_vpc\_azs) | VPC AZs of the cluster |
 | <a name="output_vpc_id"></a> [vpc\_id](#output\_vpc\_id) | VPC id of the cluster |
 | <a name="output_vpc_main_route_table_id"></a> [vpc\_main\_route\_table\_id](#output\_vpc\_main\_route\_table\_id) | The ID of the main route table associated with this VPC |

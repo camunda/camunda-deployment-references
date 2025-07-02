@@ -12,3 +12,6 @@ export INGRESS_HELM_CHART_VERSION="4.12.3"
 export EXTERNAL_DNS_HELM_CHART_VERSION="1.17.0"
 # renovate: datasource=helm depName=cert-manager registryUrl=https://charts.jetstack.io
 export CERT_MANAGER_HELM_CHART_VERSION="1.18.1"
+
+
+export ESO_HELM_CHART_VERSION="0.18.1"

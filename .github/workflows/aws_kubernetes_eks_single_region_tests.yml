@@ -448,6 +448,7 @@ jobs:
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager.sh
 
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager-issuer.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-eso.sh
 
             - name: 🌱 Register chart setup environment values
               timeout-minutes: 3
