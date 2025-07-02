@@ -62,8 +62,13 @@ env:
     TF_MODULES_PATH: ./.action-tf-modules/aws-compute-ec2-single-region-create
 
     CI_MATRIX_FILE: .github/workflows-config/aws-compute-ec2-single-region/test_matrix.yml
-    TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+
+    TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+
+    # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
+    TESTS_CAMUNDA_VERSION: 8.6.20
+    TESTS_CAMUNDA_PREVIOUS_VERSION: 8.6.0
 
 jobs:
     triage:
@@ -206,70 +211,12 @@ jobs:
                   set -euo pipefail
                   # TODO: Intended override CAMUNDA_VERSION=$(cat .camunda-version)
                   CAMUNDA_VERSION=8.6
-                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
-            - name: Get latest full Camunda version
-              id: camunda-version-full
-              run: |
-                  set -euo pipefail
-                  MAJOR_MINOR="${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}"
-                  ARTIFACTORY_RESPONSE=$(curl -s "https://artifacts.camunda.com/artifactory/api/storage/zeebe/io/camunda/camunda-zeebe/")
-                  # Extract latest full semver release for the given MAJOR_MINOR
-                  # Needs to be true as next version has no release yet
-                  LATEST_VERSION=$(echo "$ARTIFACTORY_RESPONSE" \
-                    | jq -r '.children[].uri' \
-                    | grep "^/${MAJOR_MINOR//./\\.}" \
-                    | grep -E "^/[0-9]+\.[0-9]+\.[0-9]+$" \
-                    | sed 's|/||' \
-                    | sort -V \
-                    | tail -n1 || true)
-                  if [ -n "$LATEST_VERSION" ]; then
-                    echo "No release version found for $MAJOR_MINOR"
-                  else
-                    echo "Latest version for $MAJOR_MINOR is: $LATEST_VERSION"
-                  fi
-                  # Extract latest pre-release (e.g., alpha, beta, rc) for the given MAJOR_MINOR
-                  LATEST_PRERELEASE=$(echo "$ARTIFACTORY_RESPONSE" \
-                    | jq -r '.children[].uri' \
-                    | grep "^/${MAJOR_MINOR//./\\.}" \
-                    | grep -E "^/[0-9]+\.[0-9]+\.[0-9]+-[a-zA-Z0-9]+" \
-                    | sed 's|/||' \
-                    | sort -V \
-                    | tail -n1)
-                  if [ -n "$LATEST_PRERELEASE" ]; then
-                    echo "Latest pre-release version for $MAJOR_MINOR is: $LATEST_PRERELEASE"
-                  else
-                    echo "No pre-release version found for $MAJOR_MINOR"
-                  fi
-                  FINAL_VERSION="${LATEST_VERSION:-$LATEST_PRERELEASE}"
-                  if [ -n "$FINAL_VERSION" ]; then
-                    echo "Selected version for $MAJOR_MINOR is: $FINAL_VERSION"
-                  else
-                    echo "No version found for $MAJOR_MINOR"
-                  fi
-                  # Calculate previous patch or previous minor version if patch == 0
-                  IFS='.-' read -r MAJOR MINOR PATCH SUFFIX <<< "$FINAL_VERSION"
-                  echo "$MAJOR.$MINOR.$PATCH.$SUFFIX"
-                  if [[ "$PATCH" == "0" ]]; then
-                      PREV_MINOR=$((MINOR - 1))
-                      PREV_MAJOR_MINOR="${MAJOR}.${PREV_MINOR}"
-                      PREVIOUS_VERSION=$(echo "$ARTIFACTORY_RESPONSE" \
-                          | jq -r '.children[].uri' \
-                          | grep "^/${PREV_MAJOR_MINOR//./\\.}" \
-                          | grep -E "^/[0-9]+\.[0-9]+\.[0-9]+$" \
-                          | sed 's|/||' \
-                          | sort -V \
-                          | tail -n1 || true)
-                  else
-                    PREV_PATCH=$((PATCH - 1))
-                    PREVIOUS_VERSION="${MAJOR}.${MINOR}.${PREV_PATCH}"
-                  fi
-                  echo "Previous version: $PREVIOUS_VERSION"
-                  CAMUNDA_VERSION_HYPHENS=$(echo "$FINAL_VERSION" | tr '.' '-')
+                  TESTS_CAMUNDA_VERSION_HYPHENS=$(echo "${{ env.TESTS_CAMUNDA_VERSION }}" | tr '.' '-')
                   {
-                      echo "CAMUNDA_VERSION_HYPHENS=$CAMUNDA_VERSION_HYPHENS"
-                      echo "CAMUNDA_VERSION=$FINAL_VERSION"
-                      echo "CAMUNDA_PREVIOUS_VERSION=$PREVIOUS_VERSION"
+                    echo "CAMUNDA_VERSION=$CAMUNDA_VERSION"
+                    echo "TESTS_CAMUNDA_VERSION_HYPHENS=$TESTS_CAMUNDA_VERSION_HYPHENS"
                   } >> "$GITHUB_OUTPUT"
+
             - name: Get Terraform outputs
               id: terraform-outputs
               uses: ./.github/actions/internal-generic-terraform-outputs
@@ -286,8 +233,8 @@ jobs:
               env:
                   # We just need the outputs from terraform to run the tests, which is initialized in above
                   TERRAFORM_DIR: ${{ github.workspace }}/.github/actions/internal-generic-terraform-outputs
-                  CAMUNDA_VERSION: ${{ steps.camunda-version-full.outputs.CAMUNDA_VERSION }}
-                  CAMUNDA_PREVIOUS_VERSION: ${{ steps.camunda-version-full.outputs.CAMUNDA_PREVIOUS_VERSION }}
+                  CAMUNDA_VERSION: ${{ env.TESTS_CAMUNDA_VERSION }}
+                  CAMUNDA_PREVIOUS_VERSION: ${{ env.TESTS_CAMUNDA_PREVIOUS_VERSION }}
               run: |
                   set -euo pipefail
                   export PATH=$PATH:$(go env GOPATH)/bin
@@ -304,13 +251,13 @@ jobs:
                   set -euo pipefail
                   sed 's/&#xA;/\n/g' < "./tests.xml" |
                   grep -E -v '^.*logger\.go.*$' |
-                  sed 's/\n/&#xA;/g' > "./tests-${{ steps.camunda-version-full.outputs.CAMUNDA_VERSION_HYPHENS }}-filtered.xml"
+                  sed 's/\n/&#xA;/g' > "./tests-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-filtered.xml"
             - name: Upload test reports
               if: always()
               uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
               with:
-                  name: test-reports-${{ steps.camunda-version-full.outputs.CAMUNDA_VERSION_HYPHENS }}-${{ matrix.distro.name }}
-                  path: ${{ github.workspace }}/aws/compute/ec2-single-region/test/src/tests-${{ steps.camunda-version-full.outputs.CAMUNDA_VERSION_HYPHENS
+                  name: test-reports-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-${{ matrix.distro.name }}
+                  path: ${{ github.workspace }}/aws/compute/ec2-single-region/test/src/tests-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS
                       }}-filtered.xml
                   retention-days: 7
 
