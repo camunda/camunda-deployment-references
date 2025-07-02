@@ -30,11 +30,14 @@ inputs:
         description: Path where the tf ec2 arch will be cloned
         default: ./.action-tf-modules/aws-compute-ec2-single-region-create/
         required: true
+    tf-modules-name:
+        description: Name of the tf modules to use, the folder to refer to - cluster / vpn
+        default: cluster
+        required: true
     ref-arch:
         description: Reference architecture to deploy
         default: ec2-single-region
         required: false
-
 outputs:
     terraform-state-url:
         description: URL of the Terraform state file in the S3 bucket
@@ -60,7 +63,7 @@ runs:
           run: |
               set -euo pipefail
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
+              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
 
               if [ -z "${{ inputs.s3-bucket-region }}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
@@ -70,21 +73,18 @@ runs:
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
-              echo "TFSTATE_KEY=${TFSTATE_KEY}" >> "$GITHUB_OUTPUT"
-
-              terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_KEY}"
-              echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
+              echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" >> "$GITHUB_OUTPUT"
 
         - name: Copy CI fixtures
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
           run: |
               set -euo pipefail
               cp -r ./test/fixtures/ci/fixture_* .
 
         - name: Terraform Init
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
           shell: bash
           run: |
               set -euo pipefail
@@ -93,7 +93,7 @@ runs:
 
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_KEY }}" \
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}${{ inputs.tf-modules-name }}.tfstate" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
 
               terraform validate -no-color
@@ -106,7 +106,7 @@ runs:
 
         - name: Terraform Plan
           id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
           shell: bash
           run: |
               set -euo pipefail
@@ -119,7 +119,7 @@ runs:
 
         - name: Terraform Apply
           id: apply
-          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
           shell: bash
           run: |
               set -euo pipefail

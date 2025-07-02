@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	terraformDir = utils.GetEnv("TERRAFORM_DIR", "../../terraform")
+	terraformDir = utils.GetEnv("TERRAFORM_DIR", "../../terraform/cluster")
 	tfBinary     = utils.GetEnv("TERRAFORM_BINARY", "terraform")
 	tfVars       = map[string]interface{}{
 		"prefix":                    utils.GetEnv("TF_PREFIX", "ec2-jar-test"),

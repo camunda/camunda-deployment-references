@@ -7,8 +7,12 @@ description: |
     array:  toJson(fromJson(steps.terraform-outputs.outputs.json_output).camunda_ips.value)
 
 inputs:
-    cluster-name:
-        description: Name of the cluster to deploy
+    tf-state-suffix:
+        description: The suffix of the terraform state, quite often the cluster name
+        required: true
+    tf-modules-name:
+        description: Name of the Terraform module to use, the folder to refer to - cluster / vpn
+        default: cluster
         required: true
     s3-backend-bucket:
         description: Name of the S3 bucket to store Terraform state
@@ -36,7 +40,7 @@ runs:
           run: |
               set -euo pipefail
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
+              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ tf-state-suffix }}/${{ inputs.tf-modules-name }}.tfstate"
 
               if [ -z "${{ inputs.s3-bucket-region }}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"

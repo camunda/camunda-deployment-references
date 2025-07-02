@@ -11,6 +11,9 @@ set -o pipefail
 # Additionally, if the environment variable `RETRY_DESTROY` is set, the script will invoke `cloud-nuke`
 # to ensure the deletion of any remaining VPC resources that might not have been removed by Terraform.
 #
+# ATTENTION: This script will be able to delete any state file in the specified S3 bucket.
+# Be careful with `all` without using a prefix
+#
 # Usage:
 # ./destroy_states.sh <BUCKET> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX] [--fail-on-not-found]
 #
@@ -22,9 +25,9 @@ set -o pipefail
 #   --fail-on-not-found (optional): If set, the script will exit with an error when no matching object is found (only when ID_OR_ALL is not "all").
 #
 # Example:
-# ./destroy_states.sh tf-state-rosa-ci-eu-west-3 24 all
-# ./destroy_states.sh tf-state-rosa-ci-eu-west-3 24 eks-state-2883
-# ./destroy_states.sh tf-state-rosa-ci-eu-west-3 24 all my-prefix/
+# ./destroy_states.sh tests-ra-aws-rosa-hcp-tf-state-eu-central-1 24 all
+# ./destroy_states.sh tests-ra-aws-rosa-hcp-tf-state-eu-central-1 24 eks-state-2883
+# ./destroy_states.sh tests-ra-aws-rosa-hcp-tf-state-eu-central-1 24 all aws/compute/ec2-single-region/8.7/
 #
 # Requirements:
 # - AWS CLI installed and configured with the necessary permissions to access and modify the S3 bucket.
@@ -72,11 +75,8 @@ fi
 destroy_state() {
   local key=$1
   local state_id
-  local state_folder
   # shellcheck disable=SC2001 # the alternative is multiple bash expansions
   state_id=$(echo "$key" | sed 's|.*/tfstate-\([^/]*\)/.*|\1|')
-  # shellcheck disable=SC2001 # the alternative is multiple bash expansions
-  state_folder=$(echo "$key" | sed 's|\(.*\)/.*|\1|')
 
   mkdir -p "/tmp/$state_id"
   cp "$SCRIPT_DIR/config" "/tmp/$state_id/config.tf"
@@ -95,9 +95,8 @@ destroy_state() {
   if ! terraform destroy -auto-approve; then return 1; fi
 
   # Cleanup S3
-  echo "Deleting s3://$BUCKET/$state_folder"
-  if ! aws s3 rm "s3://$BUCKET/$state_folder" --recursive; then return 1; fi
-  if ! aws s3api delete-object --bucket "$BUCKET" --key "$state_folder/"; then return 1; fi
+  echo "Deleting s3://$BUCKET/$key"
+  if ! aws s3 rm "s3://$BUCKET/$key"; then return 1; fi
 
   cd - || exit 1
   rm -rf "/tmp/$state_id"
@@ -114,9 +113,9 @@ if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
 fi
 
 if [ "$ID_OR_ALL" == "all" ]; then
-  states=$(echo "$all_objects" | awk '{print $NF}' | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
+  states=$(echo "$all_objects" | awk '{print $NF}')
 else
-  states=$(echo "$all_objects" | awk '{print $NF}' | grep "tfstate-$ID_OR_ALL/" | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
+  states=$(echo "$all_objects" | awk '{print $NF}' | grep "tfstate-$ID_OR_ALL/")
 
   if [ -z "$states" ] && [ "$FAIL_ON_NOT_FOUND" = true ]; then
     echo "Error: No object found for ID '$ID_OR_ALL'"
@@ -135,43 +134,43 @@ pids=()
 log_dir="./logs"
 mkdir -p "$log_dir"
 
-for state_id in $states; do
+for state_path in $states; do
+  state_id=$(echo "$state_path" | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
+
   log_file="$log_dir/$state_id.log"
 
   (
+    echo "[$state_id] Checking state $state_id"
 
-    state_folder="tfstate-$state_id"
-    echo "[$state_id] Checking state $state_id in $state_folder"
-
-    last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$KEY_PREFIX$state_folder/${state_id}.tfstate" --output json | grep LastModified | awk -F '"' '{print $4}')
+    last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$state_path" --output json | grep LastModified | awk -F '"' '{print $4}')
     if [ -z "$last_modified" ]; then
-      echo "[$state_id] Error: Failed to retrieve last modified timestamp for state $state_id"
+      echo "[$state_id] Error: Failed to retrieve last modified timestamp for state $state_path"
       exit 1
     fi
 
     last_modified_timestamp=$($date_command -d "$last_modified" +%s)
     if [ -z "$last_modified_timestamp" ]; then
-      echo "[$state_id] Error: Failed to convert last modified timestamp to seconds since epoch for state $state_id"
+      echo "[$state_id] Error: Failed to convert last modified timestamp to seconds since epoch for state $state_path"
       exit 1
     fi
-    echo "[$state_id] state $state_id last modification: $last_modified ($last_modified_timestamp)"
+    echo "[$state_id] state $state_path last modification: $last_modified ($last_modified_timestamp)"
 
     file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
     if [ -z "$file_age_hours" ]; then
-      echo "[$state_id] Error: Failed to calculate file age in hours for state $state_id"
+      echo "[$state_id] Error: Failed to calculate file age in hours for state $state_path"
       exit 1
     fi
-    echo "[$state_id] state $state_id is $file_age_hours hours old"
+    echo "[$state_id] state $state_path is $file_age_hours hours old"
 
     if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
-      echo "[$state_id] Destroying state $state_id in $state_folder"
+      echo "[$state_id] Destroying state $state_path"
 
-      if ! destroy_state "$KEY_PREFIX$state_folder/${state_id}.tfstate"; then
-        echo "[$state_id] Error destroying state $state_id"
+      if ! destroy_state "$state_path"; then
+        echo "[$state_id] Error destroying state $state_path"
         exit 1
       fi
     else
-      echo "[$state_id] Skipping state $state_id as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
+      echo "[$state_id] Skipping state $state_path as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
     fi
   ) >"$log_file" 2>&1 &
 

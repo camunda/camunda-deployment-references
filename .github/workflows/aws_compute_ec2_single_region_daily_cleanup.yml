@@ -72,8 +72,7 @@ jobs:
               id: camunda-version
               run: |
                   set -euo pipefail
-                  # TODO: Intended override CAMUNDA_VERSION=$(cat .camunda-version)
-                  CAMUNDA_VERSION=8.6
+                  CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
             - name: Configure AWS CLI
