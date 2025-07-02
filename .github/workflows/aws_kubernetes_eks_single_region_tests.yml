@@ -542,7 +542,10 @@ jobs:
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
                     # TODO; revert to export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
-                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}377.${{ env.TLD }}"
+                    # export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}377.${{ env.TLD }}"
+
+                    # TODO: harcoded for self-signed setup
+                    export DOMAIN_NAME="camunda.picsou2.camunda.ie"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
                     export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"

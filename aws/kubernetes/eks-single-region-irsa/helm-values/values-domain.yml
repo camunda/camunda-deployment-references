@@ -26,6 +26,9 @@ global:
             secretName: camunda-c8-tls
         annotations:
             kubernetes.io/tls-acme: 'true'
+            nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+            nginx.ingress.kubernetes.io/ssl-passthrough: 'true'
+            nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 
     identity:
         auth:

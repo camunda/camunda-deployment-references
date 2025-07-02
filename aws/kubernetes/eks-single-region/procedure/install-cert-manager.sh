@@ -17,7 +17,7 @@ helm install external-secrets \
 
 echo "Waiting for External Secrets Operator deployment to be ready..."
 
-kubectl rollout status deployment/external-secrets-controller -n "$NAMESPACE" --timeout=180s
+kubectl rollout status deployment/external-secrets -n "$NAMESPACE" --timeout=180s
 
 
 echo "Applying ClusterSecretStore manifest..."
