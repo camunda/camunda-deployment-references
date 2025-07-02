@@ -63,8 +63,23 @@ resource "aws_secretsmanager_secret" "camunda_p12_secret" {
   description = "PKCS#12 bundle for Camunda ${local.camunda_custom_domain}"
 }
 
-resource "aws_secretsmanager_secret_version" "camunda_p12_secret_version" {
-  depends_on    = [null_resource.generate_camunda_p12]
-  secret_id     = aws_secretsmanager_secret.camunda_p12_secret.id
-  secret_binary = filebase64("${path.module}/camunda_bundle.p12")
+# Upload the p12 using AWS CLI
+resource "null_resource" "upload_p12_to_secretsmanager" {
+  depends_on = [
+    null_resource.generate_camunda_p12,
+    aws_secretsmanager_secret.camunda_p12_secret
+  ]
+
+  provisioner "local-exec" {
+    command = <<EOT
+aws secretsmanager put-secret-value \
+  --secret-id "certs/${local.camunda_custom_domain}/certificate-p12" \
+  --secret-binary fileb://${path.module}/camunda_bundle.p12 \
+  --region ${var.region}
+EOT
+  }
+
+  triggers = {
+    bundle_hash = filesha256("${path.module}/camunda_bundle.p12")
+  }
 }
