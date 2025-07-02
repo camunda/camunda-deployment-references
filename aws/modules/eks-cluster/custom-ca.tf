@@ -34,6 +34,26 @@ resource "tls_self_signed_cert" "root_ca_cert" {
   ]
 }
 
+resource "aws_secretsmanager_secret" "root_ca_private_key" {
+  name        = "certs/${local.deployment_root_domain}-rootca/private-key"
+  description = "Private key for Root CA ${local.deployment_root_domain}"
+}
+
+resource "aws_secretsmanager_secret_version" "root_ca_private_key_version" {
+  secret_id     = aws_secretsmanager_secret.root_ca_private_key.id
+  secret_string = tls_private_key.root_ca_key.private_key_pem
+}
+
+resource "aws_secretsmanager_secret" "root_ca_certificate" {
+  name        = "certs/${local.deployment_root_domain}-rootca/certificate"
+  description = "Self-signed root certificate for ${local.deployment_root_domain}"
+}
+
+resource "aws_secretsmanager_secret_version" "root_ca_certificate_version" {
+  secret_id     = aws_secretsmanager_secret.root_ca_certificate.id
+  secret_string = tls_self_signed_cert.root_ca_cert.cert_pem
+}
+
 ## SUB Root CA
 
 resource "aws_acmpca_certificate_authority" "sub_ca" {
@@ -94,25 +114,14 @@ resource "time_sleep" "wait_30_seconds" {
   create_duration = "30s"
   depends_on      = [aws_acmpca_certificate_authority.sub_ca]
 }
-
-resource "aws_secretsmanager_secret" "root_ca_private_key" {
-  name        = "certs/${local.deployment_root_domain}/private-key"
-  description = "Private key for Root CA ${local.deployment_root_domain}"
+resource "aws_secretsmanager_secret" "sub_root_ca_certificate" {
+  name        = "certs/${local.deployment_root_domain}-subroot-ca/certificate"
+  description = "Self-signed sub root certificate for ${local.deployment_root_domain}"
 }
 
-resource "aws_secretsmanager_secret_version" "root_ca_private_key_version" {
-  secret_id     = aws_secretsmanager_secret.root_ca_private_key.id
-  secret_string = tls_private_key.root_ca_key.private_key_pem
-}
-
-resource "aws_secretsmanager_secret" "root_ca_certificate" {
-  name        = "certs/${local.deployment_root_domain}/certificate"
-  description = "Self-signed root certificate for ${local.deployment_root_domain}"
-}
-
-resource "aws_secretsmanager_secret_version" "root_ca_certificate_version" {
-  secret_id     = aws_secretsmanager_secret.root_ca_certificate.id
-  secret_string = tls_self_signed_cert.root_ca_cert.cert_pem
+resource "aws_secretsmanager_secret_version" "sub_root_ca_certificate_version" {
+  secret_id     = aws_secretsmanager_secret.sub_root_ca_certificate.id
+  secret_string = tls_self_signed_cert.sub_ca_cert_signed.cert_pem
 }
 
 output "private_ca_authority_arn" {
