@@ -1,16 +1,19 @@
 #!/bin/bash
 
+set -euo pipefail
+
 NAMESPACE="external-secrets"
 SERVICE_ACCOUNT_NAME="external-secrets"
 CLUSTER_SECRET_STORE_NAME="aws-secrets-manager"
 
-helm upgrade --install \
-  external-secrets external-secrets/external-secrets \
-  --repo https://charts.external-secrets.io \
-  --version "$ESO_HELM_CHART_VERSION" \
-  --namespace "$NAMESPACE" \
-  --create-namespace \
-  --set "serviceAccount.annotations.eks\.amazonaws\.com\/role-arn=$ESO_IRSA_ARN"
+helm repo add external-secrets https://charts.external-secrets.io
+
+helm install external-secrets \
+   external-secrets/external-secrets \
+    -n "$NAMESPACE" \
+    --create-namespace \
+    --set "serviceAccount.annotations.eks\.amazonaws\.com\/role-arn=$ESO_IRSA_ARN" \
+    --set installCRDs=true
 
 echo "Waiting for External Secrets Operator deployment to be ready..."
 
