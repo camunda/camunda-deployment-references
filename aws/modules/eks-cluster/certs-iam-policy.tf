@@ -41,6 +41,6 @@ module "external_secrets_role" {
 
 
 output "secret_manager_arn" {
-  value       = module.secret_manager_arn.iam_role_arn
+  value       = module.external_secrets_role.iam_role_arn
   description = "Amazon Resource Name of the secret-manager IAM role used for IAM Roles to Service Accounts mappings"
 }
