@@ -8,32 +8,35 @@ kind: ExternalSecret
 metadata:
   name: aws-pca-p12
 spec:
+  refreshPolicy: Periodic
   refreshInterval: 1h
+
   secretStoreRef:
-    name: aws-secrets-manager
-    kind: SecretStore
+    name: aws-store
+    kind: ClusterSecretStore
+
   target:
     name: aws-pca-p12
     creationPolicy: Merge
   data:
     - secretKey: tls.crt
       remoteRef:
-        remoteKey: certs/$CAMUNDA_DOMAIN/certificate
+        key: certs/$CAMUNDA_DOMAIN/certificate
     - secretKey: tls.key
       remoteRef:
-        remoteKey: certs/$CAMUNDA_DOMAIN/private-key
+        key: certs/$CAMUNDA_DOMAIN/private-key
     - secretKey: tls-keystore-password
       remoteRef:
-        remoteKey: certs/$CAMUNDA_DOMAIN/p12-password
+        key: certs/$CAMUNDA_DOMAIN/p12-password
     - secretKey: tls-truststore-password
       remoteRef:
-        remoteKey: certs/$CAMUNDA_DOMAIN/p12-password
+        key: certs/$CAMUNDA_DOMAIN/p12-password
     - secretKey: keycloak.truststore.jks
       remoteRef:
-        remoteKey: certs/$CAMUNDA_DOMAIN/certificate-p12
+        key: certs/$CAMUNDA_DOMAIN/certificate-p12
     - secretKey: keycloak.keystore.jks
       remoteRef:
-        remoteKey: certs/$CAMUNDA_DOMAIN/certificate-p12
+        key: certs/$CAMUNDA_DOMAIN/certificate-p12
 EOF
 
 helm upgrade --install \
