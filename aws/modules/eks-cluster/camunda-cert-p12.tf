@@ -42,11 +42,12 @@ EOT
   }
 
   triggers = {
-    cert     = aws_acmpca_certificate.camunda_signed_cert.certificate
-    key      = tls_private_key.camunda_key.private_key_pem
-    ca       = tls_locally_signed_cert.sub_ca_cert_signed.cert_pem
-    root     = tls_self_signed_cert.root_ca_cert.cert_pem
-    password = var.camunda_p12_password
+    cert         = aws_acmpca_certificate.camunda_signed_cert.certificate
+    key          = tls_private_key.camunda_key.private_key_pem
+    ca           = tls_locally_signed_cert.sub_ca_cert_signed.cert_pem
+    root         = tls_self_signed_cert.root_ca_cert.cert_pem
+    password     = var.camunda_p12_password
+    always_regen = timestamp()
   }
 
   depends_on = [
