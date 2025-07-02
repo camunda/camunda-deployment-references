@@ -6,12 +6,14 @@ CLUSTER_SECRET_STORE_NAME="aws-secrets-manager"
 
 helm repo add external-secrets https://charts.external-secrets.io
 
+kubectl apply -k "https://raw.githubusercontent.com/external-secrets/external-secrets/refs/tags/v0.18.1/deploy/crds/bundle.yaml"
+
 helm install external-secrets \
    external-secrets/external-secrets \
     -n "$NAMESPACE" \
     --create-namespace \
     --set "serviceAccount.annotations.eks\.amazonaws\.com\/role-arn=$ESO_IRSA_ARN" \
-    --set installCRDs=true
+    --set installCRDs=false
 
 echo "Waiting for External Secrets Operator deployment to be ready..."
 
