@@ -98,7 +98,7 @@ identityKeycloak:
 
         # The secret must have "tls-keystore-password" and "tls-truststore-password" keys for the keystore and truststore respectively.
         ## +  "keycloak.truststore.jks" +  "keycloak.keystore.jks"
-        existingSecret: aws-pca-p12"
+        existingSecret: aws-pca-p12
         passwordsSecret: aws-pca-p12
 
 
@@ -153,6 +153,30 @@ identity:
           value: software.amazon.jdbc.Driver
         - name: SPRING_DATASOURCE_USERNAME
           value: ${DB_IDENTITY_USERNAME}
+
+        - name: TRUSTSTORE_PASSWORD
+          valueFrom:
+          secretKeyRef:
+              name: aws-pca-p12
+              key: tls-truststore-password
+
+        - name: JAVA_TOOL_OPTIONS
+          value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.p12 -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
+
+    extraVolumeMounts:
+        - name: truststore
+          mountPath: /usr/local/core/config/truststore.p12
+          subPath: truststore.p12
+
+    extraVolumes:
+
+        - name: truststore
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: keycloak.truststore.jks
+                    path: truststore.p12
+              defaultMode: 420
 
 connectors:
     enabled: true
@@ -257,7 +281,7 @@ core:
           valueFrom:
           secretKeyRef:
               name: aws-pca-p12
-              key: keycloak.truststore.jks
+              key: tls-truststore-password
 
         - name: JAVA_TOOL_OPTIONS
           value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.p12 -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
