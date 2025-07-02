@@ -23,11 +23,12 @@ global:
         host: ${DOMAIN_NAME}
         tls:
             enabled: true
-            secretName: camunda-c8-tls
+            # TODO: edited to consume self-signed certs
+            secretName: aws-pca-p12
         annotations:
-            kubernetes.io/tls-acme: 'true'
+            # kubernetes.io/tls-acme: 'true'
+            # TODO; added for rencryption
             nginx.ingress.kubernetes.io/backend-protocol: HTTPS
-            nginx.ingress.kubernetes.io/ssl-passthrough: 'true'
             nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 
     identity:
@@ -156,9 +157,9 @@ identity:
 
         - name: TRUSTSTORE_PASSWORD
           valueFrom:
-          secretKeyRef:
-              name: aws-pca-p12
-              key: tls-truststore-password
+              secretKeyRef:
+                  name: aws-pca-p12
+                  key: tls-truststore-password
 
         - name: JAVA_TOOL_OPTIONS
           value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.p12 -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
@@ -292,9 +293,9 @@ core:
 
         - name: TRUSTSTORE_PASSWORD
           valueFrom:
-          secretKeyRef:
-              name: aws-pca-p12
-              key: tls-truststore-password
+              secretKeyRef:
+                  name: aws-pca-p12
+                  key: tls-truststore-password
 
         - name: JAVA_TOOL_OPTIONS
           value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.p12 -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
