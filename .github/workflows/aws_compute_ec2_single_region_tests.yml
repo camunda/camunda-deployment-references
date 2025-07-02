@@ -6,6 +6,7 @@ permissions:
     pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
 on:
+    push:
     # Disabling for the time being due to focus shift with 8.6
     # schedule:
     #     - cron: 0 3 * * 1-5
