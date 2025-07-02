@@ -80,6 +80,6 @@ EOT
   }
 
   triggers = {
-    bundle_hash = filesha256("${path.module}/camunda_bundle.p12")
+    always_run = timestamp()
   }
 }
