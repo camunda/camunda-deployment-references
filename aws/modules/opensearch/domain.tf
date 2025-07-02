@@ -1,6 +1,6 @@
 locals {
   # TODO: harcoded on purpose
-  deployment_root_domain = "picsou.camunda.ie"
+  deployment_root_domain = "picsou2.camunda.ie"
   opensearch_zone_id     = "Z0320975U3XESO24VAVA"
   key_algorithm          = "RSA_2048"
 }
