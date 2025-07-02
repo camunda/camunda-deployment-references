@@ -18,6 +18,9 @@ spec:
   target:
     name: aws-pca-p12
   data:
+    - secretKey: ca.crt
+      remoteRef:
+        key: certs/picsou2.camunda.ie-subroot-ca/certificate
     - secretKey: tls.crt
       remoteRef:
         key: certs/camunda.picsou2.camunda.ie/certificate

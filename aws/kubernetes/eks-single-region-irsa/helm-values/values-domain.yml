@@ -162,11 +162,16 @@ identity:
 
         - name: JAVA_TOOL_OPTIONS
           value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.p12 -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
+        - name: SSL_CERT_FILE
+          value: /usr/local/core/config/ca.crt
 
     extraVolumeMounts:
         - name: truststore
           mountPath: /usr/local/core/config/truststore.p12
           subPath: truststore.p12
+        - name: ca
+          mountPath: /usr/local/core/config/ca.crt
+          subPath: ca.crt
 
     extraVolumes:
 
@@ -176,6 +181,14 @@ identity:
               items:
                   - key: keycloak.truststore.jks
                     path: truststore.p12
+              defaultMode: 420
+
+        - name: ca
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: ca.crt
+                    path: ca.crt
               defaultMode: 420
 
 connectors:
@@ -285,6 +298,8 @@ core:
 
         - name: JAVA_TOOL_OPTIONS
           value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.p12 -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
+        - name: SSL_CERT_FILE
+          value: /usr/local/core/config/ca.crt
 
     extraVolumeMounts:
         - name: certificate
@@ -293,6 +308,9 @@ core:
         - name: key
           mountPath: /usr/local/core/config/tls.key
           subPath: tls.key
+        - name: ca
+          mountPath: /usr/local/core/config/ca.crt
+          subPath: ca.crt
         - name: truststore
           mountPath: /usr/local/core/config/truststore.p12
           subPath: truststore.p12
@@ -320,6 +338,14 @@ core:
               items:
                   - key: keycloak.truststore.jks
                     path: truststore.p12
+              defaultMode: 420
+
+        - name: ca
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: ca.crt
+                    path: ca.crt
               defaultMode: 420
 
 console:
