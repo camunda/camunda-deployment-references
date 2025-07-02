@@ -117,7 +117,7 @@ resource "aws_secretsmanager_secret" "sub_root_ca_certificate" {
 
 resource "aws_secretsmanager_secret_version" "sub_root_ca_certificate_version" {
   secret_id     = aws_secretsmanager_secret.sub_root_ca_certificate.id
-  secret_string = tls_self_signed_cert.sub_ca_cert_signed.cert_pem
+  secret_string = tls_locally_signed_cert.sub_ca_cert_signed.cert_pem
 }
 
 output "private_ca_authority_arn" {
