@@ -11,7 +11,7 @@ CLOUDWATCH_ENABLED=${CLOUDWATCH_ENABLED:-false}
 USERNAME=${USERNAME:-"camunda"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 BROKER_PORT=${BROKER_PORT:-26502}
-TERRAFORM_DIR=${TERRAFORM_DIR:-"${CURRENT_DIR}/../terraform"}
+TERRAFORM_DIR=${TERRAFORM_DIR:-"${CURRENT_DIR}/../terraform/cluster"}
 
 check_tool_installed "ssh"
 check_tool_installed "openssl"
