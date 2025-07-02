@@ -3,7 +3,7 @@
 # TODO: added to create the secret
 
 kubectl apply -f - --namespace "$CAMUNDA_NAMESPACE" <<EOF
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: aws-pca-p12
