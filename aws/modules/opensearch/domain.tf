@@ -23,11 +23,6 @@ resource "aws_acm_certificate" "opensearch_cert" {
   }
 }
 
-resource "aws_acm_certificate_validation" "opensearch_cert_validation" {
-  certificate_arn         = aws_acm_certificate.opensearch_cert.arn
-  validation_record_fqdns = [aws_route53_record.opensearch_cert_validation.fqdn]
-}
-
 resource "aws_route53_record" "opensearch" {
   zone_id = local.opensearch_zone_id
   name    = local.opensearch_custom_domain
