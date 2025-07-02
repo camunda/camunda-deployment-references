@@ -69,7 +69,8 @@ resource "aws_acmpca_certificate_authority" "sub_ca" {
 
   revocation_configuration {
     crl_configuration {
-      enabled = false
+      enabled            = false
+      expiration_in_days = 1095
     }
   }
 
