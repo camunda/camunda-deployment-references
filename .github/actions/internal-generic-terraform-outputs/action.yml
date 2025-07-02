@@ -5,6 +5,7 @@ description: |
     Consume as following:
     string: fromJson(steps.terraform-outputs.outputs.json_output).bastion_ip.value
     array:  toJson(fromJson(steps.terraform-outputs.outputs.json_output).camunda_ips.value)
+    Or directly in your workflow by interacting with the initialized state.
 
 inputs:
     tf-state-suffix:
@@ -40,7 +41,7 @@ runs:
           run: |
               set -euo pipefail
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ tf-state-suffix }}/${{ inputs.tf-modules-name }}.tfstate"
+              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.tf-state-suffix }}/${{ inputs.tf-modules-name }}.tfstate"
 
               if [ -z "${{ inputs.s3-bucket-region }}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
