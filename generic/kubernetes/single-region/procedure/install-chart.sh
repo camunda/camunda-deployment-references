@@ -16,6 +16,12 @@ spec:
     name: aws-pca-p12
     creationPolicy: Merge
   data:
+    - secretKey: tls.crt
+      remoteRef:
+        remoteKey: certs/$CAMUNDA_DOMAIN/certificate
+    - secretKey: tls.key
+      remoteRef:
+        remoteKey: certs/$CAMUNDA_DOMAIN/private-key
     - secretKey: tls-keystore-password
       remoteRef:
         remoteKey: certs/$CAMUNDA_DOMAIN/p12-password

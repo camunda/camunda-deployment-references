@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -euo pipefail
-
 NAMESPACE="external-secrets"
 SERVICE_ACCOUNT_NAME="external-secrets"
 CLUSTER_SECRET_STORE_NAME="aws-secrets-manager"
