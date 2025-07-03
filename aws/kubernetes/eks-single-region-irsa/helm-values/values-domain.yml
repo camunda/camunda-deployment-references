@@ -161,8 +161,17 @@ identity:
                   name: aws-pca-p12
                   key: tls-truststore-password
 
+        - name: KEYSTORE_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: aws-pca-p12
+                  key: tls-keystore-password
+
         - name: JAVA_TOOL_OPTIONS
-          value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.p12 -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
+          value: >-
+              -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.p12 -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
+              -Dserver.ssl.key-store=/usr/local/core/config/keystore.p12 -Dserver.ssl.key-store-password=$(KEYSTORE_PASSWORD)
+
         - name: SSL_CERT_FILE
           value: /usr/local/core/config/ca.crt
 
@@ -170,6 +179,9 @@ identity:
         - name: truststore
           mountPath: /usr/local/core/config/truststore.p12
           subPath: truststore.p12
+        - name: truststore
+          mountPath: /usr/local/core/config/keystore.p12
+          subPath: keystore.p12
         - name: ca
           mountPath: /usr/local/core/config/ca.crt
           subPath: ca.crt
@@ -182,6 +194,14 @@ identity:
               items:
                   - key: keycloak.truststore.jks
                     path: truststore.p12
+              defaultMode: 420
+
+        - name: keystore
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: keycloak.keystore.jks
+                    path: keystore.p12
               defaultMode: 420
 
         - name: ca
