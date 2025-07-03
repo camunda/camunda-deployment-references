@@ -94,3 +94,49 @@ resource "aws_secretsmanager_secret_version" "camunda_p12_password_secret_versio
   secret_id     = aws_secretsmanager_secret.camunda_p12_password_secret.id
   secret_string = var.camunda_p12_password
 }
+
+resource "null_resource" "convert_p12_to_jks" {
+  depends_on = [null_resource.generate_camunda_p12]
+
+  provisioner "local-exec" {
+    command = <<EOT
+keytool -importkeystore \
+  -srckeystore "${path.module}/camunda_bundle.p12" \
+  -srcstoretype PKCS12 \
+  -srcstorepass "${var.camunda_p12_password}" \
+  -destkeystore "${path.module}/camunda_keystore.jks" \
+  -deststoretype JKS \
+  -deststorepass "${var.camunda_p12_password}" \
+  -noprompt
+EOT
+  }
+
+  triggers = {
+    always_run = timestamp()
+  }
+}
+
+resource "aws_secretsmanager_secret" "camunda_jks_secret" {
+  name        = "certs/${local.camunda_custom_domain}/keystore-jks"
+  description = "JKS keystore for Camunda ${local.camunda_custom_domain}"
+}
+
+resource "null_resource" "upload_jks_to_secretsmanager" {
+  depends_on = [
+    null_resource.convert_p12_to_jks,
+    aws_secretsmanager_secret.camunda_jks_secret
+  ]
+
+  provisioner "local-exec" {
+    command = <<EOT
+aws secretsmanager put-secret-value \
+  --secret-id "certs/${local.camunda_custom_domain}/keystore-jks" \
+  --secret-binary fileb://${path.module}/camunda_keystore.jks \
+  --region ${var.region}
+EOT
+  }
+
+  triggers = {
+    always_run = timestamp()
+  }
+}
