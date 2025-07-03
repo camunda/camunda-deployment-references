@@ -179,9 +179,11 @@ identity:
         - name: truststore
           mountPath: /usr/local/core/config/truststore.jks
           subPath: truststore.jks
-        - name: truststore
+
+        - name: keystore
           mountPath: /usr/local/core/config/keystore.jks
           subPath: keystore.jks
+
         - name: ca
           mountPath: /usr/local/core/config/ca.crt
           subPath: ca.crt
@@ -334,7 +336,7 @@ core:
           subPath: ca.crt
         - name: truststore
           mountPath: /usr/local/core/config/truststore.jks
-          subPath: truststore.joks
+          subPath: truststore.jks
 
     extraVolumes:
         - name: certificate
