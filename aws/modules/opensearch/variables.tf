@@ -345,3 +345,8 @@ variable "log_types" {
   default     = []
   description = "The types of logs to publish to CloudWatch Logs. Example: [SEARCH_SLOW_LOGS, INDEX_SLOW_LOGS, ES_APPLICATION_LOGS]"
 }
+
+variable "custom_root_ca_arn" {
+  type        = string
+  description = "arn value of the root ca"
+}

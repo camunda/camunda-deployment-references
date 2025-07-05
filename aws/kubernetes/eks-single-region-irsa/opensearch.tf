@@ -8,9 +8,7 @@ locals {
 
   # IRSA configuration
   camunda_namespace                = "camunda"     # Replace with your Kubernetes namespace that will host C8 Platform
-  camunda_zeebe_service_account    = "zeebe-sa"    # Replace with your Kubernetes ServiceAcccount that will be created for Zeebe
-  camunda_operate_service_account  = "operate-sa"  # Replace with your Kubernetes ServiceAcccount that will be created for Operate
-  camunda_tasklist_service_account = "tasklist-sa" # Replace with your Kubernetes ServiceAcccount that will be created for TaskList
+  camunda_core_service_account     = "core-sa"     # Replace with your Kubernetes ServiceAcccount that will be created for Zeebe
   camunda_optimize_service_account = "optimize-sa" # Replace with your Kubernetes ServiceAcccount that will be created for Optimize
 
   opensearch_tags = {} # additional tags that you may want to apply to the resources
@@ -36,6 +34,8 @@ module "opensearch_domain" {
   advanced_security_master_user_name     = local.opensearch_master_username
   advanced_security_master_user_password = local.opensearch_master_password
 
+  custom_root_ca_arn = module.eks_cluster.private_ca_authority_arn
+
   # IAM IRSA
   iam_roles_with_policies = [
     {
@@ -53,9 +53,7 @@ module "opensearch_domain" {
                 "Condition": {
                   "StringEquals": {
                     "${module.eks_cluster.oidc_provider_id}:sub": [
-                      "system:serviceaccount:${local.camunda_namespace}:${local.camunda_zeebe_service_account}",
-                      "system:serviceaccount:${local.camunda_namespace}:${local.camunda_operate_service_account}",
-                      "system:serviceaccount:${local.camunda_namespace}:${local.camunda_tasklist_service_account}",
+                      "system:serviceaccount:${local.camunda_namespace}:${local.camunda_core_service_account}",
                       "system:serviceaccount:${local.camunda_namespace}:${local.camunda_optimize_service_account}"
                     ]
                   }
