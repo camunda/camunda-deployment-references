@@ -1,10 +1,23 @@
 locals {
-  camunda_extra_disk_name = "/dev/sdb"
+  camunda_extra_disk_name   = "/dev/sdb"
+  instance_count            = 3 # Number of EC2 instances for Camunda to run
+  aws_instance_architecture = "x86_64"
+  aws_instance_type = {
+    x86_64 = "m7i.xlarge"
+    arm64  = "m7g.xlarge"
+  }
+  aws_instance_type_bastion = {
+    x86_64 = "t3.nano"
+    arm64  = "t4g.nano"
+  }
+  enable_jump_host = true
+  # It's recommended to pin the AMI as otherwise it will result in recreations and wipe everything.
+  aws_ami = "" # If empty, the latest Debian 12 AMI will be used
 }
 resource "aws_instance" "camunda" {
-  count         = var.instance_count
-  ami           = var.aws_ami == "" ? data.aws_ami.debian.id : var.aws_ami
-  instance_type = var.aws_instance_type[var.aws_instance_architecture]
+  count         = local.instance_count
+  ami           = local.aws_ami == "" ? data.aws_ami.debian.id : local.aws_ami
+  instance_type = local.aws_instance_type[local.aws_instance_architecture]
   subnet_id     = module.vpc.private_subnets[count.index]
 
   vpc_security_group_ids = [
@@ -80,10 +93,10 @@ resource "aws_instance" "camunda" {
 
 # Contains the Camunda data to have a separate lifecycle
 resource "aws_ebs_volume" "camunda" {
-  count = var.instance_count
+  count = local.instance_count
 
   availability_zone = module.vpc.azs[count.index]
-  size              = var.camunda_disk_size
+  size              = 50
   type              = "gp3"
   encrypted         = true
   kms_key_id        = aws_kms_key.main.arn
@@ -95,7 +108,7 @@ resource "aws_ebs_volume" "camunda" {
 
 # Attach EBS Volume to EC2 Instance
 resource "aws_volume_attachment" "ebs_attachment" {
-  count = var.instance_count
+  count = local.instance_count
 
   device_name = local.camunda_extra_disk_name
   volume_id   = aws_ebs_volume.camunda[count.index].id
@@ -104,10 +117,10 @@ resource "aws_volume_attachment" "ebs_attachment" {
 
 # Bastion host to access the instances within the private network without exposing those directly
 resource "aws_instance" "bastion" {
-  count = var.enable_jump_host ? 1 : 0
+  count = local.enable_jump_host ? 1 : 0
 
-  ami           = var.aws_ami == "" ? data.aws_ami.debian.id : var.aws_ami
-  instance_type = var.aws_instance_type_bastion[var.aws_instance_architecture]
+  ami           = local.aws_ami == "" ? data.aws_ami.debian.id : local.aws_ami
+  instance_type = local.aws_instance_type_bastion[local.aws_instance_architecture]
   subnet_id     = module.vpc.public_subnets[0]
 
   vpc_security_group_ids = [
@@ -122,4 +135,15 @@ resource "aws_instance" "bastion" {
   tags = {
     Name = "${var.prefix}-bastion"
   }
+}
+
+# Outputs
+output "bastion_ip" {
+  value       = join("", aws_instance.bastion[*].public_ip)
+  description = "(Optional) The public IP address of the Bastion instance."
+}
+
+output "camunda_ips" {
+  value       = [for instance in aws_instance.camunda : instance.private_ip]
+  description = "The private IP addresses of the Camunda instances."
 }

@@ -23,14 +23,14 @@ import (
 )
 
 const (
-	terraformDir = "../../terraform"
 	privKeyName  = "ec2-jar-priv"
 	logGroupName = "camunda"
 )
 
 var (
-	tfBinary = utils.GetEnv("TERRAFORM_BINARY", "terraform")
-	tfVars   = map[string]interface{}{
+	terraformDir = utils.GetEnv("TERRAFORM_DIR", "../../terraform/cluster")
+	tfBinary     = utils.GetEnv("TERRAFORM_BINARY", "terraform")
+	tfVars       = map[string]interface{}{
 		"prefix":                    utils.GetEnv("TF_PREFIX", "ec2-jar-test"),
 		"opensearch_architecture":   utils.GetEnv("ARCHITECTURE", "x86_64"),
 		"aws_instance_architecture": utils.GetEnv("ARCHITECTURE", "x86_64"),
