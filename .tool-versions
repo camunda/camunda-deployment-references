@@ -30,7 +30,7 @@ helm 3.18.3
 
 jq 1.7.1
 
-just 1.40.0
+just 1.41.0
 
 kubectl 1.33.2
 
