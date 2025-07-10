@@ -32,6 +32,12 @@ global:
             nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 
     identity:
+        keycloak:
+            url:
+                protocol: https
+                host: ${DOMAIN_NAME}/auth
+                port: 443
+
         auth:
             enabled: true
             # TODO: this is currently broken : https://camunda.slack.com/archives/C06UYJMMETZ/p1747319551359609
@@ -41,6 +47,9 @@ global:
                 enabled: true
                 existingSecret:
                     name: identity-secret-for-components
+
+            service:
+                url: https://${DOMAIN_NAME}/identity
 
             #######################
             # Orchestration Group
