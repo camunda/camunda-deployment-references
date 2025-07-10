@@ -141,6 +141,9 @@ identity:
     contextPath: /identity
     fullURL: https://${DOMAIN_NAME}/identity
 
+    readinessProbe:
+        scheme: HTTPS
+
     # TODO: added in 8.8
     firstUser:
         existingSecret: identity-secret-for-components
