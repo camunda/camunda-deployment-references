@@ -30,12 +30,11 @@ resource "local_file" "root_ca_cert" {
 resource "null_resource" "generate_camunda_p12" {
   provisioner "local-exec" {
     command = <<EOT
-cat "${path.module}/sub_ca_cert.pem" "${path.module}/root_ca_cert.pem" > "${path.module}/chain.pem"
+cat "${path.module}/camunda_cert.pem" "${path.module}/sub_ca_cert.pem" "${path.module}/root_ca_cert.pem" > "${path.module}/fullchain.pem"
 
 openssl pkcs12 -export \
   -inkey "${path.module}/camunda_key.pem" \
-  -in "${path.module}/camunda_cert.pem" \
-  -certfile "${path.module}/chain.pem" \
+  -in "${path.module}/fullchain.pem" \
   -out "${path.module}/camunda_bundle.p12" \
   -passout pass:${var.camunda_p12_password}
 EOT
@@ -107,6 +106,20 @@ keytool -importkeystore \
   -destkeystore "${path.module}/camunda_keystore.jks" \
   -deststoretype JKS \
   -deststorepass "${var.camunda_p12_password}" \
+  -noprompt
+
+keytool -importcert \
+  -alias rootca \
+  -file "${path.module}/root_ca_cert.pem" \
+  -keystore "${path.module}/camunda_truststore.jks" \
+  -storepass "${var.camunda_p12_password}" \
+  -noprompt
+
+keytool -importcert \
+  -alias subca \
+  -file "${path.module}/sub_ca_cert.pem" \
+  -keystore "${path.module}/camunda_truststore.jks" \
+  -storepass "${var.camunda_p12_password}" \
   -noprompt
 EOT
   }
