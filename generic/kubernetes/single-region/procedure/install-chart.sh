@@ -37,13 +37,13 @@ spec:
     - secretKey: tls-truststore-password
       remoteRef:
         key: certs/camunda.picsou86.camunda.ie/p12-password
-    - secretKey: keycloak.truststore.jks
+    - secretKey: keystore.jks
       remoteRef:
         key: certs/camunda.picsou86.camunda.ie/keystore-jks
         decodingStrategy: Auto
-    - secretKey: keycloak.keystore.jks
+    - secretKey: truststore.jks
       remoteRef:
-        key: certs/camunda.picsou86.camunda.ie/keystore-jks
+        key: certs/camunda.picsou86.camunda.ie/truststore-jks
         decodingStrategy: Auto
 EOF
 

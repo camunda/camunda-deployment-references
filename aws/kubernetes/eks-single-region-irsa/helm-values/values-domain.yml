@@ -92,7 +92,7 @@ identityKeycloak:
         enabled: true
 
         # The secret must have "tls-keystore-password" and "tls-truststore-password" keys for the keystore and truststore respectively.
-        ## +  "keycloak.truststore.jks" +  "keycloak.keystore.jks"
+        ## +  "truststore.jks" +  "keystore.jks"
         existingSecret: aws-pca-p12
         passwordsSecret: aws-pca-p12
 
@@ -184,7 +184,7 @@ identity:
           secret:
               secretName: aws-pca-p12
               items:
-                  - key: keycloak.truststore.jks
+                  - key: truststore.jks
                     path: truststore.jks
               defaultMode: 420
 
@@ -192,7 +192,7 @@ identity:
           secret:
               secretName: aws-pca-p12
               items:
-                  - key: keycloak.keystore.jks
+                  - key: keystore.jks
                     path: keystore.jks
               defaultMode: 420
 
@@ -267,7 +267,7 @@ operate:
           secret:
               secretName: aws-pca-p12
               items:
-                  - key: keycloak.truststore.jks
+                  - key: truststore.jks
                     path: truststore.jks
               defaultMode: 420
 
@@ -338,7 +338,7 @@ tasklist:
           secret:
               secretName: aws-pca-p12
               items:
-                  - key: keycloak.truststore.jks
+                  - key: truststore.jks
                     path: truststore.jks
               defaultMode: 420
 
@@ -408,7 +408,7 @@ zeebe:
           secret:
               secretName: aws-pca-p12
               items:
-                  - key: keycloak.truststore.jks
+                  - key: truststore.jks
                     path: truststore.jks
               defaultMode: 420
 
@@ -491,7 +491,7 @@ zeebeGateway:
           secret:
               secretName: aws-pca-p12
               items:
-                  - key: keycloak.truststore.jks
+                  - key: truststore.jks
                     path: truststore.jks
               defaultMode: 420
 

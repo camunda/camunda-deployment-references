@@ -108,24 +108,6 @@ keytool -importkeystore \
   -deststoretype JKS \
   -deststorepass "${var.camunda_p12_password}" \
   -noprompt
-
-keytool -importcert \
-  -alias rootca \
-  -trustcacerts \
-  -cacerts \
-  -file "${path.module}/root_ca_cert.pem" \
-  -keystore "${path.module}/camunda_truststore.jks" \
-  -storepass "${var.camunda_p12_password}" \
-  -noprompt
-
-keytool -importcert \
-  -alias subca \
-  -trustcacerts \
-  -cacerts \
-  -file "${path.module}/sub_ca_cert.pem" \
-  -keystore "${path.module}/camunda_truststore.jks" \
-  -storepass "${var.camunda_p12_password}" \
-  -noprompt
 EOT
   }
 
@@ -150,6 +132,62 @@ resource "null_resource" "upload_jks_to_secretsmanager" {
 aws secretsmanager put-secret-value \
   --secret-id "certs/${local.camunda_custom_domain}/keystore-jks" \
   --secret-binary fileb://${path.module}/camunda_keystore.jks \
+  --region ${var.region}
+EOT
+  }
+
+  triggers = {
+    always_run = timestamp()
+  }
+}
+
+resource "null_resource" "generate_truststore_jks" {
+  depends_on = [
+    local_file.sub_ca_cert,
+    local_file.root_ca_cert
+  ]
+
+  provisioner "local-exec" {
+    command = <<EOT
+keytool -import \
+  -alias rootca \
+  -trustcacerts \
+  -file "${path.module}/root_ca_cert.pem" \
+  -keystore "${path.module}/camunda_truststore.jks" \
+  -storepass "${var.camunda_p12_password}" \
+  -noprompt
+
+keytool -import \
+  -alias subca \
+  -trustcacerts \
+  -file "${path.module}/sub_ca_cert.pem" \
+  -keystore "${path.module}/camunda_truststore.jks" \
+  -storepass "${var.camunda_p12_password}" \
+  -noprompt
+EOT
+  }
+
+  triggers = {
+    always_run = timestamp()
+  }
+}
+
+resource "aws_secretsmanager_secret" "camunda_truststore_secret" {
+  name        = "certs/${local.camunda_custom_domain}/truststore-jks"
+  description = "JKS truststore for Camunda ${local.camunda_custom_domain}"
+}
+
+resource "null_resource" "upload_truststore_to_secretsmanager" {
+  depends_on = [
+    null_resource.generate_truststore_jks,
+    aws_secretsmanager_secret.camunda_truststore_secret
+  ]
+
+  provisioner "local-exec" {
+    command = <<EOT
+aws secretsmanager put-secret-value \
+  --secret-id "certs/${local.camunda_custom_domain}/truststore-jks" \
+  --secret-binary fileb://${path.module}/camunda_truststore.jks \
   --region ${var.region}
 EOT
   }
