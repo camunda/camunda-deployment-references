@@ -36,6 +36,7 @@ global:
             enabled: true
             # TODO: this is currently broken : https://camunda.slack.com/archives/C06UYJMMETZ/p1747319551359609
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
+            issuerBackendUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
             admin:
                 enabled: true
                 existingSecret:
