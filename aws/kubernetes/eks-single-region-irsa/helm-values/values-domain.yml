@@ -32,6 +32,9 @@ global:
             nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 
     identity:
+        service:
+            url: https://${DOMAIN_NAME}/identity
+
         keycloak:
             url:
                 protocol: https
@@ -47,9 +50,6 @@ global:
                 enabled: true
                 existingSecret:
                     name: identity-secret-for-components
-
-            service:
-                url: https://${DOMAIN_NAME}/identity
 
             #######################
             # Orchestration Group
