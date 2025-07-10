@@ -152,6 +152,10 @@ curl -o "${path.module}/certificates/AmazonRootCA4.pem" https://www.amazontrust.
 curl -o "${path.module}/certificates/SFSRootCAG2.pem" https://www.amazontrust.com/repository/SFSRootCAG2.pem
 EOT
   }
+
+  triggers = {
+    always_run = timestamp()
+  }
 }
 
 
