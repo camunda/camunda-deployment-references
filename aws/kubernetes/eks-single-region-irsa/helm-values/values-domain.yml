@@ -9,7 +9,7 @@ global:
             enabled: true # enable IRSA auth
         url:
             protocol: https
-            host: ${OPENSEARCH_HOST}
+            host: os.picsou2.camunda.ie
             # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
             port: 443
 
@@ -194,7 +194,7 @@ identity:
           secret:
               secretName: aws-pca-p12
               items:
-                  - key: keycloak.truststore.jks
+                  - key: truststore.jks
                     path: truststore.jks
               defaultMode: 420
 
@@ -202,7 +202,7 @@ identity:
           secret:
               secretName: aws-pca-p12
               items:
-                  - key: keycloak.keystore.jks
+                  - key: keystore.jks
                     path: keystore.jks
               defaultMode: 420
 
@@ -230,6 +230,65 @@ optimize:
     # OpenSearch prevents migration
     migration:
         enabled: false
+
+    env:
+        - name: TRUSTSTORE_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: aws-pca-p12
+                  key: tls-truststore-password
+
+        - name: JAVA_TOOL_OPTIONS
+          value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.jks -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
+        - name: SSL_CERT_FILE
+          value: /usr/local/core/config/ca.crt
+
+    extraVolumeMounts:
+        - name: certificate
+          mountPath: /usr/local/core/config/tls.crt
+          subPath: tls.crt
+        - name: key
+          mountPath: /usr/local/core/config/tls.key
+          subPath: tls.key
+        - name: ca
+          mountPath: /usr/local/core/config/ca.crt
+          subPath: ca.crt
+        - name: truststore
+          mountPath: /usr/local/core/config/truststore.jks
+          subPath: truststore.jks
+
+    extraVolumes:
+        - name: certificate
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: tls.crt
+                    path: tls.crt
+              defaultMode: 420
+
+        - name: key
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: tls.key
+                    path: tls.key
+              defaultMode: 420
+
+        - name: truststore
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: truststore.jks
+                    path: truststore.jks
+              defaultMode: 420
+
+        - name: ca
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: ca.crt
+                    path: ca.crt
+              defaultMode: 420
 
 core:
     enabled: true
@@ -338,6 +397,7 @@ core:
           mountPath: /usr/local/core/config/truststore.jks
           subPath: truststore.jks
 
+
     extraVolumes:
         - name: certificate
           secret:
@@ -359,7 +419,7 @@ core:
           secret:
               secretName: aws-pca-p12
               items:
-                  - key: keycloak.truststore.jks
+                  - key: truststore.jks
                     path: truststore.jks
               defaultMode: 420
 

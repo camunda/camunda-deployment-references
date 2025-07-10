@@ -2,6 +2,8 @@
 
 # TODO: added to create the secret
 
+DOMAIN_BASE="picsou2.camunda.ie"
+
 kubectl apply -f - --namespace "$CAMUNDA_NAMESPACE" <<EOF
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
@@ -20,30 +22,40 @@ spec:
   data:
     - secretKey: ca.crt
       remoteRef:
-        key: certs/picsou2.camunda.ie-subroot-ca/certificate
+        key: certs/$DOMAIN_BASE-subroot-ca/certificate
     - secretKey: tls.crt
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/certificate
+        key: certs/camunda.$DOMAIN_BASE/certificate
     - secretKey: tls.key
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/private-key
+        key: certs/camunda.$DOMAIN_BASE/private-key
     - secretKey: certificate-p12
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/certificate-p12
+        key: certs/camunda.$DOMAIN_BASE/certificate-p12
         decodingStrategy: Auto
     - secretKey: tls-keystore-password
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/p12-password
+        key: certs/camunda.$DOMAIN_BASE/p12-password
     - secretKey: tls-truststore-password
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/p12-password
-    - secretKey: keycloak.truststore.jks
+        key: certs/camunda.$DOMAIN_BASE/p12-password
+    - secretKey: keystore.jks
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/keystore-jks
+        key: certs/camunda.$DOMAIN_BASE/keystore-jks
         decodingStrategy: Auto
+    - secretKey: truststore.jks
+      remoteRef:
+        key: certs/camunda.$DOMAIN_BASE/truststore-jks
+        decodingStrategy: Auto
+
     - secretKey: keycloak.keystore.jks
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/keystore-jks
+        key: certs/camunda.$DOMAIN_BASE/keystore-jks
+        decodingStrategy: Auto
+
+    - secretKey: keycloak.truststore.jks
+      remoteRef:
+        key: certs/camunda.$DOMAIN_BASE/truststore-jks
         decodingStrategy: Auto
 EOF
 
