@@ -35,7 +35,7 @@ global:
         keycloak:
             url:
                 protocol: https
-                host: ${DOMAIN_NAME}/auth
+                host: ${DOMAIN_NAME}
                 port: 443
 
         auth:
