@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# TODO: 8;8 generate USER_PASSWORD
-
 kubectl create secret generic identity-secret-for-components \
   --namespace "$CAMUNDA_NAMESPACE" \
-  --from-literal=identity-connectors-client-token="$CONNECTORS_SECRET" \
-  --from-literal=identity-console-client-token="$CONSOLE_SECRET" \
-  --from-literal=identity-optimize-client-token="$OPTIMIZE_SECRET" \
-  --from-literal=identity-core-client-token="$CORE_SECRET" \
-  --from-literal=identity-admin-client-token="$ADMIN_PASSWORD" \
-  --from-literal=identity-keycloak-admin-password="$KEYCLOAK_ADMIN_PASSWORD" \
-  --from-literal=identity-firstuser-password="$USER_PASSWORD" \
+  --from-literal=connectors-secret="$CONNECTORS_SECRET" \
+  --from-literal=console-secret="$CONSOLE_SECRET" \
+  --from-literal=operate-secret="$OPERATE_SECRET" \
+  --from-literal=optimize-secret="$OPTIMIZE_SECRET" \
+  --from-literal=tasklist-secret="$TASKLIST_SECRET" \
+  --from-literal=zeebe-secret="$ZEEBE_SECRET" \
+  --from-literal=admin-password="$ADMIN_PASSWORD" \
   --from-literal=smtp-password=""
