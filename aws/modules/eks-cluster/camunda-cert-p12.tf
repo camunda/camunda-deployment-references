@@ -111,6 +111,7 @@ keytool -importkeystore \
 
 keytool -importcert \
   -alias rootca \
+  -trustcacerts \
   -file "${path.module}/root_ca_cert.pem" \
   -keystore "${path.module}/camunda_truststore.jks" \
   -storepass "${var.camunda_p12_password}" \
@@ -118,6 +119,7 @@ keytool -importcert \
 
 keytool -importcert \
   -alias subca \
+  -trustcacerts \
   -file "${path.module}/sub_ca_cert.pem" \
   -keystore "${path.module}/camunda_truststore.jks" \
   -storepass "${var.camunda_p12_password}" \
