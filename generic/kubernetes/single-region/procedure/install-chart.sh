@@ -45,6 +45,16 @@ spec:
       remoteRef:
         key: certs/camunda.picsou86.camunda.ie/truststore-jks
         decodingStrategy: Auto
+
+    - secretKey: keycloak.keystore.jks
+      remoteRef:
+        key: certs/camunda.picsou86.camunda.ie/keystore-jks
+        decodingStrategy: Auto
+
+    - secretKey: keycloak.truststore.jks
+      remoteRef:
+        key: certs/camunda.picsou86.camunda.ie/truststore-jks
+        decodingStrategy: Auto
 EOF
 
 helm upgrade --install \
