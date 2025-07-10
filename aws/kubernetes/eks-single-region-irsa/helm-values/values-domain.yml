@@ -33,36 +33,29 @@ global:
 
     identity:
         auth:
-            enabled: true
-            # TODO: this is currently broken : https://camunda.slack.com/archives/C06UYJMMETZ/p1747319551359609
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
-            admin:
-                enabled: true
-                existingSecret:
-                    name: identity-secret-for-components
-
-            #######################
-            # Orchestration Group
-            #######################
-            core:
-                redirectUrl: https://${DOMAIN_NAME}/core
+            zeebe:
                 existingSecret:
                     name: identity-secret-for-components
             connectors:
+                existingSecret:
+                    name: identity-secret-for-components
+            operate:
+                redirectUrl: https://${DOMAIN_NAME}/operate
+                existingSecret:
+                    name: identity-secret-for-components
+            tasklist:
+                redirectUrl: https://${DOMAIN_NAME}/tasklist
                 existingSecret:
                     name: identity-secret-for-components
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize
                 existingSecret:
                     name: identity-secret-for-components
-
-            #######################
-            # Management Group
-            #######################
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: https://${DOMAIN_NAME}
+                redirectUrl: https://${DOMAIN_NAME}/console
                 existingSecret:
                     name: identity-secret-for-components
 
@@ -130,10 +123,6 @@ identity:
     enabled: true
     contextPath: /identity
     fullURL: https://${DOMAIN_NAME}/identity
-
-    # TODO: added in 8.8
-    firstUser:
-        existingSecret: identity-secret-for-components
 
     serviceAccount:
         name: ${CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME}
@@ -218,101 +207,19 @@ connectors:
     enabled: true
     contextPath: /connectors
 
-optimize:
-    enabled: true
-    contextPath: /optimize
+operate:
+    contextPath: /operate
 
     serviceAccount:
-        name: ${CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME}
+        name: ${CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME}
         annotations:
             eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
 
-    # OpenSearch prevents migration
-    migration:
-        enabled: false
-
-core:
-    enabled: true
-    contextPath: /core
-
-    ingress:
-        grpc:
-            enabled: true
-            host: zeebe.${DOMAIN_NAME}
-            tls:
-                enabled: true
-                secretName: core-c8-tls-grpc
-            annotations:
-                kubernetes.io/tls-acme: 'true'
-
-    serviceAccount:
-        # TODO; change from zeebe to core in 8.8
-        name: ${CAMUNDA_CORE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
-    # TODO; added in 8.8
-    # giving access to venom to deploy a model. Given access to connectors
-    # TODO: Find a way to only give connectors read access
-    # TODO: adapt for documentation as users will not have venom( certainly need yq in the test pipeline)
     env:
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_0_MAPPINGID
-          value: demo-user-mapping
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_0_CLAIMNAME
-          value: preferred_username
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_0_CLAIMVALUE
-          value: demo
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_1_MAPPINGID
-          value: venom-client-mapping
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_1_CLAIMNAME
-          value: client_id
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_1_CLAIMVALUE
-          value: venom
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_2_MAPPINGID
-          value: connectors-client-mapping
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_2_CLAIMNAME
-          value: client_id
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_2_CLAIMVALUE
-          value: connectors
-        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGS_0
-          value: demo-user-mapping
-        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGS_1
-          value: venom-client-mapping
-        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGS_2
-          value: connectors-client-mapping
-
-        # TLS PART Zeebe Gateway
-        - name: ZEEBE_GATEWAY_SECURITY_ENABLED
-          value: 'true'
-        - name: ZEEBE_GATEWAY_SECURITY_CERTIFICATECHAINPATH
-          value: /usr/local/core/config/tls.crt
-        - name: ZEEBE_GATEWAY_SECURITY_PRIVATEKEYPATH
-          value: /usr/local/core/config/tls.key
-
-        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_ENABLED
-          value: 'true'
-        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_CERTIFICATECHAINPATH
-          value: /usr/local/core/config/tls.crt
-        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_PRIVATEKEYPATH
-          value: /usr/local/core/config/tls.key
-
-        - name: ZEEBE_BROKER_NETWORK_SECURITY_ENABLED
-          value: 'true'
-        - name: ZEEBE_BROKER_NETWORK_SECURITY_CERTIFICATECHAINPATH
-          value: /usr/local/core/config/tls.crt
-        - name: ZEEBE_BROKER_NETWORK_SECURITY_PRIVATEKEYPATH
-          value: /usr/local/core/config/tls.key
-
-        - name: CAMUNDA_TASKLIST_ZEEBE_SECURE
-          value: 'true'
-        - name: CAMUNDA_TASKLIST_ZEEBE_CERTIFICATEPATH
-          value: /usr/local/tasklist/config/tls.crt
-
         - name: CAMUNDA_OPERATE_ZEEBE_SECURE
           value: 'true'
         - name: CAMUNDA_OPERATE_ZEEBE_CERTIFICATEPATH
           value: /usr/local/core/config/tls.crt
-
         - name: TRUSTSTORE_PASSWORD
           valueFrom:
               secretKeyRef:
@@ -370,6 +277,243 @@ core:
                   - key: ca.crt
                     path: ca.crt
               defaultMode: 420
+
+tasklist:
+    contextPath: /tasklist
+
+    serviceAccount:
+        name: ${CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+
+    env:
+        - name: CAMUNDA_TASKLIST_ZEEBE_SECURE
+          value: 'true'
+        - name: CAMUNDA_TASKLIST_ZEEBE_CERTIFICATEPATH
+          value: /usr/local/tasklist/config/tls.crt
+        - name: TRUSTSTORE_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: aws-pca-p12
+                  key: tls-truststore-password
+
+        - name: JAVA_TOOL_OPTIONS
+          value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.jks -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
+        - name: SSL_CERT_FILE
+          value: /usr/local/core/config/ca.crt
+
+    extraVolumeMounts:
+        - name: certificate
+          mountPath: /usr/local/core/config/tls.crt
+          subPath: tls.crt
+        - name: key
+          mountPath: /usr/local/core/config/tls.key
+          subPath: tls.key
+        - name: ca
+          mountPath: /usr/local/core/config/ca.crt
+          subPath: ca.crt
+        - name: truststore
+          mountPath: /usr/local/core/config/truststore.jks
+          subPath: truststore.jks
+
+    extraVolumes:
+        - name: certificate
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: tls.crt
+                    path: tls.crt
+              defaultMode: 420
+
+        - name: key
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: tls.key
+                    path: tls.key
+              defaultMode: 420
+
+        - name: truststore
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: keycloak.truststore.jks
+                    path: truststore.jks
+              defaultMode: 420
+
+        - name: ca
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: ca.crt
+                    path: ca.crt
+              defaultMode: 420
+
+zeebe:
+    serviceAccount:
+        name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+    env:
+        - name: ZEEBE_BROKER_NETWORK_SECURITY_ENABLED
+          value: 'true'
+        - name: ZEEBE_BROKER_NETWORK_SECURITY_CERTIFICATECHAINPATH
+          value: /usr/local/core/config/tls.crt
+        - name: ZEEBE_BROKER_NETWORK_SECURITY_PRIVATEKEYPATH
+          value: /usr/local/core/config/tls.key
+        - name: TRUSTSTORE_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: aws-pca-p12
+                  key: tls-truststore-password
+
+        - name: JAVA_TOOL_OPTIONS
+          value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.jks -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
+        - name: SSL_CERT_FILE
+          value: /usr/local/core/config/ca.crt
+
+    extraVolumeMounts:
+        - name: certificate
+          mountPath: /usr/local/core/config/tls.crt
+          subPath: tls.crt
+        - name: key
+          mountPath: /usr/local/core/config/tls.key
+          subPath: tls.key
+        - name: ca
+          mountPath: /usr/local/core/config/ca.crt
+          subPath: ca.crt
+        - name: truststore
+          mountPath: /usr/local/core/config/truststore.jks
+          subPath: truststore.jks
+
+    extraVolumes:
+        - name: certificate
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: tls.crt
+                    path: tls.crt
+              defaultMode: 420
+
+        - name: key
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: tls.key
+                    path: tls.key
+              defaultMode: 420
+
+        - name: truststore
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: keycloak.truststore.jks
+                    path: truststore.jks
+              defaultMode: 420
+
+        - name: ca
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: ca.crt
+                    path: ca.crt
+              defaultMode: 420
+
+zeebeGateway:
+    ingress:
+        grpc:
+            enabled: true
+            host: zeebe.${DOMAIN_NAME}
+            tls:
+                enabled: true
+                secretName: zeebe-c8-tls-grpc
+            annotations:
+                kubernetes.io/tls-acme: 'true'
+    contextPath: /zeebe
+
+    env:
+        - name: ZEEBE_GATEWAY_SECURITY_ENABLED
+          value: 'true'
+        - name: ZEEBE_GATEWAY_SECURITY_CERTIFICATECHAINPATH
+          value: /usr/local/core/config/tls.crt
+        - name: ZEEBE_GATEWAY_SECURITY_PRIVATEKEYPATH
+          value: /usr/local/core/config/tls.key
+        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_ENABLED
+          value: 'true'
+        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_CERTIFICATECHAINPATH
+          value: /usr/local/core/config/tls.crt
+        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_PRIVATEKEYPATH
+          value: /usr/local/core/config/tls.key
+        - name: TRUSTSTORE_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: aws-pca-p12
+                  key: tls-truststore-password
+
+        - name: JAVA_TOOL_OPTIONS
+          value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.jks -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
+        - name: SSL_CERT_FILE
+          value: /usr/local/core/config/ca.crt
+
+    extraVolumeMounts:
+        - name: certificate
+          mountPath: /usr/local/core/config/tls.crt
+          subPath: tls.crt
+        - name: key
+          mountPath: /usr/local/core/config/tls.key
+          subPath: tls.key
+        - name: ca
+          mountPath: /usr/local/core/config/ca.crt
+          subPath: ca.crt
+        - name: truststore
+          mountPath: /usr/local/core/config/truststore.jks
+          subPath: truststore.jks
+
+    extraVolumes:
+        - name: certificate
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: tls.crt
+                    path: tls.crt
+              defaultMode: 420
+
+        - name: key
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: tls.key
+                    path: tls.key
+              defaultMode: 420
+
+        - name: truststore
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: keycloak.truststore.jks
+                    path: truststore.jks
+              defaultMode: 420
+
+        - name: ca
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: ca.crt
+                    path: ca.crt
+              defaultMode: 420
+
+optimize:
+    enabled: true
+    contextPath: /optimize
+
+    serviceAccount:
+        name: ${CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+
+    # OpenSearch prevents migration
+    migration:
+        enabled: false
 
 console:
     enabled: false # by default, console is not enabled
