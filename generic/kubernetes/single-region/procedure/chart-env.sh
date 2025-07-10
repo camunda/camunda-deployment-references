@@ -2,7 +2,7 @@
 
 # The Camunda 8 Helm Chart version
 # renovate: datasource=helm depName=camunda-platform versioning=regex:^12(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-export CAMUNDA_HELM_CHART_VERSION="0.0.0-snapshot-alpha"
+export CAMUNDA_HELM_CHART_VERSION="11.7.0"
 # TODO: [release-duty] before the release, update this!
 # TODO: [release-duty] adjust renovate comment to bump the major version
 
