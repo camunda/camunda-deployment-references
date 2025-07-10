@@ -119,7 +119,7 @@ jobs:
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
                   # TODO: revert
-                  cluster_name: lejduo783
+                  cluster_name: self86
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
@@ -267,7 +267,9 @@ jobs:
                     echo "OPENSEARCH_HOST=$OPENSEARCH_HOST"
                     echo "OPENSEARCH_ROLE_NAME=$OPENSEARCH_ROLE_NAME"
                     echo "OPENSEARCH_ROLE_ARN=$OPENSEARCH_ROLE_ARN"
-                    echo "CAMUNDA_CORE_SERVICE_ACCOUNT_NAME=$CAMUNDA_CORE_SERVICE_ACCOUNT_NAME"
+                    echo "CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME=$CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME"
+                    echo "CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME=$CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME"
+                    echo "CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME=$CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME"
                     echo "CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME=$CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME"
 
                     echo "AURORA_ENDPOINT=$AURORA_ENDPOINT"
@@ -545,7 +547,7 @@ jobs:
                     # export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}377.${{ env.TLD }}"
 
                     # TODO: harcoded for self-signed setup
-                    export DOMAIN_NAME="camunda.picsou2.camunda.ie"
+                    export DOMAIN_NAME="camunda.picsou86.camunda.ie"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
                     export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"

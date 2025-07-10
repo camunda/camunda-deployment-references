@@ -20,30 +20,30 @@ spec:
   data:
     - secretKey: ca.crt
       remoteRef:
-        key: certs/picsou2.camunda.ie-subroot-ca/certificate
+        key: certs/picsou86.camunda.ie-subroot-ca/certificate
     - secretKey: tls.crt
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/certificate
+        key: certs/camunda.picsou86.camunda.ie/certificate
     - secretKey: tls.key
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/private-key
+        key: certs/camunda.picsou86.camunda.ie/private-key
     - secretKey: certificate-p12
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/certificate-p12
+        key: certs/camunda.picsou86.camunda.ie/certificate-p12
         decodingStrategy: Auto
     - secretKey: tls-keystore-password
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/p12-password
+        key: certs/camunda.picsou86.camunda.ie/p12-password
     - secretKey: tls-truststore-password
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/p12-password
+        key: certs/camunda.picsou86.camunda.ie/p12-password
     - secretKey: keycloak.truststore.jks
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/keystore-jks
+        key: certs/camunda.picsou86.camunda.ie/keystore-jks
         decodingStrategy: Auto
     - secretKey: keycloak.keystore.jks
       remoteRef:
-        key: certs/camunda.picsou2.camunda.ie/keystore-jks
+        key: certs/camunda.picsou86.camunda.ie/keystore-jks
         decodingStrategy: Auto
 EOF
 
