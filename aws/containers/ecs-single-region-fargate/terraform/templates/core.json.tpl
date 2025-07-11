@@ -16,7 +16,8 @@
         "options": {
           "awslogs-group": "/ecs/${prefix}-core",
           "awslogs-region": "${aws_region}",
-          "awslogs-stream-prefix": "core"
+          "awslogs-stream-prefix": "core",
+          "awslogs-multiline-pattern": "^\\[\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\]"
         }
     },
     "user": "root",

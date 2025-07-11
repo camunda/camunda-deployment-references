@@ -65,8 +65,8 @@ resource "aws_ecs_service" "core" {
   # Enable execute command for debugging
   enable_execute_command = true
 
-  # We maximum allow a single task to be running at a time
-  deployment_maximum_percent = 100
+  # Fast rollouts - allow up to 200% of desired count during deployment
+  deployment_maximum_percent = 200
   deployment_minimum_healthy_percent = 0
 
   network_configuration {
