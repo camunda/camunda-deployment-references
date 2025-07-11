@@ -57,6 +57,7 @@ output "cluster_arn" {
 # eks.amazonaws.com/role-arn: arn:aws:iam::831074465991:role/irsa-${RANDOM}
 # This allows the SA, if mapping was defined properly, to impersonate the role
 
+
 output "cert_manager_arn" {
   value       = module.cert_manager_role.iam_role_arn
   description = "Amazon Resource Name of the cert-manager IAM role used for IAM Roles to Service Accounts mappings"
