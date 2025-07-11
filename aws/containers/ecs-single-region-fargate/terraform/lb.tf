@@ -11,6 +11,9 @@ resource "aws_lb_target_group" "main" {
   vpc_id      = module.vpc.vpc_id
   target_type = "ip"
 
+  # Faster deregistration for quicker deployments
+  deregistration_delay = 30
+
   health_check {
     path                = "/operate"
     port                = "8080"
@@ -31,14 +34,17 @@ resource "aws_lb_target_group" "main" {
 
 resource "aws_lb_target_group" "main_9600" {
   name        = "${var.prefix}-tg-9600"
-  port        = 9605
+  port        = 9600
   protocol    = "HTTP"
   vpc_id      = module.vpc.vpc_id
   target_type = "ip"
 
+  # Faster deregistration for quicker deployments
+  deregistration_delay = 30
+
   health_check {
     path                = "/actuator/health"
-    port                = "9605"
+    port                = "9600"
     protocol            = "HTTP"
     timeout             = 5
     interval            = 30
@@ -53,6 +59,9 @@ resource "aws_lb_target_group" "main_26500" {
   protocol    = "TCP"
   vpc_id      = module.vpc.vpc_id
   target_type = "ip"
+
+  # Faster deregistration for quicker deployments
+  deregistration_delay = 30
 
   health_check {
     path                = "/actuator/health"

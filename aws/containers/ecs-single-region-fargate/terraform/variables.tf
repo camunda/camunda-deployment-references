@@ -7,7 +7,7 @@ data "aws_caller_identity" "current" {}
 
 variable "enable_opensearch" {
   type        = bool
-  default     = false
+  default     = true
   description = "Enable the OpenSearch cluster. If false, the OpenSearch cluster will not be created. Users may want to supply DBs manually themselves."
 }
 
@@ -90,7 +90,7 @@ variable "opensearch_instance_type" {
 
   # There's no `medium.search` for non arm64 instances. That's why we align the instance types with the x64 instances.
   default = {
-    x86_64 = "m7i.large.search"
+    x86_64 = "r7g.large.search"
     arm64  = "m7g.large.search"
   }
 }
@@ -99,7 +99,7 @@ variable "opensearch_dedicated_master_type" {
   type        = map(string)
   description = "The instance type to use for the dedicated OpenSearch master nodes"
   default = {
-    x86_64 = "m7i.large.search"
+    x86_64 = "r7g.large.search"
     arm64  = "m7g.large.search"
   }
 }

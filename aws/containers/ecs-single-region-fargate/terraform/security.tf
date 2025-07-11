@@ -146,19 +146,19 @@ resource "aws_security_group" "allow_remote_9600" {
   vpc_id      = module.vpc.vpc_id
 
   ingress {
-    from_port   = 9605
-    to_port     = 9605
+    from_port   = 9600
+    to_port     = 9600
     protocol    = "tcp"
     cidr_blocks = var.limit_access_to_cidrs
-    description = "Allow inbound traffic on port 9605"
+    description = "Allow inbound traffic on port 9600"
   }
 
   egress {
-    from_port   = 9605
-    to_port     = 9605
+    from_port   = 9600
+    to_port     = 9600
     protocol    = "tcp"
     cidr_blocks = var.limit_access_to_cidrs
-    description = "Allow outbound traffic on port 9605"
+    description = "Allow outbound traffic on port 9600"
   }
 
   tags = {

@@ -1,5 +1,7 @@
 locals {
-  env_lines = split("\n", file("${path.module}/templates/core-environment"))
+  env_lines = split("\n", templatefile("${path.module}/templates/core-environment", {
+    opensearch_url = "https://${join("", module.opensearch_domain[*].opensearch_domain_endpoint)}"
+  }))
   env_kv_pairs = [
     for line in local.env_lines : {
       name  = trim(split("=", line)[0], " ")
@@ -24,19 +26,15 @@ resource "aws_ecs_task_definition" "core" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = 4096
   memory                   = 8192
-  // TODO: If using templates in the templatefile, would need to double template it for opensearch_url
   container_definitions = templatefile("./templates/core.json.tpl", {
     core_image     = "camunda/camunda:SNAPSHOT"
-    core_cpu       = 1536
-    core_memory    = 3072
+    core_cpu       = 4096
+    core_memory    = 8192
     aws_region     = "eu-central-1"
     prefix         = var.prefix
-    opensearch_url = "http://127.0.0.1:9200" // "https://${join("", module.opensearch_domain[*].opensearch_domain_endpoint)}"
+    opensearch_url = "https://${join("", module.opensearch_domain[*].opensearch_domain_endpoint)}"
     env_vars_json = jsonencode(local.env_kv_pairs)
     docker_hub_credentials_arn = var.docker_hub_username != "" ? aws_secretsmanager_secret.docker_hub_credentials[0].arn : ""
-
-    opensearch_cpu = 2560
-    opensearch_memory = 5120
   })
 
   task_role_arn = aws_iam_role.ecs_task_role.arn
@@ -63,6 +61,9 @@ resource "aws_ecs_service" "core" {
   task_definition = aws_ecs_task_definition.core.arn
   desired_count   = 1
   launch_type     = "FARGATE"
+
+  # Enable execute command for debugging
+  enable_execute_command = true
 
   # We maximum allow a single task to be running at a time
   deployment_maximum_percent = 100
@@ -93,7 +94,7 @@ resource "aws_ecs_service" "core" {
   load_balancer {
     target_group_arn = aws_lb_target_group.main_9600.arn
     container_name   = "${var.prefix}-core"
-    container_port   = 9605
+    container_port   = 9600
   }
 
   # load_balancer {

@@ -56,6 +56,7 @@ resource "aws_iam_role_policy" "ecs_service" {
 EOF
 }
 
+# Create a separate task role for EFS access
 resource "aws_iam_role" "ecs_task_role" {
   name = "ecs-task-role"
 
@@ -151,4 +152,30 @@ resource "aws_iam_policy" "efs_sc_access" {
     ]
   })
 
+}
+
+# Add ECS Execute Command permissions to task role
+resource "aws_iam_policy" "ecs_exec_policy" {
+  name = "${var.prefix}-ecs-exec-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_exec_policy_attachment" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.ecs_exec_policy.arn
 }
