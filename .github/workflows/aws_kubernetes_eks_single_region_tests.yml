@@ -67,7 +67,7 @@ env:
     MAIL_OVERWRITE: admin@camunda.ie
 
     # TODO: do it later
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
