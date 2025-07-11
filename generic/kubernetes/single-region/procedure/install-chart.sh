@@ -60,7 +60,7 @@ spec:
 EOF
 
 helm upgrade --install \
-    "$CAMUNDA_RELEASE_NAME" oci://ghcr.io/camunda/helm/camunda-platform \
+   "$CAMUNDA_RELEASE_NAME" camunda-platform --repo https://helm.camunda.io \
     --version "$CAMUNDA_HELM_CHART_VERSION" --namespace "$CAMUNDA_NAMESPACE" \
     -f generated-values.yml
 
@@ -68,8 +68,7 @@ helm upgrade --install \
 # and uncomment the installation instruction below
 
 # helm upgrade --install \
-#   "$CAMUNDA_RELEASE_NAME" camunda-platform \
-#   --repo https://helm.camunda.io \
+#   "$CAMUNDA_RELEASE_NAME" camunda-platform --repo https://helm.camunda.io \
 #   --version "$CAMUNDA_HELM_CHART_VERSION" \
 #   --namespace "$CAMUNDA_NAMESPACE" \
 #   -f generated-values.yml
