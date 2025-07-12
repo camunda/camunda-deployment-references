@@ -1,6 +1,6 @@
 locals {
   # renovate: datasource=endoflife-date depName=azure-kubernetes-service versioning=loose
-  kubernetes_version = "1.32" # Change this to your desired Kubernetes version (aks - major.minor)
+  kubernetes_version = "1.33" # Change this to your desired Kubernetes version (aks - major.minor)
 }
 
 module "aks" {
