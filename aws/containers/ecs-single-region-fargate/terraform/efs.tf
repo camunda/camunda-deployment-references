@@ -32,6 +32,8 @@ resource "aws_efs_access_point" "camunda_data" {
 }
 
 # EFS mount targets are required for ECS tasks to access the file system
+# Requires currently a two step apply
+# First vpc via `terraform apply -target=module.vpc`
 resource "aws_efs_mount_target" "efs_mounts" {
   for_each = toset(module.vpc.private_subnets)
 
@@ -42,6 +44,7 @@ resource "aws_efs_mount_target" "efs_mounts" {
   
   depends_on = [
     aws_efs_file_system.efs,
-    aws_security_group.efs
+    aws_security_group.efs,
+    module.vpc
   ]
 }

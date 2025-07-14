@@ -116,7 +116,7 @@ variable "opensearch_architecture" {
 
 variable "limit_access_to_cidrs" {
   type        = list(string)
-  default     = ["3.125.83.158/32"]
+  default     = ["185.28.185.138/32" ,"3.125.83.158/32"]
   description = "List of CIDR blocks to allow access to ssh of Bastion and LoadBalancer"
 }
 
