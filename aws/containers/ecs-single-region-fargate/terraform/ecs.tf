@@ -78,6 +78,10 @@ resource "aws_ecs_service" "core" {
     assign_public_ip = false
   }
 
+  service_registries {
+    registry_arn = aws_service_discovery_service.discovery.arn
+  }
+
   # Ensure EFS mount targets are ready before starting service
   depends_on = [
     aws_efs_mount_target.efs_mounts,
