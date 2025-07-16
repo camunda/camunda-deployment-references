@@ -20,7 +20,9 @@ resource "aws_ecs_cluster" "ecs" {
 }
 
 resource "aws_ecs_task_definition" "core" {
-  family                   = "${var.prefix}-core"
+  count = var.camunda_count
+
+  family                   = "${var.prefix}-core-${count.index}"
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
@@ -33,7 +35,28 @@ resource "aws_ecs_task_definition" "core" {
     aws_region     = "eu-central-1"
     prefix         = var.prefix
     opensearch_url = "https://${join("", module.opensearch_domain[*].opensearch_domain_endpoint)}"
-    env_vars_json = jsonencode(local.env_kv_pairs)
+    env_vars_json = jsonencode(concat([
+      {
+        name  = "ZEEBE_BROKER_CLUSTER_NODEID"
+        value = tostring(count.index)
+      },
+      {
+        name  = "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS"
+        value = join(",", [for i in range(var.camunda_count) : "${var.prefix}-ecs-${i}.${var.prefix}.service.local:26502"])
+      },
+      {
+        name  = "ZEEBE_BROKER_CLUSTER_CLUSTERSIZE"
+        value = tostring(var.camunda_count)
+      },
+      {
+        name  = "ZEEBE_BROKER_CLUSTER_REPLICATIONFACTOR"
+        value = tostring(var.camunda_count)
+      },
+      {
+        name  = "ZEEBE_BROKER_NETWORK_ADVERTISEDHOST"
+        value = "${var.prefix}-ecs-${count.index}.${var.prefix}.service.local"
+      }
+    ], local.env_kv_pairs))
     docker_hub_credentials_arn = var.docker_hub_username != "" ? aws_secretsmanager_secret.docker_hub_credentials[0].arn : ""
   })
 
@@ -43,11 +66,11 @@ resource "aws_ecs_task_definition" "core" {
     name                = "camunda-volume"
     
     efs_volume_configuration {
-      file_system_id = aws_efs_file_system.efs.id
+      file_system_id = aws_efs_file_system.efs[count.index].id
       root_directory = "/"
       transit_encryption = "ENABLED"
       authorization_config {
-        access_point_id = aws_efs_access_point.camunda_data.id
+        access_point_id = aws_efs_access_point.camunda_data[count.index].id
         iam             = "ENABLED"
       }
     }
@@ -56,9 +79,11 @@ resource "aws_ecs_task_definition" "core" {
 }
 
 resource "aws_ecs_service" "core" {
-  name            = "${var.prefix}-core-service"
+  count = var.camunda_count
+
+  name            = "${var.prefix}-core-service-${count.index}"
   cluster         = aws_ecs_cluster.ecs.id
-  task_definition = aws_ecs_task_definition.core.arn
+  task_definition = aws_ecs_task_definition.core[count.index].arn
   desired_count   = 1
   launch_type     = "FARGATE"
 
@@ -79,37 +104,24 @@ resource "aws_ecs_service" "core" {
   }
 
   service_registries {
-    registry_arn = aws_service_discovery_service.discovery.arn
-  }
-
-  # Ensure EFS mount targets are ready before starting service
-  depends_on = [
-    aws_efs_mount_target.efs_mounts,
-    aws_efs_access_point.camunda_data
-  ]
-
-  load_balancer {
-    target_group_arn = aws_lb_target_group.main.arn
-    container_name   = "${var.prefix}-core"
-    container_port   = 8080
-  }
-
-  load_balancer {
-    target_group_arn = aws_lb_target_group.main_9600.arn
-    container_name   = "${var.prefix}-core"
-    container_port   = 9600
+    registry_arn = aws_service_discovery_service.discovery[count.index].arn
   }
 
   # load_balancer {
-  #   target_group_arn = aws_lb_target_group.main_9090.arn
-  #   container_name   = "${var.prefix}-connectors"
-  #   container_port   = 9090
+  #   target_group_arn = aws_lb_target_group.main[count.index].arn
+  #   container_name   = "${var.prefix}-core"
+  #   container_port   = 8080
   # }
 
-  // TODO: Move to NLB, as ALB still doesn't work that way
-  load_balancer {
-    target_group_arn = aws_lb_target_group.main_26500.arn
-    container_name   = "${var.prefix}-core"
-    container_port   = 26500
-  }
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.main_9600[count.index].arn
+  #   container_name   = "${var.prefix}-core"
+  #   container_port   = 9600
+  # }
+
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.main_26500[count.index].arn
+  #   container_name   = "${var.prefix}-core"
+  #   container_port   = 26500
+  # }
 }

@@ -5,7 +5,9 @@ resource "aws_service_discovery_private_dns_namespace" "namespace" {
 }
 
 resource "aws_service_discovery_service" "discovery" {
-  name = "${var.prefix}-ecs"
+  count = var.camunda_count
+
+  name = "${var.prefix}-ecs-${count.index}"
 
   dns_config {
     namespace_id = aws_service_discovery_private_dns_namespace.namespace.id

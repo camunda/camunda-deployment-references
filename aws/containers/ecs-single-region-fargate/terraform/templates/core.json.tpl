@@ -35,6 +35,16 @@
         "protocol": "tcp"
       },
       {
+        "containerPort": 26501,
+        "hostPort": 26501,
+        "protocol": "tcp"
+      },
+      {
+        "containerPort": 26502,
+        "hostPort": 26502,
+        "protocol": "tcp"
+      },
+      {
         "containerPort": 9600,
         "hostPort": 9600,
         "protocol": "tcp"

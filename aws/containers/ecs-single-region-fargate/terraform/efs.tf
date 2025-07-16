@@ -1,5 +1,7 @@
 resource "aws_efs_file_system" "efs" {
-  creation_token   = "${var.prefix}-efs"
+  count = var.camunda_count
+
+  creation_token   = "${var.prefix}-efs-${count.index}"
   performance_mode = "generalPurpose"
   encrypted        = true
 
@@ -8,7 +10,9 @@ resource "aws_efs_file_system" "efs" {
 }
 
 resource "aws_efs_access_point" "camunda_data" {
-  file_system_id = aws_efs_file_system.efs.id
+  count = var.camunda_count
+
+  file_system_id = aws_efs_file_system.efs[count.index].id
   
   root_directory {
     path = "/usr/local/camunda/data"
@@ -23,27 +27,52 @@ resource "aws_efs_access_point" "camunda_data" {
     gid = 1000
     uid = 1000
   }
-  
-  depends_on = [aws_efs_file_system.efs]
-  
+    
   tags = {
-    Name = "${var.prefix}-camunda-data-access-point"
+    Name = "${var.prefix}-camunda-data-access-point-${count.index}"
   }
 }
 
 # EFS mount targets are required for ECS tasks to access the file system
 # Requires currently a two step apply
 # First vpc via `terraform apply -target=module.vpc`
-resource "aws_efs_mount_target" "efs_mounts" {
-  for_each = toset(module.vpc.private_subnets)
+resource "aws_efs_mount_target" "efs_mounts_zone_0" {
+  count = var.camunda_count
 
-  file_system_id = aws_efs_file_system.efs.id
-  subnet_id      = each.value
+  file_system_id = aws_efs_file_system.efs[count.index].id
+  subnet_id      = module.vpc.private_subnets[0]
 
   security_groups = [aws_security_group.efs.id]
   
   depends_on = [
-    aws_efs_file_system.efs,
+    aws_security_group.efs,
+    module.vpc
+  ]
+}
+
+resource "aws_efs_mount_target" "efs_mounts_zone_1" {
+  count = var.camunda_count
+
+  file_system_id = aws_efs_file_system.efs[count.index].id
+  subnet_id      = module.vpc.private_subnets[1]
+
+  security_groups = [aws_security_group.efs.id]
+  
+  depends_on = [
+    aws_security_group.efs,
+    module.vpc
+  ]
+}
+
+resource "aws_efs_mount_target" "efs_mounts_zone_2" {
+  count = var.camunda_count
+
+  file_system_id = aws_efs_file_system.efs[count.index].id
+  subnet_id      = module.vpc.private_subnets[2]
+
+  security_groups = [aws_security_group.efs.id]
+  
+  depends_on = [
     aws_security_group.efs,
     module.vpc
   ]

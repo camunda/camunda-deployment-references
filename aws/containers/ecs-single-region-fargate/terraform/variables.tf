@@ -13,13 +13,13 @@ variable "enable_opensearch" {
 
 variable "enable_alb" {
   type        = bool
-  default     = true
+  default     = false
   description = "Enable the Application Load Balancer. If false, the ALB will not be created, e.g. if a user doesn't want to publicy expose the setup."
 }
 
 variable "enable_nlb" {
   type        = bool
-  default     = true
+  default     = false
   description = "Enable the Network Load Balancer. If false, the NLB will not be created."
 }
 
@@ -43,6 +43,12 @@ variable "prefix" {
   type        = string
   description = "The prefix to use for names of resources"
   default     = "lars-ecs-nfs-ws"
+}
+
+variable "camunda_count" {
+  type        = number
+  default     = 3
+  description = "The number of unique Camunda services to run"
 }
 
 ################################################################
