@@ -35,7 +35,7 @@ variable "security_group_ids" {
 
 variable "instance_type" {
   type        = string
-  default     = "t3.small.search"
+  default     = "t4g.small.search"
   description = "Instance type of data nodes in the cluster."
 }
 
