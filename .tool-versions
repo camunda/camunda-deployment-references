@@ -24,7 +24,7 @@ delta 0.18.2
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
 eksctl 0.206.0
 
-golang 1.24.4
+golang 1.24.5
 
 helm 3.17.3
 
