@@ -5,7 +5,7 @@
 # Create a target group for the ALB - targeting port 8080
 # Operate / Tasklist WebApps
 resource "aws_lb_target_group" "main" {
-  count = var.camunda_count
+  count = var.enable_alb ? 1 : 0
 
   name        = "${var.prefix}-tg-8080-${count.index}"
   port        = 8080
@@ -35,7 +35,7 @@ resource "aws_lb_target_group" "main" {
 }
 
 resource "aws_lb_target_group" "main_9600" {
-  count = var.camunda_count
+  count = var.enable_alb ? 1 : 0
 
   name        = "${var.prefix}-tg-9600-${count.index}"
   port        = 9600
@@ -58,7 +58,7 @@ resource "aws_lb_target_group" "main_9600" {
 }
 
 resource "aws_lb_target_group" "main_26500" {
-  count = var.camunda_count
+  count = var.enable_nlb ? 1 : 0
 
   name        = "${var.prefix}-tg-26500-${count.index}"
   port        = 26500
@@ -82,7 +82,7 @@ resource "aws_lb_target_group" "main_26500" {
 
 # Application Load Balancer to expose the WebApps
 resource "aws_lb" "main" {
-  count = var.camunda_count
+  count = var.enable_alb ? 1 : 0
 
   name               = "${var.prefix}-alb-webui-${count.index}"
   internal           = false
@@ -98,7 +98,7 @@ resource "aws_lb" "main" {
 
 # core webapp + rest api
 resource "aws_lb_listener" "http_8080" {
-  count = var.camunda_count
+  count = var.enable_alb ? 1 : 0
 
   load_balancer_arn = aws_lb.main[count.index].arn
   port              = "80"
@@ -112,7 +112,7 @@ resource "aws_lb_listener" "http_8080" {
 
 # core management api
 resource "aws_lb_listener" "http_9600" {
-  count = var.camunda_count
+  count = var.enable_alb ? 1 : 0
 
   load_balancer_arn = aws_lb.main[count.index].arn
   port              = "9600"
@@ -127,7 +127,7 @@ resource "aws_lb_listener" "http_9600" {
 # gRPC
 
 resource "aws_lb" "grpc" {
-  count = var.camunda_count
+  count = var.enable_nlb ? 1 : 0
 
   name               = "${var.prefix}-nlb-grpc-${count.index}"
   internal           = false

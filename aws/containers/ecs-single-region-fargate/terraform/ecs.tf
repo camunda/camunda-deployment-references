@@ -107,21 +107,22 @@ resource "aws_ecs_service" "core" {
     registry_arn = aws_service_discovery_service.discovery[count.index].arn
   }
 
-  # load_balancer {
-  #   target_group_arn = aws_lb_target_group.main[count.index].arn
-  #   container_name   = "${var.prefix}-core"
-  #   container_port   = 8080
-  # }
+  # We register all services to same target group, this will then do the load balancing for our services
+  load_balancer {
+    target_group_arn = aws_lb_target_group.main[0].arn
+    container_name   = "${var.prefix}-core"
+    container_port   = 8080
+  }
 
-  # load_balancer {
-  #   target_group_arn = aws_lb_target_group.main_9600[count.index].arn
-  #   container_name   = "${var.prefix}-core"
-  #   container_port   = 9600
-  # }
+  load_balancer {
+    target_group_arn = aws_lb_target_group.main_9600[0].arn
+    container_name   = "${var.prefix}-core"
+    container_port   = 9600
+  }
 
-  # load_balancer {
-  #   target_group_arn = aws_lb_target_group.main_26500[count.index].arn
-  #   container_name   = "${var.prefix}-core"
-  #   container_port   = 26500
-  # }
+  load_balancer {
+    target_group_arn = aws_lb_target_group.main_26500[0].arn
+    container_name   = "${var.prefix}-core"
+    container_port   = 26500
+  }
 }
