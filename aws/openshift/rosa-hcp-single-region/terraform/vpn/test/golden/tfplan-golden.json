@@ -93,7 +93,7 @@
             "description": null,
             "target_network_cidr": "172.31.0.0/16",
             "timeouts": {
-              "create": "10m",
+              "create": "15m",
               "delete": "20m"
             }
           }
