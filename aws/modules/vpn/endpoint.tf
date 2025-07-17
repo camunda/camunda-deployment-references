@@ -72,7 +72,7 @@ resource "aws_ec2_client_vpn_authorization_rule" "vpn_auth_rule" {
   authorize_all_groups   = true
 
   timeouts {
-    create = "10m"
+    create = "15m"
     delete = "20m"
   }
 }
