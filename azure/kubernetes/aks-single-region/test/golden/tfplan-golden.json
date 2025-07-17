@@ -99,6 +99,7 @@
             "azure_policy_enabled": null,
             "confidential_computing": [],
             "cost_analysis_enabled": null,
+            "custom_ca_trust_certificates_base64": null,
             "default_node_pool": [
               {
                 "auto_scaling_enabled": null,
