@@ -95,6 +95,32 @@ runs:
               path: ${{ inputs.tests-camunda-helm-chart-repo-path }}
               fetch-depth: 0
 
+        - name: Wait for domain certs to be ready
+          if: ${{ inputs.camunda-domain != '' && inputs.enable-helm-chart-tests == 'true' }}
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "Waiting for certificates to be ready in namespace: camunda"
+
+              kubectl wait \
+                --for=condition=Ready \
+                certificates \
+                --all \
+                -n camunda \
+                --timeout=480s
+
+              # Check the result and provide feedback
+              if [ $? -eq 0 ]; then
+                echo "✅ All certificates are ready!"
+              else
+                echo "❌ Certificates not ready after timeout:"
+                kubectl get certificates -n camunda \
+                  -o custom-columns="NAME:.metadata.name,READY:.status.conditions[?(@.type=='Ready')].status" \
+                  --no-headers
+                exit 1
+              fi
+
         - name: 🧪 TESTS - Set variables
           if: ${{ inputs.enable-helm-chart-tests == 'true' }}
           shell: bash
