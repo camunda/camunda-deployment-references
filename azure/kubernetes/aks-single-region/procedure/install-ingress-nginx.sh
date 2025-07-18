@@ -8,4 +8,4 @@ helm upgrade --install \
   --create-namespace \
   --set controller.replicaCount=2 \
   --set controller.service.externalTrafficPolicy=Local \
-  --set controller.service.annotations."service\\.beta\\.kubernetes\\.io/azure-load-balancer-health-probe-request-path"=/healthz \
+  --set controller.service.annotations."service\\.beta\\.kubernetes\\.io/azure-load-balancer-health-probe-request-path"=/healthz
