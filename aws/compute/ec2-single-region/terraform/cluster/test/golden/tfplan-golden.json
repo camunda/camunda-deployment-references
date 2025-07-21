@@ -512,10 +512,10 @@
         "xff_header_processing_mode": "append"
       }
     },
-    "aws_lb_listener.grpc_26500[0]": {
+    "aws_lb_listener.grpc[0]": {
       "index": 0,
       "mode": "managed",
-      "name": "grpc_26500",
+      "name": "grpc",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -551,49 +551,10 @@
         "timeouts": null
       }
     },
-    "aws_lb_listener.http_8080[0]": {
+    "aws_lb_listener.http_connectors[0]": {
       "index": 0,
       "mode": "managed",
-      "name": "http_8080",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "default_action": [
-          {
-            "authenticate_cognito": [],
-            "authenticate_oidc": [],
-            "fixed_response": [],
-            "forward": [],
-            "redirect": []
-          }
-        ],
-        "mutual_authentication": [],
-        "tags_all": {}
-      },
-      "type": "aws_lb_listener",
-      "values": {
-        "alpn_policy": null,
-        "certificate_arn": null,
-        "default_action": [
-          {
-            "authenticate_cognito": [],
-            "authenticate_oidc": [],
-            "fixed_response": [],
-            "forward": [],
-            "redirect": [],
-            "type": "forward"
-          }
-        ],
-        "port": 80,
-        "protocol": "HTTP",
-        "tags": null,
-        "timeouts": null
-      }
-    },
-    "aws_lb_listener.http_9090[0]": {
-      "index": 0,
-      "mode": "managed",
-      "name": "http_9090",
+      "name": "http_connectors",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -624,6 +585,45 @@
           }
         ],
         "port": 9090,
+        "protocol": "HTTP",
+        "tags": null,
+        "timeouts": null
+      }
+    },
+    "aws_lb_listener.http_webui[0]": {
+      "index": 0,
+      "mode": "managed",
+      "name": "http_webui",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "default_action": [
+          {
+            "authenticate_cognito": [],
+            "authenticate_oidc": [],
+            "fixed_response": [],
+            "forward": [],
+            "redirect": []
+          }
+        ],
+        "mutual_authentication": [],
+        "tags_all": {}
+      },
+      "type": "aws_lb_listener",
+      "values": {
+        "alpn_policy": null,
+        "certificate_arn": null,
+        "default_action": [
+          {
+            "authenticate_cognito": [],
+            "authenticate_oidc": [],
+            "fixed_response": [],
+            "forward": [],
+            "redirect": [],
+            "type": "forward"
+          }
+        ],
+        "port": 80,
         "protocol": "HTTP",
         "tags": null,
         "timeouts": null
@@ -661,7 +661,7 @@
           }
         ],
         "lambda_multi_value_headers_enabled": false,
-        "name": "camunda-tg-9090",
+        "name": "camunda-tg-connectors",
         "port": 9090,
         "protocol": "HTTP",
         "proxy_protocol_v2": false,
@@ -744,7 +744,7 @@
           }
         ],
         "lambda_multi_value_headers_enabled": false,
-        "name": "camunda-tg-8080",
+        "name": "camunda-tg-webui",
         "port": 8080,
         "protocol": "HTTP",
         "proxy_protocol_v2": false,
