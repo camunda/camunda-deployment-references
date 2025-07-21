@@ -1,0 +1,88 @@
+---
+name: Delete AWS Terraform States for Single Regions
+
+description: |
+    This GitHub Action automates the deletion of any aws single-region reference architecture states using a shell script.
+    For this it's using a generic dummy config.tf that is granted access to the TF state and then has auth to AWS to destroy all resources.
+    ## Notes
+    Not yet dual-region compatible maybe with v6 and single provider declaration, otherwise needs both providers explicitly declared with their alias.
+    Not yet Azure compatible with state on AWS. One could make it work as long as the Azure authentication is done prior and some provider specifics defined (subscription id).
+
+inputs:
+    tf-bucket:
+        description: Bucket containing the states states
+        required: true
+
+    tf-bucket-region:
+        description: Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION
+
+    tf-bucket-key-prefix:
+        description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+        default: ''
+
+    max-age-hours-states:
+        description: Maximum age of states in hours
+        default: '12'
+
+    target:
+        description: Specify an ID to destroy specific resources or "all" to destroy all resources
+        default: all
+
+    fail-on-not-found:
+        description: Whether to fail if no matching resources are found (only for target not 'all')
+        default: 'true'
+
+runs:
+    using: composite
+    steps:
+
+        - name: Install asdf tools with cache
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@d0b1d5e182380299c16ea63709b6b6949736b36f # 1.4.4
+
+        - name: Install Cloud Nuke for retry
+          shell: bash
+          if: ${{ env.RETRY_DESTROY == 'true' }}
+          working-directory: /tmp
+          env:
+              # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
+              CLOUD_NUKE_VERSION: v0.41.0
+          run: |
+              curl -LO \
+                  --retry 5 \
+                  --max-time 15 \
+                  --retry-delay 30 \
+                  https://github.com/gruntwork-io/cloud-nuke/releases/download/${{ env.CLOUD_NUKE_VERSION }}/cloud-nuke_linux_amd64
+              chmod +x cloud-nuke_linux_amd64
+              mv cloud-nuke_linux_amd64 /usr/local/bin/cloud-nuke
+
+        - name: Delete states
+          id: delete_states
+          shell: bash
+          run: |
+              if [ -n "${{ inputs.tf-bucket-region }}" ]; then
+                export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
+              fi
+
+              # Use repo .tool-version as global version
+              cp .tool-versions ~/.tool-versions
+
+              ${{ github.action_path }}/scripts/destroy-states.sh "${{ inputs.tf-bucket }}" \
+                ${{ inputs.max-age-hours-states }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }} \
+                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
+
+        # Required for matrix jobs
+        - name: Convert key prefix into slug
+          id: key-prefix-slug
+          shell: bash
+          run: |
+              set -euo pipefail
+              SLUG=$(echo "${{ inputs.tf-bucket-key-prefix }}" | tr '/' '-' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              echo "PREFIX_SLUG=${SLUG::-1}" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Upload cleanup logs
+          if: always()
+          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          with:
+              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}-${{ steps.key-prefix-slug.outputs.PREFIX_SLUG }}
+              path: ./logs/
+              retention-days: 7
