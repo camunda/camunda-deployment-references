@@ -29,12 +29,9 @@ CAMUNDA_REST_QUERY_ENABLED=true
 
 # Sessions
 CAMUNDA_PERSISTENT_SESSIONS_ENABLED=true
-# TODO: can't find it in the docs and why just Operate
-CAMUNDA_OPERATE_PERSISTENTSESSIONSENABLED=true
 
-# Temporary Workaround for Connectors
-# TODO: Remove when fixed upsteam or when switching to Identity - related https://github.com/camunda/team-infrastructure-experience/issues/438
-CAMUNDA_OPERATE_CSRFPREVENTIONENABLED="false"
+# Temporary Workaround as HA sessions were broken due to API incompatibility of old and new
+CAMUNDA_SECURITY_CSRF_ENABLED=false
 
 JAVA_TOOL_OPTIONS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/opt/camunda/camunda/logs -XX:ErrorFile=/opt/camunda/camunda/logs/zeebe_error%p.log -XX:+ExitOnOutOfMemoryError"
 
