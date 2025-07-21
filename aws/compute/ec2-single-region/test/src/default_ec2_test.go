@@ -348,38 +348,43 @@ func TestCamundaUpgrade(t *testing.T) {
 
 	fileContent := string(content)
 
-	re := regexp.MustCompile(`:-"([0-9]+\.[0-9]+\.[0-9]+(-SNAPSHOT)?)"`)
+	re := regexp.MustCompile(`:-"(([0-9]+\.[0-9]+\.[0-9]+)(-SNAPSHOT|-alpha[0-9]+)?)"`)
 	match := re.FindAllStringSubmatch(fileContent, -1)
 
 	fmt.Println("Match:", match)
 
-	if len(match) < 1 {
-		t.Fatalf("No matches found in file: %s", filePath)
+	if len(match) < 2 {
+		t.Fatalf("Expected at least 2 matches found in file: %s, got: %d", filePath, len(match))
 	}
 
-	camundaCurrentVersion := match[0][1]
+	camundaCurrentVersion := match[0][2]     // Base version without suffix
+	camundaCurrentVersionFull := match[0][1] // Full version with suffix
 	camundaPreviousVersion, err := utils.LowerVersion(camundaCurrentVersion)
 	if err != nil {
 		t.Fatalf("Error lowering version: %v", err)
 	}
 
-	connectorsCurrentVersion := match[1][1]
+	connectorsCurrentVersion := match[1][2]     // Base version without suffix
+	connectorsCurrentVersionFull := match[1][1] // Full version with suffix
 	connectorsPreviousVersion, err := utils.LowerVersion(connectorsCurrentVersion)
 	if err != nil {
 		t.Fatalf("Error lowering version: %v", err)
 	}
 
 	// Allows overwriting the versions from outside
-	camundaCurrentVersion = utils.GetEnv("CAMUNDA_VERSION", camundaCurrentVersion)
+	camundaCurrentVersionFull = utils.GetEnv("CAMUNDA_VERSION", camundaCurrentVersionFull)
 	camundaPreviousVersion = utils.GetEnv("CAMUNDA_PREVIOUS_VERSION", camundaPreviousVersion)
-	connectorsCurrentVersion = utils.GetEnv("CAMUNDA_CONNECTORS_VERSION", connectorsCurrentVersion)
+	connectorsCurrentVersionFull = utils.GetEnv("CAMUNDA_CONNECTORS_VERSION", connectorsCurrentVersionFull)
 	connectorsPreviousVersion = utils.GetEnv("CAMUNDA_CONNECTORS_PREVIOUS_VERSION", connectorsPreviousVersion)
 
-	t.Logf("Camunda current version: %s, previous version: %s", camundaCurrentVersion, camundaPreviousVersion)
-	t.Logf("Connectors current version: %s, previous version: %s", connectorsCurrentVersion, connectorsPreviousVersion)
+	t.Logf("Camunda current version: %s, previous version: %s", camundaCurrentVersionFull, camundaPreviousVersion)
+	t.Logf("Connectors current version: %s, previous version: %s", connectorsCurrentVersionFull, connectorsPreviousVersion)
 
-	updatedContent := strings.ReplaceAll(fileContent, fmt.Sprintf("CAMUNDA_VERSION:-\"%s\"", camundaCurrentVersion), fmt.Sprintf("CAMUNDA_VERSION:-\"%s\"", camundaPreviousVersion))
-	updatedContent = strings.ReplaceAll(updatedContent, fmt.Sprintf("CAMUNDA_CONNECTORS_VERSION:-\"%s\"", connectorsCurrentVersion), fmt.Sprintf("CAMUNDA_CONNECTORS_VERSION:-\"%s\"", connectorsPreviousVersion))
+	camundaVersionRegex := regexp.MustCompile(`CAMUNDA_VERSION=\$\{CAMUNDA_VERSION:-"[^"]*"\}`)
+	updatedContent := camundaVersionRegex.ReplaceAllString(fileContent, fmt.Sprintf("CAMUNDA_VERSION=%s", camundaPreviousVersion))
+
+	connectorsVersionRegex := regexp.MustCompile(`CAMUNDA_CONNECTORS_VERSION=\$\{CAMUNDA_CONNECTORS_VERSION:-"[^"]*"\}`)
+	updatedContent = connectorsVersionRegex.ReplaceAllString(updatedContent, fmt.Sprintf("CAMUNDA_CONNECTORS_VERSION=%s", connectorsPreviousVersion))
 
 	err = os.WriteFile(filePath, []byte(updatedContent), 0644)
 	if err != nil {
@@ -402,7 +407,7 @@ func TestCamundaUpgrade(t *testing.T) {
 	}
 
 	// Zeebe has a prerelease protection that results in unhealthy clusters if not disabled
-	if strings.Contains(camundaCurrentVersion, "SNAPSHOT") || strings.Contains(camundaCurrentVersion, "alpha") {
+	if strings.Contains(camundaCurrentVersionFull, "SNAPSHOT") || strings.Contains(camundaCurrentVersionFull, "alpha") {
 		cmd = shell.Command{
 			Command: "bash",
 			Args:    []string{"-c", "echo ZEEBE_BROKER_EXPERIMENTAL_VERSIONCHECKRESTRICTIONENABLED=false >> ../../configs/camunda-environment"},
@@ -410,7 +415,7 @@ func TestCamundaUpgrade(t *testing.T) {
 		shell.RunCommand(t, cmd)
 	}
 
-	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaCurrentVersion, connectorsCurrentVersion)
+	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaCurrentVersionFull, connectorsCurrentVersionFull)
 	cmd = shell.Command{
 		Command: "bash",
 		Args:    []string{"-c", "../../scripts/all-in-one-install.sh"},
@@ -419,7 +424,7 @@ func TestCamundaUpgrade(t *testing.T) {
 
 	require.Contains(t, output, "Detected existing Camunda installation. Removing existing JARs and overwriting / recreating configuration files", "Expected existing Camunda installation message")
 
-	utils.APICheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), camundaCurrentVersion)
+	utils.APICheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), camundaCurrentVersionFull)
 }
 
 func TestTeardown(t *testing.T) {
