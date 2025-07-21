@@ -74,17 +74,15 @@ fi
 # Function to perform terraform destroy
 destroy_state() {
   local key=$1
-  local state_id
-  # shellcheck disable=SC2001 # the alternative is multiple bash expansions
-  state_id=$(echo "$key" | sed 's|.*/tfstate-\([^/]*\)/.*|\1|')
+  local id=$2
 
-  mkdir -p "/tmp/$state_id"
-  cp "$SCRIPT_DIR/config" "/tmp/$state_id/config.tf"
-  cd "/tmp/$state_id" || exit 1
+  mkdir -p "/tmp/$id"
+  cp "$SCRIPT_DIR/config" "/tmp/$id/config.tf"
+  cd "/tmp/$id" || exit 1
 
   if [[ "$RETRY_DESTROY" == "true" ]]; then
       echo "Performing cloud-nuke on VPC to ensure that resources managed outside of Terraform are deleted."
-      yq eval ".VPC.include.names_regex = [\"^$state_id.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
+      yq eval ".VPC.include.names_regex = [\"^$id.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
       cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$AWS_REGION" --force
   fi
 
@@ -99,7 +97,7 @@ destroy_state() {
   if ! aws s3 rm "s3://$BUCKET/$key"; then return 1; fi
 
   cd - || exit 1
-  rm -rf "/tmp/$state_id"
+  rm -rf "/tmp/$id"
 }
 
 # List objects in the S3 bucket and parse the state IDs
@@ -165,7 +163,7 @@ for state_path in $states; do
     if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
       echo "[$state_id] Destroying state $state_path"
 
-      if ! destroy_state "$state_path"; then
+      if ! destroy_state "$state_path" "$state_id"; then
         echo "[$state_id] Error destroying state $state_path"
         exit 1
       fi

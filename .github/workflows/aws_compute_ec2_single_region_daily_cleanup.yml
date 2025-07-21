@@ -14,7 +14,7 @@ on:
             - .tool-versions
             - aws/compute/ec2-single-region*/**
             - '!aws/compute/ec2-single-region/test/golden/**'
-            - .github/actions/aws-compute-ec2-single-region-cleanup/**
+            - .github/actions/aws-generic-single-region-cleanup/**
             - .github/actions/aws-configure-cli/**
 
     schedule:
@@ -88,7 +88,7 @@ jobs:
               id: delete_clusters
               continue-on-error: ${{ env.IS_SCHEDULE == 'true' }} # don't fail the workflow in case of schedule run
               timeout-minutes: 125
-              uses: ./.github/actions/aws-compute-ec2-single-region-cleanup
+              uses: ./.github/actions/aws-generic-single-region-cleanup
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -106,7 +106,7 @@ jobs:
               id: retry_delete_clusters
               if: steps.delete_clusters.outcome == 'failure' && env.IS_SCHEDULE == 'true'
               timeout-minutes: 125
-              uses: ./.github/actions/aws-compute-ec2-single-region-cleanup
+              uses: ./.github/actions/aws-generic-single-region-cleanup
               env:
                   RETRY_DESTROY: 'true' # trigger cloud nuke
               with:

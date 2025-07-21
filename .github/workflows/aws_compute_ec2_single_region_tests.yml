@@ -33,7 +33,7 @@ on:
 
 # pull_request:
 #     paths:
-#         - .github/actions/aws-compute-ec2-single-region-cleanup/**
+#         - .github/actions/aws-generic-single-region-cleanup/**
 #         - .github/actions/aws-compute-ec2-single-region-create/**
 #         - .github/actions/aws-configure-cli/**
 #         - .github/actions/internal-generic-terraform-outputs/**
@@ -301,7 +301,7 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
             - name: Delete on-demand Infrastructure
-              uses: ./.github/actions/aws-compute-ec2-single-region-cleanup
+              uses: ./.github/actions/aws-generic-single-region-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 125
               with:

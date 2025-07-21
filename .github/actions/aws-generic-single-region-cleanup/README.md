@@ -1,8 +1,12 @@
-# Delete AWS Compute EC2 Single Region States
+# Delete AWS Terraform States for Single Regions
 
 ## Description
 
-This GitHub Action automates the deletion of aws/compute/ec2-single-region reference architecture states using a shell script.
+This GitHub Action automates the deletion of any aws single-region reference architecture states using a shell script.
+For this it's using a generic dummy config.tf that is granted access to the TF state and then has auth to AWS to destroy all resources.
+## Notes
+Not yet dual-region compatible maybe with v6 and single provider declaration, otherwise needs both providers explicitly declared with their alias.
+Not yet Azure compatible with state on AWS. One could make it work as long as the Azure authentication is done prior and some provider specifics defined (subscription id).
 
 
 ## Inputs
@@ -24,7 +28,7 @@ This action is a `composite` action.
 ## Usage
 
 ```yaml
-- uses: camunda/camunda-deployment-references/.github/actions/aws-compute-ec2-single-region-cleanup@main
+- uses: camunda/camunda-deployment-references/.github/actions/aws-generic-single-region-cleanup@main
   with:
     tf-bucket:
     # Bucket containing the states states
