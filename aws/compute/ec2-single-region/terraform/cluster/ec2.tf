@@ -12,11 +12,11 @@ locals {
   }
   enable_jump_host = true
   # It's recommended to pin the AMI as otherwise it will result in recreations and wipe everything.
-  aws_ami = "" # If empty, the latest Debian 12 AMI will be used
+  aws_ami = "" # If empty, the latest filtered AMI will be used
 }
 resource "aws_instance" "camunda" {
   count         = local.instance_count
-  ami           = local.aws_ami == "" ? data.aws_ami.debian.id : local.aws_ami
+  ami           = local.aws_ami == "" ? data.aws_ami.ami.id : local.aws_ami
   instance_type = local.aws_instance_type[local.aws_instance_architecture]
   subnet_id     = module.vpc.private_subnets[count.index]
 
@@ -119,7 +119,7 @@ resource "aws_volume_attachment" "ebs_attachment" {
 resource "aws_instance" "bastion" {
   count = local.enable_jump_host ? 1 : 0
 
-  ami           = local.aws_ami == "" ? data.aws_ami.debian.id : local.aws_ami
+  ami           = local.aws_ami == "" ? data.aws_ami.ami.id : local.aws_ami
   instance_type = local.aws_instance_type_bastion[local.aws_instance_architecture]
   subnet_id     = module.vpc.public_subnets[0]
 
