@@ -16,17 +16,9 @@ func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Opt
 
 	alb := tfOutputs["alb_endpoint"].(string)
 
-	// Using the cookie of Operate for the v2 API is a workaround as v2 API is secured in single jar, even though there's no identity yet
-	// TODO: Remove workaround when proper identity is in place - related https://github.com/camunda/team-infrastructure-experience/issues/438
 	cmd := shell.Command{
 		Command: "curl",
-		Args:    []string{"-f", "--request", "POST", fmt.Sprintf("%s/api/login?username=demo&password=demo", alb), "--cookie-jar", "cookie.txt"},
-	}
-	shell.RunCommand(t, cmd)
-
-	cmd = shell.Command{
-		Command: "curl",
-		Args:    []string{"-f", "--cookie", "cookie.txt", fmt.Sprintf("%s/v2/topology", alb)},
+		Args:    []string{"-u", "demo:demo", fmt.Sprintf("%s/v2/topology", alb)},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -55,13 +47,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd := shell.Command{
 		Command: "curl",
-		Args:    []string{"-f", "--request", "POST", fmt.Sprintf("%s/api/login?username=demo&password=demo", alb), "--cookie-jar", "cookie.txt"},
-	}
-	shell.RunCommand(t, cmd)
-
-	cmd = shell.Command{
-		Command: "curl",
-		Args:    []string{"-f", "--cookie", "cookie.txt", "--form", "resources=@utils/single-task.bpmn", fmt.Sprintf("%s/v2/deployments", alb), "-H", "'Content-Type: multipart/form-data'", "-H", "'Accept: application/json'"},
+		Args:    []string{"-u", "demo:demo", "--form", "resources=@utils/single-task.bpmn", fmt.Sprintf("%s/v2/deployments", alb), "-H", "'Content-Type: multipart/form-data'", "-H", "'Accept: application/json'"},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -76,7 +62,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd = shell.Command{
 		Command: "curl",
-		Args:    []string{"-f", "--cookie", "cookie.txt", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json", "--data-raw", fmt.Sprintf("{\"processDefinitionKey\":\"%d\"}", processDefinitionKey)},
+		Args:    []string{"-u", "demo:demo", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json", "--data-raw", fmt.Sprintf("{\"processDefinitionKey\":\"%d\"}", processDefinitionKey)},
 	}
 	shell.RunCommand(t, cmd)
 
@@ -85,7 +71,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd = shell.Command{
 		Command: "curl",
-		Args:    []string{"-f", "--cookie", "cookie.txt", "-L", "-X", "POST", fmt.Sprintf("%s/v2/resources/%d/deletion", alb, processDefinitionKey)},
+		Args:    []string{"-u", "demo:demo", "-L", "-X", "POST", fmt.Sprintf("%s/v2/resources/%d/deletion", alb, processDefinitionKey)},
 	}
 	shell.RunCommand(t, cmd)
 }
