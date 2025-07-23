@@ -16,7 +16,6 @@ ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_CONNECT_TYPE="opensearch"
 ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_CONNECT_CREATESCHEMA="true"
 ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_CONNECT_CLUSTERNAME="opensearch"
 ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_CREATESCHEMA="true"
-# TODO: Recheck those, why not application defaults?
 ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_HISTORY_ELSROLLOVERDATEFORMAT=date
 ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_HISTORY_ROLLOVERINTERVAL=1d
 ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_HISTORY_ROLLOVERBATCHSIZE=100
@@ -31,7 +30,7 @@ CAMUNDA_REST_QUERY_ENABLED=true
 CAMUNDA_PERSISTENT_SESSIONS_ENABLED=true
 
 # Temporary Workaround as HA sessions were broken due to API incompatibility of old and new
-# TODO: Undocumented configuration option, should be removed once the issue is resolved
+# TODO: Undocumented configuration option, should be removed with 8.8.0-alpha7
 CAMUNDA_SECURITY_CSRF_ENABLED=false
 
 JAVA_TOOL_OPTIONS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/opt/camunda/camunda/logs -XX:ErrorFile=/opt/camunda/camunda/logs/zeebe_error%p.log -XX:+ExitOnOutOfMemoryError"
