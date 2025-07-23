@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/gruntwork-io/terratest/modules/shell"
 	"github.com/gruntwork-io/terratest/modules/terraform"
@@ -53,11 +54,13 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	deployments := gjson.Get(output, "deployments").Array()
 	resourceName := gjson.Get(output, "deployments.0.processDefinition.resourceName").String()
+	processDefinitionId := gjson.Get(output, "deployments.0.processDefinition.processDefinitionId").String()
 	tenantId := gjson.Get(output, "deployments.0.processDefinition.tenantId").String()
 	processDefinitionKey := gjson.Get(output, "deployments.0.processDefinition.processDefinitionKey").Int()
 
 	require.Equal(t, 1, len(deployments), "Expected 1 deployment, got %d", len(deployments))
 	require.Equal(t, "single-task.bpmn", resourceName, "Expected 'single-task.bpmn', got %s", resourceName)
+	require.Equal(t, "bigVarProcess", processDefinitionId, "Expected processDefinitionId 'bigVarProcess', got %s", processDefinitionId)
 	require.Equal(t, "<default>", tenantId, "Expected '<default>', got %s", tenantId)
 
 	cmd = shell.Command{
@@ -66,8 +69,18 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 	}
 	shell.RunCommand(t, cmd)
 
-	// TODO: in the future when other REST APIs are available we could check that those have been deployed / run etc.
-	// atm still limited to v1 API
+	// Wait for the process instance to be committed
+	time.Sleep(10 * time.Second)
+
+	cmd = shell.Command{
+		Command: "curl",
+		Args:    []string{"-u", "demo:demo", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances/search", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json"},
+	}
+	output = shell.RunCommandAndGetStdOut(t, cmd)
+
+	items := gjson.Get(output, "items").Array()
+	require.Equal(t, 1, len(items), "Expected 1 process instance, got %d", len(items))
+	require.Equal(t, processDefinitionId, items[0].Get("processDefinitionId").String(), "Expected processDefinitionId %d, got %s", processDefinitionId, items[0].Get("processDefinitionId").String())
 
 	cmd = shell.Command{
 		Command: "curl",
