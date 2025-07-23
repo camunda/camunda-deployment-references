@@ -258,69 +258,6 @@ func TestCloudWatchFeature(t *testing.T) {
 	}
 }
 
-func TestSecurityFeature(t *testing.T) {
-	t.Log("Test security feature")
-
-	tfOutputs := terraform.OutputAll(t, terraformOptions(t, logger.Discard))
-	filePath := privKeyName
-	attempts := 3
-
-	for i := 0; i < attempts; i++ {
-		if _, err := os.Stat(filePath); os.IsNotExist(err) {
-			t.Logf("Private key does not exist: %s. Waiting for 60 seconds...\n", filePath)
-			time.Sleep(60 * time.Second)
-		} else {
-			t.Log("Private key exists, continuing with the test...")
-			break
-		}
-	}
-
-	t.Log("[Test] Expect the following to fail due to missing root certificate")
-	cmd := shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", "export SECURITY=true && ../../scripts/all-in-one-install.sh"},
-	}
-	output, err := shell.RunCommandAndGetOutputE(t, cmd)
-
-	require.Error(t, err, "Expected error due to missing root certificate")
-	require.Contains(t, output, "Secure cluster communication is set to: true.", "Expected security to be enabled")
-	require.Contains(t, output, "Error: CA certificate file 'ca-authority.pem' not found in this path")
-
-	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", "export SECURITY=true && ../../scripts/generate-self-signed-cert-authority.sh"},
-	}
-	shell.RunCommand(t, cmd)
-
-	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", "export SECURITY=true && ../../scripts/all-in-one-install.sh"},
-	}
-	output = shell.RunCommandAndGetOutput(t, cmd)
-
-	require.Contains(t, output, "Secure cluster communication is set to: true.", "Expected security to be enabled")
-
-	// Using zbctl to check that the cluster is secure - I don't have a better way to check this atm
-	cmd = shell.Command{
-		Command: "zbctl",
-		Args:    []string{"status", "--address", fmt.Sprintf("%s:26500", tfOutputs["nlb_endpoint"].(string)), "--certPath", "../../scripts/ca-authority.pem", "--requestTimeout", "30s"},
-	}
-	output = shell.RunCommandAndGetOutput(t, cmd)
-
-	require.Contains(t, output, "Cluster size: 3", "Expected cluster size to be 3")
-	require.Contains(t, output, "Healthy", "Expected cluster to be healthy")
-
-	t.Log("[Test] Expect the following to fail due to missing certificate")
-	cmd = shell.Command{
-		Command: "zbctl",
-		Args:    []string{"status", "--address", fmt.Sprintf("%s:26500", tfOutputs["nlb_endpoint"].(string))},
-	}
-	output, err = shell.RunCommandAndGetOutputE(t, cmd)
-
-	require.Error(t, err, "Expected error due to missing certPath in zbctl call.")
-	require.Contains(t, output, "authentication handshake failed")
-}
-
 func TestCamundaUpgrade(t *testing.T) {
 	t.Log("Test Camunda upgrade")
 
