@@ -30,10 +30,3 @@ echo "[INFO] Configuring the environment variables for cluster communication, ex
     echo "CAMUNDA_TASKLIST_IMPORTERENABLED=\"false\""
     echo "CAMUNDA_TASKLIST_ARCHIVERENABLED=\"false\""
 } >> "${CURRENT_DIR}/camunda-environment.tmp"
-
-if [[ $SECURITY == 'false' ]]; then
-  echo "[INFO] Configuring Connectors to use plain text communication."
-  {
-    echo "ZEEBE_CLIENT_SECURITY_PLAINTEXT=\"true\""
-  } >> "${CURRENT_DIR}/connectors-environment.tmp"
-fi
