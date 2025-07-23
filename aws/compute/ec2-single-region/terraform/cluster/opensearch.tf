@@ -1,5 +1,5 @@
 locals {
-  opensearch_domain_name    = "${var.prefix}-os-cluster"
+  opensearch_domain_name    = substr("${var.prefix}-os", 0, 28) # OpenSearch domain name must be <= 28 characters
   opensearch_enable_logging = false
   opensearch_enable         = true
   opensearch_architecture   = "x86_64" # Default architecture, can be overridden by the user
