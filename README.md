@@ -17,6 +17,8 @@ The reference architecture implementations are intended for two main use cases:
 
 **⚠️ Warning:** This project is intended for demonstration and learning purposes only. It is not recommended for production use. There are no guarantees or warranties provided, and certain Terraform configuration warnings from Trivy have been deliberately ignored. For more details, see the [.trivyignore](./.lint/trivy/.trivyignore) file in the repository root.
 
+TODO: I'm a dummy check, remove me
+
 ## Structure
 
 The repository is organized into different cloud providers (`aws`, `azure`, `general`) and internal reusable modules (`modules`) that are associated with each cloud provider.
