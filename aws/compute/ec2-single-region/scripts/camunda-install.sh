@@ -18,9 +18,9 @@ USERNAME=${USERNAME:-"camunda"}
 JAVA_OPTS="${JAVA_OPTS:- -Xmx512m}" # Default Java options, required to run commands as remote user
 VERSION=""
 
-# Check that the operating system is Debian
-if ! grep -q "ID=debian" /etc/os-release; then
-    echo "[FAIL] The operating system is not Debian."
+# Check that the operating system is Debian-based
+if ! grep -qE "ID=(debian|ubuntu)" /etc/os-release && ! grep -q "ID_LIKE=.*debian" /etc/os-release; then
+    echo "[FAIL] The operating system is not Debian-based."
     exit 1
 fi
 

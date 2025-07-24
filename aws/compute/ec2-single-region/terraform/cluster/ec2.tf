@@ -1,5 +1,5 @@
 locals {
-  camunda_extra_disk_name   = "/dev/sdb"
+  camunda_extra_disk_name   = "/dev/sdf"
   instance_count            = 3 # Number of EC2 instances for Camunda to run
   aws_instance_architecture = "x86_64"
   aws_instance_type = {
@@ -12,11 +12,11 @@ locals {
   }
   enable_jump_host = true
   # It's recommended to pin the AMI as otherwise it will result in recreations and wipe everything.
-  aws_ami = "" # If empty, the latest Debian 12 AMI will be used
+  aws_ami = "" # If empty, the latest filtered AMI will be used
 }
 resource "aws_instance" "camunda" {
   count         = local.instance_count
-  ami           = local.aws_ami == "" ? data.aws_ami.debian.id : local.aws_ami
+  ami           = local.aws_ami == "" ? data.aws_ami.ami.id : local.aws_ami
   instance_type = local.aws_instance_type[local.aws_instance_architecture]
   subnet_id     = module.vpc.private_subnets[count.index]
 
@@ -48,23 +48,29 @@ resource "aws_instance" "camunda" {
     # Retry mechanism to wait for the volume to be attached
 
     device_name="${local.camunda_extra_disk_name}"
+    actual_device="/dev/nvme1n1"
     mount_point="/opt/camunda"
+    admin_user="ubuntu"
     retries=10
 
     # Wait for the device to be attached
     while [ $retries -gt 0 ]; do
-      if lsblk $device_name; then
+      if lsblk $actual_device 2>/dev/null || lsblk $device_name 2>/dev/null; then
+        # Use the actual device that exists
+        if lsblk $actual_device 2>/dev/null; then
+          device_name=$actual_device
+        fi
         echo "Device $device_name found"
         break
       else
-        echo "Waiting for $device_name to be attached..."
+        echo "Waiting for device to be attached..."
         sleep 10
         retries=$((retries - 1))
       fi
     done
 
     if [ $retries -eq 0 ]; then
-      echo "Error: $device_name not found after waiting"
+      echo "Error: Device not found after waiting"
       exit 1
     fi
 
@@ -79,11 +85,11 @@ resource "aws_instance" "camunda" {
 
       # Add the device to /etc/fstab to persist the mount on restart
       output=$(lsblk $device_name -o +UUID)
-      uuid=$(echo "$output" | awk '/nvme1n1/ {print $NF}')
+      uuid=$(echo "$output" | tail -n 1 | awk '{print $NF}')
       echo "UUID=$uuid $mount_point ext4 defaults,nofail 0 2" >> /etc/fstab
       systemctl daemon-reload
     fi
-    chown admin:admin $mount_point
+    chown $admin_user:$admin_user $mount_point
   EOF
 
   tags = {
@@ -119,7 +125,7 @@ resource "aws_volume_attachment" "ebs_attachment" {
 resource "aws_instance" "bastion" {
   count = local.enable_jump_host ? 1 : 0
 
-  ami           = local.aws_ami == "" ? data.aws_ami.debian.id : local.aws_ami
+  ami           = local.aws_ami == "" ? data.aws_ami.ami.id : local.aws_ami
   instance_type = local.aws_instance_type_bastion[local.aws_instance_architecture]
   subnet_id     = module.vpc.public_subnets[0]
 
