@@ -258,7 +258,7 @@
           "Name": "camunda-instance-0"
         },
         "timeouts": null,
-        "user_data": "5cce79b8ce1a4d1a2b657b355a19e7bd2a69790c",
+        "user_data": "c8ed5f8d3039f33b3122966d98974ad2fb02e20e",
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
@@ -322,7 +322,7 @@
           "Name": "camunda-instance-1"
         },
         "timeouts": null,
-        "user_data": "5cce79b8ce1a4d1a2b657b355a19e7bd2a69790c",
+        "user_data": "c8ed5f8d3039f33b3122966d98974ad2fb02e20e",
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
@@ -386,7 +386,7 @@
           "Name": "camunda-instance-2"
         },
         "timeouts": null,
-        "user_data": "5cce79b8ce1a4d1a2b657b355a19e7bd2a69790c",
+        "user_data": "c8ed5f8d3039f33b3122966d98974ad2fb02e20e",
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
