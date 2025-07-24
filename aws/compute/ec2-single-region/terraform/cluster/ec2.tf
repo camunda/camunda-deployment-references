@@ -1,5 +1,5 @@
 locals {
-  camunda_extra_disk_name   = "/dev/sdb"
+  camunda_extra_disk_name   = "/dev/sdf"
   instance_count            = 3 # Number of EC2 instances for Camunda to run
   aws_instance_architecture = "x86_64"
   aws_instance_type = {
@@ -48,23 +48,28 @@ resource "aws_instance" "camunda" {
     # Retry mechanism to wait for the volume to be attached
 
     device_name="${local.camunda_extra_disk_name}"
+    actual_device="/dev/nvme1n1"
     mount_point="/opt/camunda"
     retries=10
 
     # Wait for the device to be attached
     while [ $retries -gt 0 ]; do
-      if lsblk $device_name; then
+      if lsblk $actual_device 2>/dev/null || lsblk $device_name 2>/dev/null; then
+        # Use the actual device that exists
+        if lsblk $actual_device 2>/dev/null; then
+          device_name=$actual_device
+        fi
         echo "Device $device_name found"
         break
       else
-        echo "Waiting for $device_name to be attached..."
+        echo "Waiting for device to be attached..."
         sleep 10
         retries=$((retries - 1))
       fi
     done
 
     if [ $retries -eq 0 ]; then
-      echo "Error: $device_name not found after waiting"
+      echo "Error: Device not found after waiting"
       exit 1
     fi
 
@@ -79,11 +84,11 @@ resource "aws_instance" "camunda" {
 
       # Add the device to /etc/fstab to persist the mount on restart
       output=$(lsblk $device_name -o +UUID)
-      uuid=$(echo "$output" | awk '/nvme1n1/ {print $NF}')
+      uuid=$(echo "$output" | tail -n 1 | awk '{print $NF}')
       echo "UUID=$uuid $mount_point ext4 defaults,nofail 0 2" >> /etc/fstab
       systemctl daemon-reload
     fi
-    chown admin:admin $mount_point
+    chown ubuntu:ubuntu $mount_point
   EOF
 
   tags = {
