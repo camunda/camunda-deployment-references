@@ -258,7 +258,7 @@
           "Name": "camunda-instance-0"
         },
         "timeouts": null,
-        "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
+        "user_data": "5cce79b8ce1a4d1a2b657b355a19e7bd2a69790c",
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
@@ -322,7 +322,7 @@
           "Name": "camunda-instance-1"
         },
         "timeouts": null,
-        "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
+        "user_data": "5cce79b8ce1a4d1a2b657b355a19e7bd2a69790c",
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
@@ -386,7 +386,7 @@
           "Name": "camunda-instance-2"
         },
         "timeouts": null,
-        "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
+        "user_data": "5cce79b8ce1a4d1a2b657b355a19e7bd2a69790c",
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
@@ -1610,7 +1610,7 @@
       "sensitive_values": {},
       "type": "aws_volume_attachment",
       "values": {
-        "device_name": "/dev/sdb",
+        "device_name": "/dev/sdf",
         "force_detach": null,
         "skip_destroy": null,
         "stop_instance_before_detaching": null,
@@ -1626,7 +1626,7 @@
       "sensitive_values": {},
       "type": "aws_volume_attachment",
       "values": {
-        "device_name": "/dev/sdb",
+        "device_name": "/dev/sdf",
         "force_detach": null,
         "skip_destroy": null,
         "stop_instance_before_detaching": null,
@@ -1642,7 +1642,7 @@
       "sensitive_values": {},
       "type": "aws_volume_attachment",
       "values": {
-        "device_name": "/dev/sdb",
+        "device_name": "/dev/sdf",
         "force_detach": null,
         "skip_destroy": null,
         "stop_instance_before_detaching": null,
