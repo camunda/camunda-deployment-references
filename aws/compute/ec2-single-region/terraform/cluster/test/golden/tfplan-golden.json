@@ -1693,7 +1693,7 @@
       "sensitive_values": {},
       "type": "aws_volume_attachment",
       "values": {
-        "device_name": "/dev/sdb",
+        "device_name": "/dev/sdf",
         "force_detach": null,
         "region": "eu-west-2",
         "skip_destroy": null,
@@ -1710,7 +1710,7 @@
       "sensitive_values": {},
       "type": "aws_volume_attachment",
       "values": {
-        "device_name": "/dev/sdb",
+        "device_name": "/dev/sdf",
         "force_detach": null,
         "region": "eu-west-2",
         "skip_destroy": null,
@@ -1727,7 +1727,7 @@
       "sensitive_values": {},
       "type": "aws_volume_attachment",
       "values": {
-        "device_name": "/dev/sdb",
+        "device_name": "/dev/sdf",
         "force_detach": null,
         "region": "eu-west-2",
         "skip_destroy": null,
