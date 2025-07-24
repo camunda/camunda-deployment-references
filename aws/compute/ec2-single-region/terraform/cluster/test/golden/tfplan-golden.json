@@ -1665,7 +1665,7 @@
             "custom_key_store_id": null,
             "customer_master_key_spec": "SYMMETRIC_DEFAULT",
             "deletion_window_in_days": 7,
-            "description": "camunda-os-cluster-key",
+            "description": "camunda-os-key",
             "enable_key_rotation": true,
             "is_enabled": true,
             "key_usage": "ENCRYPT_DECRYPT",
@@ -1803,7 +1803,7 @@
                 "tls_security_policy": "Policy-Min-TLS-1-2-2019-07"
               }
             ],
-            "domain_name": "camunda-os-cluster",
+            "domain_name": "camunda-os",
             "ebs_options": [
               {
                 "ebs_enabled": true,
@@ -1864,8 +1864,8 @@
           },
           "type": "aws_security_group",
           "values": {
-            "description": "Security group managing access to camunda-os-cluster",
-            "name": "camunda-os-cluster-allow-all-internal-access",
+            "description": "Security group managing access to camunda-os",
+            "name": "camunda-os-allow-all-internal-access",
             "revoke_rules_on_delete": false,
             "tags": null,
             "timeouts": null
