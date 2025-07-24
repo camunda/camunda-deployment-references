@@ -32,6 +32,10 @@ resource "aws_instance" "camunda" {
 
   key_name = aws_key_pair.main.key_name
 
+  # TODO: DELETE ME
+
+  # TODO DELETE ME
+
   # Contains the OS
   root_block_device {
     volume_size = 10
