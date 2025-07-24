@@ -50,6 +50,7 @@ resource "aws_instance" "camunda" {
     device_name="${local.camunda_extra_disk_name}"
     actual_device="/dev/nvme1n1"
     mount_point="/opt/camunda"
+    admin_user="ubuntu"
     retries=10
 
     # Wait for the device to be attached
@@ -88,7 +89,7 @@ resource "aws_instance" "camunda" {
       echo "UUID=$uuid $mount_point ext4 defaults,nofail 0 2" >> /etc/fstab
       systemctl daemon-reload
     fi
-    chown ubuntu:ubuntu $mount_point
+    chown $admin_user:$admin_user $mount_point
   EOF
 
   tags = {
