@@ -852,7 +852,7 @@ jobs:
     report-success:
         name: Report success
         runs-on: ubuntu-latest
-        if: success()
+        if: needs.cleanup-clusters.result == 'success'
         needs:
             - integration-tests
             - cleanup-clusters
