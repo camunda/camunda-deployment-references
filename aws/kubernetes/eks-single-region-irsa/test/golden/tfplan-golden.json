@@ -5,6 +5,11 @@
         "module.eks_cluster.module.cert_manager_role": {
           "resources": {
             "module.eks_cluster.module.cert_manager_role.aws_iam_role.this[0]": {
+              "identity": {
+                "account_id": null,
+                "name": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -27,6 +32,12 @@
               }
             },
             "module.eks_cluster.module.cert_manager_role.aws_iam_role_policy_attachment.this[\"policy\"]": {
+              "identity": {
+                "account_id": null,
+                "policy_arn": null,
+                "role": null
+              },
+              "identity_schema_version": 0,
               "index": "policy",
               "mode": "managed",
               "name": "this",
@@ -123,6 +134,11 @@
         "module.eks_cluster.module.ebs_cs_role": {
           "resources": {
             "module.eks_cluster.module.ebs_cs_role.aws_iam_role.this[0]": {
+              "identity": {
+                "account_id": null,
+                "name": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -145,6 +161,12 @@
               }
             },
             "module.eks_cluster.module.ebs_cs_role.aws_iam_role_policy_attachment.this[\"policy\"]": {
+              "identity": {
+                "account_id": null,
+                "policy_arn": null,
+                "role": null
+              },
+              "identity_schema_version": 0,
               "index": "policy",
               "mode": "managed",
               "name": "this",
@@ -157,6 +179,12 @@
               }
             },
             "module.eks_cluster.module.ebs_cs_role.aws_iam_role_policy_attachment.this[\"policy_2\"]": {
+              "identity": {
+                "account_id": null,
+                "policy_arn": null,
+                "role": null
+              },
+              "identity_schema_version": 0,
               "index": "policy_2",
               "mode": "managed",
               "name": "this",
@@ -292,6 +320,8 @@
                     "labels": null,
                     "launch_template": [],
                     "node_group_name": "services",
+                    "region": "eu-west-2",
+                    "release_version": "1.33.0-20250715",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -307,11 +337,7 @@
                       "Name": "services"
                     },
                     "taint": [],
-                    "timeouts": {
-                      "create": null,
-                      "delete": null,
-                      "update": null
-                    },
+                    "timeouts": null,
                     "update_config": [
                       {
                         "max_unavailable": 1,
@@ -322,6 +348,11 @@
                   }
                 },
                 "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role.this[0]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 0,
                   "mode": "managed",
                   "name": "this",
@@ -345,6 +376,12 @@
                   }
                 },
                 "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role_policy_attachment.this[\"AmazonEC2ContainerRegistryReadOnly\"]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": "AmazonEC2ContainerRegistryReadOnly",
                   "mode": "managed",
                   "name": "this",
@@ -357,6 +394,12 @@
                   }
                 },
                 "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role_policy_attachment.this[\"AmazonEKSWorkerNodePolicy\"]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": "AmazonEKSWorkerNodePolicy",
                   "mode": "managed",
                   "name": "this",
@@ -369,6 +412,12 @@
                   }
                 },
                 "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role_policy_attachment.this[\"AmazonEKS_CNI_Policy\"]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": "AmazonEKS_CNI_Policy",
                   "mode": "managed",
                   "name": "this",
@@ -393,7 +442,8 @@
                   "sensitive_values": {},
                   "type": "aws_kms_alias",
                   "values": {
-                    "name": "alias/eks/cluster-name-irsa"
+                    "name": "alias/eks/cluster-name-irsa",
+                    "region": "eu-west-2"
                   }
                 },
                 "module.eks_cluster.module.eks.module.kms.aws_kms_key.this[0]": {
@@ -417,6 +467,7 @@
                     "is_enabled": true,
                     "key_usage": "ENCRYPT_DECRYPT",
                     "multi_region": false,
+                    "region": "eu-west-2",
                     "tags": {
                       "terraform-aws-modules": "eks"
                     },
@@ -624,6 +675,7 @@
               "values": {
                 "kms_key_id": null,
                 "name": "/aws/eks/cluster-name-irsa/cluster",
+                "region": "eu-west-2",
                 "retention_in_days": 90,
                 "skip_destroy": false,
                 "tags": {
@@ -647,6 +699,7 @@
               "type": "aws_eks_access_entry",
               "values": {
                 "principal_arn": "ARN_REDACTED",
+                "region": "eu-west-2",
                 "tags": null,
                 "timeouts": null,
                 "type": "STANDARD"
@@ -673,6 +726,7 @@
                 ],
                 "policy_arn": "ARN_REDACTED",
                 "principal_arn": "ARN_REDACTED",
+                "region": "eu-west-2",
                 "timeouts": null
               }
             },
@@ -692,9 +746,37 @@
                 "addon_name": "aws-ebs-csi-driver",
                 "pod_identity_association": [],
                 "preserve": true,
-                "resolve_conflicts": null,
+                "region": "eu-west-2",
                 "resolve_conflicts_on_create": "OVERWRITE",
                 "resolve_conflicts_on_update": "OVERWRITE",
+                "tags": null,
+                "timeouts": {
+                  "create": null,
+                  "delete": null,
+                  "update": null
+                }
+              }
+            },
+            "module.eks_cluster.module.eks.aws_eks_addon.before_compute[\"vpc-cni\"]": {
+              "index": "vpc-cni",
+              "mode": "managed",
+              "name": "before_compute",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {
+                "pod_identity_association": [],
+                "tags_all": {},
+                "timeouts": {}
+              },
+              "type": "aws_eks_addon",
+              "values": {
+                "addon_name": "vpc-cni",
+                "pod_identity_association": [],
+                "preserve": true,
+                "region": "eu-west-2",
+                "resolve_conflicts_on_create": "OVERWRITE",
+                "resolve_conflicts_on_update": "OVERWRITE",
+                "service_account_role_arn": null,
                 "tags": null,
                 "timeouts": {
                   "create": null,
@@ -719,7 +801,7 @@
                 "addon_name": "coredns",
                 "pod_identity_association": [],
                 "preserve": true,
-                "resolve_conflicts": null,
+                "region": "eu-west-2",
                 "resolve_conflicts_on_create": "OVERWRITE",
                 "resolve_conflicts_on_update": "OVERWRITE",
                 "service_account_role_arn": null,
@@ -747,35 +829,7 @@
                 "addon_name": "kube-proxy",
                 "pod_identity_association": [],
                 "preserve": true,
-                "resolve_conflicts": null,
-                "resolve_conflicts_on_create": "OVERWRITE",
-                "resolve_conflicts_on_update": "OVERWRITE",
-                "service_account_role_arn": null,
-                "tags": null,
-                "timeouts": {
-                  "create": null,
-                  "delete": null,
-                  "update": null
-                }
-              }
-            },
-            "module.eks_cluster.module.eks.aws_eks_addon.this[\"vpc-cni\"]": {
-              "index": "vpc-cni",
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "pod_identity_association": [],
-                "tags_all": {},
-                "timeouts": {}
-              },
-              "type": "aws_eks_addon",
-              "values": {
-                "addon_name": "vpc-cni",
-                "pod_identity_association": [],
-                "preserve": true,
-                "resolve_conflicts": null,
+                "region": "eu-west-2",
                 "resolve_conflicts_on_create": "OVERWRITE",
                 "resolve_conflicts_on_update": "OVERWRITE",
                 "service_account_role_arn": null,
@@ -825,7 +879,6 @@
                 "storage_config": [],
                 "tags": {},
                 "tags_all": {},
-                "timeouts": {},
                 "upgrade_policy": [],
                 "vpc_config": [
                   {
@@ -846,7 +899,7 @@
                     "bootstrap_cluster_creator_admin_permissions": false
                   }
                 ],
-                "bootstrap_self_managed_addons": true,
+                "bootstrap_self_managed_addons": false,
                 "compute_config": [],
                 "enabled_cluster_log_types": [
                   "api",
@@ -872,6 +925,7 @@
                 ],
                 "name": "cluster-name-irsa",
                 "outpost_config": [],
+                "region": "eu-west-2",
                 "remote_network_config": [],
                 "storage_config": [],
                 "tags": {
@@ -880,11 +934,7 @@
                 "tags_all": {
                   "terraform-aws-modules": "eks"
                 },
-                "timeouts": {
-                  "create": null,
-                  "delete": null,
-                  "update": null
-                },
+                "timeouts": null,
                 "version": "1.33",
                 "vpc_config": [
                   {
@@ -899,6 +949,10 @@
               }
             },
             "module.eks_cluster.module.eks.aws_iam_openid_connect_provider.oidc_provider[0]": {
+              "identity": {
+                "arn": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "oidc_provider",
@@ -926,6 +980,10 @@
               }
             },
             "module.eks_cluster.module.eks.aws_iam_policy.cluster_encryption[0]": {
+              "identity": {
+                "arn": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "cluster_encryption",
@@ -943,6 +1001,10 @@
               }
             },
             "module.eks_cluster.module.eks.aws_iam_policy.custom[0]": {
+              "identity": {
+                "arn": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "custom",
@@ -961,6 +1023,11 @@
               }
             },
             "module.eks_cluster.module.eks.aws_iam_role.this[0]": {
+              "identity": {
+                "account_id": null,
+                "name": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -984,6 +1051,12 @@
               }
             },
             "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.additional[\"AmazonEC2ContainerRegistryReadOnly\"]": {
+              "identity": {
+                "account_id": null,
+                "policy_arn": null,
+                "role": null
+              },
+              "identity_schema_version": 0,
               "index": "AmazonEC2ContainerRegistryReadOnly",
               "mode": "managed",
               "name": "additional",
@@ -997,6 +1070,12 @@
               }
             },
             "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.cluster_encryption[0]": {
+              "identity": {
+                "account_id": null,
+                "policy_arn": null,
+                "role": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "cluster_encryption",
@@ -1009,6 +1088,12 @@
               }
             },
             "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.custom[0]": {
+              "identity": {
+                "account_id": null,
+                "policy_arn": null,
+                "role": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "custom",
@@ -1021,20 +1106,13 @@
               }
             },
             "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.this[\"AmazonEKSClusterPolicy\"]": {
+              "identity": {
+                "account_id": null,
+                "policy_arn": null,
+                "role": null
+              },
+              "identity_schema_version": 0,
               "index": "AmazonEKSClusterPolicy",
-              "mode": "managed",
-              "name": "this",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_iam_role_policy_attachment",
-              "values": {
-                "policy_arn": "ARN_REDACTED",
-                "role": "cluster-name-irsa-eks-iam-role"
-              }
-            },
-            "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.this[\"AmazonEKSVPCResourceController\"]": {
-              "index": "AmazonEKSVPCResourceController",
               "mode": "managed",
               "name": "this",
               "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1062,6 +1140,7 @@
               "values": {
                 "description": "EKS cluster security group",
                 "name_prefix": "cluster-name-irsa-cluster-",
+                "region": "eu-west-2",
                 "revoke_rules_on_delete": false,
                 "tags": {
                   "Name": "cluster-name-irsa-cluster"
@@ -1088,6 +1167,7 @@
               "values": {
                 "description": "EKS node shared security group",
                 "name_prefix": "cluster-name-irsa-eks-node-sg-",
+                "region": "eu-west-2",
                 "revoke_rules_on_delete": false,
                 "tags": {
                   "Name": "cluster-name-irsa-eks-node-sg",
@@ -1115,6 +1195,7 @@
                 "ipv6_cidr_blocks": null,
                 "prefix_list_ids": null,
                 "protocol": "tcp",
+                "region": "eu-west-2",
                 "self": false,
                 "timeouts": null,
                 "to_port": 65535,
@@ -1136,6 +1217,7 @@
                 "ipv6_cidr_blocks": null,
                 "prefix_list_ids": null,
                 "protocol": "tcp",
+                "region": "eu-west-2",
                 "self": false,
                 "timeouts": null,
                 "to_port": 443,
@@ -1154,8 +1236,7 @@
                 ],
                 "ipv6_cidr_blocks": [
                   false
-                ],
-                "prefix_list_ids": []
+                ]
               },
               "type": "aws_security_group_rule",
               "values": {
@@ -1167,8 +1248,9 @@
                 "ipv6_cidr_blocks": [
                   "::/0"
                 ],
-                "prefix_list_ids": [],
+                "prefix_list_ids": null,
                 "protocol": "-1",
+                "region": "eu-west-2",
                 "self": false,
                 "timeouts": null,
                 "to_port": 0,
@@ -1181,17 +1263,16 @@
               "name": "node",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 2,
-              "sensitive_values": {
-                "prefix_list_ids": []
-              },
+              "sensitive_values": {},
               "type": "aws_security_group_rule",
               "values": {
                 "cidr_blocks": null,
                 "description": "Cluster API to node groups",
                 "from_port": 443,
                 "ipv6_cidr_blocks": null,
-                "prefix_list_ids": [],
+                "prefix_list_ids": null,
                 "protocol": "tcp",
+                "region": "eu-west-2",
                 "self": false,
                 "timeouts": null,
                 "to_port": 443,
@@ -1204,17 +1285,16 @@
               "name": "node",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 2,
-              "sensitive_values": {
-                "prefix_list_ids": []
-              },
+              "sensitive_values": {},
               "type": "aws_security_group_rule",
               "values": {
                 "cidr_blocks": null,
                 "description": "Cluster API to node 4443/tcp webhook",
                 "from_port": 4443,
                 "ipv6_cidr_blocks": null,
-                "prefix_list_ids": [],
+                "prefix_list_ids": null,
                 "protocol": "tcp",
+                "region": "eu-west-2",
                 "self": false,
                 "timeouts": null,
                 "to_port": 4443,
@@ -1227,17 +1307,16 @@
               "name": "node",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 2,
-              "sensitive_values": {
-                "prefix_list_ids": []
-              },
+              "sensitive_values": {},
               "type": "aws_security_group_rule",
               "values": {
                 "cidr_blocks": null,
                 "description": "Cluster API to node 6443/tcp webhook",
                 "from_port": 6443,
                 "ipv6_cidr_blocks": null,
-                "prefix_list_ids": [],
+                "prefix_list_ids": null,
                 "protocol": "tcp",
+                "region": "eu-west-2",
                 "self": false,
                 "timeouts": null,
                 "to_port": 6443,
@@ -1250,17 +1329,16 @@
               "name": "node",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 2,
-              "sensitive_values": {
-                "prefix_list_ids": []
-              },
+              "sensitive_values": {},
               "type": "aws_security_group_rule",
               "values": {
                 "cidr_blocks": null,
                 "description": "Cluster API to node 8443/tcp webhook",
                 "from_port": 8443,
                 "ipv6_cidr_blocks": null,
-                "prefix_list_ids": [],
+                "prefix_list_ids": null,
                 "protocol": "tcp",
+                "region": "eu-west-2",
                 "self": false,
                 "timeouts": null,
                 "to_port": 8443,
@@ -1273,17 +1351,16 @@
               "name": "node",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 2,
-              "sensitive_values": {
-                "prefix_list_ids": []
-              },
+              "sensitive_values": {},
               "type": "aws_security_group_rule",
               "values": {
                 "cidr_blocks": null,
                 "description": "Cluster API to node 9443/tcp webhook",
                 "from_port": 9443,
                 "ipv6_cidr_blocks": null,
-                "prefix_list_ids": [],
+                "prefix_list_ids": null,
                 "protocol": "tcp",
+                "region": "eu-west-2",
                 "self": false,
                 "timeouts": null,
                 "to_port": 9443,
@@ -1296,17 +1373,16 @@
               "name": "node",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 2,
-              "sensitive_values": {
-                "prefix_list_ids": []
-              },
+              "sensitive_values": {},
               "type": "aws_security_group_rule",
               "values": {
                 "cidr_blocks": null,
                 "description": "Cluster API to node kubelets",
                 "from_port": 10250,
                 "ipv6_cidr_blocks": null,
-                "prefix_list_ids": [],
+                "prefix_list_ids": null,
                 "protocol": "tcp",
+                "region": "eu-west-2",
                 "self": false,
                 "timeouts": null,
                 "to_port": 10250,
@@ -1319,17 +1395,16 @@
               "name": "node",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 2,
-              "sensitive_values": {
-                "prefix_list_ids": []
-              },
+              "sensitive_values": {},
               "type": "aws_security_group_rule",
               "values": {
                 "cidr_blocks": null,
                 "description": "Node to node ingress on ephemeral ports",
                 "from_port": 1025,
                 "ipv6_cidr_blocks": null,
-                "prefix_list_ids": [],
+                "prefix_list_ids": null,
                 "protocol": "tcp",
+                "region": "eu-west-2",
                 "self": true,
                 "timeouts": null,
                 "to_port": 65535,
@@ -1342,17 +1417,16 @@
               "name": "node",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 2,
-              "sensitive_values": {
-                "prefix_list_ids": []
-              },
+              "sensitive_values": {},
               "type": "aws_security_group_rule",
               "values": {
                 "cidr_blocks": null,
                 "description": "Node to node all ports/protocols",
                 "from_port": 0,
                 "ipv6_cidr_blocks": null,
-                "prefix_list_ids": [],
+                "prefix_list_ids": null,
                 "protocol": "-1",
+                "region": "eu-west-2",
                 "self": true,
                 "timeouts": null,
                 "to_port": 0,
@@ -1365,17 +1439,16 @@
               "name": "node",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 2,
-              "sensitive_values": {
-                "prefix_list_ids": []
-              },
+              "sensitive_values": {},
               "type": "aws_security_group_rule",
               "values": {
                 "cidr_blocks": null,
                 "description": "Node to node CoreDNS",
                 "from_port": 53,
                 "ipv6_cidr_blocks": null,
-                "prefix_list_ids": [],
+                "prefix_list_ids": null,
                 "protocol": "tcp",
+                "region": "eu-west-2",
                 "self": true,
                 "timeouts": null,
                 "to_port": 53,
@@ -1388,17 +1461,16 @@
               "name": "node",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 2,
-              "sensitive_values": {
-                "prefix_list_ids": []
-              },
+              "sensitive_values": {},
               "type": "aws_security_group_rule",
               "values": {
                 "cidr_blocks": null,
                 "description": "Node to node CoreDNS UDP",
                 "from_port": 53,
                 "ipv6_cidr_blocks": null,
-                "prefix_list_ids": [],
+                "prefix_list_ids": null,
                 "protocol": "udp",
+                "region": "eu-west-2",
                 "self": true,
                 "timeouts": null,
                 "to_port": 53,
@@ -1490,7 +1562,7 @@
                 "create_duration": "30s",
                 "destroy_duration": null,
                 "triggers": {
-                  "cluster_version": "1.33"
+                  "kubernetes_version": "1.33"
                 }
               }
             }
@@ -1499,6 +1571,11 @@
         "module.eks_cluster.module.external_dns_role": {
           "resources": {
             "module.eks_cluster.module.external_dns_role.aws_iam_role.this[0]": {
+              "identity": {
+                "account_id": null,
+                "name": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -1521,6 +1598,12 @@
               }
             },
             "module.eks_cluster.module.external_dns_role.aws_iam_role_policy_attachment.this[\"policy\"]": {
+              "identity": {
+                "account_id": null,
+                "policy_arn": null,
+                "role": null
+              },
+              "identity_schema_version": 0,
               "index": "policy",
               "mode": "managed",
               "name": "this",
@@ -1684,6 +1767,7 @@
                     "to_port": 0
                   }
                 ],
+                "region": "eu-west-2",
                 "subnet_ids": null,
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-default"
@@ -1708,6 +1792,7 @@
               "type": "aws_default_route_table",
               "values": {
                 "propagating_vgws": null,
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-default"
                 },
@@ -1727,53 +1812,14 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 1,
               "sensitive_values": {
-                "egress": [
-                  {
-                    "cidr_blocks": [],
-                    "ipv6_cidr_blocks": [],
-                    "prefix_list_ids": [],
-                    "security_groups": []
-                  }
-                ],
-                "ingress": [
-                  {
-                    "cidr_blocks": [],
-                    "ipv6_cidr_blocks": [],
-                    "prefix_list_ids": [],
-                    "security_groups": []
-                  }
-                ],
+                "egress": [],
+                "ingress": [],
                 "tags": {},
                 "tags_all": {}
               },
               "type": "aws_default_security_group",
               "values": {
-                "egress": [
-                  {
-                    "cidr_blocks": [],
-                    "description": "cluster-name-irsa-vpc default SG Egress",
-                    "from_port": 0,
-                    "ipv6_cidr_blocks": [],
-                    "prefix_list_ids": [],
-                    "protocol": "-1",
-                    "security_groups": [],
-                    "self": false,
-                    "to_port": 0
-                  }
-                ],
-                "ingress": [
-                  {
-                    "cidr_blocks": [],
-                    "description": "cluster-name-irsa-vpc default SG Ingress",
-                    "from_port": 0,
-                    "ipv6_cidr_blocks": [],
-                    "prefix_list_ids": [],
-                    "protocol": "-1",
-                    "security_groups": [],
-                    "self": false,
-                    "to_port": 0
-                  }
-                ],
+                "region": "eu-west-2",
                 "revoke_rules_on_delete": false,
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-default"
@@ -1799,6 +1845,7 @@
                 "associate_with_private_ip": null,
                 "customer_owned_ipv4_pool": null,
                 "domain": "vpc",
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-eu-west-2a"
                 },
@@ -1824,6 +1871,7 @@
                 "associate_with_private_ip": null,
                 "customer_owned_ipv4_pool": null,
                 "domain": "vpc",
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-eu-west-2b"
                 },
@@ -1849,6 +1897,7 @@
                 "associate_with_private_ip": null,
                 "customer_owned_ipv4_pool": null,
                 "domain": "vpc",
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-eu-west-2c"
                 },
@@ -1870,6 +1919,7 @@
               },
               "type": "aws_internet_gateway",
               "values": {
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc"
                 },
@@ -1893,6 +1943,7 @@
               "type": "aws_nat_gateway",
               "values": {
                 "connectivity_type": "public",
+                "region": "eu-west-2",
                 "secondary_allocation_ids": null,
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-eu-west-2a"
@@ -1917,6 +1968,7 @@
               "type": "aws_nat_gateway",
               "values": {
                 "connectivity_type": "public",
+                "region": "eu-west-2",
                 "secondary_allocation_ids": null,
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-eu-west-2b"
@@ -1941,6 +1993,7 @@
               "type": "aws_nat_gateway",
               "values": {
                 "connectivity_type": "public",
+                "region": "eu-west-2",
                 "secondary_allocation_ids": null,
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-eu-west-2c"
@@ -1970,6 +2023,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "region": "eu-west-2",
                 "timeouts": {
                   "create": "5m",
                   "delete": null,
@@ -1999,6 +2053,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "region": "eu-west-2",
                 "timeouts": {
                   "create": "5m",
                   "delete": null,
@@ -2028,6 +2083,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "region": "eu-west-2",
                 "timeouts": {
                   "create": "5m",
                   "delete": null,
@@ -2057,6 +2113,7 @@
                 "egress_only_gateway_id": null,
                 "local_gateway_id": null,
                 "nat_gateway_id": null,
+                "region": "eu-west-2",
                 "timeouts": {
                   "create": "5m",
                   "delete": null,
@@ -2081,6 +2138,7 @@
               },
               "type": "aws_route_table",
               "values": {
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-private-eu-west-2a"
                 },
@@ -2104,6 +2162,7 @@
               },
               "type": "aws_route_table",
               "values": {
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-private-eu-west-2b"
                 },
@@ -2127,6 +2186,7 @@
               },
               "type": "aws_route_table",
               "values": {
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-private-eu-west-2c"
                 },
@@ -2150,6 +2210,7 @@
               },
               "type": "aws_route_table",
               "values": {
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-public"
                 },
@@ -2169,6 +2230,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "eu-west-2",
                 "timeouts": null
               }
             },
@@ -2182,6 +2244,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "eu-west-2",
                 "timeouts": null
               }
             },
@@ -2195,6 +2258,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "eu-west-2",
                 "timeouts": null
               }
             },
@@ -2208,6 +2272,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "eu-west-2",
                 "timeouts": null
               }
             },
@@ -2221,6 +2286,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "eu-west-2",
                 "timeouts": null
               }
             },
@@ -2234,6 +2300,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "eu-west-2",
                 "timeouts": null
               }
             },
@@ -2262,6 +2329,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-private-eu-west-2a",
                   "kubernetes.io/role/internal-elb": "1"
@@ -2298,6 +2366,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-private-eu-west-2b",
                   "kubernetes.io/role/internal-elb": "1"
@@ -2334,6 +2403,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-private-eu-west-2c",
                   "kubernetes.io/role/internal-elb": "1"
@@ -2370,6 +2440,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-public-eu-west-2a",
                   "kubernetes.io/role/elb": "1"
@@ -2406,6 +2477,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-public-eu-west-2b",
                   "kubernetes.io/role/elb": "1"
@@ -2442,6 +2514,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc-public-eu-west-2c",
                   "kubernetes.io/role/elb": "1"
@@ -2474,6 +2547,7 @@
                 "ipv4_netmask_length": null,
                 "ipv6_ipam_pool_id": null,
                 "ipv6_netmask_length": null,
+                "region": "eu-west-2",
                 "tags": {
                   "Name": "cluster-name-irsa-vpc"
                 },
@@ -2487,6 +2561,10 @@
       },
       "resources": {
         "module.eks_cluster.aws_iam_policy.cert_manager_policy": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "cert_manager_policy",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2504,6 +2582,10 @@
           }
         },
         "module.eks_cluster.aws_iam_policy.ebs_sc_access": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "ebs_sc_access",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2520,6 +2602,10 @@
           }
         },
         "module.eks_cluster.aws_iam_policy.ebs_sc_access_2": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "ebs_sc_access_2",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2537,6 +2623,10 @@
           }
         },
         "module.eks_cluster.aws_iam_policy.eks_admin_policy": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "eks_admin_policy",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2554,6 +2644,10 @@
           }
         },
         "module.eks_cluster.aws_iam_policy.external_dns_policy": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "external_dns_policy",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2588,6 +2682,7 @@
             "enable_key_rotation": true,
             "is_enabled": true,
             "key_usage": "ENCRYPT_DECRYPT",
+            "region": "eu-west-2",
             "tags": null,
             "timeouts": null,
             "xks_key_id": null
@@ -2607,6 +2702,7 @@
             "ipv6_cidr_blocks": null,
             "prefix_list_ids": null,
             "protocol": "tcp",
+            "region": "eu-west-2",
             "self": false,
             "timeouts": null,
             "to_port": 65535,
@@ -2673,6 +2769,10 @@
     "module.opensearch_domain": {
       "resources": {
         "module.opensearch_domain.aws_iam_policy.access_policies[\"OpenSearchRole-domain-name-os-irsa\"]": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
           "index": "OpenSearchRole-domain-name-os-irsa",
           "mode": "managed",
           "name": "access_policies",
@@ -2691,6 +2791,11 @@
           }
         },
         "module.opensearch_domain.aws_iam_role.roles[\"OpenSearchRole-domain-name-os-irsa\"]": {
+          "identity": {
+            "account_id": null,
+            "name": null
+          },
+          "identity_schema_version": 0,
           "index": "OpenSearchRole-domain-name-os-irsa",
           "mode": "managed",
           "name": "roles",
@@ -2713,6 +2818,12 @@
           }
         },
         "module.opensearch_domain.aws_iam_role_policy_attachment.attach_policies[\"OpenSearchRole-domain-name-os-irsa\"]": {
+          "identity": {
+            "account_id": null,
+            "policy_arn": null,
+            "role": null
+          },
+          "identity_schema_version": 0,
           "index": "OpenSearchRole-domain-name-os-irsa",
           "mode": "managed",
           "name": "attach_policies",
@@ -2742,6 +2853,7 @@
             "enable_key_rotation": true,
             "is_enabled": true,
             "key_usage": "ENCRYPT_DECRYPT",
+            "region": "eu-west-2",
             "tags": null,
             "timeouts": null,
             "xks_key_id": null
@@ -2904,6 +3016,7 @@
                 "enabled": true
               }
             ],
+            "region": "eu-west-2",
             "snapshot_options": [
               {
                 "automated_snapshot_start_hour": 0
@@ -2939,6 +3052,7 @@
           "values": {
             "description": "Security group managing access to domain-name-os-irsa",
             "name": "domain-name-os-irsa-allow-all-internal-access",
+            "region": "eu-west-2",
             "revoke_rules_on_delete": false,
             "tags": null,
             "timeouts": null
@@ -2974,6 +3088,7 @@
             "ipv6_cidr_blocks": null,
             "prefix_list_ids": null,
             "protocol": "-1",
+            "region": "eu-west-2",
             "self": false,
             "timeouts": null,
             "to_port": 0,
@@ -3010,6 +3125,7 @@
             "ipv6_cidr_blocks": null,
             "prefix_list_ids": null,
             "protocol": "tcp",
+            "region": "eu-west-2",
             "self": false,
             "timeouts": null,
             "to_port": 443,
@@ -3034,10 +3150,15 @@
           "values": {
             "description": "For Aurora cluster cluster-name-pg-irsa",
             "name": "cluster-name-pg-irsa",
+            "region": "eu-west-2",
             "tags": null
           }
         },
         "module.postgresql.aws_iam_policy.access_policies[\"AuroraRole-Identity-cluster-name-pg-irsa\"]": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
           "index": "AuroraRole-Identity-cluster-name-pg-irsa",
           "mode": "managed",
           "name": "access_policies",
@@ -3056,6 +3177,10 @@
           }
         },
         "module.postgresql.aws_iam_policy.access_policies[\"AuroraRole-Keycloak-cluster-name-pg-irsa\"]": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
           "index": "AuroraRole-Keycloak-cluster-name-pg-irsa",
           "mode": "managed",
           "name": "access_policies",
@@ -3074,6 +3199,10 @@
           }
         },
         "module.postgresql.aws_iam_policy.access_policies[\"AuroraRole-Webmodeler-cluster-name-pg-irsa\"]": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
           "index": "AuroraRole-Webmodeler-cluster-name-pg-irsa",
           "mode": "managed",
           "name": "access_policies",
@@ -3092,6 +3221,11 @@
           }
         },
         "module.postgresql.aws_iam_role.roles[\"AuroraRole-Identity-cluster-name-pg-irsa\"]": {
+          "identity": {
+            "account_id": null,
+            "name": null
+          },
+          "identity_schema_version": 0,
           "index": "AuroraRole-Identity-cluster-name-pg-irsa",
           "mode": "managed",
           "name": "roles",
@@ -3114,6 +3248,11 @@
           }
         },
         "module.postgresql.aws_iam_role.roles[\"AuroraRole-Keycloak-cluster-name-pg-irsa\"]": {
+          "identity": {
+            "account_id": null,
+            "name": null
+          },
+          "identity_schema_version": 0,
           "index": "AuroraRole-Keycloak-cluster-name-pg-irsa",
           "mode": "managed",
           "name": "roles",
@@ -3136,6 +3275,11 @@
           }
         },
         "module.postgresql.aws_iam_role.roles[\"AuroraRole-Webmodeler-cluster-name-pg-irsa\"]": {
+          "identity": {
+            "account_id": null,
+            "name": null
+          },
+          "identity_schema_version": 0,
           "index": "AuroraRole-Webmodeler-cluster-name-pg-irsa",
           "mode": "managed",
           "name": "roles",
@@ -3158,6 +3302,12 @@
           }
         },
         "module.postgresql.aws_iam_role_policy_attachment.attach_policies[\"AuroraRole-Identity-cluster-name-pg-irsa\"]": {
+          "identity": {
+            "account_id": null,
+            "policy_arn": null,
+            "role": null
+          },
+          "identity_schema_version": 0,
           "index": "AuroraRole-Identity-cluster-name-pg-irsa",
           "mode": "managed",
           "name": "attach_policies",
@@ -3170,6 +3320,12 @@
           }
         },
         "module.postgresql.aws_iam_role_policy_attachment.attach_policies[\"AuroraRole-Keycloak-cluster-name-pg-irsa\"]": {
+          "identity": {
+            "account_id": null,
+            "policy_arn": null,
+            "role": null
+          },
+          "identity_schema_version": 0,
           "index": "AuroraRole-Keycloak-cluster-name-pg-irsa",
           "mode": "managed",
           "name": "attach_policies",
@@ -3182,6 +3338,12 @@
           }
         },
         "module.postgresql.aws_iam_role_policy_attachment.attach_policies[\"AuroraRole-Webmodeler-cluster-name-pg-irsa\"]": {
+          "identity": {
+            "account_id": null,
+            "policy_arn": null,
+            "role": null
+          },
+          "identity_schema_version": 0,
           "index": "AuroraRole-Webmodeler-cluster-name-pg-irsa",
           "mode": "managed",
           "name": "attach_policies",
@@ -3211,6 +3373,7 @@
             "enable_key_rotation": true,
             "is_enabled": true,
             "key_usage": "ENCRYPT_DECRYPT",
+            "region": "eu-west-2",
             "tags": null,
             "timeouts": null,
             "xks_key_id": null
@@ -3277,6 +3440,7 @@
             "master_password_wo_version": null,
             "master_username": "secret_user",
             "performance_insights_enabled": null,
+            "region": "eu-west-2",
             "replication_source_identifier": null,
             "restore_to_point_in_time": [],
             "s3_import": [],
@@ -3315,6 +3479,7 @@
             "instance_class": "db.t3.medium",
             "monitoring_interval": 0,
             "promotion_tier": 0,
+            "region": "eu-west-2",
             "tags": null,
             "timeouts": null
           }
@@ -3333,6 +3498,7 @@
           "values": {
             "description": "Security group managing access to cluster-name-pg-irsa",
             "name": "cluster-name-pg-irsa-allow-all-internal-access",
+            "region": "eu-west-2",
             "revoke_rules_on_delete": false,
             "tags": null,
             "timeouts": null
@@ -3368,6 +3534,7 @@
             "ipv6_cidr_blocks": null,
             "prefix_list_ids": null,
             "protocol": "-1",
+            "region": "eu-west-2",
             "self": false,
             "timeouts": null,
             "to_port": 0,
@@ -3404,6 +3571,7 @@
             "ipv6_cidr_blocks": null,
             "prefix_list_ids": null,
             "protocol": "tcp",
+            "region": "eu-west-2",
             "self": false,
             "timeouts": null,
             "to_port": 5432,
