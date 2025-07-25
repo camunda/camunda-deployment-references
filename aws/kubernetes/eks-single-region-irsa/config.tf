@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.6.0"
 
   # You can override the backend configuration; this is  given as an example.
   backend "s3" {
