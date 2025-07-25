@@ -14,22 +14,22 @@ module "eks" {
   addons = {
     coredns = {
       most_recent                 = true
-      resolve_conflicts           = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
       resolve_conflicts_on_create = "OVERWRITE"
     }
     kube-proxy = {
       most_recent                 = true
-      resolve_conflicts           = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
       resolve_conflicts_on_create = "OVERWRITE"
     }
     vpc-cni = {
       most_recent                 = true
-      resolve_conflicts           = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
       resolve_conflicts_on_create = "OVERWRITE"
     }
     aws-ebs-csi-driver = {
       most_recent                 = true
-      resolve_conflicts           = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
       resolve_conflicts_on_create = "OVERWRITE"
 
       before_compute           = true
