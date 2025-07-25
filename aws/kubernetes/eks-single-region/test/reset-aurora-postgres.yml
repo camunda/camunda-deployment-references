@@ -31,7 +31,7 @@ spec:
                           -c "\l"
 
                         psql -h $AURORA_ENDPOINT -p $AURORA_PORT "sslmode=require dbname=postgres user=$AURORA_USERNAME password=$AURORA_PASSWORD" \
-                          -c "SELECT datname FROM pg_database WHERE datname NOT IN ('template0', 'template1', 'rdsadmin', 'postgres');" | while read dbname; do
+                          -t -c "SELECT datname FROM pg_database WHERE datname NOT IN ('template0', 'template1', 'rdsadmin', 'postgres');" | while read dbname; do
                             if [ -n "$dbname" ]; then
                               echo "Dropping database: $dbname"
                               psql -h $AURORA_ENDPOINT -p $AURORA_PORT "sslmode=require dbname=postgres user=$AURORA_USERNAME password=$AURORA_PASSWORD" \
