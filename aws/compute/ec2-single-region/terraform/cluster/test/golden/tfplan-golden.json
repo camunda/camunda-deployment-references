@@ -17,6 +17,7 @@
         "final_snapshot": false,
         "multi_attach_enabled": null,
         "outpost_arn": null,
+        "region": "eu-west-2",
         "size": 50,
         "tags": {
           "Name": "camunda-extra-volume-0"
@@ -45,6 +46,7 @@
         "final_snapshot": false,
         "multi_attach_enabled": null,
         "outpost_arn": null,
+        "region": "eu-west-2",
         "size": 50,
         "tags": {
           "Name": "camunda-extra-volume-1"
@@ -73,6 +75,7 @@
         "final_snapshot": false,
         "multi_attach_enabled": null,
         "outpost_arn": null,
+        "region": "eu-west-2",
         "size": 50,
         "tags": {
           "Name": "camunda-extra-volume-2"
@@ -101,6 +104,10 @@
       }
     },
     "aws_iam_policy.cloudwatch_policy": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "cloudwatch_policy",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -118,6 +125,11 @@
       }
     },
     "aws_iam_role.cloudwatch": {
+      "identity": {
+        "account_id": null,
+        "name": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "cloudwatch",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -140,6 +152,12 @@
       }
     },
     "aws_iam_role_policy_attachment.cloudwatch_policy_attachment": {
+      "identity": {
+        "account_id": null,
+        "policy_arn": null,
+        "role": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "cloudwatch_policy_attachment",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -155,7 +173,7 @@
       "mode": "managed",
       "name": "bastion",
       "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
+      "schema_version": 2,
       "sensitive_values": {
         "capacity_reservation_specification": [],
         "cpu_options": [],
@@ -187,6 +205,7 @@
         "instance_type": "t3.nano",
         "key_name": "camunda-auth-key",
         "launch_template": [],
+        "region": "eu-west-2",
         "source_dest_check": true,
         "tags": {
           "Name": "camunda-bastion"
@@ -195,6 +214,7 @@
           "Name": "camunda-bastion"
         },
         "timeouts": null,
+        "user_data": null,
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
@@ -204,7 +224,7 @@
       "mode": "managed",
       "name": "camunda",
       "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
+      "schema_version": 2,
       "sensitive_values": {
         "capacity_reservation_specification": [],
         "cpu_options": [],
@@ -241,6 +261,7 @@
         "instance_type": "m7i.xlarge",
         "key_name": "camunda-auth-key",
         "launch_template": [],
+        "region": "eu-west-2",
         "root_block_device": [
           {
             "delete_on_termination": true,
@@ -258,7 +279,7 @@
           "Name": "camunda-instance-0"
         },
         "timeouts": null,
-        "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
+        "user_data": "#!/bin/bash\n# Retry mechanism to wait for the volume to be attached\n\ndevice_name=\"/dev/sdb\"\nmount_point=\"/opt/camunda\"\nretries=10\n\n# Wait for the device to be attached\nwhile [ $retries -gt 0 ]; do\n  if lsblk $device_name; then\n    echo \"Device $device_name found\"\n    break\n  else\n    echo \"Waiting for $device_name to be attached...\"\n    sleep 10\n    retries=$((retries - 1))\n  fi\ndone\n\nif [ $retries -eq 0 ]; then\n  echo \"Error: $device_name not found after waiting\"\n  exit 1\nfi\n\n# Check if the device is already mounted\nif ! mount | grep $mount_point > /dev/null; then\n  # Check if the filesystem exists\n  if ! file -s -L $device_name | grep ext4 > /dev/null; then\n    mkfs -t ext4 $device_name\n  fi\n  mkdir -p $mount_point\n  mount $device_name $mount_point\n\n  # Add the device to /etc/fstab to persist the mount on restart\n  output=$(lsblk $device_name -o +UUID)\n  uuid=$(echo \"$output\" | awk '/nvme1n1/ {print $NF}')\n  echo \"UUID=$uuid $mount_point ext4 defaults,nofail 0 2\" >> /etc/fstab\n  systemctl daemon-reload\nfi\nchown admin:admin $mount_point\n",
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
@@ -268,7 +289,7 @@
       "mode": "managed",
       "name": "camunda",
       "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
+      "schema_version": 2,
       "sensitive_values": {
         "capacity_reservation_specification": [],
         "cpu_options": [],
@@ -305,6 +326,7 @@
         "instance_type": "m7i.xlarge",
         "key_name": "camunda-auth-key",
         "launch_template": [],
+        "region": "eu-west-2",
         "root_block_device": [
           {
             "delete_on_termination": true,
@@ -322,7 +344,7 @@
           "Name": "camunda-instance-1"
         },
         "timeouts": null,
-        "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
+        "user_data": "#!/bin/bash\n# Retry mechanism to wait for the volume to be attached\n\ndevice_name=\"/dev/sdb\"\nmount_point=\"/opt/camunda\"\nretries=10\n\n# Wait for the device to be attached\nwhile [ $retries -gt 0 ]; do\n  if lsblk $device_name; then\n    echo \"Device $device_name found\"\n    break\n  else\n    echo \"Waiting for $device_name to be attached...\"\n    sleep 10\n    retries=$((retries - 1))\n  fi\ndone\n\nif [ $retries -eq 0 ]; then\n  echo \"Error: $device_name not found after waiting\"\n  exit 1\nfi\n\n# Check if the device is already mounted\nif ! mount | grep $mount_point > /dev/null; then\n  # Check if the filesystem exists\n  if ! file -s -L $device_name | grep ext4 > /dev/null; then\n    mkfs -t ext4 $device_name\n  fi\n  mkdir -p $mount_point\n  mount $device_name $mount_point\n\n  # Add the device to /etc/fstab to persist the mount on restart\n  output=$(lsblk $device_name -o +UUID)\n  uuid=$(echo \"$output\" | awk '/nvme1n1/ {print $NF}')\n  echo \"UUID=$uuid $mount_point ext4 defaults,nofail 0 2\" >> /etc/fstab\n  systemctl daemon-reload\nfi\nchown admin:admin $mount_point\n",
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
@@ -332,7 +354,7 @@
       "mode": "managed",
       "name": "camunda",
       "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
+      "schema_version": 2,
       "sensitive_values": {
         "capacity_reservation_specification": [],
         "cpu_options": [],
@@ -369,6 +391,7 @@
         "instance_type": "m7i.xlarge",
         "key_name": "camunda-auth-key",
         "launch_template": [],
+        "region": "eu-west-2",
         "root_block_device": [
           {
             "delete_on_termination": true,
@@ -386,7 +409,7 @@
           "Name": "camunda-instance-2"
         },
         "timeouts": null,
-        "user_data": "792b0b7fec59ecb3611c494cead934f472d61785",
+        "user_data": "#!/bin/bash\n# Retry mechanism to wait for the volume to be attached\n\ndevice_name=\"/dev/sdb\"\nmount_point=\"/opt/camunda\"\nretries=10\n\n# Wait for the device to be attached\nwhile [ $retries -gt 0 ]; do\n  if lsblk $device_name; then\n    echo \"Device $device_name found\"\n    break\n  else\n    echo \"Waiting for $device_name to be attached...\"\n    sleep 10\n    retries=$((retries - 1))\n  fi\ndone\n\nif [ $retries -eq 0 ]; then\n  echo \"Error: $device_name not found after waiting\"\n  exit 1\nfi\n\n# Check if the device is already mounted\nif ! mount | grep $mount_point > /dev/null; then\n  # Check if the filesystem exists\n  if ! file -s -L $device_name | grep ext4 > /dev/null; then\n    mkfs -t ext4 $device_name\n  fi\n  mkdir -p $mount_point\n  mount $device_name $mount_point\n\n  # Add the device to /etc/fstab to persist the mount on restart\n  output=$(lsblk $device_name -o +UUID)\n  uuid=$(echo \"$output\" | awk '/nvme1n1/ {print $NF}')\n  echo \"UUID=$uuid $mount_point ext4 defaults,nofail 0 2\" >> /etc/fstab\n  systemctl daemon-reload\nfi\nchown admin:admin $mount_point\n",
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
@@ -402,6 +425,7 @@
       "type": "aws_key_pair",
       "values": {
         "key_name": "camunda-auth-key",
+        "region": "eu-west-2",
         "tags": null
       }
     },
@@ -423,12 +447,17 @@
         "enable_key_rotation": true,
         "is_enabled": true,
         "key_usage": "ENCRYPT_DECRYPT",
+        "region": "eu-west-2",
         "tags": null,
         "timeouts": null,
         "xks_key_id": null
       }
     },
     "aws_lb.grpc[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
       "index": 0,
       "mode": "managed",
       "name": "grpc",
@@ -465,12 +494,17 @@
         "minimum_load_balancer_capacity": [],
         "name": "camunda-nlb-grpc",
         "preserve_host_header": null,
+        "region": "eu-west-2",
         "tags": null,
         "timeouts": null,
         "xff_header_processing_mode": null
       }
     },
     "aws_lb.main[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
       "index": 0,
       "mode": "managed",
       "name": "main",
@@ -507,12 +541,17 @@
         "minimum_load_balancer_capacity": [],
         "name": "camunda-alb-webui",
         "preserve_host_header": false,
+        "region": "eu-west-2",
         "tags": null,
         "timeouts": null,
         "xff_header_processing_mode": "append"
       }
     },
     "aws_lb_listener.grpc[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
       "index": 0,
       "mode": "managed",
       "name": "grpc",
@@ -547,11 +586,16 @@
         ],
         "port": 26500,
         "protocol": "TCP",
+        "region": "eu-west-2",
         "tags": null,
         "timeouts": null
       }
     },
     "aws_lb_listener.http_connectors[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
       "index": 0,
       "mode": "managed",
       "name": "http_connectors",
@@ -586,11 +630,16 @@
         ],
         "port": 9090,
         "protocol": "HTTP",
+        "region": "eu-west-2",
         "tags": null,
         "timeouts": null
       }
     },
     "aws_lb_listener.http_webui[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
       "index": 0,
       "mode": "managed",
       "name": "http_webui",
@@ -625,11 +674,16 @@
         ],
         "port": 80,
         "protocol": "HTTP",
+        "region": "eu-west-2",
         "tags": null,
         "timeouts": null
       }
     },
     "aws_lb_target_group.connectors": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "connectors",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -665,12 +719,17 @@
         "port": 9090,
         "protocol": "HTTP",
         "proxy_protocol_v2": false,
+        "region": "eu-west-2",
         "slow_start": 0,
         "tags": null,
         "target_type": "instance"
       }
     },
     "aws_lb_target_group.grpc": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "grpc",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -705,12 +764,17 @@
         "port": 26500,
         "protocol": "TCP",
         "proxy_protocol_v2": false,
+        "region": "eu-west-2",
         "slow_start": 0,
         "tags": null,
         "target_type": "instance"
       }
     },
     "aws_lb_target_group.main": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "main",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -748,6 +812,7 @@
         "port": 8080,
         "protocol": "HTTP",
         "proxy_protocol_v2": false,
+        "region": "eu-west-2",
         "slow_start": 0,
         "stickiness": [
           {
@@ -771,7 +836,8 @@
       "type": "aws_lb_target_group_attachment",
       "values": {
         "availability_zone": null,
-        "port": 9090
+        "port": 9090,
+        "region": "eu-west-2"
       }
     },
     "aws_lb_target_group_attachment.connectors[\"1\"]": {
@@ -784,7 +850,8 @@
       "type": "aws_lb_target_group_attachment",
       "values": {
         "availability_zone": null,
-        "port": 9090
+        "port": 9090,
+        "region": "eu-west-2"
       }
     },
     "aws_lb_target_group_attachment.connectors[\"2\"]": {
@@ -797,7 +864,8 @@
       "type": "aws_lb_target_group_attachment",
       "values": {
         "availability_zone": null,
-        "port": 9090
+        "port": 9090,
+        "region": "eu-west-2"
       }
     },
     "aws_lb_target_group_attachment.grpc[\"0\"]": {
@@ -810,7 +878,8 @@
       "type": "aws_lb_target_group_attachment",
       "values": {
         "availability_zone": null,
-        "port": 26500
+        "port": 26500,
+        "region": "eu-west-2"
       }
     },
     "aws_lb_target_group_attachment.grpc[\"1\"]": {
@@ -823,7 +892,8 @@
       "type": "aws_lb_target_group_attachment",
       "values": {
         "availability_zone": null,
-        "port": 26500
+        "port": 26500,
+        "region": "eu-west-2"
       }
     },
     "aws_lb_target_group_attachment.grpc[\"2\"]": {
@@ -836,7 +906,8 @@
       "type": "aws_lb_target_group_attachment",
       "values": {
         "availability_zone": null,
-        "port": 26500
+        "port": 26500,
+        "region": "eu-west-2"
       }
     },
     "aws_lb_target_group_attachment.main[\"0\"]": {
@@ -849,7 +920,8 @@
       "type": "aws_lb_target_group_attachment",
       "values": {
         "availability_zone": null,
-        "port": 8080
+        "port": 8080,
+        "region": "eu-west-2"
       }
     },
     "aws_lb_target_group_attachment.main[\"1\"]": {
@@ -862,7 +934,8 @@
       "type": "aws_lb_target_group_attachment",
       "values": {
         "availability_zone": null,
-        "port": 8080
+        "port": 8080,
+        "region": "eu-west-2"
       }
     },
     "aws_lb_target_group_attachment.main[\"2\"]": {
@@ -875,7 +948,8 @@
       "type": "aws_lb_target_group_attachment",
       "values": {
         "availability_zone": null,
-        "port": 8080
+        "port": 8080,
+        "region": "eu-west-2"
       }
     },
     "aws_security_group.allow_necessary_camunda_ports_within_vpc": {
@@ -1235,6 +1309,7 @@
           }
         ],
         "name": "allow_necessary_camunda_ports_within_vpc",
+        "region": "eu-west-2",
         "revoke_rules_on_delete": false,
         "tags": {
           "Name": "allow_necessary_camunda_ports_within_vpc"
@@ -1305,6 +1380,7 @@
           }
         ],
         "name": "allow_package_80_443",
+        "region": "eu-west-2",
         "revoke_rules_on_delete": false,
         "tags": {
           "Name": "allow_package_80_443"
@@ -1420,6 +1496,7 @@
           }
         ],
         "name": "allow_remote_80_443",
+        "region": "eu-west-2",
         "revoke_rules_on_delete": false,
         "tags": {
           "Name": "allow_remote_80_443"
@@ -1493,6 +1570,7 @@
           }
         ],
         "name": "allow_remote_9090",
+        "region": "eu-west-2",
         "revoke_rules_on_delete": false,
         "tags": {
           "Name": "allow_remote_9090"
@@ -1542,6 +1620,7 @@
           }
         ],
         "name": "allow_remote_grpc",
+        "region": "eu-west-2",
         "revoke_rules_on_delete": false,
         "tags": {
           "Name": "allow_remote_grpc"
@@ -1591,6 +1670,7 @@
           }
         ],
         "name": "allow_ssh",
+        "region": "eu-west-2",
         "revoke_rules_on_delete": false,
         "tags": {
           "Name": "allow_ssh"
@@ -1612,6 +1692,7 @@
       "values": {
         "device_name": "/dev/sdb",
         "force_detach": null,
+        "region": "eu-west-2",
         "skip_destroy": null,
         "stop_instance_before_detaching": null,
         "timeouts": null
@@ -1628,6 +1709,7 @@
       "values": {
         "device_name": "/dev/sdb",
         "force_detach": null,
+        "region": "eu-west-2",
         "skip_destroy": null,
         "stop_instance_before_detaching": null,
         "timeouts": null
@@ -1644,6 +1726,7 @@
       "values": {
         "device_name": "/dev/sdb",
         "force_detach": null,
+        "region": "eu-west-2",
         "skip_destroy": null,
         "stop_instance_before_detaching": null,
         "timeouts": null
@@ -1669,6 +1752,7 @@
             "enable_key_rotation": true,
             "is_enabled": true,
             "key_usage": "ENCRYPT_DECRYPT",
+            "region": "eu-west-2",
             "tags": null,
             "timeouts": null,
             "xks_key_id": null
@@ -1831,6 +1915,7 @@
                 "enabled": true
               }
             ],
+            "region": "eu-west-2",
             "snapshot_options": [
               {
                 "automated_snapshot_start_hour": 0
@@ -1866,6 +1951,7 @@
           "values": {
             "description": "Security group managing access to camunda-os-cluster",
             "name": "camunda-os-cluster-allow-all-internal-access",
+            "region": "eu-west-2",
             "revoke_rules_on_delete": false,
             "tags": null,
             "timeouts": null
@@ -1895,6 +1981,7 @@
             "ipv6_cidr_blocks": null,
             "prefix_list_ids": null,
             "protocol": "-1",
+            "region": "eu-west-2",
             "self": false,
             "timeouts": null,
             "to_port": 0,
@@ -1925,6 +2012,7 @@
             "ipv6_cidr_blocks": null,
             "prefix_list_ids": null,
             "protocol": "tcp",
+            "region": "eu-west-2",
             "self": false,
             "timeouts": null,
             "to_port": 443,
@@ -2003,6 +2091,7 @@
                 "to_port": 0
               }
             ],
+            "region": "eu-west-2",
             "subnet_ids": null,
             "tags": {
               "Name": "camunda-vpc-default"
@@ -2027,6 +2116,7 @@
           "type": "aws_default_route_table",
           "values": {
             "propagating_vgws": null,
+            "region": "eu-west-2",
             "tags": {
               "Name": "camunda-vpc-default"
             },
@@ -2053,6 +2143,7 @@
           },
           "type": "aws_default_security_group",
           "values": {
+            "region": "eu-west-2",
             "revoke_rules_on_delete": false,
             "tags": {
               "Name": "camunda-vpc-default"
@@ -2078,6 +2169,7 @@
             "associate_with_private_ip": null,
             "customer_owned_ipv4_pool": null,
             "domain": "vpc",
+            "region": "eu-west-2",
             "tags": {
               "Name": "camunda-vpc-eu-west-2a"
             },
@@ -2099,6 +2191,7 @@
           },
           "type": "aws_internet_gateway",
           "values": {
+            "region": "eu-west-2",
             "tags": {
               "Name": "camunda-vpc"
             },
@@ -2122,6 +2215,7 @@
           "type": "aws_nat_gateway",
           "values": {
             "connectivity_type": "public",
+            "region": "eu-west-2",
             "secondary_allocation_ids": null,
             "tags": {
               "Name": "camunda-vpc-eu-west-2a"
@@ -2151,6 +2245,7 @@
             "egress_only_gateway_id": null,
             "gateway_id": null,
             "local_gateway_id": null,
+            "region": "eu-west-2",
             "timeouts": {
               "create": "5m",
               "delete": null,
@@ -2180,6 +2275,7 @@
             "egress_only_gateway_id": null,
             "local_gateway_id": null,
             "nat_gateway_id": null,
+            "region": "eu-west-2",
             "timeouts": {
               "create": "5m",
               "delete": null,
@@ -2204,6 +2300,7 @@
           },
           "type": "aws_route_table",
           "values": {
+            "region": "eu-west-2",
             "tags": {
               "Name": "camunda-vpc-private"
             },
@@ -2227,6 +2324,7 @@
           },
           "type": "aws_route_table",
           "values": {
+            "region": "eu-west-2",
             "tags": {
               "Name": "camunda-vpc-public"
             },
@@ -2246,6 +2344,7 @@
           "type": "aws_route_table_association",
           "values": {
             "gateway_id": null,
+            "region": "eu-west-2",
             "timeouts": null
           }
         },
@@ -2259,6 +2358,7 @@
           "type": "aws_route_table_association",
           "values": {
             "gateway_id": null,
+            "region": "eu-west-2",
             "timeouts": null
           }
         },
@@ -2272,6 +2372,7 @@
           "type": "aws_route_table_association",
           "values": {
             "gateway_id": null,
+            "region": "eu-west-2",
             "timeouts": null
           }
         },
@@ -2285,6 +2386,7 @@
           "type": "aws_route_table_association",
           "values": {
             "gateway_id": null,
+            "region": "eu-west-2",
             "timeouts": null
           }
         },
@@ -2298,6 +2400,7 @@
           "type": "aws_route_table_association",
           "values": {
             "gateway_id": null,
+            "region": "eu-west-2",
             "timeouts": null
           }
         },
@@ -2311,6 +2414,7 @@
           "type": "aws_route_table_association",
           "values": {
             "gateway_id": null,
+            "region": "eu-west-2",
             "timeouts": null
           }
         },
@@ -2339,6 +2443,7 @@
             "map_customer_owned_ip_on_launch": null,
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
+            "region": "eu-west-2",
             "tags": {
               "Name": "camunda-vpc-private-eu-west-2a"
             },
@@ -2373,6 +2478,7 @@
             "map_customer_owned_ip_on_launch": null,
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
+            "region": "eu-west-2",
             "tags": {
               "Name": "camunda-vpc-private-eu-west-2b"
             },
@@ -2407,6 +2513,7 @@
             "map_customer_owned_ip_on_launch": null,
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
+            "region": "eu-west-2",
             "tags": {
               "Name": "camunda-vpc-private-eu-west-2c"
             },
@@ -2441,6 +2548,7 @@
             "map_customer_owned_ip_on_launch": null,
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
+            "region": "eu-west-2",
             "tags": {
               "Name": "camunda-vpc-public-eu-west-2a"
             },
@@ -2475,6 +2583,7 @@
             "map_customer_owned_ip_on_launch": null,
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
+            "region": "eu-west-2",
             "tags": {
               "Name": "camunda-vpc-public-eu-west-2b"
             },
@@ -2509,6 +2618,7 @@
             "map_customer_owned_ip_on_launch": null,
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
+            "region": "eu-west-2",
             "tags": {
               "Name": "camunda-vpc-public-eu-west-2c"
             },
@@ -2539,6 +2649,7 @@
             "ipv4_netmask_length": null,
             "ipv6_ipam_pool_id": null,
             "ipv6_netmask_length": null,
+            "region": "eu-west-2",
             "tags": {
               "Name": "camunda-vpc"
             },
