@@ -41,6 +41,11 @@
             "module.rosa_cluster_1.module.rosa_hcp.module.account_iam_resources[0]": {
               "resources": {
                 "module.rosa_cluster_1.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role.account_role[0]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 0,
                   "mode": "managed",
                   "name": "account_role",
@@ -79,6 +84,11 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role.account_role[1]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 1,
                   "mode": "managed",
                   "name": "account_role",
@@ -117,6 +127,11 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role.account_role[2]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 2,
                   "mode": "managed",
                   "name": "account_role",
@@ -155,6 +170,12 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role_policy_attachment.account_role_policy_attachment[0]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 0,
                   "mode": "managed",
                   "name": "account_role_policy_attachment",
@@ -168,6 +189,12 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role_policy_attachment.account_role_policy_attachment[1]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 1,
                   "mode": "managed",
                   "name": "account_role_policy_attachment",
@@ -181,6 +208,12 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role_policy_attachment.account_role_policy_attachment[2]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 2,
                   "mode": "managed",
                   "name": "account_role_policy_attachment",
@@ -413,6 +446,10 @@
             "module.rosa_cluster_1.module.rosa_hcp.module.oidc_config_and_provider[0]": {
               "resources": {
                 "module.rosa_cluster_1.module.rosa_hcp.module.oidc_config_and_provider[0].aws_iam_openid_connect_provider.oidc_provider": {
+                  "identity": {
+                    "arn": null
+                  },
+                  "identity_schema_version": 0,
                   "mode": "managed",
                   "name": "oidc_provider",
                   "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -498,6 +535,11 @@
             "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0]": {
               "resources": {
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[0]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 0,
                   "mode": "managed",
                   "name": "operator_role",
@@ -536,6 +578,11 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[1]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 1,
                   "mode": "managed",
                   "name": "operator_role",
@@ -574,6 +621,11 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[2]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 2,
                   "mode": "managed",
                   "name": "operator_role",
@@ -612,6 +664,11 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[3]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 3,
                   "mode": "managed",
                   "name": "operator_role",
@@ -650,6 +707,11 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[4]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 4,
                   "mode": "managed",
                   "name": "operator_role",
@@ -688,6 +750,11 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[5]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 5,
                   "mode": "managed",
                   "name": "operator_role",
@@ -726,6 +793,11 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[6]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 6,
                   "mode": "managed",
                   "name": "operator_role",
@@ -764,6 +836,11 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[7]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 7,
                   "mode": "managed",
                   "name": "operator_role",
@@ -802,6 +879,12 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[0]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 0,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -815,6 +898,12 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[1]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 1,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -828,6 +917,12 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[2]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 2,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -841,6 +936,12 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[3]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 3,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -854,6 +955,12 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[4]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 4,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -867,6 +974,12 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[5]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 5,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -880,6 +993,12 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[6]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 6,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -893,6 +1012,12 @@
                   }
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[7]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 7,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -1740,6 +1865,7 @@
                 "associate_with_private_ip": null,
                 "customer_owned_ipv4_pool": null,
                 "domain": "vpc",
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-eip-us-east-1a"
                 },
@@ -1765,6 +1891,7 @@
                 "associate_with_private_ip": null,
                 "customer_owned_ipv4_pool": null,
                 "domain": "vpc",
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-eip-us-east-1b"
                 },
@@ -1790,6 +1917,7 @@
                 "associate_with_private_ip": null,
                 "customer_owned_ipv4_pool": null,
                 "domain": "vpc",
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-eip-us-east-1c"
                 },
@@ -1810,6 +1938,7 @@
               },
               "type": "aws_internet_gateway",
               "values": {
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-igw"
                 },
@@ -1833,6 +1962,7 @@
               "type": "aws_nat_gateway",
               "values": {
                 "connectivity_type": "public",
+                "region": "us-east-1",
                 "secondary_allocation_ids": null,
                 "tags": {
                   "Name": "cluster-region-1-nat-public0-us-east-1a"
@@ -1857,6 +1987,7 @@
               "type": "aws_nat_gateway",
               "values": {
                 "connectivity_type": "public",
+                "region": "us-east-1",
                 "secondary_allocation_ids": null,
                 "tags": {
                   "Name": "cluster-region-1-nat-public1-us-east-1b"
@@ -1881,6 +2012,7 @@
               "type": "aws_nat_gateway",
               "values": {
                 "connectivity_type": "public",
+                "region": "us-east-1",
                 "secondary_allocation_ids": null,
                 "tags": {
                   "Name": "cluster-region-1-nat-public2-us-east-1c"
@@ -1907,6 +2039,7 @@
                 "egress_only_gateway_id": null,
                 "local_gateway_id": null,
                 "nat_gateway_id": null,
+                "region": "us-east-1",
                 "timeouts": null,
                 "transit_gateway_id": null,
                 "vpc_endpoint_id": null,
@@ -1929,6 +2062,7 @@
                 "egress_only_gateway_id": null,
                 "local_gateway_id": null,
                 "nat_gateway_id": null,
+                "region": "us-east-1",
                 "timeouts": null,
                 "transit_gateway_id": null,
                 "vpc_endpoint_id": null,
@@ -1952,6 +2086,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "region": "us-east-1",
                 "timeouts": null,
                 "transit_gateway_id": null,
                 "vpc_endpoint_id": null,
@@ -1975,6 +2110,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "region": "us-east-1",
                 "timeouts": null,
                 "transit_gateway_id": null,
                 "vpc_endpoint_id": null,
@@ -1998,6 +2134,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "region": "us-east-1",
                 "timeouts": null,
                 "transit_gateway_id": null,
                 "vpc_endpoint_id": null,
@@ -2018,6 +2155,7 @@
               },
               "type": "aws_route_table",
               "values": {
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-rtb-private0-us-east-1a"
                 },
@@ -2041,6 +2179,7 @@
               },
               "type": "aws_route_table",
               "values": {
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-rtb-private1-us-east-1b"
                 },
@@ -2064,6 +2203,7 @@
               },
               "type": "aws_route_table",
               "values": {
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-rtb-private2-us-east-1c"
                 },
@@ -2086,6 +2226,7 @@
               },
               "type": "aws_route_table",
               "values": {
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-public"
                 },
@@ -2105,6 +2246,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "us-east-1",
                 "timeouts": null
               }
             },
@@ -2118,6 +2260,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "us-east-1",
                 "timeouts": null
               }
             },
@@ -2131,6 +2274,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "us-east-1",
                 "timeouts": null
               }
             },
@@ -2144,6 +2288,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "us-east-1",
                 "timeouts": null
               }
             },
@@ -2157,6 +2302,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "us-east-1",
                 "timeouts": null
               }
             },
@@ -2170,6 +2316,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "us-east-1",
                 "timeouts": null
               }
             },
@@ -2198,6 +2345,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-subnet-private1-us-east-1a",
                   "kubernetes.io/role/internal-elb": ""
@@ -2230,6 +2378,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-subnet-private2-us-east-1b",
                   "kubernetes.io/role/internal-elb": ""
@@ -2262,6 +2411,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-subnet-private3-us-east-1c",
                   "kubernetes.io/role/internal-elb": ""
@@ -2294,6 +2444,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-subnet-public1-us-east-1a",
                   "kubernetes.io/role/elb": ""
@@ -2326,6 +2477,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-subnet-public2-us-east-1b",
                   "kubernetes.io/role/elb": ""
@@ -2358,6 +2510,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-subnet-public3-us-east-1c",
                   "kubernetes.io/role/elb": ""
@@ -2385,6 +2538,7 @@
                 "ipv4_netmask_length": null,
                 "ipv6_ipam_pool_id": null,
                 "ipv6_netmask_length": null,
+                "region": "us-east-1",
                 "tags": {
                   "Name": "cluster-region-1-vpc"
                 },
@@ -2412,6 +2566,7 @@
               "type": "aws_vpc_endpoint",
               "values": {
                 "auto_accept": null,
+                "region": "us-east-1",
                 "resource_configuration_arn": null,
                 "service_name": "com.amazonaws.us-east-1.s3",
                 "service_network_arn": null,
@@ -2427,7 +2582,10 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
-              "type": "aws_vpc_endpoint_route_table_association"
+              "type": "aws_vpc_endpoint_route_table_association",
+              "values": {
+                "region": "us-east-1"
+              }
             },
             "module.rosa_cluster_1.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[1]": {
               "index": 1,
@@ -2436,7 +2594,10 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
-              "type": "aws_vpc_endpoint_route_table_association"
+              "type": "aws_vpc_endpoint_route_table_association",
+              "values": {
+                "region": "us-east-1"
+              }
             },
             "module.rosa_cluster_1.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[2]": {
               "index": 2,
@@ -2445,7 +2606,10 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
-              "type": "aws_vpc_endpoint_route_table_association"
+              "type": "aws_vpc_endpoint_route_table_association",
+              "values": {
+                "region": "us-east-1"
+              }
             },
             "module.rosa_cluster_1.module.vpc.time_sleep.vpc_resources_wait": {
               "mode": "managed",
@@ -2509,6 +2673,11 @@
             "module.rosa_cluster_2.module.rosa_hcp.module.account_iam_resources[0]": {
               "resources": {
                 "module.rosa_cluster_2.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role.account_role[0]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 0,
                   "mode": "managed",
                   "name": "account_role",
@@ -2547,6 +2716,11 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role.account_role[1]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 1,
                   "mode": "managed",
                   "name": "account_role",
@@ -2585,6 +2759,11 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role.account_role[2]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 2,
                   "mode": "managed",
                   "name": "account_role",
@@ -2623,6 +2802,12 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role_policy_attachment.account_role_policy_attachment[0]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 0,
                   "mode": "managed",
                   "name": "account_role_policy_attachment",
@@ -2636,6 +2821,12 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role_policy_attachment.account_role_policy_attachment[1]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 1,
                   "mode": "managed",
                   "name": "account_role_policy_attachment",
@@ -2649,6 +2840,12 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.account_iam_resources[0].aws_iam_role_policy_attachment.account_role_policy_attachment[2]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 2,
                   "mode": "managed",
                   "name": "account_role_policy_attachment",
@@ -2881,6 +3078,10 @@
             "module.rosa_cluster_2.module.rosa_hcp.module.oidc_config_and_provider[0]": {
               "resources": {
                 "module.rosa_cluster_2.module.rosa_hcp.module.oidc_config_and_provider[0].aws_iam_openid_connect_provider.oidc_provider": {
+                  "identity": {
+                    "arn": null
+                  },
+                  "identity_schema_version": 0,
                   "mode": "managed",
                   "name": "oidc_provider",
                   "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2966,6 +3167,11 @@
             "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0]": {
               "resources": {
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[0]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 0,
                   "mode": "managed",
                   "name": "operator_role",
@@ -3004,6 +3210,11 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[1]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 1,
                   "mode": "managed",
                   "name": "operator_role",
@@ -3042,6 +3253,11 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[2]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 2,
                   "mode": "managed",
                   "name": "operator_role",
@@ -3080,6 +3296,11 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[3]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 3,
                   "mode": "managed",
                   "name": "operator_role",
@@ -3118,6 +3339,11 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[4]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 4,
                   "mode": "managed",
                   "name": "operator_role",
@@ -3156,6 +3382,11 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[5]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 5,
                   "mode": "managed",
                   "name": "operator_role",
@@ -3194,6 +3425,11 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[6]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 6,
                   "mode": "managed",
                   "name": "operator_role",
@@ -3232,6 +3468,11 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role.operator_role[7]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 7,
                   "mode": "managed",
                   "name": "operator_role",
@@ -3270,6 +3511,12 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[0]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 0,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -3283,6 +3530,12 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[1]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 1,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -3296,6 +3549,12 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[2]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 2,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -3309,6 +3568,12 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[3]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 3,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -3322,6 +3587,12 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[4]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 4,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -3335,6 +3606,12 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[5]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 5,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -3348,6 +3625,12 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[6]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 6,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -3361,6 +3644,12 @@
                   }
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].aws_iam_role_policy_attachment.operator_role_policy_attachment[7]": {
+                  "identity": {
+                    "account_id": null,
+                    "policy_arn": null,
+                    "role": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 7,
                   "mode": "managed",
                   "name": "operator_role_policy_attachment",
@@ -4208,6 +4497,7 @@
                 "associate_with_private_ip": null,
                 "customer_owned_ipv4_pool": null,
                 "domain": "vpc",
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-eip-us-east-2a"
                 },
@@ -4233,6 +4523,7 @@
                 "associate_with_private_ip": null,
                 "customer_owned_ipv4_pool": null,
                 "domain": "vpc",
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-eip-us-east-2b"
                 },
@@ -4258,6 +4549,7 @@
                 "associate_with_private_ip": null,
                 "customer_owned_ipv4_pool": null,
                 "domain": "vpc",
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-eip-us-east-2c"
                 },
@@ -4278,6 +4570,7 @@
               },
               "type": "aws_internet_gateway",
               "values": {
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-igw"
                 },
@@ -4301,6 +4594,7 @@
               "type": "aws_nat_gateway",
               "values": {
                 "connectivity_type": "public",
+                "region": "us-east-2",
                 "secondary_allocation_ids": null,
                 "tags": {
                   "Name": "cluster-region-2-nat-public0-us-east-2a"
@@ -4325,6 +4619,7 @@
               "type": "aws_nat_gateway",
               "values": {
                 "connectivity_type": "public",
+                "region": "us-east-2",
                 "secondary_allocation_ids": null,
                 "tags": {
                   "Name": "cluster-region-2-nat-public1-us-east-2b"
@@ -4349,6 +4644,7 @@
               "type": "aws_nat_gateway",
               "values": {
                 "connectivity_type": "public",
+                "region": "us-east-2",
                 "secondary_allocation_ids": null,
                 "tags": {
                   "Name": "cluster-region-2-nat-public2-us-east-2c"
@@ -4375,6 +4671,7 @@
                 "egress_only_gateway_id": null,
                 "local_gateway_id": null,
                 "nat_gateway_id": null,
+                "region": "us-east-2",
                 "timeouts": null,
                 "transit_gateway_id": null,
                 "vpc_endpoint_id": null,
@@ -4397,6 +4694,7 @@
                 "egress_only_gateway_id": null,
                 "local_gateway_id": null,
                 "nat_gateway_id": null,
+                "region": "us-east-2",
                 "timeouts": null,
                 "transit_gateway_id": null,
                 "vpc_endpoint_id": null,
@@ -4420,6 +4718,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "region": "us-east-2",
                 "timeouts": null,
                 "transit_gateway_id": null,
                 "vpc_endpoint_id": null,
@@ -4443,6 +4742,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "region": "us-east-2",
                 "timeouts": null,
                 "transit_gateway_id": null,
                 "vpc_endpoint_id": null,
@@ -4466,6 +4766,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "region": "us-east-2",
                 "timeouts": null,
                 "transit_gateway_id": null,
                 "vpc_endpoint_id": null,
@@ -4486,6 +4787,7 @@
               },
               "type": "aws_route_table",
               "values": {
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-rtb-private0-us-east-2a"
                 },
@@ -4509,6 +4811,7 @@
               },
               "type": "aws_route_table",
               "values": {
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-rtb-private1-us-east-2b"
                 },
@@ -4532,6 +4835,7 @@
               },
               "type": "aws_route_table",
               "values": {
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-rtb-private2-us-east-2c"
                 },
@@ -4554,6 +4858,7 @@
               },
               "type": "aws_route_table",
               "values": {
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-public"
                 },
@@ -4573,6 +4878,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "us-east-2",
                 "timeouts": null
               }
             },
@@ -4586,6 +4892,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "us-east-2",
                 "timeouts": null
               }
             },
@@ -4599,6 +4906,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "us-east-2",
                 "timeouts": null
               }
             },
@@ -4612,6 +4920,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "us-east-2",
                 "timeouts": null
               }
             },
@@ -4625,6 +4934,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "us-east-2",
                 "timeouts": null
               }
             },
@@ -4638,6 +4948,7 @@
               "type": "aws_route_table_association",
               "values": {
                 "gateway_id": null,
+                "region": "us-east-2",
                 "timeouts": null
               }
             },
@@ -4666,6 +4977,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-subnet-private1-us-east-2a",
                   "kubernetes.io/role/internal-elb": ""
@@ -4698,6 +5010,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-subnet-private2-us-east-2b",
                   "kubernetes.io/role/internal-elb": ""
@@ -4730,6 +5043,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-subnet-private3-us-east-2c",
                   "kubernetes.io/role/internal-elb": ""
@@ -4762,6 +5076,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-subnet-public1-us-east-2a",
                   "kubernetes.io/role/elb": ""
@@ -4794,6 +5109,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-subnet-public2-us-east-2b",
                   "kubernetes.io/role/elb": ""
@@ -4826,6 +5142,7 @@
                 "map_customer_owned_ip_on_launch": null,
                 "map_public_ip_on_launch": false,
                 "outpost_arn": null,
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-subnet-public3-us-east-2c",
                   "kubernetes.io/role/elb": ""
@@ -4853,6 +5170,7 @@
                 "ipv4_netmask_length": null,
                 "ipv6_ipam_pool_id": null,
                 "ipv6_netmask_length": null,
+                "region": "us-east-2",
                 "tags": {
                   "Name": "cluster-region-2-vpc"
                 },
@@ -4880,6 +5198,7 @@
               "type": "aws_vpc_endpoint",
               "values": {
                 "auto_accept": null,
+                "region": "us-east-2",
                 "resource_configuration_arn": null,
                 "service_name": "com.amazonaws.us-east-2.s3",
                 "service_network_arn": null,
@@ -4895,7 +5214,10 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
-              "type": "aws_vpc_endpoint_route_table_association"
+              "type": "aws_vpc_endpoint_route_table_association",
+              "values": {
+                "region": "us-east-2"
+              }
             },
             "module.rosa_cluster_2.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[1]": {
               "index": 1,
@@ -4904,7 +5226,10 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
-              "type": "aws_vpc_endpoint_route_table_association"
+              "type": "aws_vpc_endpoint_route_table_association",
+              "values": {
+                "region": "us-east-2"
+              }
             },
             "module.rosa_cluster_2.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[2]": {
               "index": 2,
@@ -4913,7 +5238,10 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
-              "type": "aws_vpc_endpoint_route_table_association"
+              "type": "aws_vpc_endpoint_route_table_association",
+              "values": {
+                "region": "us-east-2"
+              }
             },
             "module.rosa_cluster_2.module.vpc.time_sleep.vpc_resources_wait": {
               "mode": "managed",

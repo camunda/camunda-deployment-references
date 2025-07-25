@@ -17,6 +17,10 @@
       }
     },
     "aws_iam_policy.s3_access_policy": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "s3_access_policy",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -78,12 +82,19 @@
         "enable_key_rotation": true,
         "is_enabled": true,
         "key_usage": "ENCRYPT_DECRYPT",
+        "region": "us-east-1",
         "tags": null,
         "timeouts": null,
         "xks_key_id": null
       }
     },
     "aws_s3_bucket.elastic_backup": {
+      "identity": {
+        "account_id": null,
+        "bucket": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "elastic_backup",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -105,6 +116,7 @@
       "values": {
         "bucket": "camunda-elastic-backup-rosa-dual",
         "force_destroy": false,
+        "region": "us-east-1",
         "tags": {
           "Name": "camunda-elastic-backup-rosa-dual"
         },
@@ -115,6 +127,12 @@
       }
     },
     "aws_s3_bucket.log_bucket": {
+      "identity": {
+        "account_id": null,
+        "bucket": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "log_bucket",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -135,6 +153,7 @@
       "values": {
         "bucket": "camunda-elastic-backup-rosa-dual-log",
         "force_destroy": false,
+        "region": "us-east-1",
         "tags": null,
         "timeouts": null
       }
@@ -151,6 +170,7 @@
       "type": "aws_s3_bucket_logging",
       "values": {
         "expected_bucket_owner": null,
+        "region": "us-east-1",
         "target_grant": [],
         "target_object_key_format": [],
         "target_prefix": "log/"
@@ -167,7 +187,9 @@
         "block_public_acls": true,
         "block_public_policy": true,
         "ignore_public_acls": true,
-        "restrict_public_buckets": true
+        "region": "us-east-1",
+        "restrict_public_buckets": true,
+        "skip_destroy": null
       }
     },
     "aws_s3_bucket_public_access_block.block_public_policy_logs": {
@@ -181,7 +203,9 @@
         "block_public_acls": true,
         "block_public_policy": true,
         "ignore_public_acls": true,
-        "restrict_public_buckets": true
+        "region": "us-east-1",
+        "restrict_public_buckets": true,
+        "skip_destroy": null
       }
     },
     "aws_s3_bucket_server_side_encryption_configuration.encrypt_bucket": {
@@ -201,6 +225,7 @@
       "type": "aws_s3_bucket_server_side_encryption_configuration",
       "values": {
         "expected_bucket_owner": null,
+        "region": "us-east-1",
         "rule": [
           {
             "apply_server_side_encryption_by_default": [
@@ -230,6 +255,7 @@
       "type": "aws_s3_bucket_server_side_encryption_configuration",
       "values": {
         "expected_bucket_owner": null,
+        "region": "us-east-1",
         "rule": [
           {
             "apply_server_side_encryption_by_default": [
@@ -256,6 +282,7 @@
       "values": {
         "expected_bucket_owner": null,
         "mfa": null,
+        "region": "us-east-1",
         "versioning_configuration": [
           {
             "status": "Enabled"
@@ -277,6 +304,7 @@
       "values": {
         "expected_bucket_owner": null,
         "mfa": null,
+        "region": "us-east-1",
         "versioning_configuration": [
           {
             "status": "Enabled"
