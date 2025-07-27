@@ -17,7 +17,7 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.7
 
-awscli 2.27.55
+awscli 2.27.60
 
 delta 0.18.2
 
@@ -30,11 +30,11 @@ helm 3.18.4
 
 jq 1.7.1
 
-just 1.42.3
+just 1.42.4
 
 kubectl 1.33.3
 
-kustomize 5.7.0 # used by the tests
+kustomize 5.7.1 # used by the tests
 
 pre-commit 4.2.0
 
