@@ -65,7 +65,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@97cde83d43802a792c49540c248e9ed6c66fd37c # 1.4.6
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@cb673a2ce24ba79afed0507f3d245cdecf17337f # 1.4.8
 
         - name: Set Terraform variables
           id: set-terraform-variables
