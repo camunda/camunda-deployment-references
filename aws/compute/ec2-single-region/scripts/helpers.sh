@@ -2,6 +2,7 @@
 set -euo pipefail
 
 USERNAME=${USERNAME:-"camunda"}
+ADMIN_USERNAME=${ADMIN_USERNAME:-"ubuntu"}
 
 transfer_file() {
   local source="$1"
@@ -9,7 +10,7 @@ transfer_file() {
   local file_name="$3"
 
 # We cannot directly transfer file to the desition due to ownership issues
-  sftp -J "admin@${BASTION_IP}" "admin@${ip}" <<EOF
+  sftp -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" <<EOF
 put "${source}"
 bye
 EOF
@@ -22,7 +23,7 @@ remote_cmd "sudo mv ~/${file_name} ${destination}"
 }
 
 remote_cmd() {
-  ssh -J "admin@${BASTION_IP}" "admin@${ip}" "$1"
+  ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" "$1"
 }
 
 check_tool_installed() {
