@@ -59,13 +59,15 @@ env:
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infraex
-    AWS_REGION: eu-west-2
-    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    # TODO: revert
+    AWS_REGION: eu-north-1
+    S3_BACKEND_BUCKET: general-purpose-bucket-that-will-not-be-deleted
     S3_BUCKET_REGION: eu-central-1
     TLD: camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # TODO: do it later
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
 
     # TEST VARIABLES
 
@@ -116,7 +118,8 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  # TODO: revert
+                  cluster_name: lejduo783
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
@@ -231,6 +234,7 @@ jobs:
 
                   {
                     # Export to file to pass to other jobs
+                    echo "ESO_IRSA_ARN=$ESO_IRSA_ARN"
                     echo "CERT_MANAGER_IRSA_ARN=$CERT_MANAGER_IRSA_ARN"
                     echo "EXTERNAL_DNS_IRSA_ARN=$EXTERNAL_DNS_IRSA_ARN"
 
@@ -263,9 +267,7 @@ jobs:
                     echo "OPENSEARCH_HOST=$OPENSEARCH_HOST"
                     echo "OPENSEARCH_ROLE_NAME=$OPENSEARCH_ROLE_NAME"
                     echo "OPENSEARCH_ROLE_ARN=$OPENSEARCH_ROLE_ARN"
-                    echo "CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME=$CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME"
-                    echo "CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME=$CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME"
-                    echo "CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME=$CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME"
+                    echo "CAMUNDA_CORE_SERVICE_ACCOUNT_NAME=$CAMUNDA_CORE_SERVICE_ACCOUNT_NAME"
                     echo "CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME=$CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME"
 
                     echo "AURORA_ENDPOINT=$AURORA_ENDPOINT"
@@ -440,6 +442,7 @@ jobs:
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager.sh
 
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager-issuer.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-eso.sh
 
             - name: 🌱 Register chart setup environment values
               timeout-minutes: 3
@@ -538,7 +541,11 @@ jobs:
                   cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
-                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
+                    # TODO; revert to export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
+                    # export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}377.${{ env.TLD }}"
+
+                    # TODO: harcoded for self-signed setup
+                    export DOMAIN_NAME="camunda.picsou2.camunda.ie"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
                     export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"

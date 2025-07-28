@@ -1,5 +1,83 @@
 ---
+
+global:
+    elasticsearch:
+        enabled: false
+    opensearch:
+        enabled: true
+        aws:
+            enabled: true # enable IRSA auth
+        url:
+            protocol: https
+            host: os.picsou2.camunda.ie
+            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
+            port: 443
+
+    # TODO: added in 8.8
+    security:
+        authentication:
+            method: oidc
+
+    ingress:
+        enabled: true
+        host: ${DOMAIN_NAME}
+        tls:
+            enabled: true
+            # TODO: edited to consume self-signed certs
+            secretName: aws-pca-p12
+        annotations:
+            # kubernetes.io/tls-acme: 'true'
+            # TODO; added for rencryption
+            nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+            nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+
+    identity:
+        service:
+            url: https://${DOMAIN_NAME}/identity
+
+        keycloak:
+            url:
+                protocol: https
+                host: ${DOMAIN_NAME}
+                port: 443
+
+        auth:
+            enabled: true
+            # TODO: this is currently broken : https://camunda.slack.com/archives/C06UYJMMETZ/p1747319551359609
+            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
+            issuerBackendUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
+            admin:
+                enabled: true
+                existingSecret:
+                    name: identity-secret-for-components
+
+            #######################
+            # Orchestration Group
+            #######################
+            core:
+                redirectUrl: https://${DOMAIN_NAME}/core
+                existingSecret:
+                    name: identity-secret-for-components
+            connectors:
+                existingSecret:
+                    name: identity-secret-for-components
+            optimize:
+                redirectUrl: https://${DOMAIN_NAME}/optimize
+                existingSecret:
+                    name: identity-secret-for-components
+
+            #######################
+            # Management Group
+            #######################
+            webModeler:
+                redirectUrl: https://${DOMAIN_NAME}/modeler
+            console:
+                redirectUrl: https://${DOMAIN_NAME}
+                existingSecret:
+                    name: identity-secret-for-components
+
 identityKeycloak:
+    enabled: true
     serviceAccount:
         name: ${CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME}
         annotations:
@@ -23,55 +101,17 @@ identityKeycloak:
 
     auth:
         existingSecret: identity-secret-for-components
+        usePem: true
 
-global:
-    elasticsearch:
-        enabled: false
-    opensearch:
+    # TODO: added for self-signed certs
+    tls:
         enabled: true
-        aws:
-            enabled: true # enable IRSA auth
-        url:
-            protocol: https
-            host: ${OPENSEARCH_HOST}
-            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
-            port: 443
 
-    ingress:
-        enabled: true
-        host: ${DOMAIN_NAME}
-        tls:
-            enabled: true
-            secretName: camunda-c8-tls
-        annotations:
-            kubernetes.io/tls-acme: 'true'
-    identity:
-        auth:
-            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
-            zeebe:
-                existingSecret:
-                    name: identity-secret-for-components
-            connectors:
-                existingSecret:
-                    name: identity-secret-for-components
-            operate:
-                redirectUrl: https://${DOMAIN_NAME}/operate
-                existingSecret:
-                    name: identity-secret-for-components
-            tasklist:
-                redirectUrl: https://${DOMAIN_NAME}/tasklist
-                existingSecret:
-                    name: identity-secret-for-components
-            optimize:
-                redirectUrl: https://${DOMAIN_NAME}/optimize
-                existingSecret:
-                    name: identity-secret-for-components
-            webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
-            console:
-                redirectUrl: https://${DOMAIN_NAME}
-                existingSecret:
-                    name: identity-secret-for-components
+        # The secret must have "tls-keystore-password" and "tls-truststore-password" keys for the keystore and truststore respectively.
+        ## +  "keycloak.truststore.jks" +  "keycloak.keystore.jks"
+        existingSecret: aws-pca-p12
+        passwordsSecret: aws-pca-p12
+
 
 webModeler:
     enabled: false # by default, webModeler is not enabled
@@ -86,8 +126,7 @@ webModeler:
         externalDatabase:
             url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?wrapperPlugins=iam
             user: ${DB_WEBMODELER_USERNAME}
-            existingSecret: identity-secret-for-components # this fake password reference is needed to let the chart deploy webmodeler
-            existingSecretPasswordKey: password
+            existingSecret: notusedpasswd   # this fake password reference is needed to let the chart deploy webmodeler
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
@@ -97,8 +136,17 @@ webModeler:
             fromAddress: changeme@example.com   # change this required value
 
 identity:
+    # TODO: in the update, make all enabled: true/false explicit
+    enabled: true
     contextPath: /identity
     fullURL: https://${DOMAIN_NAME}/identity
+
+    readinessProbe:
+        scheme: HTTPS
+
+    # TODO: added in 8.8
+    firstUser:
+        existingSecret: identity-secret-for-components
 
     serviceAccount:
         name: ${CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME}
@@ -120,26 +168,71 @@ identity:
         - name: SPRING_DATASOURCE_USERNAME
           value: ${DB_IDENTITY_USERNAME}
 
+        - name: TRUSTSTORE_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: aws-pca-p12
+                  key: tls-truststore-password
+
+        - name: KEYSTORE_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: aws-pca-p12
+                  key: tls-keystore-password
+
+        - name: JAVA_TOOL_OPTIONS
+          value: >-
+              -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.jks -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
+              -Dserver.ssl.key-store=/usr/local/core/config/keystore.jks -Dserver.ssl.key-store-password=$(KEYSTORE_PASSWORD)
+
+        - name: SSL_CERT_FILE
+          value: /usr/local/core/config/ca.crt
+
+    extraVolumeMounts:
+        - name: truststore
+          mountPath: /usr/local/core/config/truststore.jks
+          subPath: truststore.jks
+
+        - name: keystore
+          mountPath: /usr/local/core/config/keystore.jks
+          subPath: keystore.jks
+
+        - name: ca
+          mountPath: /usr/local/core/config/ca.crt
+          subPath: ca.crt
+
+    extraVolumes:
+
+        - name: truststore
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: truststore.jks
+                    path: truststore.jks
+              defaultMode: 420
+
+        - name: keystore
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: keystore.jks
+                    path: keystore.jks
+              defaultMode: 420
+
+        - name: ca
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: ca.crt
+                    path: ca.crt
+              defaultMode: 420
+
 connectors:
+    enabled: true
     contextPath: /connectors
 
-operate:
-    contextPath: /operate
-
-    serviceAccount:
-        name: ${CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
-tasklist:
-    contextPath: /tasklist
-
-    serviceAccount:
-        name: ${CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
 optimize:
+    enabled: true
     contextPath: /optimize
 
     serviceAccount:
@@ -151,23 +244,205 @@ optimize:
     migration:
         enabled: false
 
-zeebe:
-    serviceAccount:
-        name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+    env:
+        - name: TRUSTSTORE_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: aws-pca-p12
+                  key: tls-truststore-password
 
-zeebeGateway:
+        - name: JAVA_TOOL_OPTIONS
+          value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.jks -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
+        - name: SSL_CERT_FILE
+          value: /usr/local/core/config/ca.crt
+
+    extraVolumeMounts:
+        - name: certificate
+          mountPath: /usr/local/core/config/tls.crt
+          subPath: tls.crt
+        - name: key
+          mountPath: /usr/local/core/config/tls.key
+          subPath: tls.key
+        - name: ca
+          mountPath: /usr/local/core/config/ca.crt
+          subPath: ca.crt
+        - name: truststore
+          mountPath: /usr/local/core/config/truststore.jks
+          subPath: truststore.jks
+
+    extraVolumes:
+        - name: certificate
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: tls.crt
+                    path: tls.crt
+              defaultMode: 420
+
+        - name: key
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: tls.key
+                    path: tls.key
+              defaultMode: 420
+
+        - name: truststore
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: truststore.jks
+                    path: truststore.jks
+              defaultMode: 420
+
+        - name: ca
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: ca.crt
+                    path: ca.crt
+              defaultMode: 420
+
+core:
+    enabled: true
+    contextPath: /core
+
     ingress:
         grpc:
             enabled: true
             host: zeebe.${DOMAIN_NAME}
             tls:
                 enabled: true
-                secretName: zeebe-c8-tls-grpc
+                secretName: core-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
-    contextPath: /zeebe
+
+    serviceAccount:
+        # TODO; change from zeebe to core in 8.8
+        name: ${CAMUNDA_CORE_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+
+    # TODO; added in 8.8
+    # giving access to venom to deploy a model. Given access to connectors
+    # TODO: Find a way to only give connectors read access
+    # TODO: adapt for documentation as users will not have venom( certainly need yq in the test pipeline)
+    env:
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_0_MAPPINGID
+          value: demo-user-mapping
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_0_CLAIMNAME
+          value: preferred_username
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_0_CLAIMVALUE
+          value: demo
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_1_MAPPINGID
+          value: venom-client-mapping
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_1_CLAIMNAME
+          value: client_id
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_1_CLAIMVALUE
+          value: venom
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_2_MAPPINGID
+          value: connectors-client-mapping
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_2_CLAIMNAME
+          value: client_id
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGS_2_CLAIMVALUE
+          value: connectors
+        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGS_0
+          value: demo-user-mapping
+        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGS_1
+          value: venom-client-mapping
+        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGS_2
+          value: connectors-client-mapping
+
+        # TLS PART Zeebe Gateway
+        - name: ZEEBE_GATEWAY_SECURITY_ENABLED
+          value: 'true'
+        - name: ZEEBE_GATEWAY_SECURITY_CERTIFICATECHAINPATH
+          value: /usr/local/core/config/tls.crt
+        - name: ZEEBE_GATEWAY_SECURITY_PRIVATEKEYPATH
+          value: /usr/local/core/config/tls.key
+
+        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_ENABLED
+          value: 'true'
+        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_CERTIFICATECHAINPATH
+          value: /usr/local/core/config/tls.crt
+        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_PRIVATEKEYPATH
+          value: /usr/local/core/config/tls.key
+
+        - name: ZEEBE_BROKER_NETWORK_SECURITY_ENABLED
+          value: 'true'
+        - name: ZEEBE_BROKER_NETWORK_SECURITY_CERTIFICATECHAINPATH
+          value: /usr/local/core/config/tls.crt
+        - name: ZEEBE_BROKER_NETWORK_SECURITY_PRIVATEKEYPATH
+          value: /usr/local/core/config/tls.key
+
+        - name: CAMUNDA_TASKLIST_ZEEBE_SECURE
+          value: 'true'
+        - name: CAMUNDA_TASKLIST_ZEEBE_CERTIFICATEPATH
+          value: /usr/local/tasklist/config/tls.crt
+
+        - name: CAMUNDA_OPERATE_ZEEBE_SECURE
+          value: 'true'
+        - name: CAMUNDA_OPERATE_ZEEBE_CERTIFICATEPATH
+          value: /usr/local/core/config/tls.crt
+
+        - name: TRUSTSTORE_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: aws-pca-p12
+                  key: tls-truststore-password
+
+        - name: JAVA_TOOL_OPTIONS
+          value: -Djavax.net.ssl.trustStore=/usr/local/core/config/truststore.jks -Djavax.net.ssl.trustStorePassword=$(TRUSTSTORE_PASSWORD)
+        - name: SSL_CERT_FILE
+          value: /usr/local/core/config/ca.crt
+
+    extraVolumeMounts:
+        - name: certificate
+          mountPath: /usr/local/core/config/tls.crt
+          subPath: tls.crt
+        - name: key
+          mountPath: /usr/local/core/config/tls.key
+          subPath: tls.key
+        - name: ca
+          mountPath: /usr/local/core/config/ca.crt
+          subPath: ca.crt
+        - name: truststore
+          mountPath: /usr/local/core/config/truststore.jks
+          subPath: truststore.jks
+
+
+    extraVolumes:
+        - name: certificate
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: tls.crt
+                    path: tls.crt
+              defaultMode: 420
+
+        - name: key
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: tls.key
+                    path: tls.key
+              defaultMode: 420
+
+        - name: truststore
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: truststore.jks
+                    path: truststore.jks
+              defaultMode: 420
+
+        - name: ca
+          secret:
+              secretName: aws-pca-p12
+              items:
+                  - key: ca.crt
+                    path: ca.crt
+              defaultMode: 420
 
 console:
     enabled: false # by default, console is not enabled

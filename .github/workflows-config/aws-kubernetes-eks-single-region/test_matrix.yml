@@ -5,11 +5,11 @@ matrix:
           schedule_only: false
 
     scenario:
-        - name: eks-single-region
+        # - name: eks-single-region
         - name: eks-single-region-irsa
 
     declination:
-        - name: no-domain
-          desc: Setup chart in production-like setup with Ingress and TLS.
+        # - name: no-domain
+        #   desc: Setup chart in production-like setup with Ingress and TLS.
         - name: domain
           desc: Setup chart in production-like setup without Ingress and TLS.

@@ -4,6 +4,8 @@ resource "aws_opensearch_domain" "opensearch_cluster" {
   domain_name    = var.domain_name
   engine_version = "OpenSearch_${var.engine_version}"
 
+  # TODO: added for custom domain
+
   ip_address_type = var.ip_address_type
 
   vpc_options {
@@ -102,6 +104,11 @@ resource "aws_opensearch_domain" "opensearch_cluster" {
   domain_endpoint_options {
     enforce_https       = var.domain_endpoint_options.enforce_https
     tls_security_policy = var.domain_endpoint_options.tls_security_policy
+
+    # TODO: hard coded
+    custom_endpoint_enabled         = true
+    custom_endpoint                 = local.opensearch_custom_domain
+    custom_endpoint_certificate_arn = aws_acm_certificate.opensearch_cert.arn
   }
 
   timeouts {
