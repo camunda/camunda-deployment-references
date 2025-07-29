@@ -10,9 +10,9 @@ set -euo pipefail
 # Executed on remote host, defaults should be set here or env vars preconfigured on remote host
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
 # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
-CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.6.22"}
+CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.8.0-alpha6"}
 # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.6?(\.(?<patch>\d+))?$
-CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.6.16"}
+CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.8.0-alpha6"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 USERNAME=${USERNAME:-"camunda"}
 JAVA_OPTS="${JAVA_OPTS:- -Xmx512m}" # Default Java options, required to run commands as remote user
@@ -25,12 +25,12 @@ if ! grep -q "ID=debian" /etc/os-release; then
 fi
 
 # Install Temuring OpenJDK
-sudo apt update
-sudo apt install -y wget apt-transport-https gpg
+sudo apt-get update
+sudo apt-get install -y wget apt-transport-https gpg
 wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/adoptium.gpg > /dev/null
 echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | sudo tee /etc/apt/sources.list.d/adoptium.list
 
-sudo apt update
+sudo apt-get update
 sudo apt-get install -y "temurin-${OPENJDK_VERSION}-jdk"
 
 JAVA_VERSION=$(java -version 2>&1 | awk -F[\"_] '/version/ {print $2}')
