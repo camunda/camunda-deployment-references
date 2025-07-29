@@ -89,7 +89,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 	shell.RunCommand(t, cmd)
 }
 
-func ResetCamunda(t *testing.T, terraformOptions *terraform.Options) {
+func ResetCamunda(t *testing.T, terraformOptions *terraform.Options, adminUsername string) {
 	tfOutputs := terraform.OutputAll(t, terraformOptions)
 	camundaIps := tfOutputs["camunda_ips"].([]interface{})
 	bastionIp := tfOutputs["bastion_ip"].(string)
@@ -98,28 +98,28 @@ func ResetCamunda(t *testing.T, terraformOptions *terraform.Options) {
 	for _, ip := range camundaIps {
 		cmd := shell.Command{
 			Command: "ssh",
-			Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", ip), "sudo systemctl stop camunda"},
+			Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%S@%s", adminUsername, ip), "sudo systemctl stop camunda"},
 		}
 		// Ignore error as the service might not be running
 		shell.RunCommandE(t, cmd)
 
 		cmd = shell.Command{
 			Command: "ssh",
-			Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", ip), "sudo systemctl stop connectors"},
+			Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, ip), "sudo systemctl stop connectors"},
 		}
 		// Ignore error as the service might not be running
 		shell.RunCommandE(t, cmd)
 
 		cmd = shell.Command{
 			Command: "ssh",
-			Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", ip), "sudo rm -rf /opt/camunda/*"},
+			Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, ip), "sudo rm -rf /opt/camunda/*"},
 		}
 		shell.RunCommand(t, cmd)
 	}
 
 	cmd := shell.Command{
 		Command: "ssh",
-		Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", camundaIps[0]), fmt.Sprintf("curl -X DELETE %s/_all", openSearchConnection)},
+		Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, camundaIps[0]), fmt.Sprintf("curl -X DELETE %s/_all", openSearchConnection)},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 

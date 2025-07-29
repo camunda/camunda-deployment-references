@@ -7,6 +7,7 @@ source "${CURRENT_DIR}/helpers.sh"
 
 CLOUDWATCH_ENABLED=${CLOUDWATCH_ENABLED:-false}
 USERNAME=${USERNAME:-"camunda"}
+ADMIN_USERNAME=${ADMIN_USERNAME:-"ubuntu"}
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 BROKER_PORT=${BROKER_PORT:-26502}
 TERRAFORM_DIR=${TERRAFORM_DIR:-"${CURRENT_DIR}/../terraform/cluster"}
@@ -70,7 +71,7 @@ total_ip_count=${#IPS[@]}
 for index in "${!IPS[@]}"; do
     ip=${IPS[$index]}
 
-    ssh -J "admin@${BASTION_IP}" "admin@${ip}" < "${CURRENT_DIR}/camunda-install.sh"
+    ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" < "${CURRENT_DIR}/camunda-install.sh"
 
     echo "[INFO] Attempting to connect to ${ip} to configure the Camunda 8 environment."
 
@@ -82,14 +83,14 @@ for index in "${!IPS[@]}"; do
 
     # Optionally install CloudWatch Agent
     if [[ $CLOUDWATCH_ENABLED == 'true' ]]; then
-        ssh -J "admin@${BASTION_IP}" "admin@${ip}" < "${CURRENT_DIR}/cloudwatch-install.sh"
+        ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" < "${CURRENT_DIR}/cloudwatch-install.sh"
         source "${CURRENT_DIR}/cloudwatch-configure.sh"
     fi
 done
 
 for ip in "${IPS[@]}"; do
     echo "[INFO] Doing final checks on the Camunda 8 environment on ${ip}."
-    ssh -J "admin@${BASTION_IP}" "admin@${ip}" < "${CURRENT_DIR}/camunda-checks.sh"
+    ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" < "${CURRENT_DIR}/camunda-checks.sh"
     code=$?
     if [[ "$code" -ne 0 ]]; then
         echo "[FAIL] The Camunda 8 environment on ${ip} is not healthy."

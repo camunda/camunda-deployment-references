@@ -28,9 +28,10 @@ const (
 )
 
 var (
-	terraformDir = utils.GetEnv("TERRAFORM_DIR", "../../terraform/cluster")
-	tfBinary     = utils.GetEnv("TERRAFORM_BINARY", "terraform")
-	tfVars       = map[string]interface{}{
+	terraformDir  = utils.GetEnv("TERRAFORM_DIR", "../../terraform/cluster")
+	tfBinary      = utils.GetEnv("TERRAFORM_BINARY", "terraform")
+	adminUsername = utils.GetEnv("ADMIN_USERNAME", "ubuntu")
+	tfVars        = map[string]interface{}{
 		"prefix":                    utils.GetEnv("TF_PREFIX", "ec2-jar-test"),
 		"opensearch_architecture":   utils.GetEnv("ARCHITECTURE", "x86_64"),
 		"aws_instance_architecture": utils.GetEnv("ARCHITECTURE", "x86_64"),
@@ -93,7 +94,7 @@ func TestConnectivity(t *testing.T) {
 			PrivateKey: privateKey,
 			PublicKey:  publicKey,
 		},
-		SshUserName: "admin",
+		SshUserName: adminUsername,
 	}
 
 	ssh.CheckSshConnectionWithRetry(t, publicHost, 5, 5)
@@ -108,7 +109,7 @@ func TestConnectivity(t *testing.T) {
 				PrivateKey: privateKey,
 				PublicKey:  publicKey,
 			},
-			SshUserName: "admin",
+			SshUserName: adminUsername,
 		}
 
 		ssh.CheckPrivateSshConnection(t, publicHost, privateHost, "'exit'")
@@ -221,7 +222,7 @@ func TestCloudWatchFeature(t *testing.T) {
 
 	cmd = shell.Command{
 		Command: "ssh",
-		Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", camundaIps[0]), "sudo systemctl is-active amazon-cloudwatch-agent"},
+		Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, camundaIps[0]), "sudo systemctl is-active amazon-cloudwatch-agent"},
 	}
 	output = shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -274,7 +275,7 @@ func TestCamundaUpgrade(t *testing.T) {
 		}
 	}
 
-	utils.ResetCamunda(t, terraformOptions(t, logger.Discard))
+	utils.ResetCamunda(t, terraformOptions(t, logger.Discard), adminUsername)
 
 	filePath = "../../scripts/camunda-install.sh"
 
