@@ -180,7 +180,7 @@ func TestAllInOneScript(t *testing.T) {
 
 	cmd := shell.Command{
 		Command: "bash",
-		Args:    []string{"-c", "../../scripts/all-in-one-install.sh"},
+		Args:    []string{"-c", "../../procedure/all-in-one-install.sh"},
 	}
 	shell.RunCommand(t, cmd)
 }
@@ -214,7 +214,7 @@ func TestCloudWatchFeature(t *testing.T) {
 
 	cmd := shell.Command{
 		Command: "bash",
-		Args:    []string{"-c", "export CLOUDWATCH_ENABLED=true && ../../scripts/all-in-one-install.sh"},
+		Args:    []string{"-c", "export CLOUDWATCH_ENABLED=true && ../../procedure/all-in-one-install.sh"},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -277,7 +277,7 @@ func TestCamundaUpgrade(t *testing.T) {
 
 	utils.ResetCamunda(t, terraformOptions(t, logger.Discard), adminUsername)
 
-	filePath = "../../scripts/camunda-install.sh"
+	filePath = "../../procedure/camunda-install.sh"
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
@@ -332,7 +332,7 @@ func TestCamundaUpgrade(t *testing.T) {
 	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaPreviousVersion, connectorsPreviousVersion)
 	cmd := shell.Command{
 		Command: "bash",
-		Args:    []string{"-c", "../../scripts/all-in-one-install.sh"},
+		Args:    []string{"-c", "../../procedure/all-in-one-install.sh"},
 	}
 	shell.RunCommand(t, cmd)
 
@@ -356,7 +356,7 @@ func TestCamundaUpgrade(t *testing.T) {
 	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaCurrentVersionFull, connectorsCurrentVersionFull)
 	cmd = shell.Command{
 		Command: "bash",
-		Args:    []string{"-c", "../../scripts/all-in-one-install.sh"},
+		Args:    []string{"-c", "../../procedure/all-in-one-install.sh"},
 	}
 	output := shell.RunCommandAndGetOutput(t, cmd)
 
