@@ -6,6 +6,7 @@ set -euo pipefail
 
 # Example usage via jump host
 # ssh -J admin@BASTION_IP admin@CAMUNDA_IP < ./camunda-install.sh
+# Or wget the script on the remote host and execute it directly
 
 # Executed on remote host, defaults should be set here or env vars preconfigured on remote host
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
@@ -59,7 +60,7 @@ fi
 
 # Configs will automatically be newly generated etc. based on this repo / customer changes.
 # The following may be enough already, will need proper Camunda alpha versions to test it.
-# Backup of data folder may be useless since the new version will migrate the database and render any older version usless.
+# Backup of data folder may be useless since the new version will migrate the database and render any older version useless.
 
 sudo chown -R "${USERNAME}:${USERNAME}" "${MNT_DIR}/"
 
