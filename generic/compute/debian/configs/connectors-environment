@@ -1,0 +1,14 @@
+# Change default port to not clash with the orchestration cluster
+SERVER_PORT=9090
+LOGGING_LEVEL_IO_CAMUNDA_CONNECTOR=ERROR
+
+# Configure connection to orchestration cluster
+CAMUNDA_CLIENT_RESTADDRESS=http://127.0.0.1:8080
+CAMUNDA_CLIENT_GRPCADDRESS=http://127.0.0.1:26500
+CAMUNDA_CLIENT_MODE=selfManaged
+CAMUNDA_CLIENT_AUTH_METHOD=basic
+CAMUNDA_CLIENT_AUTH_USERNAME=connectors
+CAMUNDA_CLIENT_AUTH_PASSWORD=connectors
+
+# Turning off ElasticSearch health check, causing problems with AWS OpenSearch
+MANAGEMENT_HEALTH_ELASTICSEARCH_ENABLED=false
