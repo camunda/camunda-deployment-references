@@ -113,6 +113,7 @@ ec2-jar-priv
 ca-authority.pem
 ca-authority.key
 camunda-environment.tmp
+connectors-environment.tmp
 .vscode
 .idea
 terraform.tfstate
