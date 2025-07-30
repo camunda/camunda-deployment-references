@@ -10,9 +10,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="${SCRIPT_DIR}/../configs"
 
-cp "${CONFIG_DIR}/camunda-environment" "${SCRIPT_DIR}/../camunda-environment.tmp"
-cp "${CONFIG_DIR}/connectors-environment" "${SCRIPT_DIR}/../connectors-environment.tmp"
-
 echo "[INFO] Validating required environment variables..."
 
 if [ -z "${total_ip_count:-}" ]; then
@@ -52,6 +49,11 @@ if [ -z "${OPENSEARCH_URL:-}" ]; then
 fi
 
 echo "[INFO] All required variables are defined. Proceeding with configuration..."
+
+echo "[INFO] Copying existing configuration files to temporary files for modification..."
+
+cp "${CONFIG_DIR}/camunda-environment" "${SCRIPT_DIR}/../camunda-environment.tmp"
+cp "${CONFIG_DIR}/connectors-environment" "${SCRIPT_DIR}/../connectors-environment.tmp"
 
 echo "[INFO] Configuring the environment variables for cluster communication, external DB usage and writing to temporary camunda-environment file."
 # Default configuration for setup with OpenSearch as DB

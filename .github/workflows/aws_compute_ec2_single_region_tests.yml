@@ -39,6 +39,7 @@ on:
             - .tool-versions
             - aws/compute/ec2-single-region/**
             - '!aws/compute/ec2-single-region/terraform/cluster/test/golden/**'
+            - generic/debian/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
