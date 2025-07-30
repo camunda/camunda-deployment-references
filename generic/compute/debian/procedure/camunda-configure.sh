@@ -52,8 +52,8 @@ echo "[INFO] All required variables are defined. Proceeding with configuration..
 
 echo "[INFO] Copying existing configuration files to temporary files for modification..."
 
-cp "${CONFIG_DIR}/camunda-environment" "${SCRIPT_DIR}/../camunda-environment.tmp"
-cp "${CONFIG_DIR}/connectors-environment" "${SCRIPT_DIR}/../connectors-environment.tmp"
+cp "${CONFIG_DIR}/camunda-environment" "${SCRIPT_DIR}/camunda-environment.tmp"
+cp "${CONFIG_DIR}/connectors-environment" "${SCRIPT_DIR}/connectors-environment.tmp"
 
 echo "[INFO] Configuring the environment variables for cluster communication, external DB usage and writing to temporary camunda-environment file."
 # Default configuration for setup with OpenSearch as DB
@@ -77,4 +77,4 @@ echo "[INFO] Configuring the environment variables for cluster communication, ex
     echo "CAMUNDA_OPERATE_ARCHIVERENABLED=\"false\""
     echo "CAMUNDA_TASKLIST_IMPORTERENABLED=\"false\""
     echo "CAMUNDA_TASKLIST_ARCHIVERENABLED=\"false\""
-} >> "${SCRIPT_DIR}/../camunda-environment.tmp"
+} >> "${SCRIPT_DIR}/camunda-environment.tmp"
