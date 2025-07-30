@@ -59,8 +59,7 @@ if id -nG "$USERNAME" | grep -qw "$USERNAME"; then
 fi
 
 # Configs will automatically be newly generated etc. based on this repo / customer changes.
-# The following may be enough already, will need proper Camunda alpha versions to test it.
-# Backup of data folder may be useless since the new version will migrate the database and render any older version useless.
+# Upgrade will explicitly remove the old libs and replace all files with the new ones.
 
 sudo chown -R "${USERNAME}:${USERNAME}" "${MNT_DIR}/"
 
