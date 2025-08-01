@@ -11,6 +11,5 @@ concurrency:
 
 jobs:
     renovate-automerge:
-        if: ${{ !contains(github.event.pull_request.labels.*.name, 'no merge') }}
         uses: camunda/infraex-common-config/.github/workflows/automerge-global.yml@cb673a2ce24ba79afed0507f3d245cdecf17337f # 1.4.8
         secrets: inherit
