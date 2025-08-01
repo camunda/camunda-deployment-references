@@ -225,7 +225,7 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  source .github/scripts/gha-functions.sh
+                  source ${{ github.workspace }}/.github/scripts/gha-functions.sh
 
                   export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/export-helm-values.sh ${{ runner.temp }}/outputs_raw
                   export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh ${{ runner.temp }}/outputs_raw
