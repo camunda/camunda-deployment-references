@@ -26,7 +26,8 @@
           "Name": "camunda-extra-volume-0"
         },
         "timeouts": null,
-        "type": "gp3"
+        "type": "gp3",
+        "volume_initialization_rate": null
       }
     },
     "aws_ebs_volume.camunda[1]": {
@@ -55,7 +56,8 @@
           "Name": "camunda-extra-volume-1"
         },
         "timeouts": null,
-        "type": "gp3"
+        "type": "gp3",
+        "volume_initialization_rate": null
       }
     },
     "aws_ebs_volume.camunda[2]": {
@@ -84,7 +86,8 @@
           "Name": "camunda-extra-volume-2"
         },
         "timeouts": null,
-        "type": "gp3"
+        "type": "gp3",
+        "volume_initialization_rate": null
       }
     },
     "aws_iam_instance_profile.cloudwatch_instance_profile": {
@@ -2208,6 +2211,7 @@
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
           "sensitive_values": {
+            "secondary_allocation_ids": [],
             "secondary_private_ip_addresses": [],
             "tags": {},
             "tags_all": {}
@@ -2216,7 +2220,6 @@
           "values": {
             "connectivity_type": "public",
             "region": "eu-west-2",
-            "secondary_allocation_ids": null,
             "tags": {
               "Name": "camunda-vpc-eu-west-2a"
             },

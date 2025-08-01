@@ -1936,6 +1936,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "secondary_allocation_ids": [],
                 "secondary_private_ip_addresses": [],
                 "tags": {},
                 "tags_all": {}
@@ -1944,7 +1945,6 @@
               "values": {
                 "connectivity_type": "public",
                 "region": "eu-west-2",
-                "secondary_allocation_ids": null,
                 "tags": {
                   "Name": "cluster-name-std-vpc-eu-west-2a"
                 },
@@ -1961,6 +1961,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "secondary_allocation_ids": [],
                 "secondary_private_ip_addresses": [],
                 "tags": {},
                 "tags_all": {}
@@ -1969,7 +1970,6 @@
               "values": {
                 "connectivity_type": "public",
                 "region": "eu-west-2",
-                "secondary_allocation_ids": null,
                 "tags": {
                   "Name": "cluster-name-std-vpc-eu-west-2b"
                 },
@@ -1986,6 +1986,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "secondary_allocation_ids": [],
                 "secondary_private_ip_addresses": [],
                 "tags": {},
                 "tags_all": {}
@@ -1994,7 +1995,6 @@
               "values": {
                 "connectivity_type": "public",
                 "region": "eu-west-2",
-                "secondary_allocation_ids": null,
                 "tags": {
                   "Name": "cluster-name-std-vpc-eu-west-2c"
                 },
