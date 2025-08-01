@@ -206,6 +206,7 @@ jobs:
 
             - name: Dump kubeconfig before encryption
               run: |
+                  set -euo pipefail
                   kubectl config view --raw > "${{ runner.temp }}/kubeconfig.yaml"
 
             - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
@@ -222,60 +223,16 @@ jobs:
               working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario.name }}/
               id: dump_outputs
               run: |
-                  source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/export-helm-values.sh
-                  source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
+                  set -euo pipefail
+
+                  source ${{ github.workspace }}/.github/scripts/gha-functions.sh
+
+                  export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/export-helm-values.sh ${{ runner.temp }}/outputs_raw
+                  export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh ${{ runner.temp }}/outputs_raw
 
                   if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
-                      source ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh
+                      export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh ${{ runner.temp }}/outputs_raw
                   fi
-
-                  {
-                    # Export to file to pass to other jobs
-                    echo "CERT_MANAGER_IRSA_ARN=$CERT_MANAGER_IRSA_ARN"
-                    echo "EXTERNAL_DNS_IRSA_ARN=$EXTERNAL_DNS_IRSA_ARN"
-
-                    # PostgreSQL
-                    echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
-                    echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
-                    echo "CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME=$CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME"
-                    echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
-
-
-                    echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME"
-                    echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME"
-                    echo "CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME=$CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME"
-                    echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD"
-
-                    echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME"
-                    echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME"
-                    echo "CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME=$CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME"
-                    echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
-
-                    echo "DB_HOST=$DB_HOST"
-                    echo "DB_ROLE_KEYCLOAK_NAME=$DB_ROLE_KEYCLOAK_NAME"
-                    echo "DB_ROLE_KEYCLOAK_ARN=$DB_ROLE_KEYCLOAK_ARN"
-                    echo "DB_ROLE_IDENTITY_NAME=$DB_ROLE_IDENTITY_NAME"
-                    echo "DB_ROLE_IDENTITY_ARN=$DB_ROLE_IDENTITY_ARN"
-                    echo "DB_ROLE_WEBMODELER_NAME=$DB_ROLE_WEBMODELER_NAME"
-                    echo "DB_ROLE_WEBMODELER_ARN=$DB_ROLE_WEBMODELER_ARN"
-
-                    # OpenSearch
-                    echo "OPENSEARCH_HOST=$OPENSEARCH_HOST"
-                    echo "OPENSEARCH_ROLE_NAME=$OPENSEARCH_ROLE_NAME"
-                    echo "OPENSEARCH_ROLE_ARN=$OPENSEARCH_ROLE_ARN"
-                    echo "CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME=$CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME"
-                    echo "CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME=$CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME"
-                    echo "CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME=$CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME"
-                    echo "CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME=$CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME"
-
-                    echo "AURORA_ENDPOINT=$AURORA_ENDPOINT"
-                    echo "AURORA_PORT=$AURORA_PORT"
-                    echo "AURORA_USERNAME=$AURORA_USERNAME"
-                    echo "AURORA_PASSWORD=$AURORA_PASSWORD"
-
-                    echo "OPENSEARCH_MASTER_USERNAME=$OPENSEARCH_MASTER_USERNAME"
-                    echo "OPENSEARCH_MASTER_PASSWORD=$OPENSEARCH_MASTER_PASSWORD"
-                  } > "${{ runner.temp }}/outputs_raw"
 
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
               id: encrypt_outputs

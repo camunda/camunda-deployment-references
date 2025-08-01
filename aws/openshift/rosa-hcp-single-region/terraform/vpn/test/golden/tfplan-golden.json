@@ -3,6 +3,10 @@
     "module.vpn": {
       "resources": {
         "module.vpn.aws_acm_certificate.ca_cert": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "ca_cert",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -22,11 +26,16 @@
             "certificate_authority_arn": null,
             "certificate_chain": null,
             "early_renewal_duration": null,
+            "region": "eu-west-2",
             "tags": null,
             "validation_option": []
           }
         },
         "module.vpn.aws_acm_certificate.vpn_cert": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "vpn_cert",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -45,6 +54,7 @@
           "values": {
             "certificate_authority_arn": null,
             "early_renewal_duration": null,
+            "region": "eu-west-2",
             "tags": null,
             "validation_option": []
           }
@@ -61,6 +71,7 @@
           "values": {
             "kms_key_id": null,
             "name": "/aws/vpn/my-vpn",
+            "region": "eu-west-2",
             "retention_in_days": 365,
             "skip_destroy": false,
             "tags": null
@@ -75,7 +86,8 @@
           "type": "aws_cloudwatch_log_stream",
           "values": {
             "log_group_name": "/aws/vpn/my-vpn",
-            "name": "vpn-connection-logs-my-vpn"
+            "name": "vpn-connection-logs-my-vpn",
+            "region": "eu-west-2"
           }
         },
         "module.vpn.aws_ec2_client_vpn_authorization_rule.vpn_auth_rule": {
@@ -91,6 +103,7 @@
             "access_group_id": null,
             "authorize_all_groups": true,
             "description": null,
+            "region": "eu-west-2",
             "target_network_cidr": "172.31.0.0/16",
             "timeouts": {
               "create": "15m",
@@ -150,6 +163,7 @@
             "dns_servers": [
               "169.254.169.253"
             ],
+            "region": "eu-west-2",
             "self_service_portal": "disabled",
             "session_timeout_hours": 8,
             "split_tunnel": true,
@@ -226,6 +240,7 @@
               }
             ],
             "name_prefix": "client-vpn-endpoint-sg-my-vpn",
+            "region": "eu-west-2",
             "revoke_rules_on_delete": false,
             "tags": null,
             "timeouts": null,

@@ -51,7 +51,7 @@ module "opensearch_domain" {
         "AWS": "*"
       },
       "Action": "es:*",
-      "Resource": "arn:aws:es:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:domain/${local.opensearch_domain_name}/*"
+      "Resource": "arn:aws:es:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:domain/${local.opensearch_domain_name}/*"
     }
   ]
 }
