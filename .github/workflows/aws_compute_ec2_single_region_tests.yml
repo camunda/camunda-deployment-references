@@ -65,11 +65,11 @@ env:
 
     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.8?(\.(?<patch>\d+))?$
     TESTS_CAMUNDA_VERSION: 8.8.0-alpha6
-    TESTS_CAMUNDA_PREVIOUS_VERSION: 8.8.0-alpha5 # hardcoded on purpose
+    TESTS_CAMUNDA_PREVIOUS_VERSION: 8.8.0-alpha5 # Version to be used for upgrade tests, not updated automatically
 
     # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.8?(\.(?<patch>\d+))?$
     TESTS_CONNECTORS_VERSION: 8.8.0-alpha6
-    TESTS_CONNECTORS_PREVIOUS_VERSION: 8.8.0-alpha5 # hardcoded on purpose
+    TESTS_CONNECTORS_PREVIOUS_VERSION: 8.8.0-alpha5 # Version to be used for upgrade tests, not updated automatically
 
 jobs:
     triage:
