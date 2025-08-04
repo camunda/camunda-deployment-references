@@ -454,6 +454,8 @@ sigs.k8s.io/aws-iam-authenticator v0.7.3 h1:nSb80UFEYdhRn7k+gKs0/KDWk8DFMibdd1ZV
 sigs.k8s.io/aws-iam-authenticator v0.7.3/go.mod h1:LZvQn1xLluVxmCwLW3zeyOq+6yTKfX2nQxAjUHoCCoU=
 sigs.k8s.io/aws-iam-authenticator v0.7.4 h1:qIJYn0H2SbRJ4Oq32GkRiS75WMoPelc4U5J1MgLNVEw=
 sigs.k8s.io/aws-iam-authenticator v0.7.4/go.mod h1:rIrf47nManzcObhIIwNf0+uWnuu/nhUjujtEjVC8vEc=
+sigs.k8s.io/aws-iam-authenticator v0.7.5 h1:pE/hroECuP45Bved/X1oyyPhbNQgICjOF+Bxr22bMDM=
+sigs.k8s.io/aws-iam-authenticator v0.7.5/go.mod h1:aZ3wMdA2Qr9dlRYzlWem77TEvwk4PMbzw87O0r9aOv8=
 sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 h1:/Rv+M11QRah1itp8VhT6HoVx1Ray9eB4DBr+K+/sCJ8=
 sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3/go.mod h1:18nIHnGi6636UCz6m8i4DhaJ65T6EruyzmoQqI2BVDo=
 sigs.k8s.io/randfill v0.0.0-20250304075658-069ef1bbf016/go.mod h1:XeLlZ/jmk4i1HRopwe7/aU3H5n1zNUcX6TM94b3QxOY=
