@@ -21,7 +21,7 @@ require (
 	k8s.io/api v0.33.3
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
-	sigs.k8s.io/aws-iam-authenticator v0.7.4
+	sigs.k8s.io/aws-iam-authenticator v0.7.5
 )
 
 require (
