@@ -1000,28 +1000,6 @@
                 "tags": null
               }
             },
-            "module.eks_cluster.module.eks.aws_iam_policy.custom[0]": {
-              "identity": {
-                "arn": null
-              },
-              "identity_schema_version": 0,
-              "index": 0,
-              "mode": "managed",
-              "name": "custom",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {
-                "tags_all": {}
-              },
-              "type": "aws_iam_policy",
-              "values": {
-                "description": "cluster-name-irsa - EKS managed IAM role",
-                "name": "cluster-name-irsa-eks-iam-role",
-                "path": "/",
-                "policy": "{\"Statement\":[{\"Action\":[\"ec2:RunInstances\",\"ec2:CreateLaunchTemplate\",\"ec2:CreateFleet\"],\"Condition\":{\"StringEquals\":{\"aws:RequestTag/eks:eks-cluster-name\":\"${aws:PrincipalTag/eks:eks-cluster-name}\"},\"StringLike\":{\"aws:RequestTag/eks:kubernetes-node-class-name\":\"*\",\"aws:RequestTag/eks:kubernetes-node-pool-name\":\"*\"}},\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"Compute\"},{\"Action\":[\"ec2:CreateVolume\",\"ec2:CreateSnapshot\"],\"Condition\":{\"StringEquals\":{\"aws:RequestTag/eks:eks-cluster-name\":\"${aws:PrincipalTag/eks:eks-cluster-name}\"}},\"Effect\":\"Allow\",\"Resource\":[\"ARN_REDACTED",
-                "tags": null
-              }
-            },
             "module.eks_cluster.module.eks.aws_iam_role.this[0]": {
               "identity": {
                 "account_id": null,
@@ -1079,24 +1057,6 @@
               "index": 0,
               "mode": "managed",
               "name": "cluster_encryption",
-              "provider_name": "registry.terraform.io/hashicorp/aws",
-              "schema_version": 0,
-              "sensitive_values": {},
-              "type": "aws_iam_role_policy_attachment",
-              "values": {
-                "role": "cluster-name-irsa-eks-iam-role"
-              }
-            },
-            "module.eks_cluster.module.eks.aws_iam_role_policy_attachment.custom[0]": {
-              "identity": {
-                "account_id": null,
-                "policy_arn": null,
-                "role": null
-              },
-              "identity_schema_version": 0,
-              "index": 0,
-              "mode": "managed",
-              "name": "custom",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
