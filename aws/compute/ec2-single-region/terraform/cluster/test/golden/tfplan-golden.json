@@ -1954,6 +1954,7 @@
           "values": {
             "description": "Security group managing access to camunda-os",
             "name": "camunda-os-allow-all-internal-access",
+            "region": "eu-west-2",
             "revoke_rules_on_delete": false,
             "tags": null,
             "timeouts": null
