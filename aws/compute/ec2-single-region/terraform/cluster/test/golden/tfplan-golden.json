@@ -282,7 +282,7 @@
           "Name": "camunda-instance-0"
         },
         "timeouts": null,
-        "user_data": "#!/bin/bash\n# Retry mechanism to wait for the volume to be attached\n\ndevice_name=\"/dev/sdb\"\nmount_point=\"/opt/camunda\"\nretries=10\n\n# Wait for the device to be attached\nwhile [ $retries -gt 0 ]; do\n  if lsblk $device_name; then\n    echo \"Device $device_name found\"\n    break\n  else\n    echo \"Waiting for $device_name to be attached...\"\n    sleep 10\n    retries=$((retries - 1))\n  fi\ndone\n\nif [ $retries -eq 0 ]; then\n  echo \"Error: $device_name not found after waiting\"\n  exit 1\nfi\n\n# Check if the device is already mounted\nif ! mount | grep $mount_point > /dev/null; then\n  # Check if the filesystem exists\n  if ! file -s -L $device_name | grep ext4 > /dev/null; then\n    mkfs -t ext4 $device_name\n  fi\n  mkdir -p $mount_point\n  mount $device_name $mount_point\n\n  # Add the device to /etc/fstab to persist the mount on restart\n  output=$(lsblk $device_name -o +UUID)\n  uuid=$(echo \"$output\" | awk '/nvme1n1/ {print $NF}')\n  echo \"UUID=$uuid $mount_point ext4 defaults,nofail 0 2\" >> /etc/fstab\n  systemctl daemon-reload\nfi\nchown admin:admin $mount_point\n",
+        "user_data": "#!/bin/bash\n# Retry mechanism to wait for the volume to be attached\n\ndevice_name=\"/dev/sdf\"\nactual_device=\"/dev/nvme1n1\"\nmount_point=\"/opt/camunda\"\nadmin_user=\"ubuntu\"\nretries=10\n\n# Wait for the device to be attached\nwhile [ $retries -gt 0 ]; do\n  if lsblk $actual_device 2>/dev/null || lsblk $device_name 2>/dev/null; then\n    # Use the actual device that exists\n    if lsblk $actual_device 2>/dev/null; then\n      device_name=$actual_device\n    fi\n    echo \"Device $device_name found\"\n    break\n  else\n    echo \"Waiting for device to be attached...\"\n    sleep 10\n    retries=$((retries - 1))\n  fi\ndone\n\nif [ $retries -eq 0 ]; then\n  echo \"Error: Device not found after waiting\"\n  exit 1\nfi\n\n# Check if the device is already mounted\nif ! mount | grep $mount_point > /dev/null; then\n  # Check if the filesystem exists\n  if ! file -s -L $device_name | grep ext4 > /dev/null; then\n    mkfs -t ext4 $device_name\n  fi\n  mkdir -p $mount_point\n  mount $device_name $mount_point\n\n  # Add the device to /etc/fstab to persist the mount on restart\n  output=$(lsblk $device_name -o +UUID)\n  uuid=$(echo \"$output\" | tail -n 1 | awk '{print $NF}')\n  echo \"UUID=$uuid $mount_point ext4 defaults,nofail 0 2\" >> /etc/fstab\n  systemctl daemon-reload\nfi\nchown $admin_user:$admin_user $mount_point\n",
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
@@ -347,7 +347,7 @@
           "Name": "camunda-instance-1"
         },
         "timeouts": null,
-        "user_data": "#!/bin/bash\n# Retry mechanism to wait for the volume to be attached\n\ndevice_name=\"/dev/sdb\"\nmount_point=\"/opt/camunda\"\nretries=10\n\n# Wait for the device to be attached\nwhile [ $retries -gt 0 ]; do\n  if lsblk $device_name; then\n    echo \"Device $device_name found\"\n    break\n  else\n    echo \"Waiting for $device_name to be attached...\"\n    sleep 10\n    retries=$((retries - 1))\n  fi\ndone\n\nif [ $retries -eq 0 ]; then\n  echo \"Error: $device_name not found after waiting\"\n  exit 1\nfi\n\n# Check if the device is already mounted\nif ! mount | grep $mount_point > /dev/null; then\n  # Check if the filesystem exists\n  if ! file -s -L $device_name | grep ext4 > /dev/null; then\n    mkfs -t ext4 $device_name\n  fi\n  mkdir -p $mount_point\n  mount $device_name $mount_point\n\n  # Add the device to /etc/fstab to persist the mount on restart\n  output=$(lsblk $device_name -o +UUID)\n  uuid=$(echo \"$output\" | awk '/nvme1n1/ {print $NF}')\n  echo \"UUID=$uuid $mount_point ext4 defaults,nofail 0 2\" >> /etc/fstab\n  systemctl daemon-reload\nfi\nchown admin:admin $mount_point\n",
+        "user_data": "#!/bin/bash\n# Retry mechanism to wait for the volume to be attached\n\ndevice_name=\"/dev/sdf\"\nactual_device=\"/dev/nvme1n1\"\nmount_point=\"/opt/camunda\"\nadmin_user=\"ubuntu\"\nretries=10\n\n# Wait for the device to be attached\nwhile [ $retries -gt 0 ]; do\n  if lsblk $actual_device 2>/dev/null || lsblk $device_name 2>/dev/null; then\n    # Use the actual device that exists\n    if lsblk $actual_device 2>/dev/null; then\n      device_name=$actual_device\n    fi\n    echo \"Device $device_name found\"\n    break\n  else\n    echo \"Waiting for device to be attached...\"\n    sleep 10\n    retries=$((retries - 1))\n  fi\ndone\n\nif [ $retries -eq 0 ]; then\n  echo \"Error: Device not found after waiting\"\n  exit 1\nfi\n\n# Check if the device is already mounted\nif ! mount | grep $mount_point > /dev/null; then\n  # Check if the filesystem exists\n  if ! file -s -L $device_name | grep ext4 > /dev/null; then\n    mkfs -t ext4 $device_name\n  fi\n  mkdir -p $mount_point\n  mount $device_name $mount_point\n\n  # Add the device to /etc/fstab to persist the mount on restart\n  output=$(lsblk $device_name -o +UUID)\n  uuid=$(echo \"$output\" | tail -n 1 | awk '{print $NF}')\n  echo \"UUID=$uuid $mount_point ext4 defaults,nofail 0 2\" >> /etc/fstab\n  systemctl daemon-reload\nfi\nchown $admin_user:$admin_user $mount_point\n",
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
@@ -412,7 +412,7 @@
           "Name": "camunda-instance-2"
         },
         "timeouts": null,
-        "user_data": "#!/bin/bash\n# Retry mechanism to wait for the volume to be attached\n\ndevice_name=\"/dev/sdb\"\nmount_point=\"/opt/camunda\"\nretries=10\n\n# Wait for the device to be attached\nwhile [ $retries -gt 0 ]; do\n  if lsblk $device_name; then\n    echo \"Device $device_name found\"\n    break\n  else\n    echo \"Waiting for $device_name to be attached...\"\n    sleep 10\n    retries=$((retries - 1))\n  fi\ndone\n\nif [ $retries -eq 0 ]; then\n  echo \"Error: $device_name not found after waiting\"\n  exit 1\nfi\n\n# Check if the device is already mounted\nif ! mount | grep $mount_point > /dev/null; then\n  # Check if the filesystem exists\n  if ! file -s -L $device_name | grep ext4 > /dev/null; then\n    mkfs -t ext4 $device_name\n  fi\n  mkdir -p $mount_point\n  mount $device_name $mount_point\n\n  # Add the device to /etc/fstab to persist the mount on restart\n  output=$(lsblk $device_name -o +UUID)\n  uuid=$(echo \"$output\" | awk '/nvme1n1/ {print $NF}')\n  echo \"UUID=$uuid $mount_point ext4 defaults,nofail 0 2\" >> /etc/fstab\n  systemctl daemon-reload\nfi\nchown admin:admin $mount_point\n",
+        "user_data": "#!/bin/bash\n# Retry mechanism to wait for the volume to be attached\n\ndevice_name=\"/dev/sdf\"\nactual_device=\"/dev/nvme1n1\"\nmount_point=\"/opt/camunda\"\nadmin_user=\"ubuntu\"\nretries=10\n\n# Wait for the device to be attached\nwhile [ $retries -gt 0 ]; do\n  if lsblk $actual_device 2>/dev/null || lsblk $device_name 2>/dev/null; then\n    # Use the actual device that exists\n    if lsblk $actual_device 2>/dev/null; then\n      device_name=$actual_device\n    fi\n    echo \"Device $device_name found\"\n    break\n  else\n    echo \"Waiting for device to be attached...\"\n    sleep 10\n    retries=$((retries - 1))\n  fi\ndone\n\nif [ $retries -eq 0 ]; then\n  echo \"Error: Device not found after waiting\"\n  exit 1\nfi\n\n# Check if the device is already mounted\nif ! mount | grep $mount_point > /dev/null; then\n  # Check if the filesystem exists\n  if ! file -s -L $device_name | grep ext4 > /dev/null; then\n    mkfs -t ext4 $device_name\n  fi\n  mkdir -p $mount_point\n  mount $device_name $mount_point\n\n  # Add the device to /etc/fstab to persist the mount on restart\n  output=$(lsblk $device_name -o +UUID)\n  uuid=$(echo \"$output\" | tail -n 1 | awk '{print $NF}')\n  echo \"UUID=$uuid $mount_point ext4 defaults,nofail 0 2\" >> /etc/fstab\n  systemctl daemon-reload\nfi\nchown $admin_user:$admin_user $mount_point\n",
         "user_data_replace_on_change": false,
         "volume_tags": null
       }
@@ -1693,7 +1693,7 @@
       "sensitive_values": {},
       "type": "aws_volume_attachment",
       "values": {
-        "device_name": "/dev/sdb",
+        "device_name": "/dev/sdf",
         "force_detach": null,
         "region": "eu-west-2",
         "skip_destroy": null,
@@ -1710,7 +1710,7 @@
       "sensitive_values": {},
       "type": "aws_volume_attachment",
       "values": {
-        "device_name": "/dev/sdb",
+        "device_name": "/dev/sdf",
         "force_detach": null,
         "region": "eu-west-2",
         "skip_destroy": null,
@@ -1727,7 +1727,7 @@
       "sensitive_values": {},
       "type": "aws_volume_attachment",
       "values": {
-        "device_name": "/dev/sdb",
+        "device_name": "/dev/sdf",
         "force_detach": null,
         "region": "eu-west-2",
         "skip_destroy": null,
