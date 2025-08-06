@@ -782,7 +782,9 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
-        if: always() && needs.integration-tests-retry.result != 'success'
+        # in case of a failure that is retried, we will spawn a new cluster
+        # as ACM is bugged
+        if: always()
         runs-on: ubuntu-latest
         needs:
             - clusters-info
