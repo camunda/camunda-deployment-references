@@ -763,31 +763,16 @@ jobs:
                     kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name"
                   done
 
-    integration-tests-retry:
-        name: Retry Tests in case of failure
-        if: failure() && fromJSON(github.run_attempt) < 3
-        runs-on: ubuntu-latest
-        needs:
-            - integration-tests
-        steps:
-            - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@16a58ec264aba7d6f610b93dea782995d4f16963 # main
-              with:
-                  error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
-                  run-id: ${{ github.run_id }}
-                  repository: ${{ github.repository }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
-        if: always() && needs.integration-tests-retry.result != 'success'
+        # in case of a failure that is retried, we will spawn a new cluster
+        # as ACM is bugged
+        if: always()
         runs-on: ubuntu-latest
         needs:
             - clusters-info
             - integration-tests
-            - integration-tests-retry
         strategy:
             fail-fast: false
             matrix:
@@ -849,6 +834,23 @@ jobs:
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
 
+    integration-tests-retry:
+        name: Retry Tests in case of failure after cleanup
+        if: failure() && fromJSON(github.run_attempt) < 3
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+            - cleanup-clusters
+        steps:
+            - name: Retrigger job
+              uses: camunda/infra-global-github-actions/rerun-failed-run@16a58ec264aba7d6f610b93dea782995d4f16963 # main
+              with:
+                  error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
+                  run-id: ${{ github.run_id }}
+                  repository: ${{ github.repository }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
     report-success:
         name: Report success
         runs-on: ubuntu-latest
