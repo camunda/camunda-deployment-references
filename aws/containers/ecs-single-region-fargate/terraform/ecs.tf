@@ -29,32 +29,40 @@ resource "aws_ecs_task_definition" "core" {
   cpu                      = 4096
   memory                   = 8192
   container_definitions = templatefile("./templates/core.json.tpl", {
-    core_image     = "camunda/camunda:SNAPSHOT"
+    core_image     = "registry.camunda.cloud/team-hto/camunda/camunda:ecs-lease-hack"
     core_cpu       = 4096
     core_memory    = 8192
-    aws_region     = "eu-central-1"
+    aws_region     = "eu-north-1"
     prefix         = var.prefix
     opensearch_url = "https://${join("", module.opensearch_domain[*].opensearch_domain_endpoint)}"
     env_vars_json = jsonencode(concat([
-      {
-        name  = "ZEEBE_BROKER_CLUSTER_NODEID"
-        value = tostring(count.index)
-      },
       {
         name  = "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS"
         value = join(",", [for i in range(var.camunda_count) : "${var.prefix}-ecs-${i}.${var.prefix}.service.local:26502"])
       },
       {
         name  = "ZEEBE_BROKER_CLUSTER_CLUSTERSIZE"
-        value = tostring(var.camunda_count)
+        value = "3"
       },
       {
         name  = "ZEEBE_BROKER_CLUSTER_REPLICATIONFACTOR"
-        value = tostring(var.camunda_count)
+        value = "1"
       },
       {
         name  = "ZEEBE_BROKER_NETWORK_ADVERTISEDHOST"
         value = "${var.prefix}-ecs-${count.index}.${var.prefix}.service.local"
+      },
+      {
+        name = "ZEEBE_BROKER_LEASECONFIG_SECRETKEY"
+        value = aws_iam_access_key.s3_user_key.secret
+      },
+      {
+        name = "ZEEBE_BROKER_LEASECONFIG_BUCKETNAME"
+        value = aws_s3_bucket.main.id
+      },
+      {
+        name = "ZEEBE_BROKER_LEASECONFIG_ACCESSKEY"
+        value = aws_iam_access_key.s3_user_key.id
       }
     ], local.env_kv_pairs))
     docker_hub_credentials_arn = var.docker_hub_username != "" ? aws_secretsmanager_secret.docker_hub_credentials[0].arn : ""
@@ -84,8 +92,9 @@ resource "aws_ecs_service" "core" {
   name            = "${var.prefix}-core-service-${count.index}"
   cluster         = aws_ecs_cluster.ecs.id
   task_definition = aws_ecs_task_definition.core[count.index].arn
-  desired_count   = 1
+  desired_count   = 3
   launch_type     = "FARGATE"
+  health_check_grace_period_seconds = 300
 
   # Enable execute command for debugging
   enable_execute_command = true

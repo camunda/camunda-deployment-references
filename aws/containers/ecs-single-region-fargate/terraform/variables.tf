@@ -47,7 +47,7 @@ variable "prefix" {
 
 variable "camunda_count" {
   type        = number
-  default     = 3
+  default     = 1
   description = "The number of unique Camunda services to run"
 }
 
@@ -57,7 +57,7 @@ variable "camunda_count" {
 
 variable "cidr_blocks" {
   type        = string
-  default     = "10.200.0.0/16"
+  default     = "10.200.0.0/27"
   description = "The CIDR block to use for the VPC"
 }
 
@@ -122,7 +122,7 @@ variable "opensearch_architecture" {
 
 variable "limit_access_to_cidrs" {
   type        = list(string)
-  default     = ["185.28.185.138/32" ,"3.125.83.158/32"]
+  default     = ["0.0.0.0/0"] # ["185.28.185.138/32" ,"3.125.83.158/32"]
   description = "List of CIDR blocks to allow access to ssh of Bastion and LoadBalancer"
 }
 
