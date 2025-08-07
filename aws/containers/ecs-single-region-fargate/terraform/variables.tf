@@ -57,7 +57,7 @@ variable "camunda_count" {
 
 variable "cidr_blocks" {
   type        = string
-  default     = "10.200.0.0/27"
+  default     = "10.200.0.0/24"
   description = "The CIDR block to use for the VPC"
 }
 

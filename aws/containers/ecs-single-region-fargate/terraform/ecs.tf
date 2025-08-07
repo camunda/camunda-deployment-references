@@ -29,15 +29,16 @@ resource "aws_ecs_task_definition" "core" {
   cpu                      = 4096
   memory                   = 8192
   container_definitions = templatefile("./templates/core.json.tpl", {
-    core_image     = "registry.camunda.cloud/team-hto/camunda/camunda:ecs-lease-hack"
-    core_cpu       = 4096
-    core_memory    = 8192
-    aws_region     = "eu-north-1"
-    prefix         = var.prefix
+    core_image  = "registry.camunda.cloud/team-hto/camunda/camunda:ecs-lease-hack-v2"
+    core_cpu    = 4096
+    core_memory = 8192
+    aws_region  = "eu-north-1"
+    prefix      = var.prefix
     env_vars_json = jsonencode(concat([
       {
         name  = "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS"
-        value = join(",", [for i in range(var.camunda_count) : "${var.prefix}-ecs-${i}.${var.prefix}.service.local:26502"])
+        value = "10.200.0.0:26502,10.200.0.1:26502,10.200.0.2:26502,10.200.0.3:26502,10.200.0.4:26502,10.200.0.5:26502,10.200.0.6:26502,10.200.0.7:26502,10.200.0.8:26502,10.200.0.9:26502,10.200.0.10:26502,10.200.0.11:26502,10.200.0.12:26502,10.200.0.13:26502,10.200.0.14:26502,10.200.0.15:26502,10.200.0.16:26502,10.200.0.17:26502,10.200.0.18:26502,10.200.0.19:26502,10.200.0.20:26502,10.200.0.21:26502,10.200.0.22:26502,10.200.0.23:26502,10.200.0.24:26502,10.200.0.25:26502,10.200.0.26:26502,10.200.0.27:26502,10.200.0.28:26502,10.200.0.29:26502,10.200.0.30:26502,10.200.0.31:26502,10.200.0.32:26502,10.200.0.33:26502,10.200.0.34:26502,10.200.0.35:26502,10.200.0.36:26502,10.200.0.37:26502,10.200.0.38:26502,10.200.0.39:26502,10.200.0.40:26502,10.200.0.41:26502,10.200.0.42:26502,10.200.0.43:26502,10.200.0.44:26502,10.200.0.45:26502,10.200.0.46:26502,10.200.0.47:26502"
+        # value = join(",", [for i in range(var.camunda_count) : "${var.prefix}-ecs-${i}.${var.prefix}.service.local:26502"])
       },
       {
         name  = "ZEEBE_BROKER_CLUSTER_CLUSTERSIZE"
@@ -47,10 +48,11 @@ resource "aws_ecs_task_definition" "core" {
         name  = "ZEEBE_BROKER_CLUSTER_REPLICATIONFACTOR"
         value = "1"
       },
-      {
-        name  = "ZEEBE_BROKER_NETWORK_ADVERTISEDHOST"
-        value = "${var.prefix}-ecs-${count.index}.${var.prefix}.service.local"
-      },
+      # {
+      #   name  = "ZEEBE_BROKER_NETWORK_ADVERTISEDHOST"
+      #   value = "0.0.0.0"
+      #   # value = "${var.prefix}-ecs-${count.index}.${var.prefix}.service.local"
+      # },
       {
         name  = "ZEEBE_BROKER_LEASECONFIG_SECRETKEY"
         value = aws_iam_access_key.s3_user_key.secret
@@ -98,7 +100,7 @@ resource "aws_ecs_service" "core" {
   # Enable execute command for debugging
   enable_execute_command = true
 
-  deployment_maximum_percent         = 100
+  deployment_maximum_percent         = 200
   deployment_minimum_healthy_percent = 0
 
   network_configuration {
@@ -116,17 +118,17 @@ resource "aws_ecs_service" "core" {
   }
 
   # We register all services to same target group, this will then do the load balancing for our services
-  load_balancer {
-    target_group_arn = aws_lb_target_group.main[0].arn
-    container_name   = "${var.prefix}-core"
-    container_port   = 8080
-  }
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.main[0].arn
+  #   container_name   = "${var.prefix}-core"
+  #   container_port   = 8080
+  # }
 
-  load_balancer {
-    target_group_arn = aws_lb_target_group.main_9600[0].arn
-    container_name   = "${var.prefix}-core"
-    container_port   = 9600
-  }
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.main_9600[0].arn
+  #   container_name   = "${var.prefix}-core"
+  #   container_port   = 9600
+  # }
 
   load_balancer {
     target_group_arn = aws_lb_target_group.main_26500[0].arn

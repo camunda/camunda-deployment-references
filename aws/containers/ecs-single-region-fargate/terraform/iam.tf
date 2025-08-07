@@ -1,5 +1,5 @@
 resource "aws_iam_role" "ecs_task_execution" {
-  name = "ecs-task-execution-role"
+  name = "${var.prefix}-ecs-task-execution-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -19,7 +19,7 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_policy" {
 }
 
 resource "aws_iam_role" "ecs_service" {
-  name = "ecs-service-role"
+  name = "${var.prefix}-ecs-service-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -34,7 +34,7 @@ resource "aws_iam_role" "ecs_service" {
 }
 
 resource "aws_iam_role_policy" "ecs_service" {
-  name   = "ecs-service-role-policy"
+  name   = "${var.prefix}-ecs-service-role-policy"
   role   = aws_iam_role.ecs_service.name
   policy = <<EOF
 {
@@ -58,7 +58,7 @@ EOF
 
 # Create a separate task role for EFS access
 resource "aws_iam_role" "ecs_task_role" {
-  name = "ecs-task-role"
+  name = "${var.prefix}-ecs-task-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
