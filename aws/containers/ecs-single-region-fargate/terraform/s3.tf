@@ -1,6 +1,6 @@
 # S3 bucket
 resource "aws_s3_bucket" "main" {
-  bucket_prefix = "lars-test-ecs-bucket"
+  bucket_prefix = "${var.prefix}-bucket"
 }
 
 # Block public access
@@ -15,7 +15,7 @@ resource "aws_s3_bucket_public_access_block" "main" {
 
 # IAM user for S3 access
 resource "aws_iam_user" "s3_user" {
-  name = "lars-ecs-bucket-user"
+  name = "${var.prefix}-user"
 
   tags = {
     Description = "User for S3 bucket access"
@@ -29,7 +29,7 @@ resource "aws_iam_access_key" "s3_user_key" {
 
 # IAM policy for S3 bucket access
 resource "aws_iam_user_policy" "s3_user_policy" {
-  name = "s3-bucket-access-policy"
+  name = "${var.prefix}-s3-access-policy"
   user = aws_iam_user.s3_user.name
 
   policy = jsonencode({

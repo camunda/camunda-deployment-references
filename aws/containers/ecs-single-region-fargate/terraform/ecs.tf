@@ -34,7 +34,6 @@ resource "aws_ecs_task_definition" "core" {
     core_memory    = 8192
     aws_region     = "eu-north-1"
     prefix         = var.prefix
-    opensearch_url = "https://${join("", module.opensearch_domain[*].opensearch_domain_endpoint)}"
     env_vars_json = jsonencode(concat([
       {
         name  = "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS"
@@ -53,15 +52,15 @@ resource "aws_ecs_task_definition" "core" {
         value = "${var.prefix}-ecs-${count.index}.${var.prefix}.service.local"
       },
       {
-        name = "ZEEBE_BROKER_LEASECONFIG_SECRETKEY"
+        name  = "ZEEBE_BROKER_LEASECONFIG_SECRETKEY"
         value = aws_iam_access_key.s3_user_key.secret
       },
       {
-        name = "ZEEBE_BROKER_LEASECONFIG_BUCKETNAME"
+        name  = "ZEEBE_BROKER_LEASECONFIG_BUCKETNAME"
         value = aws_s3_bucket.main.id
       },
       {
-        name = "ZEEBE_BROKER_LEASECONFIG_ACCESSKEY"
+        name  = "ZEEBE_BROKER_LEASECONFIG_ACCESSKEY"
         value = aws_iam_access_key.s3_user_key.id
       }
     ], local.env_kv_pairs))
@@ -71,11 +70,11 @@ resource "aws_ecs_task_definition" "core" {
   task_role_arn = aws_iam_role.ecs_task_role.arn
 
   volume {
-    name                = "camunda-volume"
-    
+    name = "camunda-volume"
+
     efs_volume_configuration {
-      file_system_id = aws_efs_file_system.efs[count.index].id
-      root_directory = "/"
+      file_system_id     = aws_efs_file_system.efs[count.index].id
+      root_directory     = "/"
       transit_encryption = "ENABLED"
       authorization_config {
         access_point_id = aws_efs_access_point.camunda_data[count.index].id
@@ -89,17 +88,17 @@ resource "aws_ecs_task_definition" "core" {
 resource "aws_ecs_service" "core" {
   count = var.camunda_count
 
-  name            = "${var.prefix}-core-service-${count.index}"
-  cluster         = aws_ecs_cluster.ecs.id
-  task_definition = aws_ecs_task_definition.core[count.index].arn
-  desired_count   = 3
-  launch_type     = "FARGATE"
+  name                              = "${var.prefix}-core-service-${count.index}"
+  cluster                           = aws_ecs_cluster.ecs.id
+  task_definition                   = aws_ecs_task_definition.core[count.index].arn
+  desired_count                     = 3
+  launch_type                       = "FARGATE"
   health_check_grace_period_seconds = 300
 
   # Enable execute command for debugging
   enable_execute_command = true
 
-  deployment_maximum_percent = 100
+  deployment_maximum_percent         = 100
   deployment_minimum_healthy_percent = 0
 
   network_configuration {

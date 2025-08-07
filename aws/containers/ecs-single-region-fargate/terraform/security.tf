@@ -208,10 +208,10 @@ resource "aws_security_group" "efs" {
   vpc_id      = module.vpc.vpc_id
 
   ingress {
-    description     = "nfs from ECS tasks"
-    from_port       = 2049
-    to_port         = 2049
-    protocol        = "TCP"
+    description = "nfs from ECS tasks"
+    from_port   = 2049
+    to_port     = 2049
+    protocol    = "TCP"
     cidr_blocks = [module.vpc.vpc_cidr_block]
   }
 

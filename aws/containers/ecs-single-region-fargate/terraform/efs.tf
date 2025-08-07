@@ -5,7 +5,7 @@ resource "aws_efs_file_system" "efs" {
   performance_mode = "generalPurpose"
   encrypted        = true
 
-  throughput_mode = "provisioned"
+  throughput_mode                 = "provisioned"
   provisioned_throughput_in_mibps = 125 # gp3 baseline
 }
 
@@ -13,7 +13,7 @@ resource "aws_efs_access_point" "camunda_data" {
   count = var.camunda_count
 
   file_system_id = aws_efs_file_system.efs[count.index].id
-  
+
   root_directory {
     path = "/usr/local/camunda/data"
     creation_info {
@@ -22,12 +22,12 @@ resource "aws_efs_access_point" "camunda_data" {
       permissions = "755"
     }
   }
-  
+
   posix_user {
     gid = 1000
     uid = 1000
   }
-    
+
   tags = {
     Name = "${var.prefix}-camunda-data-access-point-${count.index}"
   }
@@ -43,7 +43,7 @@ resource "aws_efs_mount_target" "efs_mounts_zone_0" {
   subnet_id      = module.vpc.private_subnets[0]
 
   security_groups = [aws_security_group.efs.id]
-  
+
   depends_on = [
     aws_security_group.efs,
     module.vpc
@@ -57,7 +57,7 @@ resource "aws_efs_mount_target" "efs_mounts_zone_1" {
   subnet_id      = module.vpc.private_subnets[1]
 
   security_groups = [aws_security_group.efs.id]
-  
+
   depends_on = [
     aws_security_group.efs,
     module.vpc
@@ -71,7 +71,7 @@ resource "aws_efs_mount_target" "efs_mounts_zone_2" {
   subnet_id      = module.vpc.private_subnets[2]
 
   security_groups = [aws_security_group.efs.id]
-  
+
   depends_on = [
     aws_security_group.efs,
     module.vpc

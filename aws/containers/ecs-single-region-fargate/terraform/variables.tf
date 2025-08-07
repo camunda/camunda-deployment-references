@@ -7,13 +7,13 @@ data "aws_caller_identity" "current" {}
 
 variable "enable_opensearch" {
   type        = bool
-  default     = true
+  default     = false
   description = "Enable the OpenSearch cluster. If false, the OpenSearch cluster will not be created. Users may want to supply DBs manually themselves."
 }
 
 variable "enable_alb" {
   type        = bool
-  default     = true
+  default     = false
   description = "Enable the Application Load Balancer. If false, the ALB will not be created, e.g. if a user doesn't want to publicy expose the setup."
 }
 
@@ -42,7 +42,7 @@ variable "enable_opensearch_logging" {
 variable "prefix" {
   type        = string
   description = "The prefix to use for names of resources"
-  default     = "lars-ecs-nfs-ws"
+  default     = "lars-ecs-v2"
 }
 
 variable "camunda_count" {
