@@ -69,7 +69,7 @@
 | <a name="input_cidr_blocks"></a> [cidr\_blocks](#input\_cidr\_blocks) | The CIDR block to use for the VPC | `string` | `"10.200.0.0/24"` | no |
 | <a name="input_docker_hub_password"></a> [docker\_hub\_password](#input\_docker\_hub\_password) | Docker Hub password or access token for authenticated pulls | `string` | `""` | no |
 | <a name="input_docker_hub_username"></a> [docker\_hub\_username](#input\_docker\_hub\_username) | Docker Hub username for authenticated pulls | `string` | `""` | no |
-| <a name="input_enable_alb"></a> [enable\_alb](#input\_enable\_alb) | Enable the Application Load Balancer. If false, the ALB will not be created, e.g. if a user doesn't want to publicy expose the setup. | `bool` | `false` | no |
+| <a name="input_enable_alb"></a> [enable\_alb](#input\_enable\_alb) | Enable the Application Load Balancer. If false, the ALB will not be created, e.g. if a user doesn't want to publicy expose the setup. | `bool` | `true` | no |
 | <a name="input_enable_nlb"></a> [enable\_nlb](#input\_enable\_nlb) | Enable the Network Load Balancer. If false, the NLB will not be created. | `bool` | `true` | no |
 | <a name="input_enable_opensearch"></a> [enable\_opensearch](#input\_enable\_opensearch) | Enable the OpenSearch cluster. If false, the OpenSearch cluster will not be created. Users may want to supply DBs manually themselves. | `bool` | `false` | no |
 | <a name="input_enable_opensearch_logging"></a> [enable\_opensearch\_logging](#input\_enable\_opensearch\_logging) | Enable OpenSearch logging to CloudWatch Logs | `bool` | `false` | no |

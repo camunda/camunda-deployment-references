@@ -101,7 +101,7 @@ resource "aws_ecs_service" "core" {
   enable_execute_command = true
 
   deployment_maximum_percent         = 200
-  deployment_minimum_healthy_percent = 0
+  deployment_minimum_healthy_percent = 67
 
   network_configuration {
     subnets = module.vpc.private_subnets
@@ -118,17 +118,17 @@ resource "aws_ecs_service" "core" {
   }
 
   # We register all services to same target group, this will then do the load balancing for our services
-  # load_balancer {
-  #   target_group_arn = aws_lb_target_group.main[0].arn
-  #   container_name   = "${var.prefix}-core"
-  #   container_port   = 8080
-  # }
+  load_balancer {
+    target_group_arn = aws_lb_target_group.main[0].arn
+    container_name   = "${var.prefix}-core"
+    container_port   = 8080
+  }
 
-  # load_balancer {
-  #   target_group_arn = aws_lb_target_group.main_9600[0].arn
-  #   container_name   = "${var.prefix}-core"
-  #   container_port   = 9600
-  # }
+  load_balancer {
+    target_group_arn = aws_lb_target_group.main_9600[0].arn
+    container_name   = "${var.prefix}-core"
+    container_port   = 9600
+  }
 
   load_balancer {
     target_group_arn = aws_lb_target_group.main_26500[0].arn

@@ -13,7 +13,7 @@ variable "enable_opensearch" {
 
 variable "enable_alb" {
   type        = bool
-  default     = false
+  default     = true
   description = "Enable the Application Load Balancer. If false, the ALB will not be created, e.g. if a user doesn't want to publicy expose the setup."
 }
 
