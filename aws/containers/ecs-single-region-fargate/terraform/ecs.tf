@@ -29,7 +29,7 @@ resource "aws_ecs_task_definition" "core" {
   cpu                      = 4096
   memory                   = 8192
   container_definitions = templatefile("./templates/core.json.tpl", {
-    core_image  = "registry.camunda.cloud/team-hto/camunda/camunda:ecs-lease-hack-v2"
+    core_image  = "registry.camunda.cloud/team-hto/camunda/camunda:ecs-lease-hack-v4"
     core_cpu    = 4096
     core_memory = 8192
     aws_region  = "eu-north-1"
@@ -37,8 +37,7 @@ resource "aws_ecs_task_definition" "core" {
     env_vars_json = jsonencode(concat([
       {
         name  = "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS"
-        value = "10.200.0.0:26502,10.200.0.1:26502,10.200.0.2:26502,10.200.0.3:26502,10.200.0.4:26502,10.200.0.5:26502,10.200.0.6:26502,10.200.0.7:26502,10.200.0.8:26502,10.200.0.9:26502,10.200.0.10:26502,10.200.0.11:26502,10.200.0.12:26502,10.200.0.13:26502,10.200.0.14:26502,10.200.0.15:26502,10.200.0.16:26502,10.200.0.17:26502,10.200.0.18:26502,10.200.0.19:26502,10.200.0.20:26502,10.200.0.21:26502,10.200.0.22:26502,10.200.0.23:26502,10.200.0.24:26502,10.200.0.25:26502,10.200.0.26:26502,10.200.0.27:26502,10.200.0.28:26502,10.200.0.29:26502,10.200.0.30:26502,10.200.0.31:26502,10.200.0.32:26502,10.200.0.33:26502,10.200.0.34:26502,10.200.0.35:26502,10.200.0.36:26502,10.200.0.37:26502,10.200.0.38:26502,10.200.0.39:26502,10.200.0.40:26502,10.200.0.41:26502,10.200.0.42:26502,10.200.0.43:26502,10.200.0.44:26502,10.200.0.45:26502,10.200.0.46:26502,10.200.0.47:26502"
-        # value = join(",", [for i in range(var.camunda_count) : "${var.prefix}-ecs-${i}.${var.prefix}.service.local:26502"])
+        value = join(",", [for i in range(var.camunda_count) : "${var.prefix}-ecs-${i}.${var.prefix}.service.local:26502"])
       },
       {
         name  = "ZEEBE_BROKER_CLUSTER_CLUSTERSIZE"
@@ -46,7 +45,7 @@ resource "aws_ecs_task_definition" "core" {
       },
       {
         name  = "ZEEBE_BROKER_CLUSTER_REPLICATIONFACTOR"
-        value = "1"
+        value = "3"
       },
       # {
       #   name  = "ZEEBE_BROKER_NETWORK_ADVERTISEDHOST"
@@ -100,8 +99,8 @@ resource "aws_ecs_service" "core" {
   # Enable execute command for debugging
   enable_execute_command = true
 
-  deployment_maximum_percent         = 200
-  deployment_minimum_healthy_percent = 67
+  deployment_maximum_percent         = 100
+  deployment_minimum_healthy_percent = 0
 
   network_configuration {
     subnets = module.vpc.private_subnets
