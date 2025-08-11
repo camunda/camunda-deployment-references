@@ -748,7 +748,8 @@
             "address_prefixes": [
               false
             ],
-            "delegation": []
+            "delegation": [],
+            "ip_address_pool": []
           },
           "type": "azurerm_subnet",
           "values": {
@@ -757,6 +758,7 @@
             ],
             "default_outbound_access_enabled": true,
             "delegation": [],
+            "ip_address_pool": [],
             "name": "camunda-aks-subnet",
             "private_endpoint_network_policies": "Disabled",
             "private_link_service_network_policies_enabled": true,
@@ -786,7 +788,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "ip_address_pool": []
           },
           "type": "azurerm_subnet",
           "values": {
@@ -807,6 +810,7 @@
                 ]
               }
             ],
+            "ip_address_pool": [],
             "name": "camunda-db-subnet",
             "private_endpoint_network_policies": "Disabled",
             "private_link_service_network_policies_enabled": true,
@@ -826,7 +830,8 @@
             "address_prefixes": [
               false
             ],
-            "delegation": []
+            "delegation": [],
+            "ip_address_pool": []
           },
           "type": "azurerm_subnet",
           "values": {
@@ -835,6 +840,7 @@
             ],
             "default_outbound_access_enabled": true,
             "delegation": [],
+            "ip_address_pool": [],
             "name": "camunda-pe-subnet",
             "private_endpoint_network_policies": "Disabled",
             "private_link_service_network_policies_enabled": true,
