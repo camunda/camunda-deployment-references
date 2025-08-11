@@ -321,7 +321,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.33.0-20250715",
+                    "release_version": "1.33.3-20250807",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -662,6 +662,12 @@
           },
           "resources": {
             "module.eks_cluster.module.eks.aws_cloudwatch_log_group.this[0]": {
+              "identity": {
+                "account_id": null,
+                "name": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -1085,6 +1091,12 @@
               }
             },
             "module.eks_cluster.module.eks.aws_security_group.cluster[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "cluster",
@@ -1112,6 +1124,12 @@
               }
             },
             "module.eks_cluster.module.eks.aws_security_group.node[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "node",
@@ -2999,6 +3017,12 @@
           }
         },
         "module.opensearch_domain.aws_security_group.this": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3445,6 +3469,12 @@
           }
         },
         "module.postgresql.aws_security_group.this": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
