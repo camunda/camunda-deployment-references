@@ -60,6 +60,12 @@
           }
         },
         "module.vpn.aws_cloudwatch_log_group.vpn_logs": {
+          "identity": {
+            "account_id": null,
+            "name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "vpn_logs",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -179,6 +185,12 @@
           }
         },
         "module.vpn.aws_security_group.vpn": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "vpn",
           "provider_name": "registry.terraform.io/hashicorp/aws",
