@@ -321,9 +321,10 @@ jobs:
 
     test-report:
         runs-on: ubuntu-latest
-        if: always()
+        if: always() && needs.triage.outputs.should_skip == 'false'
         needs:
             - integration-tests
+            - triage
         outputs:
             SNAPSHOT_ERROR: ${{ steps.determine-if-failed-tests-include-snapshot.outputs.SNAPSHOT_ERROR }}
         steps:
