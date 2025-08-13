@@ -13,8 +13,8 @@ locals {
     for index in range(length(local.azs)) : cidrsubnet(var.cluster_node_ipv4_cidr, length(local.azs), index)
   ]
 
-  # Public subnets only if private_vpc is false
-  public_subnets = var.private_vpc ? [] : [
+  # This is not fully private as we use a Nat Gateway so we need public subnets
+  public_subnets = [
     for index in range(length(local.azs)) : cidrsubnet(var.cluster_node_ipv4_cidr, length(local.azs), index + length(local.azs))
   ]
 }
@@ -67,9 +67,10 @@ module "vpc" {
   private_subnet_tags = {
     "kubernetes.io/role/internal-elb" = 1
   }
-  public_subnet_tags = {
+  public_subnet_tags = var.private_vpc ? {} : {
     "kubernetes.io/role/elb" = 1
   }
+
 
   # Don't assign public IPv4 addresses on EC2 instance launch
   map_public_ip_on_launch = false
