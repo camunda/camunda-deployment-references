@@ -137,7 +137,7 @@ runs:
 
         - name: Terraform Plan - Cluster
           id: plan-cluster
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/terraform/cluster/${{ inputs.ref-arch }}/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
           shell: bash
           run: |
               set -euo pipefail
