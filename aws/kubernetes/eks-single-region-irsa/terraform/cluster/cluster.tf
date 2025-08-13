@@ -8,9 +8,7 @@ locals {
   # Default - 1 NAT per Subnet = 3 IPs
   single_nat_gateway = false # Change this to true if you want a single NAT gateway (1 IP vs 3 IPs)
 
-  # Prevent the cluster to be accessed at all from the public Internet if true
-  private_vpc = false
-  eks_tags    = {} # additional tags that you may want to apply to the resources
+  eks_tags = {} # additional tags that you may want to apply to the resources
 }
 
 module "eks_cluster" {
@@ -29,7 +27,8 @@ module "eks_cluster" {
   np_instance_types     = ["m6i.xlarge"]
   np_desired_node_count = 4
 
-  private_vpc        = local.private_vpc
+  # Prevent the cluster to be accessed at all from the public Internet if true
+  private_vpc        = false
   single_nat_gateway = local.single_nat_gateway
   cluster_tags       = local.eks_tags
 }
