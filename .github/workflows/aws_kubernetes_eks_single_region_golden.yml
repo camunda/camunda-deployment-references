@@ -48,9 +48,12 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                scenario:
-                    - eks-single-region
-                    - eks-single-region-irsa
+                module:
+                    - eks-single-region/cluster/
+                    - eks-single-region/vpn/
+
+                    - eks-single-region-irsa/cluster/
+                    - eks-single-region-irsa/vpn/
         permissions:
             contents: write
             pull-requests: write
@@ -72,7 +75,7 @@ jobs:
 
             - name: Export module_dir depending on scenario
               id: set-module-dir
-              run: echo "MODULE_DIR=./aws/kubernetes/${{ matrix.scenario }}/" | tee -a "$GITHUB_ENV"
+              run: echo "MODULE_DIR=./aws/kubernetes/terraform/${{ matrix.module }}" | tee -a "$GITHUB_ENV"
 
             - name: Run Terraform Golden Plan Comparison
               uses: ./.github/actions/internal-terraform-golden-plan
