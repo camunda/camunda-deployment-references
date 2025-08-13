@@ -13,8 +13,8 @@ on:
             - .github/workflows/aws_kubernetes_eks_single_region_daily_cleanup.yml
             - .tool-versions
             - aws/kubernetes/eks-single-region*/**
-            - '!aws/kubernetes/eks-single-region/test/golden/**'
-            - '!aws/kubernetes/eks-single-region-irsa/test/golden/**'
+            - '!aws/kubernetes/eks-single-region/terraform/*/test/golden/**'
+            - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
             - .github/actions/aws-kubernetes-eks-single-region-cleanup/**
             - .github/actions/aws-configure-cli/**
 

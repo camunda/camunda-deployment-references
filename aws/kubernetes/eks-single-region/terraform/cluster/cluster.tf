@@ -6,13 +6,15 @@ locals {
   kubernetes_version = "1.33" # Change this to your desired Kubernetes version (eks - major.minor)
 
   # Default - 1 NAT per Subnet = 3 IPs
-  single_nat_gateway = "false" # Change this to true if you want a single NAT gateway (1 IP vs 3 IPs)
+  single_nat_gateway = false # Change this to true if you want a single NAT gateway (1 IP vs 3 IPs)
 
-  eks_tags = {} # additional tags that you may want to apply to the resources
+  # Prevent the cluster to be accessed at all from the public Internet if true
+  private_vpc = false
+  eks_tags    = {} # additional tags that you may want to apply to the resources
 }
 
 module "eks_cluster" {
-  source = "../../modules/eks-cluster"
+  source = "../../../../modules/eks-cluster"
 
   name   = local.eks_cluster_name
   region = local.eks_cluster_region
@@ -27,6 +29,7 @@ module "eks_cluster" {
   np_instance_types     = ["m6i.xlarge"]
   np_desired_node_count = 4
 
+  private_vpc        = local.private_vpc
   single_nat_gateway = local.single_nat_gateway
   cluster_tags       = local.eks_tags
 }
@@ -39,4 +42,9 @@ output "cert_manager_arn" {
 output "external_dns_arn" {
   value       = module.eks_cluster.external_dns_arn
   description = "The Amazon Resource Name (ARN) of the AWS IAM Roles for Service Account mapping for the external-dns"
+}
+
+output "vpc_id" {
+  value       = module.eks_cluster.vpc_id
+  description = "The ID of the Virtual Private Cloud (VPC) where the cluster and related resources are deployed."
 }

@@ -72,6 +72,7 @@ module "eks_cluster" {
 | <a name="input_np_labels"></a> [np\_labels](#input\_np\_labels) | A map of labels to add to the default pool nodes | `map(string)` | `{}` | no |
 | <a name="input_np_max_node_count"></a> [np\_max\_node\_count](#input\_np\_max\_node\_count) | Maximum number of nodes for the default node pool | `number` | `10` | no |
 | <a name="input_np_min_node_count"></a> [np\_min\_node\_count](#input\_np\_min\_node\_count) | Minimum number of nodes for the default node pool | `number` | `1` | no |
+| <a name="input_private_vpc"></a> [private\_vpc](#input\_private\_vpc) | If true, create only private subnets without public subnets or NAT gateways. | `bool` | `false` | no |
 | <a name="input_region"></a> [region](#input\_region) | The region where the cluster and relevant resources should be deployed in | `string` | n/a | yes |
 | <a name="input_single_nat_gateway"></a> [single\_nat\_gateway](#input\_single\_nat\_gateway) | If set to true, a single NAT Gateway will be created for the VPC. If set to false, a NAT Gateway will be created for each subnet and requiring an IP per subnet. | `bool` | `false` | no |
 ## Outputs

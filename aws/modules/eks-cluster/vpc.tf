@@ -13,7 +13,8 @@ locals {
     for index in range(length(local.azs)) : cidrsubnet(var.cluster_node_ipv4_cidr, length(local.azs), index)
   ]
 
-  public_subnets = [
+  # Public subnets only if private_vpc is false
+  public_subnets = var.private_vpc ? [] : [
     for index in range(length(local.azs)) : cidrsubnet(var.cluster_node_ipv4_cidr, length(local.azs), index + length(local.azs))
   ]
 }

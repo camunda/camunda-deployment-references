@@ -7,7 +7,7 @@ module "eks" {
   kubernetes_version      = var.kubernetes_version
   service_ipv4_cidr       = var.cluster_service_ipv4_cidr
   endpoint_private_access = true # private API communication for nodes within the VPC
-  endpoint_public_access  = true # API accessible to engineers
+  endpoint_public_access  = var.private_vpc ? false : true
 
   cluster_tags = var.cluster_tags
 

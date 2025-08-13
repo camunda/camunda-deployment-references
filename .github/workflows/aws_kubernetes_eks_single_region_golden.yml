@@ -10,8 +10,8 @@ on:
             - aws/modules/eks-cluster/**
             - aws/modules/aurora/**
             - aws/modules/opensearch/**
-            - aws/kubernetes/eks-single-region/**
-            - aws/kubernetes/eks-single-region-irsa/**
+            - aws/kubernetes/eks-single-region/terraform/**
+            - aws/kubernetes/eks-single-region-irsa/terraform/**
             - .github/actions/aws-configure-cli/**
 
 # limit to a single execution per actor of this workflow

@@ -22,13 +22,19 @@ The kube context will be set on the created cluster.
 | `tf-modules-path` | <p>Path where the tf eks modules will be cloned</p> | `true` | `./.action-tf-modules/aws-kubernetes-eks-single-region-create/` |
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `true` | `true` |
 | `ref-arch` | <p>Reference architecture to deploy</p> | `false` | `eks-single-region-irsa` |
+| `vpn-enabled` | <p>Enable VPN setup module (recommended when private_vpc is true), this will also configure the current runner to use it</p> | `false` | `false` |
+| `private-vpc` | <p>The VPC within which the cluster resides will only have private subnets, meaning that it cannot be accessed at all from the public Internet (empty will fallback on default value of the module)</p> | `false` | `""` |
 
 
 ## Outputs
 
 | name | description |
 | --- | --- |
-| `terraform-state-url` | <p>URL of the Terraform state file in the S3 bucket</p> |
+| `terraform-state-url-cluster` | <p>URL of the Terraform state file in the S3 bucket</p> |
+| `terraform-state-url-vpn` | <p>URL of the module "vpn" Terraform state file in the S3 bucket</p> |
+| `vpn-client-configs` | <p>Map of VPN client configs</p> |
+| `vpn-client-config-file` | <p>Config file used by the VPN</p> |
+| `vpn-endpoint` | <p>Endpoint of the VPN to access the created cluster</p> |
 
 
 ## Runs
@@ -111,4 +117,16 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: eks-single-region-irsa
+
+    vpn-enabled:
+    # Enable VPN setup module (recommended when private_vpc is true), this will also configure the current runner to use it
+    #
+    # Required: false
+    # Default: false
+
+    private-vpc:
+    # The VPC within which the cluster resides will only have private subnets, meaning that it cannot be accessed at all from the public Internet (empty will fallback on default value of the module)
+    #
+    # Required: false
+    # Default: ""
 ```

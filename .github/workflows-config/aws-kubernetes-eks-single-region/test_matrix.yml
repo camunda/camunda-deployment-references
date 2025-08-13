@@ -3,6 +3,7 @@ matrix:
     distro:
         - name: EKS
           schedule_only: false
+          private_vpc: true
 
     scenario:
         - name: eks-single-region

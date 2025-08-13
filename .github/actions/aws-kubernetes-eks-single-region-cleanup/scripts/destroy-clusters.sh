@@ -1,46 +1,35 @@
 #!/bin/bash
-
 set -o pipefail
 
 # Description:
-# This script performs a Terraform destroy operation for clusters defined in an S3 bucket.
-# It copies a dummy config.tf, initializes Terraform with
-# the appropriate backend configuration, and runs `terraform destroy`. If the destroy operation
-# is successful, it removes the corresponding S3 objects.
+# This script performs Terraform destroy operations for infrastructures stored in an S3 bucket.
+# Each "group_id" directory may contain up to two separate modules, each with its own state file:
+#   1. vpn.tfstate
+#   2. cluster.tfstate
 #
-# Additionally, if the environment variable `RETRY_DESTROY` is set, the script will invoke `cloud-nuke`
-# to ensure the deletion of any remaining VPC resources that might not have been removed by Terraform.
+# The script ensures proper ordering: if both VPN and cluster exist, the VPN module is destroyed first,
+# followed by the cluster module. It copies a dummy config.tf, initializes Terraform with the appropriate
+# backend configuration, and runs `terraform destroy`. Upon successful destruction, it cleans up the
+# corresponding S3 objects.
+#
+# Additionally, if the environment variable `RETRY_DESTROY` is set, the script invokes `cloud-nuke`
+# to remove any remaining VPC resources that Terraform may not have deleted.
 #
 # Usage:
 # ./destroy_clusters.sh <BUCKET> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX] [--fail-on-not-found]
 #
 # Arguments:
-#   BUCKET: The name of the S3 bucket containing the cluster state files.
-#   MIN_AGE_IN_HOURS: The minimum age (in hours) of clusters to be destroyed.
-#   ID_OR_ALL: The specific ID suffix to filter objects, or "all" to destroy all objects.
-#   KEY_PREFIX (optional): A prefix (with a '/' at the end) for filtering objects in the S3 bucket.
-#   --fail-on-not-found (optional): If set, the script will exit with an error when no matching object is found (only when ID_OR_ALL is not "all").
-#
-# Example:
-# ./destroy_clusters.sh tf-state-rosa-ci-eu-west-3 24 all
-# ./destroy_clusters.sh tf-state-rosa-ci-eu-west-3 24 eks-cluster-2883
-# ./destroy_clusters.sh tf-state-rosa-ci-eu-west-3 24 all my-prefix/
+#   BUCKET: The name of the S3 bucket containing the Terraform state files.
+#   MIN_AGE_IN_HOURS: Minimum age (in hours) of clusters to be destroyed.
+#   ID_OR_ALL: Specific group_id to filter objects, or "all" to destroy everything.
+#   KEY_PREFIX (optional): Prefix (with trailing '/') for filtering objects in the S3 bucket.
+#   --fail-on-not-found (optional): If set, the script exits with an error when no matching object is found
+#                                  (only used when ID_OR_ALL is not "all").
 #
 # Requirements:
-# - AWS CLI installed and configured with the necessary permissions to access and modify the S3 bucket.
+# - AWS CLI installed and configured with permissions to access and modify the S3 bucket.
 # - Terraform installed and accessible in the PATH.
-# - `yq` installed when you use `RETRY_DESTROY`.
-
-# Check for required arguments
-if [ "$#" -lt 3 ] || [ "$#" -gt 5 ]; then
-  echo "Usage: $0 <BUCKET> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX] [--fail-on-not-found]"
-  exit 1
-fi
-
-if [ -z "$AWS_REGION" ]; then
-  echo "Error: The environment variable AWS_REGION is not set."
-  exit 1
-fi
+# - `yq` installed when using `RETRY_DESTROY`.
 
 # Variables
 BUCKET=$1
@@ -61,53 +50,41 @@ for arg in "${@:4}"; do
   fi
 done
 
-# Detect operating system and set the appropriate date command
+# Date command
 if [[ "$(uname)" == "Darwin" ]]; then
     date_command="gdate"
 else
     date_command="date"
 fi
 
-# Function to perform terraform destroy
-destroy_cluster() {
-  local key=$1
-  local cluster_id
-  local cluster_folder
-  # shellcheck disable=SC2001 # the alternative is multiple bash expansions
-  cluster_id=$(echo "$key" | sed 's|.*/tfstate-\([^/]*\)/.*|\1|')
-  # shellcheck disable=SC2001 # the alternative is multiple bash expansions
-  cluster_folder=$(echo "$key" | sed 's|\(.*\)/.*|\1|')
+destroy_module() {
+  local group_id=$1
+  local module_name=$2
+  local key="$KEY_PREFIX""tfstate-$group_id/${module_name}.tfstate"
+  local temp_dir="/tmp/${group_id}_${module_name}"
 
-  mkdir -p "/tmp/$cluster_id"
-  cp "$SCRIPT_DIR/config" "/tmp/$cluster_id/config.tf"
-  cd "/tmp/$cluster_id" || exit 1
+  mkdir -p "$temp_dir"
+  cp "$SCRIPT_DIR/config.tf" "$temp_dir/"
+  cd "$temp_dir" || return 1
 
-  if [[ "$RETRY_DESTROY" == "true" ]]; then
-      echo "Performing cloud-nuke on VPC to ensure that resources managed outside of Terraform are deleted."
-      yq eval ".VPC.include.names_regex = [\"^$cluster_id.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
-      cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$AWS_REGION" --force
-  fi
+  echo "[$group_id][$module_name] Initializing Terraform with state $key"
+  terraform init -backend-config="bucket=$BUCKET" -backend-config="key=$key" -backend-config="region=$AWS_S3_REGION" || return 1
 
-  echo "tf state: bucket=$BUCKET key=$key region=$AWS_S3_REGION"
+  # Remove storage class if blocking destroy
+  terraform state rm 'module.eks_cluster.kubernetes_storage_class_v1.ebs_sc[0]' >/dev/null 2>&1 || true
 
-  if ! terraform init -backend-config="bucket=$BUCKET" -backend-config="key=$key" -backend-config="region=$AWS_S3_REGION"; then return 1; fi
-
-  # Since we use a blank config.tf, we need to remove the default storage class as it otherwise it's blocking
-  # This is due to the k8s provider not being configured
-  terraform state rm 'module.eks_cluster.kubernetes_storage_class_v1.ebs_sc[0]'
-
-  if ! terraform destroy -auto-approve; then return 1; fi
+  echo "[$group_id][$module_name] Destroying module"
+  terraform destroy -auto-approve || return 1
 
   # Cleanup S3
-  echo "Deleting s3://$BUCKET/$cluster_folder"
-  if ! aws s3 rm "s3://$BUCKET/$cluster_folder" --recursive; then return 1; fi
-  if ! aws s3api delete-object --bucket "$BUCKET" --key "$cluster_folder/"; then return 1; fi
+  echo "[$group_id][$module_name] Cleaning up S3"
+  aws s3 rm "s3://$BUCKET/tfstate-$group_id/${module_name}.tfstate" || true
 
-  cd - || exit 1
-  rm -rf "/tmp/$cluster_id"
+  cd - >/dev/null || return 1
+  rm -rf "$temp_dir"
 }
 
-# List objects in the S3 bucket and parse the cluster IDs
+# Fetch all group IDs
 all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive)
 aws_exit_code=$?
 
@@ -118,91 +95,62 @@ if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
 fi
 
 if [ "$ID_OR_ALL" == "all" ]; then
-  clusters=$(echo "$all_objects" | awk '{print $NF}' | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
+  groups=$(echo "$all_objects" | awk '{print $NF}' | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
 else
-  clusters=$(echo "$all_objects" | awk '{print $NF}' | grep "tfstate-$ID_OR_ALL/" | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
-
-  if [ -z "$clusters" ] && [ "$FAIL_ON_NOT_FOUND" = true ]; then
+  groups=$(echo "$all_objects" | awk '{print $NF}' | grep "tfstate-$ID_OR_ALL/" | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
+  if [ -z "$groups" ] && [ "$FAIL_ON_NOT_FOUND" = true ]; then
     echo "Error: No object found for ID '$ID_OR_ALL'"
     exit 1
   fi
 fi
 
-if [ -z "$clusters" ]; then
-  echo "No objects found in the S3 bucket. Exiting script." >&2
-  exit 0
-fi
-
 current_timestamp=$($date_command +%s)
-
-pids=()
 log_dir="./logs"
 mkdir -p "$log_dir"
 
-for cluster_id in $clusters; do
-  log_file="$log_dir/$cluster_id.log"
+pids=()
 
+for group_id in $groups; do
+  log_file="$log_dir/$group_id.log"
   (
+    echo "[$group_id] Processing group"
 
-    cluster_folder="tfstate-$cluster_id"
-    echo "[$cluster_id] Checking cluster $cluster_id in $cluster_folder"
-
-    last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate" --output json | grep LastModified | awk -F '"' '{print $4}')
-    if [ -z "$last_modified" ]; then
-      echo "[$cluster_id] Error: Failed to retrieve last modified timestamp for cluster $cluster_id"
-      exit 1
-    fi
-
-    last_modified_timestamp=$($date_command -d "$last_modified" +%s)
-    if [ -z "$last_modified_timestamp" ]; then
-      echo "[$cluster_id] Error: Failed to convert last modified timestamp to seconds since epoch for cluster $cluster_id"
-      exit 1
-    fi
-    echo "[$cluster_id] Cluster $cluster_id last modification: $last_modified ($last_modified_timestamp)"
-
-    file_age_hours=$(( (current_timestamp - last_modified_timestamp) / 3600 ))
-    if [ -z "$file_age_hours" ]; then
-      echo "[$cluster_id] Error: Failed to calculate file age in hours for cluster $cluster_id"
-      exit 1
-    fi
-    echo "[$cluster_id] Cluster $cluster_id is $file_age_hours hours old"
-
-    if [ $file_age_hours -ge "$MIN_AGE_IN_HOURS" ]; then
-      echo "[$cluster_id] Destroying cluster $cluster_id in $cluster_folder"
-
-      if ! destroy_cluster "$KEY_PREFIX$cluster_folder/${cluster_id}.tfstate"; then
-        echo "[$cluster_id] Error destroying cluster $cluster_id"
-        exit 1
+    # Order: vpn → cluster
+    for module in vpn cluster; do
+      key="$KEY_PREFIX""tfstate-$group_id/${module}.tfstate"
+      if aws s3 ls "s3://$BUCKET/$key" >/dev/null 2>&1; then
+        last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$key" --query 'LastModified' --output text)
+        last_modified_ts=$($date_command -d "$last_modified" +%s)
+        age_hours=$(( (current_timestamp - last_modified_ts) / 3600 ))
+        echo "[$group_id][$module] Last modified: $last_modified ($age_hours hours old)"
+        if [ "$age_hours" -ge "$MIN_AGE_IN_HOURS" ]; then
+          destroy_module "$group_id" "$module" || exit 1
+        else
+          echo "[$group_id][$module] Skipping (age < $MIN_AGE_IN_HOURS hours)"
+        fi
+      else
+        echo "[$group_id][$module] Not found, skipping..."
       fi
-    else
-      echo "[$cluster_id] Skipping cluster $cluster_id as it does not meet the minimum age requirement of $MIN_AGE_IN_HOURS hours"
-    fi
+    done
   ) >"$log_file" 2>&1 &
-
   pids+=($!)
 done
 
-# Start tail -f in background
-{
-  echo "=== Live logs ==="
-  tail -n 0 -f "$log_dir"/*.log &
-  tail_pid=$!
-} 2>/dev/null
+# Live logs
+tail -n 0 -f "$log_dir"/*.log &
+tail_pid=$!
 
-# Wait and track exit codes
 FAILED=0
 for pid in "${pids[@]}"; do
   wait "$pid" || FAILED=1
 done
 
-# Stop tail once all processes are done
 kill "$tail_pid" 2>/dev/null
 
-# Exit with the appropriate status
 if [ $FAILED -ne 0 ]; then
   echo "One or more operations failed."
   exit 1
-else
-  echo "All operations completed successfully."
-  exit 0
 fi
+
+echo "All operations completed successfully."
+exit 0
