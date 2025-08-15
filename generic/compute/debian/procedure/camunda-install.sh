@@ -73,7 +73,11 @@ fi
 sudo -u "${USERNAME}" bash <<EOF
 
 if [ -d "${MNT_DIR}/camunda/" ]; then
-    echo "[INFO] Detected existing Camunda installation. Removing existing JARs and overwriting / recreating configuration files."
+    echo "[INFO] Detected existing Camunda installation. Stopping Camunda services if running."
+    sudo systemctl stop camunda || true
+    sudo systemctl stop camunda-connectors || true
+
+    echo "[INFO] Removing existing JARs and overwriting / recreating configuration files."
     rm -rf "${MNT_DIR}/camunda/lib/"
 fi
 
