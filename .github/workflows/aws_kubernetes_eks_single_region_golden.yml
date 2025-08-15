@@ -10,8 +10,8 @@ on:
             - aws/modules/eks-cluster/**
             - aws/modules/aurora/**
             - aws/modules/opensearch/**
-            - aws/kubernetes/eks-single-region/**
-            - aws/kubernetes/eks-single-region-irsa/**
+            - aws/kubernetes/eks-single-region/terraform/**
+            - aws/kubernetes/eks-single-region-irsa/terraform/**
             - .github/actions/aws-configure-cli/**
 
 # limit to a single execution per actor of this workflow
@@ -48,9 +48,12 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                scenario:
-                    - eks-single-region
-                    - eks-single-region-irsa
+                module:
+                    - eks-single-region/terraform/cluster/
+                    - eks-single-region/terraform/vpn/
+
+                    - eks-single-region-irsa/terraform/cluster/
+                    - eks-single-region-irsa/terraform/vpn/
         permissions:
             contents: write
             pull-requests: write
@@ -72,7 +75,7 @@ jobs:
 
             - name: Export module_dir depending on scenario
               id: set-module-dir
-              run: echo "MODULE_DIR=./aws/kubernetes/${{ matrix.scenario }}/" | tee -a "$GITHUB_ENV"
+              run: echo "MODULE_DIR=./aws/kubernetes/${{ matrix.module }}" | tee -a "$GITHUB_ENV"
 
             - name: Run Terraform Golden Plan Comparison
               uses: ./.github/actions/internal-terraform-golden-plan

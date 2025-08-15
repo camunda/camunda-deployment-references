@@ -122,8 +122,6 @@ destroy_resource() {
   elif [[ "$module_name" == "vpn" ]]; then
     echo "Setting values for VPN variables..."
 
-    export TF_VAR_s3_bucket_region="$VPN_S3_BUCKET_REGION"
-
     TF_VAR_vpc_id=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" --query "Vpcs[0].VpcId" --output text --region "$AWS_REGION")
 
     if [[ "$TF_VAR_vpc_id" == "None" || -z "$TF_VAR_vpc_id" ]]; then

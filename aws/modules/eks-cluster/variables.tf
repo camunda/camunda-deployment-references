@@ -118,6 +118,12 @@ variable "availability_zones" {
   default     = null
 }
 
+variable "private_vpc" {
+  description = "If true, create only private subnets without public subnets or NAT gateways."
+  type        = bool
+  default     = false
+}
+
 variable "single_nat_gateway" {
   type        = bool
   default     = false
