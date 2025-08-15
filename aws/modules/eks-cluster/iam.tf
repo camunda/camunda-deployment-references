@@ -7,7 +7,8 @@ module "ebs_cs_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "6.1.0"
 
-  name = "${var.name}-ebs-cs-role"
+  name            = "${var.name}-ebs-cs-role"
+  use_name_prefix = false
 
   oidc_providers = {
     main = {
@@ -27,7 +28,8 @@ module "cert_manager_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "6.1.0"
 
-  name = "${var.name}-cert-manager-role"
+  name            = "${var.name}-cert-manager-role"
+  use_name_prefix = false
 
   oidc_providers = {
     main = {
@@ -46,7 +48,8 @@ module "external_dns_role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "6.1.0"
 
-  name = "${var.name}-external-dns-role"
+  name            = "${var.name}-external-dns-role"
+  use_name_prefix = false
 
   oidc_providers = {
     main = {

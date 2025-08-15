@@ -25,7 +25,7 @@
                 "description": null,
                 "force_detach_policies": true,
                 "max_session_duration": 3600,
-                "name_prefix": "cluster-name-irsa-cert-manager-role-",
+                "name": "cluster-name-irsa-cert-manager-role",
                 "path": "/",
                 "permissions_boundary": null,
                 "tags": null
@@ -44,7 +44,10 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
-              "type": "aws_iam_role_policy_attachment"
+              "type": "aws_iam_role_policy_attachment",
+              "values": {
+                "role": "cluster-name-irsa-cert-manager-role"
+              }
             },
             "module.eks_cluster.module.cert_manager_role.data.aws_iam_policy_document.assume[0]": {
               "index": 0,
@@ -151,7 +154,7 @@
                 "description": null,
                 "force_detach_policies": true,
                 "max_session_duration": 3600,
-                "name_prefix": "cluster-name-irsa-ebs-cs-role-",
+                "name": "cluster-name-irsa-ebs-cs-role",
                 "path": "/",
                 "permissions_boundary": null,
                 "tags": null
@@ -170,7 +173,10 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
-              "type": "aws_iam_role_policy_attachment"
+              "type": "aws_iam_role_policy_attachment",
+              "values": {
+                "role": "cluster-name-irsa-ebs-cs-role"
+              }
             },
             "module.eks_cluster.module.ebs_cs_role.aws_iam_role_policy_attachment.additional[\"policy_2\"]": {
               "identity": {
@@ -185,7 +191,10 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
-              "type": "aws_iam_role_policy_attachment"
+              "type": "aws_iam_role_policy_attachment",
+              "values": {
+                "role": "cluster-name-irsa-ebs-cs-role"
+              }
             },
             "module.eks_cluster.module.ebs_cs_role.data.aws_iam_policy_document.assume[0]": {
               "index": 0,
@@ -1560,7 +1569,7 @@
                 "description": null,
                 "force_detach_policies": true,
                 "max_session_duration": 3600,
-                "name_prefix": "cluster-name-irsa-external-dns-role-",
+                "name": "cluster-name-irsa-external-dns-role",
                 "path": "/",
                 "permissions_boundary": null,
                 "tags": null
@@ -1579,7 +1588,10 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
-              "type": "aws_iam_role_policy_attachment"
+              "type": "aws_iam_role_policy_attachment",
+              "values": {
+                "role": "cluster-name-irsa-external-dns-role"
+              }
             },
             "module.eks_cluster.module.external_dns_role.data.aws_iam_policy_document.assume[0]": {
               "index": 0,
