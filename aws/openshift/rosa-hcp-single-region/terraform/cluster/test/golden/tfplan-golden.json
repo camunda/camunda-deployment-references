@@ -2321,6 +2321,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_subnet.private_subnet[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private_subnet",
@@ -2354,6 +2360,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_subnet.private_subnet[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private_subnet",
@@ -2387,6 +2399,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_subnet.private_subnet[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private_subnet",
@@ -2420,6 +2438,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_subnet.public_subnet[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "public_subnet",
@@ -2453,6 +2477,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_subnet.public_subnet[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "public_subnet",
@@ -2486,6 +2516,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_subnet.public_subnet[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "public_subnet",
