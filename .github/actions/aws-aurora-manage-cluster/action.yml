@@ -193,6 +193,41 @@ runs:
               export aurora_endpoint="$(terraform output -raw aurora_endpoint)"
               echo "aurora_endpoint=$aurora_endpoint" >> "$GITHUB_OUTPUT"
 
+        - name: Terraform Drift Detection
+          id: drift-detect
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Running post-apply drift detection..."
+              # Re-run a plan with detailed exit code to see if anything still wants to change.
+              # Exit codes: 0 = no changes, 2 = changes present, 1 = error
+              set +e
+              terraform plan -no-color -detailed-exitcode \
+                -var 'default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
+                -var-file=/tmp/var.tfvars.json \
+                -var "cluster_name=${{ inputs.cluster-name }}" \
+                -var "username=${{ inputs.username }}" \
+                -var "password=${{ inputs.password }}" \
+                -var 'availability_zones=${{ inputs.availability-zones }}' \
+                -var "vpc_id=${{ inputs.vpc-id }}" \
+                -var 'subnet_ids=${{ inputs.subnet-ids }}' \
+                -var 'cidr_blocks=${{ inputs.cidr-blocks }}' > drift.plan.out 2>&1
+              code=$?
+              set -e
+              echo '--- Drift Plan Output Start ---'
+              cat drift.plan.out
+              echo '--- Drift Plan Output End ---'
+              if [ $code -eq 0 ]; then
+                  echo "No drift detected after apply.";
+              elif [ $code -eq 2 ]; then
+                  echo "::error::Drift detected immediately after apply (configuration flapping). Failing the workflow.";
+                  exit 1
+              else
+                  echo "::error::Drift detection plan failed (exit code $code).";
+                  exit $code
+              fi
+
         - name: Fetch Terraform Outputs
           shell: bash
           id: fetch_outputs
