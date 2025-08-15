@@ -35,7 +35,7 @@ module "eks" {
       resolve_conflicts_on_create = "OVERWRITE"
 
       before_compute           = true
-      service_account_role_arn = module.ebs_cs_role.iam_role_arn
+      service_account_role_arn = module.ebs_cs_role.arn
     }
   }
 
