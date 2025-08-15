@@ -21,7 +21,7 @@ transfer_file "${CONFIG_DIR}/camunda.service" "${MNT_DIR}" camunda.service
 transfer_file "${CONFIG_DIR}/camunda-connectors.service" "${MNT_DIR}" camunda-connectors.service
 
 remote_cmd "sudo mv ${MNT_DIR}/camunda.service /etc/systemd/system/camunda.service"
-remote_cmd "sudo mv ${MNT_DIR}/connectors.service /etc/systemd/system/connectors.service"
+remote_cmd "sudo mv ${MNT_DIR}/camunda-connectors.service /etc/systemd/system/camunda-connectors.service"
 
 # Install and activate Camunda 8 Service
 remote_cmd 'sudo systemctl daemon-reload'
