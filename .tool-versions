@@ -24,7 +24,7 @@ delta 0.18.2
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
 eksctl 0.212.0
 
-golang 1.24.6
+golang 1.25.0
 
 helm 3.18.4
 
@@ -36,7 +36,7 @@ kubectl 1.33.3
 
 kustomize 5.7.1 # used by the tests
 
-pre-commit 4.2.0
+pre-commit 4.3.0
 
 python 3.13.6
 
