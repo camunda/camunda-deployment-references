@@ -18,7 +18,7 @@ matrix:
         - name: OpenShift 4.15
           schedule_only: true
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.15(\.(?<patch>\d+))?$
-          version: 4.15.52
+          version: 4.15.56
 
     scenario:
         - name: Chart Setup
