@@ -87,7 +87,7 @@ runs:
                   secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
 
         - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
-          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+          uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
           if: ${{ inputs.enable-helm-chart-tests == 'true' }}
           with:
               repository: camunda/camunda-platform-helm
