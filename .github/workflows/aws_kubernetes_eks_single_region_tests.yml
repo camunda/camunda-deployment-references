@@ -59,8 +59,8 @@ env:
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infraex
-    AWS_REGION: eu-north-1
-    S3_BACKEND_BUCKET: general-purpose-bucket-that-will-not-be-deleted
+    AWS_REGION: eu-west-2
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     TLD: camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
