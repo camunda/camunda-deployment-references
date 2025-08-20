@@ -451,7 +451,7 @@ jobs:
                   kubectl create namespace "$CAMUNDA_NAMESPACE"
 
             - name: 🧹 Clean up databases
-              timeout-minutes: 10
+              timeout-minutes: 20
               run: |
                   set -euo pipefail
 
