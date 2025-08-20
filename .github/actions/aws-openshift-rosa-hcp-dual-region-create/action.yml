@@ -353,34 +353,15 @@ runs:
 
         - name: Terraform Drift Detection - Clusters
           id: drift-detect-clusters
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+          uses: ./.github/actions/internal-terraform-drift-detect
+          with:
+              working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+              plan-extra-args: |
+                  -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
+                  -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
+                  -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
-          shell: bash
-          run: |
-              set -euo pipefail
-              echo "Running post-apply drift detection..."
-              # Re-run a plan with detailed exit code to see if anything still wants to change.
-              # Exit codes: 0 = no changes, 2 = changes present, 1 = error
-              set +e
-              terraform plan -no-color -detailed-exitcode \
-                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}" > drift.plan.out 2>&1
-              code=$?
-              set -e
-              echo '--- Drift Plan Output Start ---'
-              cat drift.plan.out
-              echo '--- Drift Plan Output End ---'
-              if [ $code -eq 0 ]; then
-                  echo "No drift detected after apply.";
-              elif [ $code -eq 2 ]; then
-                  echo "::error::Drift detected immediately after apply (configuration flapping). Failing the workflow.";
-                  exit 1
-              else
-                  echo "::error::Drift detection plan failed (exit code $code).";
-                  exit $code
-              fi
 
         - name: Login and generate kubeconfig on the clusters
           # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
@@ -495,34 +476,15 @@ runs:
         - name: Terraform Drift Detection - Peering
           if: inputs.enable-vpc-peering == 'true'
           id: drift-detect-peering
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
-          shell: bash
-          run: |
-              set -euo pipefail
-              echo "Running post-apply drift detection..."
-              # Re-run a plan with detailed exit code to see if anything still wants to change.
-              # Exit codes: 0 = no changes, 2 = changes present, 1 = error
-              set +e
-              terraform init -no-color -detailed-exitcode \
-                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
-                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
-                -backend-config="key=$terraform_state_key"  \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}" > drift.plan.out 2>&1
-              code=$?
-              set -e
-              echo '--- Drift Plan Output Start ---'
-              cat drift.plan.out
-              echo '--- Drift Plan Output End ---'
-              if [ $code -eq 0 ]; then
-                  echo "No drift detected after apply.";
-              elif [ $code -eq 2 ]; then
-                  echo "::error::Drift detected immediately after apply (configuration flapping). Failing the workflow.";
-                  exit 1
-              else
-                  echo "::error::Drift detection plan failed (exit code $code).";
-                  exit $code
-              fi
+          uses: ./.github/actions/internal-terraform-drift-detect
+          with:
+              working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
+              plan-extra-args: |
+                  -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
+                  -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
+                  -backend-config="key=$terraform_state_key"  \
+                  -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
+                  -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
 
       ### Backup bucket
 
@@ -591,31 +553,12 @@ runs:
         - name: Terraform Drift Detection - Backup Bucket
           if: inputs.enable-backup-bucket == 'true'
           id: drift-detect-backup-bucket
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
-          shell: bash
-          run: |
-              set -euo pipefail
-              echo "Running post-apply drift detection..."
-              # Re-run a plan with detailed exit code to see if anything still wants to change.
-              # Exit codes: 0 = no changes, 2 = changes present, 1 = error
-              set +e
-              terraform plan -no-color -detailed-exitcode \
-                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                -var="bucket_name=cb-${{ steps.plan-backup-bucket.outputs.HASH }}" > drift.plan.out 2>&1
-              code=$?
-              set -e
-              echo '--- Drift Plan Output Start ---'
-              cat drift.plan.out
-              echo '--- Drift Plan Output End ---'
-              if [ $code -eq 0 ]; then
-                  echo "No drift detected after apply.";
-              elif [ $code -eq 2 ]; then
-                  echo "::error::Drift detected immediately after apply (configuration flapping). Failing the workflow.";
-                  exit 1
-              else
-                  echo "::error::Drift detection plan failed (exit code $code).";
-                  exit $code
-              fi
+          uses: ./.github/actions/internal-terraform-drift-detect
+          with:
+              working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
+              plan-extra-args: |
+                  -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
+                  -var="bucket_name=cb-${{ steps.plan-backup-bucket.outputs.HASH }}"
 
         - name: Clean up cloned modules
           if: always() && inputs.cleanup-tf-modules-path == 'true'

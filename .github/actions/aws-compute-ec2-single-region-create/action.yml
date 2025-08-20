@@ -126,29 +126,10 @@ runs:
               terraform apply -no-color tf.plan
 
         - name: Terraform Drift Detection
+          uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect
-          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
-          shell: bash
-          run: |
-              set -euo pipefail
-              echo "Running post-apply drift detection..."
-              # Re-run a plan with detailed exit code to see if anything still wants to change.
-              # Exit codes: 0 = no changes, 2 = changes present, 1 = error
-              set +e
-              terraform plan -no-color -detailed-exitcode \
+          with:
+              working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+              plan-extra-args: |
                   -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                  -var='prefix=${{ inputs.cluster-name }}' > drift.plan.out 2>&1
-              code=$?
-              set -e
-              echo '--- Drift Plan Output Start ---'
-              cat drift.plan.out
-              echo '--- Drift Plan Output End ---'
-              if [ $code -eq 0 ]; then
-                  echo "No drift detected after apply.";
-              elif [ $code -eq 2 ]; then
-                  echo "::error::Drift detected immediately after apply (configuration flapping). Failing the workflow.";
-                  exit 1
-              else
-                  echo "::error::Drift detection plan failed (exit code $code).";
-                  exit $code
-              fi
+                  -var='prefix=${{ inputs.cluster-name }}'

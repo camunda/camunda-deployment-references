@@ -57,7 +57,7 @@ runs:
     using: composite
     steps:
         - name: Checkout Repository
-          uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+          uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -154,31 +154,12 @@ runs:
               terraform apply -no-color tf.plan
 
         - name: Terraform Drift Detection
+          uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
-          shell: bash
-          run: |
-              set -euo pipefail
-              echo "Running post-apply drift detection..."
-              # Re-run a plan with detailed exit code to see if anything still wants to change.
-              # Exit codes: 0 = no changes, 2 = changes present, 1 = error
-              set +e
-              terraform plan -no-color -detailed-exitcode \
-                  -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' > drift.plan.out 2>&1
-              code=$?
-              set -e
-              echo '--- Drift Plan Output Start ---'
-              cat drift.plan.out
-              echo '--- Drift Plan Output End ---'
-              if [ $code -eq 0 ]; then
-                  echo "No drift detected after apply.";
-              elif [ $code -eq 2 ]; then
-                  echo "::error::Drift detected immediately after apply (configuration flapping). Failing the workflow.";
-                  exit 1
-              else
-                  echo "::error::Drift detection plan failed (exit code $code).";
-                  exit $code
-              fi
+          with:
+              working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
+              plan-extra-args: |
+                  -var="default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}"
 
         - name: Login and generate kubeconfig
           if: inputs.login == 'true'
