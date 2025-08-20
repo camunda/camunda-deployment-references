@@ -41,7 +41,6 @@ module "eks_cluster" {
 | [aws_iam_policy.external_dns_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_kms_key.eks](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
 | [aws_security_group_rule.cluster_api_to_nodes](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group_rule) | resource |
-| [kubernetes_storage_class_v1.ebs_sc](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/storage_class_v1) | resource |
 | [time_sleep.eks_cluster_warmup](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_eips.current_usage](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/eips) | data source |
@@ -59,7 +58,6 @@ module "eks_cluster" {
 | <a name="input_cluster_node_ipv4_cidr"></a> [cluster\_node\_ipv4\_cidr](#input\_cluster\_node\_ipv4\_cidr) | The CIDR block for public and private subnets of loadbalancers and nodes. Between /28 and /16. | `string` | `"10.192.0.0/16"` | no |
 | <a name="input_cluster_service_ipv4_cidr"></a> [cluster\_service\_ipv4\_cidr](#input\_cluster\_service\_ipv4\_cidr) | The CIDR block to assign Kubernetes service IP addresses from. Between /24 and /12. | `string` | `"10.190.0.0/16"` | no |
 | <a name="input_cluster_tags"></a> [cluster\_tags](#input\_cluster\_tags) | A map of additional tags to add to the cluster | `map(string)` | `{}` | no |
-| <a name="input_create_ebs_gp3_default_storage_class"></a> [create\_ebs\_gp3\_default\_storage\_class](#input\_create\_ebs\_gp3\_default\_storage\_class) | Flag to determine if the kubernetes\_storage\_class should be created using EBS-CSI and set on GP3 by default. Set to 'false' to skip creating the storage class, useful for avoiding dependency issues during EKS cluster deletion. | `bool` | `true` | no |
 | <a name="input_enable_cluster_creator_admin_permissions"></a> [enable\_cluster\_creator\_admin\_permissions](#input\_enable\_cluster\_creator\_admin\_permissions) | Indicates whether or not to add the cluster creator (the identity used by Terraform) as an administrator via access entry. | `bool` | `true` | no |
 | <a name="input_kms_key_tags"></a> [kms\_key\_tags](#input\_kms\_key\_tags) | The tags to associate with the KMS key. | `map(string)` | `{}` | no |
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version to be used by EKS | `string` | `"1.33"` | no |
