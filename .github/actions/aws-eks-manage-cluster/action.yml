@@ -116,7 +116,7 @@ runs:
               tf-terraform-wrapper: ${{ inputs.tf-terraform-wrapper }}
 
         - name: Checkout Repository EKS modules
-          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+          uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -136,6 +136,12 @@ runs:
                 -backend-config="key=${{ steps.utility.outputs.TFSTATE_KEY }}" -backend-config="region=${{ steps.utility.outputs.TFSTATE_REGION }}"
               terraform validate -no-color
 
+        - name: Sanitize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanitize-tags
+          with:
+              raw-tags: ${{ inputs.tags }}
+
         - name: Terraform Plan
           shell: bash
           id: plan
@@ -143,20 +149,9 @@ runs:
           run: |
               set -euo pipefail
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
-
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
               terraform plan -no-color -out eks.plan \
-                -var "default_tags=$escaped_tags" \
+                -var 'default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var-file=/tmp/var.tfvars.json \
                 -var "name=${{ inputs.cluster-name }}" \
                 -var "region=${{ inputs.aws-region }}" \

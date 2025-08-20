@@ -26,7 +26,7 @@ env:
     S3_BUCKET_REGION: eu-central-1
     S3_BUCKET_KEY: golden.tfstate
 
-    MODULE_DIR: ./aws/openshift/rosa-hcp-single-region/
+    MODULE_DIR_BASE: ./aws/openshift/rosa-hcp-single-region/terraform/
 
 jobs:
     triage:
@@ -34,7 +34,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -49,10 +49,10 @@ jobs:
             pull-requests: write
         steps:
             - name: Checkout repository
-              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -63,12 +63,22 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            - name: Run Terraform Golden Plan Comparison
+            - name: Run Terraform Golden Plan Comparison - Cluster
               uses: ./.github/actions/internal-terraform-golden-plan
               env:
                   GH_TOKEN: ${{ github.token }}
               with:
-                  module-dir: ${{ env.MODULE_DIR }}
+                  module-dir: ${{ env.MODULE_DIR_BASE }}cluster/
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
+
+            - name: Run Terraform Golden Plan Comparison - VPN
+              uses: ./.github/actions/internal-terraform-golden-plan
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              with:
+                  module-dir: ${{ env.MODULE_DIR_BASE }}vpn/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-key: ${{ env.S3_BUCKET_KEY }}

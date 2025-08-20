@@ -58,17 +58,17 @@ output "cluster_arn" {
 # This allows the SA, if mapping was defined properly, to impersonate the role
 
 output "cert_manager_arn" {
-  value       = module.cert_manager_role.iam_role_arn
+  value       = module.cert_manager_role.arn
   description = "Amazon Resource Name of the cert-manager IAM role used for IAM Roles to Service Accounts mappings"
 }
 
 output "ebs_cs_arn" {
-  value       = module.ebs_cs_role.iam_role_arn
+  value       = module.ebs_cs_role.arn
   description = "Amazon Resource Name of the ebs-csi IAM role used for IAM Roles to Service Accounts mappings"
 }
 
 output "external_dns_arn" {
-  value       = module.external_dns_role.iam_role_arn
+  value       = module.external_dns_role.arn
   description = "Amazon Resource Name of the external-dns IAM role used for IAM Roles to Service Accounts mappings"
 }
 

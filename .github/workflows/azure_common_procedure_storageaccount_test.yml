@@ -33,7 +33,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
               with:
                   fetch-depth: 0
             - name: Check labels
@@ -45,17 +45,17 @@ jobs:
         needs: triage
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -87,15 +87,35 @@ jobs:
               working-directory: azure/common/procedure/storage-account
               run: |
                   set -euo pipefail
+
+                  EVENT_NAME="${{ github.event_name }}"
+                  export EXTRA_IDENTIFIER="${EVENT_NAME//_/-}"
+
+                  if [[ ${{ github.event_name }} == 'pull_request' ]]; then
+                    export EXTRA_IDENTIFIER="pr-${{ github.event.pull_request.number }}"
+                  fi
+
+                  export RANDOM_IDENTIFIER="$RANDOM-$EXTRA_IDENTIFIER"
+
+                  # Generate a random storage account name to avoid conflicts
+                  AZURE_STORAGE_ACCOUNT_NAME="storacc-$RANDOM_IDENTIFIER" # now allowed to use hyphens
+                  AZURE_STORAGE_ACCOUNT_NAME=$(echo "$AZURE_STORAGE_ACCOUNT_NAME" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')
+                  export AZURE_STORAGE_ACCOUNT_NAME="${AZURE_STORAGE_ACCOUNT_NAME:0:24}"
+                  echo "AZURE_STORAGE_ACCOUNT_NAME=$AZURE_STORAGE_ACCOUNT_NAME" | tee -a "$GITHUB_ENV"
+
+                  # Generate a random resource group name to avoid conflicts
+                  export RESOURCE_GROUP_NAME="azure-common-storage-test-$RANDOM_IDENTIFIER"
+                  export RESOURCE_GROUP_NAME="${RESOURCE_GROUP_NAME:0:64}"
+                  echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME" | tee -a "$GITHUB_ENV"
+
                   ./storage-account-creation.sh
                   ./storage-account-versioning.sh
-
             - name: Create tfvars file
               id: create_tfvars_file
               working-directory: azure/common/procedure/storage-account
               run: |
                   set -euo pipefail
-                  cp ${{ github.workspace }}/azure/common/test/fixtures/terraform.tfvars .
+                  cp ${{ github.workspace }}/azure/common/test/fixtures/ci/terraform.tfvars .
 
             - name: Terraform Init
               id: init
@@ -118,7 +138,7 @@ jobs:
         needs:
             - test-storage-account-creation
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -136,7 +156,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

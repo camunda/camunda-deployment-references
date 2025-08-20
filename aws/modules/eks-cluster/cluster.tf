@@ -1,42 +1,45 @@
-
-
-
 # https://github.com/terraform-aws-modules/terraform-aws-eks
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "20.36.0"
+  version = "21.1.0"
 
-  cluster_name                    = var.name
-  cluster_version                 = var.kubernetes_version
-  cluster_service_ipv4_cidr       = var.cluster_service_ipv4_cidr
-  cluster_endpoint_private_access = true # private API communication for nodes within the VPC
-  cluster_endpoint_public_access  = true # API accessible to engineers
+  name                    = var.name
+  kubernetes_version      = var.kubernetes_version
+  service_ipv4_cidr       = var.cluster_service_ipv4_cidr
+  endpoint_private_access = true # private API communication for nodes within the VPC
+  endpoint_public_access  = true # API accessible to engineers
 
   cluster_tags = var.cluster_tags
 
-  cluster_addons = {
+  addons = {
     coredns = {
-      most_recent       = true
-      resolve_conflicts = "OVERWRITE"
+      most_recent                 = true
+      resolve_conflicts_on_update = "OVERWRITE"
+      resolve_conflicts_on_create = "OVERWRITE"
     }
     kube-proxy = {
-      most_recent       = true
-      resolve_conflicts = "OVERWRITE"
+      most_recent                 = true
+      resolve_conflicts_on_update = "OVERWRITE"
+      resolve_conflicts_on_create = "OVERWRITE"
     }
     vpc-cni = {
-      most_recent       = true
-      resolve_conflicts = "OVERWRITE"
+      most_recent                 = true
+      resolve_conflicts_on_update = "OVERWRITE"
+      resolve_conflicts_on_create = "OVERWRITE"
+
+      before_compute = true
     }
     aws-ebs-csi-driver = {
-      most_recent       = true
-      resolve_conflicts = "OVERWRITE"
+      most_recent                 = true
+      resolve_conflicts_on_update = "OVERWRITE"
+      resolve_conflicts_on_create = "OVERWRITE"
 
       before_compute           = true
-      service_account_role_arn = module.ebs_cs_role.iam_role_arn
+      service_account_role_arn = module.ebs_cs_role.arn
     }
   }
 
-  cluster_encryption_config = {
+  encryption_config = {
     provider_key_arn = aws_kms_key.eks.arn
     resources        = ["secrets"]
   }
@@ -47,7 +50,7 @@ module "eks" {
   enable_irsa = true # https://aws.amazon.com/blogs/opensource/introducing-fine-grained-iam-roles-service-accounts/
 
   # Extend cluster security group rules
-  cluster_security_group_additional_rules = {
+  security_group_additional_rules = {
     egress_nodes_ephemeral_ports_tcp = {
       description                = "To node 1025-65535"
       protocol                   = "tcp"
@@ -79,38 +82,35 @@ module "eks" {
     }
   }
 
-  # EKS Managed Node Group(s) default values
-  eks_managed_node_group_defaults = {
-    ami_type       = var.np_ami_type
-    disk_size      = var.np_disk_size
-    instance_types = var.np_instance_types
-    capacity_type  = var.np_capacity_type
-
-    labels = var.np_labels
-
-    update_config = {
-      max_unavailable = 1
-    }
-
-    metadata_options = {
-      http_put_response_hop_limit = 1 # related to https://stackoverflow.com/a/73958206, don't allow pods to assume the role of a node
-    }
-
-    use_custom_launch_template = false
-
-    min_size     = var.np_min_node_count
-    max_size     = var.np_max_node_count
-    desired_size = var.np_desired_node_count
-
-  }
-
   # EKS Managed Node Group definitions
   eks_managed_node_groups = {
     services = {
       name            = "services"
       use_name_prefix = false
       labels          = var.np_labels
+
+      ami_type       = var.np_ami_type
+      disk_size      = var.np_disk_size
+      instance_types = var.np_instance_types
+      capacity_type  = var.np_capacity_type
+
+      update_config = {
+        max_unavailable = 1
+      }
+
+      metadata_options = {
+        # EKS v21 default is 1 but we keep it explicitly in here
+        http_put_response_hop_limit = 1 # related to https://stackoverflow.com/a/73958206, don't allow pods to assume the role of a node
+      }
+
+      use_custom_launch_template = false
+
+      min_size     = var.np_min_node_count
+      max_size     = var.np_max_node_count
+      desired_size = var.np_desired_node_count
+
     }
+
   }
 
   # creates separate IAM role

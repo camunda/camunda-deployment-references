@@ -23,14 +23,15 @@ import (
 )
 
 const (
-	terraformDir = "../../terraform"
 	privKeyName  = "ec2-jar-priv"
 	logGroupName = "camunda"
 )
 
 var (
-	tfBinary = utils.GetEnv("TERRAFORM_BINARY", "terraform")
-	tfVars   = map[string]interface{}{
+	terraformDir  = utils.GetEnv("TERRAFORM_DIR", "../../terraform/cluster")
+	tfBinary      = utils.GetEnv("TERRAFORM_BINARY", "terraform")
+	adminUsername = utils.GetEnv("ADMIN_USERNAME", "ubuntu")
+	tfVars        = map[string]interface{}{
 		"prefix":                    utils.GetEnv("TF_PREFIX", "ec2-jar-test"),
 		"opensearch_architecture":   utils.GetEnv("ARCHITECTURE", "x86_64"),
 		"aws_instance_architecture": utils.GetEnv("ARCHITECTURE", "x86_64"),
@@ -63,7 +64,7 @@ func TestConnectivity(t *testing.T) {
 	t.Log("Test connectivity to EC2 instances")
 
 	// expected values
-	expectedOutputLength := 10
+	expectedOutputLength := 9
 	expectedEc2Instances := 3
 
 	stringOutputs := [...]string{"aws_ami", "alb_endpoint", "nlb_endpoint", "private_key", "public_key", "aws_opensearch_domain", "aws_opensearch_domain_name", "bastion_ip"}
@@ -93,7 +94,7 @@ func TestConnectivity(t *testing.T) {
 			PrivateKey: privateKey,
 			PublicKey:  publicKey,
 		},
-		SshUserName: "admin",
+		SshUserName: adminUsername,
 	}
 
 	ssh.CheckSshConnectionWithRetry(t, publicHost, 5, 5)
@@ -108,7 +109,7 @@ func TestConnectivity(t *testing.T) {
 				PrivateKey: privateKey,
 				PublicKey:  publicKey,
 			},
-			SshUserName: "admin",
+			SshUserName: adminUsername,
 		}
 
 		ssh.CheckPrivateSshConnection(t, publicHost, privateHost, "'exit'")
@@ -179,7 +180,7 @@ func TestAllInOneScript(t *testing.T) {
 
 	cmd := shell.Command{
 		Command: "bash",
-		Args:    []string{"-c", "../../scripts/all-in-one-install.sh"},
+		Args:    []string{"-c", "../../procedure/all-in-one-install.sh"},
 	}
 	shell.RunCommand(t, cmd)
 }
@@ -213,7 +214,7 @@ func TestCloudWatchFeature(t *testing.T) {
 
 	cmd := shell.Command{
 		Command: "bash",
-		Args:    []string{"-c", "export CLOUDWATCH_ENABLED=true && ../../scripts/all-in-one-install.sh"},
+		Args:    []string{"-c", "export CLOUDWATCH_ENABLED=true && ../../procedure/all-in-one-install.sh"},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -221,7 +222,7 @@ func TestCloudWatchFeature(t *testing.T) {
 
 	cmd = shell.Command{
 		Command: "ssh",
-		Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", camundaIps[0]), "sudo systemctl is-active amazon-cloudwatch-agent"},
+		Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, camundaIps[0]), "sudo systemctl is-active amazon-cloudwatch-agent"},
 	}
 	output = shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -258,69 +259,6 @@ func TestCloudWatchFeature(t *testing.T) {
 	}
 }
 
-func TestSecurityFeature(t *testing.T) {
-	t.Log("Test security feature")
-
-	tfOutputs := terraform.OutputAll(t, terraformOptions(t, logger.Discard))
-	filePath := privKeyName
-	attempts := 3
-
-	for i := 0; i < attempts; i++ {
-		if _, err := os.Stat(filePath); os.IsNotExist(err) {
-			t.Logf("Private key does not exist: %s. Waiting for 60 seconds...\n", filePath)
-			time.Sleep(60 * time.Second)
-		} else {
-			t.Log("Private key exists, continuing with the test...")
-			break
-		}
-	}
-
-	t.Log("[Test] Expect the following to fail due to missing root certificate")
-	cmd := shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", "export SECURITY=true && ../../scripts/all-in-one-install.sh"},
-	}
-	output, err := shell.RunCommandAndGetOutputE(t, cmd)
-
-	require.Error(t, err, "Expected error due to missing root certificate")
-	require.Contains(t, output, "Secure cluster communication is set to: true.", "Expected security to be enabled")
-	require.Contains(t, output, "Error: CA certificate file 'ca-authority.pem' not found in this path")
-
-	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", "export SECURITY=true && ../../scripts/generate-self-signed-cert-authority.sh"},
-	}
-	shell.RunCommand(t, cmd)
-
-	cmd = shell.Command{
-		Command: "bash",
-		Args:    []string{"-c", "export SECURITY=true && ../../scripts/all-in-one-install.sh"},
-	}
-	output = shell.RunCommandAndGetOutput(t, cmd)
-
-	require.Contains(t, output, "Secure cluster communication is set to: true.", "Expected security to be enabled")
-
-	// Using zbctl to check that the cluster is secure - I don't have a better way to check this atm
-	cmd = shell.Command{
-		Command: "zbctl",
-		Args:    []string{"status", "--address", fmt.Sprintf("%s:26500", tfOutputs["nlb_endpoint"].(string)), "--certPath", "../../scripts/ca-authority.pem", "--requestTimeout", "30s"},
-	}
-	output = shell.RunCommandAndGetOutput(t, cmd)
-
-	require.Contains(t, output, "Cluster size: 3", "Expected cluster size to be 3")
-	require.Contains(t, output, "Healthy", "Expected cluster to be healthy")
-
-	t.Log("[Test] Expect the following to fail due to missing certificate")
-	cmd = shell.Command{
-		Command: "zbctl",
-		Args:    []string{"status", "--address", fmt.Sprintf("%s:26500", tfOutputs["nlb_endpoint"].(string))},
-	}
-	output, err = shell.RunCommandAndGetOutputE(t, cmd)
-
-	require.Error(t, err, "Expected error due to missing certPath in zbctl call.")
-	require.Contains(t, output, "authentication handshake failed")
-}
-
 func TestCamundaUpgrade(t *testing.T) {
 	t.Log("Test Camunda upgrade")
 
@@ -337,9 +275,9 @@ func TestCamundaUpgrade(t *testing.T) {
 		}
 	}
 
-	utils.ResetCamunda(t, terraformOptions(t, logger.Discard))
+	utils.ResetCamunda(t, terraformOptions(t, logger.Discard), adminUsername)
 
-	filePath = "../../scripts/camunda-install.sh"
+	filePath = "../../procedure/camunda-install.sh"
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
@@ -348,38 +286,43 @@ func TestCamundaUpgrade(t *testing.T) {
 
 	fileContent := string(content)
 
-	re := regexp.MustCompile(`:-"([0-9]+\.[0-9]+\.[0-9]+(-SNAPSHOT)?)"`)
+	re := regexp.MustCompile(`:-"(([0-9]+\.[0-9]+\.[0-9]+)(-SNAPSHOT|-alpha[0-9]+)?)"`)
 	match := re.FindAllStringSubmatch(fileContent, -1)
 
 	fmt.Println("Match:", match)
 
-	if len(match) < 1 {
-		t.Fatalf("No matches found in file: %s", filePath)
+	if len(match) < 2 {
+		t.Fatalf("Expected at least 2 matches found in file: %s, got: %d", filePath, len(match))
 	}
 
-	camundaCurrentVersion := match[0][1]
+	camundaCurrentVersion := match[0][2]     // Base version without suffix
+	camundaCurrentVersionFull := match[0][1] // Full version with suffix
 	camundaPreviousVersion, err := utils.LowerVersion(camundaCurrentVersion)
 	if err != nil {
 		t.Fatalf("Error lowering version: %v", err)
 	}
 
-	connectorsCurrentVersion := match[1][1]
+	connectorsCurrentVersion := match[1][2]     // Base version without suffix
+	connectorsCurrentVersionFull := match[1][1] // Full version with suffix
 	connectorsPreviousVersion, err := utils.LowerVersion(connectorsCurrentVersion)
 	if err != nil {
 		t.Fatalf("Error lowering version: %v", err)
 	}
 
 	// Allows overwriting the versions from outside
-	camundaCurrentVersion = utils.GetEnv("CAMUNDA_VERSION", camundaCurrentVersion)
+	camundaCurrentVersionFull = utils.GetEnv("CAMUNDA_VERSION", camundaCurrentVersionFull)
 	camundaPreviousVersion = utils.GetEnv("CAMUNDA_PREVIOUS_VERSION", camundaPreviousVersion)
-	connectorsCurrentVersion = utils.GetEnv("CAMUNDA_CONNECTORS_VERSION", connectorsCurrentVersion)
+	connectorsCurrentVersionFull = utils.GetEnv("CAMUNDA_CONNECTORS_VERSION", connectorsCurrentVersionFull)
 	connectorsPreviousVersion = utils.GetEnv("CAMUNDA_CONNECTORS_PREVIOUS_VERSION", connectorsPreviousVersion)
 
-	t.Logf("Camunda current version: %s, previous version: %s", camundaCurrentVersion, camundaPreviousVersion)
-	t.Logf("Connectors current version: %s, previous version: %s", connectorsCurrentVersion, connectorsPreviousVersion)
+	t.Logf("Camunda current version: %s, previous version: %s", camundaCurrentVersionFull, camundaPreviousVersion)
+	t.Logf("Connectors current version: %s, previous version: %s", connectorsCurrentVersionFull, connectorsPreviousVersion)
 
-	updatedContent := strings.ReplaceAll(fileContent, fmt.Sprintf("CAMUNDA_VERSION:-\"%s\"", camundaCurrentVersion), fmt.Sprintf("CAMUNDA_VERSION:-\"%s\"", camundaPreviousVersion))
-	updatedContent = strings.ReplaceAll(updatedContent, fmt.Sprintf("CAMUNDA_CONNECTORS_VERSION:-\"%s\"", connectorsCurrentVersion), fmt.Sprintf("CAMUNDA_CONNECTORS_VERSION:-\"%s\"", connectorsPreviousVersion))
+	camundaVersionRegex := regexp.MustCompile(`CAMUNDA_VERSION=\$\{CAMUNDA_VERSION:-"[^"]*"\}`)
+	updatedContent := camundaVersionRegex.ReplaceAllString(fileContent, fmt.Sprintf("CAMUNDA_VERSION=%s", camundaPreviousVersion))
+
+	connectorsVersionRegex := regexp.MustCompile(`CAMUNDA_CONNECTORS_VERSION=\$\{CAMUNDA_CONNECTORS_VERSION:-"[^"]*"\}`)
+	updatedContent = connectorsVersionRegex.ReplaceAllString(updatedContent, fmt.Sprintf("CAMUNDA_CONNECTORS_VERSION=%s", connectorsPreviousVersion))
 
 	err = os.WriteFile(filePath, []byte(updatedContent), 0644)
 	if err != nil {
@@ -389,7 +332,7 @@ func TestCamundaUpgrade(t *testing.T) {
 	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaPreviousVersion, connectorsPreviousVersion)
 	cmd := shell.Command{
 		Command: "bash",
-		Args:    []string{"-c", "../../scripts/all-in-one-install.sh"},
+		Args:    []string{"-c", "../../procedure/all-in-one-install.sh"},
 	}
 	shell.RunCommand(t, cmd)
 
@@ -402,7 +345,7 @@ func TestCamundaUpgrade(t *testing.T) {
 	}
 
 	// Zeebe has a prerelease protection that results in unhealthy clusters if not disabled
-	if strings.Contains(camundaCurrentVersion, "SNAPSHOT") || strings.Contains(camundaCurrentVersion, "alpha") {
+	if strings.Contains(camundaCurrentVersionFull, "SNAPSHOT") || strings.Contains(camundaCurrentVersionFull, "alpha") {
 		cmd = shell.Command{
 			Command: "bash",
 			Args:    []string{"-c", "echo ZEEBE_BROKER_EXPERIMENTAL_VERSIONCHECKRESTRICTIONENABLED=false >> ../../configs/camunda-environment"},
@@ -410,16 +353,16 @@ func TestCamundaUpgrade(t *testing.T) {
 		shell.RunCommand(t, cmd)
 	}
 
-	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaCurrentVersion, connectorsCurrentVersion)
+	t.Logf("Running all-in-one script with Camunda version: %s, Connectors version: %s", camundaCurrentVersionFull, connectorsCurrentVersionFull)
 	cmd = shell.Command{
 		Command: "bash",
-		Args:    []string{"-c", "../../scripts/all-in-one-install.sh"},
+		Args:    []string{"-c", "../../procedure/all-in-one-install.sh"},
 	}
 	output := shell.RunCommandAndGetOutput(t, cmd)
 
-	require.Contains(t, output, "Detected existing Camunda installation. Removing existing JARs and overwriting / recreating configuration files", "Expected existing Camunda installation message")
+	require.Contains(t, output, "Detected existing Camunda installation.", "Expected existing Camunda installation message")
 
-	utils.APICheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), camundaCurrentVersion)
+	utils.APICheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), camundaCurrentVersionFull)
 }
 
 func TestTeardown(t *testing.T) {

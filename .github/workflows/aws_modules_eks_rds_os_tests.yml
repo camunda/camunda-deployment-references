@@ -48,7 +48,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -71,7 +71,7 @@ jobs:
             cluster_id: ${{ steps.short_git_sha.outputs.short_git_sha }}-g
         steps:
             - name: Checkout repository
-              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
               with:
                   ref: ${{ github.head_ref }}
                   fetch-depth: 0
@@ -135,10 +135,10 @@ jobs:
                 test_function: ${{ fromJson(needs.configure-tests.outputs.test_functions) }}
         steps:
             - name: Checkout repository
-              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -155,14 +155,12 @@ jobs:
               with:
                   modfile: ${{ github.workspace }}/aws/modules/.test/src/go.mod
 
-            - name: Launch test
-              timeout-minutes: 125
-              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
-              if: always() && success()
+            - name: Prepare ci tags
+              id: prepare-ci-tags
               run: |
                   set -euo pipefail
 
-                  ci_metadata=$(jq -n \
+                  ci_metadata=$(jq -c -n \
                     --arg run_id "${{ github.run_id }}" \
                     --arg run_number "${{ github.run_number }}" \
                     --arg workflow "${{ github.workflow }}" \
@@ -179,22 +177,27 @@ jobs:
                       "ci-ref": $ref,
                       "ci-commit": $sha,
                       "ci-repo": $repository,
-                      "ci-event": $event_name
+                      "ci-event": $event_name,
+                      "map-migrated": "migARUADZHVWZ"
                     }')
 
-                  # Convert to Terraform format: "key"="value", ... wrapped in braces
-                  escaped_tags=$(echo "$ci_metadata" | jq -r '
-                    to_entries
-                    | map("\"" + .key + "\"=\"" + (
-                        .value
-                        | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                        | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                        ) + "\"")
-                    | join(", ")
-                    ' | sed 's/.*/{&}/')
+                  echo "CI_METADATA=$ci_metadata" | tee -a "$GITHUB_ENV"
 
-                  echo "Final tags: $escaped_tags"
-                  export TF_VAR_default_tags="$escaped_tags"
+            - name: Sanitize Tags
+              id: sanitize-tags
+              uses: ./.github/actions/internal-sanitize-tags
+              with:
+                  raw-tags: ${{ env.CI_METADATA }}
+
+            - name: Launch test
+              timeout-minutes: 125
+              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+              if: always() && success()
+              run: |
+                  set -euo pipefail
+
+                  echo "Final tags: ${{ steps.sanitize-tags.outputs.sanitized_tags }}"
+                  export TF_VAR_default_tags='${{ steps.sanitize-tags.outputs.sanitized_tags }}'
 
                   just aws-tf-modules-test ${{ matrix.test_function }} "--junitfile ${{ matrix.test_function }}_unit-tests.xml"
               env:
@@ -236,7 +239,7 @@ jobs:
             - integration-tests
         steps:
             - name: Download artifacts
-              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+              uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
               with:
                   pattern: test-reports-*
                   path: /tmp/testreports
@@ -255,13 +258,13 @@ jobs:
             - integration-tests
         steps:
             - name: Checkout repository
-              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
               with:
                   ref: ${{ github.head_ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -292,7 +295,7 @@ jobs:
             - test-report
             - cleanup-resources
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -310,7 +313,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: env.IS_SCHEDULE == 'true'
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

@@ -12,6 +12,44 @@ outputs:
 runs:
     using: composite
     steps:
+        - name: Debug workflow context
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "[debug] github.actor='${{ github.actor }}'"
+              if [[ "${{ github.actor }}" == "renovate[bot]" ]]; then
+                echo "[debug] Actor is Renovate bot"
+              else
+                echo "[debug] Actor is NOT Renovate bot"
+              fi
+              echo "[debug] github.event_name='${{ github.event_name }}'"
+              echo "[debug] github.repository='${{ github.repository }}'"
+              echo "[debug] github.workflow_ref='${{ github.workflow_ref }}'"
+              echo "[debug] github.run_id='${{ github.run_id }}' run_attempt='${{ github.run_attempt }}'"
+
+              if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+                echo "[debug] pull_request.number='${{ github.event.pull_request.number }}'"
+                echo "[debug] pull_request.head.ref='${{ github.event.pull_request.head.ref }}'"
+                echo "[debug] pull_request.base.ref='${{ github.event.pull_request.base.ref }}'"
+                echo "[debug] pull_request.title='${{ github.event.pull_request.title }}'"
+                echo "[debug] Labels on PR:"
+                if [[ -f "$GITHUB_EVENT_PATH" ]]; then
+                  jq -r '.pull_request.labels[]?.name' "$GITHUB_EVENT_PATH" || true
+                fi
+              elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+                echo "[debug] workflow_dispatch inputs (raw JSON):"
+                if [[ -f "$GITHUB_EVENT_PATH" ]]; then
+                  jq '.inputs // {}' "$GITHUB_EVENT_PATH" || true
+                  echo "[debug] Flattened key=value inputs:"
+                  jq -r '.inputs // {} | to_entries[] | "[debug] input." + .key + "=" + (.value|tostring)' "$GITHUB_EVENT_PATH" || true
+                else
+                  echo "[debug] No event payload file found ($GITHUB_EVENT_PATH)"
+                fi
+              else
+                echo "[debug] Not a pull_request event; skipping PR-specific debug data."
+              fi
+
         - name: Get the current workflow filename and check for skip labels
           id: check_labels
           shell: bash

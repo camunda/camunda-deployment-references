@@ -99,11 +99,13 @@
             "azure_policy_enabled": null,
             "confidential_computing": [],
             "cost_analysis_enabled": null,
+            "custom_ca_trust_certificates_base64": null,
             "default_node_pool": [
               {
                 "auto_scaling_enabled": null,
                 "capacity_reservation_group_id": null,
                 "fips_enabled": null,
+                "gpu_driver": null,
                 "gpu_instance": null,
                 "host_encryption_enabled": null,
                 "host_group_id": null,
@@ -122,7 +124,7 @@
                 "node_public_ip_enabled": null,
                 "node_public_ip_prefix_id": null,
                 "only_critical_addons_enabled": true,
-                "orchestrator_version": "1.32",
+                "orchestrator_version": "1.33",
                 "os_disk_size_gb": 30,
                 "os_disk_type": "Managed",
                 "pod_subnet_id": null,
@@ -168,7 +170,7 @@
               }
             ],
             "key_vault_secrets_provider": [],
-            "kubernetes_version": "1.32",
+            "kubernetes_version": "1.33",
             "linux_profile": [],
             "local_account_disabled": null,
             "location": "swedencentral",
@@ -240,6 +242,7 @@
             "capacity_reservation_group_id": null,
             "eviction_policy": null,
             "fips_enabled": null,
+            "gpu_driver": null,
             "gpu_instance": null,
             "host_encryption_enabled": null,
             "host_group_id": null,
@@ -259,7 +262,7 @@
             "node_public_ip_enabled": null,
             "node_public_ip_prefix_id": null,
             "node_taints": null,
-            "orchestrator_version": "1.32",
+            "orchestrator_version": "1.33",
             "os_disk_size_gb": 30,
             "os_disk_type": "Managed",
             "os_type": "Linux",
@@ -285,6 +288,24 @@
               "2",
               "3"
             ]
+          }
+        },
+        "module.aks.azurerm_role_assignment.kubelet_dns[0]": {
+          "index": 0,
+          "mode": "managed",
+          "name": "kubelet_dns",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "azurerm_role_assignment",
+          "values": {
+            "condition": null,
+            "delegated_managed_identity_resource_id": null,
+            "description": null,
+            "principal_type": "ServicePrincipal",
+            "role_definition_name": "DNS Zone Contributor",
+            "scope": "/subscriptions/5667840f-dd25-4fe1-99ee-5e752ec80b5c/resourceGroups/rg-infraex-global-permanent/providers/Microsoft.Network/dnszones/azure.camunda.ie",
+            "timeouts": null
           }
         }
       }
@@ -729,7 +750,8 @@
             "address_prefixes": [
               false
             ],
-            "delegation": []
+            "delegation": [],
+            "ip_address_pool": []
           },
           "type": "azurerm_subnet",
           "values": {
@@ -738,6 +760,7 @@
             ],
             "default_outbound_access_enabled": true,
             "delegation": [],
+            "ip_address_pool": [],
             "name": "camunda-aks-subnet",
             "private_endpoint_network_policies": "Disabled",
             "private_link_service_network_policies_enabled": true,
@@ -767,7 +790,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "ip_address_pool": []
           },
           "type": "azurerm_subnet",
           "values": {
@@ -788,6 +812,7 @@
                 ]
               }
             ],
+            "ip_address_pool": [],
             "name": "camunda-db-subnet",
             "private_endpoint_network_policies": "Disabled",
             "private_link_service_network_policies_enabled": true,
@@ -807,7 +832,8 @@
             "address_prefixes": [
               false
             ],
-            "delegation": []
+            "delegation": [],
+            "ip_address_pool": []
           },
           "type": "azurerm_subnet",
           "values": {
@@ -816,6 +842,7 @@
             ],
             "default_outbound_access_enabled": true,
             "delegation": [],
+            "ip_address_pool": [],
             "name": "camunda-pe-subnet",
             "private_endpoint_network_policies": "Disabled",
             "private_link_service_network_policies_enabled": true,

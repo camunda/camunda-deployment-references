@@ -8,7 +8,7 @@ variable "domain_name" {
 variable "engine_version" {
   type        = string
   description = "OpenSearch version for the domain."
-  # TODO: add renovate
+  # renovate: datasource=custom.opensearch-camunda depName=opensearch versioning=semver
   default = "2.15"
 }
 

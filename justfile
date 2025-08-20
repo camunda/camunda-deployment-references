@@ -1,7 +1,7 @@
 # this file is a recipe file for the project
 
 # renovate: datasource=github-releases depName=gotestyourself/gotestsum
-gotestsum_version := "v1.12.2"
+gotestsum_version := "v1.12.3"
 
 # Launch a single test using go test in verbose mode
 aws-tf-modules-test-verbose testname: aws-tf-modules-install-tests-go-mod
@@ -31,9 +31,9 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
 
   rm -Rf {{ justfile_directory() }}/{{ module_dir }}/.terraform*
 
-  # Copy *.tf files from tests/fixtures/ to the current directory before running the plan
-  if ls test/fixtures/fixture_*.tf 1> /dev/null 2>&1; then
-    cp test/fixtures/fixture_*.tf ./
+  # Copy *.tf files from test/fixtures/golden to the current directory before running the plan
+  if ls test/fixtures/golden/fixture_*.tf 1> /dev/null 2>&1; then
+    cp test/fixtures/golden/fixture_*.tf ./
   fi
 
   terraform init \

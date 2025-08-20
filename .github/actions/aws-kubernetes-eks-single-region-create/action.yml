@@ -57,7 +57,7 @@ runs:
     using: composite
     steps:
         - name: Checkout Repository
-          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+          uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -65,7 +65,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
         - name: Set Terraform variables
           id: set-terraform-variables
@@ -104,6 +104,12 @@ runs:
 
               terraform validate -no-color
 
+        - name: Sanitize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanitize-tags
+          with:
+              raw-tags: ${{ inputs.tags }}
+
         - name: Terraform Plan
           id: plan
           working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
@@ -137,18 +143,7 @@ runs:
               echo "Displaying templated opensearch.tf file:"
               cat opensearch.tf
 
-              raw_tags='${{ inputs.tags }}'
-              escaped_tags=$(echo "$raw_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
-
-              terraform plan -no-color -var="default_tags=$escaped_tags" -out tf.plan
+              terraform plan -no-color -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' -out tf.plan
 
         - name: Terraform Apply
           id: apply
