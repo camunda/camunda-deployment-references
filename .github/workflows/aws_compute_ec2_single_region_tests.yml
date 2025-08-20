@@ -137,13 +137,12 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
-            - name: Set current Camunda version
-              id: camunda-version
+            - name: Set current target branch
+              id: target-branch
               run: |
                   set -euo pipefail
-                  CAMUNDA_VERSION=$(cat .camunda-version)
-                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
             - name: Create Infrastructure
               id: create_infrastructure
               uses: ./.github/actions/aws-compute-ec2-single-region-create
@@ -155,7 +154,7 @@ jobs:
                   tf-modules-name: cluster
                   cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   ref-arch: ${{ matrix.scenario.name }}
                   tags: >
@@ -210,7 +209,12 @@ jobs:
 
                   ./aws/compute/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
-
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
             - name: Set current Camunda version
               id: camunda-version
               run: |
@@ -229,7 +233,7 @@ jobs:
                   tf-state-suffix: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-modules-name: cluster
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
 
             - name: Terratest - Run all Tests
@@ -302,13 +306,13 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            - name: Set current Camunda version
-              if: env.CLEANUP_CLUSTERS == 'true'
-              id: camunda-version
+            - name: Set current target branch
+              id: target-branch
               run: |
                   set -euo pipefail
-                  CAMUNDA_VERSION=$(cat .camunda-version)
-                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
             - name: Delete on-demand Infrastructure
               uses: ./.github/actions/aws-generic-single-region-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
@@ -318,7 +322,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-states: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
-                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
 
     test-report:
         runs-on: ubuntu-latest

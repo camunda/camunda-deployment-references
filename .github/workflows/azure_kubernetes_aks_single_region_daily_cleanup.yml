@@ -95,13 +95,12 @@ jobs:
             - name: Use repo .tool-version as global version
               run: cp .tool-versions ~/.tool-versions
 
-            - name: Set current Camunda version
-              id: camunda-version
+            - name: Set current target branch
+              id: target-branch
               run: |
                   set -euo pipefail
-
-                  CAMUNDA_VERSION=$(cat .camunda-version)
-                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -127,7 +126,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: ${{ env.MAX_AGE_HOURS_CLUSTER }}
-                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
 
             # The previous step has a continue-on-error set to true in case of schedule run.
             # This means that the workflow is not marked as failed, but the step is.
@@ -156,7 +155,7 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0 # the previous step alters the age and resets it to 0
-                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
 
     report-failure:
         name: Report failures
