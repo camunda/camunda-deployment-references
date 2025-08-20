@@ -18,7 +18,7 @@ on:
             - .github/actions/aws-configure-cli/**
 
     schedule:
-        - cron: 0 1 * * * # At 01:00 everyday.
+        - cron: 0 4 * * * # At 04:00 everyday.
 
 # limit to a single execution per actor of this workflow
 concurrency:
