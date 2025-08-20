@@ -40,7 +40,6 @@ runs:
         - name: Delete clusters
           id: delete_clusters
           shell: bash
-          timeout-minutes: 60
           run: |
               if [ -n "${{ inputs.tf-bucket-region }}" ]; then
                 export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
@@ -55,7 +54,6 @@ runs:
         - name: Upload cleanup logs
           if: always()
           uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-          timeout-minutes: 10
           with:
               name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}
               path: ./logs/
