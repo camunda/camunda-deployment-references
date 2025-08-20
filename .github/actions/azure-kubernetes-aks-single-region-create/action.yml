@@ -106,6 +106,7 @@ runs:
           id: init
           working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
+          timeout-minutes: 10
           run: |
               set -euo pipefail
 
@@ -123,6 +124,7 @@ runs:
           id: prepare
           working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
+          timeout-minutes: 10
           run: |
               set -euo pipefail
 
@@ -171,6 +173,7 @@ runs:
           id: plan
           working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
+          timeout-minutes: 10
           run: |
               set -euo pipefail
 
@@ -185,6 +188,7 @@ runs:
           id: apply
           working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
+          timeout-minutes: 120
           run: |
               set -euo pipefail
               terraform apply -no-color tf.plan
@@ -192,6 +196,7 @@ runs:
         - name: Login and generate kubeconfig
           if: inputs.login == 'true'
           shell: bash
+          timeout-minutes: 10
           run: |
               set -euo pipefail
               az aks get-credentials --resource-group ${{ inputs.resource-group-name }} --name ${{ inputs.cluster-name }} --overwrite-existing
@@ -202,6 +207,7 @@ runs:
         - name: Apply and verify storage class
           shell: bash
           working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          timeout-minutes: 10
           run: |
               set -euo pipefail
               ./procedure/storageclass-configure.sh

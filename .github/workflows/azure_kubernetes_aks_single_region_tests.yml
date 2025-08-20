@@ -174,6 +174,7 @@ jobs:
 
             - name: Azure Login with OIDC
               uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
@@ -195,6 +196,7 @@ jobs:
             - name: Create terraform.tfvars file
               id: create-tfvars
               working-directory: ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}
+              timeout-minutes: 10
               run: |
                   set -euo pipefail
                   export AZURE_SP_ID=$(az account show --query user.name -o tsv)
@@ -205,6 +207,7 @@ jobs:
               id: create_cluster
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
+              timeout-minutes: 120
               with:
                   resource-prefix: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-aks
@@ -232,6 +235,7 @@ jobs:
             - name: Source env from Terraform
               id: db_env
               working-directory: ${{ env.TF_MODULES_PATH }}/azure/kubernetes/${{ matrix.scenario.name }}/
+              timeout-minutes: 10
               run: |
                   set -euo pipefail
 
@@ -369,6 +373,7 @@ jobs:
 
             - name: Azure Login with OIDC
               uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
@@ -388,6 +393,7 @@ jobs:
 
             - name: 🏗️ Ingress Setup prerequisites
               if: ${{ matrix.declination.name == 'domain' }}
+              timeout-minutes: 20
               run: |
                   set -euo pipefail
 
@@ -428,6 +434,7 @@ jobs:
 
 
             - name: 🏗️ Prepare a fresh namespace for the tests
+              timeout-minutes: 10
               run: |
                   set -euo pipefail
 
@@ -444,6 +451,7 @@ jobs:
                   kubectl create namespace "$CAMUNDA_NAMESPACE"
 
             - name: 🧹 Clean up databases
+              timeout-minutes: 10
               run: |
                   set -euo pipefail
 
@@ -615,6 +623,7 @@ jobs:
 
             - name: 🧹 Cleanup Namespace
               if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 20
               run: |
                   set -euo pipefail
 
@@ -673,6 +682,7 @@ jobs:
 
             - name: Azure Login with OIDC
               uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
