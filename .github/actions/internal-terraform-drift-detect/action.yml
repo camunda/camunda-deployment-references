@@ -34,13 +34,10 @@ runs:
               echo "Running post-apply drift detection in $(pwd)..."
 
               PLAN_OUT="drift.plan.out"
-              EXTRA_ARGS="${{ inputs.plan-extra-args }}"
-
-              echo "[debug] extra args: '${EXTRA_ARGS}'"
 
               # Run plan with detailed exit code. 0 = no changes, 2 = changes, 1 = error
               set +e
-              terraform plan -no-color -detailed-exitcode ${EXTRA_ARGS} > "$PLAN_OUT" 2>&1
+              terraform plan -no-color -detailed-exitcode ${{ inputs.plan-extra-args }} > "$PLAN_OUT" 2>&1
               code=$?
               set -e
 
