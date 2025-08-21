@@ -16,6 +16,12 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
     "app"           = "camunda"
   }
 
+  upgrade_settings {
+    drain_timeout_in_minutes      = var.user_node_pool_drain_timeout_in_minutes
+    max_surge                     = var.user_node_pool_max_surge
+    node_soak_duration_in_minutes = var.user_node_pool_node_soak_duration_in_minutes
+  }
+
   # Keep things simple
   max_pods = 30
   tags     = var.tags

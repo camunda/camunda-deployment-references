@@ -69,6 +69,24 @@ variable "user_node_pool_count" {
   default     = 2
 }
 
+variable "user_node_pool_drain_timeout_in_minutes" {
+  description = "The amount of time in minutes to wait on eviction of pods and graceful termination per node"
+  type        = number
+  default     = 0
+}
+
+variable "user_node_pool_max_surge" {
+  description = "The maximum number or percentage of nodes which will be added to the Node Pool size during an upgrade"
+  type        = number
+  default     = 10
+}
+
+variable "user_node_pool_node_soak_duration_in_minutes" {
+  description = "The amount of time in minutes to wait after draining a node and before reimaging and moving on to next node"
+  type        = number
+  default     = 0
+}
+
 # Network configuration
 variable "network_plugin" {
   description = "Network plugin to use for Kubernetes networking"

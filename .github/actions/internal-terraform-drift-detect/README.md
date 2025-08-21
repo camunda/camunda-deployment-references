@@ -11,7 +11,7 @@ Fails when drift is detected (config flapping) unless disabled via input.
 | name | description | required | default |
 | --- | --- | --- | --- |
 | `working-directory` | <p>Directory where Terraform has been initialized for this stack</p> | `true` | `""` |
-| `plan-extra-args` | <p>Extra arguments to append to <code>terraform plan</code> (e.g. -var, -var-file)</p> | `false` | `""` |
+| `plan-extra-args` | <p>Extra arguments to append to <code>terraform plan</code> (e.g. -var, -var-file). If using multiline input add a \ for the last line as well.</p> | `false` | `""` |
 | `fail-on-drift` | <p>Fail the job when drift is detected (exit code 2)</p> | `false` | `true` |
 
 
@@ -38,7 +38,7 @@ This action is a `composite` action.
     # Default: ""
 
     plan-extra-args:
-    # Extra arguments to append to `terraform plan` (e.g. -var, -var-file)
+    # Extra arguments to append to `terraform plan` (e.g. -var, -var-file). If using multiline input add a \ for the last line as well.
     #
     # Required: false
     # Default: ""
