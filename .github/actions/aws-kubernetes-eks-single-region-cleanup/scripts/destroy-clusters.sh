@@ -74,7 +74,7 @@ destroy_module() {
   fi
 
   mkdir -p "$temp_dir"
-  cp "$SCRIPT_DIR/config.tf" "$temp_dir/"
+  cp "$SCRIPT_DIR/config" "$temp_dir/config.tf" || return 1
   cd "$temp_dir" || return 1
 
   echo "[$group_id][$module_name] Initializing Terraform with state $key"
