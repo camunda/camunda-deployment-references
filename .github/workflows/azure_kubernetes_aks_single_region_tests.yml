@@ -56,7 +56,8 @@ on:
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
+    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
+    cancel-in-progress: false
 
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}

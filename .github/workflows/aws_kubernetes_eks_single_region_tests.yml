@@ -47,9 +47,8 @@ on:
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # in case of renovate we don't cancel the previous run, so it can finish it
-    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
-    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
+    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
+    cancel-in-progress: false
 
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
