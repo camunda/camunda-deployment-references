@@ -26,6 +26,8 @@ set -o pipefail
 #   --fail-on-not-found (optional): If set, the script exits with an error when no matching object is found
 #                                  (only used when ID_OR_ALL is not "all").
 #
+# Supports dry-run mode via environment variable DRY_RUN=true.
+#
 # Requirements:
 # - AWS CLI installed and configured with permissions to access and modify the S3 bucket.
 # - Terraform installed and accessible in the PATH.
@@ -40,6 +42,7 @@ FAILED=0
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 AWS_S3_REGION=${AWS_S3_REGION:-$AWS_REGION}
 FAIL_ON_NOT_FOUND=false
+DRY_RUN=${DRY_RUN:-false}
 
 # Handle optional KEY_PREFIX and flag
 for arg in "${@:4}"; do
@@ -62,6 +65,13 @@ destroy_module() {
   local module_name=$2
   local key="$KEY_PREFIX""tfstate-$group_id/${module_name}.tfstate"
   local temp_dir="/tmp/${group_id}_${module_name}"
+
+  if [[ "$DRY_RUN" == "true" ]]; then
+    echo "[DRY RUN][$group_id][$module_name] Would initialize Terraform with state $key"
+    echo "[DRY RUN][$group_id][$module_name] Would destroy module"
+    echo "[DRY RUN][$group_id][$module_name] Would remove s3://$BUCKET/tfstate-$group_id/${module_name}.tfstate"
+    return 0
+  fi
 
   mkdir -p "$temp_dir"
   cp "$SCRIPT_DIR/config.tf" "$temp_dir/"
@@ -143,6 +153,11 @@ for pid in "${pids[@]}"; do
 done
 
 kill "$tail_pid" 2>/dev/null
+
+if [ "$DRY_RUN" == "true" ]; then
+  echo "Dry run completed. No changes were made."
+  exit 0
+fi
 
 if [ $FAILED -ne 0 ]; then
   echo "One or more operations failed."
