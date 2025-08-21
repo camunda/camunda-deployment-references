@@ -228,7 +228,9 @@
             "node_labels": {},
             "node_network_profile": [],
             "tags": {},
-            "upgrade_settings": [],
+            "upgrade_settings": [
+              {}
+            ],
             "windows_profile": [],
             "zones": [
               false,
@@ -279,7 +281,13 @@
             "temporary_name_for_rotation": null,
             "timeouts": null,
             "ultra_ssd_enabled": false,
-            "upgrade_settings": [],
+            "upgrade_settings": [
+              {
+                "drain_timeout_in_minutes": 0,
+                "max_surge": "10",
+                "node_soak_duration_in_minutes": 0
+              }
+            ],
             "vm_size": "Standard_D4s_v3",
             "windows_profile": [],
             "workload_runtime": null,
