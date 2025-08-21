@@ -215,6 +215,7 @@ jobs:
                   set -euo pipefail
                   TARGET_BRANCH=$(cat .target-branch)
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
             - name: Set current Camunda version
               id: camunda-version
               run: |
