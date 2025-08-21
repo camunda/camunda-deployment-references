@@ -24,7 +24,7 @@ data "aws_subnets" "private_subnets" {
 
   filter {
     name   = "tag:Name"
-    values = ["*-subnet-private*"]
+    values = ["*-private*"]
   }
 }
 variable "vpc_id" {

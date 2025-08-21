@@ -68,8 +68,8 @@ destroy_module() {
 
   if [[ "$DRY_RUN" == "true" ]]; then
     echo "[DRY RUN][$group_id][$module_name] Would initialize Terraform with state $key"
-    echo "[DRY RUN][$group_id][$module_name] Would destroy module"
-    echo "[DRY RUN][$group_id][$module_name] Would remove s3://$BUCKET/tfstate-$group_id/${module_name}.tfstate"
+    echo "[DRY RUN][$group_id][$module_name] Would destroy module '$module_name'"
+    echo "[DRY RUN][$group_id][$module_name] Would remove s3://$BUCKET/$key"
     return 0
   fi
 
@@ -85,7 +85,7 @@ destroy_module() {
 
   # Cleanup S3
   echo "[$group_id][$module_name] Cleaning up S3"
-  aws s3 rm "s3://$BUCKET/tfstate-$group_id/${module_name}.tfstate" || true
+  aws s3 rm "s3://$BUCKET/$key" || true
 
   cd - >/dev/null || return 1
   rm -rf "$temp_dir"
@@ -129,6 +129,7 @@ for group_id in $groups; do
         last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$key" --query 'LastModified' --output text)
         last_modified_ts=$($date_command -d "$last_modified" +%s)
         age_hours=$(( (current_timestamp - last_modified_ts) / 3600 ))
+
         echo "[$group_id][$module] Last modified: $last_modified ($age_hours hours old)"
         if [ "$age_hours" -ge "$MIN_AGE_IN_HOURS" ]; then
           destroy_module "$group_id" "$module" || exit 1
