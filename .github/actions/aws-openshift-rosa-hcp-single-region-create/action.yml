@@ -305,6 +305,7 @@ runs:
               working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
               plan-extra-args: |
                   -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
+              fail-on-drift: 'false' # not failing on drift as there may be an expected drift due to hcp module drifting - cluster_console_url
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
 

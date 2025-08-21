@@ -9,7 +9,9 @@ inputs:
         description: Directory where Terraform has been initialized for this stack
         required: true
     plan-extra-args:
-        description: Extra arguments to append to `terraform plan` (e.g. -var, -var-file). If using multiline input add a \ for the last line as well.
+        description: |
+            Extra arguments to append to `terraform plan` (e.g. -var, -var-file).
+            If using multiline input add a \ for the last line as well.
         required: false
         default: ''
     fail-on-drift:
@@ -48,17 +50,12 @@ runs:
               if [ $code -eq 0 ]; then
                 echo "No drift detected after apply."
                 echo "drift_detected=false" >> "$GITHUB_OUTPUT"
-              elif [ $code -eq 2 ]; then
-                echo "drift_detected=true" >> "$GITHUB_OUTPUT"
-                if [[ "${{ inputs.fail-on-drift }}" == "true" ]]; then
-                  echo "::error::Drift detected immediately after apply (configuration flapping)."
-                  exit 1
-                else
-                  echo "drift_detected=true" >> "$GITHUB_OUTPUT"
-                  echo "::warning::Drift detected but not failing as per configuration."
-                fi
               else
                 echo "drift_detected=true" >> "$GITHUB_OUTPUT"
-                echo "::error::Drift detection plan failed (exit code $code)."
-                exit $code
+                if [[ "${{ inputs.fail-on-drift }}" == "true" ]]; then
+                  echo "::error::Drift detected immediately after apply (configuration flapping - exit code $code)."
+                  exit 1
+                else
+                  echo "::warning::Drift detected but not failing as per configuration."
+                fi
               fi

@@ -360,6 +360,7 @@ runs:
                   -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                   -var='cluster_1_region=${{ inputs.aws-region-cluster-1 }}' \
                   -var='cluster_2_region=${{ inputs.aws-region-cluster-2 }}' \
+              fail-on-drift: 'false' # not failing on drift as there may be an expected drift due to hcp module drifting - cluster_console_url
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
 

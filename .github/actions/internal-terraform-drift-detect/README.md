@@ -38,7 +38,8 @@ This action is a `composite` action.
     # Default: ""
 
     plan-extra-args:
-    # Extra arguments to append to `terraform plan` (e.g. -var, -var-file). If using multiline input add a \ for the last line as well.
+    # Extra arguments to append to `terraform plan` (e.g. -var, -var-file).
+    # If using multiline input add a \ for the last line as well.
     #
     # Required: false
     # Default: ""
