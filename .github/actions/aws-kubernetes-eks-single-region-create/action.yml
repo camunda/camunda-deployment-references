@@ -286,3 +286,11 @@ runs:
 
               kubectl config current-context
               kubectl get nodes
+
+        - name: Apply and verify storage class
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
+          run: |
+              set -euo pipefail
+              ./procedure/storageclass-configure.sh
+              ./procedure/storageclass-verify.sh

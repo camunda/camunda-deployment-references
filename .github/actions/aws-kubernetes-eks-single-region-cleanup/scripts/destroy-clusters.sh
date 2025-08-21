@@ -70,9 +70,6 @@ destroy_module() {
   echo "[$group_id][$module_name] Initializing Terraform with state $key"
   terraform init -backend-config="bucket=$BUCKET" -backend-config="key=$key" -backend-config="region=$AWS_S3_REGION" || return 1
 
-  # Remove storage class if blocking destroy
-  terraform state rm 'module.eks_cluster.kubernetes_storage_class_v1.ebs_sc[0]' >/dev/null 2>&1 || true
-
   echo "[$group_id][$module_name] Destroying module"
   terraform destroy -auto-approve || return 1
 
