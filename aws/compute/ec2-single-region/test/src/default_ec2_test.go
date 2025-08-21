@@ -360,7 +360,7 @@ func TestCamundaUpgrade(t *testing.T) {
 	}
 	output := shell.RunCommandAndGetOutput(t, cmd)
 
-	require.Contains(t, output, "Detected existing Camunda installation. Removing existing JARs and overwriting / recreating configuration files", "Expected existing Camunda installation message")
+	require.Contains(t, output, "Detected existing Camunda installation.", "Expected existing Camunda installation message")
 
 	utils.APICheckCorrectCamundaVersion(t, terraformOptions(t, logger.Discard), camundaCurrentVersionFull)
 }

@@ -1,7 +1,7 @@
 # https://github.com/terraform-aws-modules/terraform-aws-eks
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "21.0.8"
+  version = "21.1.0"
 
   name                    = var.name
   kubernetes_version      = var.kubernetes_version
@@ -35,7 +35,7 @@ module "eks" {
       resolve_conflicts_on_create = "OVERWRITE"
 
       before_compute           = true
-      service_account_role_arn = module.ebs_cs_role.iam_role_arn
+      service_account_role_arn = module.ebs_cs_role.arn
     }
   }
 

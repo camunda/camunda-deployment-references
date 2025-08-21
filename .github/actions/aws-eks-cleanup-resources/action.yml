@@ -14,7 +14,7 @@ inputs:
         required: false
 
     camunda-version:
-        description: Camunda version to only clean up certain compatible versions.
+        description: Camunda Ref Arch version to only clean up certain compatible ref arch versions.
         default: ''
 
     max-age-hours:

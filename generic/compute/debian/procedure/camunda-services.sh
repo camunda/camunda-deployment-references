@@ -18,10 +18,10 @@ rm -rf "${SCRIPT_DIR}/connectors-environment.tmp"
 
 echo "[INFO] Installing the Camunda 8 systemd service on the remote server."
 transfer_file "${CONFIG_DIR}/camunda.service" "${MNT_DIR}" camunda.service
-transfer_file "${CONFIG_DIR}/connectors.service" "${MNT_DIR}" connectors.service
+transfer_file "${CONFIG_DIR}/camunda-connectors.service" "${MNT_DIR}" camunda-connectors.service
 
 remote_cmd "sudo mv ${MNT_DIR}/camunda.service /etc/systemd/system/camunda.service"
-remote_cmd "sudo mv ${MNT_DIR}/connectors.service /etc/systemd/system/connectors.service"
+remote_cmd "sudo mv ${MNT_DIR}/camunda-connectors.service /etc/systemd/system/camunda-connectors.service"
 
 # Install and activate Camunda 8 Service
 remote_cmd 'sudo systemctl daemon-reload'
@@ -30,6 +30,6 @@ remote_cmd 'sudo systemctl enable camunda.service --now'
 remote_cmd 'sudo systemctl restart camunda.service'
 
 # Install and activate Connectors Service
-remote_cmd 'sudo systemctl enable connectors.service --now'
+remote_cmd 'sudo systemctl enable camunda-connectors.service --now'
 # restarting the service in case the script is called twice with config changes
-remote_cmd 'sudo systemctl restart connectors.service'
+remote_cmd 'sudo systemctl restart camunda-connectors.service'

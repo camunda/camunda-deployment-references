@@ -2468,6 +2468,12 @@
           }
         },
         "module.vpc.aws_subnet.private[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "private",
@@ -2503,6 +2509,12 @@
           }
         },
         "module.vpc.aws_subnet.private[1]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 1,
           "mode": "managed",
           "name": "private",
@@ -2538,6 +2550,12 @@
           }
         },
         "module.vpc.aws_subnet.private[2]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 2,
           "mode": "managed",
           "name": "private",
@@ -2573,6 +2591,12 @@
           }
         },
         "module.vpc.aws_subnet.public[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "public",
@@ -2608,6 +2632,12 @@
           }
         },
         "module.vpc.aws_subnet.public[1]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 1,
           "mode": "managed",
           "name": "public",
@@ -2643,6 +2673,12 @@
           }
         },
         "module.vpc.aws_subnet.public[2]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 2,
           "mode": "managed",
           "name": "public",

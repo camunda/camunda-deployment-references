@@ -54,7 +54,7 @@ check_service 127.0.0.1:9600/actuator/health
 check_service 127.0.0.1:9090/actuator/health
 
 check_service_running camunda.service
-check_service_running connectors.service
+check_service_running camunda-connectors.service
 
 if [ "$SCRIPT_STATUS_OUTPUT" -ne 0 ]; then
     echo "[FAIL] At least one of the tests failed." 1>&2

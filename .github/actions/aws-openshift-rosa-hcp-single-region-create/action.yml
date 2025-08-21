@@ -108,7 +108,7 @@ runs:
     using: composite
     steps:
         - name: Checkout Repository
-          uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+          uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -116,7 +116,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@cb673a2ce24ba79afed0507f3d245cdecf17337f # 1.4.8
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
         # TODO: when available on asdf, migrate this to it
         - name: Install ROSA CLI

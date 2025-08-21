@@ -31,7 +31,7 @@
                 "tags": null
               }
             },
-            "module.eks_cluster.module.cert_manager_role.aws_iam_role_policy_attachment.this[\"policy\"]": {
+            "module.eks_cluster.module.cert_manager_role.aws_iam_role_policy_attachment.additional[\"policy\"]": {
               "identity": {
                 "account_id": null,
                 "policy_arn": null,
@@ -40,7 +40,7 @@
               "identity_schema_version": 0,
               "index": "policy",
               "mode": "managed",
-              "name": "this",
+              "name": "additional",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
@@ -49,10 +49,10 @@
                 "role": "cluster-name-std-cert-manager-role"
               }
             },
-            "module.eks_cluster.module.cert_manager_role.data.aws_iam_policy_document.this[0]": {
+            "module.eks_cluster.module.cert_manager_role.data.aws_iam_policy_document.assume[0]": {
               "index": 0,
               "mode": "data",
-              "name": "this",
+              "name": "assume",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
@@ -160,7 +160,7 @@
                 "tags": null
               }
             },
-            "module.eks_cluster.module.ebs_cs_role.aws_iam_role_policy_attachment.this[\"policy\"]": {
+            "module.eks_cluster.module.ebs_cs_role.aws_iam_role_policy_attachment.additional[\"policy\"]": {
               "identity": {
                 "account_id": null,
                 "policy_arn": null,
@@ -169,7 +169,7 @@
               "identity_schema_version": 0,
               "index": "policy",
               "mode": "managed",
-              "name": "this",
+              "name": "additional",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
@@ -178,7 +178,7 @@
                 "role": "cluster-name-std-ebs-cs-role"
               }
             },
-            "module.eks_cluster.module.ebs_cs_role.aws_iam_role_policy_attachment.this[\"policy_2\"]": {
+            "module.eks_cluster.module.ebs_cs_role.aws_iam_role_policy_attachment.additional[\"policy_2\"]": {
               "identity": {
                 "account_id": null,
                 "policy_arn": null,
@@ -187,7 +187,7 @@
               "identity_schema_version": 0,
               "index": "policy_2",
               "mode": "managed",
-              "name": "this",
+              "name": "additional",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
@@ -196,10 +196,10 @@
                 "role": "cluster-name-std-ebs-cs-role"
               }
             },
-            "module.eks_cluster.module.ebs_cs_role.data.aws_iam_policy_document.this[0]": {
+            "module.eks_cluster.module.ebs_cs_role.data.aws_iam_policy_document.assume[0]": {
               "index": 0,
               "mode": "data",
-              "name": "this",
+              "name": "assume",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
@@ -1575,7 +1575,7 @@
                 "tags": null
               }
             },
-            "module.eks_cluster.module.external_dns_role.aws_iam_role_policy_attachment.this[\"policy\"]": {
+            "module.eks_cluster.module.external_dns_role.aws_iam_role_policy_attachment.additional[\"policy\"]": {
               "identity": {
                 "account_id": null,
                 "policy_arn": null,
@@ -1584,7 +1584,7 @@
               "identity_schema_version": 0,
               "index": "policy",
               "mode": "managed",
-              "name": "this",
+              "name": "additional",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {},
@@ -1593,10 +1593,10 @@
                 "role": "cluster-name-std-external-dns-role"
               }
             },
-            "module.eks_cluster.module.external_dns_role.data.aws_iam_policy_document.this[0]": {
+            "module.eks_cluster.module.external_dns_role.data.aws_iam_policy_document.assume[0]": {
               "index": 0,
               "mode": "data",
-              "name": "this",
+              "name": "assume",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {

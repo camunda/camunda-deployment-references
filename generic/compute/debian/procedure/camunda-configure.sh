@@ -61,7 +61,6 @@ echo "[INFO] Configuring the environment variables for cluster communication, ex
     # Broker Setup
     echo "ZEEBE_BROKER_CLUSTER_CLUSTERSIZE=\"${total_ip_count}\""
     echo "ZEEBE_BROKER_CLUSTER_REPLICATIONFACTOR=\"${total_ip_count}\""
-    echo "ZEEBE_BROKER_CLUSTER_PARTITIONSCOUNT=\"${total_ip_count}\""
     echo "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS=\"${ips_list}\""
     echo "ZEEBE_BROKER_CLUSTER_NODEID=\"${index}\""
     echo "ZEEBE_BROKER_NETWORK_ADVERTISEDHOST=\"${ip}\""
