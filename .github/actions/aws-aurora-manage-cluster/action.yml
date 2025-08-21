@@ -207,7 +207,7 @@ runs:
                   -var 'availability_zones=${{ inputs.availability-zones }}' \
                   -var "vpc_id=${{ inputs.vpc-id }}" \
                   -var 'subnet_ids=${{ inputs.subnet-ids }}' \
-                  -var 'cidr_blocks=${{ inputs.cidr-blocks }}'
+                  -var 'cidr_blocks=${{ inputs.cidr-blocks }}' \
 
         - name: Fetch Terraform Outputs
           shell: bash

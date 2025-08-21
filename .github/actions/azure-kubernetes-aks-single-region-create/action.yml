@@ -197,7 +197,7 @@ runs:
               plan-extra-args: |
                   -var 'resource_prefix_placeholder=${{ steps.prepare.outputs.RESOURCE_PREFIX_PLACEHOLDER }}' \
                   -var 'tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                  -var-file="${{ inputs.tfvars }}"
+                  -var-file="${{ inputs.tfvars }}" \
 
         - name: Login and generate kubeconfig
           if: inputs.login == 'true'

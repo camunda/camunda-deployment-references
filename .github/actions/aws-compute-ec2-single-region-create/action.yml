@@ -132,4 +132,4 @@ runs:
               working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
               plan-extra-args: |
                   -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                  -var='prefix=${{ inputs.cluster-name }}'
+                  -var='prefix=${{ inputs.cluster-name }}' \
