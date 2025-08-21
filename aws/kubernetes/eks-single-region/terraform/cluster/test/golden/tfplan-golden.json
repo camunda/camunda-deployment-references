@@ -321,7 +321,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.33.3-20250807",
+                    "release_version": "1.33.3-20250813",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -2283,6 +2283,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_subnet.private[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private",
@@ -2320,6 +2326,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_subnet.private[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private",
@@ -2357,6 +2369,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_subnet.private[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private",
@@ -2394,6 +2412,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_subnet.public[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "public",
@@ -2431,6 +2455,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_subnet.public[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "public",
@@ -2468,6 +2498,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_subnet.public[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "public",
@@ -2685,44 +2721,6 @@
             "timeouts": null,
             "to_port": 65535,
             "type": "ingress"
-          }
-        },
-        "module.eks_cluster.kubernetes_storage_class_v1.ebs_sc[0]": {
-          "index": 0,
-          "mode": "managed",
-          "name": "ebs_sc",
-          "provider_name": "registry.terraform.io/hashicorp/kubernetes",
-          "schema_version": 0,
-          "sensitive_values": {
-            "allowed_topologies": [],
-            "metadata": [
-              {
-                "annotations": {}
-              }
-            ],
-            "parameters": {}
-          },
-          "type": "kubernetes_storage_class_v1",
-          "values": {
-            "allow_volume_expansion": true,
-            "allowed_topologies": [],
-            "metadata": [
-              {
-                "annotations": {
-                  "storageclass.kubernetes.io/is-default-class": "true"
-                },
-                "generate_name": null,
-                "labels": null,
-                "name": "ebs-sc"
-              }
-            ],
-            "mount_options": null,
-            "parameters": {
-              "type": "gp3"
-            },
-            "reclaim_policy": "Retain",
-            "storage_provisioner": "ebs.csi.aws.com",
-            "volume_binding_mode": "WaitForFirstConsumer"
           }
         },
         "module.eks_cluster.time_sleep.eks_cluster_warmup": {
