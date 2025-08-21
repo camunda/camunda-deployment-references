@@ -159,13 +159,12 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            - name: Set current Camunda version
-              id: camunda-version
+            - name: Set current target branch
+              id: target-branch
               run: |
                   set -euo pipefail
-
-                  CAMUNDA_VERSION=$(cat .camunda-version)
-                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
             - name: Create EKS Cluster
               timeout-minutes: 45
@@ -181,7 +180,7 @@ jobs:
 
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}eks-cluster/${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}eks-cluster/${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   tf-modules-revision: ${{ steps.commit_info.outputs.tf_modules_revision }}
 
                   tags: >
@@ -228,7 +227,7 @@ jobs:
 
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}aurora/${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}aurora/${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   tf-modules-revision: ${{ steps.commit_info.outputs.tf_modules_revision }}
 
                   vpc-id: ${{ steps.after_cluster_creation_infos.outputs.vpc_id }}
@@ -272,7 +271,7 @@ jobs:
 
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}opensearch/${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}opensearch/${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   tf-modules-revision: ${{ steps.commit_info.outputs.tf_modules_revision }}
 
                   tags: >
@@ -301,7 +300,7 @@ jobs:
               with:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  camunda-version: ${{ steps.target-branch.outputs.TARGET_BRANCH }}
                   max-age-hours: 0
                   target: ${{ steps.commit_info.outputs.cluster_name }}
 
