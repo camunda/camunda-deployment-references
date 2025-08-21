@@ -159,7 +159,7 @@ runs:
           with:
               working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
               plan-extra-args: |
-                  -var="default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}" \
+                  -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
 
         - name: Login and generate kubeconfig
           if: inputs.login == 'true'
