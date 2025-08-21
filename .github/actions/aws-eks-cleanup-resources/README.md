@@ -13,6 +13,7 @@ This GitHub Action automates the deletion of EKS resources using a shell script.
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION</p> | `false` | `""` |
 | `camunda-version` | <p>Camunda Ref Arch version to only clean up certain compatible ref arch versions.</p> | `false` | `""` |
 | `max-age-hours` | <p>Maximum age of resources in hours</p> | `false` | `20` |
+ (fix(ci): use target branch instead of camunda version (#878))
 | `target` | <p>Specify an ID to destroy specific resources or "all" to destroy all resources</p> | `false` | `all` |
 | `temp-dir` | <p>Temporary directory prefix used for storing resource data during processing</p> | `false` | `./tmp/eks-cleanup/` |
 | `module-name` | <p>Name of the module to destroy (e.g., "eks-cluster", "aurora", "opensearch"), or "all" to destroy all modules</p> | `false` | `all` |
