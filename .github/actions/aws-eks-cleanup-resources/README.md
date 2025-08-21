@@ -11,7 +11,7 @@ This GitHub Action automates the deletion of EKS resources using a shell script.
 | --- | --- | --- | --- |
 | `s3-backend-bucket` | <p>Bucket containing the resources states</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION</p> | `false` | `""` |
-| `camunda-version` | <p>Camunda version to only clean up certain compatible versions.</p> | `false` | `""` |
+| `camunda-version` | <p>Camunda Ref Arch version to only clean up certain compatible ref arch versions.</p> | `false` | `""` |
 | `max-age-hours` | <p>Maximum age of resources in hours</p> | `false` | `20` |
 | `target` | <p>Specify an ID to destroy specific resources or "all" to destroy all resources</p> | `false` | `all` |
 | `temp-dir` | <p>Temporary directory prefix used for storing resource data during processing</p> | `false` | `./tmp/eks-cleanup/` |
@@ -41,7 +41,7 @@ This action is a `composite` action.
     # Default: ""
 
     camunda-version:
-    # Camunda version to only clean up certain compatible versions.
+    # Camunda Ref Arch version to only clean up certain compatible ref arch versions.
     #
     # Required: false
     # Default: ""

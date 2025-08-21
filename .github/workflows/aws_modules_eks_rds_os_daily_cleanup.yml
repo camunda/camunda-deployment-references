@@ -74,13 +74,12 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            - name: Set current Camunda version
-              id: camunda-version
+            - name: Set current target branch
+              id: target-branch
               run: |
                   set -euo pipefail
-
-                  CAMUNDA_VERSION=$(cat .camunda-version)
-                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete orphaned resources
               id: delete-orphaned-resources
@@ -91,7 +90,7 @@ jobs:
               with:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  camunda-version: ${{ steps.target-branch.outputs.TARGET_BRANCH }}
                   max-age-hours: ${{ env.MAX_AGE_HOURS }}
                   target: all
 
@@ -110,7 +109,7 @@ jobs:
               with:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  camunda-version: ${{ steps.target-branch.outputs.TARGET_BRANCH }}
                   max-age-hours: 0 # the previous step alters the age and resets it to 0
                   target: all
 
