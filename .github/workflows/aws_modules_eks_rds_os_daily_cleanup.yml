@@ -21,9 +21,8 @@ on:
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # in case of renovate we don't cancel the previous run, so it can finish it
-    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
-    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
+    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
+    cancel-in-progress: false
 
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
@@ -83,7 +82,7 @@ jobs:
 
             - name: Delete orphaned resources
               id: delete-orphaned-resources
-              continue-on-error: ${{ env.IS_SCHEDULE == 'true' }} # don't fail the workflow in case of schedule run
+              continue-on-error: true
               timeout-minutes: 360
               if: always()
               uses: ./.github/actions/aws-eks-cleanup-resources
@@ -102,11 +101,11 @@ jobs:
             # If the retry fails, then the slack notification will be triggered as normally.
 
             # There are cases where the deletion of resources fails due to dependencies.
-            - name: Retry delete orphaned resources (schedule only)
+            - name: Retry delete orphaned resources
               id: retry-delete-orphaned-resources
               timeout-minutes: 360
-              if: steps.delete-orphaned-resources.outcome == 'failure' && env.IS_SCHEDULE == 'true'
               # TODO: migrate to generic
+              if: steps.delete-orphaned-resources.outcome == 'failure'
               uses: ./.github/actions/aws-eks-cleanup-resources
               with:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
