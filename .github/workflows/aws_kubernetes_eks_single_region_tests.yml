@@ -487,7 +487,7 @@ jobs:
                   fi
 
                   # Reset PostgreSQL
-                  kubectl apply -f ./aws/kubernetes/eks-single-region/test/reset-aurora-postgres.yml --namespace "$CAMUNDA_NAMESPACE"
+                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/test/reset-aurora-postgres.yml --namespace "$CAMUNDA_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
@@ -508,7 +508,7 @@ jobs:
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
                   # Reset OpenSearch
-                  kubectl apply -f ./aws/kubernetes/eks-single-region/test/reset-opensearch.yml --namespace "$CAMUNDA_NAMESPACE"
+                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/test/reset-opensearch.yml --namespace "$CAMUNDA_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
