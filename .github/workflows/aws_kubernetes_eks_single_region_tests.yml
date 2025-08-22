@@ -120,7 +120,7 @@ jobs:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
                   # TODO: revert
                   # cluster_name: ${{ inputs.cluster_name }}
-                  cluster_name: eks-846fbced
+                  cluster_name: eks-3278
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
