@@ -321,7 +321,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.33.3-20250813",
+                    "release_version": "1.33.3-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
