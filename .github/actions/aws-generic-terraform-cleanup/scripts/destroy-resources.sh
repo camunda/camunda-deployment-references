@@ -2,41 +2,32 @@
 set -o pipefail
 
 # Description:
-# This script performs Terraform destroy operations for infrastructures stored in an S3 bucket.
-# Each "group_id" directory may contain up to two separate modules, each with its own state file:
-#   1. vpn.tfstate
-#   2. cluster.tfstate
+# This script destroys Terraform-managed infrastructures stored in an S3 bucket.
+# Each "group_id" may contain two modules:
+#   - vpn.tfstate
+#   - cluster.tfstate
 #
-# The script ensures proper ordering: if both VPN and cluster exist, the VPN module is destroyed first,
-# followed by the cluster module. It copies a dummy config.tf, initializes Terraform with the appropriate
-# backend configuration, and runs `terraform destroy`. Upon successful destruction, it cleans up the
-# corresponding S3 objects.
-#
-# Additionally, if the environment variable `RETRY_DESTROY` is set, the script invokes `cloud-nuke`
-# to remove any remaining VPC resources that Terraform may not have deleted.
-#
+# The destruction order (e.g., "vpn,cluster" or "cluster,vpn") must be passed
+# as a required script parameter.
+
 # Usage:
-# ./destroy_clusters.sh <BUCKET> <MIN_AGE_IN_HOURS> <ID_OR_ALL> [KEY_PREFIX] [--fail-on-not-found]
+# ./destroy-resources.sh <BUCKET> <MIN_AGE_IN_HOURS> <ID_OR_ALL> <ORDER> [KEY_PREFIX] [--fail-on-not-found]
 #
 # Arguments:
-#   BUCKET: The name of the S3 bucket containing the Terraform state files.
+#   BUCKET: Name of the S3 bucket containing the Terraform state files.
 #   MIN_AGE_IN_HOURS: Minimum age (in hours) of clusters to be destroyed.
-#   ID_OR_ALL: Specific group_id to filter objects, or "all" to destroy everything.
-#   KEY_PREFIX (optional): Prefix (with trailing '/') for filtering objects in the S3 bucket.
-#   --fail-on-not-found (optional): If set, the script exits with an error when no matching object is found
-#                                  (only used when ID_OR_ALL is not "all").
+#   ID_OR_ALL: Specific group_id to target, or "all".
+#   ORDER: Destruction order, e.g. "vpn,cluster" or "cluster,vpn".
+#   KEY_PREFIX (optional): Prefix for S3 keys.
+#   --fail-on-not-found (optional): Fail if no object is found when ID_OR_ALL != "all".
 #
-# Supports dry-run mode via environment variable DRY_RUN=true.
-#
-# Requirements:
-# - AWS CLI installed and configured with permissions to access and modify the S3 bucket.
-# - Terraform installed and accessible in the PATH.
-# - `yq` installed when using `RETRY_DESTROY`.
+# Supports dry-run mode via DRY_RUN=true.
 
 # Variables
 BUCKET=$1
 MIN_AGE_IN_HOURS=$2
 ID_OR_ALL=$3
+ORDER=$4
 KEY_PREFIX=""
 FAILED=0
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
@@ -44,8 +35,16 @@ AWS_S3_REGION=${AWS_S3_REGION:-$AWS_REGION}
 FAIL_ON_NOT_FOUND=false
 DRY_RUN=${DRY_RUN:-false}
 
-# Handle optional KEY_PREFIX and flag
-for arg in "${@:4}"; do
+# Validate ORDER argument
+if [[ -z "$ORDER" ]]; then
+  echo "Error: destruction ORDER must be provided (e.g. 'vpn,cluster' or 'cluster,vpn')."
+  exit 1
+fi
+
+IFS=',' read -r -a ORDERED_MODULES <<< "$ORDER"
+
+# Handle optional args (KEY_PREFIX and flag)
+for arg in "${@:5}"; do
   if [ "$arg" == "--fail-on-not-found" ]; then
     FAIL_ON_NOT_FOUND=true
   else
@@ -73,6 +72,12 @@ destroy_module() {
     return 0
   fi
 
+  if [[  "$module_name" == "cluster" && "$RETRY_DESTROY" == "true" ]]; then
+    echo "Performing cloud-nuke on VPC to ensure that resources managed outside of Terraform are deleted."
+    yq eval ".VPC.include.names_regex = [\"^$group_id.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
+    cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$AWS_REGION" --force
+  fi
+
   mkdir -p "$temp_dir"
   cp "$SCRIPT_DIR/config" "$temp_dir/config.tf" || return 1
   cd "$temp_dir" || return 1
@@ -80,10 +85,33 @@ destroy_module() {
   echo "[$group_id][$module_name] Initializing Terraform with state $key"
   terraform init -backend-config="bucket=$BUCKET" -backend-config="key=$key" -backend-config="region=$AWS_S3_REGION" || return 1
 
-  echo "[$group_id][$module_name] Destroying module"
-  terraform destroy -auto-approve || return 1
+  if [[ "$module_name" == "vpn" ]]; then
+    deducted_vpc_id=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" --query "Vpcs[0].VpcId" --output text --region "$AWS_REGION")
 
-  # Cleanup S3
+    if [[ "$deducted_vpc_id" == "None" || -z "$deducted_vpc_id" ]]; then
+      echo "Error: VPC = $deducted_vpc_id not found."
+
+      echo "Assuming it was deleted by Cloud Nuke. Cleaning up Terraform state..."
+      aws s3 rm "s3://$BUCKET/$key" || true
+      cd - >/dev/null || return 1
+      rm -rf "$temp_dir"
+
+      return 0
+    fi
+  fi
+
+  echo "[$group_id][$module_name] Destroying module"
+  if ! output_tf_destroy=$(terraform destroy -auto-approve 2>&1); then
+    echo "$output_tf_destroy"
+
+    if [[ "$module_name" == "cluster" && "$output_tf_destroy" == *"CLUSTERS-MGMT-404"* ]]; then
+      echo "The cluster appears to have already been deleted (error: CLUSTERS-MGMT-404). Considering the deletion successful (likely due to cloud-nuke)."
+    else
+      echo "Error destroying module $module_name in group $group_id"
+      return 1
+    fi
+  fi
+
   echo "[$group_id][$module_name] Cleaning up S3"
   aws s3 rm "s3://$BUCKET/$key" || true
 
@@ -95,9 +123,9 @@ destroy_module() {
 all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive)
 aws_exit_code=$?
 
-# don't fail on folder absent
+# Don't fail on missing folder
 if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
-  echo "Error executing the aws s3 ls command (Exit Code: $aws_exit_code):" >&2
+  echo "Error executing aws s3 ls (Exit Code: $aws_exit_code)." >&2
   exit 1
 fi
 
@@ -122,8 +150,8 @@ for group_id in $groups; do
   (
     echo "[$group_id] Processing group"
 
-    # Order: vpn → cluster
-    for module in vpn cluster; do
+    # Use the ORDER parameter for modules cleanup
+    for module in "${ORDERED_MODULES[@]}"; do
       key="$KEY_PREFIX""tfstate-$group_id/${module}.tfstate"
       if aws s3 ls "s3://$BUCKET/$key" >/dev/null 2>&1; then
         last_modified=$(aws s3api head-object --bucket "$BUCKET" --key "$key" --query 'LastModified' --output text)

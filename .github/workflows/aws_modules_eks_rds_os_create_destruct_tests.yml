@@ -301,6 +301,7 @@ jobs:
               timeout-minutes: 120
               if: always() && !(github.event_name == 'workflow_dispatch' && inputs.delete_cluster == 'false')
               uses: ./.github/actions/aws-eks-cleanup-resources
+              # TODO: migrate to generic
               with:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
