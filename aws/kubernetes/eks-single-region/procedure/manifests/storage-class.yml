@@ -16,4 +16,4 @@ allowVolumeExpansion: true
 parameters:
     type: gp3
     iops: '3000'
-    throughput: 125
+    throughput: '125'
