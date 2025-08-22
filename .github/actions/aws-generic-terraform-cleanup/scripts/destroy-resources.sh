@@ -62,62 +62,98 @@ fi
 destroy_module() {
   local group_id=$1
   local module_name=$2
-  local key="$KEY_PREFIX""tfstate-$group_id/${module_name}.tfstate"
+  local key="${KEY_PREFIX}tfstate-$group_id/${module_name}.tfstate"
   local temp_dir="/tmp/${group_id}_${module_name}"
 
+  cleanup_state() {
+    echo "[$group_id][$module_name] Cleaning up Terraform state: s3://$BUCKET/$key"
+    aws s3 rm "s3://$BUCKET/$key" || true
+    cd - >/dev/null || return 1
+    rm -rf "$temp_dir"
+  }
+
   if [[ "$DRY_RUN" == "true" ]]; then
-    echo "[DRY RUN][$group_id][$module_name] Would initialize Terraform with state $key"
-    echo "[DRY RUN][$group_id][$module_name] Would destroy module '$module_name'"
-    echo "[DRY RUN][$group_id][$module_name] Would remove s3://$BUCKET/$key"
+    echo "[DRY RUN][$group_id][$module_name] Would init Terraform with $key, destroy, and remove s3://$BUCKET/$key"
     return 0
   fi
 
-  if [[  "$module_name" == "cluster" && "$RETRY_DESTROY" == "true" ]]; then
-    echo "Performing cloud-nuke on VPC to ensure that resources managed outside of Terraform are deleted."
+  # Special handling for single-cluster destroy with retries
+  if [[ "$module_name" == "cluster" && "$RETRY_DESTROY" == "true" ]]; then
+    echo "Retry destroy: nuking VPC for $group_id..."
     yq eval ".VPC.include.names_regex = [\"^$group_id.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
     cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$AWS_REGION" --force
+  fi
+
+  # Dual-region OpenShift clusters
+  if [[ "$module_name" =~ ^(clusters|peering)$ ]]; then
+    [[ -z "$CLUSTER_1_AWS_REGION" || -z "$CLUSTER_2_AWS_REGION" ]] && {
+      echo "Error: CLUSTER_1_AWS_REGION and CLUSTER_2_AWS_REGION must be set"
+      exit 1
+    }
+
+    local cluster_1_name cluster_2_name
+    cluster_1_name=$(echo "$group_id" | awk -F"-oOo-" '{print $1}')
+    cluster_2_name=$(echo "$group_id" | awk -F"-oOo-" '{print $2}')
+
+    if [[ "$RETRY_DESTROY" == "true" ]]; then
+      echo "Retry destroy: nuking dual-region VPCs..."
+      yq eval ".VPC.include.names_regex = [\"^$cluster_1_name.*\", \"^$cluster_2_name.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
+      cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$CLUSTER_1_AWS_REGION" --force
+      cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$CLUSTER_2_AWS_REGION" --force
+    fi
+
+    if [[ "$module_name" == "peering" ]]; then
+      local vpc1 vpc2
+      vpc1=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_1_name}*" \
+             --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_1_AWS_REGION")
+      vpc2=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_2_name}*" \
+             --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_2_AWS_REGION")
+
+      if [[ "$vpc1" == "None" || -z "$vpc1" || "$vpc2" == "None" || -z "$vpc2" ]]; then
+        echo "Error: Missing VPCs ($vpc1 / $vpc2), assuming nuked."
+        cleanup_state
+        return 0
+      fi
+    fi
   fi
 
   mkdir -p "$temp_dir"
   cp "$SCRIPT_DIR/config" "$temp_dir/config.tf" || return 1
   cd "$temp_dir" || return 1
 
-  echo "[$group_id][$module_name] Initializing Terraform with state $key"
-  terraform init -backend-config="bucket=$BUCKET" -backend-config="key=$key" -backend-config="region=$AWS_S3_REGION" || return 1
+  echo "[$group_id][$module_name] Initializing Terraform"
+  terraform init \
+    -backend-config="bucket=$BUCKET" \
+    -backend-config="key=$key" \
+    -backend-config="region=$AWS_S3_REGION" || return 1
 
+  # VPN check
   if [[ "$module_name" == "vpn" ]]; then
-    deducted_vpc_id=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" --query "Vpcs[0].VpcId" --output text --region "$AWS_REGION")
-
-    if [[ "$deducted_vpc_id" == "None" || -z "$deducted_vpc_id" ]]; then
-      echo "Error: VPC = $deducted_vpc_id not found."
-
-      echo "Assuming it was deleted by Cloud Nuke. Cleaning up Terraform state..."
-      aws s3 rm "s3://$BUCKET/$key" || true
-      cd - >/dev/null || return 1
-      rm -rf "$temp_dir"
-
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
+             --query "Vpcs[0].VpcId" --output text --region "$AWS_REGION")
+    if [[ "$vpc_id" == "None" || -z "$vpc_id" ]]; then
+      echo "Error: VPC not found ($vpc_id), assuming nuked."
+      cleanup_state
       return 0
     fi
   fi
 
   echo "[$group_id][$module_name] Destroying module"
-  if ! output_tf_destroy=$(terraform destroy -auto-approve 2>&1); then
-    echo "$output_tf_destroy"
-
-    if [[ "$module_name" == "cluster" && "$output_tf_destroy" == *"CLUSTERS-MGMT-404"* ]]; then
-      echo "The cluster appears to have already been deleted (error: CLUSTERS-MGMT-404). Considering the deletion successful (likely due to cloud-nuke)."
+  if ! output=$(terraform destroy -auto-approve 2>&1); then
+    echo "$output"
+    if [[ "$module_name" =~ ^(cluster|clusters)$ && "$output" == *"CLUSTERS-MGMT-404"* ]]; then
+      echo "Cluster already deleted (CLUSTERS-MGMT-404). Considering successful."
     else
-      echo "Error destroying module $module_name in group $group_id"
+      echo "Error destroying $module_name in $group_id"
       return 1
     fi
   fi
 
-  echo "[$group_id][$module_name] Cleaning up S3"
-  aws s3 rm "s3://$BUCKET/$key" || true
-
-  cd - >/dev/null || return 1
-  rm -rf "$temp_dir"
+  echo "[$group_id][$module_name] Cleaning up"
+  cleanup_state
 }
+
 
 # Fetch all group IDs
 all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive)
