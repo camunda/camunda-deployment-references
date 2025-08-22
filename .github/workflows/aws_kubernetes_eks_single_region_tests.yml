@@ -65,7 +65,9 @@ env:
     TLD: camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # TODO: revert
+    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    CLEANUP_CLUSTERS: 'false'
 
     # TEST VARIABLES
 
