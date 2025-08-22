@@ -85,7 +85,7 @@ jobs:
 
             - name: Delete clusters
               id: delete_clusters
-              continue-on-error: ${{ env.IS_SCHEDULE == 'true' }} # don't fail the workflow in case of schedule run
+              continue-on-error: true
               timeout-minutes: 125
               uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-cleanup
               env:
@@ -105,7 +105,7 @@ jobs:
             # There are cases where the deletion of resources fails due to dependencies.
             - name: Retry delete clusters
               id: retry_delete_clusters
-              if: steps.delete_clusters.outcome == 'failure' && env.IS_SCHEDULE == 'true'
+              if: steps.delete_clusters.outcome == 'failure'
               timeout-minutes: 125
               uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-cleanup
               env:
