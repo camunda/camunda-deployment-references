@@ -118,7 +118,7 @@ jobs:
 
             - name: Delete clusters
               id: delete_clusters
-              continue-on-error: ${{ env.IS_SCHEDULE == 'true' }} # don't fail the workflow in case of schedule run
+              continue-on-error: true
               timeout-minutes: 90 # Auth token have a max lifetime of 60 - 90 minutes
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               with:
@@ -135,7 +135,7 @@ jobs:
 
             # Login again to Azure with OIDC to gain a new token
             - name: Azure Login with OIDC
-              if: steps.delete_clusters.outcome == 'failure' && env.IS_SCHEDULE == 'true'
+              if: steps.delete_clusters.outcome == 'failure'
               uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -143,9 +143,9 @@ jobs:
                   subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
 
             # There are cases where the deletion of resources fails due to dependencies.
-            - name: Retry delete clusters (schedule only)
+            - name: Retry delete clusters
               id: retry_delete_clusters
-              if: steps.delete_clusters.outcome == 'failure' && env.IS_SCHEDULE == 'true'
+              if: steps.delete_clusters.outcome == 'failure'
               timeout-minutes: 125
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               env:
