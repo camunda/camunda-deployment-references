@@ -481,11 +481,11 @@ runs:
           with:
               working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
               plan-extra-args: |
-                  -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
-                  -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
-                  -backend-config="key=$terraform_state_key"  \
-                  -var='cluster_1_region=${{ inputs.aws-region-cluster-1 }}' \
-                  -var='cluster_2_region=${{ inputs.aws-region-cluster-2 }}' \
+                  -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
+                  -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
+                  -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}" \
+                  -var="cluster_1_vpc_id=${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}" \
+                  -var="cluster_2_vpc_id=${{ steps.apply-clusters.outputs.cluster_2_vpc_id }}" \
 
       ### Backup bucket
 
