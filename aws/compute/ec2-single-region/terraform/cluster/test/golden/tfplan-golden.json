@@ -190,6 +190,7 @@
         "maintenance_options": [],
         "metadata_options": [],
         "network_interface": [],
+        "primary_network_interface": [],
         "private_dns_name_options": [],
         "root_block_device": [],
         "secondary_private_ips": [],
@@ -242,6 +243,7 @@
         "maintenance_options": [],
         "metadata_options": [],
         "network_interface": [],
+        "primary_network_interface": [],
         "private_dns_name_options": [],
         "root_block_device": [
           {
@@ -308,6 +310,7 @@
         "maintenance_options": [],
         "metadata_options": [],
         "network_interface": [],
+        "primary_network_interface": [],
         "private_dns_name_options": [],
         "root_block_device": [
           {
@@ -374,6 +377,7 @@
         "maintenance_options": [],
         "metadata_options": [],
         "network_interface": [],
+        "primary_network_interface": [],
         "private_dns_name_options": [],
         "root_block_device": [
           {
