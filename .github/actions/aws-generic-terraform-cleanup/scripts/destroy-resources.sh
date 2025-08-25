@@ -84,7 +84,7 @@ destroy_module() {
     cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$AWS_REGION" --force
   fi
 
-  # Gestion dual-region
+  # Handle dual-region (we may need a better way to abstract this)
   local tf_config_file="$SCRIPT_DIR/config"
   if [[ "$module_name" =~ ^(clusters|peering)$ ]]; then
     [[ -z "$CLUSTER_1_AWS_REGION" || -z "$CLUSTER_2_AWS_REGION" ]] && {
@@ -96,7 +96,6 @@ destroy_module() {
     cluster_1_name=$(echo "$group_id" | awk -F"-oOo-" '{print $1}')
     cluster_2_name=$(echo "$group_id" | awk -F"-oOo-" '{print $2}')
 
-    # On bascule sur config-dual-region
     tf_config_file="$SCRIPT_DIR/config-dual-region"
 
     if [[ "$RETRY_DESTROY" == "true" ]]; then
