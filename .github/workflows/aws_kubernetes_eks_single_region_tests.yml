@@ -233,7 +233,7 @@ jobs:
             # Reason for skipping pipefail in the next step
             - name: Dump relevant Terraform outputs for cluster module
               if: always()
-              working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario.name }}/cluster/
+              working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/
               id: dump_outputs
               run: |
                   set -euo pipefail
