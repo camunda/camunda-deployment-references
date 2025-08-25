@@ -274,8 +274,8 @@ runs:
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              cluster_1_region=${{ inputs.aws-region-cluster-1 }}
-              cluster_2_region=${{ inputs.aws-region-cluster-2 }}
+              cluster_1_region="${{ inputs.aws-region-cluster-1 }}"
+              cluster_2_region="${{ inputs.aws-region-cluster-2 }}"
               EOF
 
         - name: Terraform Plan - Clusters
@@ -468,10 +468,10 @@ runs:
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              cluster_1_region=${{ inputs.aws-region-cluster-1 }}
-              cluster_2_region=${{ inputs.aws-region-cluster-2 }}
-              cluster_1_vpc_id=${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}
-              cluster_2_vpc_id=${{ steps.apply-clusters.outputs.cluster_2_vpc_id }}
+              cluster_1_region="${{ inputs.aws-region-cluster-1 }}"
+              cluster_2_region="${{ inputs.aws-region-cluster-2 }}"
+              cluster_1_vpc_id="${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}"
+              cluster_2_vpc_id="${{ steps.apply-clusters.outputs.cluster_2_vpc_id }}"
               EOF
 
         - name: Terraform Plan - Peering
@@ -538,7 +538,7 @@ runs:
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              bucket_name=cb-${hash}
+              bucket_name="cb-${hash}"
               EOF
 
         - name: Terraform Plan - Backup bucket

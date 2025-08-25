@@ -350,7 +350,7 @@ runs:
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              vpc_id=${{ steps.apply-cluster.outputs.vpc_id }}"
+              vpc_id="${{ steps.apply-cluster.outputs.vpc_id }}"
               EOF
 
         - name: Terraform Plan - VPN
