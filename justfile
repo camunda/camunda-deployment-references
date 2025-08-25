@@ -96,18 +96,28 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
     transform' tfplan-redacted.json > tfplan.json
   rm -f tfplan-redacted.json
 
-  # transform, as our user don't have permission to see ipam_pools but ci can
-  jq 'walk(if type == "object" then del(.ipam_pools) else . end)' tfplan.json > tfplan-redacted.json
+  # normalize release_version: replace the date (and any suffix) with "SUFFIX"
+  jq 'walk(
+        if type == "object" and has("release_version") and (.release_version | test("^[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]{8}.*$")) then
+          .release_version |= sub("-[0-9]{8}.*$"; "-SUFFIX")
+        else .
+        end
+      )' tfplan.json > tfplan-redacted.json
   rm -f tfplan.json
 
-  # final sort
-  jq --sort-keys '.' tfplan-redacted.json >  {{ relative_output_path }}tfplan-golden.json
+  # transform, as our users don’t have permission to see ipam_pools but CI does
+  jq 'walk(if type == "object" then del(.ipam_pools) else . end)' tfplan-redacted.json > tfplan.json
   rm -f tfplan-redacted.json
 
+  # final sort
+  jq --sort-keys '.' tfplan.json >  {{ relative_output_path }}tfplan-golden.json
+  rm -f tfplan.json
+
   if grep -E -q '\b@camunda\.[A-Za-z]{2,}\b' {{ relative_output_path }}tfplan-golden.json; then
-    echo "ERROR: The golden file {{ relative_output_path }}tfplan-golden.json file contains user-specific information."
+    echo "ERROR: The golden file {{ relative_output_path }}tfplan-golden.json contains user-specific information."
     exit 1
   fi
+
 
 
 # Install all the tooling
