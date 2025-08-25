@@ -142,7 +142,7 @@
                     "node_soak_duration_in_minutes": 0
                   }
                 ],
-                "vm_size": "Standard_D2s_v6",
+                "vm_size": "Standard_D2as_v6",
                 "zones": [
                   "1",
                   "2",
@@ -280,7 +280,7 @@
             "timeouts": null,
             "ultra_ssd_enabled": false,
             "upgrade_settings": [],
-            "vm_size": "Standard_D4s_v6",
+            "vm_size": "Standard_D4as_v6",
             "windows_profile": [],
             "workload_runtime": null,
             "zones": [

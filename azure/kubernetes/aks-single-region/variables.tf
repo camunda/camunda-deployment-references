@@ -79,7 +79,7 @@ variable "system_node_pool_count" {
 variable "system_node_pool_vm_size" {
   description = "VM size for the system node pool"
   type        = string
-  default     = "Standard_D2s_v6"
+  default     = "Standard_D2as_v6"
 }
 
 variable "user_node_pool_count" {
@@ -91,7 +91,7 @@ variable "user_node_pool_count" {
 variable "user_node_pool_vm_size" {
   description = "VM size for the user node pool"
   type        = string
-  default     = "Standard_D4s_v6"
+  default     = "Standard_D4as_v6"
 }
 
 variable "system_node_pool_zones" {
