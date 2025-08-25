@@ -84,7 +84,8 @@ destroy_module() {
     cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$AWS_REGION" --force
   fi
 
-  # Dual-region OpenShift clusters
+  # Gestion dual-region
+  local tf_config_file="$SCRIPT_DIR/config"
   if [[ "$module_name" =~ ^(clusters|peering)$ ]]; then
     [[ -z "$CLUSTER_1_AWS_REGION" || -z "$CLUSTER_2_AWS_REGION" ]] && {
       echo "Error: CLUSTER_1_AWS_REGION and CLUSTER_2_AWS_REGION must be set"
@@ -94,6 +95,9 @@ destroy_module() {
     local cluster_1_name cluster_2_name
     cluster_1_name=$(echo "$group_id" | awk -F"-oOo-" '{print $1}')
     cluster_2_name=$(echo "$group_id" | awk -F"-oOo-" '{print $2}')
+
+    # On bascule sur config-dual-region
+    tf_config_file="$SCRIPT_DIR/config-dual-region"
 
     if [[ "$RETRY_DESTROY" == "true" ]]; then
       echo "Retry destroy: nuking dual-region VPCs..."
@@ -118,14 +122,23 @@ destroy_module() {
   fi
 
   mkdir -p "$temp_dir"
-  cp "$SCRIPT_DIR/config" "$temp_dir/config.tf" || return 1
+  cp "$tf_config_file" "$temp_dir/config.tf" || return 1
   cd "$temp_dir" || return 1
 
   echo "[$group_id][$module_name] Initializing Terraform"
-  terraform init \
-    -backend-config="bucket=$BUCKET" \
-    -backend-config="key=$key" \
-    -backend-config="region=$AWS_S3_REGION" || return 1
+  if [[ "$tf_config_file" == *"config-dual-region" ]]; then
+    terraform init \
+      -backend-config="bucket=$BUCKET" \
+      -backend-config="key=$key" \
+      -backend-config="region=$AWS_S3_REGION" \
+      -var="cluster_1_region=$CLUSTER_1_AWS_REGION" \
+      -var="cluster_2_region=$CLUSTER_2_AWS_REGION" || return 1
+  else
+    terraform init \
+      -backend-config="bucket=$BUCKET" \
+      -backend-config="key=$key" \
+      -backend-config="region=$AWS_S3_REGION" || return 1
+  fi
 
   # VPN check
   if [[ "$module_name" == "vpn" ]]; then
