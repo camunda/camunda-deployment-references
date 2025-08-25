@@ -265,6 +265,19 @@ runs:
           with:
               raw-tags: ${{ inputs.tags }}
 
+        - name: Generate tfvars file - Clusters
+          id: generate-tfvars-clusters
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+          run: |
+              set -euo pipefail
+
+              cat > terraform.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              cluster_1_region=${{ inputs.aws-region-cluster-1 }}
+              cluster_2_region=${{ inputs.aws-region-cluster-2 }}
+              EOF
+
         - name: Terraform Plan - Clusters
           id: plan-clusters
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
@@ -323,9 +336,7 @@ runs:
               cat cluster_region_2.tf
 
               terraform plan -no-color -out clusters.plan  \
-                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
+                -var-file=terraform.tfvars
 
         - name: Terraform Apply - Clusters
           id: apply-clusters
@@ -357,9 +368,7 @@ runs:
           with:
               working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
               plan-extra-args: |
-                  -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                  -var='cluster_1_region=${{ inputs.aws-region-cluster-1 }}' \
-                  -var='cluster_2_region=${{ inputs.aws-region-cluster-2 }}' \
+                  -var-file=terraform.tfvars \
               fail-on-drift: 'false' # not failing on drift as there may be an expected drift due to hcp module drifting - cluster_console_url
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
@@ -450,6 +459,21 @@ runs:
 
               terraform validate -no-color
 
+        - name: Generate tfvars file - Peering
+          id: generate-tfvars-peering
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
+          run: |
+              set -euo pipefail
+
+              cat > terraform.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              cluster_1_region=${{ inputs.aws-region-cluster-1 }}
+              cluster_2_region=${{ inputs.aws-region-cluster-2 }}
+              cluster_1_vpc_id=${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}
+              cluster_2_vpc_id=${{ steps.apply-clusters.outputs.cluster_2_vpc_id }}
+              EOF
+
         - name: Terraform Plan - Peering
           id: plan-peering
           if: inputs.enable-vpc-peering == 'true'
@@ -459,12 +483,7 @@ runs:
               set -euo pipefail
 
               terraform plan -no-color -out peering.plan \
-                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}" \
-                -var="cluster_1_vpc_id=${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}" \
-                -var="cluster_2_vpc_id=${{ steps.apply-clusters.outputs.cluster_2_vpc_id }}"
-
+                -var-file=terraform.tfvars
 
         - name: Terraform Apply - Peering
           id: apply-peering
@@ -481,11 +500,7 @@ runs:
           with:
               working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
               plan-extra-args: |
-                  -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                  -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                  -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}" \
-                  -var="cluster_1_vpc_id=${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}" \
-                  -var="cluster_2_vpc_id=${{ steps.apply-clusters.outputs.cluster_2_vpc_id }}" \
+                  -var-file=terraform.tfvars \
 
       ### Backup bucket
 
@@ -512,6 +527,20 @@ runs:
 
               terraform validate -no-color
 
+        - name: Generate tfvars file - Backup bucket
+          id: generate-tfvars-backup-bucket
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
+          run: |
+              set -euo pipefail
+
+              hash=$(echo -n "${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}" | sha256sum | cut -c1-8)
+
+              cat > terraform.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              bucket_name=cb-${hash}
+              EOF
+
         - name: Terraform Plan - Backup bucket
           id: plan-backup-bucket
           if: inputs.enable-backup-bucket == 'true'
@@ -522,13 +551,8 @@ runs:
           run: |
               set -euo pipefail
 
-              hash=$(echo -n "${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}" | sha256sum | cut -c1-8)
-
-              echo "HASH=$hash" | tee -a "$GITHUB_OUTPUT"
-
               terraform plan -no-color -out  backup_bucket.plan \
-                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                -var="bucket_name=cb-${hash}"
+                -var-file=terraform.tfvars
 
         - name: Terraform Apply - Backup bucket
           id: apply-backup-bucket
@@ -558,8 +582,7 @@ runs:
           with:
               working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
               plan-extra-args: |
-                  -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                  -var='bucket_name=cb-${{ steps.plan-backup-bucket.outputs.HASH }}' \
+                  -var-file=terraform.tfvars \
 
         - name: Clean up cloned modules
           if: always() && inputs.cleanup-tf-modules-path == 'true'

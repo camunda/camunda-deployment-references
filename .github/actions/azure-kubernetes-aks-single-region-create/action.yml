@@ -167,6 +167,18 @@ runs:
           with:
               raw-tags: ${{ steps.prepare.outputs.COMBINED_TAGS }}
 
+        - name: Generate tfvars file
+          id: generate-tfvars
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          run: |
+              set -euo pipefail
+
+              cat > terraform.tfvars <<EOF
+              tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              resource_prefix_placeholder = "${{ steps.prepare.outputs.RESOURCE_PREFIX_PLACEHOLDER }}"
+              EOF
+
         - name: Terraform Plan
           id: plan
           working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
@@ -177,8 +189,7 @@ runs:
               terraform plan \
                   -no-color \
                   -out tf.plan \
-                  -var 'resource_prefix_placeholder=${{ steps.prepare.outputs.RESOURCE_PREFIX_PLACEHOLDER }}' \
-                  -var 'tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
+                  -var-file=terraform.tfvars \
                   -var-file="${{ inputs.tfvars }}"
 
         - name: Terraform Apply
@@ -195,8 +206,7 @@ runs:
           with:
               working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
               plan-extra-args: |
-                  -var 'resource_prefix_placeholder=${{ steps.prepare.outputs.RESOURCE_PREFIX_PLACEHOLDER }}' \
-                  -var 'tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
+                  -var-file=terraform.tfvars \
                   -var-file="${{ inputs.tfvars }}" \
 
         - name: Login and generate kubeconfig

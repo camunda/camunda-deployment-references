@@ -160,9 +160,9 @@ runs:
           with:
               raw-tags: ${{ inputs.tags }}
 
-        - name: Terraform Plan
+        - name: Generate tfvars file
+          id: generate-tfvars
           shell: bash
-          id: plan
           working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
           run: |
               set -euo pipefail
@@ -170,17 +170,28 @@ runs:
               # protect sensitive values
               echo "::add-mask::${{ inputs.password }}"
 
+              cat > terraform.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              cluster_name = "${{ inputs.cluster-name }}"
+              username     = "${{ inputs.username }}"
+              password     = "${{ inputs.password }}"
+              availability_zones = ${{ inputs.availability-zones }}
+              vpc_id       = "${{ inputs.vpc-id }}"
+              subnet_ids   = ${{ inputs.subnet-ids }}
+              cidr_blocks  = ${{ inputs.cidr-blocks }}
+              EOF
+
+        - name: Terraform Plan
+          shell: bash
+          id: plan
+          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          run: |
+              set -euo pipefail
+
               echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
               terraform plan -no-color -out aurora.plan \
-                -var 'default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var-file=/tmp/var.tfvars.json \
-                -var "cluster_name=${{ inputs.cluster-name }}" \
-                -var "username=${{ inputs.username }}" \
-                -var "password=${{ inputs.password }}" \
-                -var 'availability_zones=${{ inputs.availability-zones }}' \
-                -var "vpc_id=${{ inputs.vpc-id }}" \
-                -var 'subnet_ids=${{ inputs.subnet-ids }}' \
-                -var 'cidr_blocks=${{ inputs.cidr-blocks }}'
+                -var-file=terraform.tfvars
 
         - name: Terraform Apply
           shell: bash
@@ -199,15 +210,8 @@ runs:
           with:
               working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
               plan-extra-args: |
-                  -var 'default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                   -var-file=/tmp/var.tfvars.json \
-                  -var 'cluster_name=${{ inputs.cluster-name }}' \
-                  -var 'username=${{ inputs.username }}' \
-                  -var 'password=${{ inputs.password }}' \
-                  -var 'availability_zones=${{ inputs.availability-zones }}' \
-                  -var 'vpc_id=${{ inputs.vpc-id }}' \
-                  -var 'subnet_ids=${{ inputs.subnet-ids }}' \
-                  -var 'cidr_blocks=${{ inputs.cidr-blocks }}' \
+                  -var-file=terraform.tfvars \
 
         - name: Fetch Terraform Outputs
           shell: bash
