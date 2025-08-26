@@ -1,0 +1,58 @@
+---
+# This file contains specific values used during the integration tests
+# Using the Camunda harbor registry as Docker Hub is too slow on Azure
+identityKeycloak:
+    image:
+        repository: registry.camunda.cloud/dockerhub-camunda/camunda/keycloak
+        pullSecrets:
+            - name: registry-camunda-cloud
+
+global:
+    image:
+        pullSecrets:
+            - name: registry-camunda-cloud
+
+elasticsearch:
+    image: registry.camunda.cloud/dockerhub-camunda/bitnami/elasticsearch
+    global:
+        imagePullSecrets:
+            - name: registry-camunda-cloud
+
+zeebe:
+    image:
+        repository: registry.camunda.cloud/dockerhub-camunda/camunda/zeebe
+
+zeebeGateway:
+    image:
+        repository: registry.camunda.cloud/dockerhub-camunda/camunda/zeebe
+
+operate:
+    image:
+        repository: registry.camunda.cloud/dockerhub-camunda/camunda/operate
+
+tasklist:
+    image:
+        repository: registry.camunda.cloud/dockerhub-camunda/camunda/tasklist
+
+identity:
+    image:
+        repository: registry.camunda.cloud/dockerhub-camunda/camunda/identity
+
+optimize:
+    image:
+        repository: registry.camunda.cloud/dockerhub-camunda/camunda/optimize
+
+webModeler:
+    restapi:
+        image:
+            repository: registry.camunda.cloud/dockerhub-camunda/camunda/web-modeler-restapi
+    webapp:
+        image:
+            repository: registry.camunda.cloud/dockerhub-camunda/camunda/web-modeler-webapp
+    websockets:
+        image:
+            repository: registry.camunda.cloud/dockerhub-camunda/camunda/web-modeler-websockets
+
+connectors:
+    image:
+        repository: registry.camunda.cloud/dockerhub-camunda/camunda/connectors-bundle
