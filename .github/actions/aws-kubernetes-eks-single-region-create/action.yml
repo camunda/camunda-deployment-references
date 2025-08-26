@@ -259,6 +259,9 @@ runs:
               echo "Displaying templated vpn.tf file:"
               cat vpn.tf
 
+              echo "Displaying var files file:"
+              cat terraform-vpn.tfvars
+
               terraform plan -no-color -var-file=terraform-vpn.tfvars -out vpn.plan
 
         - name: Terraform Apply - VPN
