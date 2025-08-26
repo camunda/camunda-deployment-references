@@ -239,6 +239,17 @@ runs:
           with:
               raw-tags: ${{ inputs.tags }}
 
+        - name: Generate tfvars file - Cluster
+          id: generate-tfvars-cluster
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+          run: |
+              set -euo pipefail
+
+              cat > terraform.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              EOF
+
         - name: Terraform Plan - Cluster
           id: plan-cluster
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
@@ -279,7 +290,7 @@ runs:
               echo "Displaying templated cluster.tf file:"
               cat cluster.tf
 
-              terraform plan -no-color -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' -out rosa.plan
+              terraform plan -no-color -var-file=terraform.tfvars -out rosa.plan
 
         - name: Terraform Apply - Cluster
           id: apply-cluster
@@ -297,6 +308,17 @@ runs:
 
               export vpc_id="$(terraform output -raw vpc_id)"
               echo "vpc_id=$vpc_id" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Terraform Drift Detection - Cluster
+          uses: ./.github/actions/internal-terraform-drift-detect
+          id: drift-detect-cluster
+          with:
+              working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+              plan-extra-args: |
+                  -var-file=terraform.tfvars \
+              fail-on-drift: 'false' # not failing on drift as there may be an expected drift due to hcp module drifting - cluster_console_url
+          env:
+              RHCS_TOKEN: ${{ inputs.rh-token }}
 
         - name: Terraform Init - VPN
           id: init-vpn
@@ -319,6 +341,18 @@ runs:
 
               terraform validate -no-color
 
+        - name: Generate tfvars file - VPN
+          id: generate-tfvars-vpn
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
+          run: |
+              set -euo pipefail
+
+              cat > terraform.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              vpc_id="${{ steps.apply-cluster.outputs.vpc_id }}"
+              EOF
+
         - name: Terraform Plan - VPN
           id: plan-vpn
           if: inputs.vpn-enabled == 'true'
@@ -339,8 +373,7 @@ runs:
               cat vpn.tf
 
               terraform plan -no-color \
-                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                -var="vpc_id=${{ steps.apply-cluster.outputs.vpc_id }}" \
+                -var-file=terraform.tfvars \
                 -out vpn.plan
 
         - name: Terraform Apply - VPN
@@ -358,6 +391,15 @@ runs:
               echo "::add-mask::$vpn_client_configs"
 
               echo "vpn_endpoint=$(terraform output -json vpn_endpoint)" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Terraform Drift Detection - VPN
+          id: drift-detect-vpn
+          if: inputs.vpn-enabled == 'true'
+          uses: ./.github/actions/internal-terraform-drift-detect
+          with:
+              working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
+              plan-extra-args: |
+                  -var-file=terraform.tfvars \
 
         ### End of terraform
 

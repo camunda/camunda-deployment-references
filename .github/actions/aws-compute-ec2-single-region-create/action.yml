@@ -104,6 +104,18 @@ runs:
           with:
               raw-tags: ${{ inputs.tags }}
 
+        - name: Generate tfvars file
+          id: generate-tfvars
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+          run: |
+              set -euo pipefail
+
+              cat > terraform.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              prefix       = "${{ inputs.cluster-name }}"
+              EOF
+
         - name: Terraform Plan
           id: plan
           working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
@@ -113,8 +125,7 @@ runs:
               export AWS_REGION="${{ inputs.aws-region }}"
 
               terraform plan -no-color \
-                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                -var='prefix=${{ inputs.cluster-name }}' \
+                -var-file=terraform.tfvars \
                 -out tf.plan
 
         - name: Terraform Apply
@@ -124,3 +135,11 @@ runs:
           run: |
               set -euo pipefail
               terraform apply -no-color tf.plan
+
+        - name: Terraform Drift Detection
+          uses: ./.github/actions/internal-terraform-drift-detect
+          id: drift-detect
+          with:
+              working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+              plan-extra-args: |
+                  -var-file=terraform.tfvars \

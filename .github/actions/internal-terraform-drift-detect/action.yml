@@ -1,0 +1,61 @@
+---
+name: Terraform Drift Detection
+description: |
+    Runs `terraform plan -detailed-exitcode` after an apply to detect immediate drift/flapping.
+    Fails when drift is detected (config flapping) unless disabled via input.
+
+inputs:
+    working-directory:
+        description: Directory where Terraform has been initialized for this stack
+        required: true
+    plan-extra-args:
+        description: |
+            Extra arguments to append to `terraform plan` (e.g. -var, -var-file).
+            If using multiline input add a \ for the last line as well.
+        required: false
+        default: ''
+    fail-on-drift:
+        description: Fail the job when drift is detected (exit code 2)
+        required: false
+        default: 'true'
+
+outputs:
+    drift-detected:
+        description: Whether drift was detected by the plan (true/false)
+        value: ${{ steps.detect.outputs.drift_detected }}
+
+runs:
+    using: composite
+    steps:
+        - name: Terraform Drift Detection
+          id: detect
+          shell: bash
+          working-directory: ${{ inputs.working-directory }}
+          run: |
+              set -euo pipefail
+              echo "Running post-apply drift detection in $(pwd)..."
+
+              PLAN_OUT="drift.plan.out"
+
+              # Run plan with detailed exit code. 0 = no changes, 2 = changes, 1 = error
+              set +e
+              terraform plan -no-color -detailed-exitcode ${{ inputs.plan-extra-args }} > "$PLAN_OUT" 2>&1
+              code=$?
+              set -e
+
+              echo '--- Drift Plan Output Start ---'
+              cat "$PLAN_OUT"
+              echo '--- Drift Plan Output End ---'
+
+              if [ $code -eq 0 ]; then
+                echo "No drift detected after apply."
+                echo "drift_detected=false" >> "$GITHUB_OUTPUT"
+              else
+                echo "drift_detected=true" >> "$GITHUB_OUTPUT"
+                if [[ "${{ inputs.fail-on-drift }}" == "true" ]]; then
+                  echo "::error::Drift detected immediately after apply (configuration flapping - exit code $code)."
+                  exit 1
+                else
+                  echo "::warning::Drift detected but not failing as per configuration."
+                fi
+              fi
