@@ -135,6 +135,17 @@ runs:
 
               terraform validate -no-color
 
+        - name: Generate tfvars file - Cluster
+          id: generate-tfvars-cluster
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
+          run: |
+              set -euo pipefail
+
+              cat > terraform-cluster.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              EOF
+
         - name: Terraform Plan - Cluster
           id: plan-cluster
           working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
@@ -174,7 +185,7 @@ runs:
               echo "Displaying templated opensearch.tf file:"
               cat opensearch.tf
 
-              terraform plan -no-color -var-file=terraform.tfvars -out tf.plan
+              terraform plan -no-color -var-file=terraform-cluster.tfvars -out tf.plan
 
         - name: Terraform Apply - Cluster
           id: apply-cluster
@@ -186,6 +197,14 @@ runs:
 
               export vpc_id="$(terraform output -raw vpc_id)"
               echo "vpc_id=$vpc_id" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Terraform Drift Detection - Cluster
+          uses: ./.github/actions/internal-terraform-drift-detect
+          id: drift-detect-cluster
+          with:
+              working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
+              plan-extra-args: |
+                  -var-file=terraform-cluster.tfvars
 
         - name: Terraform Init - VPN
           id: init-vpn
@@ -208,6 +227,18 @@ runs:
 
               terraform validate -no-color
 
+        - name: Generate tfvars file - Cluster
+          id: generate-tfvars-cluster
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
+          run: |
+              set -euo pipefail
+
+              cat > terraform-vpn.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              vpc_id = ${{ steps.apply-cluster.outputs.vpc_id }}
+              EOF
+
         - name: Terraform Plan - VPN
           id: plan-vpn
           if: inputs.vpn-enabled == 'true'
@@ -227,10 +258,7 @@ runs:
               echo "Displaying templated vpn.tf file:"
               cat vpn.tf
 
-              terraform plan -no-color \
-                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                -var="vpc_id=${{ steps.apply-cluster.outputs.vpc_id }}" \
-                -out vpn.plan
+              terraform plan -no-color -var-file=terraform-vpn.tfvars -out vpn.plan
 
         - name: Terraform Apply - VPN
           id: apply-vpn
@@ -247,6 +275,14 @@ runs:
               echo "::add-mask::$vpn_client_configs"
 
               echo "vpn_endpoint=$(terraform output -json vpn_endpoint)" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Terraform Drift Detection - VPN
+          uses: ./.github/actions/internal-terraform-drift-detect
+          id: drift-detect-vpn
+          with:
+              working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/vpn/
+              plan-extra-args: |
+                  -var-file=terraform-vpn.tfvars
 
         ### End of terraform
 
