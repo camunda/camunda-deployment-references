@@ -23,6 +23,8 @@ on:
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
+            - .github/actions/internal-terraform-drift-detect/**
+
     workflow_dispatch:
         inputs:
             cluster_name:

@@ -207,7 +207,7 @@ runs:
               working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
               plan-extra-args: |
                   -var-file=terraform.tfvars \
-                  -var-file="${{ inputs.tfvars }}" \
+                  -var-file="${{ inputs.tfvars }}"
 
         - name: Login and generate kubeconfig
           if: inputs.login == 'true'

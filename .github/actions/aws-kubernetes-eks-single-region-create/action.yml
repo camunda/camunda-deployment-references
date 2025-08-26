@@ -227,10 +227,10 @@ runs:
 
               terraform validate -no-color
 
-        - name: Generate tfvars file - Cluster
-          id: generate-tfvars-cluster
+        - name: Generate tfvars file - VPN
+          id: generate-tfvars-vpn
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/vpn/
           run: |
               set -euo pipefail
 

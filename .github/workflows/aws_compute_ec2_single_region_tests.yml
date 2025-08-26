@@ -35,6 +35,7 @@ on:
             - .github/actions/aws-compute-ec2-single-region-create/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-generic-terraform-outputs/**
+            - .github/actions/internal-terraform-drift-detect/**
             - .github/workflows/aws_compute_ec2_single_region_tests.yml
             - .tool-versions
             - aws/compute/ec2-single-region/**
