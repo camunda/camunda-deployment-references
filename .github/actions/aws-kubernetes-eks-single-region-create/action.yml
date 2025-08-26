@@ -229,6 +229,7 @@ runs:
 
         - name: Generate tfvars file - VPN
           id: generate-tfvars-vpn
+          if: inputs.vpn-enabled == 'true'
           shell: bash
           working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/vpn/
           run: |
@@ -278,6 +279,7 @@ runs:
 
         - name: Terraform Drift Detection - VPN
           uses: ./.github/actions/internal-terraform-drift-detect
+          if: inputs.vpn-enabled == 'true'
           id: drift-detect-vpn
           with:
               working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/vpn/
