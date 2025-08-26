@@ -8,6 +8,9 @@ matrix:
         - name: eks-single-region
           # ! Unlike ROSA, 'private_vpc' is defined in 'scenario' and not in 'distro'.
           private_vpc: true
+
+        - name: eks-single-region-irsa
+          private_vpc: false
     declination:
         - name: no-domain
           desc: Setup chart in production-like setup with Ingress and TLS.
