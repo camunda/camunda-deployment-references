@@ -37,6 +37,9 @@ No modules.
 | <a name="input_uami_object_id"></a> [uami\_object\_id](#input\_uami\_object\_id) | User-assigned identity object ID to use for KMS | `string` | n/a | yes |
 | <a name="input_user_node_disk_size_gb"></a> [user\_node\_disk\_size\_gb](#input\_user\_node\_disk\_size\_gb) | OS disk size in GB for user nodes | `number` | `30` | no |
 | <a name="input_user_node_pool_count"></a> [user\_node\_pool\_count](#input\_user\_node\_pool\_count) | Number of nodes in the user node pool | `number` | `2` | no |
+| <a name="input_user_node_pool_drain_timeout_in_minutes"></a> [user\_node\_pool\_drain\_timeout\_in\_minutes](#input\_user\_node\_pool\_drain\_timeout\_in\_minutes) | The amount of time in minutes to wait on eviction of pods and graceful termination per node | `number` | `0` | no |
+| <a name="input_user_node_pool_max_surge"></a> [user\_node\_pool\_max\_surge](#input\_user\_node\_pool\_max\_surge) | The maximum number or percentage of nodes which will be added to the Node Pool size during an upgrade | `number` | `10` | no |
+| <a name="input_user_node_pool_node_soak_duration_in_minutes"></a> [user\_node\_pool\_node\_soak\_duration\_in\_minutes](#input\_user\_node\_pool\_node\_soak\_duration\_in\_minutes) | The amount of time in minutes to wait after draining a node and before reimaging and moving on to next node | `number` | `0` | no |
 | <a name="input_user_node_pool_vm_size"></a> [user\_node\_pool\_vm\_size](#input\_user\_node\_pool\_vm\_size) | VM size for the user node pool | `string` | `"Standard_D4s_v3"` | no |
 | <a name="input_user_node_pool_zones"></a> [user\_node\_pool\_zones](#input\_user\_node\_pool\_zones) | AZs for user node pool | `list(string)` | <pre>[<br/>  "1",<br/>  "2",<br/>  "3"<br/>]</pre> | no |
 ## Outputs

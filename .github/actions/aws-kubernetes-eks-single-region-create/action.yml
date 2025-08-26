@@ -174,7 +174,7 @@ runs:
               echo "Displaying templated opensearch.tf file:"
               cat opensearch.tf
 
-              terraform plan -no-color -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' -out tf.plan
+              terraform plan -no-color -var-file=terraform.tfvars -out tf.plan
 
         - name: Terraform Apply - Cluster
           id: apply-cluster
@@ -275,7 +275,6 @@ runs:
           with:
               config_file: ${{ steps.vpn.outputs.vpn_client_config_file }}
               echo_config: 'false'
-
 
         - name: Login and generate kubeconfig
           if: inputs.login == 'true'
