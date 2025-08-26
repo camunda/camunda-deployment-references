@@ -118,6 +118,12 @@ variable "private_vpc" {
   default     = false
 }
 
+variable "expose_public_elb" {
+  description = "If true, expose ELB resources on the public network. By default, takes the value of !var.private_vpc, but can be explicitly set to enable private VPC while still exposing services publicly."
+  type        = bool
+  default     = null
+}
+
 variable "single_nat_gateway" {
   type        = bool
   default     = false

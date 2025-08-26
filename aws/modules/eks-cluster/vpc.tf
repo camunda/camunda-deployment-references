@@ -67,9 +67,9 @@ module "vpc" {
   private_subnet_tags = {
     "kubernetes.io/role/internal-elb" = 1
   }
-  public_subnet_tags = var.private_vpc ? {} : {
+  public_subnet_tags = (var.expose_public_elb != null ? var.expose_public_elb : !var.private_vpc) ? {
     "kubernetes.io/role/elb" = 1
-  }
+  } : {}
 
 
   # Don't assign public IPv4 addresses on EC2 instance launch

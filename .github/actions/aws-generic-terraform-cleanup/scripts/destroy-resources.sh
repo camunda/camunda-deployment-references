@@ -105,6 +105,8 @@ destroy_module() {
       cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$CLUSTER_2_AWS_REGION" --force
     fi
 
+    # Peering module check: we verify if both VPCs exist because the peering module contains data blocks
+    # that will fail if either VPC is not found. In this case, we directly clean up the state.
     if [[ "$module_name" == "peering" ]]; then
       local vpc1 vpc2
       vpc1=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_1_name}*" \
@@ -139,7 +141,8 @@ destroy_module() {
       -backend-config="region=$AWS_S3_REGION" || return 1
   fi
 
-  # VPN check
+  # VPN module check: we verify if the VPC exists because the VPN module contains data blocks
+  # that will fail if the VPC is not found. In this case, we directly clean up the state.
   if [[ "$module_name" == "vpn" ]]; then
     local vpc_id
     vpc_id=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \

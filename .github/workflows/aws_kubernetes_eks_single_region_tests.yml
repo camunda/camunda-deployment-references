@@ -194,8 +194,8 @@ jobs:
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
                   ref-arch: ${{ matrix.scenario.name }}
-                  private-vpc: ${{ matrix.distro.private_vpc }}
-                  vpn-enabled: ${{ matrix.distro.private_vpc }}
+                  private-vpc: ${{ matrix.scenario.private_vpc }}
+                  vpn-enabled: ${{ matrix.scenario.private_vpc }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -222,7 +222,7 @@ jobs:
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             - name: Export VPN config and encrypt it
-              if: ${{ matrix.distro.private_vpc == true }}
+              if: ${{ matrix.scenario.private_vpc == true }}
               id: export_configs
               uses: ./.github/actions/internal-generic-encrypt-export
               with:
@@ -325,7 +325,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
             - name: 🛡️ Install OpenVPN Client
-              if: ${{ matrix.distro.private_vpc == true }}
+              if: ${{ matrix.scenario.private_vpc == true }}
               run: |
                   set -euo pipefail
 
@@ -334,7 +334,7 @@ jobs:
 
             - name: 🛡️ Retrieve VPN Config from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
-              if: ${{ matrix.distro.private_vpc == true }}
+              if: ${{ matrix.scenario.private_vpc == true }}
               with:
                   output_path: ${{ github.workspace }}/.vpn/client.ovpn
                   encrypted_file_base64: >
@@ -348,7 +348,7 @@ jobs:
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             - name: 🛡️ Connect to VPN
-              if: ${{ matrix.distro.private_vpc == true }}
+              if: ${{ matrix.scenario.private_vpc == true }}
               uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
               with:
                   config_file: ${{ github.workspace }}/.vpn/client.ovpn
