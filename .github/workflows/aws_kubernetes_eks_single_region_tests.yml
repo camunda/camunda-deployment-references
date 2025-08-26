@@ -269,6 +269,28 @@ jobs:
                       kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
                       vpnconfig_encrypted: ${{ steps.export_configs.outputs.encrypted_file_base64 }}
 
+            - name: 🌐 Post-creation steps
+              timeout-minutes: 20
+              run: |
+                  set -euo pipefail
+
+                  # Conditionally gather VPN config if private VPC is enabled
+                  if [[ "${{ matrix.scenario.private_vpc }}" == "true" ]]; then
+                    echo "🔒 Private VPC is enabled. Gathering VPN client config..."
+                    cd ${{ env.TF_MODULES_DIRECTORY }}aws/kubernetes/${{ matrix.scenario.name }}/terraform/vpn/
+                    .${{ env.TF_MODULES_DIRECTORY }}aws/common/procedure/vpn/gather-vpn-config.sh
+
+                    # Verify that the .ovpn file was created and is not empty
+                    if [[ -s "my-client.ovpn" ]]; then
+                      echo "✅ VPN config file 'my-client.ovpn' created successfully."
+                    else
+                      echo "❌ ERROR: 'my-client.ovpn' is missing or empty."
+                      exit 1
+                    fi
+
+                    cd -
+                  fi
+
     access-info:
         name: Read outputs from matrix
         runs-on: ubuntu-latest
