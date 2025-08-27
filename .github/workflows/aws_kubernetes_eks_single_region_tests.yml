@@ -117,9 +117,7 @@ jobs:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
                   # cluster_name: ${{ inputs.cluster_name }}
                   cluster_name: operators-leiicamundi
-                  # ref_arch: ${{ inputs.ref-arch }}
-                  # TODO: revert
-                  ref_arch: eks-single-region
+                  ref_arch: ${{ inputs.ref-arch }}
                   cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
