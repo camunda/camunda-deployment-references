@@ -1,0 +1,148 @@
+---
+name: Run C8 Orchestration Cluster E2E tests (sparse checkout)
+description: Sparsely checks out the QA E2E suite from camunda/camunda at a specific branch, installs dependencies, configures env, runs Playwright tests,
+    and uploads junit results.
+
+inputs:
+    camunda-repo:
+        description: Repository to checkout
+        required: false
+        default: camunda/camunda
+    camunda-ref:
+        description: Branch or tag of camunda/camunda to test (e.g. main, stable/8.7)
+        required: false
+        default: main
+    node-version:
+        description: Node.js version to use
+        required: false
+        default: lts
+    project:
+        description: Playwright project to run
+        required: false
+        default: chromium
+    artifact-name:
+        description: Name of the uploaded junit artifact
+        required: false
+        default: junit-report
+    artifact-retention-days:
+        description: Retention days for the uploaded artifact
+        required: false
+        default: '7'
+    # .env configuration (defaults reflect README examples and are safe placeholders)
+    LOCAL_TEST:
+        description: Whether tests assume a local environment
+        required: false
+        default: 'false'
+    CORE_APPLICATION_URL:
+        description: Base URL for the Camunda application
+        required: false
+        default: http://localhost:8080
+    CAMUNDA_AUTH_STRATEGY:
+        description: Auth strategy for Camunda (BASIC, etc.)
+        required: false
+        default: BASIC
+    CAMUNDA_BASIC_AUTH_USERNAME:
+        description: Username for BASIC auth (use secrets in your workflow)
+        required: false
+        default: demo
+    CAMUNDA_BASIC_AUTH_PASSWORD:
+        description: Password for BASIC auth (use secrets in your workflow)
+        required: false
+        default: demo
+    ZEEBE_REST_ADDRESS:
+        description: Zeebe REST address
+        required: false
+        default: http://localhost:8080
+    # Advanced
+    extra-env:
+        description: Optional extra KEY=VALUE lines to append to .env (multi-line)
+        required: false
+        default: ''
+
+runs:
+    using: composite
+    steps:
+        - name: Checkout E2E suite sparsely from camunda/camunda
+          uses: actions/checkout@v5
+          with:
+              repository: ${{ inputs.camunda-repo }}
+              ref: ${{ inputs.camunda-ref }}
+              fetch-depth: 1
+              path: camunda-src
+              sparse-checkout: |
+                  qa/c8-orchestration-cluster-e2e-test-suite
+              sparse-checkout-cone-mode: true
+
+        - name: Setup Node.js
+          uses: actions/setup-node@v4
+          with:
+              node-version: ${{ inputs.node-version }}
+              cache: npm
+              cache-dependency-path: |
+                  camunda-src/qa/c8-orchestration-cluster-e2e-test-suite/package-lock.json
+
+        - name: Install dependencies
+          shell: bash
+          working-directory: camunda-src/qa/c8-orchestration-cluster-e2e-test-suite
+          run: |
+              set -euo pipefail
+              if [ -f package-lock.json ]; then
+                npm ci
+              else
+                npm install
+              fi
+
+        - name: Install Playwright browsers
+          shell: bash
+          working-directory: camunda-src/qa/c8-orchestration-cluster-e2e-test-suite
+          run: |
+              set -euo pipefail
+              npx playwright install --with-deps
+
+        - name: Write .env configuration
+          shell: bash
+          working-directory: camunda-src/qa/c8-orchestration-cluster-e2e-test-suite
+          env:
+              LOCAL_TEST: ${{ inputs.LOCAL_TEST }}
+              CORE_APPLICATION_URL: ${{ inputs.CORE_APPLICATION_URL }}
+              CAMUNDA_AUTH_STRATEGY: ${{ inputs.CAMUNDA_AUTH_STRATEGY }}
+              CAMUNDA_BASIC_AUTH_USERNAME: ${{ inputs.CAMUNDA_BASIC_AUTH_USERNAME }}
+              CAMUNDA_BASIC_AUTH_PASSWORD: ${{ inputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
+              ZEEBE_REST_ADDRESS: ${{ inputs.ZEEBE_REST_ADDRESS }}
+              EXTRA_ENV: ${{ inputs.extra-env }}
+          run: |
+              set -euo pipefail
+              {
+                printf "LOCAL_TEST=%s\n" "$LOCAL_TEST"
+                printf "CORE_APPLICATION_URL=%s\n" "$CORE_APPLICATION_URL"
+                printf "CAMUNDA_AUTH_STRATEGY=%s\n" "$CAMUNDA_AUTH_STRATEGY"
+                printf "CAMUNDA_BASIC_AUTH_USERNAME=%s\n" "$CAMUNDA_BASIC_AUTH_USERNAME"
+                printf "CAMUNDA_BASIC_AUTH_PASSWORD=%s\n" "$CAMUNDA_BASIC_AUTH_PASSWORD"
+                printf "ZEEBE_REST_ADDRESS=%s\n" "$ZEEBE_REST_ADDRESS"
+                # Append any additional multi-line KEY=VALUE pairs
+                if [ -n "${EXTRA_ENV}" ]; then
+                  printf "%s\n" "$EXTRA_ENV"
+                fi
+              } > .env
+
+        - name: Run Playwright tests
+          shell: bash
+          continue-on-error: true # for now we don't care if tests fail
+          working-directory: camunda-src/qa/c8-orchestration-cluster-e2e-test-suite
+          run: |
+              set -euo pipefail
+              npm run test -- --project=${{ inputs.project }}
+
+        - name: Upload junit report
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+              name: ${{ inputs.artifact-name }}
+              path: camunda-src/qa/c8-orchestration-cluster-e2e-test-suite/test-results/junit-report.xml
+              if-no-files-found: warn
+              retention-days: ${{ inputs.artifact-retention-days }}
+
+        - name: Cleanup camunda-src
+          shell: bash
+          if: always()
+          run: rm -rf camunda-src
