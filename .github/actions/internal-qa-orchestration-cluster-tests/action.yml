@@ -28,7 +28,6 @@ inputs:
         description: Retention days for the uploaded artifact
         required: false
         default: '7'
-    # .env configuration (defaults reflect README examples and are safe placeholders)
     LOCAL_TEST:
         description: Whether tests assume a local environment
         required: false
@@ -53,7 +52,6 @@ inputs:
         description: Zeebe REST address
         required: false
         default: http://localhost:8080
-    # Advanced
     extra-env:
         description: Optional extra KEY=VALUE lines to append to .env (multi-line)
         required: false
