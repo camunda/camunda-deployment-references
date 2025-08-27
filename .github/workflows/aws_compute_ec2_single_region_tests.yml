@@ -277,8 +277,7 @@ jobs:
               with:
                   CORE_APPLICATION_URL: ${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
                   ZEEBE_REST_ADDRESS: ${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
-                  artifact-name: test-reports-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-orchestration-cluster-${{ matrix.distro.name
-                      }}
+                  artifact-name: test-reports-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-qa-oc-${{ matrix.distro.name }}
 
     cleanup-clusters:
         name: Cleanup EC2 cluster
