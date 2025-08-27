@@ -163,7 +163,7 @@ regenerate-golden-file-all:
     echo "      Backend: bucket=${BUCKET}, region=${REGION}, key=${backend_key}"
     just regenerate-golden-file "${module_dir_rel}" "${REGION}" "${BUCKET}" "${backend_key}"
     ((count++))
-  done < <(find "$REPO_ROOT" -type f -path "*/config.tf" | LC_ALL=C sort)
+  done < <(find "$REPO_ROOT" -type f -name "config.tf" | LC_ALL=C sort)
 
   echo "Processed ${count} environment(s)."
 
