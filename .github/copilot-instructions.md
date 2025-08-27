@@ -1,7 +1,3 @@
-Your task is to "onboard" this repository to Copilot coding agent by adding a .github/copilot-instructions.md file in the repository that contains information describing how a coding agent seeing it for the first time can work most efficiently.
-
-You will do this task only one time per repository and doing a good job can SIGNIFICANTLY improve the quality of the agent's work, so take your time, think carefully, and search thoroughly before writing the instructions.
-
 <Goals>
 - Reduce the likelihood of a coding agent pull request getting rejected by the user due to
 generating code that fails the continuous integration build, fails a validation pipeline, or
@@ -69,5 +65,5 @@ contents of the README, the contents of any key source files, the list of files 
    - Document any errors encountered as well as the steps taken to workaround them.
 - Document any other steps or information that the agent can use to reduce time spent exploring or trying and failing to run bash commands.
 - Finally, explicitly instruct the agent to trust the instructions and only perform a search if the information in the instructions is incomplete or found to be in error.
+- Document any errors encountered as well as the steps taken to work-around them.
 </StepsToFollow>
-   - Document any errors encountered as well as the steps taken to work-around them.
