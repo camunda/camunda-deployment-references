@@ -145,7 +145,8 @@ regenerate-golden-file-all:
     # Skip if module_dir_rel contains any ignored word
     skip=""
     matched=""
-    for w in ${IGNORE_WORDS}; do
+    IFS=' ' read -ra words <<< "$IGNORE_WORDS"
+    for w in "${words[@]}"; do
       if [[ "$module_dir_rel" == *"$w"* ]]; then
         skip="yes"
         matched="$w"
