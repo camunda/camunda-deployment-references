@@ -3,7 +3,8 @@
 # Using the Camunda harbor registry as Docker Hub is too slow on Azure
 identityKeycloak:
     image:
-        repository: registry.camunda.cloud/dockerhub-camunda/camunda/keycloak
+        registry: registry.camunda.cloud
+        repository: dockerhub-camunda/camunda/keycloak
         pullSecrets:
             - name: registry-camunda-cloud
 
@@ -13,7 +14,12 @@ global:
             - name: registry-camunda-cloud
 
 elasticsearch:
-    image: registry.camunda.cloud/dockerhub-camunda/bitnami/elasticsearch
+    image:
+        registry: registry.camunda.cloud
+        repository: dockerhub-camunda/bitnami/elasticsearch
+    sysctlImage:
+        registry: registry.camunda.cloud
+        repository: dockerhub-camunda/bitnami/os-shell
     global:
         imagePullSecrets:
             - name: registry-camunda-cloud
