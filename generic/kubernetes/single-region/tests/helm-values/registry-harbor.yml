@@ -62,3 +62,7 @@ webModeler:
 connectors:
     image:
         repository: registry.camunda.cloud/dockerhub-camunda/camunda/connectors-bundle
+
+console:
+    image:
+        repository: registry.camunda.cloud/dockerhub-camunda/camunda/console
