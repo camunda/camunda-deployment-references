@@ -12,7 +12,7 @@ spec:
             restartPolicy: Never
             containers:
                 - name: create-setup-user-db
-                  image: alpine/psql:15
+                  image: alpine/psql:15.5
                   command:
                       - sh
                       - -c
