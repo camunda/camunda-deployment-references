@@ -125,7 +125,6 @@ runs:
 
         - name: Run Playwright tests
           shell: bash
-          continue-on-error: true # for now we don't care if tests fail
           working-directory: camunda-src/qa/c8-orchestration-cluster-e2e-test-suite
           run: |
               set -euo pipefail
