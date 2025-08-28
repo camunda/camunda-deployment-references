@@ -12,12 +12,12 @@ spec:
             restartPolicy: Never
             containers:
                 - name: create-setup-user-db
-                  image: postgres:15
+                  image: alpine/psql:15.5
                   command:
                       - sh
                       - -c
                       - |
-                        /bin/bash <<'EOF'
+                        /bin/sh <<'EOF'
                         set -o pipefail
                         set -e  # Exit on error
 
