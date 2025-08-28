@@ -1,4 +1,0 @@
----
-VPC:
-    include:
-        names_regex: []

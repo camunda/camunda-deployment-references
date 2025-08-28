@@ -145,8 +145,6 @@ destroy_resource() {
 
   # Execute the terraform destroy command with appropriate variables (see https://github.com/hashicorp/terraform/issues/23552)
   if [ "$terraform_module" == "eks-cluster" ]; then
-    terraform state rm "kubernetes_storage_class_v1.ebs_sc" || true
-
     VPC_ID=$(terraform output -raw vpc_id)
 
     if ! terraform destroy -auto-approve \

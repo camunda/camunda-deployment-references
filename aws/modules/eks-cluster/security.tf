@@ -18,3 +18,15 @@ resource "aws_security_group_rule" "cluster_api_to_nodes" {
   source_security_group_id = module.eks.cluster_security_group_id
   description              = "Cluster API to node access for Prometheus"
 }
+
+resource "aws_security_group_rule" "allow_api_access_from_vpc" {
+  count = var.private_vpc ? 1 : 0
+
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = module.eks.cluster_security_group_id
+  cidr_blocks       = module.vpc.private_subnets_cidr_blocks
+  description       = "Allow API access from VPC Private subnets IP CIDR"
+}

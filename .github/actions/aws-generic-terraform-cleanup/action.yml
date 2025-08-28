@@ -1,0 +1,132 @@
+---
+name: Delete AWS Resources with Terraform
+
+description: |
+    This GitHub Action automates the deletion of generic terraform resources using a shell script.
+
+inputs:
+    tf-bucket:
+        description: Bucket containing the resources
+        required: true
+
+    tf-bucket-region:
+        description: Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION
+
+    tf-bucket-key-prefix:
+        description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+        default: ''
+
+    max-age-hours:
+        description: Maximum age of the resources in hours
+        default: '12'
+
+    target:
+        description: Specify an ID to destroy specific resources or "all" to destroy all resources
+        default: all
+
+    fail-on-not-found:
+        description: Whether to fail if no matching resources are found (only for target not 'all')
+        default: 'true'
+
+    modules-order:
+        description: Destruction order of modules, e.g. "vpn,cluster" or "cluster,vpn"
+        required: true
+
+    openshift:
+        description: Whether to install OpenShift tooling (ROSA CLI + oc)
+        default: 'false'
+
+    rosa-cli-version:
+        description: Version of the ROSA CLI to use
+        default: latest
+
+    openshift-version:
+        description: Version of the OpenShift to install
+        required: true
+        # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
+        default: 4.19.7
+
+    delete-ghost-rosa-clusters:
+        description: Specify whether to delete ghost rosa clusters (true or false)
+        default: 'false'
+
+runs:
+    using: composite
+    steps:
+
+        - name: Install asdf tools with cache
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+
+        - name: Install Cloud Nuke for retry
+          shell: bash
+          if: ${{ env.RETRY_DESTROY == 'true' }}
+          working-directory: /tmp
+          env:
+              # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
+              CLOUD_NUKE_VERSION: v0.42.0
+          run: |
+              curl -LO \
+                  --retry 5 \
+                  --max-time 15 \
+                  --retry-delay 30 \
+                  https://github.com/gruntwork-io/cloud-nuke/releases/download/${{ env.CLOUD_NUKE_VERSION }}/cloud-nuke_linux_amd64
+              chmod +x cloud-nuke_linux_amd64
+              mv cloud-nuke_linux_amd64 /usr/local/bin/cloud-nuke
+
+        - name: Install ROSA CLI
+          if: ${{ inputs.openshift == 'true' }}
+          shell: bash
+          working-directory: /tmp
+          run: |
+              set -euo pipefail
+
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              tar -xvf rosa-linux.tar.gz
+              sudo mv rosa /usr/local/bin/rosa
+              chmod +x /usr/local/bin/rosa
+              rm -f rosa-linux.tar.gz
+              rosa version
+
+        - name: Install CLI tools from OpenShift Mirror
+          if: ${{ inputs.openshift == 'true' }}
+          uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+          with:
+              oc: ${{ inputs.openshift-version }}
+
+        - name: Delete Resources
+          id: delete_resources
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              if [ -n "${{ inputs.tf-bucket-region }}" ]; then
+                export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
+              fi
+
+              # Use repo .tool-version as global version
+              cp .tool-versions ~/.tool-versions
+
+              ${{ github.action_path }}/scripts/destroy-resources.sh "${{ inputs.tf-bucket }}" \
+                ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.modules-order }} ${{ inputs.tf-bucket-key-prefix }} \
+                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
+
+              if [ "${{ inputs.delete-ghost-rosa-clusters }}" == "true" ]; then
+                ${{ github.action_path }}/scripts/cleanup-ghost-rosa-clusters.sh ${{ inputs.max-age-hours }}
+              fi
+
+        # Required for matrix jobs
+        - name: Convert key prefix into slug
+          id: key-prefix-slug
+          shell: bash
+          run: |
+              set -euo pipefail
+              SLUG=$(echo "${{ inputs.tf-bucket-key-prefix }}" | tr '/' '-' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              echo "PREFIX_SLUG=${SLUG::-1}" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Upload cleanup logs
+          if: always()
+          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          with:
+              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}-${{ steps.key-prefix-slug.outputs.PREFIX_SLUG }}
+              path: ./logs/
+              retention-days: 7

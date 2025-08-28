@@ -14,7 +14,7 @@ on:
             - .tool-versions
             - aws/openshift/rosa-hcp-dual-region/**
             - '!aws/openshift/rosa-hcp-dual-region/terraform/*/test/golden/**'
-            - .github/actions/aws-openshift-rosa-hcp-dual-region-cleanup/**
+            - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
 
     schedule:
@@ -102,14 +102,15 @@ jobs:
               id: delete_clusters
               continue-on-error: true
               timeout-minutes: 125
-              uses: ./.github/actions/aws-openshift-rosa-hcp-dual-region-cleanup
+              uses: ./.github/actions/aws-generic-terraform-cleanup
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours-cluster: ${{ env.MAX_AGE_HOURS_CLUSTER }}
+                  max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  modules-order: backup_bucket,peering,clusters
 
             # The previous step has a continue-on-error set to true in case of schedule run.
             # This means that the workflow is not marked as failed, but the step is.
@@ -122,15 +123,18 @@ jobs:
               id: retry_delete_clusters
               if: steps.delete_clusters.outcome == 'failure'
               timeout-minutes: 125
-              uses: ./.github/actions/aws-openshift-rosa-hcp-dual-region-cleanup
+              uses: ./.github/actions/aws-generic-terraform-cleanup
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
                   RETRY_DESTROY: 'true' # trigger cloud nuke
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours-cluster: 0 # the previous step alters the age and resets it to 0
+                  max-age-hours: 0 # the previous step alters the age and resets it to 0
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  openshift: 'true'
+                  delete-ghost-rosa-clusters: 'true'
+                  modules-order: backup_bucket,peering,clusters
 
             - name: Notify in Slack in case of failure
               id: slack-notification

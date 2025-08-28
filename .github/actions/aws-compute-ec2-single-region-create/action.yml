@@ -142,4 +142,4 @@ runs:
           with:
               working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
               plan-extra-args: |
-                  -var-file=terraform.tfvars \
+                  -var-file=terraform.tfvars

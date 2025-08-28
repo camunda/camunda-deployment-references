@@ -211,7 +211,7 @@ runs:
               working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
               plan-extra-args: |
                   -var-file=/tmp/var.tfvars.json \
-                  -var-file=terraform.tfvars \
+                  -var-file=terraform.tfvars
 
         - name: Fetch Terraform Outputs
           shell: bash
