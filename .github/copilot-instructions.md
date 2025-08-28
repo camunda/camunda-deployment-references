@@ -17,6 +17,17 @@ As a developer building reference architectures, understand that:
 3. **Documentation lives elsewhere** - Detailed instructions and snippets are in [camunda/camunda-docs](https://github.com/camunda/camunda-docs)
 4. **Integration tests are primary** - Focus on end-to-end validation via workflows, not just unit tests
 
+## Documentation Coordination
+
+When making changes to reference architectures:
+
+1. **Request associated documentation PRs** - Always ask for the corresponding documentation changes in the [camunda/camunda-docs](https://github.com/camunda/camunda-docs) repository
+2. **Perform side-reviews** - Maintain a copy of the camunda-docs repository to cross-reference and identify:
+   - Inconsistencies between code and documentation
+   - Required documentation updates
+   - Missing or outdated snippets and instructions
+3. **Coordinate changes** - Ensure reference architecture modifications align with documentation patterns and examples
+
 ## Essential Files to Reference
 
 Before making changes, always consult these key files:
@@ -66,10 +77,14 @@ just --list
 - `just aws-tf-modules-tests` - Run all module tests (~120min)
 - `just regenerate-golden-file` - Update golden files for modules
 
-### Integration Testing (via GitHub Workflows)
-- Integration tests run automatically via workflows mapped to each reference architecture
-- Use skip labels (see `DEVELOPER.md`) to avoid unnecessary resource provisioning
-- Workflows contain the complete integration logic for each architecture
+### Testing Strategy (via GitHub Workflows and terraform apply)
+- **Primary testing approach**: Use `.github/workflows` files and `tests` folder exclusively
+- **Cloud provider integration**: Workflow files and actions run reference architectures directly in cloud providers via terraform apply
+- **Iterative feedback**: Adopt a test strategy that relies on terraform apply and iterate based on GitHub Actions output
+- **Resource isolation**: Always use tags to interact only with resources from your current workspace or PR
+- **Integration focus**: Workflows contain the complete integration logic for each architecture
+- **Debugging tools**: You may use additional tools for debugging in the test environment
+- Use skip labels (see `DEVELOPER.md`) to avoid unnecessary resource provisioning during development
 
 ### File Protection Rules
 - **LICENSE**: Never modify under any circumstances
@@ -98,5 +113,7 @@ Manual validation commands are available in the `justfile` and `.lint/` director
 3. **Respect file boundaries** - Don't modify protected files (LICENSE, core documentation structure)
 4. **Use workflow skip labels** - Prevent unnecessary CI runs during development
 5. **Document in camunda-docs** - Complex documentation and snippets belong in the documentation repository
+6. **Coordinate documentation** - Request associated documentation PRs and perform cross-repository reviews
+7. **Test with terraform apply** - Use GitHub workflows that deploy to actual cloud providers for validation
 
 This repository is optimized for blueprint creation and testing, not production deployment. Always prioritize clarity and educational value in your implementations.
