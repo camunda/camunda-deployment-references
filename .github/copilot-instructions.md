@@ -118,9 +118,10 @@ Each module includes: `README.md`, `*.tf` files, `versions.tf` (provider require
 ### Making Changes
 1. **Branch targeting**: Always target `main` branch (check `.target-branch`)
 2. **Documentation preservation**: Preserve existing README.md structure unless specifically told to modify it or when fixing inconsistencies
-3. **Run tests locally**: Use `just aws-tf-modules-test TestName` for specific changes
-4. **Pre-commit validation**: Hooks run automatically or `pre-commit run --all-files`
-5. **CI validation**: Full test suite runs on PR (can be skipped with labels)
+3. **LICENSE protection**: Never modify the LICENSE file under any circumstances
+4. **Run tests locally**: Use `just aws-tf-modules-test TestName` for specific changes
+5. **Pre-commit validation**: Hooks run automatically or `pre-commit run --all-files`
+6. **CI validation**: Full test suite runs on PR (can be skipped with labels)
 
 ### Common Patterns
 - **Module structure**: Always include `versions.tf`, `variables.tf`, `outputs.tf`, `README.md`
