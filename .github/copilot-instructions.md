@@ -111,7 +111,7 @@ When reviewing terraform modules, perform comprehensive validation:
 #### Organization Standards
 - **Alphabetical ordering**: When no logical grouping exists (business logic, technical dependencies), maintain alphabetical ordering in:
   - Variable definitions
-  - Resource declarations  
+  - Resource declarations
   - Module references
   - Output definitions
 - **Consistent grouping**: When grouping is used, clearly document the grouping criteria and maintain consistency
