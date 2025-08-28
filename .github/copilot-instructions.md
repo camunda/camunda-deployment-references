@@ -91,6 +91,11 @@ just --list
 - **README.md**: Preserve structure unless specifically told to modify or fixing inconsistencies
 - **Configuration files**: Only update versions in `.camunda-version`, `.tool-versions` as needed
 
+### Security and Confidentiality
+- **Never leak confidential information** - Do not expose credentials, sensitive data, or confidential information in any part of the codebase, logs, or outputs
+- **Mask sensitive data in CI** - When working with credentials or sensitive information, ensure they are properly masked in GitHub Actions and CI outputs
+- **Resource isolation** - Use appropriate workspace or PR-specific tags to prevent accidental interaction with production or other environments
+
 ### Branching and Targeting
 - Target branch: Check `.target-branch` file (typically "main")
 - Branching strategy: See `MAINTENANCE.md` for details on stable branches vs main
