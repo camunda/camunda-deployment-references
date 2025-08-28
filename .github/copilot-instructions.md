@@ -86,6 +86,36 @@ just --list
 - **Debugging tools**: You may use additional tools for debugging in the test environment
 - Use skip labels (see `DEVELOPER.md`) to avoid unnecessary resource provisioning during development
 
+## Code Review Guidelines
+
+### Terraform Module Validation
+When reviewing terraform modules, perform comprehensive validation:
+
+1. **Version Verification**: Check each module reference with appropriate version constraints
+2. **Parameter Documentation**: Ensure every parameter either:
+   - Self-documents with clear, descriptive names
+   - Has detailed descriptions explaining purpose, expected values, and impact
+   - Includes examples for complex configurations
+3. **Implementation Reasoning**: Provide explanations for non-obvious implementation choices to support smooth onboarding
+4. **Variable Validation**: Add terraform validation blocks where appropriate to prevent misconfiguration
+5. **Default Values**: Ensure sensible defaults are provided with justification for the chosen values
+
+### Pull Request Review Process
+
+#### Deprecation Management
+- **Highlight deprecations**: When deprecated features, modules, or configurations are found, open a discussion thread
+- **Require justification**: The author must provide clear reasoning for using deprecated features
+- **Migration path**: Include guidance or timeline for moving away from deprecated components
+- **Documentation**: Update associated documentation to reflect deprecation status and alternatives
+
+#### Organization Standards
+- **Alphabetical ordering**: When no logical grouping exists (business logic, technical dependencies), maintain alphabetical ordering in:
+  - Variable definitions
+  - Resource declarations  
+  - Module references
+  - Output definitions
+- **Consistent grouping**: When grouping is used, clearly document the grouping criteria and maintain consistency
+
 ### File Protection Rules
 - **LICENSE**: Never modify under any circumstances
 - **README.md**: Preserve structure unless specifically told to modify or fixing inconsistencies
@@ -120,5 +150,8 @@ Manual validation commands are available in the `justfile` and `.lint/` director
 5. **Document in camunda-docs** - Complex documentation and snippets belong in the documentation repository
 6. **Coordinate documentation** - Request associated documentation PRs and perform cross-repository reviews
 7. **Test with terraform apply** - Use GitHub workflows that deploy to actual cloud providers for validation
+8. **Smooth onboarding focus** - Ensure all implementations include clear reasoning and documentation for new repository joiners
+9. **Comprehensive code review** - Validate terraform modules, versions, parameters, and highlight any deprecations
+10. **Maintain organization** - Use alphabetical ordering when no logical grouping criteria exists
 
 This repository is optimized for blueprint creation and testing, not production deployment. Always prioritize clarity and educational value in your implementations.
