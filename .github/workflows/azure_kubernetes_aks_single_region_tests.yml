@@ -339,6 +339,9 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+                      secret/data/products/infrastructure-experience/ci/common MACHINE_USR;
+                      secret/data/products/infrastructure-experience/ci/common MACHINE_PWD;
+
 
             - name: 🚢 Retrieve environment variables from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
@@ -511,7 +514,7 @@ jobs:
 
                   # Add integration tests values
                   if [ "$TESTS_ENABLED" == "true" ]; then
-                    for file in registry.yml identity.yml; do
+                    for file in registry-harbor.yml identity.yml; do
                       yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                     done
@@ -570,6 +573,12 @@ jobs:
                         --docker-server=index.docker.io \
                         --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                        --namespace="$CAMUNDA_NAMESPACE"
+
+                    kubectl create secret docker-registry registry-camunda-cloud \
+                        --docker-server=registry.camunda.cloud \
+                        --docker-username="${{ steps.secrets.outputs.MACHINE_USR }}" \
+                        --docker-password="${{ steps.secrets.outputs.MACHINE_PWD }}" \
                         --namespace="$CAMUNDA_NAMESPACE"
 
                     kubectl create secret generic identity-secret-for-components-integration \
