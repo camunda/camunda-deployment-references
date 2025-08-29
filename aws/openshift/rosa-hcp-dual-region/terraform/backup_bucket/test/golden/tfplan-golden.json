@@ -65,6 +65,12 @@
       }
     },
     "aws_kms_key.backup_bucket_key": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "backup_bucket_key",
       "provider_name": "registry.terraform.io/hashicorp/aws",

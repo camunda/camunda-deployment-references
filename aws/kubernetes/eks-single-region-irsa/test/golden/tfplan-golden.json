@@ -434,6 +434,12 @@
             "module.eks_cluster.module.eks.module.kms": {
               "resources": {
                 "module.eks_cluster.module.eks.module.kms.aws_kms_alias.this[\"cluster\"]": {
+                  "identity": {
+                    "account_id": null,
+                    "name": null,
+                    "region": null
+                  },
+                  "identity_schema_version": 0,
                   "index": "cluster",
                   "mode": "managed",
                   "name": "this",
@@ -447,6 +453,12 @@
                   }
                 },
                 "module.eks_cluster.module.eks.module.kms.aws_kms_key.this[0]": {
+                  "identity": {
+                    "account_id": null,
+                    "id": null,
+                    "region": null
+                  },
+                  "identity_schema_version": 0,
                   "index": 0,
                   "mode": "managed",
                   "name": "this",
@@ -1983,6 +1995,15 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route.private_nat_gateway[0]": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private_nat_gateway",
@@ -2013,6 +2034,15 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route.private_nat_gateway[1]": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private_nat_gateway",
@@ -2043,6 +2073,15 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route.private_nat_gateway[2]": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private_nat_gateway",
@@ -2073,6 +2112,15 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route.public_internet_gateway[0]": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "public_internet_gateway",
@@ -2103,6 +2151,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route_table.private[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private",
@@ -2127,6 +2181,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route_table.private[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private",
@@ -2151,6 +2211,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route_table.private[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private",
@@ -2175,6 +2241,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route_table.public[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "public",
@@ -2679,6 +2751,12 @@
           }
         },
         "module.eks_cluster.aws_kms_key.eks": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "eks",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2850,6 +2928,12 @@
           }
         },
         "module.opensearch_domain.aws_kms_key.kms": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "kms",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3376,6 +3460,12 @@
           }
         },
         "module.postgresql.aws_kms_key.this": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",

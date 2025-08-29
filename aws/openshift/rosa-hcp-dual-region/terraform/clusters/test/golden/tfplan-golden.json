@@ -2024,6 +2024,15 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route.ipv4_egress_route": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "ipv4_egress_route",
               "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2047,6 +2056,15 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route.ipv6_egress_route": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "ipv6_egress_route",
               "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2070,6 +2088,15 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route.private_nat[0]": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private_nat",
@@ -2094,6 +2121,15 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route.private_nat[1]": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private_nat",
@@ -2118,6 +2154,15 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route.private_nat[2]": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private_nat",
@@ -2142,6 +2187,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route_table.private_route_table[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private_route_table",
@@ -2166,6 +2217,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route_table.private_route_table[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private_route_table",
@@ -2190,6 +2247,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route_table.private_route_table[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private_route_table",
@@ -2214,6 +2277,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route_table.public_route_table": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "public_route_table",
               "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -4692,6 +4761,15 @@
               }
             },
             "module.rosa_cluster_2.module.vpc.aws_route.ipv4_egress_route": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "ipv4_egress_route",
               "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -4715,6 +4793,15 @@
               }
             },
             "module.rosa_cluster_2.module.vpc.aws_route.ipv6_egress_route": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "ipv6_egress_route",
               "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -4738,6 +4825,15 @@
               }
             },
             "module.rosa_cluster_2.module.vpc.aws_route.private_nat[0]": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private_nat",
@@ -4762,6 +4858,15 @@
               }
             },
             "module.rosa_cluster_2.module.vpc.aws_route.private_nat[1]": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private_nat",
@@ -4786,6 +4891,15 @@
               }
             },
             "module.rosa_cluster_2.module.vpc.aws_route.private_nat[2]": {
+              "identity": {
+                "account_id": null,
+                "destination_cidr_block": null,
+                "destination_ipv6_cidr_block": null,
+                "destination_prefix_list_id": null,
+                "region": null,
+                "route_table_id": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private_nat",
@@ -4810,6 +4924,12 @@
               }
             },
             "module.rosa_cluster_2.module.vpc.aws_route_table.private_route_table[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private_route_table",
@@ -4834,6 +4954,12 @@
               }
             },
             "module.rosa_cluster_2.module.vpc.aws_route_table.private_route_table[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private_route_table",
@@ -4858,6 +4984,12 @@
               }
             },
             "module.rosa_cluster_2.module.vpc.aws_route_table.private_route_table[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private_route_table",
@@ -4882,6 +5014,12 @@
               }
             },
             "module.rosa_cluster_2.module.vpc.aws_route_table.public_route_table": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "public_route_table",
               "provider_name": "registry.terraform.io/hashicorp/aws",
