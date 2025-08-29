@@ -118,7 +118,60 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
     exit 1
   fi
 
+# Discover all environments and regenerate golden files for each
+# Usage:
+#   just regenerate-golden-file-all
+regenerate-golden-file-all:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  REPO_ROOT="{{ justfile_directory() }}"
+  BUCKET="${TFSTATE_BUCKET:-tests-ra-aws-rosa-hcp-tf-state-eu-central-1}"
+  REGION="${TFSTATE_REGION:-eu-central-1}"
+  IGNORE_WORDS="${IGNORE_WORDS:-peering}"
 
+  if [[ -z "$BUCKET" || -z "$REGION" ]]; then
+    echo "ERROR: TFSTATE_BUCKET and TFSTATE_REGION environment variables are required." >&2
+    exit 1
+  fi
+
+  # Find all directories that contain a config.tf file
+  echo "Discovering environments (looking for */config.tf)..."
+  echo "Ignoring any path containing: ${IGNORE_WORDS}"
+
+  count=0
+  while IFS= read -r tfvars; do
+    module_dir_abs="$(dirname "$tfvars")"
+    module_dir_rel="${module_dir_abs#"$REPO_ROOT/"}"
+
+    # Skip if module_dir_rel contains any ignored word
+    skip=""
+    matched=""
+    IFS=' ' read -ra words <<< "$IGNORE_WORDS"
+    for w in "${words[@]}"; do
+      if [[ "$module_dir_rel" == *"$w"* ]]; then
+        skip="yes"
+        matched="$w"
+        break
+      fi
+    done
+    if [[ -n "$skip" ]]; then
+      echo "Skipping: ${module_dir_rel} (matched ignore word: ${matched})"
+      continue
+    fi
+
+    backend_key="golden.tfstate"
+
+    echo "[${count}] Regenerating golden for: ${module_dir_rel}"
+    echo "      Backend: bucket=${BUCKET}, region=${REGION}, key=${backend_key}"
+    if just regenerate-golden-file "${module_dir_rel}" "${REGION}" "${BUCKET}" "${backend_key}"; then
+      count=$((count + 1))
+    else
+      echo "❌ Failed for ${module_dir_rel}" >&2
+      exit 1
+    fi
+  done < <(find "$REPO_ROOT" -type f -name "config.tf" | LC_ALL=C sort)
+
+  echo "Processed ${count} environment(s)."
 
 # Install all the tooling
 install-tooling: asdf-install

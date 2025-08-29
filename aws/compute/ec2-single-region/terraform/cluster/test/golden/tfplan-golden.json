@@ -441,6 +441,12 @@
       }
     },
     "aws_kms_key.main": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "main",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1782,6 +1788,12 @@
     "module.opensearch_domain[0]": {
       "resources": {
         "module.opensearch_domain[0].aws_kms_key.kms": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "kms",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2280,6 +2292,15 @@
           }
         },
         "module.vpc.aws_route.private_nat_gateway[0]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "destination_ipv6_cidr_block": null,
+            "destination_prefix_list_id": null,
+            "region": null,
+            "route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "private_nat_gateway",
@@ -2310,6 +2331,15 @@
           }
         },
         "module.vpc.aws_route.public_internet_gateway[0]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "destination_ipv6_cidr_block": null,
+            "destination_prefix_list_id": null,
+            "region": null,
+            "route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "public_internet_gateway",
@@ -2340,6 +2370,12 @@
           }
         },
         "module.vpc.aws_route_table.private[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "private",
@@ -2364,6 +2400,12 @@
           }
         },
         "module.vpc.aws_route_table.public[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "public",
