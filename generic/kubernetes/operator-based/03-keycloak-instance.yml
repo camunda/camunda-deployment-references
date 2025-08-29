@@ -42,8 +42,13 @@ spec:
             spec:
                 containers:
                     - env:
-                          - name: KEYCLOAK_IMPORT
-                            value: /opt/keycloak/data/import
+                          - name: JAVA_OPTS_APPEND
+                            value: >
+                                -Dkeycloak.migration.action=import
+                                -Dkeycloak.migration.provider=dir
+                                -Dkeycloak.migration.dir=/opt/keycloak/data/import
+                                -Dkeycloak.migration.strategy=IGNORE_EXISTING
+                                -Dkeycloak.migration.replace-placeholders=true
                       envFrom:
                           - secretRef:
                                 name: keycloak-realm-secrets
