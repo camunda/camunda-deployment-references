@@ -10,7 +10,7 @@ Sparsely checks out the QA E2E suite from camunda/camunda at a specific branch, 
 | --- | --- | --- | --- |
 | `camunda-repo` | <p>Repository to checkout</p> | `false` | `camunda/camunda` |
 | `camunda-ref` | <p>Branch or tag of camunda/camunda to test (e.g. main, stable/8.7)</p> | `false` | `main` |
-| `node-version` | <p>Node.js version to use</p> | `false` | `lts` |
+| `node-version` | <p>Node.js version to use</p> | `false` | `22` |
 | `project` | <p>Playwright project to run</p> | `false` | `chromium` |
 | `artifact-name` | <p>Name of the uploaded junit artifact</p> | `false` | `junit-report` |
 | `artifact-retention-days` | <p>Retention days for the uploaded artifact</p> | `false` | `7` |
@@ -48,7 +48,7 @@ This action is a `composite` action.
     # Node.js version to use
     #
     # Required: false
-    # Default: lts
+    # Default: 22
 
     project:
     # Playwright project to run
