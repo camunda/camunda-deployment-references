@@ -123,6 +123,7 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
 #   just regenerate-golden-file-all
 regenerate-golden-file-all:
   #!/usr/bin/env bash
+  set -euo pipefail
   REPO_ROOT="{{ justfile_directory() }}"
   BUCKET="${TFSTATE_BUCKET:-tests-ra-aws-rosa-hcp-tf-state-eu-central-1}"
   REGION="${TFSTATE_REGION:-eu-central-1}"
@@ -162,8 +163,12 @@ regenerate-golden-file-all:
 
     echo "[${count}] Regenerating golden for: ${module_dir_rel}"
     echo "      Backend: bucket=${BUCKET}, region=${REGION}, key=${backend_key}"
-    just regenerate-golden-file "${module_dir_rel}" "${REGION}" "${BUCKET}" "${backend_key}"
-    ((count++))
+    if just regenerate-golden-file "${module_dir_rel}" "${REGION}" "${BUCKET}" "${backend_key}"; then
+      count=$((count + 1))
+    else
+      echo "❌ Failed for ${module_dir_rel}" >&2
+      exit 1
+    fi
   done < <(find "$REPO_ROOT" -type f -name "config.tf" | LC_ALL=C sort)
 
   echo "Processed ${count} environment(s)."
