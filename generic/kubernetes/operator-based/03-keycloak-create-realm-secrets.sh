@@ -13,11 +13,11 @@ generate_secret() {
     openssl rand -base64 32 | tr -d "=+/" | cut -c1-32
 }
 
-# Check if secret already exists
+# Check if secret already exists (for informational purposes)
 if kubectl get secret keycloak-realm-secrets -n "$NAMESPACE" >/dev/null 2>&1; then
-    echo "Secret keycloak-realm-secrets already exists in namespace $NAMESPACE"
-    echo "Delete it first if you want to regenerate: kubectl delete secret keycloak-realm-secrets -n $NAMESPACE"
-    exit 0
+    echo "Secret keycloak-realm-secrets already exists in namespace $NAMESPACE - will update it"
+else
+    echo "Secret keycloak-realm-secrets does not exist - will create it"
 fi
 
 echo "Generating random client secrets..."
@@ -45,7 +45,7 @@ CAMUNDA_PROTOCOL=${CAMUNDA_PROTOCOL:-http}
 echo "Using CAMUNDA_DOMAIN: $CAMUNDA_DOMAIN"
 echo "Using CAMUNDA_PROTOCOL: $CAMUNDA_PROTOCOL"
 
-# Create the secret with all client secrets and domain/protocol
+# Create the secret with all client secrets and domain/protocol (idempotent)
 kubectl create secret generic keycloak-realm-secrets -n "$NAMESPACE" \
     --from-literal=KC_IDENTITY_CLIENT_SECRET="$KC_IDENTITY_CLIENT_SECRET" \
     --from-literal=KC_IDENTITY_RESOURCE_SERVER_CLIENT_SECRET="$KC_IDENTITY_RESOURCE_SERVER_CLIENT_SECRET" \
@@ -62,7 +62,8 @@ kubectl create secret generic keycloak-realm-secrets -n "$NAMESPACE" \
     --from-literal=KC_ZEEBE_CLIENT_SECRET="$KC_ZEEBE_CLIENT_SECRET" \
     --from-literal=KC_ZEEBE_API_CLIENT_SECRET="$KC_ZEEBE_API_CLIENT_SECRET" \
     --from-literal=CAMUNDA_DOMAIN="$CAMUNDA_DOMAIN" \
-    --from-literal=CAMUNDA_PROTOCOL="$CAMUNDA_PROTOCOL"
+    --from-literal=CAMUNDA_PROTOCOL="$CAMUNDA_PROTOCOL" \
+    --dry-run=client -o yaml | kubectl apply -f -
 
 echo "Secret 'keycloak-realm-secrets' created successfully with all client secrets!"
 echo "The secret contains:"

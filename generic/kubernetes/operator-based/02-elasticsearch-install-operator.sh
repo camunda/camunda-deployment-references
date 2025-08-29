@@ -22,6 +22,24 @@ kubectl apply -n elastic-system --server-side -f \
   https://download.elastic.co/downloads/eck/3.1.0/operator.yaml
 
 echo "Waiting for operator to be ready..."
-kubectl wait --for=condition=ready pod -l name=elastic-operator -n elastic-system --timeout=300s
+# Wait for operator pod to be ready (using a more generic approach)
+timeout=300
+interval=5
+end=$((SECONDS+timeout))
+
+echo "Waiting for ECK operator pod to be ready (max 5m)..."
+while [ $SECONDS -lt $end ]; do
+  if kubectl get pods -n elastic-system -l control-plane=elastic-operator --field-selector=status.phase=Running | grep -q Running; then
+    echo "ECK operator is ready."
+    break
+  fi
+  printf "Operator not ready yet...\n"
+  sleep $interval
+done
+
+if [ $SECONDS -ge $end ]; then
+  echo "Timeout reached. Checking operator status:"
+  kubectl get pods -n elastic-system -l control-plane=elastic-operator
+fi
 
 echo "ECK operator installed successfully!"

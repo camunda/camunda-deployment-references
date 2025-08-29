@@ -21,10 +21,9 @@ spec:
     transaction:
         xaEnabled: false
     additionalOptions:
-        - name: hostname-path
-          value: /auth
         - name: http-relative-path
           value: /auth
+        - name: import-realm
     hostname:
         hostname: ${CAMUNDA_DOMAIN}
         #  tlsSecret: example-tls
@@ -41,19 +40,15 @@ spec:
         podTemplate:
             spec:
                 containers:
-                    - env:
-                          - name: KEYCLOAK_IMPORT
-                            value: /opt/keycloak/data/import/realm-camunda-platform.json
-                      envFrom:
+                    - envFrom:
                           - secretRef:
                                 name: keycloak-realm-secrets
                       volumeMounts:
                           - name: realm-config-volume
-                            mountPath: /opt/keycloak/data/import/realm-camunda-platform.json
-                            subPath: realm-camunda-platform.json
+                            mountPath: /opt/keycloak/data/import/
                             readOnly: true
                       imagePullPolicy: IfNotPresent
                 volumes:
                     - name: realm-config-volume
-                      configMap:
-                          name: keycloak-realm-config
+                      secret:
+                          secretName: keycloak-realm-config

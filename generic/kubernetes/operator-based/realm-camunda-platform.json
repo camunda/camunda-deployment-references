@@ -579,6 +579,7 @@
         }
       ],
       "operate": [],
+      "venom": [],
       "optimize": [],
       "operate-api": [
         {
@@ -975,6 +976,48 @@
       "groups": []
     },
     {
+      "id": "aba09f38-332e-4c90-b75c-3a3b01c90369",
+      "username": "service-account-venom",
+      "emailVerified": false,
+      "createdTimestamp": 1756461484116,
+      "enabled": true,
+      "totp": false,
+      "serviceAccountClientId": "venom",
+      "disableableCredentialTypes": [],
+      "requiredActions": [],
+      "realmRoles": [
+        "Default user role"
+      ],
+      "clientRoles": {
+        "tasklist-api": [
+          "write:*",
+          "read:*"
+        ],
+        "zeebe-api": [
+          "write:*"
+        ],
+        "operate-api": [
+          "write:*",
+          "read:*"
+        ],
+        "web-modeler-api": [
+          "write:*"
+        ],
+        "console-api": [
+          "write:*"
+        ],
+        "optimize-api": [
+          "write:*"
+        ],
+        "camunda-identity-resource-server": [
+          "write",
+          "read"
+        ]
+      },
+      "notBefore": 0,
+      "groups": []
+    },
+    {
       "id": "b1e5ef7a-6f4c-4acb-a18d-36053891abd9",
       "username": "service-account-web-modeler-api",
       "emailVerified": false,
@@ -1221,7 +1264,7 @@
       "clientAuthenticatorType": "client-secret",
       "secret": "${KC_IDENTITY_CLIENT_SECRET}",
       "redirectUris": [
-        "${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/identity/auth/login-callback"
+        "https://operators-18ad8.camunda.ie/identity/auth/login-callback"
       ],
       "webOrigins": [
         "+"
@@ -1338,7 +1381,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_IDENTITY_RESOURCE_SERVER_CLIENT_SECRET}",
+      "secret": "KC_IDENTITY_RESOURCE_SERVER_CLIENT_SECRET",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,
@@ -1424,7 +1467,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_CONNECTORS_CLIENT_SECRET}",
+      "secret": "KC_CONNECTORS_CLIENT_SECRET",
       "redirectUris": [
         "http://placeholder/"
       ],
@@ -1489,7 +1532,7 @@
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/"
+        "https://operators-18ad8.camunda.ie/"
       ],
       "webOrigins": [
         "+"
@@ -1550,7 +1593,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_CONSOLE_API_CLIENT_SECRET}",
+      "secret": "**********",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,
@@ -1636,9 +1679,9 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_OPERATE_CLIENT_SECRET}",
+      "secret": "**********",
       "redirectUris": [
-        "${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/operate/identity-callback"
+        "https://operators-18ad8.camunda.ie/operate/identity-callback"
       ],
       "webOrigins": [
         "+"
@@ -1700,7 +1743,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_OPERATE_API_CLIENT_SECRET}",
+      "secret": "**********",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,
@@ -1786,9 +1829,9 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_OPTIMIZE_CLIENT_SECRET}",
+      "secret": "**********",
       "redirectUris": [
-        "${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/optimize/api/authentication/callback"
+        "https://operators-18ad8.camunda.ie/optimize/api/authentication/callback"
       ],
       "webOrigins": [
         "+"
@@ -1850,7 +1893,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_OPTIMIZE_API_CLIENT_SECRET}",
+      "secret": "**********",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,
@@ -2024,9 +2067,9 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_TASKLIST_CLIENT_SECRET}",
+      "secret": "**********",
       "redirectUris": [
-        "${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/tasklist/identity-callback"
+        "https://operators-18ad8.camunda.ie/tasklist/identity-callback"
       ],
       "webOrigins": [
         "+"
@@ -2088,7 +2131,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_TASKLIST_API_CLIENT_SECRET}",
+      "secret": "**********",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,
@@ -2167,6 +2210,70 @@
       }
     },
     {
+      "id": "3a412c82-4557-4f69-90cf-f5052c4b8a0e",
+      "clientId": "venom",
+      "name": "venom",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "**********",
+      "redirectUris": [
+        "http://dummy/dummy"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "realm_client": "false",
+        "post.logout.redirect.uris": "+"
+      },
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": true,
+      "nodeReRegistrationTimeout": -1,
+      "protocolMappers": [
+        {
+          "id": "3885b9f2-25aa-4ed5-9223-b5184eda8b5f",
+          "name": "venom Audience Mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "venom",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ],
+      "defaultClientScopes": [
+        "web-origins",
+        "service_account",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "camunda-identity",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
+    },
+    {
       "id": "6461b78d-6e28-497c-8834-f24b5756d077",
       "clientId": "web-modeler",
       "name": "Web Modeler",
@@ -2175,7 +2282,7 @@
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/modeler/login-callback"
+        "https://operators-18ad8.camunda.ie/modeler/login-callback"
       ],
       "webOrigins": [
         "+"
@@ -2236,7 +2343,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_WEB_MODELER_API_CLIENT_SECRET}",
+      "secret": "**********",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,
@@ -2322,7 +2429,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_WEB_MODELER_PUBLIC_API_CLIENT_SECRET}",
+      "secret": "**********",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,
@@ -2408,7 +2515,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_ZEEBE_CLIENT_SECRET}",
+      "secret": "**********",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,
@@ -2467,7 +2574,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${KC_ZEEBE_API_CLIENT_SECRET}",
+      "secret": "**********",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,

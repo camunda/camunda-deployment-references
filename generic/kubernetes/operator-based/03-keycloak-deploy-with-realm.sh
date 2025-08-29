@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Script to deploy Keycloak with realm auto-import via ConfigMap
+# Script to deploy Keycloak with realm auto-import via Secret
 # Usage: ./03-keycloak-deploy-with-realm.sh [namespace]
 
 NAMESPACE=${1:-camunda}
@@ -24,11 +24,11 @@ fi
 
 echo "✓ Keycloak realm secrets found"
 
-# Create the realm ConfigMap
-echo "=== Creating Keycloak Realm ConfigMap ==="
-./03-keycloak-create-realm-configmap.sh "$NAMESPACE"
+# Create the realm Secret
+echo "=== Creating Keycloak Realm Secret ==="
+./03-keycloak-create-realm-secret.sh "$NAMESPACE"
 
-# Deploy Keycloak instance with ConfigMap mount
+# Deploy Keycloak instance with Secret mount
 echo "=== Deploying Keycloak Instance with Realm Mount ==="
 envsubst < 03-keycloak-instance.yml | kubectl apply -n "$NAMESPACE" -f -
 
