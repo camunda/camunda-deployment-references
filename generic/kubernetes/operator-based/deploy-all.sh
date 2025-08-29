@@ -8,6 +8,24 @@ NAMESPACE=${1:-camunda}
 
 echo "Starting Camunda infrastructure deployment in namespace: $NAMESPACE"
 
+# Check required environment variables
+echo "=== Checking Environment Variables ==="
+export CAMUNDA_DOMAIN=${CAMUNDA_DOMAIN:-localhost}
+export CAMUNDA_PROTOCOL=${CAMUNDA_PROTOCOL:-http}
+
+echo "Using CAMUNDA_DOMAIN: $CAMUNDA_DOMAIN"
+echo "Using CAMUNDA_PROTOCOL: $CAMUNDA_PROTOCOL"
+
+# Verify envsubst is available
+if ! command -v envsubst &> /dev/null; then
+    echo "Error: envsubst is required but not installed"
+    echo "On macOS: brew install gettext"
+    echo "On Ubuntu/Debian: apt-get install gettext-base"
+    exit 1
+fi
+
+echo "Starting Camunda infrastructure deployment in namespace: $NAMESPACE"
+
 # Create namespace
 echo "Creating namespace: $NAMESPACE"
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
@@ -40,11 +58,17 @@ echo "=== Waiting for Elasticsearch Cluster ==="
 echo "=== Installing Keycloak Operator ==="
 ./03-keycloak-install-operator.sh "$NAMESPACE"
 
-echo "=== Deploying Keycloak Instance ==="
-kubectl apply -n "$NAMESPACE" -f 03-keycloak-instance.yml
+echo "=== Creating Keycloak Realm Secrets ==="
+./03-keycloak-create-realm-secrets.sh "$NAMESPACE"
+
+echo "=== Deploying Keycloak Instance with Realm Auto-Import ==="
+./03-keycloak-deploy-with-realm.sh "$NAMESPACE"
 
 echo "=== Waiting for Keycloak Instance ==="
 ./03-keycloak-wait-ready.sh "$NAMESPACE"
+
+echo "=== Deploying Keycloak Ingress ==="
+envsubst < 03-keycloak-ingress.yml | kubectl apply -n "$NAMESPACE" -f -
 
 echo "=== Getting Keycloak Admin Credentials ==="
 ./03-keycloak-get-admin-credentials.sh "$NAMESPACE"

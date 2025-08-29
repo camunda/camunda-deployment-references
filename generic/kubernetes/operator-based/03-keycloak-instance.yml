@@ -21,14 +21,15 @@ spec:
     transaction:
         xaEnabled: false
     additionalOptions:
-        - name: http-enabled
-          value: 'true'
+        - name: hostname-path
+          value: /auth
+        - name: http-relative-path
+          value: /auth
     hostname:
-        hostname: localhost
-        #  hostname: keycloak.example.com
+        hostname: ${CAMUNDA_DOMAIN}
         #  tlsSecret: example-tls
         #  backchannelDynamic: true
-        strict: false
+        strict: true
     resources:
         limits:
             cpu: 500m
@@ -36,3 +37,23 @@ spec:
         requests:
             cpu: 250m
             memory: 512Mi
+    unsupported:
+        podTemplate:
+            spec:
+                containers:
+                    - env:
+                          - name: KEYCLOAK_IMPORT
+                            value: /opt/keycloak/data/import/realm-camunda-platform.json
+                      envFrom:
+                          - secretRef:
+                                name: keycloak-realm-secrets
+                      volumeMounts:
+                          - name: realm-config-volume
+                            mountPath: /opt/keycloak/data/import/realm-camunda-platform.json
+                            subPath: realm-camunda-platform.json
+                            readOnly: true
+                      imagePullPolicy: IfNotPresent
+                volumes:
+                    - name: realm-config-volume
+                      configMap:
+                          name: keycloak-realm-config

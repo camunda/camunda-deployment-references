@@ -9,6 +9,7 @@ NAMESPACE=${1:-camunda}
 echo "Installing Keycloak operator in namespace: $NAMESPACE"
 
 # Install CRDs
+# TODO(renovate): manage keycloak manifest version via Renovate (auto-bump)
 kubectl apply --server-side -f \
   https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.3.3/kubernetes/keycloaks.k8s.keycloak.org-v1.yml
 

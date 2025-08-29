@@ -4,14 +4,23 @@ This guide documents the installation of Camunda infrastructure components using
 
 ## Prerequisites
 
-- Kubernetes cluster with admin privileges
 - `kubectl` configured to access your cluster
 - OpenSSL for generating random passwords
-- ClusterAdmin privileges (required for operators installation)
+- ClusterAdmin privileges (required to install operators)
+- Permission to create the operator namespaces (default: `cnpg-system` and `elastic-system`). Using a dedicated namespace for each operator controller is standard practice. Optionally, you can deploy the operators into the same namespace as Camunda (for example, `camunda`) by specifying that namespace during installation (e.g., using `-n camunda` in your kubectl commands or install scripts/manifests).
+- `envsubst` command (part of `gettext` package) for environment variable substitution in manifests
 
 <!-- TODO: add a link that explains what an operator is -->
 
 ## Quick Start
+
+These operators run on both Kubernetes and OpenShift; however, we recommend reviewing each operator's documentation to ensure all prerequisites are met.
+
+**Set environment variables first:**
+```bash
+export CAMUNDA_DOMAIN="localhost"
+export CAMUNDA_PROTOCOL="http"
+```
 
 To deploy all components at once:
 
@@ -31,14 +40,14 @@ To verify all components at once:
 
 This script runs all individual verification scripts and provides a comprehensive status report.
 
-## Infrastructure Components
-
 This deployment includes the following infrastructure components:
-- **PostgreSQL**: Three instances for Keycloak, Camunda Identity, and Web Modeler
-- **Elasticsearch**: For storing Zeebe and Camunda data (orchestration cluster)
-- **Keycloak**: For authentication and identity management
+- PostgreSQL: Three instances for Keycloak, Camunda Identity, and Web Modeler
+- Elasticsearch: For storing Zeebe and Camunda data (orchestration cluster)
+- Keycloak: For authentication and identity management
 
 Components are deployed in dependency order: PostgreSQL → Elasticsearch → Keycloak
+
+Note: None of these components is mandatory. If you already use a managed service (e.g., managed PostgreSQL, Elasticsearch, or Keycloak), you can skip deploying that component and configure your installation to use the managed service instead.
 
 ## Manual Step-by-Step Installation
 
@@ -46,11 +55,19 @@ If you prefer to install components individually:
 
 ### 1. PostgreSQL Installation
 
-PostgreSQL uses CloudNativePG, a CNCF component under Apache 2.0 license.
+PostgreSQL uses [CloudNativePG, a CNCF component under Apache 2.0 license](https://landscape.cncf.io/?item=app-definition-and-development--database--cloudnativepg).
+
+- To learn the prerequisites for this installation, refer to the project documentation: https://cloudnative-pg.io/documentation/current/supported_releases/.
+
+- This is an excerpt from https://cloudnative-pg.io/documentation/current/quickstart/#part-2-install-cloudnativepg
+
+This setup provisions three PostgreSQL clusters—one each for Keycloak, Camunda Identity, and Web Modeler.
+All clusters target PostgreSQL 15, selected as the common denominator across current Camunda components:
+https://docs.camunda.io/docs/next/reference/supported-environments/#component-requirements
 
 **Files:**
 - `01-postgresql-install-operator.sh` - Installs the CloudNativePG operator
-- `01-postgresql-create-secrets.sh` - Creates authentication secrets
+- `01-postgresql-create-secrets.sh` - Creates authentication secrets to access the databases
 - `01-postgresql-clusters.yml` - PostgreSQL cluster definitions
 - `01-postgresql-wait-ready.sh` - Waits for clusters to become healthy
 
@@ -69,6 +86,8 @@ kubectl apply -n camunda -f 01-postgresql-clusters.yml
 ./01-postgresql-wait-ready.sh camunda
 ```
 
+Note: You can also install and configure the CloudNativePG operator using the official Helm chart. To integrate its deployment alongside the Camunda Helm chart, see: https://github.com/cloudnative-pg/charts
+
 **Verification:**
 ```bash
 ./01-postgresql-verify.sh camunda
@@ -85,13 +104,25 @@ The deployment creates three PostgreSQL clusters:
 - `pg-keycloak` - For Keycloak
 - `pg-webmodeler` - For Web Modeler
 
+All configuration options for the PostgreSQL cluster are available in the official CloudNativePG documentation (https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/)
+
+For monitoring, follow https://cloudnative-pg.io/documentation/current/quickstart/#part-4-monitor-clusters-with-promet
+
+The PostgreSQL cluster installation is now complete; configuration in the chart will be covered in the Camunda installation chapter.
+
 ### 2. Elasticsearch Installation
 
-Elasticsearch uses ECK (Elastic Cloud on Kubernetes), the official operator from Elastic.
+Elasticsearch uses ECK (Elastic Cloud on Kubernetes), the official operator from Elastic under the Elastic license (https://www.elastic.co/licensing/elastic-license).
+
+To learn the prerequisites for this installation, refer to the official documentation https://www.elastic.co/docs/deploy-manage/deploy/cloud-on-k8s/deploy-an-orchestrator. This operator works on Kubernetes and OpenShift (https://www.elastic.co/docs/deploy-manage/deploy/cloud-on-k8s#k8s-supported).
+
+- The target version of Elasticsearch, we take the common denominator for the current version of Camunda: https://docs.camunda.io/docs/next/reference/supported-environments/#component-requirements, i.e. Elasticsearch 8.16+
+
+- This is an excerpt from https://www.elastic.co/docs/deploy-manage/deploy/cloud-on-k8s/install-using-yaml-manifest-quickstart
 
 **Files:**
 - `02-elasticsearch-install-operator.sh` - Installs the ECK operator
-- `02-elasticsearch-cluster.yml` - Elasticsearch cluster definition
+- `02-elasticsearch-cluster.yml` - Elasticsearch cluster 8.18.0 highly available cluster with 3 master nodes, persistent storage, and bounded resources.
 - `02-elasticsearch-wait-ready.sh` - Waits for cluster to become ready
 
 **Commands:**
@@ -106,6 +137,9 @@ kubectl apply -n camunda -f 02-elasticsearch-cluster.yml
 ./02-elasticsearch-wait-ready.sh camunda
 ```
 
+If you want to integrate the deployment of this operator alongside the Camunda chart, we recommend using: https://www.elastic.co/docs/deploy-manage/deploy/cloud-on-k8s/install-using-helm-chart
+
+
 **Verification:**
 ```bash
 ./02-elasticsearch-verify.sh camunda
@@ -117,29 +151,56 @@ kubectl get elasticsearch -n camunda
 kubectl get svc -n camunda | grep "elasticsearch"
 ```
 
-The deployment creates a 3-node Elasticsearch cluster with:
-- Version 8.18.0
-- 3 master nodes with anti-affinity
-- 64Gi storage per node
-- Bounded CPU/memory resources
+All configuration options for the Elasticsearch cluster are available in the official ECK documentation (https://www.elastic.co/guide/en/cloud-on-k8s/1.0/k8s-elasticsearch-k8s-elastic-co-v1.html)
 
 ### 3. Keycloak Installation
 
-Keycloak uses the official Keycloak Operator under Apache 2.0 license.
+Keycloak uses the official [Keycloak Operator under Apache 2.0 license](https://landscape.cncf.io/?item=provisioning--security-compliance--keycloak).
+
+This is an excerpt from https://www.keycloak.org/operator/installation#_installing_by_using_kubectl_without_operator_lifecycle_manager
+
+- To learn the prerequisites for this installation, see the official Keycloak Operator documentation: https://www.keycloak.org/guides#operator. This operator works on Kubernetes and OpenShift.
+- The target Keycloak version, we take the common denominator for the current version of Camunda: https://docs.camunda.io/docs/next/reference/supported-environments/#component-requirements, i.e. Keycloak 26+.
+- This operator is installed in the same namespace as the Camunda components.
+- Keycloak is exposed on the same domain as Camunda via an Ingress under the path prefix /auth (for example, https://camunda.example.com/auth/). The instance is configured to run with a relative path so no rewrite is needed.
+
+#### Environment Variables
+
+The following environment variables are required for Keycloak realm configuration:
+
+- `CAMUNDA_DOMAIN` - The domain where Camunda will be deployed (default: `localhost`)
+- `CAMUNDA_PROTOCOL` - The protocol to use for Camunda URLs (default: `http`)
+
+Example:
+```bash
+export CAMUNDA_DOMAIN="localhost"
+export CAMUNDA_PROTOCOL="http"
+```
+
+For production deployments, use your actual domain and HTTPS:
+```bash
+export CAMUNDA_DOMAIN="camunda.example.com"
+export CAMUNDA_PROTOCOL="https"
+```
 
 **Files:**
 - `03-keycloak-install-operator.sh` - Installs the Keycloak operator
-- `03-keycloak-instance.yml` - Keycloak instance definition
+- `03-keycloak-instance.yml` - Keycloak instance using CNPG (secret `keycloak-db`), configured to serve under `/auth`
+- `03-keycloak-ingress.yml` - Ingress exposing Keycloak on the same domain as Camunda at `/auth` (optional TLS via `camunda-tls`)
 - `03-keycloak-wait-ready.sh` - Waits for instance to become ready
-- `03-keycloak-get-admin-credentials.sh` - Retrieves admin credentials
+- `03-keycloak-get-admin-credentials.sh` - Retrieves admin credentials to access the Keycloak admin console
 
 **Commands:**
 ```bash
+# Set environment variables
+export CAMUNDA_DOMAIN="localhost"
+export CAMUNDA_PROTOCOL="http"
+
 # Install operator
 ./03-keycloak-install-operator.sh camunda
 
-# Deploy instance
-kubectl apply -n camunda -f 03-keycloak-instance.yml
+# Deploy instance and ingress (with environment variable substitution)
+./03-keycloak-deploy.sh camunda
 
 # Wait for readiness
 ./03-keycloak-wait-ready.sh camunda
@@ -151,129 +212,70 @@ kubectl apply -n camunda -f 03-keycloak-instance.yml
 **Verification:**
 ```bash
 ./03-keycloak-verify.sh camunda
+kubectl get ingress keycloak -n camunda
 ```
+
+All configuration options for the Keycloak cluster are available in the official documentation (https://www.keycloak.org/operator/advanced-configuration).
+
+As time of now, no helm chart is planned to be integrated by the keycloak team https://github.com/keycloak/keycloak/issues/16210#issuecomment-1462203645.
 
 **Quick status check:**
 ```bash
 kubectl get keycloak -n camunda
 kubectl get svc -n camunda | grep keycloak
+kubectl get ingress -n camunda | grep keycloak
 ```
 
 **Access Keycloak:**
+- With Ingress on the same domain:
+  - Admin console: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/auth/admin/
+- Without Ingress/hostname:
+  - Port-forward locally, then open http://localhost:8080/auth/admin/
+  ```bash
+  kubectl -n camunda port-forward svc/keycloak 8080:8080
+  ```
+
+Best practice: change the admin password after the first login.
+
+#### Configure a Realm for Camunda
+
+The deployment automatically creates and imports a complete Keycloak realm for Camunda Platform using a ConfigMap mounted directly into the Keycloak pod.
+
+**Automated Realm Configuration:**
+- All client secrets are automatically generated and stored in Kubernetes secrets
+- Domain and protocol settings are configured from environment variables
+- The realm configuration is templated and stored in a ConfigMap
+- Keycloak automatically imports the realm on startup via `KEYCLOAK_IMPORT`
+- This approach supports realm updates (unlike KeycloakRealmImport operator)
+
+**How it works:**
+1. **Secrets Generation**: Creates `keycloak-realm-secrets` with all client secrets and domain/protocol settings
+2. **ConfigMap Creation**: Templates the realm JSON with `envsubst` and stores it in `keycloak-realm-config` ConfigMap
+3. **Pod Mount**: Mounts the ConfigMap as `/opt/keycloak/data/import/realm-camunda-platform.json`
+4. **Auto-Import**: Keycloak uses `KEYCLOAK_IMPORT` environment variable to import the realm on startup
+
+**Files involved:**
+- `03-keycloak-create-realm-secrets.sh` - Generates all client secrets
+- `03-keycloak-create-realm-configmap.sh` - Templates and creates ConfigMap
+- `03-keycloak-deploy-with-realm.sh` - Deploys Keycloak with realm auto-import
+- `03-keycloak-update-realm.sh` - Updates realm configuration
+
+**Realm Updates:**
+To update the realm configuration:
 ```bash
-# Port-forward to access admin console
-kubectl -n camunda port-forward svc/keycloak 8080:8080
-
-# Then open: http://localhost:8080/admin/
+# Edit realm-camunda-platform.json
+./03-keycloak-update-realm.sh camunda
 ```
 
-## Configuration Details
-
-### PostgreSQL Configuration
-
-Three separate PostgreSQL clusters are created:
-- **pg-identity**: Database `identity`, user `identity`
-- **pg-keycloak**: Database `keycloak`, user `keycloak`
-- **pg-webmodeler**: Database `webmodeler`, user `webmodeler`
-
-Each cluster includes:
-- 1 instance (can be scaled)
-- 15Gi storage
-- Superuser and application user secrets
-- Data checksums enabled
-
-### Elasticsearch Configuration
-
-Single cluster with:
-- 3 master nodes for high availability
-- Pod anti-affinity for distribution
-- TLS disabled for simplicity
-- Deprecation warnings disabled
-- Read-only root filesystem
-- 64Gi persistent storage per node
-
-### Keycloak Configuration
-
-Single instance with:
-- PostgreSQL backend (pg-keycloak cluster)
-- HTTP enabled (no TLS for simplicity)
-- Hostname: localhost (change for production)
-- Resource limits: 500m CPU, 1Gi memory
-
-## Connection Information
-
-### PostgreSQL Services
-
-Access via Kubernetes services:
-```
-pg-identity-rw    - Read/write endpoint
-pg-identity-ro    - Read-only endpoint
-pg-identity-r     - Any replica endpoint
-
-pg-keycloak-rw    - Read/write endpoint
-pg-keycloak-ro    - Read-only endpoint
-pg-keycloak-r     - Any replica endpoint
-
-pg-webmodeler-rw  - Read/write endpoint
-pg-webmodeler-ro  - Read-only endpoint
-pg-webmodeler-r   - Any replica endpoint
-```
-
-Credentials stored in secrets:
-- `pg-identity-secret` (username: identity)
-- `pg-keycloak-secret` (username: keycloak)
-- `pg-webmodeler-secret` (username: webmodeler)
-
-### Elasticsearch Services
-
-Access via:
-```
-elasticsearch-es-http - Main HTTP endpoint (port 9200)
-elasticsearch-es-transport - Transport endpoint (port 9300)
-```
-
-Credentials in secret: `elasticsearch-es-elastic-user` (username: elastic)
-
-### Keycloak Services
-
-Access via:
-```
-keycloak - HTTP endpoint (port 8080)
-```
-
-Admin credentials in secret: `keycloak-initial-admin`
+This approach is more robust than KeycloakRealmImport operator and supports configuration updates.
 
 ## Next Steps
 
 After infrastructure deployment:
 
-1. **Configure Keycloak realm** for Camunda
 2. **Install Camunda Helm chart** with operator-based infrastructure
 3. **Configure monitoring** (Prometheus, Grafana)
 4. **Set up TLS** for production deployments
-
-## Troubleshooting
-
-**Check operator status:**
-```bash
-kubectl get pods -n cnpg-system      # PostgreSQL operator
-kubectl get pods -n elastic-system   # Elasticsearch operator
-kubectl get pods -n camunda         # Keycloak operator
-```
-
-**Check resource status:**
-```bash
-kubectl get clusters -n camunda      # PostgreSQL clusters
-kubectl get elasticsearch -n camunda # Elasticsearch cluster
-kubectl get keycloak -n camunda     # Keycloak instance
-```
-
-**View logs:**
-```bash
-kubectl logs -f deployment/cnpg-controller-manager -n cnpg-system
-kubectl logs -f statefulset/elastic-operator -n elastic-system
-kubectl logs -f deployment/keycloak-operator -n camunda
-```
 
 ## Cleanup
 
@@ -285,3 +287,7 @@ kubectl delete namespace elastic-system
 ```
 
 **Note:** This will delete all data. For production, ensure proper backup procedures.
+
+
+
+<!-- TODO: handle images used by the operators (SBOM) -->

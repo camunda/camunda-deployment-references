@@ -7,6 +7,7 @@ set -euo pipefail
 echo "Installing ECK (Elastic Cloud on Kubernetes) operator..."
 
 # Install CRDs first
+# TODO(renovate): manage eck manifest version via Renovate (auto-bump)
 kubectl apply --server-side -f \
   https://download.elastic.co/downloads/eck/3.1.0/crds.yaml
 

@@ -21,6 +21,20 @@ echo "=== Checking Keycloak Services ==="
 kubectl get svc -n "$NAMESPACE" | grep keycloak || true
 echo
 
+echo "=== Checking Keycloak Ingress ==="
+kubectl get ingress -n "$NAMESPACE" | grep keycloak || echo "No Keycloak ingress found"
+echo
+
+echo "=== Checking Keycloak Realm ConfigMap ==="
+if kubectl get configmap keycloak-realm-config -n "$NAMESPACE" >/dev/null 2>&1; then
+    echo "✓ Keycloak realm ConfigMap exists"
+    echo "ConfigMap contains:"
+    kubectl get configmap keycloak-realm-config -n "$NAMESPACE" -o jsonpath='{.data}' | jq -r 'keys[]' 2>/dev/null || echo "  realm-camunda-platform.json"
+else
+    echo "❌ ConfigMap 'keycloak-realm-config' not found"
+fi
+echo
+
 echo "=== Checking Keycloak Pods ==="
 kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=keycloak,app.kubernetes.io/instance="$INSTANCE_NAME" || true
 echo
@@ -41,9 +55,18 @@ kubectl get svc pg-keycloak-rw -n "$NAMESPACE" >/dev/null 2>&1 && echo "PostgreS
 echo
 
 echo "=== Access Instructions ==="
+CAMUNDA_DOMAIN=${CAMUNDA_DOMAIN:-localhost}
+CAMUNDA_PROTOCOL=${CAMUNDA_PROTOCOL:-http}
+
 echo "To access Keycloak admin console:"
-echo "1. Port-forward: kubectl -n $NAMESPACE port-forward svc/keycloak 8080:8080"
-echo "2. Open: http://localhost:8080/admin/"
+if kubectl get ingress keycloak -n "$NAMESPACE" >/dev/null 2>&1; then
+    echo "1. Via Ingress: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/auth/admin/"
+    echo "2. Alternative port-forward: kubectl -n $NAMESPACE port-forward svc/keycloak 8080:8080"
+    echo "   Then open: http://localhost:8080/auth/admin/"
+else
+    echo "1. Port-forward: kubectl -n $NAMESPACE port-forward svc/keycloak 8080:8080"
+    echo "2. Open: http://localhost:8080/auth/admin/"
+fi
 echo "3. Login with the credentials shown above"
 echo
 
