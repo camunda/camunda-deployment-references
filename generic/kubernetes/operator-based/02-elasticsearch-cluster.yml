@@ -44,6 +44,3 @@ spec:
                     name: elasticsearch-data
                 spec:
                     accessModes: [ReadWriteOnce]
-                    resources:
-                        requests:
-                            storage: 64Gi
