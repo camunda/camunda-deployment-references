@@ -2,7 +2,7 @@
 
 This folder contains the Terraform configuration files used to set up the AWS infrastructure for deploying Camunda 8 in a highly available setup. The configuration includes creating EC2 instances, security groups, VPC, subnets, and an Amazon OpenSearch Service domain.
 
-Instructions can be found on the official documentation: https://docs.camunda.io/docs/next/self-managed/installation-methods/helm/cloud-providers/amazon/aws-ec2/
+Instructions can be found on the official documentation: https://docs.camunda.io/docs/next/self-managed/installation-methods/manual/cloud-providers/amazon/aws-ec2/
 
 <!-- BEGIN_TF_DOCS -->
 ## Modules
