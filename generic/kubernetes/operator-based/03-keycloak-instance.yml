@@ -23,8 +23,8 @@ spec:
     additionalOptions:
         - name: http-relative-path
           value: /auth
-        - name: import-realm
-          value: 'true'
+    ingress:
+        enabled: false # TODO: change
     hostname:
         hostname: ${CAMUNDA_DOMAIN}
         #  tlsSecret: example-tls
@@ -41,7 +41,10 @@ spec:
         podTemplate:
             spec:
                 containers:
-                    - envFrom:
+                    - env:
+                          - name: KEYCLOAK_IMPORT
+                            value: /opt/keycloak/data/import
+                      envFrom:
                           - secretRef:
                                 name: keycloak-realm-secrets
                       volumeMounts:

@@ -5,34 +5,48 @@ set -euo pipefail
 # This script orchestrates the installation of all components
 # Usage: ./deploy-all.sh [namespace] [options]
 # Options:
-#   --skip-postgresql    Skip PostgreSQL deployment
-#   --skip-elasticsearch Skip Elasticsearch deployment
-#   --skip-keycloak      Skip Keycloak deployment
-#   --help               Show this help message
+#   --skip-postgresql              Skip PostgreSQL deployment
+#   --skip-elasticsearch           Skip Elasticsearch deployment
+#   --skip-keycloak               Skip Keycloak deployment
+#   --skip-crds                   Skip CRD installation (use existing CRDs)
+#   --postgresql-operator-ns NS   Namespace for PostgreSQL operator (default: cnpg-system)
+#   --elasticsearch-operator-ns NS Namespace for Elasticsearch operator (default: elastic-system)
+#   --keycloak-operator-ns NS     Namespace for Keycloak operator (default: same as app namespace)
+#   --help                        Show this help message
 
 # Parse arguments
 NAMESPACE="camunda"
+POSTGRESQL_OPERATOR_NS="cnpg-system"
+ELASTICSEARCH_OPERATOR_NS="elastic-system"
+KEYCLOAK_OPERATOR_NS=""  # Will default to same as NAMESPACE
 SKIP_POSTGRESQL=false
 SKIP_ELASTICSEARCH=false
 SKIP_KEYCLOAK=false
+SKIP_CRDS=false
 
 show_help() {
     echo "Usage: $0 [namespace] [options]"
     echo ""
     echo "Arguments:"
-    echo "  namespace            Kubernetes namespace (default: camunda)"
+    echo "  namespace            Kubernetes namespace for applications (default: camunda)"
     echo ""
     echo "Options:"
-    echo "  --skip-postgresql    Skip PostgreSQL deployment"
-    echo "  --skip-elasticsearch Skip Elasticsearch deployment"
-    echo "  --skip-keycloak      Skip Keycloak deployment"
-    echo "  --help               Show this help message"
+    echo "  --skip-postgresql              Skip PostgreSQL deployment"
+    echo "  --skip-elasticsearch           Skip Elasticsearch deployment"
+    echo "  --skip-keycloak               Skip Keycloak deployment"
+    echo "  --skip-crds                   Skip CRD installation (use existing CRDs)"
+    echo "  --postgresql-operator-ns NS   Namespace for PostgreSQL operator (default: cnpg-system)"
+    echo "  --elasticsearch-operator-ns NS Namespace for Elasticsearch operator (default: elastic-system)"
+    echo "  --keycloak-operator-ns NS     Namespace for Keycloak operator (default: same as app namespace)"
+    echo "  --help                        Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0                           # Deploy all components to 'camunda' namespace"
-    echo "  $0 my-namespace             # Deploy all components to 'my-namespace'"
-    echo "  $0 --skip-keycloak          # Deploy only PostgreSQL and Elasticsearch"
-    echo "  $0 my-ns --skip-postgresql  # Deploy only Elasticsearch and Keycloak to 'my-ns'"
+    echo "  $0                                        # Deploy all to 'camunda' with default operator namespaces"
+    echo "  $0 my-namespace                          # Deploy all to 'my-namespace'"
+    echo "  $0 --skip-keycloak                       # Deploy only PostgreSQL and Elasticsearch"
+    echo "  $0 --skip-crds                           # Deploy without installing CRDs"
+    echo "  $0 --postgresql-operator-ns my-pg-ops    # Use custom namespace for PostgreSQL operator"
+    echo "  $0 --keycloak-operator-ns keycloak-ops   # Use custom namespace for Keycloak operator"
 }
 
 # Parse command line arguments
@@ -50,6 +64,22 @@ while [[ $# -gt 0 ]]; do
             SKIP_KEYCLOAK=true
             shift
             ;;
+        --skip-crds)
+            SKIP_CRDS=true
+            shift
+            ;;
+        --postgresql-operator-ns)
+            POSTGRESQL_OPERATOR_NS="$2"
+            shift 2
+            ;;
+        --elasticsearch-operator-ns)
+            ELASTICSEARCH_OPERATOR_NS="$2"
+            shift 2
+            ;;
+        --keycloak-operator-ns)
+            KEYCLOAK_OPERATOR_NS="$2"
+            shift 2
+            ;;
         --help)
             show_help
             exit 0
@@ -65,6 +95,11 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Set default for Keycloak operator namespace if not specified
+if [ -z "$KEYCLOAK_OPERATOR_NS" ]; then
+    KEYCLOAK_OPERATOR_NS="$NAMESPACE"
+fi
 
 echo "Starting Camunda infrastructure deployment in namespace: $NAMESPACE"
 
@@ -88,21 +123,30 @@ echo "Starting Camunda infrastructure deployment in namespace: $NAMESPACE"
 
 # Show deployment plan
 echo "=== Deployment Plan ==="
-echo "Namespace: $NAMESPACE"
+echo "Application namespace: $NAMESPACE"
+echo "PostgreSQL operator: $POSTGRESQL_OPERATOR_NS"
+echo "Elasticsearch operator: $ELASTICSEARCH_OPERATOR_NS"
+echo "Keycloak operator: $KEYCLOAK_OPERATOR_NS"
 echo "PostgreSQL: $([ "$SKIP_POSTGRESQL" = true ] && echo "SKIPPED" || echo "ENABLED")"
 echo "Elasticsearch: $([ "$SKIP_ELASTICSEARCH" = true ] && echo "SKIPPED" || echo "ENABLED")"
 echo "Keycloak: $([ "$SKIP_KEYCLOAK" = true ] && echo "SKIPPED" || echo "ENABLED")"
+echo "CRD Installation: $([ "$SKIP_CRDS" = true ] && echo "SKIPPED" || echo "ENABLED")"
 echo "========================"
 
-# Create namespace
-echo "Creating namespace: $NAMESPACE"
+# Create namespaces
+echo "Creating application namespace: $NAMESPACE"
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
 kubectl config set-context --current --namespace="$NAMESPACE"
 
 # Step 1: PostgreSQL
 if [ "$SKIP_POSTGRESQL" = false ]; then
     echo "=== Installing PostgreSQL Operator ==="
-    ./01-postgresql-install-operator.sh
+    if [ "$SKIP_CRDS" = false ]; then
+        ./01-postgresql-install-operator.sh "$POSTGRESQL_OPERATOR_NS"
+    else
+        echo "Skipping PostgreSQL CRD installation (--skip-crds specified)"
+    fi
 
     echo "=== Creating PostgreSQL Secrets ==="
     ./01-postgresql-create-secrets.sh "$NAMESPACE"
@@ -119,7 +163,11 @@ fi
 # Step 2: Elasticsearch
 if [ "$SKIP_ELASTICSEARCH" = false ]; then
     echo "=== Installing Elasticsearch Operator ==="
-    ./02-elasticsearch-install-operator.sh
+    if [ "$SKIP_CRDS" = false ]; then
+        ./02-elasticsearch-install-operator.sh "$ELASTICSEARCH_OPERATOR_NS"
+    else
+        echo "Skipping Elasticsearch CRD installation (--skip-crds specified)"
+    fi
 
     echo "=== Deploying Elasticsearch Cluster ==="
     kubectl apply -n "$NAMESPACE" -f 02-elasticsearch-cluster.yml
@@ -133,7 +181,11 @@ fi
 # Step 3: Keycloak
 if [ "$SKIP_KEYCLOAK" = false ]; then
     echo "=== Installing Keycloak Operator ==="
-    ./03-keycloak-install-operator.sh "$NAMESPACE"
+    if [ "$SKIP_CRDS" = false ]; then
+        ./03-keycloak-install-operator.sh "$KEYCLOAK_OPERATOR_NS"
+    else
+        echo "Skipping Keycloak CRD installation (--skip-crds specified)"
+    fi
 
     echo "=== Creating Keycloak Realm Secrets ==="
     ./03-keycloak-create-realm-secrets.sh "$NAMESPACE"
@@ -167,6 +219,14 @@ else
 fi
 
 echo "Infrastructure deployment completed successfully!"
+echo "Deployed components in application namespace: $NAMESPACE"
+echo "PostgreSQL operator: $POSTGRESQL_OPERATOR_NS"
+echo "Elasticsearch operator: $ELASTICSEARCH_OPERATOR_NS"
+echo "Keycloak operator: $KEYCLOAK_OPERATOR_NS"
+echo "PostgreSQL: $([ "$SKIP_POSTGRESQL" = true ] && echo "SKIPPED" || echo "DEPLOYED")"
+echo "Elasticsearch: $([ "$SKIP_ELASTICSEARCH" = true ] && echo "SKIPPED" || echo "DEPLOYED")"
+echo "Keycloak: $([ "$SKIP_KEYCLOAK" = true ] && echo "SKIPPED" || echo "DEPLOYED")"
+echo "CRDs: $([ "$SKIP_CRDS" = true ] && echo "SKIPPED" || echo "INSTALLED")"echo "Infrastructure deployment completed successfully!"
 echo "Deployed components in namespace: $NAMESPACE"
 echo "PostgreSQL: $([ "$SKIP_POSTGRESQL" = true ] && echo "SKIPPED" || echo "DEPLOYED")"
 echo "Elasticsearch: $([ "$SKIP_ELASTICSEARCH" = true ] && echo "SKIPPED" || echo "DEPLOYED")"

@@ -290,4 +290,5 @@ kubectl delete namespace elastic-system
 
 
 
+<!-- TODO: let keycloak operator manage its own ingress via the option -->
 <!-- TODO: handle images used by the operators (SBOM) -->
