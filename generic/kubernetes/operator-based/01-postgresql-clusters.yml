@@ -1,0 +1,56 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+    name: pg-identity
+spec:
+    instances: 1
+    description: PostgreSQL cluster for Camunda Identity
+    storage:
+        size: 15Gi
+    superuserSecret:
+        name: pg-identity-superuser-secret
+    bootstrap:
+        initdb:
+            database: identity
+            owner: identity
+            dataChecksums: true
+            secret:
+                name: pg-identity-secret
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+    name: pg-keycloak
+spec:
+    instances: 1
+    description: PostgreSQL cluster for Keycloak
+    storage:
+        size: 15Gi
+    superuserSecret:
+        name: pg-keycloak-superuser-secret
+    bootstrap:
+        initdb:
+            database: keycloak
+            owner: keycloak
+            dataChecksums: true
+            secret:
+                name: pg-keycloak-secret
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+    name: pg-webmodeler
+spec:
+    instances: 1
+    description: PostgreSQL cluster for Webmodeler
+    superuserSecret:
+        name: pg-webmodeler-superuser-secret
+    bootstrap:
+        initdb:
+            database: webmodeler
+            owner: webmodeler
+            secret:
+                name: pg-webmodeler-secret
+    storage:
+        size: 15Gi

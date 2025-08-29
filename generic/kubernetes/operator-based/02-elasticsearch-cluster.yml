@@ -1,0 +1,49 @@
+---
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+    name: elasticsearch
+spec:
+    version: 8.18.0
+    nodeSets:
+        - name: masters
+          count: 3
+          config:
+              node.store.allow_mmap: false
+              # Disable deprecation warnings - https://github.com/camunda/camunda/issues/26285
+              logger.org.elasticsearch.deprecation: OFF
+              node.roles: [master]
+          podTemplate:
+              spec:
+                  affinity:
+                      podAntiAffinity:
+                          requiredDuringSchedulingIgnoredDuringExecution:
+                              - labelSelector:
+                                    matchExpressions:
+                                        - key: elasticsearch.k8s.elastic.co/cluster-name
+                                          operator: In
+                                          values:
+                                              - elasticsearch
+                                topologyKey: kubernetes.io/hostname
+                  containers:
+                      - name: elasticsearch
+                        securityContext:
+                            readOnlyRootFilesystem: true
+                        env:
+                            - name: ELASTICSEARCH_ENABLE_REST_TLS
+                              value: 'false'
+                        resources:
+                            requests:
+                                cpu: 1
+                                memory: 2Gi
+                            limits:
+                                cpu: 2
+                                memory: 2Gi
+          volumeClaimTemplates:
+              - metadata:
+                    name: elasticsearch-data
+                spec:
+                    accessModes: [ReadWriteOnce]
+                    resources:
+                        requests:
+                            storage: 64Gi
