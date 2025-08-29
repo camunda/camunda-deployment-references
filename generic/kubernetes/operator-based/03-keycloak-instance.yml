@@ -24,6 +24,7 @@ spec:
         - name: http-relative-path
           value: /auth
         - name: import-realm
+          value: 'true'
     hostname:
         hostname: ${CAMUNDA_DOMAIN}
         #  tlsSecret: example-tls
