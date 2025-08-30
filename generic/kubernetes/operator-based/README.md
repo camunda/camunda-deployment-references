@@ -146,7 +146,7 @@ To learn the prerequisites for this installation, refer to the official document
 
 **Files:**
 - `02-elasticsearch-install-operator.sh` - Installs the ECK operator
-- `02-elasticsearch-cluster.yml` - Elasticsearch cluster 8.18.0 highly available cluster with 3 master nodes, persistent storage, and bounded resources.
+- `02-elasticsearch-cluster.yml` - Elasticsearch cluster 8.18.0 with authentication disabled, 3 master nodes, persistent storage, and bounded resources
 - `02-elasticsearch-wait-ready.sh` - Waits for cluster to become ready
 
 **Commands:**

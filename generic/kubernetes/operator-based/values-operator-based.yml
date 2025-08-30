@@ -19,16 +19,14 @@ global:
         # URL configuration
         url:
             protocol: http
-            host: elasticsearch-es-internal-http
+            host: elasticsearch-es-http
             port: 9200
-        # TLS configuration
-        tls:
-            enabled: false
         # Authentication using ECK-generated secret
         auth:
             username: elastic
-            existingSecret: elasticsearch-es-elastic-user
-            existingSecretKey: elastic
+            secret:
+                existingSecret: elasticsearch-es-elastic-user
+                existingSecretKey: elastic
 
     # Identity configuration for authentication
     identity:
@@ -63,11 +61,6 @@ global:
                 secret:
                     existingSecret: camunda-credentials
                     existingSecretKey: identity-console-client-token
-
-            identity:
-                secret:
-                    existingSecret: camunda-credentials
-                    existingSecretKey: identity-identity-client-token
 
         # Keycloak configuration for external instance
         keycloak:
@@ -127,8 +120,7 @@ webModeler:
             host: pg-webmodeler-rw
             port: 5432
             database: webmodeler
-            user: '' # Will be read from secret
-            # Use the new secret configuration format
+            user: webmodeler
             secret:
                 existingSecret: pg-webmodeler-secret
                 existingSecretKey: password

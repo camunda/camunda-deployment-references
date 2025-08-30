@@ -5,14 +5,19 @@ metadata:
     name: elasticsearch
 spec:
     version: 8.18.0
+    http:
+        tls:
+            selfSignedCertificate:
+                disabled: true
     nodeSets:
         - name: masters
           count: 3
           config:
-              node.store.allow_mmap: false
+              node.store.allow_mmap: 'false'
               # Disable deprecation warnings - https://github.com/camunda/camunda/issues/26285
-              logger.org.elasticsearch.deprecation: '"OFF"'
-              node.roles: [master]
+              # yamllint disable-line
+              logger.org.elasticsearch.deprecation: OFF
+              xpack.security.enabled: 'false'
           podTemplate:
               spec:
                   affinity:
