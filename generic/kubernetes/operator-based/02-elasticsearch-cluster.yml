@@ -11,7 +11,7 @@ spec:
           config:
               node.store.allow_mmap: false
               # Disable deprecation warnings - https://github.com/camunda/camunda/issues/26285
-              logger.org.elasticsearch.deprecation: OFF
+              logger.org.elasticsearch.deprecation: '"OFF"'
               node.roles: [master]
           podTemplate:
               spec:

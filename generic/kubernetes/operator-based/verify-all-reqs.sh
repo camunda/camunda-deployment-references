@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Complete verification script for all Camunda infrastructure components
-# Usage: ./verify-all.sh [namespace] [options]
+# Usage: ./verify-all-reqs.sh [namespace] [options]
 # Options:
 #   --skip-postgresql    Skip PostgreSQL verification
 #   --skip-elasticsearch Skip Elasticsearch verification

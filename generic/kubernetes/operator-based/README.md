@@ -25,7 +25,7 @@ export CAMUNDA_PROTOCOL="http"
 To deploy infrastructure components:
 
 ```bash
-./deploy-all.sh [namespace]
+./deploy-all-reqs.sh [namespace]
 ```
 
 Default namespace is `camunda` if not specified. This deploys PostgreSQL, Elasticsearch, and Keycloak operators and instances.
@@ -41,10 +41,10 @@ To deploy Camunda Platform after infrastructure:
 To verify all components at once:
 
 ```bash
-./verify-all.sh [namespace]
+./verify-all-reqs.sh [namespace]
 ```
 
-This script runs all individual verification scripts and provides a comprehensive status report.
+This script runs all individual verification scripts for infrastructure components and provides a comprehensive status report.
 
 This deployment includes the following components:
 - **Infrastructure** (managed by operators):
@@ -56,7 +56,7 @@ This deployment includes the following components:
 Components are deployed in dependency order: PostgreSQL → Elasticsearch → Keycloak
 
 **Infrastructure Deployment:**
-- `./deploy-all.sh` - Deploy infrastructure components (PostgreSQL, Elasticsearch, Keycloak)
+- `./deploy-all-reqs.sh` - Deploy infrastructure components (PostgreSQL, Elasticsearch, Keycloak)
 - Use `--skip-postgresql`, `--skip-elasticsearch`, or `--skip-keycloak` to skip specific components
 
 **Camunda Platform Deployment:**
@@ -282,7 +282,7 @@ export CAMUNDA_PROTOCOL="http"
 **Alternative: Use the deployment script**
 ```bash
 # Deploy infrastructure first
-./deploy-all.sh camunda
+./deploy-all-reqs.sh camunda
 
 # Then deploy Camunda Platform
 ./04-camunda-deploy.sh camunda

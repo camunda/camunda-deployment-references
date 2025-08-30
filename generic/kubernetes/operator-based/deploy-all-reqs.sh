@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Main deployment script for Camunda infrastructure with operators
 # This script orchestrates the installation of all infrastructure components
-# Usage: ./deploy-all.sh [namespace] [options]
+# Usage: ./deploy-all-reqs.sh [namespace] [options]
 # Options:
 #   --skip-postgresql              Skip PostgreSQL deployment
 #   --skip-elasticsearch           Skip Elasticsearch deployment
@@ -207,7 +207,7 @@ if [ "$SKIP_POSTGRESQL" = false ] || [ "$SKIP_ELASTICSEARCH" = false ] || [ "$SK
     [ "$SKIP_ELASTICSEARCH" = true ] && VERIFY_ARGS="$VERIFY_ARGS --skip-elasticsearch"
     [ "$SKIP_KEYCLOAK" = true ] && VERIFY_ARGS="$VERIFY_ARGS --skip-keycloak"
 
-    ./verify-all.sh "$VERIFY_ARGS"
+    ./verify-all-reqs.sh "$VERIFY_ARGS"
 else
     echo "No components deployed - skipping verification"
 fi
