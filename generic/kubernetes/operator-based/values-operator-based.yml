@@ -39,6 +39,36 @@ global:
             issuer: http://keycloak-service:8080/auth/realms/camunda-platform
             publicIssuerUrl: http://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform
 
+            orchestration:
+                secret:
+                    existingSecret: camunda-credentials
+                    existingSecretKey: identity-orchestration-client-token
+
+            optimize:
+                secret:
+                    existingSecret: camunda-credentials
+                    existingSecretKey: identity-optimize-client-token
+
+            connectors:
+                secret:
+                    existingSecret: camunda-credentials
+                    existingSecretKey: identity-connectors-client-token
+
+            webModeler:
+                secret:
+                    existingSecret: camunda-credentials
+                    existingSecretKey: identity-webmodeler-client-token
+
+            console:
+                secret:
+                    existingSecret: camunda-credentials
+                    existingSecretKey: identity-console-client-token
+
+            identity:
+                secret:
+                    existingSecret: camunda-credentials
+                    existingSecretKey: identity-identity-client-token
+
         # Keycloak configuration for external instance
         keycloak:
             # For external Keycloak managed by operator

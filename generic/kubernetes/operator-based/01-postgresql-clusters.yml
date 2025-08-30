@@ -29,6 +29,10 @@ spec:
         size: 15Gi
     superuserSecret:
         name: pg-keycloak-superuser-secret
+    postgresql:
+        parameters:
+            lock_timeout: 30s
+            statement_timeout: '0'
     bootstrap:
         initdb:
             database: keycloak

@@ -11,6 +11,10 @@ OPTIMIZE_SECRET="$(openssl rand -hex 16)"
 export OPTIMIZE_SECRET
 ORCHESTRATION_SECRET="$(openssl rand -hex 16)"
 export ORCHESTRATION_SECRET
+WEBMODELER_SECRET="$(openssl rand -hex 16)"
+export WEBMODELER_SECRET
+IDENTITY_SECRET="$(openssl rand -hex 16)"
+export IDENTITY_SECRET
 ADMIN_PASSWORD="$(openssl rand -hex 16)"
 export ADMIN_PASSWORD
 USER_PASSWORD="$(openssl rand -hex 16)"
