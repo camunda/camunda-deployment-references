@@ -34,7 +34,8 @@ global:
             enabled: true
             type: KEYCLOAK
             issuerBackendUrl: http://keycloak-service:8080/auth/realms/camunda-platform
-            issuer: http://keycloak-service:8080/auth/realms/camunda-platform
+            # TODO: camunda_domain here, inspire on ref arch!
+            issuer: http://localhost:8081/auth/realms/camunda-platform
             publicIssuerUrl: http://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform
 
             orchestration:
