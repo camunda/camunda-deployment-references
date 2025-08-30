@@ -1,0 +1,128 @@
+---
+# Camunda Platform 8 Values - Operator-based Infrastructure
+# This configuration uses external services managed by Kubernetes operators:
+# - PostgreSQL: CloudNativePG operator with separate clusters for Identity, Keycloak, and WebModeler
+# - Elasticsearch: ECK operator with master-only cluster configuration (uses 'elasticsearch-es-elastic-user' secret)
+# - Keycloak: Keycloak operator for identity management (uses 'keycloak-initial-admin' secret)
+#
+# Authentication Secrets:
+# - elasticsearch-es-elastic-user: Contains 'elastic' user password for Elasticsearch
+# - keycloak-initial-admin: Contains admin username/password for Keycloak (kubernetes.io/basic-auth type, default user: temp-admin)
+# - pg-*-secret: Contains PostgreSQL user credentials for each database
+
+# Global configuration
+global:
+    # Elasticsearch configuration
+    elasticsearch:
+        enabled: true
+        external: true
+        # URL configuration
+        url:
+            protocol: http
+            host: elasticsearch-es-internal-http
+            port: 9200
+        # TLS configuration
+        tls:
+            enabled: false
+        # Authentication using ECK-generated secret
+        auth:
+            username: elastic
+            existingSecret: elasticsearch-es-elastic-user
+            existingSecretKey: elastic
+
+    # Identity configuration for authentication
+    identity:
+        auth:
+            enabled: true
+            type: KEYCLOAK
+            issuerBackendUrl: http://keycloak:8080/auth/realms/camunda-platform
+            issuer: http://keycloak:8080/auth/realms/camunda-platform
+            publicIssuerUrl: http://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform
+
+    # Keycloak configuration for external instance
+    keycloak:
+        url:
+            protocol: http
+            host: keycloak
+            port: 8080
+        contextPath: /auth
+        realm: /realms/camunda-platform
+        auth:
+            # Configuration for accessing external Keycloak instance
+            # For operator-managed Keycloak, use the generated admin secret
+            existingSecret: keycloak-initial-admin
+            existingSecretKey: admin-password
+            adminUser: temp-admin
+
+# Identity service configuration
+identity:
+    enabled: true
+
+    # Use external PostgreSQL
+    externalDatabase:
+        enabled: true
+        host: pg-identity-rw
+        port: 5432
+        database: identity
+        username: '' # Will be read from secret
+        # Use the new secret configuration format
+        secret:
+            existingSecret: pg-identity-secret
+            existingSecretKey: password
+
+# Optimize configuration
+optimize:
+    enabled: true
+
+# Connectors configuration
+connectors:
+    enabled: true
+
+# WebModeler configuration
+webModeler:
+    enabled: true
+
+    # Use external PostgreSQL for WebModeler
+    restapi:
+        externalDatabase:
+            enabled: true
+            host: pg-webmodeler-rw
+            port: 5432
+            database: webmodeler
+            user: '' # Will be read from secret
+            # Use the new secret configuration format
+            secret:
+                existingSecret: pg-webmodeler-secret
+                existingSecretKey: password
+
+# Console configuration
+console:
+    enabled: true
+
+# Disable built-in services since we use external operators
+identityPostgresql:
+    enabled: false
+
+identityKeycloak:
+    enabled: false
+
+webModelerPostgresql:
+    enabled: false
+
+elasticsearch:
+    enabled: false
+
+# Prometheus for monitoring (optional)
+prometheusServiceMonitor:
+    enabled: false
+
+# Ingress configuration (can be enabled for external access)
+# Note: This configuration is at global level
+# global:
+#   ingress:
+#     enabled: false
+#     className: nginx
+#     host: ${CAMUNDA_DOMAIN}
+#     tls:
+#       enabled: false
+#       secretName: camunda-tls

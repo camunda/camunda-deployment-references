@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Main deployment script for Camunda infrastructure with operators
-# This script orchestrates the installation of all components
+# This script orchestrates the installation of all infrastructure components
 # Usage: ./deploy-all.sh [namespace] [options]
 # Options:
 #   --skip-postgresql              Skip PostgreSQL deployment
@@ -41,8 +41,8 @@ show_help() {
     echo "  --help                        Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0                                        # Deploy all to 'camunda' with default operator namespaces"
-    echo "  $0 my-namespace                          # Deploy all to 'my-namespace'"
+    echo "  $0                                        # Deploy all infrastructure to 'camunda' with default operator namespaces"
+    echo "  $0 my-namespace                          # Deploy all infrastructure to 'my-namespace'"
     echo "  $0 --skip-keycloak                       # Deploy only PostgreSQL and Elasticsearch"
     echo "  $0 --skip-crds                           # Deploy without installing CRDs"
     echo "  $0 --postgresql-operator-ns my-pg-ops    # Use custom namespace for PostgreSQL operator"
@@ -199,7 +199,7 @@ else
     echo "=== Skipping Keycloak deployment ==="
 fi
 
-echo "=== Running Component Verification ==="
+echo "=== Running Infrastructure Verification ==="
 # Only verify deployed components - pass the same skip flags
 if [ "$SKIP_POSTGRESQL" = false ] || [ "$SKIP_ELASTICSEARCH" = false ] || [ "$SKIP_KEYCLOAK" = false ]; then
     VERIFY_ARGS="$NAMESPACE"
@@ -217,11 +217,27 @@ echo "Deployed components in application namespace: $NAMESPACE"
 echo "PostgreSQL operator: $POSTGRESQL_OPERATOR_NS"
 echo "Elasticsearch operator: $ELASTICSEARCH_OPERATOR_NS"
 echo "Keycloak operator: $KEYCLOAK_OPERATOR_NS"
+echo ""
+echo "Component Status:"
 echo "PostgreSQL: $([ "$SKIP_POSTGRESQL" = true ] && echo "SKIPPED" || echo "DEPLOYED")"
 echo "Elasticsearch: $([ "$SKIP_ELASTICSEARCH" = true ] && echo "SKIPPED" || echo "DEPLOYED")"
 echo "Keycloak: $([ "$SKIP_KEYCLOAK" = true ] && echo "SKIPPED" || echo "DEPLOYED")"
-echo "CRDs: $([ "$SKIP_CRDS" = true ] && echo "SKIPPED" || echo "INSTALLED")"echo "Infrastructure deployment completed successfully!"
-echo "Deployed components in namespace: $NAMESPACE"
-echo "PostgreSQL: $([ "$SKIP_POSTGRESQL" = true ] && echo "SKIPPED" || echo "DEPLOYED")"
-echo "Elasticsearch: $([ "$SKIP_ELASTICSEARCH" = true ] && echo "SKIPPED" || echo "DEPLOYED")"
-echo "Keycloak: $([ "$SKIP_KEYCLOAK" = true ] && echo "SKIPPED" || echo "DEPLOYED")"
+echo "CRDs: $([ "$SKIP_CRDS" = true ] && echo "SKIPPED" || echo "INSTALLED")"
+
+echo ""
+echo "🚀 Next Steps:"
+echo "1. Deploy Camunda Platform:"
+echo "   ./04-camunda-deploy.sh $NAMESPACE"
+echo "2. Wait for Camunda to be ready:"
+echo "   ./04-camunda-wait-ready.sh $NAMESPACE"
+echo "3. Verify Camunda deployment:"
+echo "   ./04-camunda-verify.sh $NAMESPACE"
+
+if [ "$SKIP_KEYCLOAK" = false ]; then
+    echo ""
+    echo "📋 Keycloak Admin Credentials:"
+    echo "   ./03-keycloak-get-admin-credentials.sh $NAMESPACE"
+    CAMUNDA_DOMAIN=${CAMUNDA_DOMAIN:-localhost}
+    CAMUNDA_PROTOCOL=${CAMUNDA_PROTOCOL:-http}
+    echo "   Access: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/auth/admin/ (via port-forward)"
+fi

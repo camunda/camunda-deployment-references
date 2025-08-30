@@ -22,13 +22,19 @@ export CAMUNDA_DOMAIN="localhost"
 export CAMUNDA_PROTOCOL="http"
 ```
 
-To deploy all components at once:
+To deploy infrastructure components:
 
 ```bash
 ./deploy-all.sh [namespace]
 ```
 
-Default namespace is `camunda` if not specified.
+Default namespace is `camunda` if not specified. This deploys PostgreSQL, Elasticsearch, and Keycloak operators and instances.
+
+To deploy Camunda Platform after infrastructure:
+
+```bash
+./04-camunda-deploy.sh [namespace]
+```
 
 ## Complete Verification
 
@@ -40,14 +46,23 @@ To verify all components at once:
 
 This script runs all individual verification scripts and provides a comprehensive status report.
 
-This deployment includes the following infrastructure components:
-- PostgreSQL: Three instances for Keycloak, Camunda Identity, and Web Modeler
-- Elasticsearch: For storing Zeebe and Camunda data (orchestration cluster)
-- Keycloak: For authentication and identity management
+This deployment includes the following components:
+- **Infrastructure** (managed by operators):
+  - PostgreSQL: Three instances for Keycloak, Camunda Identity, and Web Modeler
+  - Elasticsearch: For storing Zeebe and Camunda data (orchestration cluster)
+  - Keycloak: For authentication and identity management
+- **Camunda Platform 8**: Complete installation using the official Helm chart
 
 Components are deployed in dependency order: PostgreSQL → Elasticsearch → Keycloak
 
-Note: None of these components is mandatory. If you already use a managed service (e.g., managed PostgreSQL, Elasticsearch, or Keycloak), you can skip deploying that component and configure your installation to use the managed service instead.
+**Infrastructure Deployment:**
+- `./deploy-all.sh` - Deploy infrastructure components (PostgreSQL, Elasticsearch, Keycloak)
+- Use `--skip-postgresql`, `--skip-elasticsearch`, or `--skip-keycloak` to skip specific components
+
+**Camunda Platform Deployment:**
+- `./04-camunda-deploy.sh` - Deploy Camunda Platform using the infrastructure above
+
+Note: Infrastructure components are optional. If you already use managed services (e.g., managed PostgreSQL, Elasticsearch, or Keycloak), you can skip deploying those components and configure Camunda to use the managed services instead.
 
 ## Manual Step-by-Step Installation
 
@@ -234,9 +249,54 @@ kubectl get svc -n camunda | grep keycloak
 
 Best practice: change the admin password after the first login.
 
-#### Realm for Camunda
+#### Configure a Realm for Camunda
 
 The Keycloak realm for Camunda Platform will be automatically configured by the Camunda Helm chart during installation.
+
+### 4. Camunda Platform Installation
+
+After deploying the infrastructure (PostgreSQL, Elasticsearch, and Keycloak), you can deploy the complete Camunda Platform 8.
+
+**Files:**
+- `04-camunda-deploy.sh` - Deploys Camunda Platform using Helm with operator-based infrastructure
+- `04-camunda-wait-ready.sh` - Waits for all Camunda components to be ready
+- `04-camunda-verify.sh` - Verifies Camunda Platform deployment
+- `values-operator-based.yml` - Helm values configured for operator-based infrastructure
+
+**Commands:**
+```bash
+# Set environment variables
+export CAMUNDA_DOMAIN="localhost"
+export CAMUNDA_PROTOCOL="http"
+
+# Deploy Camunda Platform
+./04-camunda-deploy.sh camunda
+
+# Wait for readiness
+./04-camunda-wait-ready.sh camunda
+
+# Verify deployment
+./04-camunda-verify.sh camunda
+```
+
+**Alternative: Use the deployment script**
+```bash
+# Deploy infrastructure first
+./deploy-all.sh camunda
+
+# Then deploy Camunda Platform
+./04-camunda-deploy.sh camunda
+```
+
+The Camunda Platform deployment includes:
+- **Identity**: Authentication and user management
+- **Operate**: Process monitoring and management
+- **Optimize**: Process analytics and optimization
+- **Tasklist**: Human task management
+- **Zeebe**: Process orchestration engine
+- **Connectors**: External system integrations
+- **WebModeler**: Visual process modeling (optional)
+- **Console**: Admin interface (optional)
 
 ## Next Steps
 
