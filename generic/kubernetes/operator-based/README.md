@@ -33,6 +33,11 @@ Default namespace is `camunda` if not specified. This deploys PostgreSQL, Elasti
 To deploy Camunda Platform after infrastructure:
 
 ```bash
+# Create Identity secrets first
+export CAMUNDA_NAMESPACE="camunda"
+./04-camunda-create-identity-secret.sh
+
+# Deploy Camunda Platform
 ./04-camunda-deploy.sh [namespace]
 ```
 
@@ -259,6 +264,7 @@ After deploying the infrastructure (PostgreSQL, Elasticsearch, and Keycloak), yo
 
 **Files:**
 - `04-camunda-deploy.sh` - Deploys Camunda Platform using Helm with operator-based infrastructure
+- `04-camunda-create-identity-secret.sh` - Creates Kubernetes secret with Identity component credentials
 - `04-camunda-wait-ready.sh` - Waits for all Camunda components to be ready
 - `04-camunda-verify.sh` - Verifies Camunda Platform deployment
 - `values-operator-based.yml` - Helm values configured for operator-based infrastructure
@@ -268,6 +274,10 @@ After deploying the infrastructure (PostgreSQL, Elasticsearch, and Keycloak), yo
 # Set environment variables
 export CAMUNDA_DOMAIN="localhost"
 export CAMUNDA_PROTOCOL="http"
+export CAMUNDA_NAMESPACE="camunda"
+
+# Create Identity component secrets
+./04-camunda-create-identity-secret.sh
 
 # Deploy Camunda Platform
 ./04-camunda-deploy.sh camunda
@@ -284,9 +294,26 @@ export CAMUNDA_PROTOCOL="http"
 # Deploy infrastructure first
 ./deploy-all-reqs.sh camunda
 
+# Create Identity secrets
+./04-camunda-create-identity-secret.sh
+
 # Then deploy Camunda Platform
 ./04-camunda-deploy.sh camunda
 ```
+
+#### Identity Secrets
+
+The `04-camunda-create-identity-secret.sh` script generates secure random tokens for Camunda Identity components and creates a Kubernetes secret named `camunda-credentials` containing:
+
+- `identity-connectors-client-token` - Authentication token for Connectors
+- `identity-console-client-token` - Authentication token for Console
+- `identity-optimize-client-token` - Authentication token for Optimize
+- `identity-orchestration-client-token` - Authentication token for Orchestration (Zeebe)
+- `identity-admin-client-token` - Admin authentication token
+- `identity-firstuser-password` - Password for the first user account
+- `smtp-password` - SMTP password (empty by default)
+
+**Important:** Save the generated credentials in a secure location for future reference.
 
 The Camunda Platform deployment includes:
 - **Identity**: Authentication and user management
