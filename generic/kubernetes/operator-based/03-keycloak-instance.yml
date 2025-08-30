@@ -37,27 +37,3 @@ spec:
         requests:
             cpu: 250m
             memory: 512Mi
-    unsupported:
-        podTemplate:
-            spec:
-                containers:
-                    - env:
-                          - name: JAVA_OPTS_APPEND
-                            value: >
-                                -Dkeycloak.migration.action=import
-                                -Dkeycloak.migration.provider=dir
-                                -Dkeycloak.migration.dir=/opt/keycloak/data/import
-                                -Dkeycloak.migration.strategy=IGNORE_EXISTING
-                                -Dkeycloak.migration.replace-placeholders=true
-                      envFrom:
-                          - secretRef:
-                                name: keycloak-realm-secrets
-                      volumeMounts:
-                          - name: realm-config-volume
-                            mountPath: /opt/keycloak/data/import/
-                            readOnly: true
-                      imagePullPolicy: IfNotPresent
-                volumes:
-                    - name: realm-config-volume
-                      secret:
-                          secretName: keycloak-realm-config

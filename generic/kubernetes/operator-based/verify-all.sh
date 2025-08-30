@@ -122,7 +122,6 @@ echo
 # Only show next steps if any components were verified
 if [ "$SKIP_POSTGRESQL" = false ] || [ "$SKIP_ELASTICSEARCH" = false ] || [ "$SKIP_KEYCLOAK" = false ]; then
     echo "Next steps:"
-    echo "- Configure Keycloak realm for Camunda"
     echo "- Install Camunda Helm chart"
 else
     echo "No components were verified"

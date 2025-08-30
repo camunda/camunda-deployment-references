@@ -162,7 +162,7 @@ This is an excerpt from https://www.keycloak.org/operator/installation#_installi
 - To learn the prerequisites for this installation, see the official Keycloak Operator documentation: https://www.keycloak.org/guides#operator. This operator works on Kubernetes and OpenShift.
 - The target Keycloak version, we take the common denominator for the current version of Camunda: https://docs.camunda.io/docs/next/reference/supported-environments/#component-requirements, i.e. Keycloak 26+.
 - This operator is installed in the same namespace as the Camunda components.
-- Keycloak is exposed on the same domain as Camunda via an Ingress under the path prefix /auth (for example, https://camunda.example.com/auth/). The instance is configured to run with a relative path so no rewrite is needed.
+- Keycloak is configured to serve under the path prefix `/auth` and can be accessed via port-forward for administration.
 
 #### Environment Variables
 
@@ -186,7 +186,6 @@ export CAMUNDA_PROTOCOL="https"
 **Files:**
 - `03-keycloak-install-operator.sh` - Installs the Keycloak operator
 - `03-keycloak-instance.yml` - Keycloak instance using CNPG (secret `keycloak-db`), configured to serve under `/auth`
-- `03-keycloak-ingress.yml` - Ingress exposing Keycloak on the same domain as Camunda at `/auth` (optional TLS via `camunda-tls`)
 - `03-keycloak-wait-ready.sh` - Waits for instance to become ready
 - `03-keycloak-get-admin-credentials.sh` - Retrieves admin credentials to access the Keycloak admin console
 
@@ -212,7 +211,6 @@ export CAMUNDA_PROTOCOL="http"
 **Verification:**
 ```bash
 ./03-keycloak-verify.sh camunda
-kubectl get ingress keycloak -n camunda
 ```
 
 All configuration options for the Keycloak cluster are available in the official documentation (https://www.keycloak.org/operator/advanced-configuration).
@@ -223,7 +221,6 @@ As time of now, no helm chart is planned to be integrated by the keycloak team h
 ```bash
 kubectl get keycloak -n camunda
 kubectl get svc -n camunda | grep keycloak
-kubectl get ingress -n camunda | grep keycloak
 ```
 
 **Access Keycloak:**
@@ -237,37 +234,9 @@ kubectl get ingress -n camunda | grep keycloak
 
 Best practice: change the admin password after the first login.
 
-#### Configure a Realm for Camunda
+#### Realm for Camunda
 
-The deployment automatically creates and imports a complete Keycloak realm for Camunda Platform using a ConfigMap mounted directly into the Keycloak pod.
-
-**Automated Realm Configuration:**
-- All client secrets are automatically generated and stored in Kubernetes secrets
-- Domain and protocol settings are configured from environment variables
-- The realm configuration is templated and stored in a ConfigMap
-- Keycloak automatically imports the realm on startup via `KEYCLOAK_IMPORT`
-- This approach supports realm updates (unlike KeycloakRealmImport operator)
-
-**How it works:**
-1. **Secrets Generation**: Creates `keycloak-realm-secrets` with all client secrets and domain/protocol settings
-2. **ConfigMap Creation**: Templates the realm JSON with `envsubst` and stores it in `keycloak-realm-config` ConfigMap
-3. **Pod Mount**: Mounts the ConfigMap as `/opt/keycloak/data/import/realm-camunda-platform.json`
-4. **Auto-Import**: Keycloak uses `KEYCLOAK_IMPORT` environment variable to import the realm on startup
-
-**Files involved:**
-- `03-keycloak-create-realm-secrets.sh` - Generates all client secrets
-- `03-keycloak-create-realm-configmap.sh` - Templates and creates ConfigMap
-- `03-keycloak-deploy-with-realm.sh` - Deploys Keycloak with realm auto-import
-- `03-keycloak-update-realm.sh` - Updates realm configuration
-
-**Realm Updates:**
-To update the realm configuration:
-```bash
-# Edit realm-camunda-platform.json
-./03-keycloak-update-realm.sh camunda
-```
-
-This approach is more robust than KeycloakRealmImport operator and supports configuration updates.
+The Keycloak realm for Camunda Platform will be automatically configured by the Camunda Helm chart during installation.
 
 ## Next Steps
 
@@ -290,5 +259,4 @@ kubectl delete namespace elastic-system
 
 
 
-<!-- TODO: let keycloak operator manage its own ingress via the option -->
 <!-- TODO: handle images used by the operators (SBOM) -->

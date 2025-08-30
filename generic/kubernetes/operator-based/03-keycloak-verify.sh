@@ -25,16 +25,6 @@ echo "=== Checking Keycloak Ingress ==="
 kubectl get ingress -n "$NAMESPACE" | grep keycloak || echo "No Keycloak ingress found"
 echo
 
-echo "=== Checking Keycloak Realm ConfigMap ==="
-if kubectl get configmap keycloak-realm-config -n "$NAMESPACE" >/dev/null 2>&1; then
-    echo "✓ Keycloak realm ConfigMap exists"
-    echo "ConfigMap contains:"
-    kubectl get configmap keycloak-realm-config -n "$NAMESPACE" -o jsonpath='{.data}' | jq -r 'keys[]' 2>/dev/null || echo "  realm-camunda-platform.json"
-else
-    echo "❌ ConfigMap 'keycloak-realm-config' not found"
-fi
-echo
-
 echo "=== Checking Keycloak Pods ==="
 kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=keycloak,app.kubernetes.io/instance="$INSTANCE_NAME" || true
 echo

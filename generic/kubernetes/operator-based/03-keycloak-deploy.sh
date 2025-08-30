@@ -27,9 +27,5 @@ fi
 echo "Deploying Keycloak instance..."
 envsubst < 03-keycloak-instance.yml | kubectl apply -n "$NAMESPACE" -f -
 
-# Deploy Keycloak ingress with variable substitution
-echo "Deploying Keycloak ingress..."
-envsubst < 03-keycloak-ingress.yml | kubectl apply -n "$NAMESPACE" -f -
-
 echo "Keycloak deployment completed!"
 echo "Access URL: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/auth/admin/"
