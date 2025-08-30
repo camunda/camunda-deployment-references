@@ -18,6 +18,11 @@ These operators run on both Kubernetes and OpenShift; however, we recommend revi
 
 **Set environment variables first:**
 ```bash
+# Option 1: Use the provided script (recommended)
+source ./set-environment.sh
+
+# Option 2: Set variables manually
+export CAMUNDA_NAMESPACE="camunda"
 export CAMUNDA_DOMAIN="localhost"
 export CAMUNDA_PROTOCOL="http"
 ```
@@ -34,7 +39,6 @@ To deploy Camunda Platform after infrastructure:
 
 ```bash
 # Create Identity secrets first
-export CAMUNDA_NAMESPACE="camunda"
 ./04-camunda-create-identity-secret.sh
 
 # Deploy Camunda Platform
