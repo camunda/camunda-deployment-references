@@ -16,7 +16,7 @@ spec:
               node.store.allow_mmap: 'false'
               # Disable deprecation warnings - https://github.com/camunda/camunda/issues/26285
               # yamllint disable-line
-              logger.org.elasticsearch.deprecation: OFF
+              logger.org.elasticsearch.deprecation: "OFF"
               xpack.security.enabled: 'false'
           podTemplate:
               spec:
