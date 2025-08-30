@@ -11,9 +11,11 @@ echo "Deploying Camunda Platform with operator-based infrastructure in namespace
 # Check required environment variables
 export CAMUNDA_DOMAIN=${CAMUNDA_DOMAIN:-localhost}
 export CAMUNDA_PROTOCOL=${CAMUNDA_PROTOCOL:-http}
+export CAMUNDA_HELM_CHART_VERSION=${CAMUNDA_HELM_CHART_VERSION:-"0.0.0-snapshot-alpha"}
 
 echo "Using CAMUNDA_DOMAIN: $CAMUNDA_DOMAIN"
 echo "Using CAMUNDA_PROTOCOL: $CAMUNDA_PROTOCOL"
+echo "Using CAMUNDA_HELM_CHART_VERSION: $CAMUNDA_HELM_CHART_VERSION"
 
 # Verify envsubst is available
 if ! command -v envsubst &> /dev/null; then
@@ -30,7 +32,7 @@ if ! command -v helm &> /dev/null; then
     exit 1
 fi
 
-# Add Camunda Helm repository if not already added
+# Add Camunda Helm repository if not already added (for fallback)
 if ! helm repo list | grep -q "camunda"; then
     echo "Adding Camunda Helm repository..."
     helm repo add camunda https://helm.camunda.io
@@ -43,14 +45,24 @@ helm repo update
 echo "Applying environment variable substitution to values file..."
 envsubst < values-operator-based.yml > values-operator-based-final.yml
 
-# Install or upgrade Camunda Platform
-echo "Installing/upgrading Camunda Platform..."
-helm upgrade --install camunda camunda/camunda-platform \
+# Install or upgrade Camunda Platform using OCI registry
+echo "Installing/upgrading Camunda Platform from OCI registry..."
+helm upgrade --install camunda oci://ghcr.io/camunda/helm/camunda-platform \
+    --version "$CAMUNDA_HELM_CHART_VERSION" \
     --namespace "$NAMESPACE" \
     --create-namespace \
     --values values-operator-based-final.yml \
     --wait \
     --timeout 10m
+
+# Alternative installation using traditional Helm repo (commented out)
+# helm upgrade --install camunda camunda/camunda-platform \
+#     --version "$CAMUNDA_HELM_CHART_VERSION" \
+#     --namespace "$NAMESPACE" \
+#     --create-namespace \
+#     --values values-operator-based-final.yml \
+#     --wait \
+#     --timeout 10m
 
 echo "Camunda Platform deployment completed!"
 echo "Namespace: $NAMESPACE"
