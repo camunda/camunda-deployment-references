@@ -1,6 +1,5 @@
 ---
 name: Tests - Daily Cleanup - AWS EKS/RDS/OS Modules
-
 on:
     workflow_dispatch:
         inputs:
@@ -8,44 +7,29 @@ on:
                 description: Maximum age of resources in hours
                 required: true
                 default: '20'
-    pull_request:
-        # the paths should be synced with ../labeler.yml
-        paths:
-            - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
-            - .github/actions/aws-eks-cleanup-resources/**
-            - .github/actions/aws-configure-cli/**
-
+    pull_request: {}
     schedule:
-        - cron: 0 1 * * * # At 01:00 everyday.
-
-# limit to a single execution per actor of this workflow
+        - cron: 0 1 * * *
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
     cancel-in-progress: false
-
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
-
     MAX_AGE_HOURS: ${{ github.event.inputs.max_age_hours || '20' }}
     AWS_PROFILE: infex
-
-    # please keep those variables synced with tests.yml
     AWS_REGION: eu-west-2
     S3_BACKEND_BUCKET: tests-eks-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
-
 jobs:
     triage:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+            - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
-
     cleanup-clusters:
         needs:
             - triage
@@ -53,17 +37,14 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
-              uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+              uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
               with:
                   ref: ${{ github.head_ref }}
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@791f01a12a6b0c44f16a1dce9c9791de34ec4767
             - name: Use repo .tool-version as global version
               run: cp .tool-versions ~/.tool-versions
-
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -72,14 +53,12 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
             - name: Set current target branch
               id: target-branch
               run: |
                   set -euo pipefail
                   TARGET_BRANCH=$(cat .target-branch)
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
             - name: Delete orphaned resources
               id: delete-orphaned-resources
               continue-on-error: true
@@ -92,14 +71,6 @@ jobs:
                   camunda-version: ${{ steps.target-branch.outputs.TARGET_BRANCH }}
                   max-age-hours: ${{ env.MAX_AGE_HOURS }}
                   target: all
-
-            # The previous step has a continue-on-error set to true in case of schedule run.
-            # This means that the workflow is not marked as failed, but the step is.
-            # We can't use the `if: failure()` condition here, as the overall job is succeeding.
-            # Instead, we check the outcome of the previous step and if it failed, we retry the deletion.
-            # If the retry fails, then the slack notification will be triggered as normally.
-
-            # There are cases where the deletion of resources fails due to dependencies.
             - name: Retry delete orphaned resources
               id: retry-delete-orphaned-resources
               timeout-minutes: 360
@@ -109,13 +80,12 @@ jobs:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   camunda-version: ${{ steps.target-branch.outputs.TARGET_BRANCH }}
-                  max-age-hours: 0 # the previous step alters the age and resets it to 0
+                  max-age-hours: 0
                   target: all
-
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure() && env.IS_SCHEDULE == 'true' && steps.retry-delete-orphaned-resources.outcome == 'failure'
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@791f01a12a6b0c44f16a1dce9c9791de34ec4767
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
