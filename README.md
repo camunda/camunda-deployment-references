@@ -8,7 +8,7 @@ Welcome to Camunda Reference Architectures! This repository contains a collectio
 
 These architectures serve as blueprints for quick learning and rapid deployment.
 
-For more details, refer to the official [Camunda Reference Architecture documentation](https://docs.camunda.io/docs/8.7/self-managed/reference-architecture/).
+For more details, refer to the official [Camunda Reference Architecture documentation](https://docs.camunda.io/docs/self-managed/reference-architecture/).
 
 The reference architecture implementations are intended for two main use cases:
 

@@ -24,21 +24,9 @@ elasticsearch:
         imagePullSecrets:
             - name: registry-camunda-cloud
 
-zeebe:
+orchestration:
     image:
-        repository: registry.camunda.cloud/dockerhub-camunda/camunda/zeebe
-
-zeebeGateway:
-    image:
-        repository: registry.camunda.cloud/dockerhub-camunda/camunda/zeebe
-
-operate:
-    image:
-        repository: registry.camunda.cloud/dockerhub-camunda/camunda/operate
-
-tasklist:
-    image:
-        repository: registry.camunda.cloud/dockerhub-camunda/camunda/tasklist
+        repository: registry.camunda.cloud/dockerhub-camunda/camunda/camunda
 
 identity:
     image:

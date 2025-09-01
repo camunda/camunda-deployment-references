@@ -23,7 +23,15 @@ webModeler:
         mail:
             existingSecret: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
-postgresql:
+
+# TODO: document this change => from postgres to webModelerPostgresql
+# TODO: adapt in the test this enablement
+webModelerPostgresql:
     # Will deploy a postgresql datbase for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
     enabled: false
+    auth:
+        existingSecret: identity-secret-for-components
+        secretKeys:
+            adminPasswordKey: identity-webmodeler-postgres-admin-password
+            userPasswordKey: identity-webmodeler-postgres-user-password
