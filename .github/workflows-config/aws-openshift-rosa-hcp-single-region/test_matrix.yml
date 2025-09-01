@@ -16,11 +16,11 @@ matrix:
           # Therefore, to ensure compatibility and support, we test the latest and the older.
           # For more details, refer to the official support policy at https://endoflife.date/red-hat-openshift.
 
-        - name: OpenShift 4.15
+        - name: OpenShift 4.16
           schedule_only: true
           private_vpc: false
-          # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.15(\.(?<patch>\d+))?$
-          version: 4.15.56
+          # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.16(\.(?<patch>\d+))?$
+          version: 4.16.45
 
     scenario:
         - name: rosa-hcp-single-region
