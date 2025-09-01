@@ -5,6 +5,7 @@
 This GitHub Action automates the deployment of the aws/openshift/rosa-hcp-single-region reference architecture cluster using Terraform.
 This action will also install oc, awscli, rosa cli.
 The kube context will be set on the created cluster.
+If the cluster is private, a VPN setup can also be configured.
 
 
 ## Inputs
@@ -18,8 +19,9 @@ The kube context will be set on the created cluster.
 | `aws-region` | <p>AWS region where the ROSA cluster will be deployed</p> | `true` | `""` |
 | `availability-zones` | <p>Comma separated list of availability zones (letters only, e.g., a,b,c)</p> | `true` | `a,b,c` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `true` | `latest` |
-| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.18.5` |
+| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.19.7` |
 | `replicas` | <p>Number of replicas for the ROSA cluster (empty will fallback on default value of the module)</p> | `false` | `""` |
+| `private-vpc` | <p>The VPC within which the cluster resides will only have private subnets, meaning that it cannot be accessed at all from the public Internet (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
@@ -28,6 +30,7 @@ The kube context will be set on the created cluster.
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `true` | `true` |
 | `cleanup-tf-modules-path` | <p>Whether to clean up the tf modules path</p> | `false` | `false` |
 | `tags` | <p>Tags to apply to the cluster and related resources, in JSON format</p> | `false` | `{}` |
+| `vpn-enabled` | <p>Enable VPN setup module (recommended when private_vpc is true), this will also configure the current runner to use it</p> | `false` | `false` |
 
 
 ## Outputs
@@ -36,7 +39,11 @@ The kube context will be set on the created cluster.
 | --- | --- |
 | `openshift-server-api` | <p>The server API URL of the deployed ROSA cluster</p> |
 | `openshift-cluster-id` | <p>The ID of the deployed ROSA cluster</p> |
-| `terraform-state-url` | <p>URL of the Terraform state file in the S3 bucket</p> |
+| `terraform-state-url-cluster` | <p>URL of the module "cluster" Terraform state file in the S3 bucket</p> |
+| `terraform-state-url-vpn` | <p>URL of the module "vpn" Terraform state file in the S3 bucket</p> |
+| `vpn-client-configs` | <p>Map of VPN client configs</p> |
+| `vpn-client-config-file` | <p>Config file used by the VPN</p> |
+| `vpn-endpoint` | <p>Endpoint of the VPN to access the created cluster</p> |
 
 
 ## Runs
@@ -94,10 +101,16 @@ This action is a `composite` action.
     # Version of the OpenShift to install
     #
     # Required: true
-    # Default: 4.18.5
+    # Default: 4.19.7
 
     replicas:
     # Number of replicas for the ROSA cluster (empty will fallback on default value of the module)
+    #
+    # Required: false
+    # Default: ""
+
+    private-vpc:
+    # The VPC within which the cluster resides will only have private subnets, meaning that it cannot be accessed at all from the public Internet (empty will fallback on default value of the module)
     #
     # Required: false
     # Default: ""
@@ -149,4 +162,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: {}
+
+    vpn-enabled:
+    # Enable VPN setup module (recommended when private_vpc is true), this will also configure the current runner to use it
+    #
+    # Required: false
+    # Default: false
 ```

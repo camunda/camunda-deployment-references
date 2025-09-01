@@ -13,4 +13,5 @@ az storage account create \
 
 az storage container create \
   --name "$AZURE_STORAGE_CONTAINER_NAME" \
-  --account-name "$AZURE_STORAGE_ACCOUNT_NAME"
+  --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+  --auth-mode login

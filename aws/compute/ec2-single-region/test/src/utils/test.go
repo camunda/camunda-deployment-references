@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/gruntwork-io/terratest/modules/shell"
 	"github.com/gruntwork-io/terratest/modules/terraform"
@@ -16,17 +17,9 @@ func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Opt
 
 	alb := tfOutputs["alb_endpoint"].(string)
 
-	// Using the cookie of Operate for the v2 API is a workaround as v2 API is secured in single jar, even though there's no identity yet
-	// TODO: Remove workaround when proper identity is in place - related https://github.com/camunda/team-infrastructure-experience/issues/438
 	cmd := shell.Command{
 		Command: "curl",
-		Args:    []string{"-f", "--request", "POST", fmt.Sprintf("%s/api/login?username=demo&password=demo", alb), "--cookie-jar", "cookie.txt"},
-	}
-	shell.RunCommand(t, cmd)
-
-	cmd = shell.Command{
-		Command: "curl",
-		Args:    []string{"-f", "--cookie", "cookie.txt", fmt.Sprintf("%s/v2/topology", alb)},
+		Args:    []string{"-u", "demo:demo", fmt.Sprintf("%s/v2/topology", alb)},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -55,42 +48,48 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd := shell.Command{
 		Command: "curl",
-		Args:    []string{"-f", "--request", "POST", fmt.Sprintf("%s/api/login?username=demo&password=demo", alb), "--cookie-jar", "cookie.txt"},
-	}
-	shell.RunCommand(t, cmd)
-
-	cmd = shell.Command{
-		Command: "curl",
-		Args:    []string{"-f", "--cookie", "cookie.txt", "--form", "resources=@utils/single-task.bpmn", fmt.Sprintf("%s/v2/deployments", alb), "-H", "'Content-Type: multipart/form-data'", "-H", "'Accept: application/json'"},
+		Args:    []string{"-u", "demo:demo", "--form", "resources=@utils/single-task.bpmn", fmt.Sprintf("%s/v2/deployments", alb), "-H", "'Content-Type: multipart/form-data'", "-H", "'Accept: application/json'"},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
 	deployments := gjson.Get(output, "deployments").Array()
 	resourceName := gjson.Get(output, "deployments.0.processDefinition.resourceName").String()
+	processDefinitionId := gjson.Get(output, "deployments.0.processDefinition.processDefinitionId").String()
 	tenantId := gjson.Get(output, "deployments.0.processDefinition.tenantId").String()
 	processDefinitionKey := gjson.Get(output, "deployments.0.processDefinition.processDefinitionKey").Int()
 
 	require.Equal(t, 1, len(deployments), "Expected 1 deployment, got %d", len(deployments))
 	require.Equal(t, "single-task.bpmn", resourceName, "Expected 'single-task.bpmn', got %s", resourceName)
+	require.Equal(t, "bigVarProcess", processDefinitionId, "Expected processDefinitionId 'bigVarProcess', got %s", processDefinitionId)
 	require.Equal(t, "<default>", tenantId, "Expected '<default>', got %s", tenantId)
 
 	cmd = shell.Command{
 		Command: "curl",
-		Args:    []string{"-f", "--cookie", "cookie.txt", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json", "--data-raw", fmt.Sprintf("{\"processDefinitionKey\":\"%d\"}", processDefinitionKey)},
+		Args:    []string{"-u", "demo:demo", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json", "--data-raw", fmt.Sprintf("{\"processDefinitionKey\":\"%d\"}", processDefinitionKey)},
 	}
 	shell.RunCommand(t, cmd)
 
-	// TODO: in the future when other REST APIs are available we could check that those have been deployed / run etc.
-	// atm still limited to v1 API
+	// Wait for the process instance to be committed
+	time.Sleep(10 * time.Second)
 
 	cmd = shell.Command{
 		Command: "curl",
-		Args:    []string{"-f", "--cookie", "cookie.txt", "-L", "-X", "POST", fmt.Sprintf("%s/v2/resources/%d/deletion", alb, processDefinitionKey)},
+		Args:    []string{"-u", "demo:demo", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances/search", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json"},
+	}
+	output = shell.RunCommandAndGetStdOut(t, cmd)
+
+	items := gjson.Get(output, "items").Array()
+	require.Equal(t, 1, len(items), "Expected 1 process instance, got %d", len(items))
+	require.Equal(t, processDefinitionId, items[0].Get("processDefinitionId").String(), "Expected processDefinitionId %d, got %s", processDefinitionId, items[0].Get("processDefinitionId").String())
+
+	cmd = shell.Command{
+		Command: "curl",
+		Args:    []string{"-u", "demo:demo", "-L", "-X", "POST", fmt.Sprintf("%s/v2/resources/%d/deletion", alb, processDefinitionKey)},
 	}
 	shell.RunCommand(t, cmd)
 }
 
-func ResetCamunda(t *testing.T, terraformOptions *terraform.Options) {
+func ResetCamunda(t *testing.T, terraformOptions *terraform.Options, adminUsername string) {
 	tfOutputs := terraform.OutputAll(t, terraformOptions)
 	camundaIps := tfOutputs["camunda_ips"].([]interface{})
 	bastionIp := tfOutputs["bastion_ip"].(string)
@@ -99,28 +98,28 @@ func ResetCamunda(t *testing.T, terraformOptions *terraform.Options) {
 	for _, ip := range camundaIps {
 		cmd := shell.Command{
 			Command: "ssh",
-			Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", ip), "sudo systemctl stop camunda"},
+			Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%S@%s", adminUsername, ip), "sudo systemctl stop camunda"},
 		}
 		// Ignore error as the service might not be running
 		shell.RunCommandE(t, cmd)
 
 		cmd = shell.Command{
 			Command: "ssh",
-			Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", ip), "sudo systemctl stop connectors"},
+			Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, ip), "sudo systemctl stop connectors"},
 		}
 		// Ignore error as the service might not be running
 		shell.RunCommandE(t, cmd)
 
 		cmd = shell.Command{
 			Command: "ssh",
-			Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", ip), "sudo rm -rf /opt/camunda/*"},
+			Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, ip), "sudo rm -rf /opt/camunda/*"},
 		}
 		shell.RunCommand(t, cmd)
 	}
 
 	cmd := shell.Command{
 		Command: "ssh",
-		Args:    []string{"-J", fmt.Sprintf("admin@%s", bastionIp), fmt.Sprintf("admin@%s", camundaIps[0]), fmt.Sprintf("curl -X DELETE %s/_all", openSearchConnection)},
+		Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, camundaIps[0]), fmt.Sprintf("curl -X DELETE %s/_all", openSearchConnection)},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 

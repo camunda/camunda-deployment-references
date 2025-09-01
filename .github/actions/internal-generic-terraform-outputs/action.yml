@@ -1,0 +1,93 @@
+---
+name: Generic Terraform Outputs
+description: |
+    Initializes Terraform and exposes all outputs as GitHub Action outputs.
+    Consume as following:
+    string: fromJson(steps.terraform-outputs.outputs.json_output).bastion_ip.value
+    array:  toJson(fromJson(steps.terraform-outputs.outputs.json_output).camunda_ips.value)
+    Or directly in your workflow by interacting with the initialized state.
+
+inputs:
+    tf-state-suffix:
+        description: The suffix of the terraform state, quite often the cluster name
+        required: true
+    tf-modules-name:
+        description: Name of the Terraform module to use, the folder to refer to - cluster / vpn
+        default: cluster
+        required: true
+    s3-backend-bucket:
+        description: Name of the S3 bucket to store Terraform state
+        required: true
+    s3-bucket-region:
+        description: Region of the bucket containing the resources states, if not set, will fallback on aws-region
+    s3-bucket-key-prefix:
+        description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+        default: ''
+outputs:
+    json_output:
+        description: All Terraform outputs as a JSON string
+        value: ${{ steps.terraform-outputs.outputs.json_output }}
+runs:
+    using: composite
+    steps:
+        - name: Checkout Repository
+          uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        - name: Install asdf tools with cache for the project
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+
+        - name: Set Terraform variables
+          id: set-terraform-variables
+          shell: bash
+          run: |
+              set -euo pipefail
+              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
+              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.tf-state-suffix }}/${{ inputs.tf-modules-name }}.tfstate"
+
+              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+                export TFSTATE_REGION="$AWS_REGION"
+              else
+                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+              fi
+
+              echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
+              echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
+              echo "TFSTATE_KEY=${TFSTATE_KEY}" >> "$GITHUB_OUTPUT"
+
+        - name: Terraform Init
+          id: init
+          shell: bash
+          working-directory: .github/actions/internal-generic-terraform-outputs/
+          run: |
+              set -euo pipefail
+
+              mv config config.tf
+
+              terraform version
+
+              terraform init \
+                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_KEY }}" \
+                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
+
+              terraform validate -no-color
+
+        - name: Terraform Outputs
+          id: terraform-outputs
+          shell: bash
+          working-directory: .github/actions/internal-generic-terraform-outputs/
+          run: |
+              set -euo pipefail
+              TF_OUTPUT=$(terraform output -json | jq -c)
+
+              # Hide sensitive outputs
+              echo "$TF_OUTPUT" | jq -r '
+                to_entries[]
+                | select(.value.sensitive == true)
+                | .value.value
+              ' | while IFS= read -r secret; do
+                # Escape real newlines to literal \n to make one-line secret
+                masked=$(echo "$secret" | awk '{printf "%s\\n", $0}' | sed '$s/\\n$//')
+                echo "::add-mask::$masked"
+              done
+
+              echo "json_output=$TF_OUTPUT" >> "$GITHUB_OUTPUT"

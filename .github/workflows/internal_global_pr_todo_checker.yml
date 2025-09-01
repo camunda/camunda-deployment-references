@@ -6,6 +6,7 @@ name: Internal - Global - Pull Request TODO checker
 # It helps ensure that no TODOs are accidentally left behind in merged PRs.
 
 on:
+
     pull_request:
         types: [opened, synchronize, reopened]
 
@@ -15,5 +16,5 @@ concurrency:
 
 jobs:
     call-todo-checker:
-        uses: camunda/infraex-common-config/.github/workflows/todo-checker-global.yml@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+        uses: camunda/infraex-common-config/.github/workflows/todo-checker-global.yml@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
         secrets: inherit

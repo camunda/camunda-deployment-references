@@ -35,7 +35,7 @@ check "elastic_ip_quota_check" {
 
 module "rosa_hcp" {
   source  = "terraform-redhat/rosa-hcp/rhcs"
-  version = "1.6.8"
+  version = "1.6.9"
 
   openshift_version = var.openshift_version
   cluster_name      = var.cluster_name
@@ -53,8 +53,9 @@ module "rosa_hcp" {
   replicas               = var.replicas
   aws_availability_zones = length(var.aws_availability_zones) > 0 ? var.aws_availability_zones : module.vpc.availability_zones
 
-  aws_subnet_ids = concat(
-    module.vpc.public_subnets, module.vpc.private_subnets,
+  aws_subnet_ids = var.private ? module.vpc.private_subnets : concat(
+    module.vpc.public_subnets,
+    module.vpc.private_subnets
   )
 
   host_prefix = var.host_prefix
@@ -76,7 +77,7 @@ module "rosa_hcp" {
 
 module "htpasswd_idp" {
   source  = "terraform-redhat/rosa-hcp/rhcs//modules/idp"
-  version = "1.6.8"
+  version = "1.6.9"
 
   cluster_id         = module.rosa_hcp.cluster_id
   name               = "htpasswd-idp"
@@ -86,7 +87,7 @@ module "htpasswd_idp" {
 
 module "vpc" {
   source  = "terraform-redhat/rosa-hcp/rhcs//modules/vpc"
-  version = "1.6.8"
+  version = "1.6.9"
 
   name_prefix = var.cluster_name
 

@@ -18,7 +18,7 @@ set -o pipefail
 #   MIN_AGE_IN_HOURS: The minimum age (in hours) of resources to be destroyed.
 #   ID_OR_ALL: The specific ID suffix to filter objects, or "all" to destroy all objects.
 #   MODULE_NAME (optional): The name of the module to destroy (e.g., "eks-cluster", "aurora", "opensearch"). Default is "all".
-#   CAMUNDA_VERSION: The version of Camunda Cloud to filter the resources. Default is "" - empty targeting all versions.
+#   CAMUNDA_VERSION: The version of Camunda RA Branch to filter the resources. Default is "" - empty targeting all versions.
 #   --fail-on-not-found (optional): If set, the script will exit with an error when no matching object is found (only when ID_OR_ALL is not "all").
 #
 # Example:

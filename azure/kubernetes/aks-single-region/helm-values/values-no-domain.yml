@@ -48,7 +48,7 @@ identity:
     externalDatabase:
         enabled: true
         host: ${DB_HOST}
-        port: {$DB_PORT: null}
+        port: ${DB_PORT}
         username: ${DB_IDENTITY_USERNAME}
         database: ${DB_IDENTITY_NAME}
         existingSecret: identity-postgres-secret

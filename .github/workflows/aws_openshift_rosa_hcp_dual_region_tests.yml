@@ -53,9 +53,8 @@ on:
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # in case of renovate we don't cancel the previous run, so it can finish it
-    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
-    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
+    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
+    cancel-in-progress: false
 
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
@@ -92,7 +91,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -106,12 +105,12 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -135,17 +134,17 @@ jobs:
 
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -167,13 +166,12 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
 
-            - name: Set current Camunda version
-              id: camunda-version
+            - name: Set current target branch
+              id: target-branch
               run: |
                   set -euo pipefail
-
-                  CAMUNDA_VERSION=$(cat .camunda-version)
-                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
             # Also remove the versioning
             - name: Create ROSA cluster and login
@@ -193,7 +191,7 @@ jobs:
                   aws-region-cluster-2: ${{ env.CLUSTER_2_AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   openshift-version-cluster-1: ${{ matrix.distro.version }}
                   openshift-version-cluster-2: ${{ matrix.distro.version }}
                   tf-modules-revision: ${{ github.ref }}
@@ -209,7 +207,8 @@ jobs:
                         "ci-ref": "${{ github.ref }}",
                         "ci-commit": "${{ github.sha }}",
                         "ci-repo": "${{ github.repository }}",
-                        "ci-event": "${{ github.event_name }}"
+                        "ci-event": "${{ github.event_name }}",
+                        "map-migrated": "migARUADZHVWZ"
                       }
 
             - name: Dump kubeconfig before encryption
@@ -261,6 +260,16 @@ jobs:
                   source ../../procedure/gather-cluster-login-id.sh
                   cd -
 
+                  if [[ -z "$CLUSTER_1_NAME" || -z "$CLUSTER_1_API_URL" || -z "$CLUSTER_1_ADMIN_USERNAME" || -z "$CLUSTER_1_ADMIN_PASSWORD" ]]; then
+                    echo "❌ ERROR: One or more Cluster 1 environment variables are empty."
+                    exit 1
+                  fi
+                  if [[ -z "$CLUSTER_2_NAME" || -z "$CLUSTER_2_API_URL" || -z "$CLUSTER_2_ADMIN_USERNAME" || -z "$CLUSTER_2_ADMIN_PASSWORD" ]]; then
+                    echo "❌ ERROR: One or more Cluster 2 environment variables are empty."
+                    exit 1
+                  fi
+
+
                   ./aws/openshift/${{ matrix.scenario.name }}/procedure/verify-cluster-nodes.sh
 
 
@@ -291,10 +300,10 @@ jobs:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: openshift
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
             - name: Install CLI tools from OpenShift Mirror
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -303,7 +312,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -752,31 +761,16 @@ jobs:
                     kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name"
                   done
 
-    integration-tests-retry:
-        name: Retry Tests in case of failure
-        if: failure() && fromJSON(github.run_attempt) < 3
-        runs-on: ubuntu-latest
-        needs:
-            - integration-tests
-        steps:
-            - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@82286449dbae62e2edc91806a376da9a2d0eeac9 # main
-              with:
-                  error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
-                  run-id: ${{ github.run_id }}
-                  repository: ${{ github.repository }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
-        if: always() && needs.integration-tests-retry.result != 'success'
+        # in case of a failure that is retried, we will spawn a new cluster
+        # as ACM is bugged
+        if: always()
         runs-on: ubuntu-latest
         needs:
             - clusters-info
             - integration-tests
-            - integration-tests-retry
         strategy:
             fail-fast: false
             matrix:
@@ -784,18 +778,18 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
 
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   url: ${{ secrets.VAULT_ADDR }}
@@ -816,14 +810,13 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
 
-            - name: Set current Camunda version
-              id: camunda-version
+            - name: Set current target branch
               if: env.CLEANUP_CLUSTERS == 'true'
+              id: target-branch
               run: |
                   set -euo pipefail
-
-                  CAMUNDA_VERSION=$(cat .camunda-version)
-                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand ROSA HCP Cluster
               uses: ./.github/actions/aws-openshift-rosa-hcp-dual-region-cleanup
@@ -836,17 +829,34 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
-                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}/
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
 
-    report-success:
-        name: Report success
+    integration-tests-retry:
+        name: Retry Tests in case of failure after cleanup
+        if: failure() && fromJSON(github.run_attempt) < 3
         runs-on: ubuntu-latest
-        if: success()
         needs:
             - integration-tests
             - cleanup-clusters
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - name: Retrigger job
+              uses: camunda/infra-global-github-actions/rerun-failed-run@bff7e8672595d56541af77d473a6070bd5335b5f # main
+              with:
+                  error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
+                  rerun-whole-workflow: 'true' # we want to rerun the whole workflow instead of just the failed job, to recreate a new cluster
+                  run-id: ${{ github.run_id }}
+                  repository: ${{ github.repository }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+    report-success:
+        name: Report success
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+            - cleanup-clusters
+        steps:
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -866,7 +876,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

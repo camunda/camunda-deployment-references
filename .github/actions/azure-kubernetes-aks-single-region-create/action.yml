@@ -38,6 +38,9 @@ inputs:
         description: Path where the tf eks modules will be cloned
         default: ./.action-tf-modules/azure-kubernetes-aks-single-region-create/
         required: true
+    tfvars:
+        description: Path to the terraform.tfvars file with the variables for the AKS cluster
+        required: true
     login:
         description: Authenticate the current kube context on the created cluster
         default: 'true'
@@ -62,7 +65,7 @@ runs:
     using: composite
     steps:
         - name: Checkout Repository
-          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+          uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -70,7 +73,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
         - name: Set Terraform variables
           id: set-terraform-variables
@@ -96,7 +99,7 @@ runs:
         - name: Copy config_override.tf to module root
           shell: bash
           run: |
-              cp -r ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/test/fixtures/fixture_* \
+              cp -r ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/test/fixtures/ci/fixture_* \
               ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
 
         - name: Terraform Init
@@ -116,8 +119,8 @@ runs:
 
               terraform validate -no-color
 
-        - name: Terraform Plan
-          id: plan
+        - name: Terraform Prepare
+          id: prepare
           working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
           run: |
@@ -143,6 +146,8 @@ runs:
                 resource_prefix_placeholder=""
               fi
 
+              echo "RESOURCE_PREFIX_PLACEHOLDER=$resource_prefix_placeholder" | tee -a "$GITHUB_OUTPUT"
+
               # Default tags are not supported
               # https://github.com/hashicorp/terraform-provider-azurerm/issues/13776
               raw_tags='${{ inputs.tags }}'
@@ -153,23 +158,39 @@ runs:
                 "Purpose": "Reference Implementation"
               }'
 
-              combined_tags=$(jq -s '.[0] + .[1]' <(echo "$raw_tags") <(echo "$static_tags"))
-              escaped_tags=$(echo "$combined_tags" | jq -r '
-                to_entries
-                | map("\"" + .key + "\"=\"" + (
-                    .value
-                    | gsub("[^a-zA-Z0-9_.:/=+\\-@ ]"; "-")               # Replace invalid characters
-                    | sub("[-_.:/=+@ ]+$"; "")                           # Remove trailing special characters
-                    ) + "\"")
-                | join(", ")
-                ' | sed 's/.*/{&}/')
+              combined_tags=$(jq -c -s '.[0] + .[1]' <(echo "$raw_tags") <(echo "$static_tags"))
+              echo "COMBINED_TAGS=$combined_tags" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Sanitize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanitize-tags
+          with:
+              raw-tags: ${{ steps.prepare.outputs.COMBINED_TAGS }}
+
+        - name: Generate tfvars file
+          id: generate-tfvars
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          run: |
+              set -euo pipefail
+
+              cat > terraform.tfvars <<EOF
+              tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              resource_prefix_placeholder = "${{ steps.prepare.outputs.RESOURCE_PREFIX_PLACEHOLDER }}"
+              EOF
+
+        - name: Terraform Plan
+          id: plan
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          shell: bash
+          run: |
+              set -euo pipefail
 
               terraform plan \
-                -no-color \
-                -out tf.plan \
-                -var "resource_prefix_placeholder=$resource_prefix_placeholder" \
-                -var "tags=$escaped_tags" \
-                -var-file="$GITHUB_WORKSPACE/azure/kubernetes/aks-single-region/test/fixtures/terraform.tfvars"
+                  -no-color \
+                  -out tf.plan \
+                  -var-file=terraform.tfvars \
+                  -var-file="${{ inputs.tfvars }}"
 
         - name: Terraform Apply
           id: apply
@@ -178,6 +199,15 @@ runs:
           run: |
               set -euo pipefail
               terraform apply -no-color tf.plan
+
+        - name: Terraform Drift Detection
+          uses: ./.github/actions/internal-terraform-drift-detect
+          id: drift-detect
+          with:
+              working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+              plan-extra-args: |
+                  -var-file=terraform.tfvars \
+                  -var-file="${{ inputs.tfvars }}" \
 
         - name: Login and generate kubeconfig
           if: inputs.login == 'true'
@@ -188,3 +218,11 @@ runs:
 
               kubectl config current-context
               kubectl get nodes
+
+        - name: Apply and verify storage class
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          run: |
+              set -euo pipefail
+              ./procedure/storageclass-configure.sh
+              ./procedure/storageclass-verify.sh

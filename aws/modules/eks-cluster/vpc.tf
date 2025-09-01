@@ -48,7 +48,7 @@ check "elastic_ip_quota_check" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "5.21.0"
+  version = "6.0.1"
 
   name = local.vpc_name
   # requires a /16 range, resulting in 2 leftover subnets, which can be used for DBs
@@ -86,16 +86,4 @@ module "vpc" {
   enable_flow_log                      = false
   create_flow_log_cloudwatch_iam_role  = false
   create_flow_log_cloudwatch_log_group = false
-
-  default_security_group_ingress = [
-    {
-      description = "${local.vpc_name} default SG Ingress"
-    }
-  ]
-
-  default_security_group_egress = [
-    {
-      description = "${local.vpc_name} default SG Egress"
-    }
-  ]
 }

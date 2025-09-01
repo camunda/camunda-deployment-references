@@ -1,41 +1,78 @@
 ---
-name: Tests - Integration - AWS Compute EC2
+name: Tests - Integration - AWS Compute EC2 Single Region
 
 permissions:
     contents: read # don't allow commits
     pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
 on:
-    # Disabling for the time being due to focus shift with 8.7
-    # schedule:
-    #     - cron: 0 3 * * 1-5
+    schedule:
+        - cron: 30 2 * * 3
     workflow_dispatch:
-    # Disabling for the time being due to focus shift with 8.7
-    # pull_request:
-    #     paths:
-    #         - .github/workflows/aws_compute_ec2_single_region_tests.yml
-    #         - .tool-versions
-    #         - aws/compute/ec2-single-region/**
-    #         - '!aws/compute/ec2-single-region/terraform/test/golden/**'
-    #         - .github/actions/aws-configure-cli/**
-    #         - .github/actions/internal-apply-skip-label/**
+        inputs:
+            # for compliance with other workflows, we use the same naming convention
+            cluster_name:
+                description: Prefix for the resource names. Must be unique across all reference architectures.
+                type: string
+            delete_clusters:
+                description: Whether to delete the resources or not.
+                type: boolean
+                default: true
+            enable_tests:
+                description: Whether to enable the tests.
+                type: boolean
+                default: true
+            ref-arch:
+                description: |
+                    Valid values are `ec2-single-region`.
+                    Only for workflow_dispatch.
+                required: false
+                type: string
+                default: ec2-single-region
+    pull_request:
+        paths:
+            - .github/actions/aws-generic-single-region-cleanup/**
+            - .github/actions/aws-compute-ec2-single-region-create/**
+            - .github/actions/aws-configure-cli/**
+            - .github/actions/internal-generic-terraform-outputs/**
+            - .github/workflows/aws_compute_ec2_single_region_tests.yml
+            - .tool-versions
+            - aws/compute/ec2-single-region/**
+            - '!aws/compute/ec2-single-region/terraform/cluster/test/golden/**'
+            - generic/debian/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # in case of renovate we don't cancel the previous run, so it can finish it
-    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
-    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
+    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
+    cancel-in-progress: false
 
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
-    AWS_PROFILE: infex
+    AWS_PROFILE: infraex
     AWS_REGION: eu-west-2
-    S3_BACKEND_BUCKET: tf-state-multi-reg
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
-    SNAPSHOT_PREVIOUS_VERSION: 8.7.0-alpha3-rc4 # potential to be reworked to dynamic matrix instead
+    S3_BACKEND_BUCKET_PREFIX: aws/compute/ec2-single-region/ # keep it synced with the name of the module for simplicity
+    TF_MODULES_PATH: ./.action-tf-modules/aws-compute-ec2-single-region-create
+
+    CI_MATRIX_FILE: .github/workflows-config/aws-compute-ec2-single-region/test_matrix.yml
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+
+    TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+
+    # TODO: [release-duty] before the release, update the below versions to the stable release!
+    # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
+    # TODO: [release-duty] Adjust the previous version to the previous stable release, 8.9 --> 8.8, for 8.8 would stick to 8.8
+    # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.8?(\.(?<patch>\d+))?$
+    TESTS_CAMUNDA_VERSION: 8.8.0-alpha6
+    TESTS_CAMUNDA_PREVIOUS_VERSION: 8.8.0-alpha5 # Version to be used for upgrade tests, not updated automatically
+
+    # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.8?(\.(?<patch>\d+))?$
+    TESTS_CONNECTORS_VERSION: 8.8.0-alpha6
+    TESTS_CONNECTORS_PREVIOUS_VERSION: 8.8.0-alpha5 # Version to be used for upgrade tests, not updated automatically
 
 jobs:
     triage:
@@ -43,41 +80,53 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
 
-    test:
+    clusters-info:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
+        name: Define Matrix
+        runs-on: ubuntu-latest
+        outputs:
+            platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
+        steps:
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+
+            - name: Define tests matrix
+              uses: ./.github/actions/internal-tests-matrix
+              id: matrix
+              with:
+                  ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
+                  cluster_name: ${{ inputs.cluster_name }}
+                  ref_arch: ${{ inputs.ref-arch }}
+                  cluster_prefix: ec2-${{ github.event.pull_request.number || '' }}
+                  is_schedule: ${{ env.IS_SCHEDULE }}
+                  is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
+
+    prepare-clusters:
+        needs:
+            - clusters-info
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
             matrix:
-                camunda:
-                    # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.6?(\.(?<patch>\d+))?$
-                    - 8.6.18
-                    - 8.7.0-SNAPSHOT
-                architecture:
-                    - x86_64
-                    - arm64
-                isPR:
-                    - ${{ github.event_name == 'pull_request' && !contains(github.head_ref, 'SNAPSHOT') }}
-                previous_camunda:
-                    - 8.6.2
-                # we don't include SNAPSHOT in PR due to the instability of its nature except if it's explicitly mentioned
-                exclude:
-                    - camunda: 8.7.0-SNAPSHOT
-                      isPR: true
-
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
             - name: Checkout repository
-              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -87,127 +136,204 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
-            ################ Prerequisites ##################
-            - name: Export test prefix
+            - name: Set current target branch
+              id: target-branch
               run: |
                   set -euo pipefail
-
-                  prefix="ec2-test-$(tr -dc 'a-z0-9' </dev/urandom | head -c 5)"
-                  echo "TF_PREFIX=${prefix}" >> "$GITHUB_ENV"
-
-            - name: Replace matrix dots with hyphen
-              run: |
-                  set -euo pipefail
-
-                  version=$(echo "${{ matrix.camunda }}" | tr '.' '-')
-                  echo "CAMUNDA_HYPHENS=$version" >> "$GITHUB_ENV"
-
-            # yamllint disable rule:line-length
-            - name: Configure Terraform Backend
-              run: |
-                  set -euo pipefail
-
-                  cp ${{ github.workspace }}/aws/compute/ec2-single-region/test/fixtures/*.tf ${{ github.workspace }}/aws/compute/ec2-single-region/terraform/
-                  echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.TF_PREFIX }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
-            # yamllint enable rule:line-length
-            - name: Set Camunda version
-              working-directory: aws/compute/ec2-single-region/scripts
-              run: |
-                  set -euo pipefail
-
-                  # We need to replace the string without substitution except for that of GitHub Actions
-                  # shellcheck disable=SC2016
-                  sed -i '0,/CAMUNDA_VERSION/s/CAMUNDA_VERSION=.*/CAMUNDA_VERSION=${CAMUNDA_VERSION:-"${{ matrix.camunda }}"}/' camunda-install.sh
-            # potential to rework to dynamic matrix instead or local file that contains version dict
-            - name: Overwrite previous version
-              run: |
-                  set -euo pipefail
-
-                  if [[ "${{matrix.camunda }}" =~ "SNAPSHOT" ]]; then
-                      echo "CAMUNDA_PREVIOUS_VERSION=${{ env.SNAPSHOT_PREVIOUS_VERSION }}" >> "$GITHUB_ENV"
-                  else
-                      echo "CAMUNDA_PREVIOUS_VERSION=${{ matrix.previous_camunda }}" >> "$GITHUB_ENV"
-                  fi
-            ########## Create Infrastructure ############
-            - name: Terratest - Terraform Apply
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+            - name: Create Infrastructure
+              id: create_infrastructure
+              uses: ./.github/actions/aws-compute-ec2-single-region-create
               if: always() && success()
-              working-directory: aws/compute/ec2-single-region/test/src
-              timeout-minutes: 61
+              with:
+                  aws-region: ${{ env.AWS_REGION }}
+                  tf-modules-revision: ${{ github.ref }}
+                  tf-modules-path: ${{ env.TF_MODULES_PATH }}
+                  tf-modules-name: cluster
+                  cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  ref-arch: ${{ matrix.scenario.name }}
+                  tags: >
+                      {
+                        "ci-run-id": "${{ github.run_id }}",
+                        "ci-run-number": "${{ github.run_number }}",
+                        "ci-workflow": "${{ github.workflow }}",
+                        "ci-actor": "${{ github.actor }}",
+                        "ci-ref": "${{ github.ref }}",
+                        "ci-commit": "${{ github.sha }}",
+                        "ci-repo": "${{ github.repository }}",
+                        "ci-event": "${{ github.event_name }}",
+                        "map-migrated": "migARUADZHVWZ"
+                      }
+    integration-tests:
+        name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
+        runs-on: ubuntu-latest
+        needs:
+            - prepare-clusters
+            - clusters-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
+        steps:
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+
+            - name: Install asdf tools with cache for the project
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+
+            - name: Install zbctl
               run: |
                   set -euo pipefail
+                  npm i -g zbctl
+                  zbctl version
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
 
-                  go test -v -timeout 60m -run TestSetup
-              env:
-                  ARCHITECTURE: ${{ matrix.architecture }}
-            ################ Run Tests ##################
+            - name: 📁 Get a copy of the reference architecture
+              timeout-minutes: 10
+              run: |
+                  # run it as specified in the doc
+                  set -euo pipefail
+
+                  ./aws/compute/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
+                  tree
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+            - name: Set current Camunda version
+              id: camunda-version
+              run: |
+                  set -euo pipefail
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  TESTS_CAMUNDA_VERSION_HYPHENS=$(echo "${{ env.TESTS_CAMUNDA_VERSION }}" | tr '.' '-')
+                  {
+                    echo "CAMUNDA_VERSION=$CAMUNDA_VERSION"
+                    echo "TESTS_CAMUNDA_VERSION_HYPHENS=$TESTS_CAMUNDA_VERSION_HYPHENS"
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: Get Terraform outputs
+              id: terraform-outputs
+              uses: ./.github/actions/internal-generic-terraform-outputs
+              with:
+                  tf-state-suffix: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  tf-modules-name: cluster
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+
             - name: Terratest - Run all Tests
               id: terratest
               working-directory: aws/compute/ec2-single-region/test/src
               timeout-minutes: 121
               env:
-                  CAMUNDA_VERSION: ${{ matrix.camunda }}
-                  CAMUNDA_PREVIOUS_VERSION: ${{ env.CAMUNDA_PREVIOUS_VERSION }}
+                  # We just need the outputs from terraform to run the tests, which is initialized in above
+                  TERRAFORM_DIR: ${{ github.workspace }}/.github/actions/internal-generic-terraform-outputs
+                  CAMUNDA_VERSION: ${{ env.TESTS_CAMUNDA_VERSION }}
+                  CAMUNDA_PREVIOUS_VERSION: ${{ env.TESTS_CAMUNDA_PREVIOUS_VERSION }}
+                  CAMUNDA_CONNECTORS_VERSION: ${{ env.TESTS_CONNECTORS_VERSION }}
+                  CAMUNDA_CONNECTORS_PREVIOUS_VERSION: ${{ env.TESTS_CONNECTORS_PREVIOUS_VERSION }}
               run: |
                   set -euo pipefail
-
                   export PATH=$PATH:$(go env GOPATH)/bin
                   mkdir /home/runner/.ssh
                   touch /home/runner/.ssh/config
-
                   go install gotest.tools/gotestsum@latest
                   # Run all tests except TestSetup and TestTeardown
                   go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m --skip 'TestSetup|TestTeardown'
-            ################ Cleanup ##################
-            - name: Terratest - Terraform Destroy
-              if: always()
-              id: tf-destroy
-              working-directory: aws/compute/ec2-single-region/test/src
-              timeout-minutes: 31
-              run: |
-                  set -euo pipefail
-
-                  go test -v -timeout 30m -run TestTeardown
             # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
             - name: Filter logger.go from the test report (too large)
               if: always()
               working-directory: aws/compute/ec2-single-region/test/src
               run: |
                   set -euo pipefail
-
                   sed 's/&#xA;/\n/g' < "./tests.xml" |
                   grep -E -v '^.*logger\.go.*$' |
-                  sed 's/\n/&#xA;/g' > "./tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml"
+                  sed 's/\n/&#xA;/g' > "./tests-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-filtered.xml"
             - name: Upload test reports
               if: always()
               uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
               with:
-                  name: test-reports-${{ env.CAMUNDA_HYPHENS }}-${{ matrix.architecture }}
-                  path: ${{ github.workspace }}/aws/compute/ec2-single-region/test/src/tests-${{ env.CAMUNDA_HYPHENS }}-filtered.xml
+                  name: test-reports-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-${{ matrix.distro.name }}
+                  path: ${{ github.workspace }}/aws/compute/ec2-single-region/test/src/tests-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS
+                      }}-filtered.xml
                   retention-days: 7
-            - name: Cleanup S3 state bucket
-              if: always() && steps.tf-destroy.outcome == 'success'
+
+    cleanup-clusters:
+        name: Cleanup EC2 cluster
+        if: always()
+        runs-on: ubuntu-latest
+        needs:
+            - clusters-info
+            - prepare-clusters
+            - integration-tests
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        steps:
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+              if: env.CLEANUP_CLUSTERS == 'true'
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              if: env.CLEANUP_CLUSTERS == 'true'
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+
+            - name: Configure AWS CLI
+              if: env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Set current target branch
+              id: target-branch
               run: |
                   set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
-                  aws s3 rm "s3://tf-state-multi-reg/state/${TF_PREFIX}/terraform.tfstate"
-            - name: Remove profile credentials from ~/.aws/credentials
-              if: always()
-              run: |
-                  set -euo pipefail
-
-                  rm -rf ~/.aws/credentials
+            - name: Delete on-demand Infrastructure
+              uses: ./.github/actions/aws-generic-single-region-cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 125
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours-states: 0
+                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
 
     test-report:
         runs-on: ubuntu-latest
-        if: always()
+        if: always() && needs.triage.outputs.should_skip == 'false'
         needs:
-            - test
+            - integration-tests
+            - triage
         outputs:
             SNAPSHOT_ERROR: ${{ steps.determine-if-failed-tests-include-snapshot.outputs.SNAPSHOT_ERROR }}
         steps:
             - name: Download artifacts
-              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+              uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
               with:
                   pattern: test-reports-*
                   path: /tmp/testreports
@@ -216,7 +342,6 @@ jobs:
               id: determine-if-failed-tests-include-snapshot
               run: |
                   set -euo pipefail
-
                   file=$(find /tmp/testreports -name "*SNAPSHOT*.xml" -type f)
                   echo "Found file: $file"
                   if grep -q "FAIL" "$file"; then
@@ -235,10 +360,11 @@ jobs:
         name: Report success
         runs-on: ubuntu-latest
         needs:
-            - test
+            - integration-tests
+            - cleanup-clusters
             - test-report
         steps:
-            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -249,16 +375,15 @@ jobs:
     report-failure:
         name: Report failure
         runs-on: ubuntu-latest
-        # if only snapshot error was detected, don't report
-        if: failure() && needs.test-report.outputs.SNAPSHOT_ERROR == 'false'
+        if: failure()
         needs:
-            - test-report
             - report-success
+            - test-report
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

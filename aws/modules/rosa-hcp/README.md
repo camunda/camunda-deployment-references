@@ -77,9 +77,9 @@ oc new-project "$NAMESPACE"
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_htpasswd_idp"></a> [htpasswd\_idp](#module\_htpasswd\_idp) | terraform-redhat/rosa-hcp/rhcs//modules/idp | 1.6.8 |
-| <a name="module_rosa_hcp"></a> [rosa\_hcp](#module\_rosa\_hcp) | terraform-redhat/rosa-hcp/rhcs | 1.6.8 |
-| <a name="module_vpc"></a> [vpc](#module\_vpc) | terraform-redhat/rosa-hcp/rhcs//modules/vpc | 1.6.8 |
+| <a name="module_htpasswd_idp"></a> [htpasswd\_idp](#module\_htpasswd\_idp) | terraform-redhat/rosa-hcp/rhcs//modules/idp | 1.6.9 |
+| <a name="module_rosa_hcp"></a> [rosa\_hcp](#module\_rosa\_hcp) | terraform-redhat/rosa-hcp/rhcs | 1.6.9 |
+| <a name="module_vpc"></a> [vpc](#module\_vpc) | terraform-redhat/rosa-hcp/rhcs//modules/vpc | 1.6.9 |
 ## Resources
 
 | Name | Type |
@@ -101,7 +101,7 @@ oc new-project "$NAMESPACE"
 | <a name="input_htpasswd_password"></a> [htpasswd\_password](#input\_htpasswd\_password) | htpasswd password | `string` | n/a | yes |
 | <a name="input_htpasswd_username"></a> [htpasswd\_username](#input\_htpasswd\_username) | htpasswd username | `string` | `"kubeadmin"` | no |
 | <a name="input_machine_cidr_block"></a> [machine\_cidr\_block](#input\_machine\_cidr\_block) | value of the CIDR block to use for the machine | `string` | `"10.0.0.0/18"` | no |
-| <a name="input_openshift_version"></a> [openshift\_version](#input\_openshift\_version) | The version of ROSA to be deployed | `string` | `"4.18.5"` | no |
+| <a name="input_openshift_version"></a> [openshift\_version](#input\_openshift\_version) | The version of ROSA to be deployed | `string` | `"4.19.7"` | no |
 | <a name="input_pod_cidr_block"></a> [pod\_cidr\_block](#input\_pod\_cidr\_block) | value of the CIDR block to use for the pods | `string` | `"10.0.64.0/18"` | no |
 | <a name="input_private"></a> [private](#input\_private) | Restrict master API endpoint and application routes to direct, private connectivity. | `bool` | `false` | no |
 | <a name="input_replicas"></a> [replicas](#input\_replicas) | The number of computer nodes to create. Must be a minimum of 2 for a single-AZ cluster, 3 for multi-AZ. | `string` | `"2"` | no |
@@ -121,5 +121,6 @@ oc new-project "$NAMESPACE"
 | <a name="output_private_subnet_ids"></a> [private\_subnet\_ids](#output\_private\_subnet\_ids) | A comma-separated list of private subnet IDs in the VPC. These subnets are typically used for internal resources that do not require direct internet access. |
 | <a name="output_public_subnet_ids"></a> [public\_subnet\_ids](#output\_public\_subnet\_ids) | A comma-separated list of public subnet IDs in the VPC. These subnets are typically used for resources that require internet access. |
 | <a name="output_vpc_availability_zones"></a> [vpc\_availability\_zones](#output\_vpc\_availability\_zones) | The availability zones in which the VPC is located. This provides information about the distribution of resources across different physical locations within the AWS region. |
+| <a name="output_vpc_cidr_block"></a> [vpc\_cidr\_block](#output\_vpc\_cidr\_block) | The CIDR block of the Virtual Private Cloud (VPC) where the OpenShift cluster and its associated resources are deployed. |
 | <a name="output_vpc_id"></a> [vpc\_id](#output\_vpc\_id) | The ID of the Virtual Private Cloud (VPC) where the OpenShift cluster and related resources are deployed. |
 <!-- END_TF_DOCS -->

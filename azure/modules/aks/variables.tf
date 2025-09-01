@@ -22,7 +22,7 @@ variable "kubernetes_version" {
   description = "Kubernetes version to use for the AKS cluster"
   type        = string
   # renovate: datasource=endoflife-date depName=azure-kubernetes-service versioning=loose
-  default = "1.32"
+  default = "1.33"
 }
 
 variable "tags" {
@@ -67,6 +67,24 @@ variable "user_node_pool_count" {
   description = "Number of nodes in the user node pool"
   type        = number
   default     = 2
+}
+
+variable "user_node_pool_drain_timeout_in_minutes" {
+  description = "The amount of time in minutes to wait on eviction of pods and graceful termination per node"
+  type        = number
+  default     = 0
+}
+
+variable "user_node_pool_max_surge" {
+  description = "The maximum number or percentage of nodes which will be added to the Node Pool size during an upgrade"
+  type        = number
+  default     = 10
+}
+
+variable "user_node_pool_node_soak_duration_in_minutes" {
+  description = "The amount of time in minutes to wait after draining a node and before reimaging and moving on to next node"
+  type        = number
+  default     = 0
 }
 
 # Network configuration
@@ -120,12 +138,21 @@ variable "user_node_pool_zones" {
 
 variable "uami_id" {
   type        = string
-  default     = ""
-  description = "User-assigned identity ID to use for KMS (required if enable_kms=true)"
+  description = "User-assigned identity ID to use for KMS"
+}
+
+variable "uami_object_id" {
+  type        = string
+  description = "User-assigned identity object ID to use for KMS"
 }
 
 variable "kms_key_id" {
   type        = string
-  default     = ""
-  description = "Key Vault Key ID for envelope-encryption (required if enable_kms=true)"
+  description = "Key Vault Key ID for envelope-encryption"
+}
+
+variable "dns_zone_id" {
+  description = "The Azure DNS zone resource id for ExternalDNS or cert-manager"
+  type        = string
+  default     = null
 }
