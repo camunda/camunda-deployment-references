@@ -1,5 +1,6 @@
 ---
 identityKeycloak:
+    enabled: true
     postgresql:
         enabled: false
     externalDatabase:
@@ -39,16 +40,12 @@ global:
             kubernetes.io/tls-acme: 'true'
     identity:
         auth:
+            enabled: true
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
-            zeebe:
+            orchestration:
                 existingSecret: identity-secret-for-components
-            connectors:
-                existingSecret: identity-secret-for-components
-            operate:
                 redirectUrl: https://${DOMAIN_NAME}/operate
-                existingSecret: identity-secret-for-components
-            tasklist:
-                redirectUrl: https://${DOMAIN_NAME}/tasklist
+            connectors:
                 existingSecret: identity-secret-for-components
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize
@@ -63,6 +60,7 @@ elasticsearch:
     enabled: false
 
 identity:
+    enabled: true
     contextPath: /identity
     fullURL: https://${DOMAIN_NAME}/identity
 
@@ -77,12 +75,6 @@ identity:
 
 connectors:
     contextPath: /connectors
-
-operate:
-    contextPath: /operate
-
-tasklist:
-    contextPath: /tasklist
 
 webModeler:
     enabled: false # by default, webModeler is not enabled
@@ -101,8 +93,8 @@ webModeler:
             existingSecret: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
 
-# TODO: document this change => from postgres to webModelerPostgresql
-webModelerPostgresql:
+# TODO: document this change => from webModelerPostgresql to postgresql
+postgresql:
     # Will deploy a postgresql datbase for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
     enabled: false
@@ -113,13 +105,14 @@ webModelerPostgresql:
             userPasswordKey: identity-webmodeler-postgres-user-password
 
 optimize:
+    enabled: true
     contextPath: /optimize
 
     # OpenSearch prevents migration
     migration:
         enabled: false
 
-zeebeGateway:
+orchestration:
     ingress:
         grpc:
             enabled: true

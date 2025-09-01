@@ -1,5 +1,6 @@
 ---
 identityKeycloak:
+    enabled: true
     postgresql:
         enabled: false
     externalDatabase:
@@ -10,7 +11,6 @@ identityKeycloak:
         existingSecretUserKey: user
         existingSecretDatabaseKey: database
         existingSecretPasswordKey: password
-
     auth:
         existingSecret: identity-secret-for-components
 
@@ -33,17 +33,13 @@ global:
     identity:
 
         auth:
+            enabled: true
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            zeebe:
+            orchestration:
                 existingSecret: identity-secret-for-components
-            connectors:
-                existingSecret: identity-secret-for-components
-            operate:
-                redirectUrl: http://localhost:8081  # replace this with a port of your choice when you will do port forwarding
-                existingSecret: identity-secret-for-components
-            tasklist:
                 redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
+            connectors:
                 existingSecret: identity-secret-for-components
             optimize:
                 redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
@@ -55,6 +51,7 @@ global:
                 existingSecret: identity-secret-for-components
 
 identity:
+    enabled: true
     fullURL: http://localhost:8080 # replace this with a port of your choice when you will do port forwarding
 
     externalDatabase:
@@ -82,8 +79,8 @@ webModeler:
             existingSecret: identity-secret-for-components # reference the smtp password
             fromAddress: changeme@example.com   # change this required value
 
-# TODO: document this change => from postgres to webModelerPostgresql
-webModelerPostgresql:
+# TODO: document this change => from webModelerPostgresql to postgresql
+postgresql:
     # Will deploy a postgresql datbase for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
     enabled: false
@@ -94,6 +91,8 @@ webModelerPostgresql:
             userPasswordKey: identity-webmodeler-postgres-user-password
 
 optimize:
+    enabled: true
+    # OpenSearch prevents migration
     migration:
         enabled: false
 
