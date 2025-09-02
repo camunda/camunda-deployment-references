@@ -183,7 +183,7 @@ fi
 if [ "$ID_OR_ALL" == "all" ]; then
   groups=$(echo "$all_objects" | awk '{print $NF}' | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
 else
-  groups=$(echo "$all_objects" | awk '{print $NF}' | grep "tfstate-$ID_OR_ALL/" | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
+  groups=$(echo "$all_objects" | awk '{print $NF}' | grep "$ID_OR_ALL" | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
   if [ -z "$groups" ] && [ "$FAIL_ON_NOT_FOUND" = true ]; then
     echo "Error: No object found for ID '$ID_OR_ALL'"
     exit 1
