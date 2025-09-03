@@ -13,6 +13,7 @@ identityKeycloak:
         existingSecretPasswordKey: password
     auth:
         existingSecret: identity-secret-for-components
+        passwordSecretKey: admin-password
 
 global:
     elasticsearch:
@@ -44,25 +45,37 @@ global:
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
             orchestration:
                 existingSecret: identity-secret-for-components
-                redirectUrl: https://${DOMAIN_NAME}/operate
+                existingSecretKey: orchestration-secret
+                redirectUrl: https://${DOMAIN_NAME}
             connectors:
                 existingSecret: identity-secret-for-components
+                existingSecretKey: connectors-secret
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize
-                existingSecret: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: optimize-secret
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: https://${DOMAIN_NAME}
-                existingSecret: identity-secret-for-components
+                redirectUrl: https://${DOMAIN_NAME}/management/console
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: console-secret
 
 elasticsearch:
     enabled: false
 
 identity:
     enabled: true
-    contextPath: /identity
-    fullURL: https://${DOMAIN_NAME}/identity
+    contextPath: /management/identity
+    fullURL: https://${DOMAIN_NAME}/management/identity
+
+    firstUser:
+        enabled: true
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: first-user-password # demo
 
     externalDatabase:
         enabled: true
@@ -84,16 +97,18 @@ webModeler:
         externalDatabase:
             url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}
             user: ${DB_WEBMODELER_USERNAME}
-            existingSecret: webmodeler-postgres-secret
-            existingSecretPasswordKey: password
+            secret:
+                existingSecret: webmodeler-postgres-secret
+                existingSecretKey: password
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
         mail:
-            existingSecret: identity-secret-for-components # reference the smtp password
+            secret:
+                existingSecret: identity-secret-for-components # reference the smtp password
+                existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
 
-# TODO: document this change => from webModelerPostgresql to postgresql
 postgresql:
     # Will deploy a postgresql datbase for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
@@ -113,6 +128,9 @@ optimize:
         enabled: false
 
 orchestration:
+    security:
+        authentication:
+            method: oidc
     ingress:
         grpc:
             enabled: true
@@ -122,8 +140,8 @@ orchestration:
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
-    contextPath: /zeebe
+    contextPath: /
 
 console:
     enabled: false # by default, console is not enabled
-    contextPath: /
+    contextPath: /management/console
