@@ -1,6 +1,6 @@
 ---
 identityKeycloak:
-    enabled: true
+    enabled: false # not supported in a non-domain setup
     postgresql:
         enabled: false
     externalDatabase:
@@ -13,6 +13,15 @@ identityKeycloak:
         existingSecretPasswordKey: password
     auth:
         existingSecret: identity-secret-for-components
+        passwordSecretKey: admin-password
+
+# TODO: re-evaluate and potentially clean up
+# 2025-09-03 - previous behaviour is not possible in a non-domain setup
+# For now just promoting the Orchestration Cluster with basic auth, re-evaluate based on outcome of
+# https://camunda.slack.com/archives/C08MRKHJ0CD/p1755246616281649
+# The issuerBackendUrl is not supported atm by embedded Identity
+# this means that publicIssuerUrl is used and must be accessible by both machines and users
+# only workaround for users is to do atm host file modifications
 
 global:
     elasticsearch:
@@ -33,26 +42,48 @@ global:
     identity:
 
         auth:
-            enabled: true
+            enabled: false # not supported in a non-domain setup
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
+            issuerBackendUrl: http://camunda-keycloak/auth/realms/camunda-platform
 
             orchestration:
-                existingSecret: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: orchestration-secret
                 redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
             connectors:
-                existingSecret: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: connectors-secret
             optimize:
                 redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
-                existingSecret: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: optimize-secret
             webModeler:
                 redirectUrl: http://localhost:8084
             console:
                 redirectUrl: http://localhost:8085
-                existingSecret: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: console-secret
+
+# not supported in a non-domain setup
+# orchestration:
+#     security:
+#         authentication:
+#             method: oidc
 
 identity:
-    enabled: true
+    enabled: false # not supported in a non-domain setup
     fullURL: http://localhost:8080 # replace this with a port of your choice when you will do port forwarding
+
+    # TODO: if oidc is supported in the end, this will need adjustment in the docs
+    firstUser:
+        enabled: false
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: first-user-password # demo
 
     externalDatabase:
         enabled: true
@@ -70,16 +101,18 @@ webModeler:
         externalDatabase:
             url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}
             user: ${DB_WEBMODELER_USERNAME}
-            existingSecret: webmodeler-postgres-secret
-            existingSecretPasswordKey: password
+            secret:
+                existingSecret: webmodeler-postgres-secret
+                existingSecretKey: password
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
         mail:
-            existingSecret: identity-secret-for-components # reference the smtp password
+            secret:
+                existingSecret: identity-secret-for-components # reference the smtp password
+                existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
 
-# TODO: document this change => from webModelerPostgresql to postgresql
 postgresql:
     # Will deploy a postgresql datbase for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
@@ -91,7 +124,7 @@ postgresql:
             userPasswordKey: identity-webmodeler-postgres-user-password
 
 optimize:
-    enabled: true
+    enabled: false # not supported in a non-domain setup
     # OpenSearch prevents migration
     migration:
         enabled: false
