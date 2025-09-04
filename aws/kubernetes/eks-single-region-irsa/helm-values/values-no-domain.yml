@@ -109,7 +109,7 @@ webModeler:
                 existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
 
-postgresql:
+webModelerPostgresql:
     # Will deploy a postgresql datbase for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
     enabled: false
