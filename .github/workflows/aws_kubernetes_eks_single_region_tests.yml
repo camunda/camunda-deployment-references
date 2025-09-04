@@ -80,8 +80,8 @@ env:
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Optional components that are not enabled by default in the doc
-    WEBMODELER_ENABLED: 'true'
-    CONSOLE_ENABLED: 'true'
+    WEBMODELER_ENABLED: 'false'
+    CONSOLE_ENABLED: 'false'
 
 jobs:
     triage:
