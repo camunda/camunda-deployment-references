@@ -190,6 +190,10 @@ runs:
                 "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
                 "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
 
+              sed -i "s/ ShouldBeTrue/ ShouldEqual 'true'/g" \
+                "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
+                "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+
               if [[ "$ELASTICSEARCH_ENABLED" != "true" ]]; then
                 echo "Disable Elasticsearch in the core tests as it's not enabled"
 
