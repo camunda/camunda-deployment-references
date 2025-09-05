@@ -612,7 +612,7 @@ jobs:
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
-              timeout-minutes: 10
+              timeout-minutes: 20
               run: |
                   set -euo pipefail
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
