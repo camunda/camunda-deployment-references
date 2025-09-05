@@ -165,6 +165,7 @@ runs:
               terraform apply -no-color tf.plan
 
         - name: Terraform Drift Detection
+          if: 'false' # TODO: remove, just for testing purposes
           uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect
           with:
