@@ -73,5 +73,6 @@
   "clusterSize": 3,
   "partitionsCount": 3,
   "replicationFactor": 3,
-  "gatewayVersion": "8.7.z"
+  "gatewayVersion": "8.7.z",
+  "lastCompletedChangeId": "-1"
 }
