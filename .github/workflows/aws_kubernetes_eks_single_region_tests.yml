@@ -631,6 +631,9 @@ jobs:
                   kubectl rollout status deployment coredns -n kube-system --timeout=5m
                   kubectl get pods -n kube-system -l k8s-app=kube-dns
 
+                  echo "Wait additional 120s for CoreDNS to stabilize"
+                  sleep 120
+
             - name: 📐 Set current Camunda version
               id: camunda-version
               run: |
