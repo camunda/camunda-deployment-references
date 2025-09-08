@@ -172,6 +172,12 @@
       }
     },
     "aws_instance.bastion[0]": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "index": 0,
       "mode": "managed",
       "name": "bastion",
@@ -225,6 +231,12 @@
       }
     },
     "aws_instance.camunda[0]": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "index": 0,
       "mode": "managed",
       "name": "camunda",
@@ -292,6 +304,12 @@
       }
     },
     "aws_instance.camunda[1]": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "index": 1,
       "mode": "managed",
       "name": "camunda",
@@ -359,6 +377,12 @@
       }
     },
     "aws_instance.camunda[2]": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "index": 2,
       "mode": "managed",
       "name": "camunda",
