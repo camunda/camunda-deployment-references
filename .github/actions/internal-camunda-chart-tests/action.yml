@@ -268,6 +268,13 @@ runs:
               topology_check_script="${{ inputs.zeebe-topology-check-script }}"
               zeebe_authenticated="${{ inputs.zeebe-authenticated }}"
 
+              if [[ -z "$DOMAIN_NAME" ]]; then
+                echo "No domain name provided, assuming local port-forwarding setup"
+                echo "Skipping zeebe oidc (keycloak) authentication as basic auth is used"
+
+                zeebe_authenticated="false"
+              fi
+
               echo "Using golden reference file to compare against: $reference_file"
               echo "Using topology check script: $topology_check_script"
 
