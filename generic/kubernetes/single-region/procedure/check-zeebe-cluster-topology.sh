@@ -3,7 +3,7 @@
 # Orchestration Cluster basic auth
 TOKEN="Basic ZGVtbzpkZW1v"
 
-if [[ -n "${ZEEBE_CLIENT}" && -n "${ZEEBE_CLIENT_SECRET}" ]]; then
+if [ -n "${ZEEBE_CLIENT_ID}" ] && [ -n "${ZEEBE_CLIENT_SECRET}" ]; then
   # Generate a temporary token from the authorization server (keycloak)
   TOKEN=$(curl --location --request POST "${ZEEBE_AUTHORIZATION_SERVER_URL}" \
   --header "Content-Type: application/x-www-form-urlencoded" \
