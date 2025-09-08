@@ -13,8 +13,8 @@ identity:
           valueFrom:
               secretKeyRef:
                   # adjusted to align with our tests
-                  name: identity-secret-for-components
-                  key: admin-password
+                  name: identity-secret-for-components-integration
+                  key: identity-admin-client-secret
         - name: KEYCLOAK_CLIENTS_2_REDIRECT_URIS_0
           value: /dummy
         - name: KEYCLOAK_CLIENTS_2_ROOT_URL
