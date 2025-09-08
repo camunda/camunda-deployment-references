@@ -618,6 +618,31 @@ jobs:
                   set -euo pipefail
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
+            - name: DNS Propagation Wait
+              if: matrix.declination.name == 'domain'
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  echo "Initial Sleep to allow DNS record propagation"
+                  echo "Mostly an in-cluster DNS cache issue, so we need to wait a bit"
+                  sleep 180
+
+                  echo "Waiting for DNS propagation of $DOMAIN_NAME"
+                  ATTEMPTS=30
+                  for i in $(seq 1 $ATTEMPTS); do
+                    if nslookup "$DOMAIN_NAME" >/dev/null 2>&1; then
+                      echo "DNS propagation successful."
+                      exit 0
+                    else
+                      echo "Attempt $i/$ATTEMPTS: DNS not propagated yet. Retrying in 10 seconds..."
+                      sleep 10
+                    fi
+                  done
+
+                  echo "DNS propagation failed after $ATTEMPTS attempts."
+                  exit 1
+
             - name: 📐 Set current Camunda version
               id: camunda-version
               run: |
