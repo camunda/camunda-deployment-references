@@ -589,10 +589,26 @@ jobs:
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
-              timeout-minutes: 10
+              timeout-minutes: 20
               run: |
                   set -euo pipefail
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+
+            - name: 🔄 Restart CoreDNS
+              if: matrix.declination.name == 'domain'
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  # Restart CoreDNS as the previous DNS entries might be cached
+                  kubectl rollout restart deployment coredns -n kube-system
+
+                  # Wait for CoreDNS to be fully rolled out
+                  kubectl rollout status deployment coredns -n kube-system --timeout=5m
+                  kubectl get pods -n kube-system -l k8s-app=kube-dns
+
+                  echo "Wait additional 120s for CoreDNS to stabilize"
+                  sleep 120
 
             - name: 📐 Set current Camunda version
               id: camunda-version
