@@ -49,6 +49,7 @@ global:
             kubernetes.io/tls-acme: 'true'
     identity:
         auth:
+            enabled: true
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
             orchestration:
                 existingSecret: identity-secret-for-components
