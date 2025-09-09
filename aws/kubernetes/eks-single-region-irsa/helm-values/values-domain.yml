@@ -54,7 +54,7 @@ global:
             orchestration:
                 existingSecret: identity-secret-for-components
                 existingSecretKey: orchestration-secret
-                redirectUrl: https://${DOMAIN_NAME}
+                redirectUrl: https://${DOMAIN_NAME}/orchestration
             connectors:
                 existingSecret: identity-secret-for-components
                 existingSecretKey: connectors-secret
@@ -66,7 +66,7 @@ global:
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: https://${DOMAIN_NAME}/management/console
+                redirectUrl: https://${DOMAIN_NAME}/console
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: console-secret
@@ -108,8 +108,8 @@ webModelerPostgresql:
 
 identity:
     enabled: true
-    contextPath: /management/identity
-    fullURL: https://${DOMAIN_NAME}/management/identity
+    contextPath: /identity
+    fullURL: https://${DOMAIN_NAME}/identity
 
     firstUser:
         enabled: true
@@ -170,11 +170,11 @@ orchestration:
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
-    contextPath: /
+    contextPath: /orchestration
 
 console:
     enabled: false # by default, console is not enabled
-    contextPath: /management/console
+    contextPath: /console
 
 elasticsearch:
     enabled: false
