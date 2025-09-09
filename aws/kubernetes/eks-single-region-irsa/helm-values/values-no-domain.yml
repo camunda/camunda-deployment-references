@@ -80,6 +80,7 @@ orchestration:
         name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
         annotations:
             eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+    contextPath: /
 # not supported in a non-domain setup
 #     security:
 #         authentication:

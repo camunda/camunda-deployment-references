@@ -69,7 +69,8 @@ global:
                     existingSecretKey: console-secret
 
 # not supported in a non-domain setup
-# orchestration:
+orchestration:
+    contextPath: /
 #     security:
 #         authentication:
 #             method: oidc
