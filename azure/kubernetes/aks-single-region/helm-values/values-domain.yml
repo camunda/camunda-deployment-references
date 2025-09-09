@@ -1,5 +1,6 @@
 ---
 identityKeycloak:
+    enabled: true
     postgresql:
         enabled: false
     externalDatabase:
@@ -49,7 +50,7 @@ global:
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: https://${DOMAIN_NAME}
+                redirectUrl: https://${DOMAIN_NAME}/
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: console-secret
