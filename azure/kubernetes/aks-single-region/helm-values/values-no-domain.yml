@@ -1,5 +1,6 @@
 ---
 identityKeycloak:
+    enabled: false # not supported in a non-domain setup
     postgresql:
         enabled: false
     externalDatabase:
@@ -13,6 +14,7 @@ identityKeycloak:
 
     auth:
         existingSecret: identity-secret-for-components
+        passwordSecretKey: admin-password
 
 global:
     elasticsearch:
@@ -21,29 +23,35 @@ global:
     identity:
 
         auth:
+            enabled: false # not supported in a non-domain setup
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
+            issuerBackendUrl: http://camunda-keycloak/auth/realms/camunda-platform
 
-            zeebe:
-                existingSecret: identity-secret-for-components
+            orchestration:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: orchestration-secret
+                redirectUrl: http://localhost:8082/orchestration  # replace this with a port of your choice when you will do port forwarding
             connectors:
-                existingSecret: identity-secret-for-components
-            operate:
-                redirectUrl: http://localhost:8081  # replace this with a port of your choice when you will do port forwarding
-                existingSecret: identity-secret-for-components
-            tasklist:
-                redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
-                existingSecret: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: connectors-secret
             optimize:
-                redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
-                existingSecret: identity-secret-for-components
+                redirectUrl: http://localhost:8083/optimize  # replace this with a port of your choice when you will do port forwarding
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: optimize-secret
             webModeler:
-                redirectUrl: http://localhost:8084
+                redirectUrl: http://localhost:8084/modeler
             console:
                 redirectUrl: http://localhost:8085
-                existingSecret: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: console-secret
 
 identity:
-    fullURL: http://localhost:8080 # replace this with a port of your choice when you will do port forwarding
+    enabled: false # not supported in a non-domain setup
+    fullURL: http://localhost:8080/identity # replace this with a port of your choice when you will do port forwarding
 
     externalDatabase:
         enabled: true
@@ -51,24 +59,27 @@ identity:
         port: ${DB_PORT}
         username: ${DB_IDENTITY_USERNAME}
         database: ${DB_IDENTITY_NAME}
-        existingSecret: identity-postgres-secret
-        existingSecretPasswordKey: password
+        secret:
+            existingSecret: identity-postgres-secret
+            existingSecretPasswordKey: password
 
 webModeler:
-    enabled: false
+    enabled: false # by default, webModeler is not enabled
 
     restapi:
         externalDatabase:
             url: jdbc:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?sslmode=require
             user: ${DB_WEBMODELER_USERNAME}
-            existingSecret: webmodeler-postgres-secret
-            existingSecretPasswordKey: password
+            secret:
+                existingSecret: webmodeler-postgres-secret
+                existingSecretPasswordKey: password
 
         mail:
-            existingSecret: identity-secret-for-components
+            secret:
+                existingSecret: identity-secret-for-components
+                existingSecretKey: smtp-password
             fromAddress: changeme@example.com
 
-# TODO: document this change => from postgres to webModelerPostgresql
 webModelerPostgresql:
     # Will deploy a postgresql datbase for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
@@ -78,6 +89,9 @@ webModelerPostgresql:
         secretKeys:
             adminPasswordKey: identity-webmodeler-postgres-admin-password
             userPasswordKey: identity-webmodeler-postgres-user-password
+
+optimize:
+    enabled: false # needs management identity, not supported in a non-domain setup
 
 console:
     enabled: false # by default, console is not enabled

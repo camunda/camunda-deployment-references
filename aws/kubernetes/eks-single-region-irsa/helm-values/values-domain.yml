@@ -52,12 +52,14 @@ global:
             enabled: true
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
             orchestration:
-                existingSecret: identity-secret-for-components
-                existingSecretKey: orchestration-secret
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: orchestration-secret
                 redirectUrl: https://${DOMAIN_NAME}/orchestration
             connectors:
-                existingSecret: identity-secret-for-components
-                existingSecretKey: connectors-secret
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: connectors-secret
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize
                 secret:
@@ -66,7 +68,7 @@ global:
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: https://${DOMAIN_NAME}/console
+                redirectUrl: https://${DOMAIN_NAME}/
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: console-secret
@@ -174,7 +176,7 @@ orchestration:
 
 console:
     enabled: false # by default, console is not enabled
-    contextPath: /console
+    contextPath: /
 
 elasticsearch:
     enabled: false
