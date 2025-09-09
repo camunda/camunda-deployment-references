@@ -16,7 +16,7 @@ fi
 
 # Show the zeebe cluster topology
 echo "📡 Fetching Zeebe cluster topology..."
-topology=$(curl --header "Authorization: ${TOKEN}" "${ZEEBE_ADDRESS_REST}/v2/topology")
+topology=$(curl --header "Authorization: ${TOKEN}" "${ZEEBE_ADDRESS_REST}/orchestration/v2/topology")
 
 echo "$topology" > zeebe-topology.json
 
