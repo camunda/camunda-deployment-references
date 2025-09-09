@@ -18,38 +18,34 @@ global:
     identity:
 
         auth:
+            enabled: true
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            core:
-                # TODO: document this change (from existingSecret.name => existingSecret)
-                redirectUrl: https://${DOMAIN_NAME}/core
-                existingSecret: identity-secret-for-components
+            orchestration:
+                redirectUrl: https://${DOMAIN_NAME}/orchestration
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: orchestration-secret
             connectors:
-                existingSecret: identity-secret-for-components
-            operate:
-                redirectUrl: https://${DOMAIN_NAME}/operate # replace this with a port of your choice when you will do port forwarding
-                existingSecret: identity-secret-for-components
-            tasklist:
-                redirectUrl: https://${DOMAIN_NAME}/tasklist  # replace this with a port of your choice when you will do port forwarding
-                existingSecret: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: connectors-secret
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize  # replace this with a port of your choice when you will do port forwarding
-                existingSecret: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: optimize-secret
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
                 redirectUrl: https://${DOMAIN_NAME}
-                existingSecret: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: console-secret
 
 identity:
     contextPath: /identity
     fullURL: https://${DOMAIN_NAME}/identity
-
-operate:
-    contextPath: /operate
-
-tasklist:
-    contextPath: /tasklist
 
 webModeler:
     contextPath: /modeler
@@ -57,8 +53,11 @@ webModeler:
 optimize:
     contextPath: /optimize
 
-zeebeGateway:
-    contextPath: /zeebe
+orchestration:
+    contextPath: /orchestration
+    security:
+        authentication:
+            method: oidc
 
 console:
     contextPath: /

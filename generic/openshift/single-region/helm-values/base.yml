@@ -4,11 +4,13 @@ global:
         enabled: true # use the embbeded elasticsearch
 
 identityKeycloak:
+    enabled: true
     postgresql:
         enabled: true # use the embbeded database
 
     auth:
         existingSecret: identity-secret-for-components
+        passwordSecretKey: admin-password
 
 connectors:
     enabled: true
@@ -21,13 +23,13 @@ webModeler:
 
     restapi:
         mail:
-            existingSecret: identity-secret-for-components # reference the smtp password
+            secret:
+                existingSecret: identity-secret-for-components # reference the smtp password
+                existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
 
-# TODO: document this change => from postgres to webModelerPostgresql
-# TODO: adapt in the test this enablement
 webModelerPostgresql:
-    # Will deploy a postgresql datbase for webModeler.
+    # Will deploy a postgresql database for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
     enabled: false
     auth:

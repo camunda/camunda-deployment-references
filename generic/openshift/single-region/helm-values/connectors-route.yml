@@ -1,9 +1,5 @@
 ---
 connectors:
-    inbound:
-        mode: oauth
-        auth:
-            existingSecret: identity-secret-for-components
     env:
         - name: CAMUNDA_CLIENT_ZEEBE_GRPCADDRESS
           value: https://${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local:26500
