@@ -132,14 +132,16 @@ When reviewing terraform modules, perform comprehensive validation:
 
 ## Validation Pipeline
 
-Pre-commit hooks handle validation automatically:
+**Always use pre-commit hooks** when performing commits or any interaction with this repository. The pre-commit configuration (`.pre-commit-config.yaml`) provides comprehensive validation:
 - Terraform formatting and linting
 - Security scanning (Trivy)
 - Shell script validation
 - YAML validation
 - GitHub Actions validation
+- Conventional commit message validation
+- Go code formatting and validation
 
-Manual validation commands are available in the `justfile` and `.lint/` directory scripts.
+The pre-commit hooks help detect formatting, lint, and other errors before commits. Manual validation commands are also available in the `justfile` and `.lint/` directory scripts.
 
 ## Key Development Guidelines
 
