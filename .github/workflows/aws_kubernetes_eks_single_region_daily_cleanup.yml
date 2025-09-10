@@ -13,9 +13,9 @@ on:
             - .github/workflows/aws_kubernetes_eks_single_region_daily_cleanup.yml
             - .tool-versions
             - aws/kubernetes/eks-single-region*/**
-            - '!aws/kubernetes/eks-single-region/test/golden/**'
-            - '!aws/kubernetes/eks-single-region-irsa/test/golden/**'
-            - .github/actions/aws-kubernetes-eks-single-region-cleanup/**
+            - '!aws/kubernetes/eks-single-region/terraform/*/test/golden/**'
+            - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
+            - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
 
     schedule:
@@ -99,12 +99,13 @@ jobs:
               id: delete_clusters
               continue-on-error: true
               timeout-minutes: 125
-              uses: ./.github/actions/aws-kubernetes-eks-single-region-cleanup
+              uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours-cluster: ${{ env.MAX_AGE_HOURS_CLUSTER }}
+                  max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  modules-order: vpn,cluster
 
             # The previous step has a continue-on-error set to true in case of schedule run.
             # This means that the workflow is not marked as failed, but the step is.
@@ -117,14 +118,15 @@ jobs:
               id: retry_delete_clusters
               if: steps.delete_clusters.outcome == 'failure'
               timeout-minutes: 125
-              uses: ./.github/actions/aws-kubernetes-eks-single-region-cleanup
+              uses: ./.github/actions/aws-generic-terraform-cleanup
               env:
                   RETRY_DESTROY: 'true' # trigger cloud nuke
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours-cluster: 0 # the previous step alters the age and resets it to 0
+                  max-age-hours: 0 # the previous step alters the age and resets it to 0
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  modules-order: vpn,cluster
 
     report-failure:
         name: Report failures

@@ -20,6 +20,7 @@ on:
             - '!azure/kubernetes/aks-single-region/test/golden/**'
             - .github/actions/azure-kubernetes-aks-single-region-create/**
             - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
+            - .github/actions/internal-terraform-drift-detect/**
 
     workflow_dispatch:
         inputs:
@@ -147,7 +148,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@1d0bff7496b3d4d2168b0a4a452252a5b925bbf0 # main
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@a444fa3b7a947ca8bbe7ca05539ca2f55e16aadd # main
 
             - name: Import Secrets
               id: secrets
