@@ -43,7 +43,17 @@ global:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: console-secret
 
+identityKeycloak:
+    enabled: true
+    postgresql:
+        enabled: true # use the embbeded database
+
+    auth:
+        existingSecret: identity-secret-for-components
+        passwordSecretKey: admin-password
+
 identity:
+    enabled: true
     contextPath: /identity
     fullURL: https://${DOMAIN_NAME}/identity
 

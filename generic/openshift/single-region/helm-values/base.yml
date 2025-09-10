@@ -3,15 +3,6 @@ global:
     elasticsearch:
         enabled: true # use the embbeded elasticsearch
 
-identityKeycloak:
-    enabled: true
-    postgresql:
-        enabled: true # use the embbeded database
-
-    auth:
-        existingSecret: identity-secret-for-components
-        passwordSecretKey: admin-password
-
 connectors:
     enabled: true
 
