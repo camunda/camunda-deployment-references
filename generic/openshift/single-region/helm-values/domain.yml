@@ -57,6 +57,12 @@ identity:
     contextPath: /identity
     fullURL: https://${DOMAIN_NAME}/identity
 
+    firstUser:
+        enabled: true
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: first-user-password # demo
+
 webModeler:
     contextPath: /modeler
 
