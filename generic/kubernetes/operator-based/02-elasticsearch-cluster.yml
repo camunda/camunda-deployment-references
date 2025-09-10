@@ -37,6 +37,8 @@ spec:
                         env:
                             - name: ELASTICSEARCH_ENABLE_REST_TLS
                               value: 'false'
+                            - name: READINESS_PROBE_TIMEOUT
+                              value: '300'
                         resources:
                             requests:
                                 cpu: 1
