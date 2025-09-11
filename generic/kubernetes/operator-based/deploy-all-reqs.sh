@@ -174,6 +174,9 @@ if [ "$SKIP_ELASTICSEARCH" = false ]; then
 
     echo "=== Waiting for Elasticsearch Cluster ==="
     ./02-elasticsearch-wait-ready.sh "$NAMESPACE"
+
+    echo "=== Getting Elasticsearch Admin Credentials ==="
+    ./02-elasticsearch-get-admin-credentials.sh "$NAMESPACE"
 else
     echo "=== Skipping Elasticsearch deployment ==="
 fi

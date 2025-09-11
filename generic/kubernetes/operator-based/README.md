@@ -19,7 +19,7 @@ These operators run on both Kubernetes and OpenShift; however, we recommend revi
 **Set environment variables first:**
 ```bash
 # Option 1: Use the provided script (recommended)
-source ./set-environment.sh
+source ./0-set-environment.sh
 
 # Option 2: Set variables manually
 export CAMUNDA_NAMESPACE="camunda"
@@ -58,7 +58,7 @@ This script runs all individual verification scripts for infrastructure componen
 This deployment includes the following components:
 - **Infrastructure** (managed by operators):
   - PostgreSQL: Three instances for Keycloak, Camunda Identity, and Web Modeler
-  - Elasticsearch: For storing Zeebe and Camunda data (orchestration cluster)
+  - Elasticsearch: For storing Zeebe and Camunda data (orchestration cluster) with authentication enabled
   - Keycloak: For authentication and identity management
 - **Camunda Platform 8**: Complete installation using the official Helm chart
 
@@ -146,7 +146,7 @@ To learn the prerequisites for this installation, refer to the official document
 
 **Files:**
 - `02-elasticsearch-install-operator.sh` - Installs the ECK operator
-- `02-elasticsearch-cluster.yml` - Elasticsearch cluster 8.18.0 with authentication disabled, 3 master nodes, persistent storage, and bounded resources
+- `02-elasticsearch-cluster.yml` - Elasticsearch cluster 8.18.0 with authentication enabled, 3 master nodes, persistent storage, and bounded resources
 - `02-elasticsearch-wait-ready.sh` - Waits for cluster to become ready
 
 **Commands:**
@@ -176,6 +176,37 @@ kubectl get svc -n camunda | grep "elasticsearch"
 ```
 
 All configuration options for the Elasticsearch cluster are available in the official ECK documentation (https://www.elastic.co/guide/en/cloud-on-k8s/1.0/k8s-elasticsearch-k8s-elastic-co-v1.html)
+
+#### Elasticsearch Authentication
+
+The ECK operator automatically creates authentication credentials for Elasticsearch:
+
+**Accessing Elasticsearch credentials:**
+```bash
+# Get the automatically generated password for the 'elastic' user
+kubectl get secret elasticsearch-es-elastic-user -n camunda -o go-template='{{.data.elastic | base64decode}}'
+
+# The username is always 'elastic'
+# The Elasticsearch URL is: https://elasticsearch-es-http:9200 (HTTPS with TLS enabled)
+```
+
+**How it works in Camunda configuration:**
+The `values-operator-based.yml` file configures Camunda to use these ECK-generated credentials:
+```yaml
+global:
+  elasticsearch:
+    auth:
+      username: elastic
+      existingSecret: elasticsearch-es-elastic-user  # Auto-created by ECK
+      existingSecretKey: elastic                     # Password key in the secret
+    tls:
+      enabled: true  # ECK auto-generates TLS certificates
+```
+
+The ECK operator handles all security aspects:
+- 🔒 **Auto-generated TLS certificates** for HTTPS communication
+- 🎟️ **Auto-generated elastic user password** stored in Kubernetes secrets
+- 🛡️ **Secure by default** - no manual certificate or password management needed
 
 ### 3. Keycloak Installation
 

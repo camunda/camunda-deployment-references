@@ -3,11 +3,6 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
     name: pg-identity
-    annotations:
-        # OpenShift compatibility - use default runtime security profile
-        container.apparmor.security.beta.kubernetes.io/postgres: runtime/default
-        container.apparmor.security.beta.kubernetes.io/initdb: runtime/default
-        container.apparmor.security.beta.kubernetes.io/join: runtime/default
 spec:
     instances: 1
     description: PostgreSQL cluster for Camunda Identity
@@ -30,11 +25,6 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
     name: pg-keycloak
-    annotations:
-        # OpenShift compatibility - use default runtime security profile
-        container.apparmor.security.beta.kubernetes.io/postgres: runtime/default
-        container.apparmor.security.beta.kubernetes.io/initdb: runtime/default
-        container.apparmor.security.beta.kubernetes.io/join: runtime/default
 spec:
     instances: 1
     description: PostgreSQL cluster for Keycloak
@@ -61,11 +51,6 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
     name: pg-webmodeler
-    annotations:
-        # OpenShift compatibility - use default runtime security profile
-        container.apparmor.security.beta.kubernetes.io/postgres: runtime/default
-        container.apparmor.security.beta.kubernetes.io/initdb: runtime/default
-        container.apparmor.security.beta.kubernetes.io/join: runtime/default
 spec:
     instances: 1
     description: PostgreSQL cluster for Webmodeler
