@@ -43,6 +43,11 @@ global:
                     existingSecret: camunda-credentials
                     existingSecretKey: identity-orchestration-client-token
 
+            admin:
+                secret:
+                    existingSecret: camunda-credentials
+                    existingSecretKey: identity-admin-client-token
+
             optimize:
                 secret:
                     existingSecret: camunda-credentials
@@ -101,6 +106,17 @@ identity:
         secret:
             existingSecret: pg-identity-secret
             existingSecretKey: password
+
+    # First user configuration
+    firstUser:
+        enabled: true
+        username: admin
+        email: admin@camunda-demo.local
+        firstName: Admin
+        lastName: User
+        secret:
+            existingSecret: camunda-credentials
+            existingSecretKey: identity-firstuser-password
 
 # Optimize configuration
 optimize:

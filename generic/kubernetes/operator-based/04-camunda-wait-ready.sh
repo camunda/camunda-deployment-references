@@ -123,20 +123,3 @@ kubectl get svc -n "$NAMESPACE" -l app.kubernetes.io/part-of=camunda-platform
 
 echo ""
 echo "✅ Camunda Platform is ready in namespace: $NAMESPACE"
-
-# Display access information
-CAMUNDA_DOMAIN=${CAMUNDA_DOMAIN:-localhost}
-CAMUNDA_PROTOCOL=${CAMUNDA_PROTOCOL:-http}
-
-echo ""
-echo "🚀 Access URLs:"
-echo "- Identity: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/identity"
-echo "- Operate: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/operate"
-echo "- Optimize: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/optimize"
-echo "- Tasklist: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/tasklist"
-if kubectl get deployment camunda-web-modeler-webapp -n "$NAMESPACE" >/dev/null 2>&1; then
-    echo "- WebModeler: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/modeler"
-fi
-if kubectl get deployment camunda-console -n "$NAMESPACE" >/dev/null 2>&1; then
-    echo "- Console: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/console"
-fi
