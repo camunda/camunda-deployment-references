@@ -333,10 +333,14 @@ jobs:
 
             - name: 🚀 Deploy all requirements using all-in-one script
               timeout-minutes: 30
+              working-directory: ./generic/kubernetes/operator-based/
               run: |
                   set -euo pipefail
+
+                  # TODO: in the doc, ensure that user is in the working directory
+
                   echo "Running all-in-one deployment script for operator-based setup..."
-                  ./generic/kubernetes/operator-based/deploy-all-reqs.sh
+                  deploy-all-reqs.sh
 
             - name: ✅ Verify all requirements deployment
               timeout-minutes: 10
