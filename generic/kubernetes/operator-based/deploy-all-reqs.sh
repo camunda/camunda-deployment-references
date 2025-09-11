@@ -15,7 +15,7 @@ set -euo pipefail
 #   --help                        Show this help message
 
 # Parse arguments
-NAMESPACE="camunda"
+NAMESPACE="${CAMUNDA_NAMESPACE:-camunda}"
 POSTGRESQL_OPERATOR_NS="cnpg-system"
 ELASTICSEARCH_OPERATOR_NS="elastic-system"
 KEYCLOAK_OPERATOR_NS=""  # Will default to same as NAMESPACE
@@ -229,11 +229,13 @@ echo "CRDs: $([ "$SKIP_CRDS" = true ] && echo "SKIPPED" || echo "INSTALLED")"
 
 echo ""
 echo "🚀 Next Steps:"
-echo "1. Deploy Camunda Platform:"
+echo "1. Create Identity secrets:"
+echo "   ./04-camunda-create-identity-secret.sh $NAMESPACE"
+echo "2. Deploy Camunda Platform:"
 echo "   ./04-camunda-deploy.sh $NAMESPACE"
-echo "2. Wait for Camunda to be ready:"
+echo "3. Wait for Camunda to be ready:"
 echo "   ./04-camunda-wait-ready.sh $NAMESPACE"
-echo "3. Verify Camunda deployment:"
+echo "4. Verify Camunda deployment:"
 echo "   ./04-camunda-verify.sh $NAMESPACE"
 
 if [ "$SKIP_KEYCLOAK" = false ]; then

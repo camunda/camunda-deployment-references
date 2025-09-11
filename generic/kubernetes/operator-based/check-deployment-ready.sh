@@ -1,0 +1,1 @@
+../single-region/procedure/check-deployment-ready.sh

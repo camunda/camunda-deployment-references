@@ -4,7 +4,7 @@ set -euo pipefail
 # Script to deploy Camunda Platform with operator-based infrastructure
 # Usage: ./04-camunda-deploy.sh [namespace]
 
-NAMESPACE=${1:-camunda}
+NAMESPACE=${1:-${CAMUNDA_NAMESPACE:-camunda}}
 
 echo "Deploying Camunda Platform with operator-based infrastructure in namespace: $NAMESPACE"
 

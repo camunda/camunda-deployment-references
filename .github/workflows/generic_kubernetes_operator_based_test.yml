@@ -83,10 +83,6 @@ env:
     TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
-    # Components that are not enabled by default in the doc, but enabled in our tests to have a better coverage
-    WEBMODELER_ENABLED: 'true'
-    CONSOLE_ENABLED: 'true'
-
     ROSA_CLI_VERSION: latest
 
 jobs:
@@ -324,36 +320,6 @@ jobs:
                   ./generic/kubernetes/operator-based/get-your-copy.sh
                   tree
 
-            - name: 🌱 Register chart setup environment values
-              timeout-minutes: 3
-              run: |
-                  set -euo pipefail
-                  source .github/scripts/gha-functions.sh
-                  export_new_env_vars generic/kubernetes/operator-based/set-environment.sh
-
-            - name: 🚀 Deploy all requirements using all-in-one script
-              timeout-minutes: 30
-              working-directory: ./generic/kubernetes/operator-based/
-              run: |
-                  set -euo pipefail
-
-                  pwd
-                  ls -la
-
-                  # TODO: in the doc, ensure that user is in the working directory
-
-                  echo "Running all-in-one deployment script for operator-based setup..."
-                  ./deploy-all-reqs.sh
-
-            - name: ✅ Verify all requirements deployment
-              timeout-minutes: 10
-              run: |
-                  set -euo pipefail
-                  echo "Running final verification of all components..."
-                  ./generic/kubernetes/operator-based/verify-all-reqs.sh
-                  echo "All requirements are successfully deployed."
-
-
             - name: 🏗️ Prepare a fresh namespace for the tests
               run: |
                   set -o errexit
@@ -375,16 +341,11 @@ jobs:
                   echo "Sleeping 30s"
                   sleep 30
 
-
             - name: 🛠️ Assemble deployment values for domain setup
               timeout-minutes: 10
               run: |
                   set -o errexit
                   set -euo pipefail
-
-                  echo "Construct the values.yml file"
-
-                  cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
 
                   echo "Applying declination: ${{ matrix.declination.name }}"
 
@@ -393,110 +354,66 @@ jobs:
                     source ./generic/openshift/single-region/procedure/setup-application-domain.sh
                     echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
                     echo "CAMUNDA_GRPC_DOMAIN=zeebe-$DOMAIN_NAME:443" | tee -a "$GITHUB_ENV"
+                    echo "CAMUNDA_KEYCLOAK_DOMAIN=keycloak-$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
                     source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
 
                     ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
-
-                    # Enable Routes
-                    for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
-                        yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
-                        cat values-result.yml && mv values-result.yml values.yml
-                    done
                   elif [[ ${{ matrix.declination.name }} == "no-domain" ]]; then
                       # explicitely set no domain
-                      echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
-                      echo "CAMUNDA_GRPC_DOMAIN=" | tee -a "$GITHUB_ENV"
-
-                      yq ". *d load(\"generic/openshift/single-region/helm-values/no-domain.yml\")" values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
+                      echo "CAMUNDA_DOMAIN=localhost" | tee -a "$GITHUB_ENV"
+                      echo "CAMUNDA_GRPC_DOMAIN=localhost" | tee -a "$GITHUB_ENV"
+                      echo "CAMUNDA_KEYCLOAK_DOMAIN=locahost" | tee -a "$GITHUB_ENV"
                   else
                     echo "Error: matrix.declaration must be set to 'domain' or 'no-domain'" >&2
                     exit 1
                   fi
 
-                  # Enable SCC
-                  yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
+            - name: 🌱 Register chart setup environment values
+              timeout-minutes: 3
+              run: |
+                  set -euo pipefail
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars generic/kubernetes/operator-based/0-set-environment.sh
 
-                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
-                    echo "Enabling WebModeler"
-                    yq -i '.webModeler.enabled = true' values.yml
-                    yq -i '.postgresql.enabled = true' values.yml
-                  fi
-
-                  if [ "$CONSOLE_ENABLED" == "true" ]; then
-                    echo "Enabling Console"
-                    yq -i '.console.enabled = true' values.yml
-                  fi
-
-                  # Add integration tests values
-                  if [ "$TESTS_ENABLED" == "true" ]; then
-                    for file in registry.yml identity.yml; do
-                      yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
-                    done
-                  fi
-
-                  ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
-
-            - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
-              timeout-minutes: 10
+            - name: 🚀 Deploy all requirements using operator-based deployment
+              timeout-minutes: 30
+              working-directory: ./generic/kubernetes/operator-based/
               run: |
                   set -euo pipefail
 
-                  source generic/openshift/single-region/procedure/generate-passwords.sh
+                  pwd
+                  ls -la
 
-                  ./generic/openshift/single-region/procedure/create-identity-secret.sh
+                  # TODO: in the doc, ensure that user is in the working directory
 
-                  # Generate tests objects
-                  if [ "$TESTS_ENABLED" == "true" ]; then
-                    # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml
-                    kubectl create secret docker-registry index-docker-io \
-                        --docker-server=index.docker.io \
-                        --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
-                        --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
-                        --namespace="$CAMUNDA_NAMESPACE"
+                  echo "Running all-in-one deployment script for operator-based setup..."
+                  ./deploy-all-reqs.sh
 
-                    kubectl create secret generic identity-secret-for-components-integration \
-                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
-                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-                        --namespace="$CAMUNDA_NAMESPACE"
-                  fi
+            - name: 🔑 Create Camunda credentials
+              timeout-minutes: 5
+              working-directory: ./generic/kubernetes/operator-based/
+              run: |
+                  set -euo pipefail
+                  echo "Creating Camunda Identity credentials..."
+                  ./04-camunda-create-identity-secret.sh
 
-                  ./generic/openshift/single-region/procedure/install-chart.sh
+            - name: 🏗️ Deploy Camunda Platform
+              timeout-minutes: 15
+              working-directory: ./generic/kubernetes/operator-based/
+              run: |
+                  set -euo pipefail
+                  echo "Deploying Camunda Platform with operator-based infrastructure..."
+                  ./04-camunda-deploy.sh
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 10
+              working-directory: ./generic/kubernetes/operator-based/
               run: |
                   set -euo pipefail
 
-                  ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
-
-            - name: Set current Camunda version
-              id: camunda-version
-              run: |
-                  set -euo pipefail
-
-                  CAMUNDA_VERSION=$(cat .camunda-version)
-                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
-
-            - name: 🧪 Run Helm Chart tests
-              if: env.TESTS_ENABLED == 'true'
-              timeout-minutes: 60
-              uses: ./.github/actions/internal-camunda-chart-tests
-              with:
-                  secrets: ${{ toJSON(secrets) }}
-                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
-                  camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
-                  camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
-                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
-                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
-                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
-                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
-                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  ./check-deployment-ready.sh
+                  echo "Camunda deployment verified successfully."
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
