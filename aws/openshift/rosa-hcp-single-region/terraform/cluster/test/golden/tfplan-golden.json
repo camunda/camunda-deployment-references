@@ -226,6 +226,14 @@
                     "role": "my-rosa-account-HCP-ROSA-Worker-Role"
                   }
                 },
+                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].data.aws_caller_identity.current": {
+                  "mode": "data",
+                  "name": "current",
+                  "provider_name": "registry.terraform.io/hashicorp/aws",
+                  "schema_version": 0,
+                  "sensitive_values": {},
+                  "type": "aws_caller_identity"
+                },
                 "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].data.aws_iam_policy_document.custom_trust_policy[0]": {
                   "index": 0,
                   "mode": "data",
@@ -437,7 +445,8 @@
                       "account_iam_role_name": "[\"my-rosa-account-HCP-ROSA-Installer-Role\",\"my-rosa-account-HCP-ROSA-Support-Role\",\"my-rosa-account-HCP-ROSA-Worker-Role\"]",
                       "account_policy_arns": "[\"ARN_REDACTED",
                       "account_role_prefix": "my-rosa-account",
-                      "path": "/"
+                      "path": "/",
+                      "shared_vpc_policy_attachments": "[]"
                     }
                   }
                 }
@@ -1608,7 +1617,8 @@
                     "destroy_duration": null,
                     "triggers": {
                       "operator_policy_arns": "[\"ARN_REDACTED",
-                      "operator_role_prefix": "my-rosa-operator"
+                      "operator_role_prefix": "my-rosa-operator",
+                      "shared_vpc_policy_attachments": "[]"
                     }
                   }
                 }
@@ -1811,7 +1821,8 @@
                     "worker_disk_size": null
                   }
                 },
-                "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp.rhcs_hcp_default_ingress.default_ingress": {
+                "module.rosa_cluster.module.rosa_hcp.module.rosa_cluster_hcp.rhcs_hcp_default_ingress.default_ingress[0]": {
+                  "index": 0,
                   "mode": "managed",
                   "name": "default_ingress",
                   "provider_name": "registry.terraform.io/terraform-redhat/rhcs",
