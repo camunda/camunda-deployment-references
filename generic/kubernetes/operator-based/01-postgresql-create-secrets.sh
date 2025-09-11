@@ -4,7 +4,7 @@ set -euo pipefail
 # Script to create PostgreSQL secrets for CloudNativePG clusters
 # Run this in the camunda namespace
 
-NAMESPACE=${1:-camunda}
+NAMESPACE=${1:-$CAMUNDA_NAMESPACE}
 
 echo "Creating PostgreSQL secrets in namespace: $NAMESPACE"
 

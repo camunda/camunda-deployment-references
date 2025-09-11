@@ -4,7 +4,7 @@ set -euo pipefail
 # Script to wait for PostgreSQL clusters to become healthy
 # Usage: ./01-postgresql-wait-ready.sh [namespace]
 
-NAMESPACE=${1:-camunda}
+NAMESPACE=${1:-$CAMUNDA_NAMESPACE}
 
 echo "Waiting for PostgreSQL clusters in namespace: $NAMESPACE"
 

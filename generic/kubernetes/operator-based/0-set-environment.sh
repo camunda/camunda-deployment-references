@@ -11,6 +11,7 @@ export CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN:-localhost}"
 export CAMUNDA_PROTOCOL="${CAMUNDA_PROTOCOL:-http}"
 
 # Helm chart configuration
+# TODO: renovate
 export CAMUNDA_HELM_CHART_VERSION="${CAMUNDA_HELM_CHART_VERSION:-0.0.0-snapshot-alpha}"
 
 echo "Environment variables set:"

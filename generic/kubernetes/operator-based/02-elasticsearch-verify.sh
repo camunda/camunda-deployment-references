@@ -4,7 +4,7 @@ set -euo pipefail
 # Script to verify Elasticsearch installation and cluster
 # Usage: ./02-elasticsearch-verify.sh [namespace] [cluster-name]
 
-NAMESPACE=${1:-camunda}
+NAMESPACE=${1:-$CAMUNDA_NAMESPACE}
 CLUSTER_NAME=${2:-elasticsearch}
 
 echo "Verifying Elasticsearch installation in namespace: $NAMESPACE"

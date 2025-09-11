@@ -4,7 +4,7 @@ set -euo pipefail
 # Script to wait for Keycloak instance to become ready
 # Usage: ./03-keycloak-wait-ready.sh [namespace] [instance-name]
 
-NAMESPACE=${1:-camunda}
+NAMESPACE=${1:-$CAMUNDA_NAMESPACE}
 INSTANCE_NAME=${2:-keycloak}
 
 echo "Waiting for Keycloak instance '$INSTANCE_NAME' in namespace: $NAMESPACE"

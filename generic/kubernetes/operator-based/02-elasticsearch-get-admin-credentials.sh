@@ -4,7 +4,7 @@ set -euo pipefail
 # Script to get Elasticsearch admin credentials from ECK-generated secret
 # Usage: ./02-elasticsearch-get-admin-credentials.sh [namespace]
 
-NAMESPACE=${1:-camunda}
+NAMESPACE=${1:-$CAMUNDA_NAMESPACE}
 
 echo "Retrieving Elasticsearch admin credentials from namespace: $NAMESPACE"
 

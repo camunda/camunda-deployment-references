@@ -4,6 +4,7 @@ kind: Cluster
 metadata:
     name: pg-identity
 spec:
+    # TODO: renovate on the image of the postgres
     instances: 1
     description: PostgreSQL cluster for Camunda Identity
     storage:

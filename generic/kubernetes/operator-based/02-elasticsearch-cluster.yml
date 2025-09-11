@@ -4,7 +4,9 @@ kind: Elasticsearch
 metadata:
     name: elasticsearch
 spec:
+    # TODO: renovate
     version: 8.18.0
+    # TODO: reference upstream image
     http:
         tls:
             selfSignedCertificate:

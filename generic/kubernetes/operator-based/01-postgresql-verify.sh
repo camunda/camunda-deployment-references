@@ -4,7 +4,7 @@ set -euo pipefail
 # Script to verify PostgreSQL installation and clusters
 # Usage: ./01-postgresql-verify.sh [namespace]
 
-NAMESPACE=${1:-camunda}
+NAMESPACE=${1:-$CAMUNDA_NAMESPACE}
 
 echo "Verifying PostgreSQL installation in namespace: $NAMESPACE"
 

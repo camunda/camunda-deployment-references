@@ -4,7 +4,7 @@ set -euo pipefail
 # Script to wait for Elasticsearch cluster to become ready
 # Usage: ./02-elasticsearch-wait-ready.sh [namespace] [cluster-name]
 
-NAMESPACE=${1:-camunda}
+NAMESPACE=${1:-$CAMUNDA_NAMESPACE}
 CLUSTER_NAME=${2:-elasticsearch}
 
 echo "Waiting for Elasticsearch cluster '$CLUSTER_NAME' in namespace: $NAMESPACE"

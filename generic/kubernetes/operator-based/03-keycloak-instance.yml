@@ -4,6 +4,8 @@ kind: Keycloak
 metadata:
     name: keycloak
 spec:
+    # TODO: renovate
+    # TODO: source image upstream
     instances: 1
     db:
         host: pg-keycloak-rw # this service is provided by the CNPG keycloak

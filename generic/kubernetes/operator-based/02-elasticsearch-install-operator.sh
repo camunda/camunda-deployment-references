@@ -20,6 +20,7 @@ sleep 10
 kubectl create namespace "$OPERATOR_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 
 # Install the operator
+# TODO: renovate
 kubectl apply -n "$OPERATOR_NAMESPACE" --server-side -f \
   https://download.elastic.co/downloads/eck/3.1.0/operator.yaml
 

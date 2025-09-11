@@ -4,7 +4,7 @@ set -euo pipefail
 # Script to verify Keycloak installation and instance
 # Usage: ./03-keycloak-verify.sh [namespace] [instance-name]
 
-NAMESPACE=${1:-camunda}
+NAMESPACE=${1:-$CAMUNDA_NAMESPACE}
 INSTANCE_NAME=${2:-keycloak}
 
 echo "Verifying Keycloak installation in namespace: $NAMESPACE"
@@ -42,22 +42,6 @@ echo
 echo "=== Keycloak Database Connection ==="
 echo "Keycloak is configured to use PostgreSQL cluster: pg-keycloak-rw"
 kubectl get svc pg-keycloak-rw -n "$NAMESPACE" >/dev/null 2>&1 && echo "PostgreSQL service for Keycloak is available" || echo "PostgreSQL service for Keycloak not found!"
-echo
-
-echo "=== Access Instructions ==="
-CAMUNDA_DOMAIN=${CAMUNDA_DOMAIN:-localhost}
-CAMUNDA_PROTOCOL=${CAMUNDA_PROTOCOL:-http}
-
-echo "To access Keycloak admin console:"
-if kubectl get ingress keycloak -n "$NAMESPACE" >/dev/null 2>&1; then
-    echo "1. Via Ingress: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/auth/admin/"
-    echo "2. Alternative port-forward: kubectl -n $NAMESPACE port-forward svc/keycloak 8080:8080"
-    echo "   Then open: http://localhost:8080/auth/admin/"
-else
-    echo "1. Port-forward: kubectl -n $NAMESPACE port-forward svc/keycloak 8080:8080"
-    echo "2. Open: http://localhost:8080/auth/admin/"
-fi
-echo "3. Login with the credentials shown above"
 echo
 
 echo "Keycloak verification completed."
