@@ -32,6 +32,15 @@ if ! command -v helm &> /dev/null; then
     exit 1
 fi
 
+# Detect if we're running on OpenShift by checking node annotations
+IS_OPENSHIFT=false
+if kubectl get nodes -o jsonpath='{.items[0].metadata.annotations}' 2>/dev/null | grep -q "openshift"; then
+    IS_OPENSHIFT=true
+    echo "OpenShift detected - will configure chart for OpenShift compatibility"
+else
+    echo "Standard Kubernetes detected"
+fi
+
 # Add Camunda Helm repository if not already added (for fallback)
 if ! helm repo list | grep -q "camunda"; then
     echo "Adding Camunda Helm repository..."
@@ -45,6 +54,13 @@ helm repo update
 echo "Applying environment variable substitution to values file..."
 envsubst < values-operator-based.yml > values-operator-based-final.yml
 
+# Prepare OpenShift-specific parameters
+EXTRA_ARGS=""
+if [ "$IS_OPENSHIFT" = true ]; then
+    echo "Adding OpenShift compatibility settings..."
+    EXTRA_ARGS="--set global.compatibility.openshift.adaptSecurityContext=force"
+fi
+
 # Install or upgrade Camunda Platform using OCI registry
 echo "Installing/upgrading Camunda Platform from OCI registry..."
 helm upgrade --install camunda oci://ghcr.io/camunda/helm/camunda-platform \
@@ -52,6 +68,7 @@ helm upgrade --install camunda oci://ghcr.io/camunda/helm/camunda-platform \
     --namespace "$NAMESPACE" \
     --create-namespace \
     --values values-operator-based-final.yml \
+    "$EXTRA_ARGS" \
     --wait \
     --timeout 10m
 
@@ -61,19 +78,9 @@ helm upgrade --install camunda oci://ghcr.io/camunda/helm/camunda-platform \
 #     --namespace "$NAMESPACE" \
 #     --create-namespace \
 #     --values values-operator-based-final.yml \
+#     "$EXTRA_ARGS" \
 #     --wait \
 #     --timeout 10m
 
-echo "Camunda Platform deployment completed!"
-echo "Namespace: $NAMESPACE"
-echo "Access URL: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}"
-
 # Clean up temporary file
 rm -f values-operator-based-final.yml
-
-echo ""
-echo "Next steps:"
-echo "1. Configure Keycloak realm using admin credentials:"
-echo "   ./03-keycloak-get-admin-credentials.sh $NAMESPACE"
-echo "2. Access Keycloak admin console: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/auth/admin/"
-echo "3. The Camunda Platform will automatically configure the required realm and clients"
