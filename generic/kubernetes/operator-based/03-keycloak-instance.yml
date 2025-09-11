@@ -25,10 +25,20 @@ spec:
           value: /auth
     ingress:
         enabled: false
+        className: ${INGRESS_CLASS_NAME}
+        annotations:
+            kubernetes.io/tls-acme: 'true'
+        rules:
+            - host: ${CAMUNDA_DOMAIN}
+              paths:
+                  - path: /auth/(.*)
+                    pathType: Prefix
     hostname:
         hostname: ${CAMUNDA_DOMAIN}
-        #  tlsSecret: example-tls
-        #  backchannelDynamic: true
+        # TLS secret for HTTPS when ingress is enabled (remove for localhost/no-ingress)
+        # tlsSecret: camunda-keycloak-tls
+        # Dynamic backchannel for ingress environments (set to false for localhost/no-ingress)
+        # backchannelDynamic: true
         strict: true
     resources:
         limits:

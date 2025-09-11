@@ -350,20 +350,11 @@ jobs:
                   echo "Applying declination: ${{ matrix.declination.name }}"
 
                   if [[ ${{ matrix.declination.name }} == "domain" ]]; then
-
                     source ./generic/openshift/single-region/procedure/setup-application-domain.sh
                     echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
-                    echo "CAMUNDA_GRPC_DOMAIN=zeebe-$DOMAIN_NAME:443" | tee -a "$GITHUB_ENV"
-                    echo "CAMUNDA_KEYCLOAK_DOMAIN=keycloak-$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
-
-                    source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
-
-                    ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
                   elif [[ ${{ matrix.declination.name }} == "no-domain" ]]; then
                       # explicitely set no domain
                       echo "CAMUNDA_DOMAIN=localhost" | tee -a "$GITHUB_ENV"
-                      echo "CAMUNDA_GRPC_DOMAIN=localhost" | tee -a "$GITHUB_ENV"
-                      echo "CAMUNDA_KEYCLOAK_DOMAIN=locahost" | tee -a "$GITHUB_ENV"
                   else
                     echo "Error: matrix.declaration must be set to 'domain' or 'no-domain'" >&2
                     exit 1
