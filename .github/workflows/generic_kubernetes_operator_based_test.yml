@@ -337,10 +337,13 @@ jobs:
               run: |
                   set -euo pipefail
 
+                  pwd
+                  ls -la
+
                   # TODO: in the doc, ensure that user is in the working directory
 
                   echo "Running all-in-one deployment script for operator-based setup..."
-                  deploy-all-reqs.sh
+                  ./deploy-all-reqs.sh
 
             - name: ✅ Verify all requirements deployment
               timeout-minutes: 10
