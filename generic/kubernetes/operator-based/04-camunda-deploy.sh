@@ -55,10 +55,10 @@ echo "Applying environment variable substitution to values file..."
 envsubst < values-operator-based.yml > values-operator-based-final.yml
 
 # Prepare OpenShift-specific parameters
-EXTRA_ARGS=""
+EXTRA_ARGS=()
 if [ "$IS_OPENSHIFT" = true ]; then
     echo "Adding OpenShift compatibility settings..."
-    EXTRA_ARGS="--set global.compatibility.openshift.adaptSecurityContext=force"
+    EXTRA_ARGS+=(--set global.compatibility.openshift.adaptSecurityContext=force)
 fi
 
 # Install or upgrade Camunda Platform using OCI registry
@@ -68,7 +68,7 @@ helm upgrade --install camunda oci://ghcr.io/camunda/helm/camunda-platform \
     --namespace "$NAMESPACE" \
     --create-namespace \
     --values values-operator-based-final.yml \
-    "$EXTRA_ARGS" \
+    "${EXTRA_ARGS[@]}" \
     --wait \
     --timeout 10m
 
@@ -78,7 +78,7 @@ helm upgrade --install camunda oci://ghcr.io/camunda/helm/camunda-platform \
 #     --namespace "$NAMESPACE" \
 #     --create-namespace \
 #     --values values-operator-based-final.yml \
-#     "$EXTRA_ARGS" \
+#     "${EXTRA_ARGS[@]}" \
 #     --wait \
 #     --timeout 10m
 
