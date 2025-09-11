@@ -31,10 +31,11 @@ on:
                 default: ec2-single-region
     pull_request:
         paths:
-            - .github/actions/aws-generic-single-region-cleanup/**
+            - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-compute-ec2-single-region-create/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-generic-terraform-outputs/**
+            - .github/actions/internal-terraform-drift-detect/**
             - .github/workflows/aws_compute_ec2_single_region_tests.yml
             - .tool-versions
             - aws/compute/ec2-single-region/**
@@ -313,15 +314,16 @@ jobs:
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand Infrastructure
-              uses: ./.github/actions/aws-generic-single-region-cleanup
+              uses: ./.github/actions/aws-generic-terraform-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 125
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours-states: 0
+                  max-age-hours: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  modules-order: cluster
 
     test-report:
         runs-on: ubuntu-latest

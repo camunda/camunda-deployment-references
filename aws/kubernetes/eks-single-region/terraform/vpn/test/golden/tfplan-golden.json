@@ -1,0 +1,487 @@
+{
+  "child_modules": {
+    "module.vpn": {
+      "resources": {
+        "module.vpn.aws_acm_certificate.ca_cert": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "ca_cert",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "domain_validation_options": [],
+            "options": [],
+            "private_key": true,
+            "renewal_summary": [],
+            "subject_alternative_names": [],
+            "tags_all": {},
+            "validation_emails": [],
+            "validation_option": []
+          },
+          "type": "aws_acm_certificate",
+          "values": {
+            "certificate_authority_arn": null,
+            "certificate_chain": null,
+            "early_renewal_duration": null,
+            "region": "eu-west-2",
+            "tags": null,
+            "validation_option": []
+          }
+        },
+        "module.vpn.aws_acm_certificate.vpn_cert": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "vpn_cert",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "domain_validation_options": [],
+            "options": [],
+            "private_key": true,
+            "renewal_summary": [],
+            "subject_alternative_names": [],
+            "tags_all": {},
+            "validation_emails": [],
+            "validation_option": []
+          },
+          "type": "aws_acm_certificate",
+          "values": {
+            "certificate_authority_arn": null,
+            "early_renewal_duration": null,
+            "region": "eu-west-2",
+            "tags": null,
+            "validation_option": []
+          }
+        },
+        "module.vpn.aws_cloudwatch_log_group.vpn_logs": {
+          "identity": {
+            "account_id": null,
+            "name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "vpn_logs",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_cloudwatch_log_group",
+          "values": {
+            "kms_key_id": null,
+            "name": "/aws/vpn/my-vpn",
+            "region": "eu-west-2",
+            "retention_in_days": 365,
+            "skip_destroy": false,
+            "tags": null
+          }
+        },
+        "module.vpn.aws_cloudwatch_log_stream.vpn_logs": {
+          "mode": "managed",
+          "name": "vpn_logs",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_cloudwatch_log_stream",
+          "values": {
+            "log_group_name": "/aws/vpn/my-vpn",
+            "name": "vpn-connection-logs-my-vpn",
+            "region": "eu-west-2"
+          }
+        },
+        "module.vpn.aws_ec2_client_vpn_authorization_rule.vpn_auth_rule": {
+          "mode": "managed",
+          "name": "vpn_auth_rule",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "timeouts": {}
+          },
+          "type": "aws_ec2_client_vpn_authorization_rule",
+          "values": {
+            "access_group_id": null,
+            "authorize_all_groups": true,
+            "description": null,
+            "region": "eu-west-2",
+            "target_network_cidr": "172.31.0.0/16",
+            "timeouts": {
+              "create": "15m",
+              "delete": "20m"
+            }
+          }
+        },
+        "module.vpn.aws_ec2_client_vpn_endpoint.vpn": {
+          "mode": "managed",
+          "name": "vpn",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "authentication_options": [
+              {}
+            ],
+            "client_connect_options": [],
+            "client_login_banner_options": [
+              {}
+            ],
+            "client_route_enforcement_options": [],
+            "connection_log_options": [
+              {}
+            ],
+            "dns_servers": [
+              false
+            ],
+            "security_group_ids": [],
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_ec2_client_vpn_endpoint",
+          "values": {
+            "authentication_options": [
+              {
+                "active_directory_id": "",
+                "saml_provider_arn": "",
+                "self_service_saml_provider_arn": "",
+                "type": "certificate-authentication"
+              }
+            ],
+            "client_cidr_block": "172.0.0.0/22",
+            "client_login_banner_options": [
+              {
+                "banner_text": "This VPN is for authorized users only. All activities may be monitored and recorded.",
+                "enabled": true
+              }
+            ],
+            "connection_log_options": [
+              {
+                "cloudwatch_log_group": "/aws/vpn/my-vpn",
+                "cloudwatch_log_stream": "vpn-connection-logs-my-vpn",
+                "enabled": true
+              }
+            ],
+            "description": "Client VPN endpoint of my-vpn",
+            "dns_servers": [
+              "169.254.169.253"
+            ],
+            "region": "eu-west-2",
+            "self_service_portal": "disabled",
+            "session_timeout_hours": 8,
+            "split_tunnel": true,
+            "tags": {
+              "Name": "client-vpn-my-vpn"
+            },
+            "tags_all": {
+              "Name": "client-vpn-my-vpn"
+            },
+            "transport_protocol": "udp",
+            "vpc_id": "vpc-0d2cc9a5681827b0a",
+            "vpn_port": 443
+          }
+        },
+        "module.vpn.aws_security_group.vpn": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "vpn",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "egress": [
+              {
+                "cidr_blocks": [
+                  false
+                ],
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "security_groups": []
+              }
+            ],
+            "ingress": [
+              {
+                "cidr_blocks": [
+                  false
+                ],
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "security_groups": []
+              }
+            ],
+            "tags_all": {}
+          },
+          "type": "aws_security_group",
+          "values": {
+            "description": "Security group for Client VPN endpoint my-vpn",
+            "egress": [
+              {
+                "cidr_blocks": [
+                  "172.31.0.0/16"
+                ],
+                "description": "Allow the VPN to access the internal network, unrestricted",
+                "from_port": 0,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "-1",
+                "security_groups": [],
+                "self": false,
+                "to_port": 0
+              }
+            ],
+            "ingress": [
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "Allow client VPN connections from approved IP ranges",
+                "from_port": 443,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "udp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 443
+              }
+            ],
+            "name_prefix": "client-vpn-endpoint-sg-my-vpn",
+            "region": "eu-west-2",
+            "revoke_rules_on_delete": false,
+            "tags": null,
+            "timeouts": null,
+            "vpc_id": "vpc-0d2cc9a5681827b0a"
+          }
+        },
+        "module.vpn.tls_cert_request.client_csr[\"my-client\"]": {
+          "index": "my-client",
+          "mode": "managed",
+          "name": "client_csr",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 0,
+          "sensitive_values": {
+            "private_key_pem": true,
+            "subject": [
+              {}
+            ]
+          },
+          "type": "tls_cert_request",
+          "values": {
+            "dns_names": null,
+            "ip_addresses": null,
+            "subject": [
+              {
+                "common_name": "common.local.my-client",
+                "country": null,
+                "email_address": null,
+                "locality": null,
+                "organization": null,
+                "organizational_unit": null,
+                "postal_code": null,
+                "province": null,
+                "serial_number": null,
+                "street_address": null
+              }
+            ],
+            "uris": null
+          }
+        },
+        "module.vpn.tls_cert_request.server_csr": {
+          "mode": "managed",
+          "name": "server_csr",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 0,
+          "sensitive_values": {
+            "private_key_pem": true,
+            "subject": [
+              {}
+            ]
+          },
+          "type": "tls_cert_request",
+          "values": {
+            "dns_names": null,
+            "ip_addresses": null,
+            "subject": [
+              {
+                "common_name": "server.common.local",
+                "country": null,
+                "email_address": null,
+                "locality": null,
+                "organization": null,
+                "organizational_unit": null,
+                "postal_code": null,
+                "province": null,
+                "serial_number": null,
+                "street_address": null
+              }
+            ],
+            "uris": null
+          }
+        },
+        "module.vpn.tls_locally_signed_cert.client_public_key[\"my-client\"]": {
+          "index": "my-client",
+          "mode": "managed",
+          "name": "client_public_key",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 0,
+          "sensitive_values": {
+            "allowed_uses": [
+              false,
+              false
+            ],
+            "ca_private_key_pem": true
+          },
+          "type": "tls_locally_signed_cert",
+          "values": {
+            "allowed_uses": [
+              "client_auth",
+              "digital_signature"
+            ],
+            "early_renewal_hours": 0,
+            "is_ca_certificate": false,
+            "ready_for_renewal": false,
+            "set_subject_key_id": true,
+            "validity_period_hours": 8760
+          }
+        },
+        "module.vpn.tls_locally_signed_cert.server_public_key": {
+          "mode": "managed",
+          "name": "server_public_key",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 0,
+          "sensitive_values": {
+            "allowed_uses": [
+              false,
+              false,
+              false,
+              false
+            ],
+            "ca_private_key_pem": true
+          },
+          "type": "tls_locally_signed_cert",
+          "values": {
+            "allowed_uses": [
+              "digital_signature",
+              "key_encipherment",
+              "server_auth",
+              "client_auth"
+            ],
+            "early_renewal_hours": 0,
+            "is_ca_certificate": false,
+            "ready_for_renewal": false,
+            "set_subject_key_id": true,
+            "validity_period_hours": 8760
+          }
+        },
+        "module.vpn.tls_private_key.ca_private_key": {
+          "mode": "managed",
+          "name": "ca_private_key",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 1,
+          "sensitive_values": {
+            "private_key_openssh": true,
+            "private_key_pem": true,
+            "private_key_pem_pkcs8": true
+          },
+          "type": "tls_private_key",
+          "values": {
+            "algorithm": "RSA",
+            "ecdsa_curve": "P224",
+            "rsa_bits": 2048
+          }
+        },
+        "module.vpn.tls_private_key.client_private_key[\"my-client\"]": {
+          "index": "my-client",
+          "mode": "managed",
+          "name": "client_private_key",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 1,
+          "sensitive_values": {
+            "private_key_openssh": true,
+            "private_key_pem": true,
+            "private_key_pem_pkcs8": true
+          },
+          "type": "tls_private_key",
+          "values": {
+            "algorithm": "RSA",
+            "ecdsa_curve": "P224",
+            "rsa_bits": 2048
+          }
+        },
+        "module.vpn.tls_private_key.server_private_key": {
+          "mode": "managed",
+          "name": "server_private_key",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 1,
+          "sensitive_values": {
+            "private_key_openssh": true,
+            "private_key_pem": true,
+            "private_key_pem_pkcs8": true
+          },
+          "type": "tls_private_key",
+          "values": {
+            "algorithm": "RSA",
+            "ecdsa_curve": "P224",
+            "rsa_bits": 2048
+          }
+        },
+        "module.vpn.tls_self_signed_cert.ca_public_key": {
+          "mode": "managed",
+          "name": "ca_public_key",
+          "provider_name": "registry.terraform.io/hashicorp/tls",
+          "schema_version": 0,
+          "sensitive_values": {
+            "allowed_uses": [
+              false,
+              false,
+              false,
+              false
+            ],
+            "private_key_pem": true,
+            "subject": [
+              {}
+            ]
+          },
+          "type": "tls_self_signed_cert",
+          "values": {
+            "allowed_uses": [
+              "cert_signing",
+              "crl_signing",
+              "key_encipherment",
+              "digital_signature"
+            ],
+            "dns_names": null,
+            "early_renewal_hours": 720,
+            "ip_addresses": null,
+            "is_ca_certificate": true,
+            "ready_for_renewal": false,
+            "set_authority_key_id": false,
+            "set_subject_key_id": false,
+            "subject": [
+              {
+                "common_name": "common.local",
+                "country": null,
+                "email_address": null,
+                "locality": null,
+                "organization": "Organization CA VPN",
+                "organizational_unit": null,
+                "postal_code": null,
+                "province": null,
+                "serial_number": null,
+                "street_address": null
+              }
+            ],
+            "uris": null,
+            "validity_period_hours": 87600
+          }
+        }
+      }
+    }
+  }
+}
