@@ -59,18 +59,15 @@ echo "[INFO] Configuring the environment variables for cluster communication, ex
 # Default configuration for setup with OpenSearch as DB
 {
     # Broker Setup
-    echo "ZEEBE_BROKER_CLUSTER_CLUSTERSIZE=\"${total_ip_count}\""
-    echo "ZEEBE_BROKER_CLUSTER_REPLICATIONFACTOR=\"${total_ip_count}\""
-    echo "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS=\"${ips_list}\""
-    echo "ZEEBE_BROKER_CLUSTER_NODEID=\"${index}\""
-    echo "ZEEBE_BROKER_NETWORK_ADVERTISEDHOST=\"${ip}\""
+    echo "CAMUNDA_CLUSTER_NODEID=\"${index}\""
+    echo "CAMUNDA_CLUSTER_CLUSTERSIZE=\"${total_ip_count}\""
+
+    echo "CAMUNDA_CLUSTER_REPLICATIONFACTOR=\"${total_ip_count}\""
+    echo "CAMUNDA_CLUSTER_INITIAL-CONTACTPOINTS=\"${ips_list}\""
+
+    echo "CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST=\"${ip}\""
     # External DB setup
-    echo "CAMUNDA_OPERATE_OPENSEARCH_URL=\"${OPENSEARCH_URL}\""
-    echo "CAMUNDA_OPERATE_ZEEBEOPENSEARCH_URL=\"${OPENSEARCH_URL}\""
-    echo "CAMUNDA_TASKLIST_OPENSEARCH_URL=\"${OPENSEARCH_URL}\""
-    echo "CAMUNDA_TASKLIST_ZEEBEOPENSEARCH_URL=\"${OPENSEARCH_URL}\""
-    echo "ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_CONNECT_URL=\"${OPENSEARCH_URL}\""
-    echo "CAMUNDA_DATABASE_URL=\"${OPENSEARCH_URL}\""
+    echo "CAMUNDA_DATA_SECONDARYSTORAGE_OPENSEARCH_URL=\"${OPENSEARCH_URL}\""
     # Disable old importers
     echo "CAMUNDA_OPERATE_IMPORTERENABLED=\"false\""
     echo "CAMUNDA_OPERATE_ARCHIVERENABLED=\"false\""
