@@ -24,11 +24,17 @@ spec:
         - name: http-relative-path
           value: /auth
     ingress:
-        enabled: false
+        enabled: true
+        className: openshift-default
+        annotations:
+            route.openshift.io/termination: edge
+        rules:
+            - host: ${CAMUNDA_DOMAIN}
+              paths:
+                  - path: /auth
+                    pathType: Prefix
     hostname:
         hostname: ${CAMUNDA_DOMAIN}
-        #  tlsSecret: example-tls
-        #  backchannelDynamic: true
         strict: true
     resources:
         limits:

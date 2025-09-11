@@ -24,11 +24,19 @@ spec:
         - name: http-relative-path
           value: /auth
     ingress:
-        enabled: false
+        enabled: true
+        className: nginx
+        annotations:
+            nginx.ingress.kubernetes.io/rewrite-target: /$1
+            nginx.ingress.kubernetes.io/use-regex: 'true'
+            nginx.ingress.kubernetes.io/ssl-redirect: 'false'
+        rules:
+            - host: ${CAMUNDA_DOMAIN}
+              paths:
+                  - path: /auth/(.*)
+                    pathType: Prefix
     hostname:
         hostname: ${CAMUNDA_DOMAIN}
-        #  tlsSecret: example-tls
-        #  backchannelDynamic: true
         strict: true
     resources:
         limits:
