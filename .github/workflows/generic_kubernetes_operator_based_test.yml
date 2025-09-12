@@ -66,8 +66,11 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
+
     # TODO: to be defined in the matrix so we can use multiple modules
-    S3_BACKEND_BUCKET_PREFIX: generic/kubernetes/operator-based/ # keep it synced with the cleanup
+    # keep it synced with ROSA single region so we have the cleanup
+    # maybe later we could extract this in a common file
+    S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION: aws/openshift/rosa-hcp-single-region/
 
     # TODO: revert
     CLEANUP_CLUSTERS: false
@@ -191,7 +194,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   openshift-version: ${{ matrix.distro.version }}
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
@@ -486,7 +489,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
-                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   delete-ghost-clusters: 'false'
 
     report-success:
