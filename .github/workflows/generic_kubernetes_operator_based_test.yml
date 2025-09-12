@@ -1,5 +1,5 @@
 ---
-name: Tests - Integration - AWS OpenShift ROSA HCP Single Region
+name: Tests - Integration - Generic Operator based
 
 permissions:
     contents: read # don't allow commits
@@ -7,25 +7,23 @@ permissions:
 
 on:
     schedule:
-        - cron: 0 3 * * 1 # Runs at 3 AM on Monday
+        - cron: 0 2 * * 1 # Runs at 2 AM on Monday
     pull_request:
         paths:
-            - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
-            - .github/workflows-config/aws-openshift-rosa-hcp-single-region/test_matrix.yml
+            - .github/workflows/generic_kubernetes_operator_based_test.yml
+            - .github/workflows-config/generic-kubernetes-operator-based/test_matrix.yml
             - .tool-versions
-            - generic/kubernetes/single-region/**
-            - generic/openshift/single-region/**
+            - generic/kubernetes/operator-based/**
             - aws/openshift/rosa-hcp-single-region/**
             - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
-            - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-helm-chart-tests/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
-            - .github/actions/internal-terraform-drift-detect/**
 
     workflow_dispatch:
         inputs:
@@ -46,11 +44,11 @@ on:
                 description: |
                     Reference architecture to use, can only deploy one at a time.
                     Use a different trigger with unique names for each ref-arch.
-                    Valid values are `rosa-hcp-single-region`.
+                    Valid values are `operator-based`.
                     Only for workflow_dispatch.
                 required: false
                 type: string
-                default: rosa-hcp-single-region
+                default: operator-based
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -68,14 +66,20 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
-    S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-single-region/ # keep it synced with the name of the module for simplicity
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # TODO: to be defined in the matrix so we can use multiple modules
+    # keep it synced with ROSA single region so we have the cleanup
+    # maybe later we could extract this in a common file
+    S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION: aws/openshift/rosa-hcp-single-region/
+
+    # TODO: revert
+    CLEANUP_CLUSTERS: false
+    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
     # Vars with "CI_" prefix are used in the CI workflow only.
-    CI_MATRIX_FILE: .github/workflows-config/aws-openshift-rosa-hcp-single-region/test_matrix.yml
+    CI_MATRIX_FILE: .github/workflows-config/generic-kubernetes-operator-based/test_matrix.yml
 
     # Docker Hub auth to avoid image pull rate limit.
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
@@ -84,10 +88,6 @@ env:
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
     TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
-
-    # Components that are not enabled by default in the doc, but enabled in our tests to have a better coverage
-    WEBMODELER_ENABLED: 'true'
-    CONSOLE_ENABLED: 'true'
 
     ROSA_CLI_VERSION: latest
 
@@ -123,7 +123,9 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  # TODO: revert
+                  # cluster_name: ${{ inputs.cluster_name }}
+                  cluster_name: lei
                   ref_arch: ${{ inputs.ref-arch }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
@@ -178,7 +180,6 @@ jobs:
                   TARGET_BRANCH=$(cat .target-branch)
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
-            # Also remove the versioning
             - name: Create ROSA cluster and login
               uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-create
               id: create_cluster
@@ -189,17 +190,14 @@ jobs:
                   cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   admin-username: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
                   admin-password: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
-                  private-vpc: ${{ matrix.distro.private_vpc }}
                   aws-region: ${{ env.AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   openshift-version: ${{ matrix.distro.version }}
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
                   cleanup-tf-modules-path: 'false'
-
-                  vpn-enabled: ${{ matrix.distro.private_vpc }}
 
                   tags: >
                       {
@@ -225,14 +223,6 @@ jobs:
                   file_path: ${{ runner.temp }}/kubeconfig.yaml
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
-            - name: Export VPN config and encrypt it
-              if: ${{ matrix.distro.private_vpc == true }}
-              id: export_configs
-              uses: ./.github/actions/internal-generic-encrypt-export
-              with:
-                  file_path: ${{ steps.create_cluster.outputs.vpn-client-config-file }}
-                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
-
             ## Write for matrix outputs workaround
             - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
               id: out
@@ -241,44 +231,6 @@ jobs:
                   matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
                       kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
-                      vpnconfig_encrypted: ${{ steps.export_configs.outputs.encrypted_file_base64 }}
-
-            - name: 🌐 Post-creation steps
-              timeout-minutes: 20
-              run: |
-                  set -euo pipefail
-
-                  # Conditionally gather VPN config if private VPC is enabled
-                  if [[ "${{ matrix.distro.private_vpc }}" == "true" ]]; then
-                    echo "🔒 Private VPC is enabled. Gathering VPN client config..."
-                    cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/${{ matrix.scenario.name }}/terraform/vpn/
-                    ./../../../../common/procedure/vpn/gather-vpn-config.sh
-
-                    # Verify that the .ovpn file was created and is not empty
-                    if [[ -s "my-client.ovpn" ]]; then
-                      echo "✅ VPN config file 'my-client.ovpn' created successfully."
-                    else
-                      echo "❌ ERROR: 'my-client.ovpn' is missing or empty."
-                      exit 1
-                    fi
-
-                    cd -
-                  fi
-
-                  # Here we verify the extraction of the env variables as presented in the documentation
-                  cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/${{ matrix.scenario.name }}/terraform/cluster/
-                  source ./../../procedure/gather-cluster-login-id.sh
-                  cd -
-
-                  echo "CLUSTER_NAME=$CLUSTER_NAME"
-                  echo "CLUSTER_API_URL=$CLUSTER_API_URL"
-
-                  if [[ -z "$CLUSTER_NAME" || -z "$CLUSTER_API_URL" ]]; then
-                    echo "❌ ERROR: CLUSTER_NAME or CLUSTER_API_URL is empty."
-                    exit 1
-                  else
-                    echo "✅ Environment variables were successfully extracted."
-                  fi
 
     access-info:
         name: Read kube configs from matrix
@@ -340,37 +292,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
-            - name: 🛡️ Install OpenVPN Client
-              if: ${{ matrix.distro.private_vpc == true }}
-              run: |
-                  set -euo pipefail
-
-                  sudo apt update
-                  sudo apt install -y openvpn openvpn-systemd-resolved
-
-            - name: 🛡️ Retrieve VPN Config from outputs
-              uses: ./.github/actions/internal-generic-decrypt-import
-              if: ${{ matrix.distro.private_vpc == true }}
-              with:
-                  output_path: ${{ github.workspace }}/.vpn/client.ovpn
-                  encrypted_file_base64: >
-                      ${{ fromJson(needs.access-info.outputs.config).vpnconfig_encrypted[
-                        format(
-                          '{0}-{1}',
-                          matrix.distro.name,
-                          matrix.scenario.name
-                        )
-                      ] }}
-                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
-
-            - name: 🛡️ Connect to VPN
-              if: ${{ matrix.distro.private_vpc == true }}
-              uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
-              with:
-                  config_file: ${{ github.workspace }}/.vpn/client.ovpn
-                  echo_config: 'false'
-
-            - name: 🔐 Retrieve kubeconfig from outputs
+            - name: Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
               with:
                   output_path: ${{ runner.temp }}/kubeconfig
@@ -400,18 +322,8 @@ jobs:
               run: |
                   # run it as specified in the doc
                   set -euo pipefail
-
-                  ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
+                  ./generic/kubernetes/operator-based/get-your-copy.sh
                   tree
-
-            - name: 🌱 Register chart setup environment values
-              timeout-minutes: 3
-              run: |
-                  set -euo pipefail
-
-                  # the chart env should be loaded by the client at the very first step of his installation
-                  source .github/scripts/gha-functions.sh
-                  export_new_env_vars generic/openshift/single-region/procedure/chart-env.sh
 
             - name: 🏗️ Prepare a fresh namespace for the tests
               run: |
@@ -434,129 +346,70 @@ jobs:
                   echo "Sleeping 30s"
                   sleep 30
 
-            - name: 🛠️ Assemble deployment values of generic/openshift/single-region
+            - name: 🛠️ Assemble deployment values for domain setup
               timeout-minutes: 10
               run: |
                   set -o errexit
                   set -euo pipefail
 
-                  echo "Construct the values.yml file"
-
-                  cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
-
                   echo "Applying declination: ${{ matrix.declination.name }}"
 
                   if [[ ${{ matrix.declination.name }} == "domain" ]]; then
-
                     source ./generic/openshift/single-region/procedure/setup-application-domain.sh
                     echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
-                    echo "CAMUNDA_GRPC_DOMAIN=zeebe-$DOMAIN_NAME:443" | tee -a "$GITHUB_ENV"
-
-                    source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
-
-                    ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
-
-                    # Enable Routes
-                    for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
-                        yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
-                        cat values-result.yml && mv values-result.yml values.yml
-                    done
                   elif [[ ${{ matrix.declination.name }} == "no-domain" ]]; then
                       # explicitely set no domain
-                      echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
-                      echo "CAMUNDA_GRPC_DOMAIN=" | tee -a "$GITHUB_ENV"
-
-                      yq ". *d load(\"generic/openshift/single-region/helm-values/no-domain.yml\")" values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
+                      echo "CAMUNDA_DOMAIN=localhost" | tee -a "$GITHUB_ENV"
                   else
                     echo "Error: matrix.declaration must be set to 'domain' or 'no-domain'" >&2
                     exit 1
                   fi
 
-                  # Enable SCC
-                  yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
+            - name: 🌱 Register chart setup environment values
+              timeout-minutes: 3
+              run: |
+                  set -euo pipefail
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars generic/kubernetes/operator-based/0-set-environment.sh
 
-                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
-                    echo "Enabling WebModeler"
-                    yq -i '.webModeler.enabled = true' values.yml
-                    yq -i '.postgresql.enabled = true' values.yml
-                  fi
-
-                  if [ "$CONSOLE_ENABLED" == "true" ]; then
-                    echo "Enabling Console"
-                    yq -i '.console.enabled = true' values.yml
-                  fi
-
-                  # Add integration tests values
-                  if [ "$TESTS_ENABLED" == "true" ]; then
-                    for file in registry.yml identity.yml; do
-                      yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
-                    done
-                  fi
-
-                  ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
-
-
-            - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
-              timeout-minutes: 10
+            - name: 🚀 Deploy all requirements using operator-based deployment
+              timeout-minutes: 30
+              working-directory: ./generic/kubernetes/operator-based/
               run: |
                   set -euo pipefail
 
-                  source generic/openshift/single-region/procedure/generate-passwords.sh
+                  pwd
+                  ls -la
 
-                  ./generic/openshift/single-region/procedure/create-identity-secret.sh
+                  # TODO: in the doc, ensure that user is in the working directory
 
-                  # Generate tests objects
-                  if [ "$TESTS_ENABLED" == "true" ]; then
-                    # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml
-                    kubectl create secret docker-registry index-docker-io \
-                        --docker-server=index.docker.io \
-                        --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
-                        --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
-                        --namespace="$CAMUNDA_NAMESPACE"
+                  echo "Running all-in-one deployment script for operator-based setup..."
+                  ./deploy-all-reqs.sh
 
-                    kubectl create secret generic identity-secret-for-components-integration \
-                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
-                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-                        --namespace="$CAMUNDA_NAMESPACE"
-                  fi
+            - name: 🔑 Create Camunda credentials
+              timeout-minutes: 5
+              working-directory: ./generic/kubernetes/operator-based/
+              run: |
+                  set -euo pipefail
+                  echo "Creating Camunda Identity credentials..."
+                  ./04-camunda-create-identity-secret.sh
 
-                  ./generic/openshift/single-region/procedure/install-chart.sh
+            - name: 🏗️ Deploy Camunda Platform
+              timeout-minutes: 15
+              working-directory: ./generic/kubernetes/operator-based/
+              run: |
+                  set -euo pipefail
+                  echo "Deploying Camunda Platform with operator-based infrastructure..."
+                  ./04-camunda-deploy.sh
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 10
+              working-directory: ./generic/kubernetes/operator-based/
               run: |
                   set -euo pipefail
 
-                  ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
-
-            - name: Set current Camunda version
-              id: camunda-version
-              run: |
-                  set -euo pipefail
-
-                  CAMUNDA_VERSION=$(cat .camunda-version)
-                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
-
-
-            - name: 🧪 Run Helm Chart tests
-              if: env.TESTS_ENABLED == 'true'
-              timeout-minutes: 60
-              uses: ./.github/actions/internal-camunda-chart-tests
-              with:
-                  secrets: ${{ toJSON(secrets) }}
-                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
-                  camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
-                  camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
-                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
-                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
-                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
-                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
-                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  ./check-deployment-ready.sh
+                  echo "Camunda deployment verified successfully."
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
@@ -625,7 +478,7 @@ jobs:
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand ROSA HCP Cluster
-              uses: ./.github/actions/aws-generic-terraform-cleanup
+              uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 125
               env:
@@ -633,12 +486,10 @@ jobs:
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours: 0
+                  max-age-hours-cluster: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
-                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-                  openshift: 'true'
-                  delete-ghost-rosa-clusters: 'false'
-                  modules-order: vpn,cluster
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  delete-ghost-clusters: 'false'
 
     report-success:
         name: Report success

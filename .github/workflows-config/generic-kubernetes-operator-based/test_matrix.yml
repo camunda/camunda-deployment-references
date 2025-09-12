@@ -1,0 +1,18 @@
+---
+matrix:
+    distro:
+        - name: OpenShift 4.19
+          schedule_only: false
+          # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+          version: 4.19.7
+          clusterName: op-based # cluster name for operator-based tests
+
+    scenario:
+        - name: operator-based
+          shortName: opb
+
+    declination:
+        - name: no-domain
+          desc: Setup operator-based stack without domain configuration.
+        - name: domain
+          desc: Setup operator-based stack with domain configuration.

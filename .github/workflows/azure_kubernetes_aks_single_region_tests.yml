@@ -183,7 +183,6 @@ jobs:
                   subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
 
             - name: Set current target branch
-              if: env.CLEANUP_CLUSTERS == 'true'
               id: target-branch
               run: |
                   set -euo pipefail
