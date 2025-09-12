@@ -48,23 +48,23 @@ else
 fi
 
 # Choose values file and configure ingress settings based on domain and platform
-VALUES_FILE="values-operator-based.yml"
+VALUES_FILE="values-all-components.yml"
 export INGRESS_CLASS_NAME="nginx"
 
 echo "Preparing Camunda configuration..."
-cp "$VALUES_FILE" values-operator-based-temp.yml
+cp "$VALUES_FILE" values-all-components-temp.yml
 
 if [ "$CAMUNDA_DOMAIN" != "localhost" ]; then
     echo "Enabling ingress for domain: $CAMUNDA_DOMAIN"
 
     # Enable global ingress
-    yq eval '.global.ingress.enabled = true' -i values-operator-based-temp.yml
+    yq eval '.global.ingress.enabled = true' -i values-all-components-temp.yml
 
     if [ "$IS_OPENSHIFT" = true ]; then
         export INGRESS_CLASS_NAME="openshift-default"
         echo "Using OpenShift ingress class: $INGRESS_CLASS_NAME"
         # Update TLS settings for OpenShift
-        yq eval '.global.ingress.annotations."route.openshift.io/termination" = "edge"' -i values-operator-based-temp.yml
+        yq eval '.global.ingress.annotations."route.openshift.io/termination" = "edge"' -i values-all-components-temp.yml
     else
         export INGRESS_CLASS_NAME="nginx"
         echo "Using Nginx ingress class: $INGRESS_CLASS_NAME"
@@ -84,7 +84,7 @@ helm repo update
 
 # Apply environment variable substitution to values file
 echo "Applying environment variable substitution to values file..."
-envsubst < values-operator-based-temp.yml > values-operator-based-final.yml
+envsubst < values-all-components-temp.yml > values-all-components-final.yml
 
 # Prepare OpenShift-specific parameters
 EXTRA_ARGS=()
@@ -99,7 +99,7 @@ helm upgrade --install camunda oci://ghcr.io/camunda/helm/camunda-platform \
     --version "$CAMUNDA_HELM_CHART_VERSION" \
     --namespace "$NAMESPACE" \
     --create-namespace \
-    --values values-operator-based-final.yml \
+    --values values-all-components-final.yml \
     "${EXTRA_ARGS[@]}" \
     --wait \
     --timeout 10m
@@ -109,10 +109,10 @@ helm upgrade --install camunda oci://ghcr.io/camunda/helm/camunda-platform \
 #     --version "$CAMUNDA_HELM_CHART_VERSION" \
 #     --namespace "$NAMESPACE" \
 #     --create-namespace \
-#     --values values-operator-based-final.yml \
+#     --values values-all-components-final.yml \
 #     "${EXTRA_ARGS[@]}" \
 #     --wait \
 #     --timeout 10m
 
 # Clean up temporary files
-rm -f values-operator-based-temp.yml values-operator-based-final.yml
+rm -f values-all-components-temp.yml values-all-components-final.yml

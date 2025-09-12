@@ -191,7 +191,7 @@ kubectl get secret elasticsearch-es-elastic-user -n camunda -o go-template='{{.d
 ```
 
 **How it works in Camunda configuration:**
-The `values-operator-based.yml` file configures Camunda to use these ECK-generated credentials:
+The `values-all-components.yml` file configures Camunda to use these ECK-generated credentials:
 ```yaml
 global:
   elasticsearch:
@@ -302,7 +302,7 @@ After deploying the infrastructure (PostgreSQL, Elasticsearch, and Keycloak), yo
 - `04-camunda-create-identity-secret.sh` - Creates Kubernetes secret with Identity component credentials
 - `04-camunda-wait-ready.sh` - Waits for all Camunda components to be ready
 - `04-camunda-verify.sh` - Verifies Camunda Platform deployment
-- `values-operator-based.yml` - Helm values configured for operator-based infrastructure
+- `values-all-components.yml` - Helm values configured for operator-based infrastructure
 
 **Commands:**
 ```bash

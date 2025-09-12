@@ -28,13 +28,13 @@ spec:
     ingress:
         enabled: false
         className: ${INGRESS_CLASS_NAME}
+        # rules:
+        #     - host: ${CAMUNDA_DOMAIN}
+        #       paths:
+        #           - path: /auth/(.*)
+        #             pathType: Prefix
         annotations:
             kubernetes.io/tls-acme: 'true'
-        rules:
-            - host: ${CAMUNDA_DOMAIN}
-              paths:
-                  - path: /auth/(.*)
-                    pathType: Prefix
     hostname:
         hostname: ${CAMUNDA_DOMAIN}
         # TLS secret for HTTPS when ingress is enabled (remove for localhost/no-ingress)

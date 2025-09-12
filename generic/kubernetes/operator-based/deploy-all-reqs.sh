@@ -90,7 +90,14 @@ while [[ $# -gt 0 ]]; do
             exit 1
             ;;
         *)
-            NAMESPACE="$1"
+            # Only set namespace if it doesn't start with -- and no namespace set yet
+            if [[ ! "$1" =~ ^-- ]] && [[ "$NAMESPACE" == "${CAMUNDA_NAMESPACE:-camunda}" ]]; then
+                NAMESPACE="$1"
+            else
+                echo "Error: Unexpected argument '$1'"
+                show_help
+                exit 1
+            fi
             shift
             ;;
     esac
@@ -205,12 +212,12 @@ fi
 echo "=== Running Infrastructure Verification ==="
 # Only verify deployed components - pass the same skip flags
 if [ "$SKIP_POSTGRESQL" = false ] || [ "$SKIP_ELASTICSEARCH" = false ] || [ "$SKIP_KEYCLOAK" = false ]; then
-    VERIFY_ARGS="$NAMESPACE"
-    [ "$SKIP_POSTGRESQL" = true ] && VERIFY_ARGS="$VERIFY_ARGS --skip-postgresql"
-    [ "$SKIP_ELASTICSEARCH" = true ] && VERIFY_ARGS="$VERIFY_ARGS --skip-elasticsearch"
-    [ "$SKIP_KEYCLOAK" = true ] && VERIFY_ARGS="$VERIFY_ARGS --skip-keycloak"
+    VERIFY_ARGS=("$NAMESPACE")
+    [ "$SKIP_POSTGRESQL" = true ] && VERIFY_ARGS+=("--skip-postgresql")
+    [ "$SKIP_ELASTICSEARCH" = true ] && VERIFY_ARGS+=("--skip-elasticsearch")
+    [ "$SKIP_KEYCLOAK" = true ] && VERIFY_ARGS+=("--skip-keycloak")
 
-    ./verify-all-reqs.sh "$VERIFY_ARGS"
+    ./verify-all-reqs.sh "${VERIFY_ARGS[@]}"
 else
     echo "No components deployed - skipping verification"
 fi
