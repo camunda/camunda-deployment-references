@@ -72,7 +72,7 @@ env:
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: camunda-platform-8.7-12.5.0
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: camunda-platform-8.7-12.6.0
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Optional components that are not enabled by default in the doc
