@@ -47,6 +47,11 @@ identityKeycloak:
     enabled: true
     postgresql:
         enabled: true # use the embbeded database
+        auth:
+            existingSecret: identity-keycloak-psql-secret
+            secretKeys:
+                adminPasswordKey: admin-password-key
+                userPasswordKey: user-password-key
 
     auth:
         existingSecret: identity-secret-for-components
