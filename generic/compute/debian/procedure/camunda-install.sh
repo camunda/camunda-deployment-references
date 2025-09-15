@@ -11,7 +11,7 @@ set -euo pipefail
 # Executed on remote host, defaults should be set here or env vars preconfigured on remote host
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
 # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.8?(\.(?<patch>\d+))?$
-CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.8.0-alpha6"}
+CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.8.0-SNAPSHOT"}
 # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.8?(\.(?<patch>\d+))?$
 CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.8.0-alpha6"}
 # TODO: [release-duty] before the release, update this to the stable release!
