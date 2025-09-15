@@ -16,4 +16,5 @@ exclude_path = [
 # Explicitly exclude some URLs
 exclude = [
   "^file:",
+  "https://developer.hashicorp.com/*", # vercel security check causing issues
 ]
