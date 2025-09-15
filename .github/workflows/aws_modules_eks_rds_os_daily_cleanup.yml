@@ -86,6 +86,7 @@ jobs:
               timeout-minutes: 360
               if: always()
               uses: ./.github/actions/aws-eks-cleanup-resources
+              # TODO: migrate to generic
               with:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -103,6 +104,7 @@ jobs:
             - name: Retry delete orphaned resources
               id: retry-delete-orphaned-resources
               timeout-minutes: 360
+              # TODO: migrate to generic
               if: steps.delete-orphaned-resources.outcome == 'failure'
               uses: ./.github/actions/aws-eks-cleanup-resources
               with:

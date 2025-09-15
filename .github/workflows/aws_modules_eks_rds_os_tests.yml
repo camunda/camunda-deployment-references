@@ -277,6 +277,7 @@ jobs:
             - name: Delete resources of this run
               timeout-minutes: 125
               if: always()
+              # TODO: migrate to generic
               uses: ./.github/actions/aws-eks-cleanup-resources
               with:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}

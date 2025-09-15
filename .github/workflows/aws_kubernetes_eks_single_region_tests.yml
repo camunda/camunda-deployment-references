@@ -14,15 +14,17 @@ on:
             - .tool-versions
             - generic/kubernetes/single-region/**
             - aws/kubernetes/eks-single-region*/**
-            - '!aws/kubernetes/eks-single-region/test/golden/**'
-            - '!aws/kubernetes/eks-single-region-irsa/test/golden/**'
+            - '!aws/kubernetes/eks-single-region/terraform/*/test/golden/**'
+            - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
             - .github/actions/aws-kubernetes-eks-single-region-create/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
-            - .github/actions/aws-kubernetes-eks-single-region-cleanup/**
+            - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
+            - .github/actions/internal-terraform-drift-detect/**
+
     workflow_dispatch:
         inputs:
             cluster_name:
@@ -190,6 +192,8 @@ jobs:
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
                   ref-arch: ${{ matrix.scenario.name }}
+                  private-vpc: ${{ matrix.scenario.private_vpc }}
+                  vpn-enabled: ${{ matrix.scenario.private_vpc }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -215,11 +219,19 @@ jobs:
                   file_path: ${{ runner.temp }}/kubeconfig.yaml
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
+            - name: Export VPN config and encrypt it
+              if: ${{ matrix.scenario.private_vpc == true }}
+              id: export_configs
+              uses: ./.github/actions/internal-generic-encrypt-export
+              with:
+                  file_path: ${{ steps.create_cluster.outputs.vpn-client-config-file }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
             # We are exporting everything for irsa and non-irsa, worst case it's empty and not used
             # Reason for skipping pipefail in the next step
-            - name: Dump relevant Terraform outputs
+            - name: Dump relevant Terraform outputs for cluster module
               if: always()
-              working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario.name }}/
+              working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/
               id: dump_outputs
               run: |
                   set -euo pipefail
@@ -251,6 +263,29 @@ jobs:
                   outputs: |-
                       outputs_raw: ${{ steps.encrypt_outputs.outputs.encrypted_file_base64 }}
                       kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
+                      vpnconfig_encrypted: ${{ steps.export_configs.outputs.encrypted_file_base64 }}
+
+            - name: 🌐 Post-creation steps
+              timeout-minutes: 20
+              run: |
+                  set -euo pipefail
+
+                  # Conditionally gather VPN config if private VPC is enabled
+                  if [[ "${{ matrix.scenario.private_vpc }}" == "true" ]]; then
+                    echo "🔒 Private VPC is enabled. Gathering VPN client config..."
+                    cd ${{ env.TF_MODULES_DIRECTORY }}aws/kubernetes/${{ matrix.scenario.name }}/terraform/vpn/
+                    ./../../../../common/procedure/vpn/gather-vpn-config.sh
+
+                    # Verify that the .ovpn file was created and is not empty
+                    if [[ -s "my-client.ovpn" ]]; then
+                      echo "✅ VPN config file 'my-client.ovpn' created successfully."
+                    else
+                      echo "❌ ERROR: 'my-client.ovpn' is missing or empty."
+                      exit 1
+                    fi
+
+                    cd -
+                  fi
 
     access-info:
         name: Read outputs from matrix
@@ -308,6 +343,36 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+
+            - name: 🛡️ Install OpenVPN Client
+              if: ${{ matrix.scenario.private_vpc == true }}
+              run: |
+                  set -euo pipefail
+
+                  sudo apt update
+                  sudo apt install -y openvpn openvpn-systemd-resolved
+
+            - name: 🛡️ Retrieve VPN Config from outputs
+              uses: ./.github/actions/internal-generic-decrypt-import
+              if: ${{ matrix.scenario.private_vpc == true }}
+              with:
+                  output_path: ${{ github.workspace }}/.vpn/client.ovpn
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).vpnconfig_encrypted[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            - name: 🛡️ Connect to VPN
+              if: ${{ matrix.scenario.private_vpc == true }}
+              uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
+              with:
+                  config_file: ${{ github.workspace }}/.vpn/client.ovpn
+                  echo_config: 'false'
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -442,7 +507,7 @@ jobs:
                   fi
 
                   # Reset PostgreSQL
-                  kubectl apply -f ./aws/kubernetes/eks-single-region/test/reset-aurora-postgres.yml --namespace "$CAMUNDA_NAMESPACE"
+                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/test/reset-aurora-postgres.yml --namespace "$CAMUNDA_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
@@ -463,7 +528,7 @@ jobs:
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
                   # Reset OpenSearch
-                  kubectl apply -f ./aws/kubernetes/eks-single-region/test/reset-opensearch.yml --namespace "$CAMUNDA_NAMESPACE"
+                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/test/reset-opensearch.yml --namespace "$CAMUNDA_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
@@ -752,15 +817,16 @@ jobs:
                   echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand EKS Cluster
-              uses: ./.github/actions/aws-kubernetes-eks-single-region-cleanup
+              uses: ./.github/actions/aws-generic-terraform-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 125
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours-cluster: 0
+                  max-age-hours: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  modules-order: vpn,cluster
 
     report-success:
         name: Report success

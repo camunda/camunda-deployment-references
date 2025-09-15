@@ -18,13 +18,14 @@ on:
             - aws/openshift/rosa-hcp-single-region/**
             - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
-            - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
+            - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-helm-chart-tests/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
+            - .github/actions/internal-terraform-drift-detect/**
 
     workflow_dispatch:
         inputs:
@@ -251,7 +252,7 @@ jobs:
                   if [[ "${{ matrix.distro.private_vpc }}" == "true" ]]; then
                     echo "🔒 Private VPC is enabled. Gathering VPN client config..."
                     cd ${{ env.TF_MODULES_DIRECTORY }}aws/openshift/${{ matrix.scenario.name }}/terraform/vpn/
-                    ./../../procedure/gather-vpn-config.sh
+                    ./../../../../common/procedure/vpn/gather-vpn-config.sh
 
                     # Verify that the .ovpn file was created and is not empty
                     if [[ -s "my-client.ovpn" ]]; then
@@ -626,7 +627,7 @@ jobs:
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand ROSA HCP Cluster
-              uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-cleanup
+              uses: ./.github/actions/aws-generic-terraform-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 125
               env:
@@ -634,10 +635,12 @@ jobs:
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours-cluster: 0
+                  max-age-hours: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-                  delete-ghost-clusters: 'false'
+                  openshift: 'true'
+                  delete-ghost-rosa-clusters: 'false'
+                  modules-order: vpn,cluster
 
     report-success:
         name: Report success

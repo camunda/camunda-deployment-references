@@ -47,11 +47,34 @@ inputs:
         description: Reference architecture to deploy
         default: eks-single-region-irsa
         required: false
+    vpn-enabled:
+        description: Enable VPN setup module (recommended when private_vpc is true), this will also configure the current runner to use it
+        default: 'false'
+    private-vpc:
+        description: The VPC within which the cluster resides will only have private subnets, meaning that it cannot be accessed at all from the public
+            Internet (empty will fallback on default value of the module)
+        default: ''
 
 outputs:
-    terraform-state-url:
+    terraform-state-url-cluster:
         description: URL of the Terraform state file in the S3 bucket
-        value: ${{ steps.set-terraform-variables.outputs.terraform-state-url }}
+        value: ${{ steps.init-cluster.outputs.terraform-state-url-cluster }}
+
+
+    terraform-state-url-vpn:
+        description: URL of the module "vpn" Terraform state file in the S3 bucket
+        value: ${{ steps.init-vpn.outputs.terraform-state-url-vpn }}
+
+
+    vpn-client-configs:
+        description: Map of VPN client configs
+        value: ${{ steps.apply-vpn.outputs.vpn_client_configs || '' }}
+    vpn-client-config-file:
+        description: Config file used by the VPN
+        value: ${{ steps.vpn.outputs.vpn_client_config_file || '' }}
+    vpn-endpoint:
+        description: Endpoint of the VPN to access the created cluster
+        value: ${{ steps.apply-vpn.outputs.vpn_endpoint || '' }}
 
 runs:
     using: composite
@@ -73,7 +96,7 @@ runs:
           run: |
               set -euo pipefail
               export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
+              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
 
               if [ -z "${{ inputs.s3-bucket-region }}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
@@ -83,26 +106,8 @@ runs:
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
-              echo "TFSTATE_KEY=${TFSTATE_KEY}" >> "$GITHUB_OUTPUT"
+              echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
 
-              terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_KEY}"
-              echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
-
-        - name: Terraform Init
-          id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
-          shell: bash
-          run: |
-              set -euo pipefail
-
-              terraform version
-
-              terraform init \
-                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_KEY }}" \
-                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
-
-              terraform validate -no-color
 
         - name: Sanitize Tags
           id: sanitize-tags
@@ -110,20 +115,40 @@ runs:
           with:
               raw-tags: ${{ inputs.tags }}
 
-        - name: Generate tfvars file
-          id: generate-tfvars
+        - name: Terraform Init - Cluster
+          id: init-cluster
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
           run: |
               set -euo pipefail
 
-              cat > terraform.tfvars <<EOF
+              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}cluster.tfstate"
+              terraform_state_url_cluster="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
+              echo "terraform-state-url-cluster=${terraform_state_url_cluster}" | tee -a "$GITHUB_OUTPUT"
+
+              terraform version
+
+              terraform init \
+                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
+                -backend-config="key=$terraform_state_key" \
+                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
+
+              terraform validate -no-color
+
+        - name: Generate tfvars file - Cluster
+          id: generate-tfvars-cluster
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
+          run: |
+              set -euo pipefail
+
+              cat > terraform-cluster.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
               EOF
 
-        - name: Terraform Plan
-          id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
+        - name: Terraform Plan - Cluster
+          id: plan-cluster
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
           shell: bash
           run: |
               set -euo pipefail
@@ -138,6 +163,12 @@ runs:
                      -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
                      -e 's/\(single_nat_gateway\s*=\s*"\)[^"]*\("\)/\1${{ inputs.single-nat-gateway }}\2/' \
                      cluster.tf
+
+              if [ -n "${{ inputs.private-vpc }}" ]; then
+                sed -i -E "s/(^\s*private_vpc\s*=\s*)[a-z]+/\1${{ inputs.private-vpc }}/" cluster.tf
+              else
+                echo "No private-vpc value provided, skipping private modification."
+              fi
 
               echo "Displaying templated cluster.tf file:"
               cat cluster.tf
@@ -154,24 +185,135 @@ runs:
               echo "Displaying templated opensearch.tf file:"
               cat opensearch.tf
 
-              terraform plan -no-color -var-file=terraform.tfvars -out tf.plan
+              terraform plan -no-color -var-file=terraform-cluster.tfvars -out tf.plan
 
-        - name: Terraform Apply
-          id: apply
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
+        - name: Terraform Apply - Cluster
+          id: apply-cluster
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
           shell: bash
           run: |
               set -euo pipefail
               terraform apply -no-color tf.plan
 
-        - name: Terraform Drift Detection
+              export vpc_id="$(terraform output -raw vpc_id)"
+              echo "vpc_id=$vpc_id" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Terraform Drift Detection - Cluster
           if: 'false' # TODO: remove, just for testing purposes
           uses: ./.github/actions/internal-terraform-drift-detect
-          id: drift-detect
+          id: drift-detect-cluster
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
+              working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
               plan-extra-args: |
-                  -var-file=terraform.tfvars \
+                  -var-file=terraform-cluster.tfvars
+
+        - name: Terraform Init - VPN
+          id: init-vpn
+          if: inputs.vpn-enabled == 'true'
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/vpn/
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}vpn.tfstate"
+              terraform_state_url_vpn="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
+              echo "terraform-state-url-cluster=${terraform_state_url_vpn}" | tee -a "$GITHUB_OUTPUT"
+
+              terraform version
+
+              terraform init \
+                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
+                -backend-config="key=$terraform_state_key" \
+                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
+
+              terraform validate -no-color
+
+        - name: Generate tfvars file - VPN
+          id: generate-tfvars-vpn
+          if: inputs.vpn-enabled == 'true'
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/vpn/
+          run: |
+              set -euo pipefail
+
+              cat > terraform-vpn.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              vpc_id = "${{ steps.apply-cluster.outputs.vpc_id }}"
+              EOF
+
+        - name: Terraform Plan - VPN
+          id: plan-vpn
+          if: inputs.vpn-enabled == 'true'
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/vpn/
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "Adapting the files with input values"
+              pwd
+              ls
+
+              sed -i -E \
+                -e "s/(^\s*vpn_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.cluster-name }}-vpn\2/" \
+                vpn.tf
+
+              echo "Displaying templated vpn.tf file:"
+              cat vpn.tf
+
+              terraform plan -no-color -var-file=terraform-vpn.tfvars -out vpn.plan
+
+        - name: Terraform Apply - VPN
+          id: apply-vpn
+          if: inputs.vpn-enabled == 'true'
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/vpn/
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              terraform apply -no-color vpn.plan
+
+              export vpn_client_configs="$(terraform output -json vpn_client_configs)"
+              echo "vpn_client_configs=$vpn_client_configs" >> "$GITHUB_OUTPUT"
+              echo "::add-mask::$vpn_client_configs"
+
+              echo "vpn_endpoint=$(terraform output -json vpn_endpoint)" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Terraform Drift Detection - VPN
+          uses: ./.github/actions/internal-terraform-drift-detect
+          if: inputs.vpn-enabled == 'true'
+          id: drift-detect-vpn
+          with:
+              working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/vpn/
+              plan-extra-args: |
+                  -var-file=terraform-vpn.tfvars
+
+        ### End of terraform
+
+        - name: Configure VPN Client if enabled
+          id: vpn
+          shell: bash
+          if: inputs.vpn-enabled == 'true'
+          run: |
+              sudo apt update
+              sudo apt install -y openvpn openvpn-systemd-resolved
+
+              client_name="my-client" # the client name is hard-coded in the reference
+              config=$(echo '${{ steps.apply-vpn.outputs.vpn_client_configs }}' | jq -r --arg client "$client_name" '.[$client]')
+
+              # Create a secure directory inside the GitHub workspace
+              mkdir -p "$GITHUB_WORKSPACE/.vpn"
+              vpn_client_config_file="$GITHUB_WORKSPACE/.vpn/client.ovpn"
+
+              # Create the client's config file
+              echo "$config" > "$vpn_client_config_file"
+              echo "vpn_client_config_file=$vpn_client_config_file" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Connect to VPN
+          if: inputs.vpn-enabled == 'true'
+          uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
+          with:
+              config_file: ${{ steps.vpn.outputs.vpn_client_config_file }}
+              echo_config: 'false'
 
         - name: Login and generate kubeconfig
           if: inputs.login == 'true'
@@ -182,3 +324,11 @@ runs:
 
               kubectl config current-context
               kubectl get nodes
+
+        - name: Apply and verify storage class
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/
+          run: |
+              set -euo pipefail
+              ./procedure/storageclass-configure.sh
+              ./procedure/storageclass-verify.sh

@@ -226,6 +226,14 @@
                     "role": "cluster-region-1-account-HCP-ROSA-Worker-Role"
                   }
                 },
+                "module.rosa_cluster_1.module.rosa_hcp.module.account_iam_resources[0].data.aws_caller_identity.current": {
+                  "mode": "data",
+                  "name": "current",
+                  "provider_name": "registry.terraform.io/hashicorp/aws",
+                  "schema_version": 0,
+                  "sensitive_values": {},
+                  "type": "aws_caller_identity"
+                },
                 "module.rosa_cluster_1.module.rosa_hcp.module.account_iam_resources[0].data.aws_iam_policy_document.custom_trust_policy[0]": {
                   "index": 0,
                   "mode": "data",
@@ -437,7 +445,8 @@
                       "account_iam_role_name": "[\"cluster-region-1-account-HCP-ROSA-Installer-Role\",\"cluster-region-1-account-HCP-ROSA-Support-Role\",\"cluster-region-1-account-HCP-ROSA-Worker-Role\"]",
                       "account_policy_arns": "[\"ARN_REDACTED",
                       "account_role_prefix": "cluster-region-1-account",
-                      "path": "/"
+                      "path": "/",
+                      "shared_vpc_policy_attachments": "[]"
                     }
                   }
                 }
@@ -1608,7 +1617,8 @@
                     "destroy_duration": null,
                     "triggers": {
                       "operator_policy_arns": "[\"ARN_REDACTED",
-                      "operator_role_prefix": "cluster-region-1-operator"
+                      "operator_role_prefix": "cluster-region-1-operator",
+                      "shared_vpc_policy_attachments": "[]"
                     }
                   }
                 }
@@ -1811,7 +1821,8 @@
                     "worker_disk_size": null
                   }
                 },
-                "module.rosa_cluster_1.module.rosa_hcp.module.rosa_cluster_hcp.rhcs_hcp_default_ingress.default_ingress": {
+                "module.rosa_cluster_1.module.rosa_hcp.module.rosa_cluster_hcp.rhcs_hcp_default_ingress.default_ingress[0]": {
+                  "index": 0,
                   "mode": "managed",
                   "name": "default_ingress",
                   "provider_name": "registry.terraform.io/terraform-redhat/rhcs",
@@ -2653,6 +2664,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_vpc_endpoint.s3": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "s3",
               "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2963,6 +2980,14 @@
                     "role": "cluster-region-2-account-HCP-ROSA-Worker-Role"
                   }
                 },
+                "module.rosa_cluster_2.module.rosa_hcp.module.account_iam_resources[0].data.aws_caller_identity.current": {
+                  "mode": "data",
+                  "name": "current",
+                  "provider_name": "registry.terraform.io/hashicorp/aws",
+                  "schema_version": 0,
+                  "sensitive_values": {},
+                  "type": "aws_caller_identity"
+                },
                 "module.rosa_cluster_2.module.rosa_hcp.module.account_iam_resources[0].data.aws_iam_policy_document.custom_trust_policy[0]": {
                   "index": 0,
                   "mode": "data",
@@ -3174,7 +3199,8 @@
                       "account_iam_role_name": "[\"cluster-region-2-account-HCP-ROSA-Installer-Role\",\"cluster-region-2-account-HCP-ROSA-Support-Role\",\"cluster-region-2-account-HCP-ROSA-Worker-Role\"]",
                       "account_policy_arns": "[\"ARN_REDACTED",
                       "account_role_prefix": "cluster-region-2-account",
-                      "path": "/"
+                      "path": "/",
+                      "shared_vpc_policy_attachments": "[]"
                     }
                   }
                 }
@@ -4345,7 +4371,8 @@
                     "destroy_duration": null,
                     "triggers": {
                       "operator_policy_arns": "[\"ARN_REDACTED",
-                      "operator_role_prefix": "cluster-region-2-operator"
+                      "operator_role_prefix": "cluster-region-2-operator",
+                      "shared_vpc_policy_attachments": "[]"
                     }
                   }
                 }
@@ -4548,7 +4575,8 @@
                     "worker_disk_size": null
                   }
                 },
-                "module.rosa_cluster_2.module.rosa_hcp.module.rosa_cluster_hcp.rhcs_hcp_default_ingress.default_ingress": {
+                "module.rosa_cluster_2.module.rosa_hcp.module.rosa_cluster_hcp.rhcs_hcp_default_ingress.default_ingress[0]": {
+                  "index": 0,
                   "mode": "managed",
                   "name": "default_ingress",
                   "provider_name": "registry.terraform.io/terraform-redhat/rhcs",
@@ -5390,6 +5418,12 @@
               }
             },
             "module.rosa_cluster_2.module.vpc.aws_vpc_endpoint.s3": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "s3",
               "provider_name": "registry.terraform.io/hashicorp/aws",
