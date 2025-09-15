@@ -2664,6 +2664,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_vpc_endpoint.s3": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "s3",
               "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -5412,6 +5418,12 @@
               }
             },
             "module.rosa_cluster_2.module.vpc.aws_vpc_endpoint.s3": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "s3",
               "provider_name": "registry.terraform.io/hashicorp/aws",
