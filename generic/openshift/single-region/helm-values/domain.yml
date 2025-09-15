@@ -72,6 +72,7 @@ webModeler:
     contextPath: /modeler
 
 optimize:
+    enabled: true
     contextPath: /optimize
 
 orchestration:
