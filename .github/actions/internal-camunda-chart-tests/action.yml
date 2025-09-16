@@ -160,7 +160,7 @@ runs:
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
 
                 if [[ "$CAMUNDA_DOMAIN_GRPC" != "" ]]; then
-                  yq eval '.coreVars.baseURLs.zeebeGatewayGRPC = env(CAMUNDA_DOMAIN_GRPC)' \
+                  yq eval '.coreVars.baseURLs.orchestrationGRPC = env(CAMUNDA_DOMAIN_GRPC)' \
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
                 fi
               else
@@ -168,8 +168,8 @@ runs:
                 echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
                 echo "VENOM_VAR_SKIP_TEST_KEYCLOAK=true" >> "$VARIABLES_ENV_FILE"
 
-                # fix wrong default zeebeGatewayGRPC port
-                yq eval '.coreVars.baseURLs.zeebeGatewayGRPC |= (select(tag == "!!str") | sub("^http://", "") | sub(":9600$", ":26500"))' \
+                # fix wrong default orchestrationGRPC port
+                yq eval '.coreVars.baseURLs.orchestrationGRPC |= (select(tag == "!!str") | sub("^http://", "") | sub(":9600$", ":26500"))' \
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
               fi
 
