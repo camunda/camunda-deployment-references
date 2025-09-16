@@ -61,16 +61,9 @@ echo "[INFO] Configuring the environment variables for cluster communication, ex
     # Broker Setup
     echo "CAMUNDA_CLUSTER_NODEID=\"${index}\""
     echo "CAMUNDA_CLUSTER_CLUSTERSIZE=\"${total_ip_count}\""
-
     echo "CAMUNDA_CLUSTER_REPLICATIONFACTOR=\"${total_ip_count}\""
-    echo "CAMUNDA_CLUSTER_INITIAL-CONTACTPOINTS=\"${ips_list}\""
-
+    echo "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS=\"${ips_list}\""
     echo "CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST=\"${ip}\""
     # External DB setup
     echo "CAMUNDA_DATA_SECONDARYSTORAGE_OPENSEARCH_URL=\"${OPENSEARCH_URL}\""
-    # Disable old importers
-    echo "CAMUNDA_OPERATE_IMPORTERENABLED=\"false\""
-    echo "CAMUNDA_OPERATE_ARCHIVERENABLED=\"false\""
-    echo "CAMUNDA_TASKLIST_IMPORTERENABLED=\"false\""
-    echo "CAMUNDA_TASKLIST_ARCHIVERENABLED=\"false\""
 } >> "${SCRIPT_DIR}/camunda-environment.tmp"
