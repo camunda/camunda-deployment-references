@@ -450,7 +450,7 @@ jobs:
 
                     source ./generic/openshift/single-region/procedure/setup-application-domain.sh
                     echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
-                    echo "CAMUNDA_GRPC_DOMAIN=zeebe.$DOMAIN_NAME:443" | tee -a "$GITHUB_ENV"
+                    echo "CAMUNDA_GRPC_DOMAIN=zeebe-$DOMAIN_NAME:443" | tee -a "$GITHUB_ENV"
 
                     source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
 
