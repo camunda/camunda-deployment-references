@@ -7,8 +7,8 @@ orchestration:
             service.beta.openshift.io/serving-cert-secret-name: camunda-platform-internal-service-certificate
 
     ingress:
-        enabled: true
         grpc:
+            enabled: true
             annotations:
                 haproxy.router.openshift.io/timeout: 300s
                 route.openshift.io/termination: reencrypt
