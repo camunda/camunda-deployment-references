@@ -51,7 +51,7 @@ create_or_get_secret_field "camunda-credentials" "smtp-password" "SMTP_PASSWORD"
 # Create or update the secret
 if [ "$SECRET_EXISTS" = false ]; then
     echo "Creating Kubernetes secret 'camunda-credentials' with Identity component secrets..."
-    
+
     kubectl create secret generic camunda-credentials \
       --namespace "$NAMESPACE" \
       --from-literal=identity-connectors-client-token="$CONNECTORS_SECRET" \
@@ -65,14 +65,3 @@ if [ "$SECRET_EXISTS" = false ]; then
 
     echo "✅ Secret 'camunda-credentials' created successfully in namespace: $NAMESPACE"
 fi
-echo ""
-echo "Generated secrets:"
-echo "- Connectors client token: $CONNECTORS_SECRET"
-echo "- Console client token: $CONSOLE_SECRET"
-echo "- Optimize client token: $OPTIMIZE_SECRET"
-echo "- Orchestration client token: $ORCHESTRATION_SECRET"
-echo "- WebModeler client token: $WEBMODELER_SECRET"
-echo "- Identity admin token: $IDENTITY_SECRET"
-echo "- First user password: $USER_PASSWORD"
-echo ""
-echo "💡 Save these credentials in a secure location for future reference."

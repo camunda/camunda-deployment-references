@@ -1,0 +1,41 @@
+---
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+    name: keycloak
+spec:
+    # TODO: renovate
+    # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-(?<version>.*)$
+    # TODO: this will require an optimized build
+    # image: docker.io/camunda/keycloak:quay-26.3.2
+    instances: 1
+    db:
+        host: pg-keycloak-rw # this service is provided by the CNPG keycloak
+        port: 5432
+        database: keycloak
+        schema: public
+        usernameSecret:
+            name: pg-keycloak-secret
+            key: username
+        passwordSecret:
+            name: pg-keycloak-secret
+            key: password
+    http:
+        httpEnabled: true
+    transaction:
+        xaEnabled: false
+    additionalOptions:
+        - name: http-relative-path
+          value: /auth
+    ingress:
+        enabled: false
+    hostname:
+        hostname: localhost
+        strict: false
+    resources:
+        limits:
+            cpu: 500m
+            memory: 1Gi
+        requests:
+            cpu: 250m
+            memory: 512Mi

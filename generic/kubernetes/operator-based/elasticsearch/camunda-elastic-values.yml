@@ -1,5 +1,5 @@
 ---
-# Camunda Platform 8 Values - Operator-based Infrastructure
+# Camunda Platform 8 Values - ECK snippet
 # This configuration uses external services managed by Kubernetes operators:
 # - Elasticsearch: ECK operator with master-only cluster configuration (uses 'elasticsearch-es-elastic-user' secret)
 #

@@ -24,36 +24,49 @@ source ./0-set-environment.sh
 # Option 2: Set variables manually
 export CAMUNDA_NAMESPACE="camunda"
 export CAMUNDA_DOMAIN="localhost"
-export CAMUNDA_PROTOCOL="http"
 ```
 
-To deploy infrastructure components:
+To deploy infrastructure components individually:
 
 ```bash
-./deploy-all-reqs.sh [namespace]
-```
 
-Default namespace is `camunda` if not specified. This deploys PostgreSQL, Elasticsearch, and Keycloak operators and instances.
+# Deploy Elasticsearch
+cd elasticsearch && ./deploy.sh
+
+# Deploy PostgreSQL
+cd postgresql && ./deploy.sh
+
+# Deploy Keycloak
+cd keycloak && ./deploy.sh
+```
 
 To deploy Camunda Platform after infrastructure:
 
 ```bash
 # Create Identity secrets first
-./04-camunda-create-identity-secret.sh
+./tests/utils/generate-identity-secrets.sh
 
-# Deploy Camunda Platform
-./04-camunda-deploy.sh [namespace]
+# Deploy Camunda Platform using the values files
+# (Manual deployment using kubectl and the provided values files)
 ```
 
 ## Complete Verification
 
-To verify all components at once:
+To verify individual components:
 
 ```bash
-./verify-all-reqs.sh [namespace]
-```
+# Verify PostgreSQL
+kubectl get clusters -n camunda
+kubectl get svc -n camunda | grep "pg-"
 
-This script runs all individual verification scripts for infrastructure components and provides a comprehensive status report.
+# Verify Elasticsearch
+kubectl get elasticsearch -n camunda
+kubectl get svc -n camunda | grep "elasticsearch"
+
+# Verify Keycloak
+kubectl get keycloak -n camunda
+kubectl get svc -n camunda | grep keycloak
+```
 
 This deployment includes the following components:
 - **Infrastructure** (managed by operators):
@@ -65,11 +78,12 @@ This deployment includes the following components:
 Components are deployed in dependency order: PostgreSQL → Elasticsearch → Keycloak
 
 **Infrastructure Deployment:**
-- `./deploy-all-reqs.sh` - Deploy infrastructure components (PostgreSQL, Elasticsearch, Keycloak)
-- Use `--skip-postgresql`, `--skip-elasticsearch`, or `--skip-keycloak` to skip specific components
+- `postgresql/deploy.sh` - Deploy PostgreSQL via CloudNativePG operator
+- `elasticsearch/deploy.sh` - Deploy Elasticsearch via ECK operator
+- `keycloak/deploy.sh` - Deploy Keycloak via Keycloak operator
 
 **Camunda Platform Deployment:**
-- `./04-camunda-deploy.sh` - Deploy Camunda Platform using the infrastructure above
+- Use the provided Helm values files in each component directory to configure Camunda Platform with the operator-based infrastructure
 
 Note: Infrastructure components are optional. If you already use managed services (e.g., managed PostgreSQL, Elasticsearch, or Keycloak), you can skip deploying those components and configure Camunda to use the managed services instead.
 
@@ -90,34 +104,25 @@ All clusters target PostgreSQL 15, selected as the common denominator across cur
 https://docs.camunda.io/docs/next/reference/supported-environments/#component-requirements
 
 **Files:**
-- `01-postgresql-install-operator.sh` - Installs the CloudNativePG operator
-- `01-postgresql-create-secrets.sh` - Creates authentication secrets to access the databases
-- `01-postgresql-clusters.yml` - PostgreSQL cluster definitions
-- `01-postgresql-wait-ready.sh` - Waits for clusters to become healthy
+- `postgresql/deploy.sh` - Installs the CloudNativePG operator and deploys PostgreSQL clusters
+- `postgresql/set-secrets.sh` - Creates authentication secrets to access the databases
+- `postgresql/postgresql-clusters.yml` - PostgreSQL cluster definitions
+- `postgresql/deploy-openshift.sh` - OpenShift-specific deployment script
+- `postgresql/camunda-identity-values.yml` - Camunda Identity Helm values for PostgreSQL
+- `postgresql/camunda-webmodeler-values.yml` - Camunda Web Modeler Helm values for PostgreSQL
 
 **Commands:**
 ```bash
-# Install operator
-./01-postgresql-install-operator.sh
+# Deploy PostgreSQL (includes operator installation, secrets creation, and cluster deployment)
+cd postgresql && ./deploy.sh
 
-# Create secrets (generates random passwords)
-./01-postgresql-create-secrets.sh camunda
-
-# Deploy clusters
-kubectl apply -n camunda -f 01-postgresql-clusters.yml
-
-# Wait for readiness
-./01-postgresql-wait-ready.sh camunda
+# For OpenShift
+cd postgresql && ./deploy-openshift.sh
 ```
 
 Note: You can also install and configure the CloudNativePG operator using the official Helm chart. To integrate its deployment alongside the Camunda Helm chart, see: https://github.com/cloudnative-pg/charts
 
 **Verification:**
-```bash
-./01-postgresql-verify.sh camunda
-```
-
-**Quick status check:**
 ```bash
 kubectl get clusters -n camunda
 kubectl get svc -n camunda | grep "pg-"
@@ -145,31 +150,20 @@ To learn the prerequisites for this installation, refer to the official document
 - This is an excerpt from https://www.elastic.co/docs/deploy-manage/deploy/cloud-on-k8s/install-using-yaml-manifest-quickstart
 
 **Files:**
-- `02-elasticsearch-install-operator.sh` - Installs the ECK operator
-- `02-elasticsearch-cluster.yml` - Elasticsearch cluster 8.18.0 with authentication enabled, 3 master nodes, persistent storage, and bounded resources
-- `02-elasticsearch-wait-ready.sh` - Waits for cluster to become ready
+- `elasticsearch/deploy.sh` - Installs the ECK operator and deploys Elasticsearch cluster
+- `elasticsearch/elasticsearch-cluster.yml` - Elasticsearch cluster 8.18.0 with authentication enabled, 3 master nodes, persistent storage, and bounded resources
+- `elasticsearch/camunda-values.yml` - Camunda Helm values for Elasticsearch configuration
 
 **Commands:**
 ```bash
-# Install operator
-./02-elasticsearch-install-operator.sh
-
-# Deploy cluster
-kubectl apply -n camunda -f 02-elasticsearch-cluster.yml
-
-# Wait for readiness
-./02-elasticsearch-wait-ready.sh camunda
+# Deploy Elasticsearch (includes operator installation and cluster deployment)
+cd elasticsearch && ./deploy.sh
 ```
 
 If you want to integrate the deployment of this operator alongside the Camunda chart, we recommend using: https://www.elastic.co/docs/deploy-manage/deploy/cloud-on-k8s/install-using-helm-chart
 
 
 **Verification:**
-```bash
-./02-elasticsearch-verify.sh camunda
-```
-
-**Quick status check:**
 ```bash
 kubectl get elasticsearch -n camunda
 kubectl get svc -n camunda | grep "elasticsearch"
@@ -239,40 +233,24 @@ export CAMUNDA_PROTOCOL="https"
 ```
 
 **Files:**
-- `03-keycloak-install-operator.sh` - Installs the Keycloak operator
-- `03-keycloak-instance.yml` - Keycloak instance using CNPG (secret `keycloak-db`), configured to serve under `/auth`
-- `03-keycloak-wait-ready.sh` - Waits for instance to become ready
-- `03-keycloak-get-admin-credentials.sh` - Retrieves admin credentials to access the Keycloak admin console
+- `keycloak/deploy.sh` - Installs the Keycloak operator and deploys Keycloak instance
+- `keycloak/keycloak-instance-no-domain.yml` - Keycloak instance without domain configuration
+- `keycloak/keycloak-instance-domain-nginx.yml` - Keycloak instance with Nginx ingress configuration
+- `keycloak/keycloak-instance-domain-openshift.yml` - Keycloak instance with OpenShift route configuration
+- `keycloak/camunda-keycloak-domain-values.yml` - Camunda Helm values for Keycloak with domain
+- `keycloak/camunda-keycloak-no-domain-values.yml.yml` - Camunda Helm values for Keycloak without domain
 
 **Commands:**
 ```bash
 # Set environment variables
 export CAMUNDA_DOMAIN="localhost"
-export CAMUNDA_PROTOCOL="http"
+export CAMUNDA_NAMESPACE="camunda"
 
-# Install operator
-./03-keycloak-install-operator.sh camunda
-
-# Deploy instance and ingress (with environment variable substitution)
-./03-keycloak-deploy.sh camunda
-
-# Wait for readiness
-./03-keycloak-wait-ready.sh camunda
-
-# Get admin credentials
-./03-keycloak-get-admin-credentials.sh camunda
+# Deploy Keycloak (includes operator installation and instance deployment)
+cd keycloak && ./deploy.sh
 ```
 
 **Verification:**
-```bash
-./03-keycloak-verify.sh camunda
-```
-
-All configuration options for the Keycloak cluster are available in the official documentation (https://www.keycloak.org/operator/advanced-configuration).
-
-As time of now, no helm chart is planned to be integrated by the keycloak team https://github.com/keycloak/keycloak/issues/16210#issuecomment-1462203645.
-
-**Quick status check:**
 ```bash
 kubectl get keycloak -n camunda
 kubectl get svc -n camunda | grep keycloak
@@ -280,12 +258,21 @@ kubectl get svc -n camunda | grep keycloak
 
 **Access Keycloak:**
 - With Ingress on the same domain:
-  - Admin console: ${CAMUNDA_PROTOCOL}://${CAMUNDA_DOMAIN}/auth/admin/
+  - Admin console: ${CAMUNDA_DOMAIN}/auth/admin/
 - Without Ingress/hostname:
   - Port-forward locally, then open http://localhost:8080/auth/admin/
   ```bash
   kubectl -n camunda port-forward svc/keycloak 8080:8080
   ```
+
+**Get admin credentials:**
+```bash
+# Get admin username
+kubectl get secret keycloak-initial-admin -n camunda -o jsonpath='{.data.username}' | base64 -d
+
+# Get admin password
+kubectl get secret keycloak-initial-admin -n camunda -o jsonpath='{.data.password}' | base64 -d
+```
 
 Best practice: change the admin password after the first login.
 
@@ -298,47 +285,50 @@ The Keycloak realm for Camunda Platform will be automatically configured by the 
 After deploying the infrastructure (PostgreSQL, Elasticsearch, and Keycloak), you can deploy the complete Camunda Platform 8.
 
 **Files:**
-- `04-camunda-deploy.sh` - Deploys Camunda Platform using Helm with operator-based infrastructure
-- `04-camunda-create-identity-secret.sh` - Creates Kubernetes secret with Identity component credentials
-- `04-camunda-wait-ready.sh` - Waits for all Camunda components to be ready
-- `04-camunda-verify.sh` - Verifies Camunda Platform deployment
-- `values-all-components.yml` - Helm values configured for operator-based infrastructure
+- `tests/utils/generate-identity-secrets.sh` - Creates Kubernetes secret with Identity component credentials
+- `tests/utils/camunda-base-values.yml` - Base Camunda Helm values
+- `tests/utils/camunda-domain-values.yml` - Camunda Helm values with domain configuration
+- `tests/utils/camunda-values-identity-secrets.yml` - Camunda Helm values for Identity secrets
+- Component-specific values files in `postgresql/`, `elasticsearch/`, and `keycloak/` directories
 
 **Commands:**
 ```bash
 # Set environment variables
 export CAMUNDA_DOMAIN="localhost"
-export CAMUNDA_PROTOCOL="http"
 export CAMUNDA_NAMESPACE="camunda"
 
 # Create Identity component secrets
-./04-camunda-create-identity-secret.sh
+./tests/utils/generate-identity-secrets.sh
 
-# Deploy Camunda Platform
-./04-camunda-deploy.sh camunda
-
-# Wait for readiness
-./04-camunda-wait-ready.sh camunda
-
-# Verify deployment
-./04-camunda-verify.sh camunda
+# Deploy Camunda Platform using Helm with the appropriate values files
+# Combine values from multiple files for complete configuration
+helm install camunda camunda/camunda-platform \
+  -n camunda \
+  -f tests/utils/camunda-base-values.yml \
+  -f tests/utils/camunda-domain-values.yml \
+  -f tests/utils/camunda-values-identity-secrets.yml \
+  -f postgresql/camunda-identity-values.yml \
+  -f postgresql/camunda-webmodeler-values.yml \
+  -f elasticsearch/camunda-values.yml \
+  -f keycloak/camunda-keycloak-no-domain-values.yml.yml
 ```
 
-**Alternative: Use the deployment script**
+**Alternative: Use individual deployment scripts**
 ```bash
-# Deploy infrastructure first
-./deploy-all-reqs.sh camunda
+# Deploy infrastructure components individually
+cd postgresql && ./deploy.sh
+cd ../elasticsearch && ./deploy.sh
+cd ../keycloak && ./deploy.sh
 
 # Create Identity secrets
-./04-camunda-create-identity-secret.sh
+./tests/utils/generate-identity-secrets.sh
 
-# Then deploy Camunda Platform
-./04-camunda-deploy.sh camunda
+# Then deploy Camunda Platform with Helm using the values files
 ```
 
 #### Identity Secrets
 
-The `04-camunda-create-identity-secret.sh` script generates secure random tokens for Camunda Identity components and creates a Kubernetes secret named `camunda-credentials` containing:
+The `tests/utils/generate-identity-secrets.sh` script generates secure random tokens for Camunda Identity components and creates a Kubernetes secret named `camunda-credentials` containing:
 
 - `identity-connectors-client-token` - Authentication token for Connectors
 - `identity-console-client-token` - Authentication token for Console
@@ -360,6 +350,29 @@ The Camunda Platform deployment includes:
 - **WebModeler**: Visual process modeling (optional)
 - **Console**: Admin interface (optional)
 
+## Additional Scripts and Utilities
+
+This deployment includes several additional utility scripts:
+
+**Setup and Environment:**
+- `0-set-environment.sh` - Sets up required environment variables for the deployment
+- `get-your-copy.sh` - Downloads a local copy of this reference architecture
+
+**Testing and Utilities:**
+- `tests/utils/generate-identity-secrets.sh` - Generates Camunda Identity secrets
+- `tests/utils/camunda-base-values.yml` - Base Helm values for Camunda Platform
+- `tests/utils/camunda-domain-values.yml` - Domain-specific Helm values
+- `tests/utils/camunda-values-identity-secrets.yml` - Identity secrets configuration
+- `tests/utils/get-oc-app-domain.sh` - OpenShift domain utility (placeholder)
+
+**Platform-Specific Files:**
+- `postgresql/deploy-openshift.sh` - OpenShift-specific PostgreSQL deployment
+- `keycloak/keycloak-instance-domain-openshift.yml` - OpenShift route configuration for Keycloak
+- `keycloak/keycloak-instance-domain-nginx.yml` - Nginx ingress configuration for Keycloak
+
+**Documentation:**
+- `camunda-operator-deployment-blog.md` - Blog post content about operator-based deployment
+
 ## Next Steps
 
 After infrastructure deployment:
@@ -372,9 +385,16 @@ After infrastructure deployment:
 
 To remove all components:
 ```bash
+# Remove Camunda Platform
+helm uninstall camunda -n camunda
+
+# Remove infrastructure components
 kubectl delete namespace camunda
-kubectl delete namespace cnpg-system
-kubectl delete namespace elastic-system
+
+# Remove operators (if installed in separate namespaces)
+kubectl delete namespace cnpg-system      # CloudNativePG operator
+kubectl delete namespace elastic-system   # ECK operator
+# Note: Keycloak operator is installed in the camunda namespace
 ```
 
 **Note:** This will delete all data. For production, ensure proper backup procedures.

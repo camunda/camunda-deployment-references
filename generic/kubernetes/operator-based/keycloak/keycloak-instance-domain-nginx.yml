@@ -4,8 +4,10 @@ kind: Keycloak
 metadata:
     name: keycloak
 spec:
-    # TODO: renovate
-    # TODO: source image upstream
+    # TODO: renovate to be tested
+    # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-(?<version>.*)$
+    # TODO: this will require an optimized build
+    # image: docker.io/camunda/keycloak:quay-26.3.2
     instances: 1
     db:
         host: pg-keycloak-rw # this service is provided by the CNPG keycloak
@@ -26,21 +28,16 @@ spec:
         - name: http-relative-path
           value: /auth
     ingress:
-        enabled: false
-        className: ${INGRESS_CLASS_NAME}
-        # rules:
-        #     - host: ${CAMUNDA_DOMAIN}
-        #       paths:
-        #           - path: /auth/(.*)
-        #             pathType: Prefix
+        enabled: true
+        className: nginx
         annotations:
             kubernetes.io/tls-acme: 'true'
     hostname:
         hostname: ${CAMUNDA_DOMAIN}
         # TLS secret for HTTPS when ingress is enabled (remove for localhost/no-ingress)
-        # tlsSecret: camunda-keycloak-tls
+        tlsSecret: camunda-keycloak-tls
         # Dynamic backchannel for ingress environments (set to false for localhost/no-ingress)
-        # backchannelDynamic: true
+        backchannelDynamic: true
         strict: true
     resources:
         limits:

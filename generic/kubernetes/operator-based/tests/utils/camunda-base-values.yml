@@ -1,0 +1,12 @@
+---
+# Optimize configuration
+optimize:
+    enabled: true
+
+# Connectors configuration
+connectors:
+    enabled: true
+
+# Console configuration
+console:
+    enabled: true
