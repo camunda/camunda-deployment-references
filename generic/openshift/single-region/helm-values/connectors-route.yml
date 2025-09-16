@@ -1,10 +1,12 @@
 ---
 connectors:
+    image:
+        tag: SNAPSHOT # temporarily overwrite as alpha8 is broken
     env:
         - name: CAMUNDA_CLIENT_GRPCADDRESS
           value: https://${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local:26500
         - name: CAMUNDA_CLIENT_RESTADDRESS
-          value: https://${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local:8080/orchestration
+          value: http://${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local:8080/orchestration
         - name: CAMUNDA_CLIENT_CACERTIFICATEPATH
           value: /usr/local/certificates/tls.crt
 
