@@ -8,9 +8,3 @@ orchestration:
         - name: CAMUNDA_OPERATE_ZEEBE_GATEWAYADDRESS
           # <release-name>-zeebe-gateway.<namespace>.svc.cluster.local
           value: ${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local:26500
-        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_ENABLED
-          value: 'true'
-        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_CERTIFICATECHAINPATH
-          value: /usr/local/camunda/config/tls.crt
-        - name: ZEEBE_GATEWAY_CLUSTER_SECURITY_PRIVATEKEYPATH
-          value: /usr/local/camunda/config/tls.key
