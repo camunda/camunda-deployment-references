@@ -32,6 +32,7 @@
             "api_server_access_profile": [],
             "auto_scaler_profile": [],
             "azure_active_directory_role_based_access_control": [],
+            "bootstrap_profile": [],
             "confidential_computing": [],
             "default_node_pool": [
               {

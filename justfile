@@ -1,7 +1,7 @@
 # this file is a recipe file for the project
 
 # renovate: datasource=github-releases depName=gotestyourself/gotestsum
-gotestsum_version := "v1.12.3"
+gotestsum_version := "v1.13.0"
 
 # Launch a single test using go test in verbose mode
 aws-tf-modules-test-verbose testname: aws-tf-modules-install-tests-go-mod
