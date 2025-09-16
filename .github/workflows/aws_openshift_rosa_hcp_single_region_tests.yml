@@ -457,7 +457,7 @@ jobs:
                     ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
 
                     # Enable Routes
-                    for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
+                    for file in orchestration-route.yml connectors-route.yml domain.yml; do
                         yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
                         cat values-result.yml && mv values-result.yml values.yml
                     done

@@ -1,9 +1,0 @@
----
-orchestration:
-    env:
-        - name: CAMUNDA_TASKLIST_ZEEBE_SECURE
-          value: 'true'
-        - name: CAMUNDA_TASKLIST_ZEEBE_CERTIFICATEPATH
-          value: /usr/local/camunda/config/tls.crt
-        - name: CAMUNDA_TASKLIST_ZEEBE_GATEWAYADDRESS
-          value: ${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local:26500
