@@ -60,7 +60,7 @@ echo "[INFO] Configuring the environment variables for cluster communication, ex
 {
     # Broker Setup
     echo "CAMUNDA_CLUSTER_NODEID=\"${index}\""
-    echo "CAMUNDA_CLUSTER_CLUSTERSIZE=\"${total_ip_count}\""
+    echo "CAMUNDA_CLUSTER_SIZE=\"${total_ip_count}\""
     echo "CAMUNDA_CLUSTER_REPLICATIONFACTOR=\"${total_ip_count}\""
     echo "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS=\"${ips_list}\""
     echo "CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST=\"${ip}\""
