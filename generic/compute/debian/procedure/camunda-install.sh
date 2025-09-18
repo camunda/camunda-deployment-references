@@ -11,15 +11,16 @@ set -euo pipefail
 # Executed on remote host, defaults should be set here or env vars preconfigured on remote host
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
 # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.8?(\.(?<patch>\d+))?$
-CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.8.0-alpha6"}
+CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.8.0-SNAPSHOT"}
 # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.8?(\.(?<patch>\d+))?$
-CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.8.0-alpha6"}
+CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.8.0-SNAPSHOT"}
 # TODO: [release-duty] before the release, update this to the stable release!
 # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 USERNAME=${USERNAME:-"camunda"}
 JAVA_OPTS="${JAVA_OPTS:- -Xmx512m}" # Default Java options, required to run commands as remote user
-VERSION=""
+CAMUNDA_SNAPSHOT_VERSION=""
+CONNECTORS_SNAPSHOT_VERSION=""
 
 # Check that the operating system is Debian-based
 if ! grep -qE "ID=(debian|ubuntu)" /etc/os-release && ! grep -q "ID_LIKE=.*debian" /etc/os-release; then
@@ -65,9 +66,18 @@ sudo chown -R "${USERNAME}:${USERNAME}" "${MNT_DIR}/"
 
 if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
     echo "[INFO] Fetching the latest snapshot version of Camunda ${CAMUNDA_VERSION}."
-    VERSION=$(curl -s "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>tar.gz</extension>" | \
+    CAMUNDA_SNAPSHOT_VERSION=$(curl -s "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>tar.gz</extension>" | \
         grep "<value>" | \
         sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//')
+    echo "[INFO] Latest snapshot version is ${CAMUNDA_SNAPSHOT_VERSION}."
+fi
+
+if [[ "${CAMUNDA_CONNECTORS_VERSION}" =~ "SNAPSHOT" ]]; then
+    echo "[INFO] Fetching the latest snapshot version of Camunda Connectors ${CAMUNDA_CONNECTORS_VERSION}."
+    CONNECTORS_SNAPSHOT_VERSION=$(curl -s "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>pom</extension>" | \
+        grep "<value>" | \
+        sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//')
+    echo "[INFO] Latest snapshot version is ${CONNECTORS_SNAPSHOT_VERSION}."
 fi
 
 sudo -u "${USERNAME}" bash <<EOF
@@ -84,7 +94,7 @@ fi
 # Install Camunda 8
 
 if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
-    curl -L "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
+    curl -L "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_SNAPSHOT_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
 else
     curl -L "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
 fi
@@ -97,7 +107,12 @@ rm -rf "${MNT_DIR}/camunda.tar.gz"
 
 mkdir -p "${MNT_DIR}/connectors/"
 
-curl -L "https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CAMUNDA_CONNECTORS_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
+if [[ "${CAMUNDA_CONNECTORS_VERSION}" =~ "SNAPSHOT" ]]; then
+    curl -L "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CONNECTORS_SNAPSHOT_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
+else
+    curl -L "https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CAMUNDA_CONNECTORS_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
+fi
+
 curl -L https://raw.githubusercontent.com/camunda/connectors/main/bundle/default-bundle/start.sh -o "${MNT_DIR}/connectors/start.sh"
 chmod +x "${MNT_DIR}/connectors/start.sh"
 
