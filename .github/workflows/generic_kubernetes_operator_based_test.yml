@@ -16,8 +16,12 @@ on:
             - generic/kubernetes/operator-based/**
             - aws/openshift/rosa-hcp-single-region/**
             - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
+            - aws/kubernetes/eks-single-region-irsa/**
+            - '!aws/kubernetes/eks-single-region-irsa/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
             - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
+            - .github/actions/aws-kubernetes-eks-single-region-create/**
+            - .github/actions/aws-eks-cleanup-resources/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-helm-chart-tests/**
             - .github/actions/internal-apply-skip-label/**
@@ -71,6 +75,7 @@ env:
     # keep it synced with ROSA single region so we have the cleanup
     # maybe later we could extract this in a common file
     S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION: aws/openshift/rosa-hcp-single-region/
+    S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION: aws/kubernetes/eks-single-region-irsa/
 
     # TODO: revert
     CLEANUP_CLUSTERS: false
@@ -182,9 +187,9 @@ jobs:
 
             - name: Create ROSA cluster and login
               uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-create
-              id: create_cluster
+              id: create_rosa_cluster
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
-              if: always() && success()
+              if: always() && success() && matrix.distro.type == 'openshift'
               with:
                   rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
                   cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
@@ -198,6 +203,36 @@ jobs:
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
                   cleanup-tf-modules-path: 'false'
+
+                  tags: >
+                      {
+                        "ci-run-id": "${{ github.run_id }}",
+                        "ci-run-number": "${{ github.run_number }}",
+                        "ci-workflow": "${{ github.workflow }}",
+                        "ci-actor": "${{ github.actor }}",
+                        "ci-ref": "${{ github.ref }}",
+                        "ci-commit": "${{ github.sha }}",
+                        "ci-repo": "${{ github.repository }}",
+                        "ci-event": "${{ github.event_name }}",
+                        "map-migrated": "migARUADZHVWZ"
+                      }
+
+            - name: Create EKS cluster and login
+              uses: ./.github/actions/aws-kubernetes-eks-single-region-create
+              id: create_eks_cluster
+              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+              if: always() && success() && matrix.distro.type == 'eks'
+              with:
+                  cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  kubernetes-version: ${{ matrix.distro.version }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  tf-modules-revision: ${{ github.ref }}
+                  tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
+                  ref-arch: eks-single-region-irsa
+                  login: 'true'
 
                   tags: >
                       {
@@ -264,7 +299,8 @@ jobs:
             cancel-in-progress: false
         env:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
-            TEST_CLUSTER_TYPE: openshift
+            TEST_CLUSTER_TYPE: ${{ matrix.distro.type == 'openshift' && 'openshift' || 'kubernetes' }}
+            CAMUNDA_NAMESPACE: camunda
         steps:
             - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
@@ -273,6 +309,7 @@ jobs:
 
             - name: Install CLI tools from OpenShift Mirror
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+              if: matrix.distro.type == 'openshift'
               with:
                   oc: ${{ matrix.distro.version }}
 
@@ -314,8 +351,8 @@ jobs:
                   mkdir -p "$HOME/.kube"
                   mv "${{ runner.temp }}/kubeconfig" "$HOME/.kube/config"
 
-                  oc config current-context
-                  oc get nodes
+                  kubectl config current-context
+                  kubectl get nodes
 
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
@@ -339,31 +376,70 @@ jobs:
                     done
                   fi
 
-                  oc new-project "$CAMUNDA_NAMESPACE" \
-                    --description="Integration project of $CAMUNDA_NAMESPACE" \
-                    --display-name="$CAMUNDA_NAMESPACE"
+                  # Create namespace using kubectl (works on both Kubernetes and OpenShift)
+                  kubectl create namespace "$CAMUNDA_NAMESPACE"
 
                   echo "Sleeping 30s"
                   sleep 30
 
             - name: 🛠️ Assemble deployment values for domain setup
               timeout-minutes: 10
+              working-directory: ./generic/kubernetes/operator-based/
               run: |
                   set -o errexit
                   set -euo pipefail
 
-                  echo "Applying declination: ${{ matrix.declination.name }}"
+                  echo "Applying declination: ${{ matrix.declination.name }} for cluster type: ${{ matrix.distro.type }}"
 
-                  if [[ ${{ matrix.declination.name }} == "domain" ]]; then
-                    source ./generic/openshift/single-region/procedure/setup-application-domain.sh
-                    echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
-                  elif [[ ${{ matrix.declination.name }} == "no-domain" ]]; then
-                      # explicitely set no domain
-                      echo "CAMUNDA_DOMAIN=localhost" | tee -a "$GITHUB_ENV"
+                  # Assemble base configuration files
+                  VALUES_FILES=(
+                      "tests/utils/camunda-base-values.yml"
+                  )
+
+                  if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
+                      # Get domain for the cluster type
+                      if [[ "${{ matrix.distro.type }}" == "openshift" ]]; then
+                          echo "Getting OpenShift apps domain..."
+                          source tests/utils/get-oc-app-domain.sh
+                          CAMUNDA_DOMAIN="$OPENSHIFT_APPS_DOMAIN"
+                          VALUES_FILES+=("tests/utils/camunda-domain-values.yml")
+                      elif [[ "${{ matrix.distro.type }}" == "eks" ]]; then
+                          # For EKS, use a placeholder domain (would need to be configured with actual ingress)
+                          CAMUNDA_DOMAIN="camunda.example.com"
+                          VALUES_FILES+=("tests/utils/camunda-domain-values.yml")
+                      fi
+                      echo "CAMUNDA_DOMAIN=$CAMUNDA_DOMAIN" | tee -a "$GITHUB_ENV"
+                  elif [[ "${{ matrix.declination.name }}" == "no-domain" ]]; then
+                      # explicitly set no domain
+                      CAMUNDA_DOMAIN="localhost"
+                      echo "CAMUNDA_DOMAIN=$CAMUNDA_DOMAIN" | tee -a "$GITHUB_ENV"
                   else
-                    echo "Error: matrix.declaration must be set to 'domain' or 'no-domain'" >&2
-                    exit 1
+                      echo "Error: matrix.declination must be set to 'domain' or 'no-domain'" >&2
+                      exit 1
                   fi
+
+                  # Add component-specific configurations
+                  VALUES_FILES+=(
+                      "tests/utils/camunda-values-identity-secrets.yml"
+                      "postgresql/camunda-identity-values.yml"
+                      "postgresql/camunda-webmodeler-values.yml"
+                      "elasticsearch/camunda-elastic-values.yml"
+                  )
+
+                  # Add Keycloak configuration based on domain setup
+                  if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
+                      VALUES_FILES+=("keycloak/camunda-keycloak-domain-values.yml")
+                  else
+                      VALUES_FILES+=("keycloak/camunda-keycloak-no-domain-values.yml")
+                  fi
+
+                  # Create final assembled values file using yq
+                  echo "Assembling final values file from: ${VALUES_FILES[*]}"
+                  yq eval-all ". as \$item ireduce ({}; . * \$item)" "${VALUES_FILES[@]}" > camunda-assembled-values.yml
+
+                  echo "Final assembled values file created: camunda-assembled-values .yml"
+                  echo "Preview of assembled configuration:"
+                  head -20 camunda-assembled-values.yml
 
             - name: 🌱 Register chart setup environment values
               timeout-minutes: 3
@@ -378,13 +454,16 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  pwd
-                  ls -la
+                  echo "Deploying PostgreSQL clusters..."
+                  cd postgresql && ./deploy.sh && cd ..
 
-                  # TODO: in the doc, ensure that user is in the working directory
+                  echo "Deploying Elasticsearch cluster..."
+                  cd elasticsearch && ./deploy.sh && cd ..
 
-                  echo "Running all-in-one deployment script for operator-based setup..."
-                  ./deploy-all-reqs.sh
+                  echo "Deploying Keycloak..."
+                  cd keycloak && ./deploy.sh && cd ..
+
+                  echo "All operator-based infrastructure deployed successfully."
 
             - name: 🔑 Create Camunda credentials
               timeout-minutes: 5
@@ -392,7 +471,7 @@ jobs:
               run: |
                   set -euo pipefail
                   echo "Creating Camunda Identity credentials..."
-                  ./04-camunda-create-identity-secret.sh
+                  cd tests/utils && ./generate-identity-secrets.sh && cd ../..
 
             - name: 🏗️ Deploy Camunda Platform
               timeout-minutes: 15
@@ -400,15 +479,30 @@ jobs:
               run: |
                   set -euo pipefail
                   echo "Deploying Camunda Platform with operator-based infrastructure..."
-                  ./04-camunda-deploy.sh
 
-            - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
+                  # Add the Camunda Helm repository
+                  helm repo add camunda https://helm.camunda.io
+                  helm repo update
+
+                  # Deploy Camunda using the assembled values file
+                  helm install camunda camunda/camunda-platform \
+                      --version 8.8 \
+                      --values https://helm.camunda.io/camunda-platform/values/values-v8.8.yaml \
+                      --values camunda-assembled-values.yml \
+                      --namespace "$CAMUNDA_NAMESPACE" \
+                      --create-namespace \
+                      --wait \
+                      --timeout 15m
+
+                  echo "Camunda Platform deployed successfully."
+
+            - name: 👀⏳ Wait for the deployment to be healthy
               timeout-minutes: 10
               working-directory: ./generic/kubernetes/operator-based/
               run: |
                   set -euo pipefail
 
-                  ./check-deployment-ready.sh
+                  cd tests && ./check-deployment-ready.sh && cd ..
                   echo "Camunda deployment verified successfully."
 
             - name: 🔬🚨 Get failed Pods info
@@ -424,7 +518,7 @@ jobs:
                   done
 
     cleanup-clusters:
-        name: Cleanup ROSA clusters
+        name: Cleanup clusters
         if: always()
         runs-on: ubuntu-latest
         needs:
@@ -479,7 +573,7 @@ jobs:
 
             - name: Delete on-demand ROSA HCP Cluster
               uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-cleanup
-              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.distro.type == 'openshift'
               timeout-minutes: 125
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
@@ -490,6 +584,16 @@ jobs:
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   delete-ghost-clusters: 'false'
+
+            - name: Delete on-demand EKS Cluster
+              uses: ./.github/actions/aws-eks-cleanup-resources
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.distro.type == 'eks'
+              timeout-minutes: 125
+              with:
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours: 0
+                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
 
     report-success:
         name: Report success

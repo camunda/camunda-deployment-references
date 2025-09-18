@@ -6,6 +6,13 @@ matrix:
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
           version: 4.19.7
           clusterName: op-based # cluster name for operator-based tests
+          type: openshift
+        - name: EKS 1.30
+          schedule_only: false
+          # renovate: datasource=github-releases depName=kubernetes/kubernetes versioning=kubernetes
+          version: 1.30.0
+          clusterName: op-based-eks # cluster name for operator-based EKS tests
+          type: eks
 
     scenario:
         - name: operator-based
