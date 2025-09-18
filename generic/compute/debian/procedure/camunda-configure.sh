@@ -62,8 +62,8 @@ echo "[INFO] Configuring the environment variables for cluster communication, ex
     echo "CAMUNDA_CLUSTER_NODEID=\"${index}\""
     echo "CAMUNDA_CLUSTER_SIZE=\"${total_ip_count}\""
     echo "CAMUNDA_CLUSTER_REPLICATIONFACTOR=\"${total_ip_count}\""
-    echo "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS=\"${ips_list}\""
-    echo "CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST=\"${ip}\""
+    echo "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS=\"${ips_list}\""
+    echo "ZEEBE_BROKER_NETWORK_ADVERTISEDHOST=\"${ip}\""
     # External DB setup
     echo "CAMUNDA_DATA_SECONDARYSTORAGE_OPENSEARCH_URL=\"${OPENSEARCH_URL}\""
 } >> "${SCRIPT_DIR}/camunda-environment.tmp"
