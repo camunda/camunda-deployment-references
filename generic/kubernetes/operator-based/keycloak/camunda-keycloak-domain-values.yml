@@ -18,6 +18,8 @@ global:
             issuer: https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform
 
             # ⚠️  Important: issuerBackendUrl is currently not supported by embedded Identity
+            #     TODO: [release-duty] check if the following is still relevant for the latest versions
+            #     and remove the slack reference for not exposing internal discussions publicly
             #     (https://camunda.slack.com/archives/C08MRKHJ0CD/p1755246616281649)
             #
             # This means publicIssuerUrl is used instead and must be accessible by:
