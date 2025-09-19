@@ -1,0 +1,13 @@
+---
+global:
+    # Ingress configuration for external access
+    # Note: you need to enable this if you want to access Camunda externally
+    ingress:
+        enabled: false
+        className: ${INGRESS_CLASS_NAME}
+        host: ${CAMUNDA_DOMAIN}
+        tls:
+            enabled: true  # Set to true for HTTPS
+            secretName: camunda-c8-tls
+        annotations:
+            kubernetes.io/tls-acme: 'true'

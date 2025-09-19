@@ -1,0 +1,55 @@
+---
+# Camunda Platform 8 Values - Keycloak with CNPG Snippet
+# This configuration uses external services managed by Kubernetes operators:
+# - PostgreSQL: CloudNativePG operator with a dedicated cluster for Keycloak
+# - Keycloak: Keycloak operator for identity management (uses 'keycloak-initial-admin' secret)
+#
+# Authentication Secrets:
+# - keycloak-initial-admin: Contains admin username/password for Keycloak (kubernetes.io/basic-auth type, default user: temp-admin)
+# - pg-keycloak-secret: Contains PostgreSQL user credentials for Keycloak
+
+global:
+    # Identity configuration for authentication
+    identity:
+        auth:
+            enabled: true
+            type: KEYCLOAK
+            issuerBackendUrl: http://keycloak-service:8080/auth/realms/camunda-platform
+            # Local testing with port-forwarding
+            # using localhost:8081 -> keycloak-service:8080 (kubectl port-forward svc/keycloak-service 8081:8080)
+            issuer: http://localhost:8081/auth/realms/camunda-platform
+
+            # ⚠️  Important: issuerBackendUrl is currently not supported by embedded Identity
+            #     TODO: [release-duty] check if the following is still relevant for the latest versions
+            #     and remove the slack reference for not exposing internal discussions publicly
+            #     (https://camunda.slack.com/archives/C08MRKHJ0CD/p1755246616281649)
+            #
+            # This means publicIssuerUrl is used instead and must be accessible by:
+            # - Camunda components (machine-to-machine communication)
+            # - End users (browser access)
+            #
+            # 💡 Workarounds for local development:
+            # - Modify your /etc/hosts file to map the service name
+            # - Use kubefwd for port-forwarding: https://github.com/txn2/kubefwd
+            publicIssuerUrl: http://localhost:8080/auth/realms/camunda-platform
+
+        # Keycloak configuration for external instance
+        keycloak:
+            # For external Keycloak managed by operator
+            internal: false # Disable internal Keycloak
+            url:
+                # Configuration for external Keycloak service
+                protocol: http
+                host: keycloak-service
+                port: '8080'
+            contextPath: /auth
+            realm: /realms/camunda-platform
+            auth:
+                # Configuration for accessing external Keycloak instance
+                # For operator-managed Keycloak, use the generated admin secret
+                existingSecret: keycloak-initial-admin
+                existingSecretKey: password
+                adminUser: temp-admin
+
+identityKeycloak:
+    enabled: false
