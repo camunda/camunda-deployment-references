@@ -2,7 +2,7 @@
   "brokers": [
     {
       "nodeId": 0,
-      "host": "camunda-zeebe-0.camunda-zeebe",
+      "host": "camunda-zeebe-0-headless.camunda-zeebe",
       "port": 26501,
       "partitions": [
         {
@@ -21,11 +21,11 @@
           "health": "healthy"
         }
       ],
-      "version": "8.7.z"
+      "version": "8.8.z"
     },
     {
       "nodeId": 1,
-      "host": "camunda-zeebe-1.camunda-zeebe",
+      "host": "camunda-zeebe-1-headless.camunda-zeebe",
       "port": 26501,
       "partitions": [
         {
@@ -44,11 +44,11 @@
           "health": "healthy"
         }
       ],
-      "version": "8.7.z"
+      "version": "8.8.z"
     },
     {
       "nodeId": 2,
-      "host": "camunda-zeebe-2.camunda-zeebe",
+      "host": "camunda-zeebe-2-headless.camunda-zeebe",
       "port": 26501,
       "partitions": [
         {
@@ -67,11 +67,12 @@
           "health": "healthy"
         }
       ],
-      "version": "8.7.z"
+      "version": "8.8.z"
     }
   ],
   "clusterSize": 3,
   "partitionsCount": 3,
   "replicationFactor": 3,
-  "gatewayVersion": "8.7.z"
+  "gatewayVersion": "8.8.z",
+  "lastCompletedChangeId": "-1"
 }

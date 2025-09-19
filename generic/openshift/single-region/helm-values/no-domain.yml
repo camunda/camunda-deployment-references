@@ -3,32 +3,34 @@ global:
     identity:
 
         auth:
+            enabled: false # disable auth for local dev without domain
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            zeebe:
-                existingSecret:
-                    name: identity-secret-for-components
-            connectors:
-                existingSecret:
-                    name: identity-secret-for-components
-            operate:
-                redirectUrl: http://localhost:8081  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            tasklist:
+            orchestration:
                 redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: orchestration-secret
+            connectors:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: connectors-secret
             optimize:
                 redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: optimize-secret
             webModeler:
                 redirectUrl: http://localhost:8084
             console:
                 redirectUrl: http://localhost:8085
-                existingSecret:
-                    name: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: console-secret
 
 identity:
+    enabled: false # disable identity for local dev without domain
     fullURL: http://localhost:8080 # replace this with a port of your choice when you will do port forwarding
+
+optimize:
+    enabled: false # disable identity for local dev without domain

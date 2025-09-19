@@ -1,5 +1,6 @@
 ---
 identityKeycloak:
+    enabled: true
     postgresql:
         enabled: false
     externalDatabase:
@@ -13,6 +14,7 @@ identityKeycloak:
 
     auth:
         existingSecret: identity-secret-for-components
+        passwordSecretKey: admin-password
 
 global:
     elasticsearch:
@@ -29,35 +31,42 @@ global:
 
     identity:
         auth:
+            enabled: true
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
-            zeebe:
-                existingSecret:
-                    name: identity-secret-for-components
+            orchestration:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: orchestration-secret
+                redirectUrl: https://${DOMAIN_NAME}
             connectors:
-                existingSecret:
-                    name: identity-secret-for-components
-            operate:
-                redirectUrl: https://${DOMAIN_NAME}/operate
-                existingSecret:
-                    name: identity-secret-for-components
-            tasklist:
-                redirectUrl: https://${DOMAIN_NAME}/tasklist
-                existingSecret:
-                    name: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: connectors-secret
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize
-                existingSecret:
-                    name: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: optimize-secret
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: https://${DOMAIN_NAME}
-                existingSecret:
-                    name: identity-secret-for-components
+                redirectUrl: https://${DOMAIN_NAME}/console
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: console-secret
 
 identity:
-    contextPath: /identity
-    fullURL: https://${DOMAIN_NAME}/identity
+    image:
+        tag: 8.8-SNAPSHOT
+    enabled: true
+    contextPath: /managementidentity
+    fullURL: https://${DOMAIN_NAME}/managementidentity
+
+    firstUser:
+        enabled: true
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: first-user-password # demo
 
     externalDatabase:
         enabled: true
@@ -65,19 +74,18 @@ identity:
         port: ${DB_PORT}
         username: ${DB_IDENTITY_USERNAME}
         database: ${DB_IDENTITY_NAME}
-        existingSecret: identity-postgres-secret
-        existingSecretPasswordKey: password
+        secret:
+            existingSecret: identity-postgres-secret
+            existingSecretPasswordKey: password
 
 connectors:
+    image:
+        tag: 8.8-SNAPSHOT
     contextPath: /connectors
 
-operate:
-    contextPath: /operate
-
-tasklist:
-    contextPath: /tasklist
-
 webModeler:
+    image:
+        tag: 8.8-SNAPSHOT
     enabled: false
     contextPath: /modeler
 
@@ -85,19 +93,29 @@ webModeler:
         externalDatabase:
             url: jdbc:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?sslmode=require
             user: ${DB_WEBMODELER_USERNAME}
-            existingSecret:
-                name: webmodeler-postgres-secret
-            existingSecretPasswordKey: password
+            secret:
+                existingSecret: webmodeler-postgres-secret
+                existingSecretKey: password
 
         mail:
-            existingSecret:
-                name: identity-secret-for-components
+            secret:
+                existingSecret: identity-secret-for-components
+                existingSecretKey: mail-secret
             fromAddress: changeme@example.com
 
 optimize:
+    image:
+        tag: 8.8-SNAPSHOT
+    enabled: true
     contextPath: /optimize
 
-zeebeGateway:
+orchestration:
+    contextPath: /
+    image:
+        tag: 8.8-SNAPSHOT
+    security:
+        authentication:
+            method: oidc
     ingress:
         grpc:
             enabled: true
@@ -107,11 +125,12 @@ zeebeGateway:
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
-    contextPath: /zeebe
 
 console:
+    image:
+        tag: 8.8-SNAPSHOT
     enabled: false # by default, console is not enabled
-    contextPath: /
+    contextPath: /console
 
 elasticsearch:
     enabled: true
