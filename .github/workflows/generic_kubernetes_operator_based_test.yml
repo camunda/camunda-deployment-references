@@ -225,7 +225,6 @@ jobs:
               with:
                   cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   aws-region: ${{ env.AWS_REGION }}
-                  kubernetes-version: ${{ matrix.distro.version }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
