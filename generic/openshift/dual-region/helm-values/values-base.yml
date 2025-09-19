@@ -29,35 +29,14 @@ global:
         openshift:
             adaptSecurityContext: force # enforce compatibility with SCCs
 
-
-operate:
-    env:
-        - name: CAMUNDA_OPERATE_BACKUP_REPOSITORYNAME
-          value: camunda_backup
-tasklist:
-    env:
-        - name: CAMUNDA_TASKLIST_BACKUP_REPOSITORYNAME
-          value: camunda_backup
-
-identity:
-    enabled: false
-
-# Temporary Helm chart v10 fix
-identityKeycloak:
-    enabled: false
-
-optimize:
-    enabled: false
-
-connectors:
-    enabled: false
-
-zeebe:
+orchestration:
     clusterSize: 8
     partitionCount: 8
     replicationFactor: 4
     env:
-        - name: ZEEBE_BROKER_DATA_SNAPSHOTPERIOD
+        - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
+          value: camunda_backup
+        - name: CAMUNDA_DATA_SNAPSHOTPERIOD
           value: 5m
         - name: ZEEBE_BROKER_DATA_DISKUSAGECOMMANDWATERMARK
           value: '0.85'
@@ -66,22 +45,13 @@ zeebe:
         - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
           value: ${ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS}
         - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_CLASSNAME
-          value: io.camunda.zeebe.exporter.ElasticsearchExporter
-        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL
-          value: ${ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL}
+          value: io.camunda.exporter.CamundaExporter
+        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_CONNECT_URL
+          value: ${ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_CONNECT_URL}
         - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_CLASSNAME
-          value: io.camunda.zeebe.exporter.ElasticsearchExporter
-        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL
-          value: ${ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL}
-        # Enable JSON logging for Google Cloud Stackdriver
-        - name: ZEEBE_LOG_APPENDER
-          value: Stackdriver
-        - name: ZEEBE_LOG_STACKDRIVER_SERVICENAME
-          value: zeebe
-        - name: ZEEBE_LOG_STACKDRIVER_SERVICEVERSION
-          valueFrom:
-              fieldRef:
-                  fieldPath: metadata.namespace
+          value: io.camunda.exporter.CamundaExporter
+        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_CONNECT_URL
+          value: ${ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_CONNECT_URL}
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBETIMEOUT
           value: 500ms
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBEINTERVAL
@@ -94,36 +64,34 @@ zeebe:
           value: 1s
         - name: ZEEBE_BROKER_NETWORK_ADVERTISEDHOST
           value: ${DOLLAR}(K8S_NAME).$ZEEBE_SERVICE_NAME
-    pvcSize: 1Gi
-
-    resources:
-        requests:
-            cpu: 100m
-            memory: 512M
-        limits:
-            cpu: 512m
-            memory: 2Gi
-
-zeebeGateway:
-    replicas: 1
-
-    env:
-        - name: ZEEBE_GATEWAY_CLUSTER_MESSAGECOMPRESSION
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MESSAGECOMPRESSION
           value: GZIP
-        - name: ZEEBE_GATEWAY_CLUSTER_MEMBERSHIP_PROBETIMEOUT
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBETIMEOUT
           value: 500ms
-        - name: ZEEBE_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
           value: 2s
+    pvcSize: 1Gi
+    logLevel: ERROR
 
     resources:
         requests:
-            cpu: 100m
-            memory: 512M
-        limits:
-            cpu: 1000m
+            cpu: 200m
             memory: 1Gi
+        limits:
+            cpu: 1512m
+            memory: 3Gi
 
-    logLevel: ERROR
+identity:
+    enabled: false
+
+identityKeycloak:
+    enabled: false
+
+optimize:
+    enabled: false
+
+connectors:
+    enabled: false
 
 elasticsearch:
     enabled: true
