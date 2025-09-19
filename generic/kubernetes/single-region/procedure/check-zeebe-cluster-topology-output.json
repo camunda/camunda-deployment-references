@@ -2,7 +2,7 @@
   "brokers": [
     {
       "nodeId": 0,
-      "host": "camunda-zeebe-0.camunda-zeebe",
+      "host": "camunda-zeebe-0-headless.camunda-zeebe",
       "port": 26501,
       "partitions": [
         {
@@ -25,7 +25,7 @@
     },
     {
       "nodeId": 1,
-      "host": "camunda-zeebe-1.camunda-zeebe",
+      "host": "camunda-zeebe-1-headless.camunda-zeebe",
       "port": 26501,
       "partitions": [
         {
@@ -48,7 +48,7 @@
     },
     {
       "nodeId": 2,
-      "host": "camunda-zeebe-2.camunda-zeebe",
+      "host": "camunda-zeebe-2-headless.camunda-zeebe",
       "port": 26501,
       "partitions": [
         {
