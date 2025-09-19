@@ -75,7 +75,13 @@ global:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: console-secret
 
+connectors:
+    image:
+        tag: 8.8-SNAPSHOT
+
 orchestration:
+    image:
+        tag: 8.8-SNAPSHOT
     serviceAccount:
         name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
         annotations:

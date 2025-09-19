@@ -49,6 +49,14 @@ global:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: console-secret
 
+orchestration:
+    image:
+        tag: 8.8-SNAPSHOT
+
+connectors:
+    image:
+        tag: 8.8-SNAPSHOT
+
 identity:
     enabled: false # not supported in a non-domain setup
     contextPath: /managementidentity

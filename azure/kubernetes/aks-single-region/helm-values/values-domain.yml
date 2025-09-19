@@ -56,6 +56,8 @@ global:
                     existingSecretKey: console-secret
 
 identity:
+    image:
+        tag: 8.8-SNAPSHOT
     enabled: true
     contextPath: /managementidentity
     fullURL: https://${DOMAIN_NAME}/managementidentity
@@ -77,9 +79,13 @@ identity:
             existingSecretPasswordKey: password
 
 connectors:
+    image:
+        tag: 8.8-SNAPSHOT
     contextPath: /connectors
 
 webModeler:
+    image:
+        tag: 8.8-SNAPSHOT
     enabled: false
     contextPath: /modeler
 
@@ -98,10 +104,14 @@ webModeler:
             fromAddress: changeme@example.com
 
 optimize:
+    image:
+        tag: 8.8-SNAPSHOT
     enabled: true
     contextPath: /optimize
 
 orchestration:
+    image:
+        tag: 8.8-SNAPSHOT
     security:
         authentication:
             method: oidc
@@ -116,6 +126,8 @@ orchestration:
                 kubernetes.io/tls-acme: 'true'
 
 console:
+    image:
+        tag: 8.8-SNAPSHOT
     enabled: false # by default, console is not enabled
     contextPath: /console
 

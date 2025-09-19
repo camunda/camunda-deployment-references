@@ -30,6 +30,8 @@ global:
             adaptSecurityContext: force # enforce compatibility with SCCs
 
 orchestration:
+    image:
+        tag: 8.8-SNAPSHOT
     clusterSize: 8
     partitionCount: 8
     replicationFactor: 4

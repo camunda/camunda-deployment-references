@@ -74,6 +74,8 @@ global:
                     existingSecretKey: console-secret
 
 webModeler:
+    image:
+        tag: 8.8-SNAPSHOT
     enabled: false # by default, webModeler is not enabled
     contextPath: /modeler
 
@@ -109,6 +111,8 @@ webModelerPostgresql:
             userPasswordKey: identity-webmodeler-postgres-user-password
 
 identity:
+    image:
+        tag: 8.8-SNAPSHOT
     enabled: true
     contextPath: /managementidentity
     fullURL: https://${DOMAIN_NAME}/managementidentity
@@ -140,9 +144,13 @@ identity:
           value: ${DB_IDENTITY_USERNAME}
 
 connectors:
+    image:
+        tag: 8.8-SNAPSHOT
     contextPath: /connectors
 
 optimize:
+    image:
+        tag: 8.8-SNAPSHOT
     enabled: true
     contextPath: /optimize
 
@@ -156,6 +164,8 @@ optimize:
         enabled: false
 
 orchestration:
+    image:
+        tag: 8.8-SNAPSHOT
     serviceAccount:
         name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
         annotations:
@@ -174,6 +184,8 @@ orchestration:
                 kubernetes.io/tls-acme: 'true'
 
 console:
+    image:
+        tag: 8.8-SNAPSHOT
     enabled: false # by default, console is not enabled
     contextPath: /console
 
