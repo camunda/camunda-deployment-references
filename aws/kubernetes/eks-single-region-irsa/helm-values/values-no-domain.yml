@@ -57,7 +57,7 @@ global:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: orchestration-secret
-                redirectUrl: http://localhost:8082/orchestration  # replace this with a port of your choice when you will do port forwarding
+                redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
             connectors:
                 secret:
                     existingSecret: identity-secret-for-components
@@ -70,7 +70,7 @@ global:
             webModeler:
                 redirectUrl: http://localhost:8084/modeler
             console:
-                redirectUrl: http://localhost:8085
+                redirectUrl: http://localhost:8085/console
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: console-secret
@@ -126,7 +126,8 @@ identity:
         annotations:
             eks.amazonaws.com/role-arn: ${DB_ROLE_IDENTITY_ARN}
 
-    fullURL: http://localhost:8080/identity # replace this with a port of your choice when you will do port forwarding
+    contextPath: /managementidentity
+    fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
 
     # TODO: if oidc is supported in the end, this will need adjustment in the docs
     firstUser:
@@ -163,7 +164,7 @@ optimize:
 
 console:
     enabled: false # by default, console is not enabled
-    contextPath: /
+    contextPath: /console
 
 elasticsearch:
     enabled: false

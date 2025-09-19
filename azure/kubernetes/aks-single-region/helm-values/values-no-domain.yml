@@ -31,7 +31,7 @@ global:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: orchestration-secret
-                redirectUrl: http://localhost:8082/orchestration  # replace this with a port of your choice when you will do port forwarding
+                redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
             connectors:
                 secret:
                     existingSecret: identity-secret-for-components
@@ -44,14 +44,15 @@ global:
             webModeler:
                 redirectUrl: http://localhost:8084/modeler
             console:
-                redirectUrl: http://localhost:8085
+                redirectUrl: http://localhost:8085/console
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: console-secret
 
 identity:
     enabled: false # not supported in a non-domain setup
-    fullURL: http://localhost:8080/identity # replace this with a port of your choice when you will do port forwarding
+    contextPath: /managementidentity
+    fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
 
     externalDatabase:
         enabled: true
@@ -95,7 +96,7 @@ optimize:
 
 console:
     enabled: false # by default, console is not enabled
-    contextPath: /
+    contextPath: /console
 
 elasticsearch:
     enabled: true

@@ -22,7 +22,7 @@ global:
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
             orchestration:
-                redirectUrl: https://${DOMAIN_NAME}/orchestration
+                redirectUrl: https://${DOMAIN_NAME}
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: orchestration-secret
@@ -38,7 +38,7 @@ global:
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: https://${DOMAIN_NAME}
+                redirectUrl: https://${DOMAIN_NAME}/console
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: console-secret
@@ -59,8 +59,8 @@ identityKeycloak:
 
 identity:
     enabled: true
-    contextPath: /identity
-    fullURL: https://${DOMAIN_NAME}/identity
+    contextPath: /managementidentity
+    fullURL: https://${DOMAIN_NAME}/managementidentity
 
     firstUser:
         enabled: true
@@ -76,13 +76,12 @@ optimize:
     contextPath: /optimize
 
 orchestration:
-    contextPath: /orchestration
     security:
         authentication:
             method: oidc
 
 console:
-    contextPath: /
+    contextPath: /console
 
 connectors:
     contextPath: /connectors
