@@ -7,10 +7,10 @@ matrix:
           version: 4.19.7
           clusterName: op-based # cluster name for operator-based tests
           type: openshift
-        - name: EKS 1.30
+        - name: EKS Latest
           schedule_only: false
           # renovate: datasource=github-releases depName=kubernetes/kubernetes versioning=kubernetes
-          version: 1.30.0
+          version: 1.34.1
           clusterName: op-based-eks # cluster name for operator-based EKS tests
           type: eks
 

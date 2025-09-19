@@ -75,7 +75,7 @@ env:
     # keep it synced with ROSA single region so we have the cleanup
     # maybe later we could extract this in a common file
     S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION: aws/openshift/rosa-hcp-single-region/
-    S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION: aws/kubernetes/eks-single-region-irsa/
+    S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION: aws/kubernetes/eks-single-region/
 
     # TODO: revert
     CLEANUP_CLUSTERS: false
@@ -231,9 +231,7 @@ jobs:
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
-                  ref-arch: eks-single-region-irsa
-                  login: 'true'
-
+                  ref-arch: eks-single-region
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
