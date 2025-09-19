@@ -76,6 +76,7 @@ optimize:
     contextPath: /optimize
 
 orchestration:
+    contextPath: /
     security:
         authentication:
             method: oidc

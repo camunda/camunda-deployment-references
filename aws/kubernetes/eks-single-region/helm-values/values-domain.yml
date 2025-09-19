@@ -139,6 +139,7 @@ optimize:
         enabled: false
 
 orchestration:
+    contextPath: /
     image:
         tag: 8.8-SNAPSHOT
     security:
