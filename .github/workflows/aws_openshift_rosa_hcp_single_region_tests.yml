@@ -26,6 +26,7 @@ on:
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-terraform-drift-detect/**
+            - .github/actions/internal-clean-namespace/**
 
     workflow_dispatch:
         inputs:
@@ -413,26 +414,15 @@ jobs:
                   source .github/scripts/gha-functions.sh
                   export_new_env_vars generic/openshift/single-region/procedure/chart-env.sh
 
-            - name: 🏗️ Prepare a fresh namespace for the tests
-              run: |
-                  set -o errexit
-                  set -euo pipefail
+            - name: 🏗️ Clean and recreate Camunda namespace
+              uses: ./.github/actions/internal-clean-namespace
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  recreate: 'true'
+                  openshift-project: 'true'
 
-                  # Delete the namespace to ensure a fresh start
-                  if kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; then
-                    kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
-                    while kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; do
-                      echo "Namespace $CAMUNDA_NAMESPACE still being deleted, waiting..."
-                      sleep 5
-                    done
-                  fi
-
-                  oc new-project "$CAMUNDA_NAMESPACE" \
-                    --description="Integration project of $CAMUNDA_NAMESPACE" \
-                    --display-name="$CAMUNDA_NAMESPACE"
-
-                  echo "Sleeping 30s"
-                  sleep 30
+            - name: Wait for cluster stability
+              run: sleep 30
 
             - name: 🛠️ Assemble deployment values of generic/openshift/single-region
               timeout-minutes: 10

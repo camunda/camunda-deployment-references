@@ -28,6 +28,7 @@ on:
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
+            - .github/actions/internal-clean-namespace/**
 
     workflow_dispatch:
         inputs:
@@ -369,25 +370,27 @@ jobs:
                   ./generic/kubernetes/operator-based/get-your-copy.sh
                   tree
 
-            - name: 🏗️ Prepare a fresh namespace for the tests
-              run: |
-                  set -o errexit
-                  set -euo pipefail
+            - name: 🏗️ Clean PostgreSQL operator namespace
+              uses: ./.github/actions/internal-clean-namespace
+              timeout-minutes: 10
+              with:
+                  namespace: cnpg-system
 
-                  # Delete the namespace to ensure a fresh start
-                  if kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; then
-                    kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
-                    while kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; do
-                      echo "Namespace $CAMUNDA_NAMESPACE still being deleted, waiting..."
-                      sleep 5
-                    done
-                  fi
+            - name: 🏗️ Clean Elasticsearch operator namespace
+              timeout-minutes: 10
+              uses: ./.github/actions/internal-clean-namespace
+              with:
+                  namespace: elastic-system
 
-                  # Create namespace using kubectl (works on both Kubernetes and OpenShift)
-                  kubectl create namespace "$CAMUNDA_NAMESPACE"
+            - name: 🏗️ Clean and recreate Camunda namespace
+              timeout-minutes: 10
+              uses: ./.github/actions/internal-clean-namespace
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  recreate: 'true'
 
-                  echo "Sleeping 30s"
-                  sleep 30
+            - name: Wait for cluster stability
+              run: sleep 30
 
             - name: 🛠️ Assemble deployment values for domain setup
               timeout-minutes: 10
@@ -464,18 +467,23 @@ jobs:
                   echo "Deploying PostgreSQL clusters..."
                   if ! (cd postgresql && ./deploy.sh); then
                       echo "ERROR: PostgreSQL deployment failed"
+                      kubectl get pods -n cnpg-system || true
+                      kubectl get pods -n "$CAMUNDA_NAMESPACE" || true
                       exit 1
                   fi
 
                   echo "Deploying Elasticsearch cluster..."
                   if ! (cd elasticsearch && ./deploy.sh); then
                       echo "ERROR: Elasticsearch deployment failed"
+                      kubectl get pods -n elastic-system || true
+                      kubectl get pods -n "$CAMUNDA_NAMESPACE" || true
                       exit 1
                   fi
 
                   echo "Deploying Keycloak..."
                   if ! (cd keycloak && ./deploy.sh); then
                       echo "ERROR: Keycloak deployment failed"
+                      kubectl get pods -n "$CAMUNDA_NAMESPACE" || true
                       exit 1
                   fi
 
