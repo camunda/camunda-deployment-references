@@ -462,13 +462,22 @@ jobs:
                   set -euo pipefail
 
                   echo "Deploying PostgreSQL clusters..."
-                  cd postgresql && ./deploy.sh && cd ..
+                  if ! (cd postgresql && ./deploy.sh); then
+                      echo "ERROR: PostgreSQL deployment failed"
+                      exit 1
+                  fi
 
                   echo "Deploying Elasticsearch cluster..."
-                  cd elasticsearch && ./deploy.sh && cd ..
+                  if ! (cd elasticsearch && ./deploy.sh); then
+                      echo "ERROR: Elasticsearch deployment failed"
+                      exit 1
+                  fi
 
                   echo "Deploying Keycloak..."
-                  cd keycloak && ./deploy.sh && cd ..
+                  if ! (cd keycloak && ./deploy.sh); then
+                      echo "ERROR: Keycloak deployment failed"
+                      exit 1
+                  fi
 
                   echo "All operator-based infrastructure deployed successfully."
 

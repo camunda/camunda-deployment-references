@@ -27,7 +27,8 @@ rm /tmp/cnpg-manifest.yaml
 
 # Wait for operator to be ready
 kubectl rollout status deployment \
-  -n "$OPERATOR_NAMESPACE" cnpg-controller-manager
+  -n "$OPERATOR_NAMESPACE" cnpg-controller-manager \
+  --timeout=300s
 echo "CloudNativePG operator deployed in namespace: $OPERATOR_NAMESPACE"
 
 # Create PostgreSQL secrets
