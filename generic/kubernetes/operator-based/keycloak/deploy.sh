@@ -6,18 +6,19 @@ set -euo pipefail
 # Variables
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 
-# TODO: renovate keycloak version
+# renovate: datasource=github-releases depName=keycloak/keycloak
+KEYCLOAK_VERSION="26.3.3"
 
 # Install Keycloak operator CRDs
 kubectl apply --server-side -f \
-  https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.3.3/kubernetes/keycloaks.k8s.keycloak.org-v1.yml
+  "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/keycloaks.k8s.keycloak.org-v1.yml"
 kubectl apply --server-side -f \
-  https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.3.3/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml
+  "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml"
 
 
 # Install Keycloak operator
 kubectl apply -n "$CAMUNDA_NAMESPACE" --server-side -f \
-  https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.3.3/kubernetes/kubernetes.yml
+  "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/kubernetes.yml"
 
 
 # Wait for operator to be ready

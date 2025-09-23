@@ -7,11 +7,12 @@ set -euo pipefail
 NAMESPACE=${NAMESPACE:-camunda}
 OPERATOR_NAMESPACE=${1:-cnpg-system}
 
-# TODO: renovate
+# renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
+CNPG_VERSION="1.27.0"
 
 # Install CloudNativePG operator CRDs and operator
 kubectl apply -n "$OPERATOR_NAMESPACE" --server-side -f \
-      "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.27/releases/cnpg-1.27.0.yaml"
+      "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-${CNPG_VERSION%.*}/releases/cnpg-${CNPG_VERSION}.yaml"
 
 # Wait for operator to be ready
 kubectl rollout status deployment \

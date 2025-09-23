@@ -27,5 +27,3 @@ global:
 
 elasticsearch:
     enabled: false
-    # TODO: remove when https://github.com/camunda/camunda-platform-helm/issues/4146
-    commonLabels: {}

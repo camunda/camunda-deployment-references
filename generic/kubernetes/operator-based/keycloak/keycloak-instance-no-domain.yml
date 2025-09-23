@@ -6,8 +6,7 @@ metadata:
 spec:
     # TODO: renovate to be tested
     # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<version>.*)$
-    # TODO: this will require an optimized build
-    # image: docker.io/camunda/keycloak:quay-optimized-26.3.2
+    image: docker.io/camunda/keycloak:quay-optimized-26.3.2
     imagePullSecrets:
         - name: camunda-registry-secret
     instances: 1

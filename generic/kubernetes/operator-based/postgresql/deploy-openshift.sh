@@ -8,12 +8,13 @@ set -euo pipefail
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 OPERATOR_NAMESPACE=${1:-cnpg-system}
 
-# TODO: renovate
+# renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
+CNPG_VERSION="1.27.0"
 
 # Install CloudNativePG operator CRDs and operator
 echo "OpenShift detected - downloading and patching CloudNativePG manifest for SCC compatibility..."
 
-curl -s "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.27/releases/cnpg-1.27.0.yaml" > /tmp/cnpg-manifest.yaml
+curl -s "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-${CNPG_VERSION%.*}/releases/cnpg-${CNPG_VERSION}.yaml" > /tmp/cnpg-manifest.yaml
 
 # Remove fixed UIDs/GIDs for OpenShift compatibility using a more targeted approach
 yq -i '(select(.kind == "Deployment" and .metadata.name == "cnpg-controller-manager") | .spec.template.spec.containers[].securityContext) |= del(.runAsUser, .runAsGroup)' /tmp/cnpg-manifest.yaml
