@@ -375,7 +375,7 @@ runs:
               fi
 
               echo "Replacing release name value in golden file..."
-              sed -e "s/camunda-zeebe/${CAMUNDA_RELEASE_NAME}-zeebe/g" -i "$reference_file"
+              sed -e "s/camunda-zeebe-gateway/${CAMUNDA_RELEASE_NAME}-zeebe-gateway/g" -i "$reference_file"
 
               # Order each file also remove not predictable fields
               yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$temp_output"

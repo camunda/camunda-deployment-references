@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "🔄 Starting port-forward..."
-kubectl --context "$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" port-forward "services/$CAMUNDA_RELEASE_NAME-zeebe" 8080:8080 >/dev/null 2>&1 &
+kubectl --context "$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" port-forward "services/$CAMUNDA_RELEASE_NAME-zeebe-gateway" 8080:8080 >/dev/null 2>&1 &
 PORT_FORWARD_PID=$!
 
 # Cleanup on exit

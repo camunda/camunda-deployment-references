@@ -50,14 +50,14 @@ orchestration:
           value: /usr/local/camunda/config/tls.crt
         - name: CAMUNDA_OPERATE_ZEEBE_GATEWAYADDRESS
           # <release-name>-zeebe.<namespace>.svc.cluster.local
-          value: ${CAMUNDA_RELEASE_NAME}-zeebe.${CAMUNDA_NAMESPACE}.svc.cluster.local:26500
+          value: ${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local:26500
         # Tasklist
         - name: CAMUNDA_TASKLIST_ZEEBE_SECURE
           value: 'true'
         - name: CAMUNDA_TASKLIST_ZEEBE_CERTIFICATEPATH
           value: /usr/local/camunda/config/tls.crt
         - name: CAMUNDA_TASKLIST_ZEEBE_GATEWAYADDRESS
-          value: ${CAMUNDA_RELEASE_NAME}-zeebe.${CAMUNDA_NAMESPACE}.svc.cluster.local:26500
+          value: ${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local:26500
 
     extraVolumeMounts:
         - name: certificate
