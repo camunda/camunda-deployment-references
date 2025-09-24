@@ -4,7 +4,7 @@
 
 This GitHub Action automates the deployment of the aws/kubernetes/eks-single-region(-irsa) reference architecture cluster using Terraform.
 The kube context will be set on the created cluster.
-Supports conditional deployment of Aurora PostgreSQL and OpenSearch for operator-based scenarios.
+Supports conditional deployment of Aurora PostgreSQL and OpenSearch.
 
 
 ## Inputs

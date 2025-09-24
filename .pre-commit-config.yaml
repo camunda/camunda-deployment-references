@@ -79,7 +79,7 @@ repos:
       rev: 0.2.3
       hooks:
           - id: yamlfmt
-            exclude: (generic/kubernetes/operator-based/02-elasticsearch-cluster.yml)
+            exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.yml)
 
     - repo: local
       hooks:

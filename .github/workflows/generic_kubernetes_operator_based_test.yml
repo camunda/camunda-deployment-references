@@ -467,7 +467,13 @@ jobs:
                   set -euo pipefail
 
                   echo "Deploying PostgreSQL clusters..."
-                  if ! (cd postgresql && ./deploy.sh); then
+                  if [[ "${{ matrix.distro.type }}" == "openshift" ]]; then
+                      POSTGRES_SCRIPT="./deploy-openshift.sh"
+                  else
+                      POSTGRES_SCRIPT="./deploy.sh"
+                  fi
+
+                  if ! (cd postgresql && $POSTGRES_SCRIPT); then
                       echo "ERROR: PostgreSQL deployment failed"
                       kubectl get pods -n cnpg-system || true
                       kubectl get pods -n "$CAMUNDA_NAMESPACE" || true
