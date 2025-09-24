@@ -1,0 +1,73 @@
+---
+name: AWS Kubernetes Ingress Setup
+description: Install and configure ingress-nginx, external-dns, and cert-manager for AWS EKS clusters
+
+inputs:
+    cluster-name:
+        description: Name of the cluster (used for external-dns owner ID)
+        required: true
+    scenario-short-name:
+        description: Short name of the scenario (used for external-dns owner ID)
+        required: true
+    aws-region:
+        description: AWS region where the cluster is deployed
+        required: true
+        default: eu-west-2
+    mail:
+        description: Email address for Let's Encrypt certificates
+        required: false
+        default: admin@camunda.ie
+    tld:
+        description: Top-level domain for the cluster
+        required: false
+        default: camunda.ie
+    ref-arch:
+        description: Reference architecture name (eks-single-region, eks-single-region-irsa)
+        required: false
+        default: eks-single-region
+
+runs:
+    using: composite
+    steps:
+        - name: Setup ingress components for EKS cluster
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "Setting up ingress components for EKS cluster..."
+              echo "Cluster: ${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
+              echo "Region: ${{ inputs.aws-region }}"
+              echo "Mail: ${{ inputs.mail }}"
+              echo "TLD: ${{ inputs.tld }}"
+              echo "Ref-arch: ${{ inputs.ref-arch }}"
+
+              # Set required environment variables for ingress setup
+              export REGION="${{ inputs.aws-region }}"
+              export MAIL_OVERWRITE="${{ inputs.mail }}"
+              export TLD="${{ inputs.tld }}"
+
+              # Source ingress setup variables
+              source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
+
+              # Install ingress-nginx
+              echo "Installing ingress-nginx..."
+              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-ingress-nginx.sh
+
+              # Install external-dns
+              echo "Installing external-dns..."
+              export EXTERNAL_DNS_OWNER_ID="external-dns-${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
+              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-external-dns.sh
+
+              # Install cert-manager CRDs
+              echo "Installing cert-manager CRDs..."
+              ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
+
+              # Install cert-manager
+              echo "Installing cert-manager..."
+              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager.sh
+
+              # Install cert-manager issuer
+              echo "Installing cert-manager issuer..."
+              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager-issuer.sh
+
+              echo "✅ Ingress setup completed successfully for EKS cluster."

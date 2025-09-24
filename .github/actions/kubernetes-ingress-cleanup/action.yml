@@ -1,0 +1,53 @@
+---
+name: Kubernetes Ingress Cleanup
+description: Clean up ingress-nginx, external-dns, and cert-manager components from Kubernetes clusters
+
+inputs:
+    wait-for-dns-cleanup:
+        description: Whether to wait for external-dns to clean up domain records before uninstalling
+        required: false
+        default: 'true'
+    dns-cleanup-wait-seconds:
+        description: Number of seconds to wait for DNS cleanup
+        required: false
+        default: '45'
+
+runs:
+    using: composite
+    steps:
+        - name: Clean up ingress components
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "Cleaning up ingress components..."
+              echo "Wait for DNS cleanup: ${{ inputs.wait-for-dns-cleanup }}"
+              echo "DNS cleanup wait time: ${{ inputs.dns-cleanup-wait-seconds }} seconds"
+
+              # Wait for external-dns to clean up domain records if requested
+              if [[ "${{ inputs.wait-for-dns-cleanup }}" == "true" ]]; then
+                  echo "Waiting for external-dns to remove domain records..."
+                  sleep ${{ inputs.dns-cleanup-wait-seconds }}
+              fi
+
+              # Uninstall ingress components (ignore errors if not present)
+              echo "Uninstalling ingress-nginx..."
+              helm uninstall ingress-nginx --namespace ingress-nginx --wait || echo "ingress-nginx not found, skipping..."
+
+              echo "Uninstalling external-dns..."
+              helm uninstall external-dns --namespace external-dns --wait || echo "external-dns not found, skipping..."
+
+              echo "Uninstalling cert-manager..."
+              helm uninstall cert-manager --namespace cert-manager --wait || echo "cert-manager not found, skipping..."
+
+              # Delete namespaces (ignore errors if not present)
+              echo "Deleting ingress-nginx namespace..."
+              kubectl delete namespace ingress-nginx --wait --timeout=60s || echo "ingress-nginx namespace not found, skipping..."
+
+              echo "Deleting external-dns namespace..."
+              kubectl delete namespace external-dns --wait --timeout=60s || echo "external-dns namespace not found, skipping..."
+
+              echo "Deleting cert-manager namespace..."
+              kubectl delete namespace cert-manager --wait --timeout=60s || echo "cert-manager namespace not found, skipping..."
+
+              echo "✅ Ingress components and namespaces cleanup completed successfully."

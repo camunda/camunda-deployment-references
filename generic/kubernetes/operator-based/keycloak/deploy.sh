@@ -5,6 +5,7 @@ set -euo pipefail
 
 # Variables
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
+KEYCLOAK_CONFIG_FILE=${KEYCLOAK_CONFIG_FILE:-"keycloak-instance-no-domain.yml"}
 
 # renovate: datasource=github-releases depName=keycloak/keycloak
 KEYCLOAK_VERSION="26.3.3"
@@ -26,7 +27,9 @@ kubectl wait --for=condition=available --timeout=300s deployment/keycloak-operat
 echo "Keycloak operator deployed in namespace: $CAMUNDA_NAMESPACE"
 
 # Deploy Keycloak
-kubectl apply -f "keycloak-instance-no-domain.yml" -n "$CAMUNDA_NAMESPACE"
+
+# Deploy Keycloak with variable substitution via envsubst
+envsubst < "$KEYCLOAK_CONFIG_FILE" | kubectl apply -f - -n "$CAMUNDA_NAMESPACE"
 
 # Wait for Keycloak instance to be ready
 kubectl wait --for=condition=Ready --timeout=600s keycloak --all -n "$CAMUNDA_NAMESPACE"

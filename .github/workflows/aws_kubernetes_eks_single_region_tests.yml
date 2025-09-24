@@ -444,26 +444,15 @@ jobs:
 
             - name: 🏗️ Ingress Setup prerequisites
               if: ${{ matrix.declination.name == 'domain' }}
-              run: |
-                  set -euo pipefail
-
-                  export REGION=${{ env.AWS_REGION }}
-
-                  source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
-
-                  # Overwriting the mail
-                  export MAIL=${{ env.MAIL_OVERWRITE }}
-
-                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-ingress-nginx.sh
-
-                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}"
-                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-external-dns.sh
-
-                  ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
-
-                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager.sh
-
-                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager-issuer.sh
+              timeout-minutes: 15
+              uses: ./.github/actions/aws-kubernetes-ingress-setup
+              with:
+                  cluster-name: ${{ matrix.distro.clusterName }}
+                  scenario-short-name: ${{ matrix.scenario.shortName }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  mail: ${{ env.MAIL_OVERWRITE }}
+                  tld: ${{ env.TLD }}
+                  ref-arch: ${{ matrix.scenario.name }}
 
             - name: 🌱 Register chart setup environment values
               timeout-minutes: 3
@@ -725,14 +714,11 @@ jobs:
 
             - name: 🧹 Cleanup domain specific resources
               if: always() && matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'true'
-              run: |
-                  set -euo pipefail
-
-                  echo "Let external-dns remove the domain" && sleep 45
-
-                  helm uninstall ingress-nginx --namespace ingress-nginx --wait
-                  helm uninstall external-dns --namespace external-dns --wait
-                  helm uninstall cert-manager --namespace cert-manager --wait
+              uses: ./.github/actions/kubernetes-ingress-cleanup
+              timeout-minutes: 10
+              with:
+                  wait-for-dns-cleanup: 'true'
+                  dns-cleanup-wait-seconds: '45'
 
     cleanup-clusters:
         name: Cleanup EKS clusters

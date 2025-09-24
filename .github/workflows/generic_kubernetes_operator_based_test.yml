@@ -394,7 +394,7 @@ jobs:
             - name: Wait for cluster stability
               run: sleep 30
 
-            - name: 🛠️ Assemble deployment values for domain setup
+            - name: 🛠️ Assemble deployment values
               timeout-minutes: 10
               working-directory: ./generic/kubernetes/operator-based/
               run: |
@@ -409,26 +409,27 @@ jobs:
                   )
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
-                      # Get domain for the cluster type
+                      # Set domain and ingress class based on cluster type
                       if [[ "${{ matrix.distro.type }}" == "openshift" ]]; then
                           echo "Getting OpenShift apps domain..."
                           source tests/utils/get-oc-app-domain.sh
-                          CAMUNDA_DOMAIN="$OPENSHIFT_APPS_DOMAIN"
-                          VALUES_FILES+=("tests/utils/camunda-domain-values.yml")
-                      elif [[ "${{ matrix.distro.type }}" == "eks" ]]; then
-                          # For EKS, use a placeholder domain (would need to be configured with actual ingress)
-                          CAMUNDA_DOMAIN="camunda.example.com"
-                          VALUES_FILES+=("tests/utils/camunda-domain-values.yml")
+                          BASE_DOMAIN="$OPENSHIFT_APPS_DOMAIN"
+                          INGRESS_CLASS_NAME="openshift-default"
+                      else
+                          # EKS and other Kubernetes clusters use camunda.ie
+                          BASE_DOMAIN="camunda.ie"
+                          INGRESS_CLASS_NAME="nginx"
                       fi
-                      echo "CAMUNDA_DOMAIN=$CAMUNDA_DOMAIN" | tee -a "$GITHUB_ENV"
-                  elif [[ "${{ matrix.declination.name }}" == "no-domain" ]]; then
-                      # explicitly set no domain
-                      CAMUNDA_DOMAIN="localhost"
-                      echo "CAMUNDA_DOMAIN=$CAMUNDA_DOMAIN" | tee -a "$GITHUB_ENV"
+
+                      CAMUNDA_DOMAIN="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.$BASE_DOMAIN"
+                      VALUES_FILES+=("tests/utils/camunda-domain-values.yml")
                   else
-                      echo "Error: matrix.declination must be set to 'domain' or 'no-domain'" >&2
-                      exit 1
+                      # No-domain: everything on localhost
+                      CAMUNDA_DOMAIN="localhost"
                   fi
+
+                  echo "CAMUNDA_DOMAIN=$CAMUNDA_DOMAIN" | tee -a "$GITHUB_ENV"
+                  echo "INGRESS_CLASS_NAME=$INGRESS_CLASS_NAME" | tee -a "$GITHUB_ENV"
 
                   # Add component-specific configurations
                   VALUES_FILES+=(
@@ -447,11 +448,23 @@ jobs:
 
                   # Create final assembled values file using yq
                   echo "Assembling final values file from: ${VALUES_FILES[*]}"
-                  yq eval-all ". as \$item ireduce ({}; . * \$item)" "${VALUES_FILES[@]}" > camunda-assembled-values.yml
+                  yq eval-all ". as \$item ireduce ({}; . * \$item)" "${VALUES_FILES[@]}" > camunda-assembled-values-raw.yml
 
-                  echo "Final assembled values file created: camunda-assembled-values .yml"
+                  # Apply envsubst to the assembled file for variable substitution
+                  echo "Processing assembled values with envsubst for variable substitution..."
+                  envsubst < camunda-assembled-values-raw.yml > camunda-assembled-values-temp.yml
+
+                  # Adjust TLS configuration for OpenShift (routes handle TLS automatically)
+                  if [[ "${{ matrix.distro.type }}" == "openshift" && "${{ matrix.declination.name }}" == "domain" ]]; then
+                      echo "Removing TLS configuration for OpenShift routes..."
+                      yq eval 'del(.global.ingress.tls)' camunda-assembled-values-temp.yml > camunda-assembled-values.yml
+                  else
+                      cp camunda-assembled-values-temp.yml camunda-assembled-values.yml
+                  fi
+
+                  echo "Final assembled values file created: camunda-assembled-values.yml"
                   echo "Preview of assembled configuration:"
-                  head -20 camunda-assembled-values.yml
+                  cat camunda-assembled-values.yml
 
             - name: 🌱 Register chart setup environment values
               timeout-minutes: 3
@@ -460,7 +473,49 @@ jobs:
                   source .github/scripts/gha-functions.sh
                   export_new_env_vars generic/kubernetes/operator-based/0-set-environment.sh
 
-            - name: 🚀 Deploy all requirements using operator-based deployment
+            - name: 🧹 Clean ingress components for EKS domain setup
+              if: ${{ matrix.distro.type == 'eks' && matrix.declination.name == 'domain' }}
+              timeout-minutes: 10
+              uses: ./.github/actions/kubernetes-ingress-cleanup
+              with:
+                  wait-for-dns-cleanup: 'false'  # No need to wait during setup cleanup
+
+            - name: 🏗️ Setup Ingress prerequisites for EKS domain setup
+              if: ${{ matrix.distro.type == 'eks' && matrix.declination.name == 'domain' }}
+              timeout-minutes: 15
+              uses: ./.github/actions/aws-kubernetes-ingress-setup
+              with:
+                  cluster-name: ${{ matrix.distro.clusterName }}
+                  scenario-short-name: ${{ matrix.scenario.shortName }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  mail: admin@camunda.ie
+                  tld: camunda.ie
+                  ref-arch: eks-single-region
+
+            - name: Prepare Keycloak configuration
+              timeout-minutes: 5
+              working-directory: ./generic/kubernetes/operator-based/keycloak/
+              run: |
+                  set -euo pipefail
+
+                  # Determine which Keycloak configuration file to use
+                  if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
+                      if [[ "${{ matrix.distro.type }}" == "openshift" ]]; then
+                          echo "Using OpenShift route configuration"
+                          KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-openshift.yml"
+                      else
+                          echo "Using nginx ingress configuration"
+                          KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-nginx.yml"
+                      fi
+                  else
+                      echo "Using no-domain localhost configuration"
+                      KEYCLOAK_CONFIG_FILE="keycloak-instance-no-domain.yml"
+                  fi
+
+                  echo "KEYCLOAK_CONFIG_FILE=$KEYCLOAK_CONFIG_FILE" | tee -a "$GITHUB_ENV"
+                  echo "Keycloak configuration file set: $KEYCLOAK_CONFIG_FILE"
+
+            - name: Deploy all requirements using operator-based deployment
               timeout-minutes: 30
               working-directory: ./generic/kubernetes/operator-based/
               run: |
@@ -499,34 +554,26 @@ jobs:
 
             - name: 🔑 Create Camunda credentials
               timeout-minutes: 5
-              working-directory: ./generic/kubernetes/operator-based/
+              working-directory: ./generic/kubernetes/operator-based/tests/utils/
               run: |
                   set -euo pipefail
                   echo "Creating Camunda Identity credentials..."
-                  cd tests/utils && ./generate-identity-secrets.sh && cd ../..
+                  ./generate-identity-secrets.sh
 
             - name: 🏗️ Deploy Camunda Platform
               timeout-minutes: 15
               working-directory: ./generic/kubernetes/operator-based/
+              env:
+                  CAMUNDA_RELEASE_NAME: camunda
               run: |
                   set -euo pipefail
                   echo "Deploying Camunda Platform with operator-based infrastructure..."
 
-                  # Add the Camunda Helm repository
-                  helm repo add camunda https://helm.camunda.io
-                  helm repo update
+                  # Copy assembled values file to expected location
+                  cp -f camunda-assembled-values.yml generated-values.yml
 
-                  # Deploy Camunda using the assembled values file
-                  helm install camunda camunda/camunda-platform \
-                      --version 8.8 \
-                      --values https://helm.camunda.io/camunda-platform/values/values-v8.8.yaml \
-                      --values camunda-assembled-values.yml \
-                      --namespace "$CAMUNDA_NAMESPACE" \
-                      --create-namespace \
-                      --wait \
-                      --timeout 15m
-
-                  echo "Camunda Platform deployed successfully."
+                  # Use the install-chart.sh script
+                  ../single-region/procedure/install-chart.sh
 
             - name: 👀⏳ Wait for the deployment to be healthy
               timeout-minutes: 10

@@ -21,6 +21,9 @@ spec:
             key: password
     http:
         httpEnabled: true
+    additionalOptions:
+        - name: http-relative-path
+          value: /auth
     # Required for optimized images - must use aws-wrapper URL format
     unsupported:
         podTemplate:

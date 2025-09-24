@@ -637,14 +637,10 @@ jobs:
             - name: 🧹 Cleanup domain specific resources
               if: always() && matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 10
-              run: |
-                  set -euo pipefail
-
-                  echo "Let external-dns remove the domain" && sleep 45
-
-                  helm uninstall ingress-nginx --namespace ingress-nginx --wait
-                  helm uninstall external-dns --namespace external-dns --wait
-                  helm uninstall cert-manager --namespace cert-manager --wait
+              uses: ./.github/actions/kubernetes-ingress-cleanup
+              with:
+                  wait-for-dns-cleanup: 'true'
+                  dns-cleanup-wait-seconds: '45'
 
     cleanup-clusters:
         name: Cleanup AKS clusters

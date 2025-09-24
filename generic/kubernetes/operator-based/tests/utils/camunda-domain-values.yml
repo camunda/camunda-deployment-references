@@ -1,12 +1,22 @@
 ---
+# Camunda Platform 8 Values - Domain Configuration
+# This configuration enables external access via ingress/routes with custom domains
+#
+# Variables substituted by envsubst:
+# - ${CAMUNDA_DOMAIN}: Domain for Camunda components (e.g., lei-standard.camunda.ie)
+# - ${INGRESS_CLASS_NAME}: Ingress controller class (nginx for EKS, openshift-default for OpenShift)
+
 global:
     # Ingress configuration for external access
-    # Note: you need to enable this if you want to access Camunda externally
     ingress:
-        enabled: false
-        className: ${INGRESS_CLASS_NAME}
+        enabled: true
+        className: ${INGRESS_CLASS_NAME:-nginx}  # Default to nginx, overridden for OpenShift
         host: ${CAMUNDA_DOMAIN}
         tls:
+            # TLS/HTTPS configuration - behavior depends on platform:
+            # - EKS/Kubernetes: Uses cert-manager + Let's Encrypt for automatic certificates
+            # - OpenShift: This entire 'tls' section is automatically removed by workflow
+            #              because OpenShift routes handle TLS termination automatically
             enabled: true  # Set to true for HTTPS
             secretName: camunda-c8-tls
         annotations:

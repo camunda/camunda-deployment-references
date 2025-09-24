@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+# TODO: before merge, ln -s generic/kubernetes/single-region/procedure/create-identity-secret.sh
+
 # Generate secrets for Camunda Identity components with operator-based configuration
 NAMESPACE=${1:-${CAMUNDA_NAMESPACE:-camunda}}
 
