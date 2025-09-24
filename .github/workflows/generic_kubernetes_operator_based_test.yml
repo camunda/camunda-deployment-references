@@ -232,6 +232,8 @@ jobs:
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
                   ref-arch: eks-single-region
+                  deploy-aurora: 'false'      # Disabled - using CloudNativePG operator instead
+                  deploy-opensearch: 'false'  # Disabled - using ECK operator instead
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",

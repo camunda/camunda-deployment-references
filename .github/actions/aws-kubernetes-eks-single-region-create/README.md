@@ -4,6 +4,7 @@
 
 This GitHub Action automates the deployment of the aws/kubernetes/eks-single-region(-irsa) reference architecture cluster using Terraform.
 The kube context will be set on the created cluster.
+Supports conditional deployment of Aurora PostgreSQL and OpenSearch for operator-based scenarios.
 
 
 ## Inputs
@@ -24,6 +25,8 @@ The kube context will be set on the created cluster.
 | `ref-arch` | <p>Reference architecture to deploy</p> | `false` | `eks-single-region-irsa` |
 | `vpn-enabled` | <p>Enable VPN setup module (recommended when private_vpc is true), this will also configure the current runner to use it</p> | `false` | `false` |
 | `private-vpc` | <p>The VPC within which the cluster resides will only have private subnets, meaning that it cannot be accessed at all from the public Internet (empty will fallback on default value of the module)</p> | `false` | `""` |
+| `deploy-aurora` | <p>Deploy Aurora PostgreSQL database</p> | `false` | `true` |
+| `deploy-opensearch` | <p>Deploy OpenSearch domain</p> | `false` | `true` |
 
 
 ## Outputs
@@ -129,4 +132,16 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ""
+
+    deploy-aurora:
+    # Deploy Aurora PostgreSQL database
+    #
+    # Required: false
+    # Default: true
+
+    deploy-opensearch:
+    # Deploy OpenSearch domain
+    #
+    # Required: false
+    # Default: true
 ```
