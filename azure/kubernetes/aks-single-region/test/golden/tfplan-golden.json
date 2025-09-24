@@ -74,6 +74,7 @@
             "monitor_metrics": [],
             "network_profile": [
               {
+                "advanced_networking": [],
                 "ip_versions": [],
                 "load_balancer_profile": [],
                 "nat_gateway_profile": [],
@@ -183,6 +184,7 @@
             "name": "camunda-aks",
             "network_profile": [
               {
+                "advanced_networking": [],
                 "dns_service_ip": "10.0.0.10",
                 "load_balancer_sku": "standard",
                 "network_data_plane": "azure",
@@ -751,6 +753,13 @@
           }
         },
         "module.network.azurerm_subnet.aks_subnet": {
+          "identity": {
+            "name": null,
+            "resource_group_name": null,
+            "subscription_id": null,
+            "virtual_network_name": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "aks_subnet",
           "provider_name": "registry.terraform.io/hashicorp/azurerm",
@@ -776,11 +785,19 @@
             "resource_group_name": "camunda-rg",
             "service_endpoint_policy_ids": null,
             "service_endpoints": null,
+            "sharing_scope": null,
             "timeouts": null,
             "virtual_network_name": "camunda-vnet"
           }
         },
         "module.network.azurerm_subnet.db_subnet": {
+          "identity": {
+            "name": null,
+            "resource_group_name": null,
+            "subscription_id": null,
+            "virtual_network_name": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "db_subnet",
           "provider_name": "registry.terraform.io/hashicorp/azurerm",
@@ -828,11 +845,19 @@
             "resource_group_name": "camunda-rg",
             "service_endpoint_policy_ids": null,
             "service_endpoints": null,
+            "sharing_scope": null,
             "timeouts": null,
             "virtual_network_name": "camunda-vnet"
           }
         },
         "module.network.azurerm_subnet.pe_subnet": {
+          "identity": {
+            "name": null,
+            "resource_group_name": null,
+            "subscription_id": null,
+            "virtual_network_name": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "pe_subnet",
           "provider_name": "registry.terraform.io/hashicorp/azurerm",
@@ -858,6 +883,7 @@
             "resource_group_name": "camunda-rg",
             "service_endpoint_policy_ids": null,
             "service_endpoints": null,
+            "sharing_scope": null,
             "timeouts": null,
             "virtual_network_name": "camunda-vnet"
           }
