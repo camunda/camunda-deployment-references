@@ -33,28 +33,28 @@ create_or_get_secret_field() {
 
 # Check if the secret exists
 SECRET_EXISTS=false
-if kubectl get secret camunda-credentials -n "$NAMESPACE" >/dev/null 2>&1; then
+if kubectl get secret identity-secret-for-components -n "$NAMESPACE" >/dev/null 2>&1; then
     SECRET_EXISTS=true
-    echo "✅ Secret 'camunda-credentials' already exists in namespace: $NAMESPACE"
+    echo "✅ Secret 'identity-secret-for-components' already exists in namespace: $NAMESPACE"
 else
-    echo "Generating new 'camunda-credentials' secret in namespace: $NAMESPACE"
+    echo "Generating new 'identity-secret-for-components' secret in namespace: $NAMESPACE"
 fi
 
 # Generate or retrieve all secret fields
-create_or_get_secret_field "camunda-credentials" "identity-connectors-client-token" "CONNECTORS_SECRET"
-create_or_get_secret_field "camunda-credentials" "identity-console-client-token" "CONSOLE_SECRET"
-create_or_get_secret_field "camunda-credentials" "identity-optimize-client-token" "OPTIMIZE_SECRET"
-create_or_get_secret_field "camunda-credentials" "identity-orchestration-client-token" "ORCHESTRATION_SECRET"
-create_or_get_secret_field "camunda-credentials" "identity-webmodeler-client-token" "WEBMODELER_SECRET"
-create_or_get_secret_field "camunda-credentials" "identity-admin-client-token" "IDENTITY_SECRET"
-create_or_get_secret_field "camunda-credentials" "identity-firstuser-password" "USER_PASSWORD"
-create_or_get_secret_field "camunda-credentials" "smtp-password" "SMTP_PASSWORD" ""
+create_or_get_secret_field "identity-secret-for-components" "identity-connectors-client-token" "CONNECTORS_SECRET"
+create_or_get_secret_field "identity-secret-for-components" "identity-console-client-token" "CONSOLE_SECRET"
+create_or_get_secret_field "identity-secret-for-components" "identity-optimize-client-token" "OPTIMIZE_SECRET"
+create_or_get_secret_field "identity-secret-for-components" "identity-orchestration-client-token" "ORCHESTRATION_SECRET"
+create_or_get_secret_field "identity-secret-for-components" "identity-webmodeler-client-token" "WEBMODELER_SECRET"
+create_or_get_secret_field "identity-secret-for-components" "identity-admin-client-token" "IDENTITY_SECRET"
+create_or_get_secret_field "identity-secret-for-components" "identity-firstuser-password" "USER_PASSWORD"
+create_or_get_secret_field "identity-secret-for-components" "smtp-password" "SMTP_PASSWORD" ""
 
 # Create or update the secret
 if [ "$SECRET_EXISTS" = false ]; then
-    echo "Creating Kubernetes secret 'camunda-credentials' with Identity component secrets..."
+    echo "Creating Kubernetes secret 'identity-secret-for-components' with Identity component secrets..."
 
-    kubectl create secret generic camunda-credentials \
+    kubectl create secret generic identity-secret-for-components \
       --namespace "$NAMESPACE" \
       --from-literal=identity-connectors-client-token="$CONNECTORS_SECRET" \
       --from-literal=identity-console-client-token="$CONSOLE_SECRET" \
@@ -65,5 +65,5 @@ if [ "$SECRET_EXISTS" = false ]; then
       --from-literal=identity-firstuser-password="$USER_PASSWORD" \
       --from-literal=smtp-password="$SMTP_PASSWORD"
 
-    echo "✅ Secret 'camunda-credentials' created successfully in namespace: $NAMESPACE"
+    echo "✅ Secret 'identity-secret-for-components' created successfully in namespace: $NAMESPACE"
 fi

@@ -586,6 +586,9 @@ jobs:
               run: |
                   set -euo pipefail
 
+                  # wait some time for the pods to spawn
+                  sleep 30
+
                   cd tests && ./check-deployment-ready.sh && cd ..
                   echo "Camunda deployment verified successfully."
 
