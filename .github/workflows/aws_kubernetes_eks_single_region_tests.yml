@@ -466,6 +466,7 @@ jobs:
 
             - name: 🏗️ Clean and recreate Camunda namespace
               uses: ./.github/actions/internal-clean-namespace
+              timeout-minutes: 20
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   recreate: 'true'

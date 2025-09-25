@@ -389,7 +389,7 @@ jobs:
                   namespace: elastic-system
 
             - name: 🏗️ Clean and recreate Camunda namespace
-              timeout-minutes: 10
+              timeout-minutes: 20
               uses: ./.github/actions/internal-clean-namespace
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
@@ -564,6 +564,7 @@ jobs:
               run: |
                   set -euo pipefail
                   echo "Creating Camunda Identity credentials..."
+                  source ./generic/kubernetes/single-region/procedure/generate-passwords.sh
                   ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
 
             - name: 🐳 Create Docker registry secrets for tests
