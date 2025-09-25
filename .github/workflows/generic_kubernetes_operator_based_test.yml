@@ -422,6 +422,7 @@ jobs:
                       fi
 
                       CAMUNDA_DOMAIN="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.$BASE_DOMAIN"
+                      echo "INGRESS_CLASS_NAME=$INGRESS_CLASS_NAME" | tee -a "$GITHUB_ENV"
                       VALUES_FILES+=("tests/utils/camunda-domain-values.yml")
                   else
                       # No-domain: everything on localhost
@@ -429,7 +430,6 @@ jobs:
                   fi
 
                   echo "CAMUNDA_DOMAIN=$CAMUNDA_DOMAIN" | tee -a "$GITHUB_ENV"
-                  echo "INGRESS_CLASS_NAME=$INGRESS_CLASS_NAME" | tee -a "$GITHUB_ENV"
 
                   # Add component-specific configurations
                   VALUES_FILES+=(
