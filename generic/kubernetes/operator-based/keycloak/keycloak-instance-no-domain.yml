@@ -4,14 +4,14 @@ kind: Keycloak
 metadata:
     name: keycloak
 spec:
-    # TODO: renovate to be tested
     # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<version>.*)$
     image: docker.io/camunda/keycloak:quay-optimized-26.3.2
     instances: 1
     db:
-        host: pg-keycloak-rw # this service is provided by the CNPG keycloak
-        port: 5432
-        database: keycloak
+        # Use official url parameter instead of individual host/port/database
+        # pg-keycloak-rw service is provided by the CNPG keycloak
+        # aws-wrapper is required for optimized images (no impact on functionality)
+        url: jdbc:aws-wrapper:postgresql://pg-keycloak-rw:5432/keycloak
         schema: public
         usernameSecret:
             name: pg-keycloak-secret
@@ -24,15 +24,6 @@ spec:
     additionalOptions:
         - name: http-relative-path
           value: /auth
-    # Required for optimized images - must use aws-wrapper URL format
-    unsupported:
-        podTemplate:
-            spec:
-                containers:
-                    - name: keycloak
-                      env:
-                          - name: KC_DB_URL
-                            value: jdbc:aws-wrapper:postgresql://pg-keycloak-rw:5432/keycloak
     ingress:
         enabled: false
     hostname:
