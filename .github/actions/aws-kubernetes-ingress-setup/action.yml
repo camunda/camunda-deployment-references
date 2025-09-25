@@ -3,7 +3,6 @@ name: AWS Kubernetes Ingress Setup
 description: Install and configure ingress-nginx, external-dns, and cert-manager for AWS EKS clusters
 
 # TODO: use static wildcard certificate with an option to disable LE cert-manager requests
-# TODO: include 🔄 Restart CoreDNS as option
 
 inputs:
     cluster-name:

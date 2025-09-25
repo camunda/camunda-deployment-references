@@ -21,8 +21,6 @@ spec:
             key: password
     http:
         httpEnabled: true
-        # TLS secret for HTTPS (cert-manager will create this automatically)
-        tlsSecret: camunda-keycloak-tls
     additionalOptions:
         - name: http-relative-path
           value: /auth
@@ -30,6 +28,7 @@ spec:
         enabled: true
         className: nginx
         annotations:
+            # TLS secret for HTTPS (cert-manager will create this automatically)
             kubernetes.io/tls-acme: 'true'
     hostname:
         hostname: ${CAMUNDA_DOMAIN}

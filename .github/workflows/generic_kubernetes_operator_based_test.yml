@@ -29,6 +29,7 @@ on:
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-clean-namespace/**
+            - .github/actions/kubernetes-restart-coredns/**
 
     workflow_dispatch:
         inputs:
@@ -589,6 +590,13 @@ jobs:
 
                   cd tests && ./check-deployment-ready.sh && cd ..
                   echo "Camunda deployment verified successfully."
+
+            - name: 🔄 Restart CoreDNS
+              if: matrix.declination.name == 'domain'
+              uses: ./.github/actions/kubernetes-restart-coredns
+              timeout-minutes: 10
+              with:
+                  cluster-type: ${{ matrix.distro.type == 'openshift' && 'openshift' || 'kubernetes' }}
 
             - name: Set current Camunda version
               id: camunda-version

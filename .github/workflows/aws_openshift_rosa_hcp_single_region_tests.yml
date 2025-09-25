@@ -27,6 +27,7 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/actions/internal-clean-namespace/**
+            - .github/actions/kubernetes-restart-coredns/**
 
     workflow_dispatch:
         inputs:
@@ -523,6 +524,13 @@ jobs:
                   set -euo pipefail
 
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+
+            - name: 🔄 Restart CoreDNS
+              if: matrix.declination.name == 'domain'
+              uses: ./.github/actions/kubernetes-restart-coredns
+              timeout-minutes: 10
+              with:
+                  cluster-type: openshift
 
             - name: Set current Camunda version
               id: camunda-version

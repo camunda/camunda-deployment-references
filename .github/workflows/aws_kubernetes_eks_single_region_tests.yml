@@ -25,6 +25,7 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/actions/internal-clean-namespace/**
+            - .github/actions/kubernetes-restart-coredns/**
 
     workflow_dispatch:
         inputs:
@@ -668,19 +669,10 @@ jobs:
 
             - name: 🔄 Restart CoreDNS
               if: matrix.declination.name == 'domain'
+              uses: ./.github/actions/kubernetes-restart-coredns
               timeout-minutes: 10
-              run: |
-                  set -euo pipefail
-
-                  # Restart CoreDNS as the previous DNS entries might be cached
-                  kubectl rollout restart deployment coredns -n kube-system
-
-                  # Wait for CoreDNS to be fully rolled out
-                  kubectl rollout status deployment coredns -n kube-system --timeout=5m
-                  kubectl get pods -n kube-system -l k8s-app=kube-dns
-
-                  echo "Wait additional 120s for CoreDNS to stabilize"
-                  sleep 120
+              with:
+                  cluster-type: kubernetes
 
             - name: 📐 Set current Camunda version
               id: camunda-version
