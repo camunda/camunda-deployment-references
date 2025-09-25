@@ -92,7 +92,10 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
     # TODO: [release-duty] before the release, update repo ref!
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+
+    # TODO: revert me before merge!
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8
+    # TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     ROSA_CLI_VERSION: latest
