@@ -567,6 +567,20 @@ jobs:
                   echo "Creating Camunda Identity credentials..."
                   ./generate-identity-secrets.sh
 
+            - name: 🐳 Create Docker registry secrets for tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 2
+              run: |
+                  set -euo pipefail
+                  echo "Creating Docker registry secrets to avoid rate limiting..."
+
+                  # Create the pull secrets described in generic/kubernetes/operator-based/tests/helm-values/registry.yml
+                  kubectl create secret docker-registry index-docker-io \
+                      --docker-server=index.docker.io \
+                      --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                      --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                      --namespace="$CAMUNDA_NAMESPACE" || true
+
             - name: 🏗️ Deploy Camunda Platform
               timeout-minutes: 15
               working-directory: ./generic/kubernetes/operator-based/
