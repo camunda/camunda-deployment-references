@@ -21,6 +21,8 @@ spec:
             key: password
     http:
         httpEnabled: true
+        # TLS secret for HTTPS (cert-manager will create this automatically)
+        tlsSecret: camunda-keycloak-tls
     additionalOptions:
         - name: http-relative-path
           value: /auth
@@ -31,8 +33,6 @@ spec:
             kubernetes.io/tls-acme: 'true'
     hostname:
         hostname: ${CAMUNDA_DOMAIN}
-        # TLS secret for HTTPS when ingress is enabled (remove for localhost/no-ingress)
-        tlsSecret: camunda-keycloak-tls
         # Dynamic backchannel for ingress environments (set to false for localhost/no-ingress)
         backchannelDynamic: true
         strict: true

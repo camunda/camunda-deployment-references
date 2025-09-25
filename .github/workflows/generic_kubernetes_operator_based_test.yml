@@ -584,7 +584,31 @@ jobs:
                   cd tests && ./check-deployment-ready.sh && cd ..
                   echo "Camunda deployment verified successfully."
 
-            - name: 🔬🚨 Get failed Pods info
+            - name: Set current Camunda version
+              id: camunda-version
+              run: |
+                  set -euo pipefail
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
+            - name: 🧪 Run Helm Chart tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 60
+              uses: ./.github/actions/internal-camunda-chart-tests
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  camunda-domain: ${{ env.DOMAIN_NAME }}
+                  webmodeler-enabled: 'true'  # Always enabled in operator-based deployment
+                  console-enabled: 'true'     # Always enabled in operator-based deployment
+                  elasticsearch-enabled: 'false'
+                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
+                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+                  test-release-name: camunda
+
+            - name: 🚨🔬 Get failed Pods info
               if: failure()
               run: |
                   set -euo pipefail
