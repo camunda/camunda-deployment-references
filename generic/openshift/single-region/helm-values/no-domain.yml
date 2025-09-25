@@ -10,23 +10,23 @@ global:
                 redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: orchestration-secret
+                    existingSecretKey: identity-orchestration-client-token
             connectors:
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: connectors-secret
+                    existingSecretKey: identity-connectors-client-token
             optimize:
                 redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: optimize-secret
+                    existingSecretKey: identity-optimize-client-token
             webModeler:
                 redirectUrl: http://localhost:8084
             console:
                 redirectUrl: http://localhost:8085
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: console-secret
+                    existingSecretKey: identity-console-client-token
 
 identity:
     enabled: false # disable identity for local dev without domain

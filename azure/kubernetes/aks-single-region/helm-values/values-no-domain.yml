@@ -14,7 +14,7 @@ identityKeycloak:
 
     auth:
         existingSecret: identity-secret-for-components
-        passwordSecretKey: admin-password
+        passwordSecretKey: identity-admin-client-token
 
 global:
     elasticsearch:
@@ -30,24 +30,24 @@ global:
             orchestration:
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: orchestration-secret
+                    existingSecretKey: identity-orchestration-client-token
                 redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
             connectors:
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: connectors-secret
+                    existingSecretKey: identity-connectors-client-token
             optimize:
                 redirectUrl: http://localhost:8083/optimize  # replace this with a port of your choice when you will do port forwarding
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: optimize-secret
+                    existingSecretKey: identity-optimize-client-token
             webModeler:
                 redirectUrl: http://localhost:8084/modeler
             console:
                 redirectUrl: http://localhost:8085/console
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: console-secret
+                    existingSecretKey: identity-console-client-token
 
 orchestration:
     image:

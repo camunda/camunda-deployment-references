@@ -223,9 +223,6 @@ runs:
 
               echo "Patch the identity secrets to allow venom to access to the platform"
               sed -i -e 's/integration-test-credentials/identity-secret-for-components/g' \
-                      -e 's/identity-optimize-client-token/optimize-secret/g' \
-                      -e 's/identity-orchestration-client-token/orchestration-secret/g' \
-                      -e 's/identity-connectors-client-token/connectors-secret/g' \
                       "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
 
               # remove venom var client secret as we define it in the file

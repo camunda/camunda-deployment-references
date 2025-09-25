@@ -25,23 +25,23 @@ global:
                 redirectUrl: https://${DOMAIN_NAME}
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: orchestration-secret
+                    existingSecretKey: identity-orchestration-client-token
             connectors:
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: connectors-secret
+                    existingSecretKey: identity-connectors-client-token
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize  # replace this with a port of your choice when you will do port forwarding
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: optimize-secret
+                    existingSecretKey: identity-optimize-client-token
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
                 redirectUrl: https://${DOMAIN_NAME}/console
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: console-secret
+                    existingSecretKey: identity-console-client-token
 
 identityKeycloak:
     enabled: true
@@ -55,7 +55,7 @@ identityKeycloak:
 
     auth:
         existingSecret: identity-secret-for-components
-        passwordSecretKey: admin-password
+        passwordSecretKey: identity-admin-client-token
 
 identity:
     enabled: true
@@ -66,7 +66,7 @@ identity:
         enabled: true
         secret:
             existingSecret: identity-secret-for-components
-            existingSecretKey: first-user-password # demo
+            existingSecretKey: identity-first-user-password # demo
 
 webModeler:
     contextPath: /modeler

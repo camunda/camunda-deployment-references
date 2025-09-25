@@ -14,7 +14,7 @@ identityKeycloak:
 
     auth:
         existingSecret: identity-secret-for-components
-        passwordSecretKey: admin-password
+        passwordSecretKey: identity-admin-client-token
 
 global:
     elasticsearch:
@@ -36,24 +36,24 @@ global:
             orchestration:
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: orchestration-secret
+                    existingSecretKey: identity-orchestration-client-token
                 redirectUrl: https://${DOMAIN_NAME}
             connectors:
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: connectors-secret
+                    existingSecretKey: identity-connectors-client-token
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: optimize-secret
+                    existingSecretKey: identity-optimize-client-token
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
                 redirectUrl: https://${DOMAIN_NAME}/console
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: console-secret
+                    existingSecretKey: identity-console-client-token
 
 identity:
     image:
@@ -66,7 +66,7 @@ identity:
         enabled: true
         secret:
             existingSecret: identity-secret-for-components
-            existingSecretKey: first-user-password # demo
+            existingSecretKey: identity-first-user-password # demo
 
     externalDatabase:
         enabled: true
