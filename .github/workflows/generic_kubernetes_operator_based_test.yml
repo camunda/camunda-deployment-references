@@ -434,6 +434,8 @@ jobs:
                   fi
 
                   echo "CAMUNDA_DOMAIN=$CAMUNDA_DOMAIN" | tee -a "$GITHUB_ENV"
+                  export CAMUNDA_DOMAIN
+                  export INGRESS_CLASS_NAME
 
                   # Add component-specific configurations
                   VALUES_FILES+=(
