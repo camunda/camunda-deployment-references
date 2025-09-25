@@ -1,0 +1,547 @@
+---
+name: Test Camunda Deployment
+description: Reusable action to test Camunda Platform deployment on Kubernetes
+author: Camunda
+
+inputs:
+    # Cluster configuration
+    cluster-type:
+        description: Cluster type (kubernetes, openshift)
+        required: false
+        default: kubernetes
+
+    namespace:
+        description: Kubernetes namespace where Camunda is deployed
+        required: true
+
+    # Camunda configuration
+    camunda-url:
+        description: Base URL of Camunda Platform (e.g. https://camunda.example.com)
+        required: true
+
+    camunda-version:
+        description: Camunda Platform version to test
+        required: false
+        default: '8.8'
+
+    # Test configuration
+    test-suites:
+        description: 'Test suites to execute (comma-separated: core,playwright,preflight)'
+        required: false
+        default: core
+
+    skip-elasticsearch:
+        description: Skip Elasticsearch tests
+        required: false
+        default: 'false'
+
+    skip-keycloak:
+        description: Skip Keycloak tests
+        required: false
+        default: 'false'
+
+    skip-webmodeler:
+        description: Skip Web Modeler tests
+        required: false
+        default: 'true'
+
+    # Advanced configuration
+    test-timeout:
+        description: Test timeout (e.g. 30m)
+        required: false
+        default: 20m
+
+    extra-test-args:
+        description: Additional test arguments
+        required: false
+        default: ''
+
+    install-tools:
+        description: Install required tools (kubectl, helm, task, yq) automatically
+        required: false
+        default: 'true'
+
+    # Authentication secrets
+    camunda-username:
+        description: Username for Camunda authentication
+        required: false
+        default: demo
+
+    camunda-password:
+        description: Password for Camunda authentication
+        required: false
+        default: demo
+
+    # Test repository configuration
+    tests-camunda-helm-chart-repo-ref:
+        description: The branch, tag or commit to checkout for tests
+        required: false
+        default: main
+
+    tests-camunda-helm-chart-repo-path:
+        description: Path to the Helm chart repository
+        required: false
+        default: ./.camunda_helm_repo
+
+    # Zeebe client tests configuration
+    enable-zeebe-client-tests:
+        description: Whether the Zeebe Client tests should be run
+        required: false
+        default: 'true'
+
+    zeebe-topology-golden-file:
+        description: The golden file to compare the Zeebe topology output against
+        required: false
+        default: ./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json
+
+    zeebe-topology-check-script:
+        description: The script called to check the current Zeebe topology
+        required: false
+        default: ./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh
+
+    zeebe-authenticated:
+        description: Use the authentication layer to interact with zeebe
+        required: false
+        default: 'true'
+
+    test-release-name:
+        description: The helm release name used by the tests
+        required: false
+        default: camunda
+
+    # Dual-region support
+    cluster-2-name:
+        description: Optional cluster 2 name for sed replacement (dual-region only)
+        required: false
+
+    camunda-namespace-2:
+        description: Optional namespace for region 2 (dual-region only)
+        required: false
+
+    camunda-namespace-1:
+        description: Optional namespace for region 1 (dual-region only)
+        required: false
+
+    # Secrets for authentication
+    secrets:
+        description: JSON wrapped secrets for easier secret passing
+        required: false
+
+outputs:
+    test-results:
+        description: Test results
+        value: ${{ steps.run-tests.outputs.results }}
+
+    test-logs:
+        description: Test logs
+        value: ${{ steps.run-tests.outputs.logs }}
+
+runs:
+    using: composite
+    steps:
+        - name: Import Secrets
+          id: secrets
+          if: ${{ inputs.secrets != '' }}
+          uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+          with:
+              url: ${{ fromJSON(inputs.secrets).VAULT_ADDR }}
+              method: approle
+              roleId: ${{ fromJSON(inputs.secrets).VAULT_ROLE_ID }}
+              secretId: ${{ fromJSON(inputs.secrets).VAULT_SECRET_ID }}
+              exportEnv: false
+              secrets: |
+                  secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
+                  secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
+
+        - name: Setup - Checkout test repository
+          uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+          with:
+              repository: camunda/camunda-platform-helm
+              ref: ${{ inputs.tests-camunda-helm-chart-repo-ref }}
+              path: ${{ inputs.tests-camunda-helm-chart-repo-path }}
+              fetch-depth: 0
+
+        - name: Setup - Verify Kubernetes connectivity
+          shell: bash
+          run: |
+              echo "Verifying Kubernetes connectivity..."
+              if ! kubectl cluster-info > /dev/null 2>&1; then
+                  echo "ERROR: Cannot connect to Kubernetes cluster"
+                  exit 1
+              fi
+              echo "✅ Kubernetes connectivity verified"
+
+        - name: Setup - Verify cluster and deployment
+          shell: bash
+          run: |
+              echo "Getting cluster information..."
+              kubectl cluster-info
+              kubectl get nodes
+
+              echo "Checking namespace..."
+              if ! kubectl get namespace "${{ inputs.namespace }}" > /dev/null 2>&1; then
+                  echo "ERROR: Namespace '${{ inputs.namespace }}' not found"
+                  kubectl get namespaces
+                  exit 1
+              fi
+
+              echo "Checking Camunda deployment..."
+              kubectl get pods -n "${{ inputs.namespace }}"
+
+        - name: Setup - Prepare test environment
+          shell: bash
+          working-directory: ${{ inputs.tests-camunda-helm-chart-repo-path }}
+          env:
+              TEST_NAMESPACE: ${{ inputs.namespace }}
+              TEST_CLUSTER_TYPE: ${{ inputs.cluster-type }}
+              TEST_INGRESS_HOST: ${{ inputs.camunda-url }}
+              CAMUNDA_VERSION: ${{ inputs.camunda-version }}
+              TEST_CLIENT_ID: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID || inputs.camunda-username }}
+              TEST_CLIENT_SECRET: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET || inputs.camunda-password }}
+          run: |
+              set -euo pipefail
+
+              # Determine chart directory
+              export TEST_CHART_DIR_STATIC="charts/camunda-platform-$CAMUNDA_VERSION"
+              echo "TEST_CHART_DIR_STATIC=$TEST_CHART_DIR_STATIC" >> $GITHUB_ENV
+
+              export TEST_CHART_DIR="../../../../charts/camunda-platform-$CAMUNDA_VERSION"
+              echo "TEST_CHART_DIR=$TEST_CHART_DIR" >> $GITHUB_ENV
+
+              export TEST_VALUES_BASE_DIR="test/integration/scenarios"
+              echo "TEST_VALUES_BASE_DIR=$TEST_VALUES_BASE_DIR" >> $GITHUB_ENV
+
+              export CI_TASKS_BASE_DIR="test/integration/scenarios/"
+              echo "CI_TASKS_BASE_DIR=$CI_TASKS_BASE_DIR" >> $GITHUB_ENV
+
+              # Create variables.env file for Venom tests
+              export VARIABLES_ENV_FILE="$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables.env"
+              mkdir -p "$(dirname "$VARIABLES_ENV_FILE")"
+
+              cat > "$VARIABLES_ENV_FILE" << EOF
+              VENOM_VAR_TEST_INGRESS_HOST=${{ inputs.camunda-url }}
+              VENOM_VAR_SKIP_TEST_ELASTICSEARCH=${{ inputs.skip-elasticsearch }}
+              VENOM_VAR_SKIP_TEST_KEYCLOAK=${{ inputs.skip-keycloak }}
+              VENOM_VAR_SKIP_TEST_WEBMODELER=${{ inputs.skip-webmodeler }}
+              VENOM_VAR_TEST_CLIENT_ID=$TEST_CLIENT_ID
+              VENOM_VAR_TEST_CLIENT_SECRET=$TEST_CLIENT_SECRET
+              ZEEBE_VERSION=$CAMUNDA_VERSION
+              ZEEBE_VERSION_FALLBACK=8.5.6
+              EOF
+
+              # Configure ingress tests
+              if [[ "${{ inputs.camunda-url }}" == *"localhost"* || "${{ inputs.camunda-url }}" == *"127.0.0.1"* ]]; then
+                  echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
+                  echo "VENOM_VAR_SKIP_TEST_KEYCLOAK=true" >> "$VARIABLES_ENV_FILE"
+                  # Fix wrong default orchestrationGRPC port for localhost
+                  if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml" ]]; then
+                      yq eval '.coreVars.baseURLs.orchestrationGRPC |= (select(tag == "!!str") | sub("^http://", "") | sub(":9600$", ":26500"))' \
+                          -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+                  fi
+              else
+                  echo "VENOM_VAR_SKIP_TEST_INGRESS=false" >> "$VARIABLES_ENV_FILE"
+                  echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
+
+                  # Fix ingress test configuration
+                  if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" ]]; then
+                      yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
+                          -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                      yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
+                          -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                  fi
+              fi
+
+              # Apply patches for test compatibility
+              if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" ]]; then
+                  # Fix ShouldBeFalse/ShouldBeTrue expressions
+                  sed -i "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
+                      "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                  sed -i "s/ ShouldBeTrue/ ShouldEqual 'true'/g" \
+                      "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+              fi
+
+              if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml" ]]; then
+                  sed -i "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
+                      "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+                  sed -i "s/ ShouldBeTrue/ ShouldEqual 'true'/g" \
+                      "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+              fi
+
+              # Configure component-specific tests
+              if [[ "${{ inputs.skip-elasticsearch }}" == "true" ]]; then
+                  echo "Disabling Elasticsearch tests..."
+                  if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml" ]]; then
+                      yq eval 'del(.. | select(has("component") and .component == "Elasticsearch"))' \
+                          -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+                  fi
+              fi
+
+              if [[ "${{ inputs.skip-webmodeler }}" == "true" ]]; then
+                  echo "Disabling WebModeler tests..."
+                  if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" ]]; then
+                      yq eval 'del(.. | select(has("component") and .component == "WebModeler"))' \
+                          -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                  fi
+              fi
+
+              # Fix identity secrets reference for our environment
+              if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml" ]]; then
+                  sed -i -e 's/integration-test-credentials/identity-secret-for-components/g' \
+                      "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+                  # Remove venom var client secret as we define it in the file
+                  yq e 'del(.spec.template.spec.containers[].env[] | select(.name == "VENOM_VAR_TEST_CLIENT_SECRET"))' \
+                      -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+              fi
+
+              echo "Test environment setup completed"
+
+        - name: Test - Run preflight tests
+          if: contains(inputs.test-suites, 'preflight')
+          id: run-preflight-tests
+          shell: bash
+          working-directory: ${{ inputs.tests-camunda-helm-chart-repo-path }}
+          env:
+              TEST_NAMESPACE: ${{ inputs.namespace }}
+              TEST_CLUSTER_TYPE: ${{ inputs.cluster-type }}
+          run: |
+              echo "Running preflight tests..."
+
+              cd "${CI_TASKS_BASE_DIR}/chart-full-setup"
+
+              timeout ${{ inputs.test-timeout }} task test.preflight ${{ inputs.extra-test-args }} || {
+                  echo "Preflight tests failed or timed out"
+                  exit 1
+              }
+
+        - name: Test - Run core integration tests
+          if: contains(inputs.test-suites, 'core')
+          id: run-core-tests
+          shell: bash
+          working-directory: ${{ inputs.tests-camunda-helm-chart-repo-path }}
+          env:
+              TEST_NAMESPACE: ${{ inputs.namespace }}
+              TEST_CLUSTER_TYPE: ${{ inputs.cluster-type }}
+          run: |
+              echo "Running core integration tests..."
+
+              cd "${CI_TASKS_BASE_DIR}/chart-full-setup"
+
+              timeout ${{ inputs.test-timeout }} task test.core ${{ inputs.extra-test-args }} || {
+                  echo "Core tests failed or timed out"
+                  exit 1
+              }
+
+        - name: Test - Run zeebe client tests
+          if: ${{ inputs.enable-zeebe-client-tests == 'true' }}
+          shell: bash
+          env:
+              DOMAIN_NAME: ${{ inputs.camunda-url }}
+              CLUSTER_2_NAME: ${{ inputs.cluster-2-name || '' }}
+              CAMUNDA_NAMESPACE_2: ${{ inputs.camunda-namespace-2 || '' }}
+              CAMUNDA_NAMESPACE_1: ${{ inputs.camunda-namespace-1 || '' }}
+              CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name }}
+              TEST_NAMESPACE: ${{ inputs.namespace }}
+          run: |
+              set -euo pipefail
+
+              reference_file="${{ inputs.zeebe-topology-golden-file }}"
+              topology_check_script="${{ inputs.zeebe-topology-check-script }}"
+              zeebe_authenticated="${{ inputs.zeebe-authenticated }}"
+
+              # Extract domain name from URL if it's a full URL
+              if [[ "$DOMAIN_NAME" == http* ]]; then
+                  DOMAIN_NAME=$(echo "$DOMAIN_NAME" | sed 's|https\?://||' | cut -d'/' -f1)
+              fi
+
+              if [[ -z "$DOMAIN_NAME" || "$DOMAIN_NAME" == *"localhost"* || "$DOMAIN_NAME" == *"127.0.0.1"* ]]; then
+                  echo "No domain name provided or localhost detected, assuming local port-forwarding setup"
+                  echo "Skipping zeebe oidc (keycloak) authentication as basic auth is used"
+                  zeebe_authenticated="false"
+                  DOMAIN_NAME=""
+              fi
+
+              echo "Using golden reference file to compare against: $reference_file"
+              echo "Using topology check script: $topology_check_script"
+
+              if [[ "$zeebe_authenticated" == "true" ]]; then
+                  echo "Using authenticated Zeebe client credentials..."
+                  export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
+                  export ZEEBE_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+              fi
+
+              # function to help with port-forwarding in the background
+              start_port_forward() {
+                  local service=$1
+                  local ports=$2
+                  kubectl port-forward service/$service $ports -n $TEST_NAMESPACE >/dev/null 2>&1 &
+                  local pid=$!
+                  PORT_FORWARD_PIDS+=($pid)
+                  echo "Port-forwarding for $service on ports $ports started."
+              }
+
+              cleanup() {
+                  for pid in "${PORT_FORWARD_PIDS[@]}"; do
+                      echo "🛑 Stopping port-forward (PID: $pid)..."
+                      kill "$pid" 2>/dev/null || echo "⚠️ Failed to kill PID $pid"
+                  done
+              }
+
+              trap cleanup EXIT
+
+              PORT_FORWARD_PIDS=()
+
+              # Dual-Region includes the portforwarding itself, therefore skipping it here
+              if [[ -z "$DOMAIN_NAME" && -z "$CLUSTER_2_NAME" ]]; then
+                  # Without domain:
+                  source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
+
+                  start_port_forward "${CAMUNDA_RELEASE_NAME}-zeebe-gateway" 8080:8080
+
+                  echo "Waiting for port-forwarding to be established..." && sleep 10
+              else
+                  # With domain:
+                  source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-domain.sh
+              fi
+
+              # Execute the script and capture the output in a variable
+              eval "$topology_check_script"
+              check_zeebe_topology_output=$(<zeebe-topology.json)
+
+              # Checks
+              error_found=false
+              check_zeebe_topology_all_healthy=$(echo "$check_zeebe_topology_output" | jq '[.brokers[].partitions[].health == "healthy"] | all')
+              check_zeebe_topology_cluster_size=$(echo "$check_zeebe_topology_output" | jq '.clusterSize')
+              check_zeebe_topology_partitions_count=$(echo "$check_zeebe_topology_output" | jq '.partitionsCount')
+
+              golden_zeebe_topology_cluster_size=$(jq '.clusterSize' < "$reference_file")
+              golden_zeebe_topology_partitions_count=$(jq '.partitionsCount' < "$reference_file")
+
+              if [ "$check_zeebe_topology_all_healthy" = "true" ]; then
+                  echo "✅ All partitions are healthy."
+              else
+                  echo "❌ Not all partitions are healthy"
+                  error_found=true
+              fi
+
+              if [ "$check_zeebe_topology_cluster_size" -eq $golden_zeebe_topology_cluster_size ]; then
+                  echo "✅ Cluster size is $check_zeebe_topology_cluster_size."
+              else
+                  echo "❌ Cluster size is not $golden_zeebe_topology_cluster_size."
+                  error_found=true
+              fi
+
+              if [ "$check_zeebe_topology_partitions_count" -eq $golden_zeebe_topology_partitions_count ]; then
+                  echo "✅ Partitions count is $check_zeebe_topology_partitions_count."
+              else
+                  echo "❌ Partitions count is not $golden_zeebe_topology_partitions_count."
+                  error_found=true
+              fi
+
+              echo "Comparing golden file of the zeebe topology output..."
+
+              # Save the output to a temporary file
+              temp_output=$(mktemp)
+              echo "$check_zeebe_topology_output" > "$temp_output"
+
+              # Replace patch version
+              yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$temp_output"
+              yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$reference_file"
+
+              # Replace namespace names with cluster names if env vars are set
+              if [[ -n "${CLUSTER_2_NAME:-}" && -n "${CAMUNDA_NAMESPACE_2:-}" && -n "${CAMUNDA_NAMESPACE_1:-}" ]]; then
+                  echo "Replacing namespace values in golden file..."
+                  sed -e "s/cluster-region-2/$CLUSTER_2_NAME/g" \
+                      -e "s/camunda-cluster-region-2\.svc/$CAMUNDA_NAMESPACE_2\.svc/g" \
+                      -e "s/camunda-cluster-region-1\.svc/$CAMUNDA_NAMESPACE_1\.svc/g" \
+                      -i "$reference_file"
+              fi
+
+              echo "Replacing release name value in golden file..."
+              sed -e "s/camunda-zeebe-gateway/${CAMUNDA_RELEASE_NAME}-zeebe-gateway/g" -i "$reference_file"
+
+              # Order each file also remove not predictable fields
+              yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$temp_output"
+              yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$reference_file"
+
+              # Compare the two files using diff (in compacted JSON format)
+              diff_output=$(delta <(jq -S . "$temp_output") <(jq -S . "$reference_file") || true)
+
+              if [[ -n "$diff_output" ]]; then
+                  # If differences are found, print the error and the diff
+                  echo "❌ Error: The golden files of zeebe topology files do not match."
+                  echo "Differences found:"
+                  echo "$diff_output"
+
+                  # Display the new generated version
+                  echo "New version:"
+                  cat "$temp_output"
+
+                  error_found=true
+              fi
+
+              if [ "$error_found" = true ]; then
+                  echo "❌ Some tests failed."
+                  exit 1
+              fi
+              echo "✅ The cluster meets all the expected criteria."
+
+        - name: Test - Collect results and logs
+          if: always()
+          id: run-tests
+          shell: bash
+          working-directory: ${{ inputs.tests-camunda-helm-chart-repo-path }}
+          env:
+              TEST_NAMESPACE: ${{ inputs.namespace }}
+          run: |
+              echo "Collecting test results..."
+
+              # Collect Camunda pod logs
+              echo "## Pod Status" > test_results.md
+              kubectl get pods -n "${{ inputs.namespace }}" >> test_results.md 2>&1 || true
+
+              echo -e "\n## Pod Logs" >> test_results.md
+              for pod in $(kubectl get pods -n "${{ inputs.namespace }}" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo ""); do
+                  if [ ! -z "$pod" ]; then
+                      echo "### $pod" >> test_results.md
+                      kubectl logs "$pod" -n "${{ inputs.namespace }}" --tail=50 >> test_results.md 2>&1 || echo "Failed to get logs for $pod" >> test_results.md
+                      echo -e "\n" >> test_results.md
+                  fi
+              done
+
+              # Collect Venom results if they exist
+              if [ -f "test/integration/testsuites/results.json" ]; then
+                  echo -e "\n## Test Results" >> test_results.md
+                  cat test/integration/testsuites/results.json >> test_results.md 2>&1 || true
+              fi
+
+              # Set outputs
+              {
+                  echo "results<<EOF"
+                  cat test_results.md 2>/dev/null || echo "No test results found"
+                  echo "EOF"
+              } >> $GITHUB_OUTPUT
+
+              {
+                  echo "logs<<EOF"
+                  echo "Test execution completed at $(date)"
+                  echo "Namespace: ${{ inputs.namespace }}"
+                  echo "Camunda URL: ${{ inputs.camunda-url }}"
+                  echo "Test suites: ${{ inputs.test-suites }}"
+                  cat test_results.md 2>/dev/null || echo "No detailed logs available"
+                  echo "EOF"
+              } >> $GITHUB_OUTPUT
+
+        - name: Test - Upload test artifacts
+          if: always()
+          uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0ebe2637 # v4
+          with:
+              name: camunda-test-results-${{ github.run_id }}
+              path: |
+                  ${{ inputs.tests-camunda-helm-chart-repo-path }}/test/integration/testsuites/results.*
+                  ${{ inputs.tests-camunda-helm-chart-repo-path }}/test_results.md
+              if-no-files-found: ignore
+              retention-days: 7
+
+branding:
+    icon: check-circle
+    color: green

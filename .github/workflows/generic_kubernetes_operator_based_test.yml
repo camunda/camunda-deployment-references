@@ -30,6 +30,7 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-clean-namespace/**
             - .github/actions/kubernetes-restart-coredns/**
+            - .github/actions/test-camunda-deployment/**
 
     workflow_dispatch:
         inputs:
@@ -622,22 +623,78 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-            - name: 🧪 Run Helm Chart tests
+            - name: 🧪 Run Camunda Platform tests (OLD ACTION)
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
-                  secrets: ${{ toJSON(secrets) }}
+                  # Required inputs
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
-                  camunda-domain: ${{ env.DOMAIN_NAME }}
-                  webmodeler-enabled: 'true'  # Always enabled in operator-based deployment
-                  console-enabled: 'true'     # Always enabled in operator-based deployment
-                  elasticsearch-enabled: 'false'
+                  secrets: ${{ toJSON(secrets) }}
+
+                  # Test repository configuration
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
-                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
+                  # Cluster configuration
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
-                  test-release-name: camunda
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  test-release-name: camunda-platform-test
+
+                  # Domain configuration (for domain declination)
+                  camunda-domain: ${{ matrix.declination.name == 'domain' && env.DOMAIN_NAME || '' }}
+                  camunda-domain-grpc: ${{ matrix.declination.name == 'domain' && env.DOMAIN_NAME || '' }}
+
+                  # Component configuration
+                  webmodeler-enabled: 'true'      # Always enabled in operator-based deployment
+                  console-enabled: 'true'         # Always enabled in operator-based deployment
+                  elasticsearch-enabled: 'false'  # Using ECK operator instead
+
+                  # Test configuration
+                  enable-helm-chart-tests: 'true'
+                  enable-zeebe-client-tests: 'false'  # Single region doesn't need zeebe topology tests
+                  zeebe-authenticated: ${{ matrix.declination.name == 'domain' }}
+
+                  # Dual-region support (not used for single region)
+                  cluster-2-name: ''
+                  camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE }}
+                  camunda-namespace-2: ''
+
+            - name: 🧪 Run Camunda Platform tests (NEW ACTION)
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 60
+              uses: ./.github/actions/test-camunda-deployment
+              with:
+                  # Cluster configuration
+                  cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
+                  # Camunda configuration
+                  camunda-url: ${{ matrix.declination.name == 'domain' && format('https://{0}', env.DOMAIN_NAME) || 'http://localhost:8080' }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+
+                  # Test configuration
+                  test-suites: preflight,core
+                  skip-elasticsearch: 'true'    # Using ECK operator instead
+                  skip-keycloak: 'true'
+                  skip-webmodeler: 'false'      # Always enabled in operator-based deployment
+
+                  # Test repository configuration
+                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
+                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
+
+                  # Zeebe client tests (for dual-region setups)
+                  enable-zeebe-client-tests: 'false'  # Single region doesn't need zeebe topology tests
+                  zeebe-topology-golden-file: ''      # Not applicable for single region
+                  zeebe-topology-check-script: ''     # Not applicable for single region
+                  zeebe-authenticated: ${{ matrix.declination.name == 'domain' }}
+                  test-release-name: camunda-platform-test
+                  cluster-2-name: ''                  # Single region only
+                  camunda-namespace-2: ''             # Single region only
+                  camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE }}
+
+                  # Authentication
+                  secrets: ${{ toJSON(secrets) }}
 
             - name: 🚨🔬 Get failed Pods info
               if: failure()
