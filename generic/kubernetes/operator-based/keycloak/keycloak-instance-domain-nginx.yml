@@ -30,7 +30,7 @@ spec:
     hostname:
         hostname: ${CAMUNDA_DOMAIN}
         # Dynamic backchannel for ingress environments (set to false for localhost/no-ingress)
-        backchannelDynamic: true
+        backchannelDynamic: false
         strict: true
     resources:
         limits:
