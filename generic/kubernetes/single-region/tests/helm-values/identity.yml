@@ -4,21 +4,15 @@
 # it generates the CI user used to connect to the platform
 
 identity:
-    # Keycloak client seed which is used to query Camunda APIs.
     env:
         - name: KEYCLOAK_CLIENTS_2_ID
-          valueFrom:
-              secretKeyRef:
-                  name: identity-secret-for-components-integration
-                  key: identity-admin-client-id
+          value: venom
         - name: KEYCLOAK_CLIENTS_2_NAME
-          valueFrom:
-              secretKeyRef:
-                  name: identity-secret-for-components-integration
-                  key: identity-admin-client-id
+          value: Venom
         - name: KEYCLOAK_CLIENTS_2_SECRET
           valueFrom:
               secretKeyRef:
+                  # adjusted to align with our tests
                   name: identity-secret-for-components-integration
                   key: identity-admin-client-secret
         - name: KEYCLOAK_CLIENTS_2_REDIRECT_URIS_0
@@ -36,44 +30,41 @@ identity:
           value: camunda-identity-resource-server
         - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_1_DEFINITION
           value: write
-        # Operate access.
+        # Orchestration access.
         - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_2_RESOURCE_SERVER_ID
-          value: operate-api
+          value: orchestration-api
         - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_2_DEFINITION
           value: read:*
         - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_3_RESOURCE_SERVER_ID
-          value: operate-api
+          value: orchestration-api
         - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_3_DEFINITION
           value: write:*
-        # Tasklist access.
-        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_4_RESOURCE_SERVER_ID
-          value: tasklist-api
-        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_4_DEFINITION
-          value: read:*
-        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_5_RESOURCE_SERVER_ID
-          value: tasklist-api
-        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_5_DEFINITION
-          value: write:*
         # Optimize access.
-        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_6_RESOURCE_SERVER_ID
+        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_4_RESOURCE_SERVER_ID
           value: optimize-api
-        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_6_DEFINITION
-          value: write:*
-        # Zeebe access.
-        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_7_RESOURCE_SERVER_ID
-          value: zeebe-api
-        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_7_DEFINITION
+        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_4_DEFINITION
           value: write:*
         # WebModeler access.
-        # NOTE: This actually should be only in the chart-with-web-modeler scenarios,
-        # but since Helm doesn't support merge lists it's added here.
-        # It could be removed later when the env vars could be configured via ConfigMap.
-        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_8_RESOURCE_SERVER_ID
+        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_5_RESOURCE_SERVER_ID
           value: web-modeler-api
-        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_8_DEFINITION
+        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_5_DEFINITION
           value: write:*
         # Console access.
-        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_9_RESOURCE_SERVER_ID
+        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_6_RESOURCE_SERVER_ID
           value: console-api
-        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_9_DEFINITION
+        - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_6_DEFINITION
           value: write:*
+
+# We need to add a mapping for embedded identity
+# this will also overwrite the default mapping for demo user, so we need to readd it again
+# by default the Helm Chart adds any mapping to the admin role
+orchestration:
+    security:
+        initialization:
+            mappingRules:
+                - mappingRuleID: venom-test-client-mapping
+                  claimName: client_id
+                  claimValue: venom
+                - mappingRuleID: demo-user-mapping-rule
+                  claimName: preferred_username
+                  claimValue: demo

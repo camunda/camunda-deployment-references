@@ -1,5 +1,6 @@
 ---
 identityKeycloak:
+    enabled: false # not supported in a non-domain setup
     serviceAccount:
         name: ${CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME}
         annotations:
@@ -22,6 +23,15 @@ identityKeycloak:
           value: aws-wrapper:postgresql
     auth:
         existingSecret: identity-secret-for-components
+        passwordSecretKey: admin-password
+
+# TODO: re-evaluate and potentially clean up
+# 2025-09-03 - previous behaviour is not possible in a non-domain setup
+# For now just promoting the Orchestration Cluster with basic auth, re-evaluate based on outcome of
+# https://camunda.slack.com/archives/C08MRKHJ0CD/p1755246616281649
+# The issuerBackendUrl is not supported atm by embedded Identity
+# this means that publicIssuerUrl is used and must be accessible by both machines and users
+# only workaround for users is to do atm host file modifications
 
 global:
     elasticsearch:
@@ -39,32 +49,47 @@ global:
     identity:
 
         auth:
+            enabled: false # not supported in a non-domain setup
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
+            issuerBackendUrl: http://camunda-keycloak/auth/realms/camunda-platform
 
-            zeebe:
-                existingSecret:
-                    name: identity-secret-for-components
-            connectors:
-                existingSecret:
-                    name: identity-secret-for-components
-            operate:
-                redirectUrl: http://localhost:8081  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            tasklist:
+            orchestration:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: orchestration-secret
                 redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
+            connectors:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: connectors-secret
             optimize:
-                redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
+                redirectUrl: http://localhost:8083/optimize  # replace this with a port of your choice when you will do port forwarding
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: optimize-secret
             webModeler:
-                redirectUrl: http://localhost:8084
+                redirectUrl: http://localhost:8084/modeler
             console:
-                redirectUrl: http://localhost:8085
-                existingSecret:
-                    name: identity-secret-for-components
+                redirectUrl: http://localhost:8085/console
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: console-secret
+
+connectors:
+    image:
+        tag: 8.8-SNAPSHOT
+
+orchestration:
+    image:
+        tag: 8.8-SNAPSHOT
+    serviceAccount:
+        name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+# not supported in a non-domain setup
+#     security:
+#         authentication:
+#             method: oidc
 
 webModeler:
     enabled: false # by default, webModeler is not enabled
@@ -78,23 +103,44 @@ webModeler:
         externalDatabase:
             url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?wrapperPlugins=iam
             user: ${DB_WEBMODELER_USERNAME}
-            existingSecret: identity-secret-for-components # this fake password reference is needed to let the chart deploy webmodeler
-            existingSecretPasswordKey: password
+            secret:
+                existingSecret: identity-secret-for-components # this fake password reference is needed to let the chart deploy webmodeler
+                existingSecretPasswordKey: password
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
         mail:
-            existingSecret:
-                name: identity-secret-for-components # reference the smtp password
+            secret:
+                existingSecret: identity-secret-for-components # reference the smtp password
+                existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
 
+webModelerPostgresql:
+    # Will deploy a postgresql datbase for webModeler.
+    # If you enable webModeler, you either need to turn it true or use an external database
+    enabled: false
+    auth:
+        existingSecret: identity-secret-for-components
+        secretKeys:
+            adminPasswordKey: identity-webmodeler-postgres-admin-password
+            userPasswordKey: identity-webmodeler-postgres-user-password
+
 identity:
+    enabled: false # not supported in a non-domain setup
     serviceAccount:
         name: ${CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME}
         annotations:
             eks.amazonaws.com/role-arn: ${DB_ROLE_IDENTITY_ARN}
 
-    fullURL: http://localhost:8080 # replace this with a port of your choice when you will do port forwarding
+    contextPath: /managementidentity
+    fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
+
+    # TODO: if oidc is supported in the end, this will need adjustment in the docs
+    firstUser:
+        enabled: false
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: first-user-password # demo
 
     externalDatabase:
         enabled: true
@@ -111,25 +157,8 @@ identity:
         - name: SPRING_DATASOURCE_USERNAME
           value: ${DB_IDENTITY_USERNAME}
 
-zeebe:
-    serviceAccount:
-        name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
-operate:
-    serviceAccount:
-        name: ${CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
-tasklist:
-    serviceAccount:
-        name: ${CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
 optimize:
+    enabled: false # not supported in a non-domain setup
     serviceAccount:
         name: ${CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME}
         annotations:
@@ -141,7 +170,7 @@ optimize:
 
 console:
     enabled: false # by default, console is not enabled
-    contextPath: /
+    contextPath: /console
 
 elasticsearch:
     enabled: false

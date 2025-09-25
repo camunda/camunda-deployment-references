@@ -1,5 +1,6 @@
 ---
 identityKeycloak:
+    enabled: true
     serviceAccount:
         name: ${CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME}
         annotations:
@@ -23,6 +24,7 @@ identityKeycloak:
 
     auth:
         existingSecret: identity-secret-for-components
+        passwordSecretKey: admin-password
 
 global:
     elasticsearch:
@@ -47,33 +49,33 @@ global:
             kubernetes.io/tls-acme: 'true'
     identity:
         auth:
+            enabled: true
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
-            zeebe:
-                existingSecret:
-                    name: identity-secret-for-components
+            orchestration:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: orchestration-secret
+                redirectUrl: https://${DOMAIN_NAME}
             connectors:
-                existingSecret:
-                    name: identity-secret-for-components
-            operate:
-                redirectUrl: https://${DOMAIN_NAME}/operate
-                existingSecret:
-                    name: identity-secret-for-components
-            tasklist:
-                redirectUrl: https://${DOMAIN_NAME}/tasklist
-                existingSecret:
-                    name: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: connectors-secret
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize
-                existingSecret:
-                    name: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: optimize-secret
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: https://${DOMAIN_NAME}
-                existingSecret:
-                    name: identity-secret-for-components
+                redirectUrl: https://${DOMAIN_NAME}/console
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: console-secret
 
 webModeler:
+    image:
+        tag: 8.8-SNAPSHOT
     enabled: false # by default, webModeler is not enabled
     contextPath: /modeler
 
@@ -86,19 +88,40 @@ webModeler:
         externalDatabase:
             url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?wrapperPlugins=iam
             user: ${DB_WEBMODELER_USERNAME}
-            existingSecret: identity-secret-for-components # this fake password reference is needed to let the chart deploy webmodeler
-            existingSecretPasswordKey: password
+            secret:
+                existingSecret: identity-secret-for-components # this fake password reference is needed to let the chart deploy webmodeler
+                existingSecretPasswordKey: password
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
         mail:
-            existingSecret:
-                name: identity-secret-for-components # reference the smtp password
+            secret:
+                existingSecret: identity-secret-for-components # reference the smtp password
+                existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
 
+webModelerPostgresql:
+    # Will deploy a postgresql datbase for webModeler.
+    # If you enable webModeler, you either need to turn it true or use an external database
+    enabled: false
+    auth:
+        existingSecret: identity-secret-for-components
+        secretKeys:
+            adminPasswordKey: identity-webmodeler-postgres-admin-password
+            userPasswordKey: identity-webmodeler-postgres-user-password
+
 identity:
-    contextPath: /identity
-    fullURL: https://${DOMAIN_NAME}/identity
+    image:
+        tag: 8.8-SNAPSHOT
+    enabled: true
+    contextPath: /managementidentity
+    fullURL: https://${DOMAIN_NAME}/managementidentity
+
+    firstUser:
+        enabled: true
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: first-user-password # demo
 
     serviceAccount:
         name: ${CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME}
@@ -121,25 +144,14 @@ identity:
           value: ${DB_IDENTITY_USERNAME}
 
 connectors:
+    image:
+        tag: 8.8-SNAPSHOT
     contextPath: /connectors
 
-operate:
-    contextPath: /operate
-
-    serviceAccount:
-        name: ${CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
-tasklist:
-    contextPath: /tasklist
-
-    serviceAccount:
-        name: ${CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
 optimize:
+    image:
+        tag: 8.8-SNAPSHOT
+    enabled: true
     contextPath: /optimize
 
     serviceAccount:
@@ -151,13 +163,17 @@ optimize:
     migration:
         enabled: false
 
-zeebe:
+orchestration:
+    contextPath: /
+    image:
+        tag: 8.8-SNAPSHOT
     serviceAccount:
         name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
         annotations:
             eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
-zeebeGateway:
+    security:
+        authentication:
+            method: oidc
     ingress:
         grpc:
             enabled: true
@@ -167,11 +183,12 @@ zeebeGateway:
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
-    contextPath: /zeebe
 
 console:
+    image:
+        tag: 8.8-SNAPSHOT
     enabled: false # by default, console is not enabled
-    contextPath: /
+    contextPath: /console
 
 elasticsearch:
     enabled: false

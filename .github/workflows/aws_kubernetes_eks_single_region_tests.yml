@@ -80,12 +80,12 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
     # TODO: [release-duty] before the release, update repo ref!
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Optional components that are not enabled by default in the doc
-    WEBMODELER_ENABLED: 'true'
-    CONSOLE_ENABLED: 'true'
+    WEBMODELER_ENABLED: 'false'
+    CONSOLE_ENABLED: 'false'
 
 jobs:
     triage:
@@ -543,7 +543,8 @@ jobs:
                   cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
-                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
+                    # TODO: remove openssl rand again, needed it for testing to unblock rate limits
+                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}-$(openssl rand -hex 2).${{ env.TLD }}"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
                     export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"
@@ -661,10 +662,26 @@ jobs:
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
-              timeout-minutes: 10
+              timeout-minutes: 20
               run: |
                   set -euo pipefail
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+
+            - name: 🔄 Restart CoreDNS
+              if: matrix.declination.name == 'domain'
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  # Restart CoreDNS as the previous DNS entries might be cached
+                  kubectl rollout restart deployment coredns -n kube-system
+
+                  # Wait for CoreDNS to be fully rolled out
+                  kubectl rollout status deployment coredns -n kube-system --timeout=5m
+                  kubectl get pods -n kube-system -l k8s-app=kube-dns
+
+                  echo "Wait additional 120s for CoreDNS to stabilize"
+                  sleep 120
 
             - name: 📐 Set current Camunda version
               id: camunda-version

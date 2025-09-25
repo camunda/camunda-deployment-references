@@ -18,54 +18,71 @@ global:
     identity:
 
         auth:
+            enabled: true
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            zeebe:
-                existingSecret:
-                    name: identity-secret-for-components
+            orchestration:
+                redirectUrl: https://${DOMAIN_NAME}
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: orchestration-secret
             connectors:
-                existingSecret:
-                    name: identity-secret-for-components
-            operate:
-                redirectUrl: https://${DOMAIN_NAME}/operate # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            tasklist:
-                redirectUrl: https://${DOMAIN_NAME}/tasklist  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: connectors-secret
             optimize:
                 redirectUrl: https://${DOMAIN_NAME}/optimize  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: optimize-secret
             webModeler:
                 redirectUrl: https://${DOMAIN_NAME}/modeler
             console:
-                redirectUrl: https://${DOMAIN_NAME}
-                existingSecret:
-                    name: identity-secret-for-components
+                redirectUrl: https://${DOMAIN_NAME}/console
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: console-secret
+
+identityKeycloak:
+    enabled: true
+    postgresql:
+        enabled: true # use the embbeded database
+        auth:
+            existingSecret: identity-keycloak-psql-secret
+            secretKeys:
+                adminPasswordKey: admin-password-key
+                userPasswordKey: user-password-key
+
+    auth:
+        existingSecret: identity-secret-for-components
+        passwordSecretKey: admin-password
 
 identity:
-    contextPath: /identity
-    fullURL: https://${DOMAIN_NAME}/identity
+    enabled: true
+    contextPath: /managementidentity
+    fullURL: https://${DOMAIN_NAME}/managementidentity
 
-operate:
-    contextPath: /operate
-
-tasklist:
-    contextPath: /tasklist
+    firstUser:
+        enabled: true
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: first-user-password # demo
 
 webModeler:
     contextPath: /modeler
 
 optimize:
+    enabled: true
     contextPath: /optimize
 
-zeebeGateway:
-    contextPath: /zeebe
+orchestration:
+    contextPath: /
+    security:
+        authentication:
+            method: oidc
 
 console:
-    contextPath: /
+    contextPath: /console
 
 connectors:
     contextPath: /connectors
