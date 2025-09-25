@@ -13,3 +13,4 @@ export CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN:-localhost}"
 export CAMUNDA_HELM_CHART_VERSION="0.0.0-snapshot-alpha"
 # TODO: [release-duty] before the release, update this!
 # TODO: [release-duty] adjust renovate comment to bump the major version
+export CAMUNDA_RELEASE_NAME="camunda"

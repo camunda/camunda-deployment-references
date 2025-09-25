@@ -570,8 +570,6 @@ jobs:
             - name: 🏗️ Deploy Camunda Platform
               timeout-minutes: 15
               working-directory: ./generic/kubernetes/operator-based/
-              env:
-                  CAMUNDA_RELEASE_NAME: camunda
               run: |
                   set -euo pipefail
                   echo "Deploying Camunda Platform with operator-based infrastructure..."
