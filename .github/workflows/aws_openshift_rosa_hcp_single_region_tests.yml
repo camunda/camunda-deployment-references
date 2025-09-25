@@ -87,8 +87,8 @@ env:
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Components that are not enabled by default in the doc, but enabled in our tests to have a better coverage
-    WEBMODELER_ENABLED: 'false'
-    CONSOLE_ENABLED: 'false'
+    WEBMODELER_ENABLED: 'true'
+    CONSOLE_ENABLED: 'true'
 
     ROSA_CLI_VERSION: latest
 

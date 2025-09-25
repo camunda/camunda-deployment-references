@@ -226,7 +226,6 @@ runs:
               echo "vpc_id=$vpc_id" | tee -a "$GITHUB_OUTPUT"
 
         - name: Terraform Drift Detection - Cluster
-          if: 'false' # TODO: remove, just for testing purposes
           uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect-cluster
           with:

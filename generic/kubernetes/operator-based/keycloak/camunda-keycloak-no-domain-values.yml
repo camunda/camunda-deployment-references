@@ -18,19 +18,6 @@ global:
             # Local testing with port-forwarding
             # using localhost:8081 -> keycloak-service:8080 (kubectl port-forward svc/keycloak-service 8081:8080)
             issuer: http://localhost:8081/auth/realms/camunda-platform
-
-            # ⚠️  Important: issuerBackendUrl is currently not supported by embedded Identity
-            #     TODO: [release-duty] check if the following is still relevant for the latest versions
-            #     and remove the slack reference for not exposing internal discussions publicly
-            #     (https://camunda.slack.com/archives/C08MRKHJ0CD/p1755246616281649)
-            #
-            # This means publicIssuerUrl is used instead and must be accessible by:
-            # - Camunda components (machine-to-machine communication)
-            # - End users (browser access)
-            #
-            # 💡 Workarounds for local development:
-            # - Modify your /etc/hosts file to map the service name
-            # - Use kubefwd for port-forwarding: https://github.com/txn2/kubefwd
             publicIssuerUrl: http://localhost:8080/auth/realms/camunda-platform
 
         # Keycloak configuration for external instance
@@ -51,5 +38,13 @@ global:
                 existingSecretKey: password
                 adminUser: temp-admin
 
+orchestration:
+    security:
+        authentication:
+            method: oidc
+
 identityKeycloak:
     enabled: false
+
+identity:
+    enabled: true

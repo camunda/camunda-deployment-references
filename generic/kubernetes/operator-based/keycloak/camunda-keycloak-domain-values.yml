@@ -37,5 +37,15 @@ global:
                 existingSecretKey: password
                 adminUser: temp-admin
 
+orchestration:
+    security:
+        authentication:
+            method: oidc
+
 identityKeycloak:
     enabled: false
+
+identity:
+    enabled: true
+    contextPath: /managementidentity
+    fullURL: https://${CAMUNDA_DOMAIN}/managementidentity

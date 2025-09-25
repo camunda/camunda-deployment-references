@@ -8,7 +8,7 @@ matrix:
         - name: OpenShift 4.19
           schedule_only: false
           # ! Unlike EKS, 'private_vpc' is defined in 'distro' and not in 'scenario'.
-          private_vpc: false # TODO: Renable again - easier for debugging to have disabled # latest always use vpn, olders use public
+          private_vpc: true # latest always use vpn, olders use public
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
           version: 4.19.7
           # /!\ Warning: When a new minor version of OpenShift is released,

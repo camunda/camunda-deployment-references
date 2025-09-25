@@ -10,3 +10,7 @@ connectors:
 # Console configuration
 console:
     enabled: true
+    contextPath: /console
+
+identity:
+    enabled: true

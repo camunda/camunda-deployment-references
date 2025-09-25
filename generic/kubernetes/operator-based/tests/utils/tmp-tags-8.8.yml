@@ -1,0 +1,24 @@
+---
+identity:
+    image:
+        tag: 8.8-SNAPSHOT
+
+connectors:
+    image:
+        tag: 8.8-SNAPSHOT
+
+webModeler:
+    image:
+        tag: 8.8-SNAPSHOT
+
+optimize:
+    image:
+        tag: 8.8-SNAPSHOT
+
+orchestration:
+    image:
+        tag: 8.8-SNAPSHOT
+
+console:
+    image:
+        tag: 8.8-SNAPSHOT
