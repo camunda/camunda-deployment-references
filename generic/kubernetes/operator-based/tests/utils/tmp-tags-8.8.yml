@@ -9,7 +9,7 @@ connectors:
 
 webModeler:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: SNAPSHOT
 
 optimize:
     image:
