@@ -25,11 +25,8 @@ spec:
         - name: http-relative-path
           value: /auth
     ingress:
-        enabled: true
-        className: nginx
-        annotations:
-            # TLS secret for HTTPS (cert-manager will create this automatically)
-            kubernetes.io/tls-acme: 'true'
+        # Ingress disabled - using separate Ingress object with path /auth and className nginx
+        enabled: false
     hostname:
         hostname: ${CAMUNDA_DOMAIN}
         # Dynamic backchannel for ingress environments (set to false for localhost/no-ingress)
@@ -42,3 +39,28 @@ spec:
         requests:
             cpu: 250m
             memory: 512Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: keycloak-ingress
+    annotations:
+        # TLS secret for HTTPS (cert-manager will create this automatically)
+        kubernetes.io/tls-acme: 'true'
+spec:
+    ingressClassName: nginx
+    tls:
+        - hosts:
+              - ${CAMUNDA_DOMAIN}
+          secretName: camunda-keycloak-tls
+    rules:
+        - host: ${CAMUNDA_DOMAIN}
+          http:
+              paths:
+                  - path: /auth
+                    pathType: Prefix
+                    backend:
+                        service:
+                            name: keycloak-service
+                            port:
+                                number: 8080
