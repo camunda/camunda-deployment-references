@@ -57,6 +57,12 @@ inputs:
     enable-zeebe-client-tests:
         description: Whether the Zeebe Client tests should be run
         default: 'true'
+    enable-playwright-tests:
+        description: Whether the Playwright tests should be run
+        default: 'true'
+    playwright-test-suite:
+        description: The Playwright test suite to run (smoke-tests or full-suite)
+        default: full-suite
     cluster-2-name:
         description: Optional cluster 2 name for sed replacement (dual-region only)
         required: false
@@ -72,13 +78,35 @@ inputs:
     elasticsearch-service-name:
         description: Name of the Elasticsearch service with optional port (e.g. elasticsearch-es-http:9200)
         default: ''  # Will use ${CAMUNDA_RELEASE_NAME}-elasticsearch by default
+    test-client-id:
+        description: Client ID for Camunda authentication tests
+        required: true
+    test-client-secret:
+        description: Client secret for Camunda authentication tests
+        required: true
+    connectors-client-secret:
+        description: Client secret for Connectors component
+        required: false
+        default: ''
+    optimize-client-secret:
+        description: Client secret for Optimize component
+        required: false
+        default: ''
+    orchestration-client-secret:
+        description: Client secret for Orchestration (Zeebe) component
+        required: false
+        default: ''
+    admin-client-secret:
+        description: Client secret for Admin component
+        required: false
+        default: ''
 
 runs:
     using: composite
     steps:
         - name: Import Secrets
           id: secrets
-          if: ${{ inputs.enable-helm-chart-tests == 'true' || inputs.zeebe-authenticated == 'true' }}
+          if: ${{ inputs.enable-helm-chart-tests == 'true' || inputs.zeebe-authenticated == 'true' || inputs.enable-playwright-tests == 'true' }}
           uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
           with:
               url: ${{ fromJSON(inputs.secrets).VAULT_ADDR }}
@@ -89,20 +117,24 @@ runs:
               secrets: |
                   secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
                   secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
-                  secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
-                  secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
 
         - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
           uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-          if: ${{ inputs.enable-helm-chart-tests == 'true' }}
+          if: ${{ inputs.enable-helm-chart-tests == 'true' || inputs.enable-playwright-tests == 'true' }}
           with:
               repository: camunda/camunda-platform-helm
               ref: ${{ inputs.tests-camunda-helm-chart-repo-ref }}
               path: ${{ inputs.tests-camunda-helm-chart-repo-path }}
               fetch-depth: 0
 
+        - name: 🎭 Setup Node.js for Playwright
+          if: ${{ inputs.enable-playwright-tests == 'true' }}
+          uses: actions/setup-node@v4
+          with:
+              node-version: '18'
+
         - name: 🧪 TESTS - Set variables
-          if: ${{ inputs.enable-helm-chart-tests == 'true' }}
+          if: ${{ inputs.enable-helm-chart-tests == 'true' || inputs.enable-playwright-tests == 'true' }}
           shell: bash
           env:
               CAMUNDA_VERSION: ${{ inputs.camunda-version }}
@@ -143,175 +175,273 @@ runs:
               export TEST_VALUES_BASE_DIR="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/test/integration/scenarios"
               echo "TEST_VALUES_BASE_DIR=$TEST_VALUES_BASE_DIR" | tee -a "$GITHUB_ENV"
 
+              # Set Playwright test directories based on version
+              if [[ -d "$TEST_CHART_DIR_STATIC/test/integration/testsuites" ]]; then
+                  echo "PLAYWRIGHT_TEST_DIR=$TEST_CHART_DIR_STATIC/test/integration/testsuites" | tee -a "$GITHUB_ENV"
+              elif [[ -d "$TEST_CHART_DIR_STATIC/test/e2e" ]]; then
+                  echo "PLAYWRIGHT_TEST_DIR=$TEST_CHART_DIR_STATIC/test/e2e" | tee -a "$GITHUB_ENV"
+              else
+                  echo "⚠️ No Playwright test directory found for version $CAMUNDA_VERSION"
+              fi
+
               # replace integration with the camunda release name as part of adaptation required to run the tests in our environment
-              find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i "s/integration/$CAMUNDA_RELEASE_NAME/g"
+              if [[ "${{ inputs.enable-helm-chart-tests }}" == "true" ]]; then
+                find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i "s/integration/$CAMUNDA_RELEASE_NAME/g"
 
-              # Replace Keycloak service references with custom service name if provided
-              KEYCLOAK_SERVICE_INPUT="${{ inputs.keycloak-service-name }}"
-              if [[ -n "$KEYCLOAK_SERVICE_INPUT" && "$KEYCLOAK_SERVICE_INPUT" != "${CAMUNDA_RELEASE_NAME}-keycloak" ]]; then
-                echo "Processing Keycloak service configuration: $KEYCLOAK_SERVICE_INPUT"
+                # Replace Keycloak service references with custom service name if provided
+                KEYCLOAK_SERVICE_INPUT="${{ inputs.keycloak-service-name }}"
+                if [[ -n "$KEYCLOAK_SERVICE_INPUT" && "$KEYCLOAK_SERVICE_INPUT" != "${CAMUNDA_RELEASE_NAME}-keycloak" ]]; then
+                  echo "Processing Keycloak service configuration: $KEYCLOAK_SERVICE_INPUT"
 
-                # Use the service name with port directly (expected format: service-name:port)
-                KEYCLOAK_TARGET="$KEYCLOAK_SERVICE_INPUT"
-                echo "Replacing Keycloak references with: $KEYCLOAK_TARGET"
+                  # Use the service name with port directly (expected format: service-name:port)
+                  KEYCLOAK_TARGET="$KEYCLOAK_SERVICE_INPUT"
+                  echo "Replacing Keycloak references with: $KEYCLOAK_TARGET"
 
-                # Ultra-generic approach: replace any keycloak pattern with our target
-                # This covers all possible variations in a single sed command per file type
-                find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0 | \
-                  xargs -0 sed -i \
-                    -e "s|${CAMUNDA_RELEASE_NAME}-keycloak:80|${KEYCLOAK_TARGET}|g" \
-                    -e "s|${CAMUNDA_RELEASE_NAME}-keycloak\"|${KEYCLOAK_TARGET}\"|g" \
-                    -e "s|${CAMUNDA_RELEASE_NAME}-keycloak|${KEYCLOAK_TARGET}|g" \
-                    -e "s|camunda-keycloak:80|${KEYCLOAK_TARGET}|g" \
-                    -e "s|camunda-keycloak\"|${KEYCLOAK_TARGET}\"|g" \
-                    -e "s|camunda-keycloak|${KEYCLOAK_TARGET}|g" \
-                    -e "s|http://${CAMUNDA_RELEASE_NAME}-keycloak|http://${KEYCLOAK_TARGET}|g" \
-                    -e "s|http://camunda-keycloak|http://${KEYCLOAK_TARGET}|g" \
-                    -e "s|\"keycloak\":\"http://[^\"]*keycloak[^\"]*\"|\"keycloak\":\"http://${KEYCLOAK_TARGET}\"|g" \
-                    -e "s|keycloak: http://[^[:space:]]*keycloak[^[:space:]]*|keycloak: http://${KEYCLOAK_TARGET}|g"
+                  # Ultra-generic approach: replace any keycloak pattern with our target
+                  # This covers all possible variations in a single sed command per file type
+                  find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0 | \
+                    xargs -0 sed -i \
+                      -e "s|${CAMUNDA_RELEASE_NAME}-keycloak:80|${KEYCLOAK_TARGET}|g" \
+                      -e "s|${CAMUNDA_RELEASE_NAME}-keycloak\"|${KEYCLOAK_TARGET}\"|g" \
+                      -e "s|${CAMUNDA_RELEASE_NAME}-keycloak|${KEYCLOAK_TARGET}|g" \
+                      -e "s|camunda-keycloak:80|${KEYCLOAK_TARGET}|g" \
+                      -e "s|camunda-keycloak\"|${KEYCLOAK_TARGET}\"|g" \
+                      -e "s|camunda-keycloak|${KEYCLOAK_TARGET}|g" \
+                      -e "s|http://${CAMUNDA_RELEASE_NAME}-keycloak|http://${KEYCLOAK_TARGET}|g" \
+                      -e "s|http://camunda-keycloak|http://${KEYCLOAK_TARGET}|g" \
+                      -e "s|\"keycloak\":\"http://[^\"]*keycloak[^\"]*\"|\"keycloak\":\"http://${KEYCLOAK_TARGET}\"|g" \
+                      -e "s|keycloak: http://[^[:space:]]*keycloak[^[:space:]]*|keycloak: http://${KEYCLOAK_TARGET}|g"
 
-                echo "✅ Keycloak service references updated to: $KEYCLOAK_TARGET"
+                  echo "✅ Keycloak service references updated to: $KEYCLOAK_TARGET"
 
-                # Debug: Show what Keycloak references exist after modification
-                echo "Current Keycloak references in test files:"
-                grep -r "keycloak" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -10 || echo "No keycloak references found"
-                echo ""
-                echo "JSON baseURLs configuration:"
-                grep -r "baseURLs" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -3 || echo "No baseURLs found"
-              else
-                echo "Using default Keycloak service name: ${CAMUNDA_RELEASE_NAME}-keycloak"
-              fi
-
-              # Replace Elasticsearch service references with custom service name if provided
-              ELASTICSEARCH_SERVICE_INPUT="${{ inputs.elasticsearch-service-name }}"
-              if [[ -n "$ELASTICSEARCH_SERVICE_INPUT" && "$ELASTICSEARCH_SERVICE_INPUT" != "${CAMUNDA_RELEASE_NAME}-elasticsearch" ]]; then
-                echo "Processing Elasticsearch service configuration: $ELASTICSEARCH_SERVICE_INPUT"
-
-                # Use the service name with port directly (expected format: service-name:port)
-                ELASTICSEARCH_TARGET="$ELASTICSEARCH_SERVICE_INPUT"
-                echo "Replacing Elasticsearch references with: $ELASTICSEARCH_TARGET"
-
-                # Ultra-generic approach: replace any elasticsearch pattern with our target
-                find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0 | \
-                  xargs -0 sed -i \
-                    -e "s|${CAMUNDA_RELEASE_NAME}-elasticsearch:9200|${ELASTICSEARCH_TARGET}|g" \
-                    -e "s|${CAMUNDA_RELEASE_NAME}-elasticsearch\"|${ELASTICSEARCH_TARGET}\"|g" \
-                    -e "s|${CAMUNDA_RELEASE_NAME}-elasticsearch|${ELASTICSEARCH_TARGET}|g" \
-                    -e "s|camunda-elasticsearch:9200|${ELASTICSEARCH_TARGET}|g" \
-                    -e "s|camunda-elasticsearch\"|${ELASTICSEARCH_TARGET}\"|g" \
-                    -e "s|camunda-elasticsearch|${ELASTICSEARCH_TARGET}|g" \
-                    -e "s|http://${CAMUNDA_RELEASE_NAME}-elasticsearch|http://${ELASTICSEARCH_TARGET}|g" \
-                    -e "s|https://${CAMUNDA_RELEASE_NAME}-elasticsearch|https://${ELASTICSEARCH_TARGET}|g" \
-                    -e "s|http://camunda-elasticsearch|http://${ELASTICSEARCH_TARGET}|g" \
-                    -e "s|https://camunda-elasticsearch|https://${ELASTICSEARCH_TARGET}|g" \
-                    -e "s|\"elasticsearch\":\"http://[^\"]*elasticsearch[^\"]*\"|\"elasticsearch\":\"http://${ELASTICSEARCH_TARGET}\"|g" \
-                    -e "s|\"elasticsearch\":\"https://[^\"]*elasticsearch[^\"]*\"|\"elasticsearch\":\"https://${ELASTICSEARCH_TARGET}\"|g" \
-                    -e "s|elasticsearch: http://[^[:space:]]*elasticsearch[^[:space:]]*|elasticsearch: http://${ELASTICSEARCH_TARGET}|g" \
-                    -e "s|elasticsearch: https://[^[:space:]]*elasticsearch[^[:space:]]*|elasticsearch: https://${ELASTICSEARCH_TARGET}|g"
-
-                echo "✅ Elasticsearch service references updated to: $ELASTICSEARCH_TARGET"
-
-                # Debug: Show what Elasticsearch references exist after modification
-                echo "Current Elasticsearch references in test files:"
-                grep -r "elasticsearch" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -10 || echo "No elasticsearch references found"
-              else
-                echo "Using default Elasticsearch service name: ${CAMUNDA_RELEASE_NAME}-elasticsearch"
-              fi
-
-              echo "Configure Venom tests"
-              # (adapted from https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L56)
-              export VARIABLES_ENV_FILE="$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables.env"
-
-              # False because we run OIDC
-              echo "VENOM_VAR_SKIP_TEST_KEYCLOAK=false" >> "$VARIABLES_ENV_FILE"
-
-              # Enable the ingress tests
-
-              if [[ "$CAMUNDA_DOMAIN" != "" ]]; then
-                # shellcheck disable=SC2129
-                echo "VENOM_VAR_TEST_INGRESS_HOST=$TEST_INGRESS_HOST" >> "$VARIABLES_ENV_FILE"
-                echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
-
-                # Setting is broken and results in always skipping ingress tests
-                # This removes the faulty setting but should only be done in domain context
-                echo "Skip test ingress is also broken, fixing it"
-                yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-                yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-
-                if [[ "$CAMUNDA_DOMAIN_GRPC" != "" ]]; then
-                  yq eval '.coreVars.baseURLs.orchestrationGRPC = env(CAMUNDA_DOMAIN_GRPC)' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                  # Debug: Show what Keycloak references exist after modification
+                  echo "Current Keycloak references in test files:"
+                  grep -r "keycloak" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -10 || echo "No keycloak references found"
+                  echo ""
+                  echo "JSON baseURLs configuration:"
+                  grep -r "baseURLs" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -3 || echo "No baseURLs found"
+                else
+                  echo "Using default Keycloak service name: ${CAMUNDA_RELEASE_NAME}-keycloak"
                 fi
+
+                # Replace Elasticsearch service references with custom service name if provided
+                ELASTICSEARCH_SERVICE_INPUT="${{ inputs.elasticsearch-service-name }}"
+                if [[ -n "$ELASTICSEARCH_SERVICE_INPUT" && "$ELASTICSEARCH_SERVICE_INPUT" != "${CAMUNDA_RELEASE_NAME}-elasticsearch" ]]; then
+                  echo "Processing Elasticsearch service configuration: $ELASTICSEARCH_SERVICE_INPUT"
+
+                  # Use the service name with port directly (expected format: service-name:port)
+                  ELASTICSEARCH_TARGET="$ELASTICSEARCH_SERVICE_INPUT"
+                  echo "Replacing Elasticsearch references with: $ELASTICSEARCH_TARGET"
+
+                  # Ultra-generic approach: replace any elasticsearch pattern with our target
+                  find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0 | \
+                    xargs -0 sed -i \
+                      -e "s|${CAMUNDA_RELEASE_NAME}-elasticsearch:9200|${ELASTICSEARCH_TARGET}|g" \
+                      -e "s|${CAMUNDA_RELEASE_NAME}-elasticsearch\"|${ELASTICSEARCH_TARGET}\"|g" \
+                      -e "s|${CAMUNDA_RELEASE_NAME}-elasticsearch|${ELASTICSEARCH_TARGET}|g" \
+                      -e "s|camunda-elasticsearch:9200|${ELASTICSEARCH_TARGET}|g" \
+                      -e "s|camunda-elasticsearch\"|${ELASTICSEARCH_TARGET}\"|g" \
+                      -e "s|camunda-elasticsearch|${ELASTICSEARCH_TARGET}|g" \
+                      -e "s|http://${CAMUNDA_RELEASE_NAME}-elasticsearch|http://${ELASTICSEARCH_TARGET}|g" \
+                      -e "s|https://${CAMUNDA_RELEASE_NAME}-elasticsearch|https://${ELASTICSEARCH_TARGET}|g" \
+                      -e "s|http://camunda-elasticsearch|http://${ELASTICSEARCH_TARGET}|g" \
+                      -e "s|https://camunda-elasticsearch|https://${ELASTICSEARCH_TARGET}|g" \
+                      -e "s|\"elasticsearch\":\"http://[^\"]*elasticsearch[^\"]*\"|\"elasticsearch\":\"http://${ELASTICSEARCH_TARGET}\"|g" \
+                      -e "s|\"elasticsearch\":\"https://[^\"]*elasticsearch[^\"]*\"|\"elasticsearch\":\"https://${ELASTICSEARCH_TARGET}|g" \
+                      -e "s|elasticsearch: http://[^[:space:]]*elasticsearch[^[:space:]]*|elasticsearch: http://${ELASTICSEARCH_TARGET}|g" \
+                      -e "s|elasticsearch: https://[^[:space:]]*elasticsearch[^[:space:]]*|elasticsearch: https://${ELASTICSEARCH_TARGET}|g"
+
+                  echo "✅ Elasticsearch service references updated to: $ELASTICSEARCH_TARGET"
+
+                  # Debug: Show what Elasticsearch references exist after modification
+                  echo "Current Elasticsearch references in test files:"
+                  grep -r "elasticsearch" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -10 || echo "No elasticsearch references found"
+                else
+                  echo "Using default Elasticsearch service name: ${CAMUNDA_RELEASE_NAME}-elasticsearch"
+                fi
+
+                echo "Configure Venom tests"
+                # (adapted from https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L56)
+                export VARIABLES_ENV_FILE="$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables.env"
+
+                # False because we run OIDC
+                echo "VENOM_VAR_SKIP_TEST_KEYCLOAK=false" >> "$VARIABLES_ENV_FILE"
+
+                # Enable the ingress tests
+
+                if [[ "$CAMUNDA_DOMAIN" != "" ]]; then
+                  # shellcheck disable=SC2129
+                  echo "VENOM_VAR_TEST_INGRESS_HOST=$TEST_INGRESS_HOST" >> "$VARIABLES_ENV_FILE"
+                  echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
+
+                  # Setting is broken and results in always skipping ingress tests
+                  # This removes the faulty setting but should only be done in domain context
+                  echo "Skip test ingress is also broken, fixing it"
+                  yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                  yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+
+                  if [[ "$CAMUNDA_DOMAIN_GRPC" != "" ]]; then
+                    yq eval '.coreVars.baseURLs.orchestrationGRPC = env(CAMUNDA_DOMAIN_GRPC)' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                  fi
+                else
+                  # Some variables are not working correctly, patching it with yq directly
+                  echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
+
+                  # fix wrong default orchestrationGRPC port
+                  yq eval '.coreVars.baseURLs.orchestrationGRPC |= (select(tag == "!!str") | sub("^http://", "") | sub(":9600$", ":26500"))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+                fi
+
+                echo "VENOM_VAR_TEST_CLIENT_ID=${{ inputs.test-client-id }}" >> "$VARIABLES_ENV_FILE"
+                echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ inputs.test-client-secret }}" >> "$VARIABLES_ENV_FILE"
+
+                ZEEBE_VERSION=$(yq '.zeebe.image.tag' "$TEST_CHART_DIR_STATIC/values.yaml")
+                # shellcheck disable=SC2129
+                echo "ZEEBE_VERSION=$ZEEBE_VERSION" >> "$VARIABLES_ENV_FILE"
+                # In case the Zeebe version has not been released officially yet.
+                echo "ZEEBE_VERSION_FALLBACK=8.5.6" >> "$VARIABLES_ENV_FILE"
+
+                echo "Patch the test files..."
+
+                # TODO: [BUG] remove the patchs when https://github.com/camunda/camunda-platform-helm/issues/3081 is fixed
+                echo "Patch expression ShoudBeFalse"
+                sed -i "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+
+                echo "Patch expression ShouldBeTrue"
+                sed -i "s/ ShouldBeTrue/ ShouldEqual 'true'/g" \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+
+                if [[ "$ELASTICSEARCH_ENABLED" != "true" ]]; then
+                  echo "Disable Elasticsearch in the core tests as it's not enabled"
+
+                  yq eval 'del(.. | select(has("component") and .component == "Elasticsearch"))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+                fi
+
+                if [ "$WEBMODELER_ENABLED" != "true" ]; then
+                  echo "Disable Webmodeler in the core tests as it's not enabled"
+
+                  echo "VENOM_VAR_SKIP_TEST_WEBMODELER=false" >> "$VARIABLES_ENV_FILE"
+                  yq eval 'del(.. | select(has("component") and .component == "WebModeler"))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                fi
+
+                # TODO: Fix later for Console and re-investigate
+                # Tests are failing for some reason with no-domain, can't replicate locally
+                # Assumption is that the jwt issuer is different in the test than expected
+                # Disabling for now for no-domain setups
+                if [[ "$CONSOLE_ENABLED" != "true" || "$CAMUNDA_DOMAIN" == "" ]]; then
+                  echo "Disable Console in the core tests as it's not enabled"
+
+                  yq eval 'del(.. | select(has("component") and .component == "Console"))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                fi
+
+                echo "Patch the identity secrets to allow venom to access to the platform"
+                sed -i -e 's/integration-test-credentials/identity-secret-for-components/g' \
+                        "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+
+                # remove venom var client secret as we define it in the file
+                yq e 'del(.spec.template.spec.containers[].env[] | select(.name == "VENOM_VAR_TEST_CLIENT_SECRET"))' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+
+                # we're overwriting the tool-versions of the Helm chart tests with our own
+                echo "Ensure asdf tool is available in the test suite by using our global one"
+                cp .tool-versions "$TESTS_CAMUNDA_HELM_CHART_REPO_PATH"
+              fi
+
+        - name: 🎭 TESTS - Setup Playwright Environment
+          if: ${{ inputs.enable-playwright-tests == 'true' }}
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              if [[ -z "${PLAYWRIGHT_TEST_DIR:-}" ]]; then
+                echo "❌ Playwright test directory not found, skipping Playwright tests"
+                exit 0
+              fi
+
+              echo "Setting up Playwright environment in: $PLAYWRIGHT_TEST_DIR"
+              cd "$PLAYWRIGHT_TEST_DIR"
+
+              # Set component-specific tokens or use default
+              CONNECTORS_TOKEN="${{ inputs.connectors-client-secret }}"
+              OPTIMIZE_TOKEN="${{ inputs.optimize-client-secret }}"
+              ORCHESTRATION_TOKEN="${{ inputs.orchestration-client-secret }}"
+              ADMIN_TOKEN="${{ inputs.admin-client-secret }}"
+
+              # Create .env file for Playwright with required configurations
+              cat > .env << EOF
+              # Base URLs configuration
+              CONSOLE_BASE_URL=http://${{ inputs.camunda-domain }}/console
+              KEYCLOAK_BASE_URL=http://${{ inputs.camunda-domain }}/auth
+              IDENTITY_BASE_URL=http://${{ inputs.camunda-domain }}/identity
+              OPERATE_BASE_URL=http://${{ inputs.camunda-domain }}/operate
+              OPTIMIZE_BASE_URL=http://${{ inputs.camunda-domain }}/optimize
+              TASKLIST_BASE_URL=http://${{ inputs.camunda-domain }}/tasklist
+              CONNECTORS_LOGIN_PATH=http://${{ inputs.camunda-domain }}/connectors
+              ZEEBE_GATEWAY_GRPC=${{ inputs.camunda-domain-grpc || inputs.camunda-domain }}:443
+              ZEEBE_GATEWAY_REST=http://${{ inputs.camunda-domain }}/zeebe
+
+              # Authentication configuration
+              AUTH_URL=http://${{ inputs.camunda-domain }}/auth/realms/camunda-platform/protocol/openid-connect/token
+              TEST_CLIENT_ID=${{ inputs.test-client-id }}
+
+              # Playwright variables for different clients
+              PLAYWRIGHT_VAR_CONNECTORS_CLIENT_SECRET=$CONNECTORS_TOKEN
+              PLAYWRIGHT_VAR_OPTIMIZE_CLIENT_SECRET=$OPTIMIZE_TOKEN
+              PLAYWRIGHT_VAR_ORCHESTRATION_CLIENT_SECRET=$ORCHESTRATION_TOKEN
+              PLAYWRIGHT_VAR_ADMIN_CLIENT_SECRET=$ADMIN_TOKEN
+
+              # CI Configuration
+              CI=true
+              EOF
+
+              # If no domain is provided, use localhost with port forwarding
+              if [[ -z "${{ inputs.camunda-domain }}" ]]; then
+                echo "No domain provided, configuring for localhost with port forwarding"
+                cat > .env << EOF
+              # Local development URLs (port-forwarded)
+              CONSOLE_BASE_URL=http://localhost:8080/console
+              KEYCLOAK_BASE_URL=http://localhost:18080/auth
+              IDENTITY_BASE_URL=http://localhost:8080/identity
+              OPERATE_BASE_URL=http://localhost:8080/operate
+              OPTIMIZE_BASE_URL=http://localhost:8080/optimize
+              TASKLIST_BASE_URL=http://localhost:8080/tasklist
+              CONNECTORS_LOGIN_PATH=http://localhost:8080/connectors
+              ZEEBE_GATEWAY_GRPC=localhost:26500
+              ZEEBE_GATEWAY_REST=http://localhost:8080/zeebe
+
+              # Authentication configuration
+              AUTH_URL=http://localhost:18080/auth/realms/camunda-platform/protocol/openid-connect/token
+              TEST_CLIENT_ID=${{ inputs.test-client-id }}
+
+              # Playwright variables
+              PLAYWRIGHT_VAR_CONNECTORS_CLIENT_SECRET=$CONNECTORS_TOKEN
+              PLAYWRIGHT_VAR_OPTIMIZE_CLIENT_SECRET=$OPTIMIZE_TOKEN
+              PLAYWRIGHT_VAR_ORCHESTRATION_CLIENT_SECRET=$ORCHESTRATION_TOKEN
+              PLAYWRIGHT_VAR_ADMIN_CLIENT_SECRET=$ADMIN_TOKEN
+
+              # CI Configuration
+              CI=true
+              EOF
+              fi
+
+              # Install dependencies if package.json exists
+              if [[ -f "package.json" ]]; then
+                echo "Installing Playwright dependencies..."
+                npm ci
+                echo "Installing Playwright browsers..."
+                npx playwright install --with-deps
               else
-                # Some variables are not working correctly, patching it with yq directly
-                echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
-
-                # fix wrong default orchestrationGRPC port
-                yq eval '.coreVars.baseURLs.orchestrationGRPC |= (select(tag == "!!str") | sub("^http://", "") | sub(":9600$", ":26500"))' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+                echo "⚠️ No package.json found in Playwright test directory"
               fi
-
-              echo "VENOM_VAR_TEST_CLIENT_ID=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" >> "$VARIABLES_ENV_FILE"
-              echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" >> "$VARIABLES_ENV_FILE"
-
-              ZEEBE_VERSION=$(yq '.zeebe.image.tag' "$TEST_CHART_DIR_STATIC/values.yaml")
-              # shellcheck disable=SC2129
-              echo "ZEEBE_VERSION=$ZEEBE_VERSION" >> "$VARIABLES_ENV_FILE"
-              # In case the Zeebe version has not been released officially yet.
-              echo "ZEEBE_VERSION_FALLBACK=8.5.6" >> "$VARIABLES_ENV_FILE"
-
-              echo "Patch the test files..."
-
-              # TODO: [BUG] remove the patchs when https://github.com/camunda/camunda-platform-helm/issues/3081 is fixed
-              echo "Patch expression ShoudBeFalse"
-              sed -i "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
-                "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
-                "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
-
-              echo "Patch expression ShouldBeTrue"
-              sed -i "s/ ShouldBeTrue/ ShouldEqual 'true'/g" \
-                "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
-                "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
-
-              if [[ "$ELASTICSEARCH_ENABLED" != "true" ]]; then
-                echo "Disable Elasticsearch in the core tests as it's not enabled"
-
-                yq eval 'del(.. | select(has("component") and .component == "Elasticsearch"))' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
-              fi
-
-              if [ "$WEBMODELER_ENABLED" != "true" ]; then
-                echo "Disable Webmodeler in the core tests as it's not enabled"
-
-                echo "VENOM_VAR_SKIP_TEST_WEBMODELER=false" >> "$VARIABLES_ENV_FILE"
-                yq eval 'del(.. | select(has("component") and .component == "WebModeler"))' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-              fi
-
-              # TODO: Fix later for Console and re-investigate
-              # Tests are failing for some reason with no-domain, can't replicate locally
-              # Assumption is that the jwt issuer is different in the test than expected
-              # Disabling for now for no-domain setups
-              if [[ "$CONSOLE_ENABLED" != "true" || "$CAMUNDA_DOMAIN" == "" ]]; then
-                echo "Disable Console in the core tests as it's not enabled"
-
-                yq eval 'del(.. | select(has("component") and .component == "Console"))' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-              fi
-
-              echo "Patch the identity secrets to allow venom to access to the platform"
-              sed -i -e 's/integration-test-credentials/identity-secret-for-components/g' \
-                      "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
-
-              # remove venom var client secret as we define it in the file
-              yq e 'del(.spec.template.spec.containers[].env[] | select(.name == "VENOM_VAR_TEST_CLIENT_SECRET"))' \
-                -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
-
-              # we're overwriting the tool-versions of the Helm chart tests with our own
-              echo "Ensure asdf tool is available in the test suite by using our global one"
-              cp .tool-versions "$TESTS_CAMUNDA_HELM_CHART_REPO_PATH"
 
         - name: 🧪 TESTS - Run Preflight TestSuite
           if: ${{ inputs.enable-helm-chart-tests == 'true' }}
@@ -328,6 +458,84 @@ runs:
               set -euo pipefail
 
               task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.core
+
+        - name: 🎭 TESTS - Run Playwright Tests
+          if: ${{ inputs.enable-playwright-tests == 'true' }}
+          shell: bash
+          env:
+              DOMAIN_NAME: ${{ inputs.camunda-domain }}
+              CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name }}
+          run: |
+              set -euo pipefail
+
+              if [[ -z "${PLAYWRIGHT_TEST_DIR:-}" ]]; then
+                echo "❌ Playwright test directory not found, skipping Playwright tests"
+                exit 0
+              fi
+
+              echo "Running Playwright tests from: $PLAYWRIGHT_TEST_DIR"
+              cd "$PLAYWRIGHT_TEST_DIR"
+
+              # Function to help with port-forwarding for Playwright tests when no domain is provided
+              start_port_forward_playwright() {
+                  local service=$1
+                  local ports=$2
+                  kubectl port-forward service/$service $ports -n $TEST_NAMESPACE >/dev/null 2>&1 &
+                  local pid=$!
+                  PLAYWRIGHT_PORT_FORWARD_PIDS+=($pid)
+                  echo "Port-forwarding for Playwright - $service on ports $ports started."
+              }
+
+              cleanup_playwright() {
+                for pid in "${PLAYWRIGHT_PORT_FORWARD_PIDS[@]}"; do
+                  echo "🛑 Stopping Playwright port-forward (PID: $pid)..."
+                  kill "$pid" 2>/dev/null || echo "⚠️ Failed to kill PID $pid"
+                done
+              }
+
+              trap cleanup_playwright EXIT
+
+              PLAYWRIGHT_PORT_FORWARD_PIDS=()
+
+              # Setup port forwarding if no domain is provided
+              if [[ -z "$DOMAIN_NAME" ]]; then
+                echo "Setting up port forwarding for Playwright tests..."
+
+                # Use configurable Keycloak service name or fallback to default pattern
+                KEYCLOAK_SERVICE_INPUT="${{ inputs.keycloak-service-name }}"
+                if [[ -z "$KEYCLOAK_SERVICE_INPUT" ]]; then
+                  KEYCLOAK_SERVICE_NAME="${CAMUNDA_RELEASE_NAME}-keycloak"
+                  KEYCLOAK_SERVICE_PORT="80"
+                else
+                  if [[ "$KEYCLOAK_SERVICE_INPUT" == *":"* ]]; then
+                    KEYCLOAK_SERVICE_NAME="${KEYCLOAK_SERVICE_INPUT%:*}"
+                    KEYCLOAK_SERVICE_PORT="${KEYCLOAK_SERVICE_INPUT#*:}"
+                  else
+                    KEYCLOAK_SERVICE_NAME="$KEYCLOAK_SERVICE_INPUT"
+                    KEYCLOAK_SERVICE_PORT="80"
+                  fi
+                fi
+
+                # Start port forwarding for services
+                start_port_forward_playwright "${CAMUNDA_RELEASE_NAME}-zeebe-gateway" 8080:8080
+                start_port_forward_playwright "${CAMUNDA_RELEASE_NAME}-zeebe-gateway" 26500:26500
+                start_port_forward_playwright "$KEYCLOAK_SERVICE_NAME" "18080:$KEYCLOAK_SERVICE_PORT"
+
+                echo "Waiting for port-forwarding to be established..." && sleep 15
+              fi
+
+              # Run Playwright tests
+              echo "🎭 Running Playwright test suite: ${{ inputs.playwright-test-suite }}"
+
+              # Check if we should run a specific project or all tests
+              if [[ "${{ inputs.playwright-test-suite }}" == "smoke-tests" ]]; then
+                npx playwright test --project=smoke-tests --reporter=html,junit
+              elif [[ "${{ inputs.playwright-test-suite }}" == "full-suite" ]]; then
+                npx playwright test --project=full-suite --reporter=html,junit
+              else
+                echo "Running all Playwright tests..."
+                npx playwright test --reporter=html,junit
+              fi
 
         - name: 🧪 TESTS - Run zeebe client tests
           if: ${{ inputs.enable-zeebe-client-tests == 'true' }}
@@ -350,8 +558,12 @@ runs:
 
               if [[ "$zeebe_authenticated" == "true" ]]; then
                 echo "Using authenticated Zeebe client credentials..."
-                export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
-                export ZEEBE_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+                export ZEEBE_CLIENT_ID="${{ inputs.test-client-id }}"
+
+                # Use orchestration-specific token if provided, otherwise fallback to default
+                ORCHESTRATION_TOKEN="${{ inputs.orchestration-client-secret }}"
+
+                export ZEEBE_CLIENT_SECRET="$ORCHESTRATION_TOKEN"
               fi
 
               # function to help with port-forwarding in the background
@@ -491,3 +703,13 @@ runs:
                 exit 1
               fi
               echo "✅ The cluster meets all the expected criteria."
+
+        - name: 📊 Upload Playwright Results
+          if: ${{ always() && inputs.enable-playwright-tests == 'true' }}
+          uses: actions/upload-artifact@v4
+          with:
+              name: playwright-results
+              path: |
+                  ${{ env.PLAYWRIGHT_TEST_DIR }}/playwright-report/
+                  ${{ env.PLAYWRIGHT_TEST_DIR }}/test-results/
+              retention-days: 7

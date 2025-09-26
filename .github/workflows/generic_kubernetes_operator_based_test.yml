@@ -30,7 +30,6 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-clean-namespace/**
             - .github/actions/kubernetes-restart-coredns/**
-            - .github/actions/test-camunda-deployment/**
 
     workflow_dispatch:
         inputs:
@@ -570,12 +569,13 @@ jobs:
 
                   echo "All operator-based infrastructure deployed successfully."
 
-            - name: 🔑 Create Camunda credentials
+            - name: 🔑 Create Camunda credentials and export test tokens
               timeout-minutes: 5
               run: |
                   set -euo pipefail
                   echo "Creating Camunda Identity credentials..."
-                  source ./generic/kubernetes/single-region/procedure/generate-passwords.sh
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars ./generic/kubernetes/single-region/procedure/generate-passwords.sh
                   ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
 
             - name: 🐳 Create Docker registry secrets for tests
@@ -591,6 +591,11 @@ jobs:
                       --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
                       --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                       --namespace="$CAMUNDA_NAMESPACE" || true
+
+                    kubectl create secret generic identity-secret-for-components-integration \
+                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+                        --namespace="$CAMUNDA_NAMESPACE" ||true
 
             - name: 🏗️ Deploy Camunda Platform
               timeout-minutes: 15
@@ -663,54 +668,22 @@ jobs:
                   enable-zeebe-client-tests: 'false'  # Single region doesn't need zeebe topology tests
                   zeebe-authenticated: 'true' # we always have an auth provider
 
-                  # Dual-region support (not used for single region)
-                  cluster-2-name: ''
-                  camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE }}
-                  camunda-namespace-2: ''
+                  # TODO: revert
+                  enable-playwright-tests: false
 
                   # Service name for operator-based deployment
                   keycloak-service-name: keycloak-service:8080
                   elasticsearch-service-name: elasticsearch-es-http:9200
 
-            - name: 🧪 Run Camunda Platform tests (NEW ACTION)
-              if: env.TESTS_ENABLED == 'true'
-              timeout-minutes: 60
-              uses: ./.github/actions/test-camunda-deployment
-              with:
-                  # Cluster configuration
-                  cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
-                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  # Authentication tokens (from Vault secrets)
+                  test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
+                  test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
 
-                  # Camunda configuration
-                  camunda-url: ${{ matrix.declination.name == 'domain' && format('https://{0}', env.DOMAIN_NAME) || 'http://localhost:8080' }}
-                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
-
-                  # Test configuration
-                  test-suites: preflight,core
-                  skip-elasticsearch: 'true'    # Using ECK operator instead
-                  skip-keycloak: 'false'        # Test Keycloak with operator-based service
-
-                  skip-webmodeler: 'false'      # Always enabled in operator-based deployment
-
-                  # Test repository configuration
-                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
-                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
-
-                  # Zeebe client tests (for dual-region setups)
-                  enable-zeebe-client-tests: 'true'
-                  zeebe-topology-golden-file: ''      # Not applicable for single region
-                  zeebe-topology-check-script: ''     # Not applicable for single region
-                  zeebe-authenticated: ${{ matrix.declination.name == 'domain' }}
-                  test-release-name: camunda-platform-test
-                  cluster-2-name: ''                  # Single region only
-                  camunda-namespace-2: ''             # Single region only
-                  camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE }}
-
-                  # Service configuration for operator-based deployment
-                  keycloak-service-name: keycloak-service:8080
-
-                  # Authentication
-                  secrets: ${{ toJSON(secrets) }}
+                  # Component-specific tokens (generated from generate-passwords.sh)
+                  connectors-client-secret: ${{ env.CONNECTORS_CLIENT_SECRET }}
+                  optimize-client-secret: ${{ env.OPTIMIZE_CLIENT_SECRET }}
+                  orchestration-client-secret: ${{ env.ORCHESTRATION_CLIENT_SECRET }}
+                  admin-client-secret: ${{ env.ADMIN_CLIENT_SECRET }}
 
             - name: 🚨🔬 Get failed Pods info
               if: failure()

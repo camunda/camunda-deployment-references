@@ -26,11 +26,19 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `zeebe-authenticated` | <p>Use the authentication layer to interact with zeebe</p> | `false` | `true` |
 | `enable-helm-chart-tests` | <p>Whether the Helm Chart tests should be run</p> | `false` | `true` |
 | `enable-zeebe-client-tests` | <p>Whether the Zeebe Client tests should be run</p> | `false` | `true` |
+| `enable-playwright-tests` | <p>Whether the Playwright tests should be run</p> | `false` | `true` |
+| `playwright-test-suite` | <p>The Playwright test suite to run (smoke-tests or full-suite)</p> | `false` | `full-suite` |
 | `cluster-2-name` | <p>Optional cluster 2 name for sed replacement (dual-region only)</p> | `false` | `""` |
 | `camunda-namespace-2` | <p>Optional namespace for region 2 (dual-region only)</p> | `false` | `""` |
 | `camunda-namespace-1` | <p>Optional namespace for region 1 (dual-region only)</p> | `false` | `""` |
 | `keycloak-service-name` | <p>Name of the Keycloak service with optional port (e.g. keycloak-service:8080)</p> | `false` | `""` |
 | `elasticsearch-service-name` | <p>Name of the Elasticsearch service with optional port (e.g. elasticsearch-es-http:9200)</p> | `false` | `""` |
+| `test-client-id` | <p>Client ID for Camunda authentication tests</p> | `true` | `""` |
+| `test-client-secret` | <p>Client secret for Camunda authentication tests</p> | `true` | `""` |
+| `connectors-client-secret` | <p>Client secret for Connectors component</p> | `false` | `""` |
+| `optimize-client-secret` | <p>Client secret for Optimize component</p> | `false` | `""` |
+| `orchestration-client-secret` | <p>Client secret for Orchestration (Zeebe) component</p> | `false` | `""` |
+| `admin-client-secret` | <p>Client secret for Admin component</p> | `false` | `""` |
 
 
 ## Runs
@@ -144,6 +152,18 @@ This action is a `composite` action.
     # Required: false
     # Default: true
 
+    enable-playwright-tests:
+    # Whether the Playwright tests should be run
+    #
+    # Required: false
+    # Default: true
+
+    playwright-test-suite:
+    # The Playwright test suite to run (smoke-tests or full-suite)
+    #
+    # Required: false
+    # Default: full-suite
+
     cluster-2-name:
     # Optional cluster 2 name for sed replacement (dual-region only)
     #
@@ -170,6 +190,42 @@ This action is a `composite` action.
 
     elasticsearch-service-name:
     # Name of the Elasticsearch service with optional port (e.g. elasticsearch-es-http:9200)
+    #
+    # Required: false
+    # Default: ""
+
+    test-client-id:
+    # Client ID for Camunda authentication tests
+    #
+    # Required: true
+    # Default: ""
+
+    test-client-secret:
+    # Client secret for Camunda authentication tests
+    #
+    # Required: true
+    # Default: ""
+
+    connectors-client-secret:
+    # Client secret for Connectors component
+    #
+    # Required: false
+    # Default: ""
+
+    optimize-client-secret:
+    # Client secret for Optimize component
+    #
+    # Required: false
+    # Default: ""
+
+    orchestration-client-secret:
+    # Client secret for Orchestration (Zeebe) component
+    #
+    # Required: false
+    # Default: ""
+
+    admin-client-secret:
+    # Client secret for Admin component
     #
     # Required: false
     # Default: ""
