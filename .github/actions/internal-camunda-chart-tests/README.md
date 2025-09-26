@@ -29,7 +29,8 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `cluster-2-name` | <p>Optional cluster 2 name for sed replacement (dual-region only)</p> | `false` | `""` |
 | `camunda-namespace-2` | <p>Optional namespace for region 2 (dual-region only)</p> | `false` | `""` |
 | `camunda-namespace-1` | <p>Optional namespace for region 1 (dual-region only)</p> | `false` | `""` |
-| `keycloak-service-name` | <p>Name of the Keycloak service for port-forwarding</p> | `false` | `""` |
+| `keycloak-service-name` | <p>Name of the Keycloak service with optional port (e.g. keycloak-service:8080)</p> | `false` | `""` |
+| `elasticsearch-service-name` | <p>Name of the Elasticsearch service with optional port (e.g. elasticsearch-es-http:9200)</p> | `false` | `""` |
 
 
 ## Runs
@@ -162,7 +163,13 @@ This action is a `composite` action.
     # Default: ""
 
     keycloak-service-name:
-    # Name of the Keycloak service for port-forwarding
+    # Name of the Keycloak service with optional port (e.g. keycloak-service:8080)
+    #
+    # Required: false
+    # Default: ""
+
+    elasticsearch-service-name:
+    # Name of the Elasticsearch service with optional port (e.g. elasticsearch-es-http:9200)
     #
     # Required: false
     # Default: ""

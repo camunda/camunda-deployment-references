@@ -67,8 +67,11 @@ inputs:
         description: Optional namespace for region 1 (dual-region only)
         required: false
     keycloak-service-name:
-        description: Name of the Keycloak service for port-forwarding
+        description: Name of the Keycloak service with optional port (e.g. keycloak-service:8080)
         default: ''  # Will use ${CAMUNDA_RELEASE_NAME}-keycloak by default
+    elasticsearch-service-name:
+        description: Name of the Elasticsearch service with optional port (e.g. elasticsearch-es-http:9200)
+        default: ''  # Will use ${CAMUNDA_RELEASE_NAME}-elasticsearch by default
 
 runs:
     using: composite
@@ -144,31 +147,75 @@ runs:
               find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i "s/integration/$CAMUNDA_RELEASE_NAME/g"
 
               # Replace Keycloak service references with custom service name if provided
-              KEYCLOAK_SERVICE_NAME="${{ inputs.keycloak-service-name }}"
-              if [[ -n "$KEYCLOAK_SERVICE_NAME" && "$KEYCLOAK_SERVICE_NAME" != "${CAMUNDA_RELEASE_NAME}-keycloak" ]]; then
-                echo "Replacing Keycloak service references with custom service name: $KEYCLOAK_SERVICE_NAME"
+              KEYCLOAK_SERVICE_INPUT="${{ inputs.keycloak-service-name }}"
+              if [[ -n "$KEYCLOAK_SERVICE_INPUT" && "$KEYCLOAK_SERVICE_INPUT" != "${CAMUNDA_RELEASE_NAME}-keycloak" ]]; then
+                echo "Processing Keycloak service configuration: $KEYCLOAK_SERVICE_INPUT"
 
-                # Generic replacement across all test-related files (more efficient and comprehensive)
+                # Use the service name with port directly (expected format: service-name:port)
+                KEYCLOAK_TARGET="$KEYCLOAK_SERVICE_INPUT"
+                echo "Replacing Keycloak references with: $KEYCLOAK_TARGET"
+
+                # Ultra-generic approach: replace any keycloak pattern with our target
+                # This covers all possible variations in a single sed command per file type
                 find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0 | \
-                  xargs -0 sed -i -e "s/${CAMUNDA_RELEASE_NAME}-keycloak/$KEYCLOAK_SERVICE_NAME/g" \
-                                  -e "s/camunda-keycloak/$KEYCLOAK_SERVICE_NAME/g"
+                  xargs -0 sed -i \
+                    -e "s|${CAMUNDA_RELEASE_NAME}-keycloak:80|${KEYCLOAK_TARGET}|g" \
+                    -e "s|${CAMUNDA_RELEASE_NAME}-keycloak\"|${KEYCLOAK_TARGET}\"|g" \
+                    -e "s|${CAMUNDA_RELEASE_NAME}-keycloak|${KEYCLOAK_TARGET}|g" \
+                    -e "s|camunda-keycloak:80|${KEYCLOAK_TARGET}|g" \
+                    -e "s|camunda-keycloak\"|${KEYCLOAK_TARGET}\"|g" \
+                    -e "s|camunda-keycloak|${KEYCLOAK_TARGET}|g" \
+                    -e "s|http://${CAMUNDA_RELEASE_NAME}-keycloak|http://${KEYCLOAK_TARGET}|g" \
+                    -e "s|http://camunda-keycloak|http://${KEYCLOAK_TARGET}|g" \
+                    -e "s|\"keycloak\":\"http://[^\"]*keycloak[^\"]*\"|\"keycloak\":\"http://${KEYCLOAK_TARGET}\"|g" \
+                    -e "s|keycloak: http://[^[:space:]]*keycloak[^[:space:]]*|keycloak: http://${KEYCLOAK_TARGET}|g"
 
-                # Update Keycloak port for operator-based services (use 8080 instead of 80)
-                if [[ "$KEYCLOAK_SERVICE_NAME" == "keycloak-service" ]]; then
-                  echo "Updating Keycloak port to 8080 for operator-based service"
-
-                  # Generic port replacement across all variable files
-                  find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "variables*.yaml" -o -name "variables*.yml" \) -print0 | \
-                    xargs -0 sed -i "s/:80\//:8080\//g"
-                fi
-
-                echo "✅ Keycloak service references updated to: $KEYCLOAK_SERVICE_NAME"
+                echo "✅ Keycloak service references updated to: $KEYCLOAK_TARGET"
 
                 # Debug: Show what Keycloak references exist after modification
                 echo "Current Keycloak references in test files:"
-                grep -r "keycloak" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -5 || echo "No keycloak references found"
+                grep -r "keycloak" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -10 || echo "No keycloak references found"
+                echo ""
+                echo "JSON baseURLs configuration:"
+                grep -r "baseURLs" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -3 || echo "No baseURLs found"
               else
                 echo "Using default Keycloak service name: ${CAMUNDA_RELEASE_NAME}-keycloak"
+              fi
+
+              # Replace Elasticsearch service references with custom service name if provided
+              ELASTICSEARCH_SERVICE_INPUT="${{ inputs.elasticsearch-service-name }}"
+              if [[ -n "$ELASTICSEARCH_SERVICE_INPUT" && "$ELASTICSEARCH_SERVICE_INPUT" != "${CAMUNDA_RELEASE_NAME}-elasticsearch" ]]; then
+                echo "Processing Elasticsearch service configuration: $ELASTICSEARCH_SERVICE_INPUT"
+
+                # Use the service name with port directly (expected format: service-name:port)
+                ELASTICSEARCH_TARGET="$ELASTICSEARCH_SERVICE_INPUT"
+                echo "Replacing Elasticsearch references with: $ELASTICSEARCH_TARGET"
+
+                # Ultra-generic approach: replace any elasticsearch pattern with our target
+                find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0 | \
+                  xargs -0 sed -i \
+                    -e "s|${CAMUNDA_RELEASE_NAME}-elasticsearch:9200|${ELASTICSEARCH_TARGET}|g" \
+                    -e "s|${CAMUNDA_RELEASE_NAME}-elasticsearch\"|${ELASTICSEARCH_TARGET}\"|g" \
+                    -e "s|${CAMUNDA_RELEASE_NAME}-elasticsearch|${ELASTICSEARCH_TARGET}|g" \
+                    -e "s|camunda-elasticsearch:9200|${ELASTICSEARCH_TARGET}|g" \
+                    -e "s|camunda-elasticsearch\"|${ELASTICSEARCH_TARGET}\"|g" \
+                    -e "s|camunda-elasticsearch|${ELASTICSEARCH_TARGET}|g" \
+                    -e "s|http://${CAMUNDA_RELEASE_NAME}-elasticsearch|http://${ELASTICSEARCH_TARGET}|g" \
+                    -e "s|https://${CAMUNDA_RELEASE_NAME}-elasticsearch|https://${ELASTICSEARCH_TARGET}|g" \
+                    -e "s|http://camunda-elasticsearch|http://${ELASTICSEARCH_TARGET}|g" \
+                    -e "s|https://camunda-elasticsearch|https://${ELASTICSEARCH_TARGET}|g" \
+                    -e "s|\"elasticsearch\":\"http://[^\"]*elasticsearch[^\"]*\"|\"elasticsearch\":\"http://${ELASTICSEARCH_TARGET}\"|g" \
+                    -e "s|\"elasticsearch\":\"https://[^\"]*elasticsearch[^\"]*\"|\"elasticsearch\":\"https://${ELASTICSEARCH_TARGET}\"|g" \
+                    -e "s|elasticsearch: http://[^[:space:]]*elasticsearch[^[:space:]]*|elasticsearch: http://${ELASTICSEARCH_TARGET}|g" \
+                    -e "s|elasticsearch: https://[^[:space:]]*elasticsearch[^[:space:]]*|elasticsearch: https://${ELASTICSEARCH_TARGET}|g"
+
+                echo "✅ Elasticsearch service references updated to: $ELASTICSEARCH_TARGET"
+
+                # Debug: Show what Elasticsearch references exist after modification
+                echo "Current Elasticsearch references in test files:"
+                grep -r "elasticsearch" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -10 || echo "No elasticsearch references found"
+              else
+                echo "Using default Elasticsearch service name: ${CAMUNDA_RELEASE_NAME}-elasticsearch"
               fi
 
               echo "Configure Venom tests"
@@ -334,22 +381,28 @@ runs:
                 source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 
                 # Use configurable Keycloak service name or fallback to default pattern
-                KEYCLOAK_SERVICE_NAME="${{ inputs.keycloak-service-name }}"
+                KEYCLOAK_SERVICE_INPUT="${{ inputs.keycloak-service-name }}"
 
-                if [[ -z "$KEYCLOAK_SERVICE_NAME" ]]; then
+                if [[ -z "$KEYCLOAK_SERVICE_INPUT" ]]; then
                   KEYCLOAK_SERVICE_NAME="${CAMUNDA_RELEASE_NAME}-keycloak"
+                  KEYCLOAK_SERVICE_PORT="80"  # Default port for Helm-based services
+                else
+                  # Parse service name and port from input (same logic as above)
+                  if [[ "$KEYCLOAK_SERVICE_INPUT" == *":"* ]]; then
+                    KEYCLOAK_SERVICE_NAME="${KEYCLOAK_SERVICE_INPUT%:*}"  # Extract service name
+                    KEYCLOAK_SERVICE_PORT="${KEYCLOAK_SERVICE_INPUT#*:}"  # Extract port
+                  else
+                    KEYCLOAK_SERVICE_NAME="$KEYCLOAK_SERVICE_INPUT"
+                    KEYCLOAK_SERVICE_PORT="80"  # Default port if not specified
+                  fi
                 fi
 
-                echo "Using Keycloak service: $KEYCLOAK_SERVICE_NAME"
+                echo "Using Keycloak service: $KEYCLOAK_SERVICE_NAME:$KEYCLOAK_SERVICE_PORT"
 
                 start_port_forward "${CAMUNDA_RELEASE_NAME}-zeebe-gateway" 8080:8080
 
-                # Use port 8080 for operator-based Keycloak, port 80 for Helm-based Keycloak
-                if [[ "$KEYCLOAK_SERVICE_NAME" == "keycloak-service" ]]; then
-                  start_port_forward "$KEYCLOAK_SERVICE_NAME" 18080:8080
-                else
-                  start_port_forward "$KEYCLOAK_SERVICE_NAME" 18080:80
-                fi
+                # Setup Keycloak port-forwarding with dynamic port
+                start_port_forward "$KEYCLOAK_SERVICE_NAME" "18080:$KEYCLOAK_SERVICE_PORT"
 
                 echo "Waiting for port-forwarding to be established..." && sleep 10
               else
