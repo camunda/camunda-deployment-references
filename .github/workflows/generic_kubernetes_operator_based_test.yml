@@ -440,10 +440,12 @@ jobs:
 
                   # Add component-specific configurations
                   VALUES_FILES+=(
-                      "tests/utils/camunda-values-identity-secrets.yml"
-                      "postgresql/camunda-identity-values.yml"
-                      "postgresql/camunda-webmodeler-values.yml"
-                      "elasticsearch/camunda-elastic-values.yml"
+                    "postgresql/camunda-identity-values.yml"
+                    "postgresql/camunda-webmodeler-values.yml"
+                    "elasticsearch/camunda-elastic-values.yml"
+                    "tests/utils/camunda-values-identity-secrets.yml"
+                    "tests/helm-values/identity.yml"
+                    "tests/helm-values/registry.yml"
                   )
 
                   # Add OpenShift-specific SCC configuration
@@ -662,13 +664,13 @@ jobs:
                   zeebe-authenticated: 'true' # we always have an auth provider
 
                   # Dual-region support (not used for single region)
-
                   cluster-2-name: ''
                   camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE }}
                   camunda-namespace-2: ''
 
                   # Service name for operator-based deployment
                   keycloak-service-name: keycloak-service:8080
+                  elasticsearch-service-name: elasticsearch-es-http:9200
 
             - name: 🧪 Run Camunda Platform tests (NEW ACTION)
               if: env.TESTS_ENABLED == 'true'
