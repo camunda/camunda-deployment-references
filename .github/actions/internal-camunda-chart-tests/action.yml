@@ -66,6 +66,9 @@ inputs:
     camunda-namespace-1:
         description: Optional namespace for region 1 (dual-region only)
         required: false
+    keycloak-service-name:
+        description: Name of the Keycloak service for port-forwarding
+        default: ''  # Will use ${CAMUNDA_RELEASE_NAME}-keycloak by default
 
 runs:
     using: composite
@@ -143,12 +146,15 @@ runs:
               echo "Configure Venom tests"
               # (adapted from https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L56)
               export VARIABLES_ENV_FILE="$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables.env"
+
+              # False because we run OIDC
+              echo "VENOM_VAR_SKIP_TEST_KEYCLOAK=false" >> "$VARIABLES_ENV_FILE"
+
               # Enable the ingress tests
 
               if [[ "$CAMUNDA_DOMAIN" != "" ]]; then
                 # shellcheck disable=SC2129
                 echo "VENOM_VAR_TEST_INGRESS_HOST=$TEST_INGRESS_HOST" >> "$VARIABLES_ENV_FILE"
-                echo "VENOM_VAR_SKIP_TEST_KEYCLOAK=false" >> "$VARIABLES_ENV_FILE"
                 echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
 
                 # Setting is broken and results in always skipping ingress tests
@@ -166,7 +172,6 @@ runs:
               else
                 # Some variables are not working correctly, patching it with yq directly
                 echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
-                echo "VENOM_VAR_SKIP_TEST_KEYCLOAK=true" >> "$VARIABLES_ENV_FILE"
 
                 # fix wrong default orchestrationGRPC port
                 yq eval '.coreVars.baseURLs.orchestrationGRPC |= (select(tag == "!!str") | sub("^http://", "") | sub(":9600$", ":26500"))' \
@@ -265,13 +270,6 @@ runs:
               topology_check_script="${{ inputs.zeebe-topology-check-script }}"
               zeebe_authenticated="${{ inputs.zeebe-authenticated }}"
 
-              if [[ -z "$DOMAIN_NAME" ]]; then
-                echo "No domain name provided, assuming local port-forwarding setup"
-                echo "Skipping zeebe oidc (keycloak) authentication as basic auth is used"
-
-                zeebe_authenticated="false"
-              fi
-
               echo "Using golden reference file to compare against: $reference_file"
               echo "Using topology check script: $topology_check_script"
 
@@ -307,10 +305,18 @@ runs:
                 # Without domain:
                 source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 
+                # Use configurable Keycloak service name or fallback to default pattern
+                KEYCLOAK_SERVICE_NAME="${{ inputs.keycloak-service-name }}"
+
+                if [[ -z "$KEYCLOAK_SERVICE_NAME" ]]; then
+                  KEYCLOAK_SERVICE_NAME="${CAMUNDA_RELEASE_NAME}-keycloak"
+                fi
+
+                echo "Using Keycloak service: $KEYCLOAK_SERVICE_NAME"
+
                 start_port_forward "${CAMUNDA_RELEASE_NAME}-zeebe-gateway" 8080:8080
 
-                # Excluding for now as it's not enabled in non-domain setup anymore
-                # start_port_forward "${CAMUNDA_RELEASE_NAME}-keycloak" 18080:80
+                start_port_forward "$KEYCLOAK_SERVICE_NAME" 18080:80
 
                 echo "Waiting for port-forwarding to be established..." && sleep 10
               else
@@ -372,7 +378,7 @@ runs:
               fi
 
               echo "Replacing release name value in golden file..."
-              sed -e "s/camunda-zeebe-gateway/${CAMUNDA_RELEASE_NAME}-zeebe-gateway/g" -i "$reference_file"
+              sed -e "s/camunda-zeebe/${CAMUNDA_RELEASE_NAME}-zeebe/g" -i "$reference_file"
 
               # Order each file also remove not predictable fields
               yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$temp_output"

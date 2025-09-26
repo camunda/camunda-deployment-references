@@ -29,6 +29,7 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `cluster-2-name` | <p>Optional cluster 2 name for sed replacement (dual-region only)</p> | `false` | `""` |
 | `camunda-namespace-2` | <p>Optional namespace for region 2 (dual-region only)</p> | `false` | `""` |
 | `camunda-namespace-1` | <p>Optional namespace for region 1 (dual-region only)</p> | `false` | `""` |
+| `keycloak-service-name` | <p>Name of the Keycloak service for port-forwarding</p> | `false` | `""` |
 
 
 ## Runs
@@ -156,6 +157,12 @@ This action is a `composite` action.
 
     camunda-namespace-1:
     # Optional namespace for region 1 (dual-region only)
+    #
+    # Required: false
+    # Default: ""
+
+    keycloak-service-name:
+    # Name of the Keycloak service for port-forwarding
     #
     # Required: false
     # Default: ""

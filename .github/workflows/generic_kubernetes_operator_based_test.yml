@@ -659,12 +659,15 @@ jobs:
                   # Test configuration
                   enable-helm-chart-tests: 'true'
                   enable-zeebe-client-tests: 'false'  # Single region doesn't need zeebe topology tests
-                  zeebe-authenticated: ${{ matrix.declination.name == 'domain' }}
+                  zeebe-authenticated: 'true' # we always have an auth provider
 
                   # Dual-region support (not used for single region)
                   cluster-2-name: ''
                   camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE }}
                   camunda-namespace-2: ''
+
+                  # Service name for operator-based deployment
+                  keycloak-service-name: keycloak-service
 
             - name: 🧪 Run Camunda Platform tests (NEW ACTION)
               if: env.TESTS_ENABLED == 'true'
