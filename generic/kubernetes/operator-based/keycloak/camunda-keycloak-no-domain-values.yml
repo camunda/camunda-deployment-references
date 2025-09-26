@@ -48,3 +48,4 @@ identityKeycloak:
 
 identity:
     enabled: true
+    contextPath: /managementidentity

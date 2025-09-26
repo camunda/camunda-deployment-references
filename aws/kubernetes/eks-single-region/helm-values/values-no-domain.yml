@@ -1,6 +1,6 @@
 ---
 identityKeycloak:
-    enabled: false # not supported in a non-domain setup
+    enabled: true
     postgresql:
         enabled: false
     externalDatabase:
@@ -42,7 +42,7 @@ global:
     identity:
 
         auth:
-            enabled: false # not supported in a non-domain setup
+            enabled: true
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
             issuerBackendUrl: http://camunda-keycloak/auth/realms/camunda-platform
 
@@ -83,7 +83,7 @@ connectors:
         tag: 8.8-SNAPSHOT
 
 identity:
-    enabled: false # not supported in a non-domain setup
+    enabled: true
     contextPath: /managementidentity
     fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
 
@@ -133,7 +133,7 @@ webModelerPostgresql:
             userPasswordKey: identity-webmodeler-postgres-user-password
 
 optimize:
-    enabled: false # not supported in a non-domain setup
+    enabled: true
     # OpenSearch prevents migration
     migration:
         enabled: false

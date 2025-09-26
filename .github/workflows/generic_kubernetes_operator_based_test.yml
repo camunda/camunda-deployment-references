@@ -578,7 +578,7 @@ jobs:
                   export_new_env_vars ./generic/kubernetes/single-region/procedure/generate-passwords.sh
                   ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
 
-            - name: 🐳 Create Docker registry secrets for tests
+            - name: Create test secrets (Docker registry & identity integration)
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 2
               run: |
@@ -636,7 +636,7 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-            - name: 🧪 Run Camunda Platform tests (OLD ACTION)
+            - name: 🧪 Run Camunda Platform tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60
               uses: ./.github/actions/internal-camunda-chart-tests
@@ -655,8 +655,8 @@ jobs:
                   test-release-name: camunda-platform-test
 
                   # Domain configuration (for domain declination)
-                  camunda-domain: ${{ matrix.declination.name == 'domain' && env.DOMAIN_NAME || '' }}
-                  camunda-domain-grpc: ${{ matrix.declination.name == 'domain' && env.DOMAIN_NAME || '' }}
+                  camunda-domain: ${{ matrix.declination.name == 'domain' && env.CAMUNDA_DOMAIN || '' }}
+                  camunda-domain-grpc: ${{ matrix.declination.name == 'domain' && env.CAMUNDA_DOMAIN || '' }}
 
                   # Component configuration
                   webmodeler-enabled: 'true'      # Always enabled in operator-based deployment
@@ -665,11 +665,7 @@ jobs:
 
                   # Test configuration
                   enable-helm-chart-tests: 'true'
-                  enable-zeebe-client-tests: 'false'  # Single region doesn't need zeebe topology tests
                   zeebe-authenticated: 'true' # we always have an auth provider
-
-                  # TODO: revert
-                  enable-playwright-tests: false
 
                   # Service name for operator-based deployment
                   keycloak-service-name: keycloak-service:8080
