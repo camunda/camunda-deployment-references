@@ -27,7 +27,7 @@ runs:
 
               if kubectl get namespace "$NAMESPACE" &>/dev/null; then
                   echo "Deleting namespace: $NAMESPACE"
-                  kubectl delete namespace "$NAMESPACE" --wait --timeout=300s
+                  kubectl delete namespace "$NAMESPACE" --wait
                   echo "✓ Namespace $NAMESPACE deleted"
               else
                   echo "✓ Namespace $NAMESPACE does not exist"
