@@ -143,6 +143,34 @@ runs:
               # replace integration with the camunda release name as part of adaptation required to run the tests in our environment
               find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i "s/integration/$CAMUNDA_RELEASE_NAME/g"
 
+              # Replace Keycloak service references with custom service name if provided
+              KEYCLOAK_SERVICE_NAME="${{ inputs.keycloak-service-name }}"
+              if [[ -n "$KEYCLOAK_SERVICE_NAME" && "$KEYCLOAK_SERVICE_NAME" != "${CAMUNDA_RELEASE_NAME}-keycloak" ]]; then
+                echo "Replacing Keycloak service references with custom service name: $KEYCLOAK_SERVICE_NAME"
+
+                # Generic replacement across all test-related files (more efficient and comprehensive)
+                find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0 | \
+                  xargs -0 sed -i -e "s/${CAMUNDA_RELEASE_NAME}-keycloak/$KEYCLOAK_SERVICE_NAME/g" \
+                                  -e "s/camunda-keycloak/$KEYCLOAK_SERVICE_NAME/g"
+
+                # Update Keycloak port for operator-based services (use 8080 instead of 80)
+                if [[ "$KEYCLOAK_SERVICE_NAME" == "keycloak-service" ]]; then
+                  echo "Updating Keycloak port to 8080 for operator-based service"
+
+                  # Generic port replacement across all variable files
+                  find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "variables*.yaml" -o -name "variables*.yml" \) -print0 | \
+                    xargs -0 sed -i "s/:80\//:8080\//g"
+                fi
+
+                echo "✅ Keycloak service references updated to: $KEYCLOAK_SERVICE_NAME"
+
+                # Debug: Show what Keycloak references exist after modification
+                echo "Current Keycloak references in test files:"
+                grep -r "keycloak" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -5 || echo "No keycloak references found"
+              else
+                echo "Using default Keycloak service name: ${CAMUNDA_RELEASE_NAME}-keycloak"
+              fi
+
               echo "Configure Venom tests"
               # (adapted from https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L56)
               export VARIABLES_ENV_FILE="$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables.env"
@@ -316,7 +344,12 @@ runs:
 
                 start_port_forward "${CAMUNDA_RELEASE_NAME}-zeebe-gateway" 8080:8080
 
-                start_port_forward "$KEYCLOAK_SERVICE_NAME" 18080:80
+                # Use port 8080 for operator-based Keycloak, port 80 for Helm-based Keycloak
+                if [[ "$KEYCLOAK_SERVICE_NAME" == "keycloak-service" ]]; then
+                  start_port_forward "$KEYCLOAK_SERVICE_NAME" 18080:8080
+                else
+                  start_port_forward "$KEYCLOAK_SERVICE_NAME" 18080:80
+                fi
 
                 echo "Waiting for port-forwarding to be established..." && sleep 10
               else

@@ -122,10 +122,16 @@ inputs:
         description: Optional namespace for region 1 (dual-region only)
         required: false
 
-    # Secrets for authentication
+    # Service configuration
+    keycloak-service-name:
+        description: Name of the Keycloak service for port-forwarding
+        required: false
+        default: ''  # Will use ${test-release-name}-keycloak by default
+
+    # Authentication
     secrets:
         description: JSON wrapped secrets for easier secret passing
-        required: false
+        required: true
 
 outputs:
     test-results:
@@ -232,7 +238,12 @@ runs:
               # Configure ingress tests
               if [[ "${{ inputs.camunda-url }}" == *"localhost"* || "${{ inputs.camunda-url }}" == *"127.0.0.1"* ]]; then
                   echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
-                  echo "VENOM_VAR_SKIP_TEST_KEYCLOAK=true" >> "$VARIABLES_ENV_FILE"
+                  # Only skip Keycloak tests if explicitly requested or if no keycloak service is configured
+                  if [[ "${{ inputs.skip-keycloak }}" == "true" || -z "${{ inputs.keycloak-service-name }}" ]]; then
+                      echo "VENOM_VAR_SKIP_TEST_KEYCLOAK=true" >> "$VARIABLES_ENV_FILE"
+                  else
+                      echo "VENOM_VAR_SKIP_TEST_KEYCLOAK=false" >> "$VARIABLES_ENV_FILE"
+                  fi
                   # Fix wrong default orchestrationGRPC port for localhost
                   if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml" ]]; then
                       yq eval '.coreVars.baseURLs.orchestrationGRPC |= (select(tag == "!!str") | sub("^http://", "") | sub(":9600$", ":26500"))' \
@@ -396,6 +407,25 @@ runs:
                   source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 
                   start_port_forward "${CAMUNDA_RELEASE_NAME}-zeebe-gateway" 8080:8080
+
+                  # Setup Keycloak port-forwarding if not skipping Keycloak tests
+                  if [[ "${{ inputs.skip-keycloak }}" != "true" ]]; then
+                      # Use configurable Keycloak service name or fallback to default pattern
+                      KEYCLOAK_SERVICE_NAME="${{ inputs.keycloak-service-name }}"
+
+                      if [[ -z "$KEYCLOAK_SERVICE_NAME" ]]; then
+                          KEYCLOAK_SERVICE_NAME="${CAMUNDA_RELEASE_NAME}-keycloak"
+                      fi
+
+                      echo "Using Keycloak service: $KEYCLOAK_SERVICE_NAME"
+
+                      # Use port 8080 for operator-based Keycloak, port 80 for Helm-based Keycloak
+                      if [[ "$KEYCLOAK_SERVICE_NAME" == "keycloak-service" ]]; then
+                          start_port_forward "$KEYCLOAK_SERVICE_NAME" 18080:8080
+                      else
+                          start_port_forward "$KEYCLOAK_SERVICE_NAME" 18080:80
+                      fi
+                  fi
 
                   echo "Waiting for port-forwarding to be established..." && sleep 10
               else

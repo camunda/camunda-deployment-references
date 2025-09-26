@@ -31,7 +31,8 @@ Reusable action to test Camunda Platform deployment on Kubernetes
 | `cluster-2-name` | <p>Optional cluster 2 name for sed replacement (dual-region only)</p> | `false` | `""` |
 | `camunda-namespace-2` | <p>Optional namespace for region 2 (dual-region only)</p> | `false` | `""` |
 | `camunda-namespace-1` | <p>Optional namespace for region 1 (dual-region only)</p> | `false` | `""` |
-| `secrets` | <p>JSON wrapped secrets for easier secret passing</p> | `false` | `""` |
+| `keycloak-service-name` | <p>Name of the Keycloak service for port-forwarding</p> | `false` | `""` |
+| `secrets` | <p>JSON wrapped secrets for easier secret passing</p> | `true` | `""` |
 
 
 ## Outputs
@@ -189,9 +190,15 @@ This action is a `composite` action.
     # Required: false
     # Default: ""
 
+    keycloak-service-name:
+    # Name of the Keycloak service for port-forwarding
+    #
+    # Required: false
+    # Default: ""
+
     secrets:
     # JSON wrapped secrets for easier secret passing
     #
-    # Required: false
+    # Required: true
     # Default: ""
 ```

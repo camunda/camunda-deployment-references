@@ -685,7 +685,7 @@ jobs:
                   # Test configuration
                   test-suites: preflight,core
                   skip-elasticsearch: 'true'    # Using ECK operator instead
-                  skip-keycloak: 'true'
+                  skip-keycloak: 'false'        # Test Keycloak with operator-based service
 
                   skip-webmodeler: 'false'      # Always enabled in operator-based deployment
 
@@ -702,6 +702,9 @@ jobs:
                   cluster-2-name: ''                  # Single region only
                   camunda-namespace-2: ''             # Single region only
                   camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE }}
+
+                  # Service configuration for operator-based deployment
+                  keycloak-service-name: keycloak-service
 
                   # Authentication
                   secrets: ${{ toJSON(secrets) }}

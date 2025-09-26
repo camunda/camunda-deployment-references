@@ -16,9 +16,9 @@ global:
             type: KEYCLOAK
             issuerBackendUrl: http://keycloak-service:8080/auth/realms/camunda-platform
             # Local testing with port-forwarding
-            # using localhost:8081 -> keycloak-service:8080 (kubectl port-forward svc/keycloak-service 8081:8080)
-            issuer: http://localhost:8081/auth/realms/camunda-platform
-            publicIssuerUrl: http://localhost:8080/auth/realms/camunda-platform
+            # using localhost:18080 -> keycloak-service:8080 (kubectl port-forward svc/keycloak-service 18080:8080)
+            issuer: http://localhost:18080/auth/realms/camunda-platform
+            publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform
 
         # Keycloak configuration for external instance
         keycloak:
