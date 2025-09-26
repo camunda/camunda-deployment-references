@@ -630,7 +630,7 @@ jobs:
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
             - name: 🧪 Run Camunda Platform tests (OLD ACTION)
-              if: env.TESTS_ENABLED == 'true'
+              if: false
               timeout-minutes: 60
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
@@ -683,6 +683,7 @@ jobs:
                   test-suites: preflight,core
                   skip-elasticsearch: 'true'    # Using ECK operator instead
                   skip-keycloak: 'true'
+
                   skip-webmodeler: 'false'      # Always enabled in operator-based deployment
 
                   # Test repository configuration
@@ -690,7 +691,7 @@ jobs:
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
 
                   # Zeebe client tests (for dual-region setups)
-                  enable-zeebe-client-tests: 'false'  # Single region doesn't need zeebe topology tests
+                  enable-zeebe-client-tests: 'true'
                   zeebe-topology-golden-file: ''      # Not applicable for single region
                   zeebe-topology-check-script: ''     # Not applicable for single region
                   zeebe-authenticated: ${{ matrix.declination.name == 'domain' }}
