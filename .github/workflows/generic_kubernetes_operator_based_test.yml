@@ -616,7 +616,7 @@ jobs:
                   echo "Camunda deployment verified successfully."
 
             - name: 🔄 Restart CoreDNS
-              if: matrix.declination.name == 'domain'
+              if: matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'false'
               uses: ./.github/actions/kubernetes-restart-coredns
               timeout-minutes: 10
               with:
@@ -630,7 +630,7 @@ jobs:
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
             - name: 🧪 Run Camunda Platform tests (OLD ACTION)
-              if: false
+              if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60
               uses: ./.github/actions/internal-camunda-chart-tests
               with:

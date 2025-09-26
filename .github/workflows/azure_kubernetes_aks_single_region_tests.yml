@@ -590,7 +590,7 @@ jobs:
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
             - name: 🔄 Restart CoreDNS
-              if: matrix.declination.name == 'domain'
+              if: matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'false'
               uses: ./.github/actions/kubernetes-restart-coredns
               timeout-minutes: 10
               with:
