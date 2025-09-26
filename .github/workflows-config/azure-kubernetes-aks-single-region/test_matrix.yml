@@ -8,8 +8,7 @@ matrix:
         - name: aks-single-region
 
     declination:
-        # TODO : revert, testing domain only for the moment
-        # - name: no-domain
-        #   desc: Setup chart in production-like setup without Ingress and TLS.
+        - name: no-domain
+          desc: Setup chart in production-like setup without Ingress and TLS.
         - name: domain
           desc: Setup chart in production-like setup with Ingress and TLS.
