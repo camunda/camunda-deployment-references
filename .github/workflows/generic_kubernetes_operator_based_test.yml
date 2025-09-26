@@ -446,6 +446,12 @@ jobs:
                       "elasticsearch/camunda-elastic-values.yml"
                   )
 
+                  # Add OpenShift-specific SCC configuration
+                  if [[ "${{ matrix.distro.type }}" == "openshift" ]]; then
+                      echo "Adding OpenShift Security Context Constraints configuration..."
+                      VALUES_FILES+=("../../../generic/openshift/single-region/helm-values/scc.yml")
+                  fi
+
                   # Add Keycloak configuration based on domain setup
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
                       VALUES_FILES+=("keycloak/camunda-keycloak-domain-values.yml")
