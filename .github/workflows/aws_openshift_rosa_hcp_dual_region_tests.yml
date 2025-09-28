@@ -844,7 +844,7 @@ jobs:
             - cleanup-clusters
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@3000b99c893cfff7223bfb5b0c55d3a17f2199ee # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@eed27358fdee3169178291916b6f06b6fd5fa262 # main
               with:
                   error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
                   rerun-whole-workflow: 'true' # we want to rerun the whole workflow instead of just the failed job, to recreate a new cluster
