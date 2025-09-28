@@ -604,7 +604,7 @@ jobs:
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
-              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@516fd155bf0ddef5c9d2f1acc64c470afd09e942 # main
+              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@806844396af77857046dedd9743383238024b15a # main
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
