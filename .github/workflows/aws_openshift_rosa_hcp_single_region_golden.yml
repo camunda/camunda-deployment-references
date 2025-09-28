@@ -79,7 +79,7 @@ jobs:
 
             - name: Post diff on PR
               if: failure() && github.event_name == 'pull_request'
-              uses: int128/diff-action@4919d5826a9bc511508659f6eeb6afff2f21053e # v1
+              uses: int128/diff-action@24c9b9d1611bd1a66416df608b4411dc991acb88 # v1
               with:
                   base: ${{ env.MODULE_DIR }}test/golden/tfplan-golden.json
                   head: ${{ env.MODULE_DIR }}compare/tfplan-golden.json
