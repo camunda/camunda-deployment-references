@@ -3,27 +3,46 @@ global:
     elasticsearch:
         enabled: true # use the embbeded elasticsearch
 
-identityKeycloak:
-    postgresql:
-        enabled: true # use the embbeded database
+identity:
+    image:
+        tag: 8.8-SNAPSHOT
 
-    auth:
-        existingSecret: identity-secret-for-components
+orchestration:
+    image:
+        tag: 8.8-SNAPSHOT
+
+optimize:
+    image:
+        tag: 8.8-SNAPSHOT
 
 connectors:
     enabled: true
+    image:
+        tag: 8.8-SNAPSHOT
 
 console:
     enabled: false # by default, console is not enabled
+    image:
+        tag: 8.8-SNAPSHOT
 
 webModeler:
     enabled: false # by default, webModeler is not enabled
+    image:
+        tag: 8.8-SNAPSHOT
 
     restapi:
         mail:
-            existingSecret: identity-secret-for-components # reference the smtp password
+            secret:
+                existingSecret: identity-secret-for-components # reference the smtp password
+                existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
-postgresql:
-    # Will deploy a postgresql datbase for webModeler.
+
+webModelerPostgresql:
+    # Will deploy a postgresql database for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
     enabled: false
+    auth:
+        existingSecret: identity-secret-for-components
+        secretKeys:
+            adminPasswordKey: identity-webmodeler-postgres-admin-password
+            userPasswordKey: identity-webmodeler-postgres-user-password
