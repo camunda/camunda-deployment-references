@@ -1,12 +1,12 @@
 module github.com/camunda/camunda-deployment-references/aws/ec2
 
-go 1.23.2
+go 1.24.0
 
 require (
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/aws/aws-sdk-go-v2/config v1.31.11
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.58.2
-	github.com/gruntwork-io/terratest v0.50.0
+	github.com/gruntwork-io/terratest v0.51.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
 )
@@ -51,12 +51,12 @@ require (
 	github.com/ulikunitz/xz v0.5.14 // indirect
 	github.com/zclconf/go-cty v1.15.0 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
-	golang.org/x/mod v0.18.0 // indirect
+	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
-	golang.org/x/tools v0.22.0 // indirect
+	golang.org/x/tools v0.26.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
