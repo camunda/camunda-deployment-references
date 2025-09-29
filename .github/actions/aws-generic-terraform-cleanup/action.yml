@@ -63,7 +63,7 @@ runs:
           working-directory: /tmp
           env:
               # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
-              CLOUD_NUKE_VERSION: v0.42.0
+              CLOUD_NUKE_VERSION: v0.43.0
           run: |
               curl -LO \
                   --retry 5 \
