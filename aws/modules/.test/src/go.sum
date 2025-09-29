@@ -72,6 +72,8 @@ github.com/aws/aws-sdk-go-v2/service/ec2 v1.251.2 h1:6TssXFfLHcwUS5E3MdYKkCFeOrY
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.251.2/go.mod h1:MXJiLJZtMqb2dVXgEIn35d5+7MqLd4r8noLen881kpk=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.253.0 h1:x0v1n45AT+uZvNoQI8xtegVUOZoQIF+s9qwNcl7Ivyg=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.253.0/go.mod h1:MXJiLJZtMqb2dVXgEIn35d5+7MqLd4r8noLen881kpk=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.254.1 h1:7p9bJCZ/b3EJXXARW7JMEs2IhsnI4YFHpfXQfgMh0eg=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.254.1/go.mod h1:M8WWWIfXmxA4RgTXcI/5cSByxRqjgne32Sh0VIbrn0A=
 github.com/aws/aws-sdk-go-v2/service/ecr v1.36.6 h1:zg+3FGHA0PBs0KM25qE/rOf2o5zsjNa1g/Qq83+SDI0=
 github.com/aws/aws-sdk-go-v2/service/ecr v1.36.6/go.mod h1:ZSq54Z9SIsOTf1Efwgw1msilSs4XVEfVQiP9nYVnKpM=
 github.com/aws/aws-sdk-go-v2/service/ecs v1.52.0 h1:7/vgFWplkusJN/m+3QOa+W9FNRqa8ujMPNmdufRaJpg=
@@ -82,6 +84,8 @@ github.com/aws/aws-sdk-go-v2/service/eks v1.73.2 h1:3IRC5NLi6wDDO1sp1Nh27I1fBkp5
 github.com/aws/aws-sdk-go-v2/service/eks v1.73.2/go.mod h1:FeDTTHze8jWVCZBiMkUYxJ/TQdOpTf9zbJjf0RI0ajo=
 github.com/aws/aws-sdk-go-v2/service/eks v1.73.3 h1:V6MAr82kSLdj3/tN4UcPtlXDbvkNcAxsIvq59CNe704=
 github.com/aws/aws-sdk-go-v2/service/eks v1.73.3/go.mod h1:FeDTTHze8jWVCZBiMkUYxJ/TQdOpTf9zbJjf0RI0ajo=
+github.com/aws/aws-sdk-go-v2/service/eks v1.74.2 h1:GKqBur7gp6rnYbMZXh2+89f8g+/bu26ZKwpXfXrno80=
+github.com/aws/aws-sdk-go-v2/service/eks v1.74.2/go.mod h1:f1/1x766rRjLVUk94exobjhggT1MR3vO4wxglqOvpY4=
 github.com/aws/aws-sdk-go-v2/service/iam v1.46.0 h1:bJgrqPT2vy+OrJpSeVfZ4e4zaD/EVdcq+5yxDtUOql0=
 github.com/aws/aws-sdk-go-v2/service/iam v1.46.0/go.mod h1:WsQuuejKHNC3UWs+n4usF+nNy1DFGYgWRugqFf+gGD4=
 github.com/aws/aws-sdk-go-v2/service/iam v1.47.4 h1:3jK50qpmtonshV/dumtlzZA/0i8vp8a0KqWThrXnhpI=
@@ -255,6 +259,8 @@ github.com/gruntwork-io/go-commons v0.8.0 h1:k/yypwrPqSeYHevLlEDmvmgQzcyTwrlZGRa
 github.com/gruntwork-io/go-commons v0.8.0/go.mod h1:gtp0yTtIBExIZp7vyIV9I0XQkVwiQZze678hvDXof78=
 github.com/gruntwork-io/terratest v0.50.0 h1:AbBJ7IRCpLZ9H4HBrjeoWESITv8nLjN6/f1riMNcAsw=
 github.com/gruntwork-io/terratest v0.50.0/go.mod h1:see0lbKvAqz6rvzvN2wyfuFQQG4PWcAb2yHulF6B2q4=
+github.com/gruntwork-io/terratest v0.51.0 h1:RCXlCwWlHqhUoxgF6n3hvywvbvrsTXqoqt34BrnLekw=
+github.com/gruntwork-io/terratest v0.51.0/go.mod h1:evZHXb8VWDgv5O5zEEwfkwMhkx9I53QR/RB11cISrpg=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-cleanhttp v0.5.2 h1:035FKYIWjmULyFRBKPs8TBQoi0x6d9G4xc9neXJWAZQ=

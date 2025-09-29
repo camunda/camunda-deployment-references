@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/aws/aws-sdk-go-v2/config v1.31.11
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.58.2
-	github.com/gruntwork-io/terratest v0.50.0
+	github.com/gruntwork-io/terratest v0.51.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
 )
