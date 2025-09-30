@@ -127,12 +127,6 @@ runs:
               path: ${{ inputs.tests-camunda-helm-chart-repo-path }}
               fetch-depth: 0
 
-        - name: 🎭 Setup Node.js for Playwright
-          if: ${{ inputs.enable-playwright-tests == 'true' }}
-          uses: actions/setup-node@v4
-          with:
-              node-version: '18'
-
         - name: 🧪 TESTS - Set variables
           if: ${{ inputs.enable-helm-chart-tests == 'true' || inputs.enable-playwright-tests == 'true' }}
           shell: bash
