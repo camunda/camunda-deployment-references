@@ -42,6 +42,8 @@ orchestration:
     security:
         authentication:
             method: oidc
+        oidc:
+            redirectUrl: http://localhost:18080
 
 identityKeycloak:
     enabled: false
