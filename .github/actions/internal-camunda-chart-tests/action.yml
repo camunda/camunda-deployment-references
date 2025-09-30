@@ -334,29 +334,53 @@ runs:
                 yq '.preflightVars.baseURLs.connectors // "NOT FOUND"' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
                 yq '.coreVars.baseURLs.connectors // "NOT FOUND"' "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
 
-                # Patch variables-default.yaml: Fix preflightVars.baseURLs.connectors (for internal cluster health checks)
-                # Remove context path for actuator endpoints (preflight tests)
-                echo "Patching variables-default.yaml - removing /connectors from preflight URLs"
-                yq eval '.preflightVars.baseURLs.connectors |= sub("/connectors$", "")' \
+                # Patch variables-default.yaml:
+                # preflightVars: ensure /connectors (actuator endpoints need it)
+                # coreVars: ensure /connectors/inbound (webhook endpoints)
+                echo "Patching variables-default.yaml - fixing connectors URLs"
+
+                # Fix preflightVars: add /connectors if missing (actuator endpoints are under /connectors/actuator/*)
+                yq eval '.preflightVars.baseURLs.connectors |= (. | select(. | test("/connectors$") | not) | . + "/connectors") // .' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+
+                # Fix coreVars in variables-default.yaml (same logic as ingress)
+                yq eval '.coreVars.baseURLs.connectors |= sub("/connectors/inbound/connectors$", "/connectors/inbound")' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+                yq eval '.coreVars.baseURLs.connectors |= sub("([^s])/inbound$", "$1/connectors/inbound")' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+                yq eval '.coreVars.baseURLs.connectors |= (. | select(. | test("/connectors$")) | . + "/inbound") // .' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+                yq eval '.coreVars.baseURLs.connectors |= (. | select(. | test("/connectors|/inbound") | not) | . + "/connectors/inbound") // .' \
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
 
                 # Patch variables-ingress-combined.yaml: Fix preflightVars.baseURLs.connectors
-                # preflightVars should NOT have context path (actuator endpoints)
-                # coreVars should have context path (webhook endpoints)
-                echo "Patching variables-ingress-combined.yaml - removing /connectors from preflight URLs"
-                yq eval '.preflightVars.baseURLs.connectors |= sub("/connectors$", "")' \
+                # preflightVars: ensure /connectors (actuator endpoints need it)
+                # coreVars: ensure /connectors/inbound (webhook endpoints)
+                echo "Patching variables-ingress-combined.yaml - ensuring /connectors for preflight URLs"
+
+                # Fix preflightVars: add /connectors if missing (actuator endpoints are under /connectors/actuator/*)
+                yq eval '.preflightVars.baseURLs.connectors |= (. | select(. | test("/connectors$") | not) | . + "/connectors") // .' \
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
 
-                # Ensure coreVars have the correct context path
-                # For webhook endpoints, coreVars need the /connectors path
-                echo "Ensuring coreVars have context path for webhook endpoints"
+                # Ensure coreVars have the correct context path for webhook endpoints
+                # coreVars need the full path: /connectors/inbound (not just /connectors)
+                echo "Ensuring coreVars have correct path for webhook endpoints"
 
-                # Remove any existing /connectors suffix first
-                yq eval '.coreVars.baseURLs.connectors |= sub("/connectors$", "")' \
+                # Fix coreVars connectors URL: should have /connectors/inbound for webhooks
+                # Step 1: Fix double /connectors issue
+                yq eval '.coreVars.baseURLs.connectors |= sub("/connectors/inbound/connectors$", "/connectors/inbound")' \
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
 
-                # Then add the context path back (webhooks need it)
-                yq eval ".coreVars.baseURLs.connectors += \"${CONNECTORS_CONTEXT_PATH}\"" \
+                # Step 2: Fix /inbound without /connectors prefix
+                yq eval '.coreVars.baseURLs.connectors |= sub("([^s])/inbound$", "$1/connectors/inbound")' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+
+                # Step 3: Add /inbound if missing (only /connectors)
+                yq eval '.coreVars.baseURLs.connectors |= (. | select(. | test("/connectors$")) | . + "/inbound") // .' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+
+                # Step 4: Add /connectors/inbound if no context path at all
+                yq eval '.coreVars.baseURLs.connectors |= (. | select(. | test("/connectors|/inbound") | not) | . + "/connectors/inbound") // .' \
                   -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
 
                 # Debug: Show URLs after patching
@@ -371,12 +395,14 @@ runs:
                 if [[ -f "$PLAYWRIGHT_VARS" ]]; then
                   echo "Patching playwright variables-ingress-combined.yaml"
 
-                  # Remove /connectors from preflight URLs
-                  yq eval '.preflightVars.baseURLs.connectors |= sub("/connectors$", "")' -i "$PLAYWRIGHT_VARS"
+                  # Fix preflightVars: add /connectors if missing (actuator endpoints are under /connectors/actuator/*)
+                  yq eval '.preflightVars.baseURLs.connectors |= (. | select(. | test("/connectors$") | not) | . + "/connectors") // .' -i "$PLAYWRIGHT_VARS"
 
-                  # For coreVars: remove then re-add context path
-                  yq eval '.coreVars.baseURLs.connectors |= sub("/connectors$", "")' -i "$PLAYWRIGHT_VARS"
-                  yq eval ".coreVars.baseURLs.connectors += \"${CONNECTORS_CONTEXT_PATH}\"" -i "$PLAYWRIGHT_VARS"
+                  # For coreVars: apply same four-step fix
+                  yq eval '.coreVars.baseURLs.connectors |= sub("/connectors/inbound/connectors$", "/connectors/inbound")' -i "$PLAYWRIGHT_VARS"
+                  yq eval '.coreVars.baseURLs.connectors |= sub("([^s])/inbound$", "$1/connectors/inbound")' -i "$PLAYWRIGHT_VARS"
+                  yq eval '.coreVars.baseURLs.connectors |= (. | select(. | test("/connectors$")) | . + "/inbound") // .' -i "$PLAYWRIGHT_VARS"
+                  yq eval '.coreVars.baseURLs.connectors |= (. | select(. | test("/connectors|/inbound") | not) | . + "/connectors/inbound") // .' -i "$PLAYWRIGHT_VARS"
                 fi
 
                 echo "✅ Connectors URL patches applied successfully with yq"
