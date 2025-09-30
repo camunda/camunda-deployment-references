@@ -317,6 +317,48 @@ runs:
                   "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
                   "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
 
+                # TODO: [BUG] Fix Connectors URL in preflight tests - remove when upstream chart is fixed
+                echo "Patch Connectors URLs in preflight variables"
+
+                # Get the connectors context path from assembled values, default to /connectors
+                CONNECTORS_CONTEXT_PATH="/connectors"
+                if [[ -f "camunda-assembled-values.yml" ]]; then
+                  CONNECTORS_CONTEXT_PATH=$(yq '.connectors.contextPath // "/connectors"' camunda-assembled-values.yml)
+                elif [[ -f "../camunda-assembled-values.yml" ]]; then
+                  CONNECTORS_CONTEXT_PATH=$(yq '.connectors.contextPath // "/connectors"' ../camunda-assembled-values.yml)
+                elif [[ -f "../../camunda-assembled-values.yml" ]]; then
+                  CONNECTORS_CONTEXT_PATH=$(yq '.connectors.contextPath // "/connectors"' ../../camunda-assembled-values.yml)
+                fi
+
+                echo "Using Connectors context path: $CONNECTORS_CONTEXT_PATH"
+
+                # Patch variables-default.yaml: Fix preflightVars.baseURLs.connectors (for internal cluster health checks)
+                # Remove context path for actuator endpoints (preflight tests)
+                echo "Patching variables-default.yaml - removing context path from preflight connectors URLs"
+                sed -i "s|connectors: http://\([^:]*\):8080${CONNECTORS_CONTEXT_PATH}|connectors: http://\1:8080|g" \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+
+                # Patch variables-ingress-combined.yaml: Fix preflightVars.baseURLs.connectors
+                # Should NOT have context path for actuator endpoints, but coreVars should have context path for webhooks
+                echo "Patching variables-ingress-combined.yaml - fixing connectors URLs based on context"
+                # Remove context path from preflight URLs (actuator endpoints)
+                sed -i "s|connectors: http://\([^:]*\):8080${CONNECTORS_CONTEXT_PATH}|connectors: http://\1:8080|g" \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                # Ensure coreVars have the correct context path for webhook endpoints
+                sed -i "/coreVars:/,/preflightVars:/ s|connectors: \([^/]*\)$|connectors: \1${CONNECTORS_CONTEXT_PATH}|g" \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+
+                # Patch playwright variables-ingress-combined.yaml similarly
+                if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/playwright/files/variables-ingress-combined.yaml" ]]; then
+                  echo "Patching playwright variables-ingress-combined.yaml"
+                  sed -i "s|connectors: http://\([^:]*\):8080${CONNECTORS_CONTEXT_PATH}|connectors: http://\1:8080|g" \
+                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/playwright/files/variables-ingress-combined.yaml"
+                  sed -i "/coreVars:/,/preflightVars:/ s|connectors: \([^/]*\)$|connectors: \1${CONNECTORS_CONTEXT_PATH}|g" \
+                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/playwright/files/variables-ingress-combined.yaml"
+                fi
+
+                echo "✅ Connectors URL patches applied successfully with context path: $CONNECTORS_CONTEXT_PATH"
+
                 if [[ "$ELASTICSEARCH_ENABLED" != "true" ]]; then
                   echo "Disable Elasticsearch in the core tests as it's not enabled"
 
