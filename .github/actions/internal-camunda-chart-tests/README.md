@@ -26,8 +26,6 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `zeebe-authenticated` | <p>Use the authentication layer to interact with zeebe</p> | `false` | `true` |
 | `enable-helm-chart-tests` | <p>Whether the Helm Chart tests should be run</p> | `false` | `true` |
 | `enable-zeebe-client-tests` | <p>Whether the Zeebe Client tests should be run</p> | `false` | `true` |
-| `enable-playwright-tests` | <p>Whether the Playwright tests should be run</p> | `false` | `true` |
-| `playwright-test-suite` | <p>The Playwright test suite to run (smoke-tests or full-suite)</p> | `false` | `full-suite` |
 | `cluster-2-name` | <p>Optional cluster 2 name for sed replacement (dual-region only)</p> | `false` | `""` |
 | `camunda-namespace-2` | <p>Optional namespace for region 2 (dual-region only)</p> | `false` | `""` |
 | `camunda-namespace-1` | <p>Optional namespace for region 1 (dual-region only)</p> | `false` | `""` |
@@ -151,18 +149,6 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
-
-    enable-playwright-tests:
-    # Whether the Playwright tests should be run
-    #
-    # Required: false
-    # Default: true
-
-    playwright-test-suite:
-    # The Playwright test suite to run (smoke-tests or full-suite)
-    #
-    # Required: false
-    # Default: full-suite
 
     cluster-2-name:
     # Optional cluster 2 name for sed replacement (dual-region only)
