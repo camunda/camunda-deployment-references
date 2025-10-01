@@ -527,8 +527,8 @@ jobs:
 
                   # Add integration tests specific values
                   if [ "$TESTS_ENABLED" == "true" ]; then
-                    yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/identity.yml\")" values.yml > values-result.yml
-                    cat values-result.yml && mv values-result.yml values.yml
+                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/identity.yml\")" values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
                   fi
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
