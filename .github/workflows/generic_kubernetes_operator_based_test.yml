@@ -73,7 +73,6 @@ env:
     S3_BUCKET_REGION: eu-central-1
     TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
 
-    # TODO: to be defined in the matrix so we can use multiple modules
     # keep it synced with ROSA single region so we have the cleanup
     # maybe later we could extract this in a common file
     S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION: aws/openshift/rosa-hcp-single-region/
@@ -475,7 +474,7 @@ jobs:
                   if [[ "${{ matrix.distro.type }}" == "openshift" && "${{ matrix.declination.name }}" == "domain" ]]; then
                       echo "Configuring OpenShift routes with automatic TLS..."
                       yq eval '
-                        del(.global.ingress.tls.secretName) |
+                        .global.ingress.tls.secretName = "" |
                         del(.global.ingress.annotations."kubernetes.io/tls-acme") |
                         .global.ingress.annotations."route.openshift.io/termination" = "edge"
                       ' camunda-assembled-values-temp.yml > camunda-assembled-values.yml

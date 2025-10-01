@@ -392,17 +392,6 @@ runs:
                     -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
                 fi
 
-                # TODO: Fix later for Console and re-investigate
-                # Tests are failing for some reason with no-domain, can't replicate locally
-                # Assumption is that the jwt issuer is different in the test than expected
-                # Disabling for now for no-domain setups
-                if [[ "$CONSOLE_ENABLED" != "true" || "$CAMUNDA_DOMAIN" == "" ]]; then
-                  echo "Disable Console in the core tests as it's not enabled"
-
-                  yq eval 'del(.. | select(has("component") and .component == "Console"))' \
-                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-                fi
-
                 echo "Patch the identity secrets to allow venom to access to the platform"
                 sed -i -e 's/integration-test-credentials/identity-secret-for-components/g' \
                         "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"

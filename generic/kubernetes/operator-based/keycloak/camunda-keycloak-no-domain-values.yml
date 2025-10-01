@@ -45,6 +45,11 @@ orchestration:
         oidc:
             redirectUrl: http://localhost:18080
 
+connectors:
+    security:
+        authentication:
+            method: oidc
+
 identityKeycloak:
     enabled: false
 

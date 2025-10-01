@@ -44,6 +44,10 @@ orchestration:
         oidc:
             redirectUrl: https://${CAMUNDA_DOMAIN}
 
+connectors:
+    security:
+        authentication:
+            method: oidc
 
 identityKeycloak:
     enabled: false

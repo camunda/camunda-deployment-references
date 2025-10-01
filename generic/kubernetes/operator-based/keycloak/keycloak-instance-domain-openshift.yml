@@ -52,6 +52,7 @@ spec:
     ingressClassName: openshift-default
     # ensure we use TLS
     tls:
+        - hosts:
     rules:
         - host: ${CAMUNDA_DOMAIN}
           http:

@@ -16,8 +16,8 @@ inputs:
 
     engine-version:
         description: Version of the OpenSearch engine to deploy
-        # TODO: add renovate
-        default: '2.15'
+        # renovate: datasource=custom.opensearch-camunda depName=opensearch versioning=semver
+        default: '2.19'
 
     vpc-id:
         description: VPC ID to create the domain in
