@@ -473,8 +473,12 @@ jobs:
 
                   # Adjust TLS configuration for OpenShift (routes handle TLS automatically)
                   if [[ "${{ matrix.distro.type }}" == "openshift" && "${{ matrix.declination.name }}" == "domain" ]]; then
-                      echo "Removing TLS configuration for OpenShift routes..."
-                      yq eval 'del(.global.ingress.tls)' camunda-assembled-values-temp.yml > camunda-assembled-values.yml
+                      echo "Configuring OpenShift routes with automatic TLS..."
+                      yq eval '
+                        del(.global.ingress.tls.secretName) |
+                        del(.global.ingress.annotations."kubernetes.io/tls-acme") |
+                        .global.ingress.annotations."route.openshift.io/termination" = "edge"
+                      ' camunda-assembled-values-temp.yml > camunda-assembled-values.yml
                   else
                       cp camunda-assembled-values-temp.yml camunda-assembled-values.yml
                   fi

@@ -51,6 +51,31 @@ runs:
               # Source ingress setup variables
               source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
 
+              # Retrieve IRSA ARNs from Terraform state
+              # Both eks-single-region and eks-single-region-irsa modules export these outputs
+              echo "Retrieving IRSA ARNs from Terraform state..."
+              cd aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
+              export EXTERNAL_DNS_IRSA_ARN="$(terraform output -raw external_dns_arn 2>/dev/null || echo '')"
+              export CERT_MANAGER_IRSA_ARN="$(terraform output -raw cert_manager_arn 2>/dev/null || echo '')"
+              cd - > /dev/null
+
+              # Validate that IRSA ARNs are available
+              if [[ -z "$EXTERNAL_DNS_IRSA_ARN" ]]; then
+                  echo "❌ ERROR: Could not retrieve external_dns_arn from Terraform outputs"
+                  echo "This ARN is required for external-dns to manage Route53 DNS records."
+                  echo "Ensure that the EKS cluster has been created with IRSA support."
+                  exit 1
+              fi
+              echo "✅ Found external-dns IRSA ARN: $EXTERNAL_DNS_IRSA_ARN"
+
+              if [[ -z "$CERT_MANAGER_IRSA_ARN" ]]; then
+                  echo "❌ ERROR: Could not retrieve cert_manager_arn from Terraform outputs"
+                  echo "This ARN is required for cert-manager to perform DNS-01 ACME challenges."
+                  echo "Ensure that the EKS cluster has been created with IRSA support."
+                  exit 1
+              fi
+              echo "✅ Found cert-manager IRSA ARN: $CERT_MANAGER_IRSA_ARN"
+
               # Install ingress-nginx
               echo "Installing ingress-nginx..."
               ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-ingress-nginx.sh

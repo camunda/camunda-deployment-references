@@ -40,20 +40,18 @@ spec:
             cpu: 250m
             memory: 512Mi
 ---
-# TODO: document this change
+# TODO: document this
+# Ingress for OpenShift - automatically converted to Route with TLS by openshift-default router
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
     name: keycloak-ingress
     annotations:
-        # TLS secret for HTTPS (cert-manager will create this automatically)
-        kubernetes.io/tls-acme: 'true'
+        route.openshift.io/termination: edge
 spec:
     ingressClassName: openshift-default
+    # ensure we use TLS
     tls:
-        - hosts:
-              - ${CAMUNDA_DOMAIN}
-          secretName: camunda-keycloak-tls
     rules:
         - host: ${CAMUNDA_DOMAIN}
           http:
