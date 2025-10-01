@@ -491,12 +491,22 @@ jobs:
 
                   echo "Construct the values.yml file"
 
-                  # Use values-enterprise.yaml from camunda-platform-helm as base
+                  # Get the Camunda version to determine the correct values-enterprise.yaml file
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "Using Camunda version: $CAMUNDA_VERSION"
+
+                  # TODO: In the future, we should pass values-enterprise.yaml directly to helm install command
+                  # using the -f flag as documented in the official Camunda documentation:
+                  # However, we cannot update the procedure documentation yet, so we download and merge manually for now.
+
+                  # Download values-enterprise.yaml from the corresponding chart version
                   # This follows the best practice of using enterprise images for Camunda components.
                   # For third-party images (e.g., Bitnami charts like PostgreSQL, Keycloak),
                   # values-enterprise.yaml already points to enterprise-supported registries when available.
                   # This configuration is applied in both test and non-test scenarios to ensure consistency.
-                  cp -f "${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}/charts/camunda-platform-8.7/values-enterprise.yaml" ./values.yml
+                  curl -fsSL \
+                    "https://raw.githubusercontent.com/camunda/camunda-platform-helm/refs/heads/main/charts/camunda-platform-${CAMUNDA_VERSION}/values-enterprise.yaml" \
+                    -o ./values.yml
 
                   # Merge with specific azure/kubernetes values
                   yq ". *+ load(\"azure/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml\")" values.yml > values-result.yml
