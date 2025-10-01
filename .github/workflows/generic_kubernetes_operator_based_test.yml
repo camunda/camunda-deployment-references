@@ -627,9 +627,7 @@ jobs:
                   echo "Camunda deployment verified successfully."
 
             - name: 🔄 Restart CoreDNS
-              # if: matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'false'
-              # TODO: adjust
-              if: false
+              if: matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'false'
               uses: ./.github/actions/kubernetes-restart-coredns
               timeout-minutes: 10
               with:
