@@ -63,14 +63,6 @@ runs:
               # Source ingress setup variables
               source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
 
-              # Retrieve IRSA ARNs from Terraform state
-              # Both eks-single-region and eks-single-region-irsa modules export these outputs
-              echo "Retrieving IRSA ARNs from Terraform state..."
-              cd aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
-              export EXTERNAL_DNS_IRSA_ARN="$(terraform output -raw external_dns_arn 2>/dev/null || echo '')"
-              export CERT_MANAGER_IRSA_ARN="$(terraform output -raw cert_manager_arn 2>/dev/null || echo '')"
-              cd - > /dev/null
-
               # Validate that IRSA ARNs are available
               if [[ -z "$EXTERNAL_DNS_IRSA_ARN" ]]; then
                   echo "❌ ERROR: Could not retrieve external_dns_arn from Terraform outputs"
