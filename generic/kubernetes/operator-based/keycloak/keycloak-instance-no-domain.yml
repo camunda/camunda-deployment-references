@@ -27,7 +27,8 @@ spec:
     ingress:
         enabled: false
     hostname:
-        hostname: localhost
+        # use the service name as hostname to sign the tokens correctly
+        hostname: keycloak-service
         strict: false
     resources:
         limits:
