@@ -91,12 +91,6 @@ runs:
               # Create wildcard certificate and secret
               echo "🔑 Creating wildcard certificate and TLS secret..."
 
-              # Mask base64 encoded certificate data
-              WILDCARD_CERT_B64=$(echo "$WILDCARD_CERT" | base64 -w 0)
-              WILDCARD_KEY_B64=$(echo "$WILDCARD_KEY" | base64 -w 0)
-              echo "::add-mask::$WILDCARD_CERT_B64"
-              echo "::add-mask::$WILDCARD_KEY_B64"
-
               kubectl apply -f - <<EOF
               apiVersion: cert-manager.io/v1
               kind: Certificate
@@ -122,8 +116,8 @@ runs:
                   cert-manager.io/certificate-name: wildcard-certificate
               type: kubernetes.io/tls
               data:
-                tls.crt: $WILDCARD_CERT_B64
-                tls.key: $WILDCARD_KEY_B64
+                tls.crt: $WILDCARD_CERT
+                tls.key: $WILDCARD_KEY
               EOF
 
               echo "✅ Wildcard certificate setup completed successfully"
