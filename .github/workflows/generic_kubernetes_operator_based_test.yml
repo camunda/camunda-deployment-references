@@ -540,7 +540,6 @@ jobs:
                   if [[ "${{ matrix.distro.type }}" == "openshift" && "${{ matrix.declination.name }}" == "domain" ]]; then
                       echo "Configuring OpenShift routes with automatic TLS..."
                       yq eval '
-                        .global.ingress.tls.secretName = "''" |
                         del(.global.ingress.annotations."kubernetes.io/tls-acme") |
                         .global.ingress.annotations."route.openshift.io/termination" = "edge"
                       ' camunda-assembled-values-temp.yml > camunda-assembled-values.yml
