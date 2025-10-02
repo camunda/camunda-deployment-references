@@ -91,7 +91,26 @@ runs:
               # Create wildcard certificate and secret
               echo "🔑 Creating wildcard certificate and TLS secret..."
 
-              kubectl apply -f - <<EOF
+              # Create temporary files for certificate data
+              TEMP_DIR=$(mktemp -d)
+              CERT_FILE="$TEMP_DIR/tls.crt"
+              KEY_FILE="$TEMP_DIR/tls.key"
+              MANIFEST_FILE="$TEMP_DIR/wildcard-resources.yaml"
+
+              # Cleanup function
+              cleanup() {
+                  echo "🧹 Cleaning up temporary files..."
+                  rm -rf "$TEMP_DIR"
+              }
+              trap cleanup EXIT
+
+              # Write certificate data to files
+              echo "📝 Writing certificate data to temporary files..."
+              echo "$WILDCARD_CERT" > "$CERT_FILE"
+              echo "$WILDCARD_KEY" > "$KEY_FILE"
+
+              # Create the Kubernetes manifest
+              cat > "$MANIFEST_FILE" <<EOF
               apiVersion: cert-manager.io/v1
               kind: Certificate
               metadata:
@@ -106,19 +125,23 @@ runs:
                 dnsNames:
                 - "*.${{ inputs.tld }}"
                 - "${{ inputs.tld }}"
-              ---
-              apiVersion: v1
-              kind: Secret
-              metadata:
-                name: wildcard-tls-secret
-                namespace: ${{ inputs.namespace }}
-                annotations:
-                  cert-manager.io/certificate-name: wildcard-certificate
-              type: kubernetes.io/tls
-              data:
-                tls.crt: $WILDCARD_CERT
-                tls.key: $WILDCARD_KEY
               EOF
+
+              # Create the TLS secret using kubectl with file references
+              echo "🔐 Creating TLS secret from certificate files..."
+              kubectl create secret tls wildcard-tls-secret \
+                  --cert="$CERT_FILE" \
+                  --key="$KEY_FILE" \
+                  --namespace="${{ inputs.namespace }}" \
+                  --dry-run=client -o yaml | \
+              kubectl annotate -f - --local \
+                  cert-manager.io/certificate-name=wildcard-certificate \
+                  --dry-run=client -o yaml | \
+              kubectl apply -f -
+
+              # Apply the Certificate resource
+              echo "📜 Creating Certificate resource..."
+              kubectl apply -f "$MANIFEST_FILE"
 
               echo "✅ Wildcard certificate setup completed successfully"
               echo ""
