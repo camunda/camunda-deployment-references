@@ -638,6 +638,10 @@ jobs:
 
                   echo "Construct the values.yml file for each cluster"
 
+                  # TODO: Align with AKS deployment to use values-enterprise.yaml as base
+                  # and apply registry-harbor.yml for all deployments (not just tests).
+                  # This should be documented in the procedure for production deployments.
+                  # See: azure_kubernetes_aks_single_region_tests.yml for reference implementation.
                   cp -f generic/openshift/dual-region/helm-values/values-base.yml ./values.yml
 
                   echo "Region 1:"

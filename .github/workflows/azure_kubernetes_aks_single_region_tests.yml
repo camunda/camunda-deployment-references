@@ -88,7 +88,8 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
     # TODO: [release-duty] before the release, update repo ref!
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+    # TODO: temporary fix to allow tests of enterprise keycloak to pass
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix/venom-login-page-error-check   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Optional components that are not enabled by default in the doc
@@ -491,7 +492,26 @@ jobs:
 
                   echo "Construct the values.yml file"
 
-                  cp -f azure/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
+                  # Get the Camunda version to determine the correct values-enterprise.yaml file
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "Using Camunda version: $CAMUNDA_VERSION"
+
+                  # TODO: In the future, we should pass values-enterprise.yaml directly to helm install command
+                  # using the -f flag as documented in the official Camunda documentation:
+                  # However, we cannot update the procedure documentation yet, so we download and merge manually for now.
+
+                  # Download values-enterprise.yaml from the corresponding chart version
+                  # This follows the best practice of using enterprise images for Camunda components.
+                  # For third-party images (e.g., Bitnami charts like PostgreSQL, Keycloak),
+                  # values-enterprise.yaml already points to enterprise-supported registries when available.
+                  # This configuration is applied in both test and non-test scenarios to ensure consistency.
+                  curl -fsSL \
+                    "https://raw.githubusercontent.com/camunda/camunda-platform-helm/refs/heads/main/charts/camunda-platform-${CAMUNDA_VERSION}/values-enterprise.yaml" \
+                    -o ./values.yml
+
+                  # Merge with specific azure/kubernetes values
+                  yq ". *+ load(\"azure/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml\")" values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
                     export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
@@ -512,12 +532,14 @@ jobs:
                     yq -i '.console.enabled = true' values.yml
                   fi
 
-                  # Add integration tests values
+                  # Apply registry-harbor configuration (used in all scenarios for better performance)
+                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/registry-harbor.yml\")" values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
+
+                  # Add integration tests specific values
                   if [ "$TESTS_ENABLED" == "true" ]; then
-                    for file in registry-harbor.yml identity.yml; do
-                      yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
-                    done
+                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/identity.yml\")" values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
                   fi
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
@@ -575,6 +597,10 @@ jobs:
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                         --namespace="$CAMUNDA_NAMESPACE"
 
+                    # TODO: For production deployments, this secret creation should be documented in the procedure
+                    # as registry-harbor.yml is now applied to all deployments (not just tests).
+                    # Users will need to create this secret manually following the documentation:
+                    # https://docs.camunda.io/docs/next/self-managed/installation-methods/helm/configure/registry-and-images/install-bitnami-enterprise-images/#step-1-create-a-kubernetes-registry-secret
                     kubectl create secret docker-registry registry-camunda-cloud \
                         --docker-server=registry.camunda.cloud \
                         --docker-username="${{ steps.secrets.outputs.MACHINE_USR }}" \
