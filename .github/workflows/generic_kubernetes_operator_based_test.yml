@@ -280,7 +280,7 @@ jobs:
             # Reason for skipping pipefail in the next step
             - name: Dump relevant Terraform outputs for cluster module
               if: always() && matrix.distro.type != 'openshift'
-              working-directory: ${{ env.TF_MODULES_DIRECTORY }}aws/${{ matrix.distro.type }}/${{ matrix.scenario.name }}/terraform/cluster/
+              working-directory: ${{ env.TF_MODULES_DIRECTORY }}aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/
               id: dump_outputs
               run: |
                   set -euo pipefail
@@ -288,7 +288,7 @@ jobs:
                   source ${{ github.workspace }}/.github/scripts/gha-functions.sh
 
                   export_new_env_vars_to_file \
-                      ${{ github.workspace }}/aws/${{ matrix.distro.type }}/${{ matrix.scenario.name }}/procedure/export-helm-values.sh \
+                      ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/export-helm-values.sh \
                       ${{ runner.temp }}/outputs_raw
 
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
