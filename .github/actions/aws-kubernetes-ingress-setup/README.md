@@ -14,6 +14,10 @@ Install and configure ingress-nginx, external-dns, and cert-manager for AWS EKS 
 | `mail` | <p>Email address for Let's Encrypt certificates</p> | `false` | `admin@camunda.ie` |
 | `tld` | <p>Top-level domain for the cluster</p> | `false` | `camunda.ie` |
 | `ref-arch` | <p>Reference architecture name (eks-single-region, eks-single-region-irsa)</p> | `false` | `eks-single-region` |
+| `use-wildcard-cert` | <p>Use wildcard certificate from Vault instead of ACME/Let's Encrypt</p> | `false` | `false` |
+| `vault-addr` | <p>Vault server address (required when use-wildcard-cert is true)</p> | `false` | `""` |
+| `vault-role-id` | <p>Vault AppRole role ID (required when use-wildcard-cert is true)</p> | `false` | `""` |
+| `vault-secret-id` | <p>Vault AppRole secret ID (required when use-wildcard-cert is true)</p> | `false` | `""` |
 
 
 ## Runs
@@ -60,4 +64,28 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: eks-single-region
+
+    use-wildcard-cert:
+    # Use wildcard certificate from Vault instead of ACME/Let's Encrypt
+    #
+    # Required: false
+    # Default: false
+
+    vault-addr:
+    # Vault server address (required when use-wildcard-cert is true)
+    #
+    # Required: false
+    # Default: ""
+
+    vault-role-id:
+    # Vault AppRole role ID (required when use-wildcard-cert is true)
+    #
+    # Required: false
+    # Default: ""
+
+    vault-secret-id:
+    # Vault AppRole secret ID (required when use-wildcard-cert is true)
+    #
+    # Required: false
+    # Default: ""
 ```

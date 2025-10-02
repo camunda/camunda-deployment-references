@@ -7,4 +7,3 @@ global:
         registry: registry.camunda.cloud
         pullSecrets:
             - name: registry-camunda-cloud
-

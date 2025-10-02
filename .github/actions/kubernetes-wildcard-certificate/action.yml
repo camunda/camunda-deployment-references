@@ -1,0 +1,139 @@
+---
+name: Kubernetes Wildcard Certificate Setup
+description: Setup wildcard TLS certificate from Vault for Kubernetes clusters
+
+inputs:
+    tld:
+        description: Top-level domain for the wildcard certificate
+        required: false
+        default: camunda.ie
+    namespace:
+        description: Kubernetes namespace where cert-manager resources will be created
+        required: false
+        default: cert-manager
+    vault-addr:
+        description: Vault server address
+        required: true
+    vault-role-id:
+        description: Vault AppRole role ID
+        required: true
+    vault-secret-id:
+        description: Vault AppRole secret ID
+        required: true
+
+runs:
+    using: composite
+    steps:
+        - name: 🔐 Import wildcard certificate from Vault
+          uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+          with:
+              url: ${{ inputs.vault-addr }}
+              method: approle
+              roleId: ${{ inputs.vault-role-id }}
+              secretId: ${{ inputs.vault-secret-id }}
+              secrets: |
+                  secret/data/products/infrastructure-experience/certificates/${{ inputs.tld }}/wildcard certificate | WILDCARD_CERT ;
+                  secret/data/products/infrastructure-experience/certificates/${{ inputs.tld }}/wildcard private_key | WILDCARD_KEY
+
+        - name: 📜 Setup wildcard certificate resources
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "🌐 Setting up wildcard certificate for *.${{ inputs.tld }}"
+              echo "📍 Target namespace: ${{ inputs.namespace }}"
+
+              # Mask sensitive certificate data in logs
+              echo "::add-mask::$WILDCARD_CERT"
+              echo "::add-mask::$WILDCARD_KEY"
+
+              # Validate that certificates were retrieved
+              if [[ -z "${WILDCARD_CERT:-}" ]]; then
+                  echo "❌ ERROR: Failed to retrieve certificate from Vault"
+                  exit 1
+              fi
+
+              if [[ -z "${WILDCARD_KEY:-}" ]]; then
+                  echo "❌ ERROR: Failed to retrieve private key from Vault"
+                  exit 1
+              fi
+
+              echo "✅ Successfully retrieved certificates from Vault"
+              echo "🔒 Certificate data is masked in logs for security"
+
+              # Create dummy cluster issuer for wildcard certificates
+              echo "🔧 Creating wildcard cluster issuer for certificates..."
+              kubectl apply -f - <<EOF
+              apiVersion: cert-manager.io/v1
+              kind: ClusterIssuer
+              metadata:
+                name: wildcard-cluster-issuer
+              spec:
+                ca:
+                  secretName: wildcard-dummy-ca-secret
+              ---
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: wildcard-dummy-ca-secret
+                namespace: ${{ inputs.namespace }}
+              type: Opaque
+              data:
+                tls.crt: >-
+                  LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJrVENCK3dJSkFJaUErak9scGNwVU1Bb0dDQ3FHU000OUJBTUNEREVIRUF3S3pBcE1TY3dKUVlEVlFRRApEQTVrZFcxdGVTMWpZUzFwYzNOMVpYSXdIaGNOTVRrd01EQXhNREF3TURCYUY
+                  d01qa3dNREF4TURBNE16ZGEKTURRd0l6QWZNQTBHQTFVRUF3d0dSSEYwZEhsRE1FRXdGQVlIS29aSXpqMENBUVlGSzRFRUFBb0RQREV3SWpBZgpNRUF3REFZRFZSMEJCQVV3QTRJQkNEQWZNRDRHQTFVZElUQXdNQ3N3S2pBZ01RMEdBMVVFQXd3R1JIR
+                  jBkSGxECk1FRXdJUUFwcE0rMW8yM3pEMmZ3L0p4VGV6N0IyWW5jK2JhZDdPcG1HRlNtR1RIZ0Mxcz0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+                tls.key: >-
+                  LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdnYVFDQVFOQUVBTk1Ba1FlWU9aTEtOQ1UKN1RpaDJMZit3eDJOdU5VcGNXRUpCTklPa09JQkhJMVVEeWxKSDBMRm9CM
+                  WJsWFdNQTFOTndSUUpCQU1zTEdLMApJWEZIdm5qb09JclZEbmhiK0lZS0h6YWF0NXZKN1JIRmF6WVhucERyVlFVS1ppRUJRVllmOUF3T0RiSVZBWUwKa24xRjNkQjVxKzY4WkNVcUJPdz0KLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=
+              EOF
+
+              # Create wildcard certificate and secret
+              echo "🔑 Creating wildcard certificate and TLS secret..."
+
+              # Mask base64 encoded certificate data
+              WILDCARD_CERT_B64=$(echo "$WILDCARD_CERT" | base64 -w 0)
+              WILDCARD_KEY_B64=$(echo "$WILDCARD_KEY" | base64 -w 0)
+              echo "::add-mask::$WILDCARD_CERT_B64"
+              echo "::add-mask::$WILDCARD_KEY_B64"
+
+              kubectl apply -f - <<EOF
+              apiVersion: cert-manager.io/v1
+              kind: Certificate
+              metadata:
+                name: wildcard-certificate
+                namespace: ${{ inputs.namespace }}
+              spec:
+                secretName: wildcard-tls-secret
+                issuerRef:
+                  name: wildcard-cluster-issuer
+                  kind: ClusterIssuer
+                commonName: "*.${{ inputs.tld }}"
+                dnsNames:
+                - "*.${{ inputs.tld }}"
+                - "${{ inputs.tld }}"
+              ---
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: wildcard-tls-secret
+                namespace: ${{ inputs.namespace }}
+                annotations:
+                  cert-manager.io/certificate-name: wildcard-certificate
+              type: kubernetes.io/tls
+              data:
+                tls.crt: $WILDCARD_CERT_B64
+                tls.key: $WILDCARD_KEY_B64
+              EOF
+
+              echo "✅ Wildcard certificate setup completed successfully"
+              echo ""
+              echo "📋 Created resources:"
+              echo "  - ClusterIssuer: wildcard-cluster-issuer (cluster-wide)"
+              echo "  - Certificate: wildcard-certificate (namespace: ${{ inputs.namespace }})"
+              echo "  - Secret: wildcard-tls-secret (namespace: ${{ inputs.namespace }})"
+              echo ""
+              echo "🔒 Security: All certificate data is masked in logs"
+              echo "🎯 Usage options:"
+              echo "  1. Direct reference: secretName: wildcard-tls-secret"
+              echo "  2. Auto-generation: cert-manager.io/cluster-issuer: wildcard-cluster-issuer"

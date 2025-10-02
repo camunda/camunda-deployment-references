@@ -2,9 +2,6 @@
 name: AWS Kubernetes Ingress Setup
 description: Install and configure ingress-nginx, external-dns, and cert-manager for AWS EKS clusters
 
-# TODO: use static wildcard certificate with an option to disable LE cert-manager requests
-# see https://github.com/camunda/infraex-terraform/pull/235
-
 inputs:
     cluster-name:
         description: Name of the cluster (used for external-dns owner ID)
@@ -28,6 +25,19 @@ inputs:
         description: Reference architecture name (eks-single-region, eks-single-region-irsa)
         required: false
         default: eks-single-region
+    use-wildcard-cert:
+        description: Use wildcard certificate from Vault instead of ACME/Let's Encrypt
+        required: false
+        default: 'false'
+    vault-addr:
+        description: Vault server address (required when use-wildcard-cert is true)
+        required: false
+    vault-role-id:
+        description: Vault AppRole role ID (required when use-wildcard-cert is true)
+        required: false
+    vault-secret-id:
+        description: Vault AppRole secret ID (required when use-wildcard-cert is true)
+        required: false
 
 runs:
     using: composite
@@ -43,6 +53,7 @@ runs:
               echo "Mail: ${{ inputs.mail }}"
               echo "TLD: ${{ inputs.tld }}"
               echo "Ref-arch: ${{ inputs.ref-arch }}"
+              echo "Use wildcard cert: ${{ inputs.use-wildcard-cert }}"
 
               # Set required environment variables for ingress setup
               export REGION="${{ inputs.aws-region }}"
@@ -90,12 +101,29 @@ runs:
               echo "Installing cert-manager CRDs..."
               ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
-              # Install cert-manager
-              echo "Installing cert-manager..."
-              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager.sh
+              # Install cert-manager with appropriate default issuer
+              if [[ "${{ inputs.use-wildcard-cert }}" == "true" ]]; then
+                  echo "Installing cert-manager with wildcard cluster issuer as default..."
+                  ./aws/kubernetes/${{ inputs.ref-arch }}/test/install-cert-manager.sh
+              else
+                  echo "Installing cert-manager with ACME issuer as default..."
+                  ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager.sh
+              fi
 
-              # Install cert-manager issuer
-              echo "Installing cert-manager issuer..."
-              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager-issuer.sh
+              # Install cert-manager issuer (only for ACME mode)
+              if [[ "${{ inputs.use-wildcard-cert }}" != "true" ]]; then
+                  echo "Installing ACME/Let's Encrypt issuer..."
+                  ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager-issuer.sh
+              fi
 
               echo "✅ Ingress setup completed successfully for EKS cluster."
+
+        - name: 🔑 Setup wildcard certificate from Vault
+          if: ${{ inputs.use-wildcard-cert == 'true' }}
+          uses: ./.github/actions/kubernetes-wildcard-certificate
+          with:
+              tld: ${{ inputs.tld }}
+              namespace: cert-manager
+              vault-addr: ${{ inputs.vault-addr }}
+              vault-role-id: ${{ inputs.vault-role-id }}
+              vault-secret-id: ${{ inputs.vault-secret-id }}

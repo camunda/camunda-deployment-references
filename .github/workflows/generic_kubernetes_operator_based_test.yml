@@ -30,6 +30,8 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-clean-namespace/**
             - .github/actions/kubernetes-restart-coredns/**
+            - .github/actions/aws-kubernetes-ingress-setup/**
+            - .github/actions/kubernetes-wildcard-certificate/**
 
     workflow_dispatch:
         inputs:
@@ -56,6 +58,11 @@ on:
                 type: string
                 default: operator-based
 
+            use_wildcard_cert:
+                description: Use wildcard certificate from Vault instead of ACME/Let's Encrypt
+                type: boolean
+                default: false
+
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -66,6 +73,13 @@ env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
 
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
+
+    # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
+    # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
+    # Can be overridden by workflow_dispatch input
+    # TODO: revert
+    # USE_WILDCARD_CERT: ${{ github.event.inputs.use_wildcard_cert == 'true' || 'false' }}
+    USE_WILDCARD_CERT: 'true'
 
     AWS_PROFILE: infex
     AWS_REGION: eu-west-2
@@ -93,9 +107,8 @@ env:
     # TODO: [release-duty] before the release, update repo ref!
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
 
-    # TODO: revert me before merge!
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8
-    # TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+    # TODO: resolve this branch when merging to playwright
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     ROSA_CLI_VERSION: latest
@@ -511,6 +524,10 @@ jobs:
                   mail: admin@camunda.ie
                   tld: camunda.ie
                   ref-arch: eks-single-region
+                  use-wildcard-cert: ${{ env.USE_WILDCARD_CERT }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: Prepare Keycloak configuration
               timeout-minutes: 5
