@@ -505,8 +505,6 @@ jobs:
 
                   ./generic/openshift/single-region/procedure/create-identity-secret.sh
 
-                  ./generic/openshift/single-region/procedure/create-keycloak-secret.sh
-
                   # Generate tests objects
                   if [ "$TESTS_ENABLED" == "true" ]; then
                     # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml

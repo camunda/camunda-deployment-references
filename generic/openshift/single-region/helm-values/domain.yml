@@ -16,70 +16,24 @@ global:
             haproxy.router.openshift.io/hsts_header: max-age=31536000; includeSubDomains;preload
 
     identity:
-
         auth:
-            enabled: true
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            orchestration:
-                redirectUrl: https://${DOMAIN_NAME}
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-            connectors:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-connectors-client-token
-            optimize:
-                redirectUrl: https://${DOMAIN_NAME}/optimize  # replace this with a port of your choice when you will do port forwarding
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-optimize-client-token
-            webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
-            console:
-                redirectUrl: https://${DOMAIN_NAME}/console
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-console-client-token
-
-identityKeycloak:
-    enabled: true
-    postgresql:
-        enabled: true # use the embbeded database
-        auth:
-            existingSecret: identity-keycloak-psql-secret
-            secretKeys:
-                adminPasswordKey: admin-password-key
-                userPasswordKey: user-password-key
-
-    auth:
-        existingSecret: identity-secret-for-components
-        passwordSecretKey: identity-admin-client-token
-
 identity:
-    enabled: true
     contextPath: /managementidentity
     fullURL: https://${DOMAIN_NAME}/managementidentity
-
-    firstUser:
-        enabled: true
-        secret:
-            existingSecret: identity-secret-for-components
-            existingSecretKey: identity-first-user-password # demo
 
 webModeler:
     contextPath: /modeler
 
 optimize:
-    enabled: true
     contextPath: /optimize
 
 orchestration:
     contextPath: /
     security:
-        authentication:
-            method: oidc
+        oidc:
+            redirectUrl: https://${CAMUNDA_DOMAIN}
 
 console:
     contextPath: /console

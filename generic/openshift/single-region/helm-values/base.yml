@@ -2,16 +2,59 @@
 global:
     elasticsearch:
         enabled: true # use the embbeded elasticsearch
+    identity:
+        enabled: true
 
-identity:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        auth:
+            enabled: true
+            type: KEYCLOAK
+
+            orchestration:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
+
+            admin:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-admin-client-token
+
+            connectors:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-connectors-client-token
+
+            optimize:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-optimize-client-token
+
+            webModeler:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-webmodeler-client-token
+
+            console:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-console-client-token
 
 orchestration:
     image:
         tag: 8.8-SNAPSHOT # TODO: remove!
+    contextPath: /
+
+    # Configure OIDC for orchestration
+    security:
+        authentication:
+            method: oidc
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
 
 optimize:
+    enabled: true
     image:
         tag: 8.8-SNAPSHOT # TODO: remove!
 
@@ -20,10 +63,43 @@ connectors:
     image:
         tag: 8.8-SNAPSHOT # TODO: remove!
 
+    # Configure OIDC for connectors
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-connectors-client-token
+
 console:
     enabled: false # by default, console is not enabled
     image:
         tag: 8.8-SNAPSHOT # TODO: remove!
+
+
+identity:
+    enabled: true
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove!
+    firstUser:
+        enabled: true
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: identity-first-user-password # demo
+
+identityKeycloak:
+    enabled: true
+    postgresql:
+        enabled: true # use the embbeded database
+        auth:
+            existingSecret: identity-secret-for-components
+            secretKeys:
+                adminPasswordKey: identity-keycloak-pg-admin-password-key
+                userPasswordKey: identity-keycloak-pg-user-password-key
+
+    auth:
+        existingSecret: identity-secret-for-components
+        passwordSecretKey: identity-admin-client-token
 
 webModeler:
     enabled: false # by default, webModeler is not enabled
