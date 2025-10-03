@@ -724,7 +724,7 @@ jobs:
                   # Cluster configuration
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  test-release-name: camunda-platform-test
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
 
                   # Domain configuration (for domain declination)
                   camunda-domain: ${{ matrix.declination.name == 'domain' && env.CAMUNDA_DOMAIN || '' }}
