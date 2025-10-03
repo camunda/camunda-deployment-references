@@ -16,7 +16,7 @@ global:
             # TLS/HTTPS configuration - behavior depends on platform:
             # - EKS/Kubernetes: Uses cert-manager + Let's Encrypt for automatic certificates
             enabled: true  # Set to true for HTTPS
-            # - OpenShift: secretName because OpenShift routes handle TLS termination automatically
+            # - OpenShift: secretName will be '-' because OpenShift routes handle TLS termination automatically
             secretName: camunda-c8-tls
         annotations:
             kubernetes.io/tls-acme: 'true'
