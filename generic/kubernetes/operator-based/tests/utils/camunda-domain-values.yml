@@ -20,3 +20,13 @@ global:
             secretName: camunda-c8-tls
         annotations:
             kubernetes.io/tls-acme: 'true'
+
+
+orchestration:
+    contextPath: /
+
+optimize:
+    contextPath: /optimize
+
+webModeler:
+    contextPath: /modeler

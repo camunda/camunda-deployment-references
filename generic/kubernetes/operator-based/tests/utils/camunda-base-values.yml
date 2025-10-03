@@ -13,5 +13,8 @@ console:
     enabled: true
     contextPath: /console
 
+webModeler:
+    enabled: true
+
 identity:
     enabled: true
