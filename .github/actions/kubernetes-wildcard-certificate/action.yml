@@ -63,6 +63,12 @@ runs:
 
               # Create dummy cluster issuer for wildcard certificates
               echo "🔧 Creating wildcard cluster issuer for certificates..."
+
+              # Read dummy CA certificate and key from files in the action directory
+              ACTION_DIR="${GITHUB_ACTION_PATH:-${{ github.action_path }}}"
+              DUMMY_CERT=$(cat "$ACTION_DIR/dummy-ca.crt.b64" | tr -d '\n')
+              DUMMY_KEY=$(cat "$ACTION_DIR/dummy-ca.key.b64" | tr -d '\n')
+
               kubectl apply -f - <<EOF
               apiVersion: cert-manager.io/v1
               kind: ClusterIssuer
@@ -79,13 +85,8 @@ runs:
                 namespace: ${{ inputs.namespace }}
               type: Opaque
               data:
-                tls.crt: >-
-                  LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJrVENCK3dJSkFJaUErak9scGNwVU1Bb0dDQ3FHU000OUJBTUNEREVIRUF3S3pBcE1TY3dKUVlEVlFRRApEQTVrZFcxdGVTMWpZUzFwYzNOMVpYSXdIaGNOTVRrd01EQXhNREF3TURCYUY
-                  d01qa3dNREF4TURBNE16ZGEKTURRd0l6QWZNQTBHQTFVRUF3d0dSSEYwZEhsRE1FRXdGQVlIS29aSXpqMENBUVlGSzRFRUFBb0RQREV3SWpBZgpNRUF3REFZRFZSMEJCQVV3QTRJQkNEQWZNRDRHQTFVZElUQXdNQ3N3S2pBZ01RMEdBMVVFQXd3R1JIR
-                  jBkSGxECk1FRXdJUUFwcE0rMW8yM3pEMmZ3L0p4VGV6N0IyWW5jK2JhZDdPcG1HRlNtR1RIZ0Mxcz0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
-                tls.key: >-
-                  LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdnYVFDQVFOQUVBTk1Ba1FlWU9aTEtOQ1UKN1RpaDJMZit3eDJOdU5VcGNXRUpCTklPa09JQkhJMVVEeWxKSDBMRm9CM
-                  WJsWFdNQTFOTndSUUpCQU1zTEdLMApJWEZIdm5qb09JclZEbmhiK0lZS0h6YWF0NXZKN1JIRmF6WVhucERyVlFVS1ppRUJRVllmOUF3T0RiSVZBWUwKa24xRjNkQjVxKzY4WkNVcUJPdz0KLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=
+                tls.crt: ${DUMMY_CERT}
+                tls.key: ${DUMMY_KEY}
               EOF
 
               # Create wildcard certificate and secret
