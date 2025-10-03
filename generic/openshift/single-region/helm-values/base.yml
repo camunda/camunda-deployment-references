@@ -5,30 +5,30 @@ global:
 
 identity:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
 
 orchestration:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
 
 optimize:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
 
 connectors:
     enabled: true
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
 
 console:
     enabled: false # by default, console is not enabled
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
 
 webModeler:
     enabled: false # by default, webModeler is not enabled
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
 
     restapi:
         mail:

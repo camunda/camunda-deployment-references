@@ -31,7 +31,7 @@ global:
 
 orchestration:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
     clusterSize: 8
     partitionCount: 8
     replicationFactor: 4

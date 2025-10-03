@@ -75,7 +75,7 @@ global:
 
 webModeler:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
     enabled: false # by default, webModeler is not enabled
     contextPath: /modeler
 
@@ -111,10 +111,10 @@ webModelerPostgresql:
             userPasswordKey: identity-webmodeler-postgres-user-password
 
 identity:
-    image:
-        tag: 8.8-SNAPSHOT
     enabled: true
     contextPath: /managementidentity
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove!
     fullURL: https://${DOMAIN_NAME}/managementidentity
 
     firstUser:
@@ -145,12 +145,12 @@ identity:
 
 connectors:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
     contextPath: /connectors
 
 optimize:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
     enabled: true
     contextPath: /optimize
 
@@ -166,7 +166,7 @@ optimize:
 orchestration:
     contextPath: /
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
     serviceAccount:
         name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
         annotations:
@@ -186,7 +186,7 @@ orchestration:
 
 console:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
     enabled: false # by default, console is not enabled
     contextPath: /console
 

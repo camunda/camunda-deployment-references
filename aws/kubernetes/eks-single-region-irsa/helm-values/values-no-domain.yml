@@ -77,11 +77,11 @@ global:
 
 connectors:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
 
 orchestration:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
     serviceAccount:
         name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
         annotations:

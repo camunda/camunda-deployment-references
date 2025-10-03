@@ -76,11 +76,11 @@ global:
 
 orchestration:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
 
 connectors:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
 
 identity:
     enabled: true

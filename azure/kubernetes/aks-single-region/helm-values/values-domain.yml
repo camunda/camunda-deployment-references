@@ -56,10 +56,10 @@ global:
                     existingSecretKey: identity-console-client-token
 
 identity:
-    image:
-        tag: 8.8-SNAPSHOT
     enabled: true
     contextPath: /managementidentity
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove!
     fullURL: https://${DOMAIN_NAME}/managementidentity
 
     firstUser:
@@ -80,12 +80,12 @@ identity:
 
 connectors:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
     contextPath: /connectors
 
 webModeler:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
     enabled: false
     contextPath: /modeler
 
@@ -105,14 +105,14 @@ webModeler:
 
 optimize:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
     enabled: true
     contextPath: /optimize
 
 orchestration:
     contextPath: /
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
     security:
         authentication:
             method: oidc
@@ -128,7 +128,7 @@ orchestration:
 
 console:
     image:
-        tag: 8.8-SNAPSHOT
+        tag: 8.8-SNAPSHOT # TODO: remove!
     enabled: false # by default, console is not enabled
     contextPath: /console
 
