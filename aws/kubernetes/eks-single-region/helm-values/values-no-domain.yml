@@ -1,28 +1,4 @@
 ---
-identityKeycloak:
-    enabled: true
-    postgresql:
-        enabled: false
-    externalDatabase:
-        # see https://artifacthub.io/packages/helm/bitnami/keycloak
-        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
-        existingSecretHostKey: host
-        existingSecretPortKey: port
-        existingSecretUserKey: user
-        existingSecretDatabaseKey: database
-        existingSecretPasswordKey: password
-    auth:
-        existingSecret: identity-secret-for-components
-        passwordSecretKey: identity-admin-client-token
-
-# TODO: re-evaluate and potentially clean up
-# 2025-09-03 - previous behaviour is not possible in a non-domain setup
-# For now just promoting the Orchestration Cluster with basic auth, re-evaluate based on outcome of
-# https://camunda.slack.com/archives/C08MRKHJ0CD/p1755246616281649
-# The issuerBackendUrl is not supported atm by embedded Identity
-# this means that publicIssuerUrl is used and must be accessible by both machines and users
-# only workaround for users is to do atm host file modifications
-
 global:
     elasticsearch:
         enabled: false
@@ -40,59 +16,92 @@ global:
             port: 443
 
     identity:
-
         auth:
             enabled: true
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
-            issuerBackendUrl: http://camunda-keycloak/auth/realms/camunda-platform
+            type: KEYCLOAK
 
             orchestration:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-orchestration-client-token
+
                 redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
+
+            admin:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-admin-client-token
+
             connectors:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-connectors-client-token
+
             optimize:
-                redirectUrl: http://localhost:8083/optimize  # replace this with a port of your choice when you will do port forwarding
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-optimize-client-token
+
+                redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
+
             webModeler:
-                redirectUrl: http://localhost:8084/modeler
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-webmodeler-client-token
+
+                redirectUrl: http://localhost:8084
+
             console:
-                redirectUrl: http://localhost:8085/console
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-console-client-token
 
-# not supported in a non-domain setup
-# orchestration:
-#     security:
-#         authentication:
-#             method: oidc
+                redirectUrl: http://localhost:8085
 
 orchestration:
     image:
         tag: 8.8-SNAPSHOT # TODO: remove!
 
+    security:
+        authentication:
+            method: oidc
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
+
+
 connectors:
     image:
         tag: 8.8-SNAPSHOT # TODO: remove!
+
+identityKeycloak:
+    enabled: true
+    postgresql:
+        enabled: false
+    externalDatabase:
+        # see https://artifacthub.io/packages/helm/bitnami/keycloak
+        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
+        existingSecretHostKey: host
+        existingSecretPortKey: port
+        existingSecretUserKey: user
+        existingSecretDatabaseKey: database
+        existingSecretPasswordKey: password
+    auth:
+        existingSecret: identity-secret-for-components
+        passwordSecretKey: identity-admin-client-token
 
 identity:
     enabled: true
     contextPath: /managementidentity
     fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
 
-    # TODO: if oidc is supported in the end, this will need adjustment in the docs
     firstUser:
-        enabled: false
+        enabled: true
         secret:
             existingSecret: identity-secret-for-components
-            existingSecretKey: identity-first-user-password # demo
+            existingSecretKey: identity-first-user-password
 
     externalDatabase:
         enabled: true
@@ -140,7 +149,6 @@ optimize:
 
 console:
     enabled: false # by default, console is not enabled
-    contextPath: /console
 
 elasticsearch:
     enabled: false

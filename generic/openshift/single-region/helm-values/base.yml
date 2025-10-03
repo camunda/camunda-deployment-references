@@ -85,7 +85,7 @@ identity:
         enabled: true
         secret:
             existingSecret: identity-secret-for-components
-            existingSecretKey: identity-first-user-password # demo
+            existingSecretKey: identity-first-user-password
 
 identityKeycloak:
     enabled: true

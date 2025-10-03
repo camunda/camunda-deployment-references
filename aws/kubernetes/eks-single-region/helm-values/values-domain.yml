@@ -1,20 +1,4 @@
 ---
-identityKeycloak:
-    enabled: true
-    postgresql:
-        enabled: false
-    externalDatabase:
-        # see https://artifacthub.io/packages/helm/bitnami/keycloak
-        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
-        existingSecretHostKey: host
-        existingSecretPortKey: port
-        existingSecretUserKey: user
-        existingSecretDatabaseKey: database
-        existingSecretPasswordKey: password
-    auth:
-        existingSecret: identity-secret-for-components
-        passwordSecretKey: identity-admin-client-token
-
 global:
     elasticsearch:
         enabled: false
@@ -42,28 +26,40 @@ global:
     identity:
         auth:
             enabled: true
+            type: KEYCLOAK
+
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
+
             orchestration:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-orchestration-client-token
-                redirectUrl: https://${DOMAIN_NAME}
+
+            admin:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-admin-client-token
+
             connectors:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-connectors-client-token
+
             optimize:
-                redirectUrl: https://${DOMAIN_NAME}/optimize
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-optimize-client-token
+
             webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-webmodeler-client-token
+
             console:
-                redirectUrl: https://${DOMAIN_NAME}/console
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-console-client-token
+
 
 elasticsearch:
     enabled: false
@@ -79,7 +75,7 @@ identity:
         enabled: true
         secret:
             existingSecret: identity-secret-for-components
-            existingSecretKey: identity-first-user-password # demo
+            existingSecretKey: identity-first-user-password
 
     externalDatabase:
         enabled: true
@@ -90,6 +86,22 @@ identity:
         secret:
             existingSecret: identity-postgres-secret
             existingSecretPasswordKey: password
+
+identityKeycloak:
+    enabled: true
+    postgresql:
+        enabled: false
+    externalDatabase:
+        # see https://artifacthub.io/packages/helm/bitnami/keycloak
+        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
+        existingSecretHostKey: host
+        existingSecretPortKey: port
+        existingSecretUserKey: user
+        existingSecretDatabaseKey: database
+        existingSecretPasswordKey: password
+    auth:
+        existingSecret: identity-secret-for-components
+        passwordSecretKey: identity-admin-client-token
 
 connectors:
     image:
@@ -142,9 +154,15 @@ orchestration:
     contextPath: /
     image:
         tag: 8.8-SNAPSHOT # TODO: remove!
+
     security:
         authentication:
             method: oidc
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
+
     ingress:
         grpc:
             enabled: true
