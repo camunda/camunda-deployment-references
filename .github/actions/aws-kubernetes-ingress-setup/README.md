@@ -14,7 +14,9 @@ Install and configure ingress-nginx, external-dns, and cert-manager for AWS EKS 
 | `mail` | <p>Email address for Let's Encrypt certificates</p> | `false` | `admin@camunda.ie` |
 | `tld` | <p>Top-level domain for the cluster</p> | `false` | `camunda.ie` |
 | `ref-arch` | <p>Reference architecture name (eks-single-region, eks-single-region-irsa)</p> | `false` | `eks-single-region` |
-| `use-wildcard-cert` | <p>Use wildcard certificate from Vault instead of ACME/Let's Encrypt</p> | `false` | `false` |
+| `use-wildcard-cert` | <p>Use wildcard certificate from Vault instead of ACME/Let's Encrypt. When true, ACME issuer is not installed and wildcard certificate is created from Vault.</p> | `false` | `false` |
+| `wildcard-cert-namespace` | <p>Namespace where the wildcard TLS certificate will be created (when use-wildcard-cert is true)</p> | `false` | `camunda` |
+| `wildcard-cert-secret-name` | <p>Name of the wildcard TLS secret to create (when use-wildcard-cert is true)</p> | `false` | `camunda-tls` |
 | `vault-addr` | <p>Vault server address (required when use-wildcard-cert is true)</p> | `false` | `""` |
 | `vault-role-id` | <p>Vault AppRole role ID (required when use-wildcard-cert is true)</p> | `false` | `""` |
 | `vault-secret-id` | <p>Vault AppRole secret ID (required when use-wildcard-cert is true)</p> | `false` | `""` |
@@ -66,10 +68,23 @@ This action is a `composite` action.
     # Default: eks-single-region
 
     use-wildcard-cert:
-    # Use wildcard certificate from Vault instead of ACME/Let's Encrypt
+    # Use wildcard certificate from Vault instead of ACME/Let's Encrypt.
+    # When true, ACME issuer is not installed and wildcard certificate is created from Vault.
     #
     # Required: false
     # Default: false
+
+    wildcard-cert-namespace:
+    # Namespace where the wildcard TLS certificate will be created (when use-wildcard-cert is true)
+    #
+    # Required: false
+    # Default: camunda
+
+    wildcard-cert-secret-name:
+    # Name of the wildcard TLS secret to create (when use-wildcard-cert is true)
+    #
+    # Required: false
+    # Default: camunda-tls
 
     vault-addr:
     # Vault server address (required when use-wildcard-cert is true)

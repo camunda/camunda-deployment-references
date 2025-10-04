@@ -344,6 +344,8 @@ jobs:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: ${{ matrix.distro.type == 'openshift' && 'openshift' || 'kubernetes' }}
             CAMUNDA_NAMESPACE: camunda
+            # Do not change this secret name without updating manifests that reference this TLS secret
+            WILDCARD_TLS_SECRET_NAME: camunda-tls
         steps:
             - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
@@ -536,13 +538,21 @@ jobs:
                   echo "Processing assembled values with envsubst for variable substitution..."
                   envsubst < camunda-assembled-values-raw.yml > camunda-assembled-values-temp.yml
 
-                  # Adjust TLS configuration based on cluster type
+                  # Adjust TLS configuration based on cluster type and wildcard cert usage
                   if [[ "${{ matrix.distro.type }}" == "openshift" && "${{ matrix.declination.name }}" == "domain" ]]; then
                       echo "Configuring OpenShift routes with automatic TLS..."
                       yq eval '
                         del(.global.ingress.annotations."kubernetes.io/tls-acme") |
                         .global.ingress.annotations."route.openshift.io/termination" = "edge" |
                         .global.ingress.tls.secretName = "-"
+                      ' camunda-assembled-values-temp.yml > camunda-assembled-values.yml
+                  elif [[ "${{ env.USE_WILDCARD_CERT }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
+                      echo "Configuring wildcard certificate from Vault..."
+                      echo "Using TLS secret: ${{ env.WILDCARD_TLS_SECRET_NAME }}"
+                      yq eval '
+                        del(.global.ingress.annotations."kubernetes.io/tls-acme") |
+                        del(.global.ingress.annotations."cert-manager.io/cluster-issuer") |
+                        .global.ingress.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}"
                       ' camunda-assembled-values-temp.yml > camunda-assembled-values.yml
                   else
                       cp camunda-assembled-values-temp.yml camunda-assembled-values.yml
@@ -578,6 +588,8 @@ jobs:
                   tld: camunda.ie
                   ref-arch: eks-single-region
                   use-wildcard-cert: ${{ env.USE_WILDCARD_CERT }}
+                  wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
@@ -604,6 +616,19 @@ jobs:
 
                   echo "KEYCLOAK_CONFIG_FILE=$KEYCLOAK_CONFIG_FILE" | tee -a "$GITHUB_ENV"
                   echo "Keycloak configuration file set: $KEYCLOAK_CONFIG_FILE"
+
+                  # If using wildcard certificate, remove cert-manager annotations from Ingress
+                  if [[ "${{ env.USE_WILDCARD_CERT }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
+                      echo "Removing cert-manager annotations from Keycloak Ingress (using wildcard certificate)"
+                      envsubst < "$KEYCLOAK_CONFIG_FILE" | \
+                          yq eval 'select(.kind == "Ingress") |= (
+                            del(.metadata.annotations."kubernetes.io/tls-acme") |
+                            del(.metadata.annotations."cert-manager.io/cluster-issuer")
+                          )' \
+                          > keycloak-instance-processed.yml
+                      echo "KEYCLOAK_CONFIG_FILE=keycloak-instance-processed.yml" | tee -a "$GITHUB_ENV"
+                      echo "Processed Keycloak configuration saved to: keycloak-instance-processed.yml"
+                  fi
 
             - name: Deploy all requirements using operator-based deployment
               timeout-minutes: 30

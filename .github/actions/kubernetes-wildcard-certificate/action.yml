@@ -8,9 +8,13 @@ inputs:
         required: false
         default: camunda.ie
     namespace:
-        description: Kubernetes namespace where cert-manager resources will be created
+        description: Kubernetes namespace where the TLS secret will be created
         required: false
-        default: cert-manager
+        default: camunda
+    secret-name:
+        description: Name of the TLS secret to create
+        required: false
+        default: camunda-tls
     vault-addr:
         description: Vault server address
         required: true
@@ -35,13 +39,14 @@ runs:
                   secret/data/products/infrastructure-experience/certificates/${{ inputs.tld }}/wildcard certificate | WILDCARD_CERT ;
                   secret/data/products/infrastructure-experience/certificates/${{ inputs.tld }}/wildcard private_key | WILDCARD_KEY
 
-        - name: 📜 Setup wildcard certificate resources
+        - name: 📜 Create TLS secret from Vault certificate
           shell: bash
           run: |
               set -euo pipefail
 
-              echo "🌐 Setting up wildcard certificate for *.${{ inputs.tld }}"
+              echo "🌐 Creating TLS secret for wildcard certificate *.${{ inputs.tld }}"
               echo "📍 Target namespace: ${{ inputs.namespace }}"
+              echo "🔑 Secret name: ${{ inputs.secret-name }}"
 
               # Mask sensitive certificate data in logs
               echo "::add-mask::$WILDCARD_CERT"
@@ -61,42 +66,11 @@ runs:
               echo "✅ Successfully retrieved certificates from Vault"
               echo "🔒 Certificate data is masked in logs for security"
 
-              # Create dummy cluster issuer for wildcard certificates
-              echo "🔧 Creating wildcard cluster issuer for certificates..."
-
-              # Read dummy CA certificate and key from files in the action directory
-              ACTION_DIR="${GITHUB_ACTION_PATH:-${{ github.action_path }}}"
-              DUMMY_CERT=$(cat "$ACTION_DIR/dummy-ca.crt.b64" | tr -d '\n')
-              DUMMY_KEY=$(cat "$ACTION_DIR/dummy-ca.key.b64" | tr -d '\n')
-
-              kubectl apply -f - <<EOF
-              apiVersion: cert-manager.io/v1
-              kind: ClusterIssuer
-              metadata:
-                name: wildcard-cluster-issuer
-              spec:
-                ca:
-                  secretName: wildcard-dummy-ca-secret
-              ---
-              apiVersion: v1
-              kind: Secret
-              metadata:
-                name: wildcard-dummy-ca-secret
-                namespace: ${{ inputs.namespace }}
-              type: Opaque
-              data:
-                tls.crt: ${DUMMY_CERT}
-                tls.key: ${DUMMY_KEY}
-              EOF
-
-              # Create wildcard certificate and secret
-              echo "🔑 Creating wildcard certificate and TLS secret..."
 
               # Create temporary files for certificate data
               TEMP_DIR=$(mktemp -d)
               CERT_FILE="$TEMP_DIR/tls.crt"
               KEY_FILE="$TEMP_DIR/tls.key"
-              MANIFEST_FILE="$TEMP_DIR/wildcard-resources.yaml"
 
               # Cleanup function
               cleanup() {
@@ -110,48 +84,20 @@ runs:
               echo "$WILDCARD_CERT" > "$CERT_FILE"
               echo "$WILDCARD_KEY" > "$KEY_FILE"
 
-              # Create the Kubernetes manifest
-              cat > "$MANIFEST_FILE" <<EOF
-              apiVersion: cert-manager.io/v1
-              kind: Certificate
-              metadata:
-                name: wildcard-certificate
-                namespace: ${{ inputs.namespace }}
-              spec:
-                secretName: wildcard-tls-secret
-                issuerRef:
-                  name: wildcard-cluster-issuer
-                  kind: ClusterIssuer
-                commonName: "*.${{ inputs.tld }}"
-                dnsNames:
-                - "*.${{ inputs.tld }}"
-                - "${{ inputs.tld }}"
-              EOF
 
-              # Create the TLS secret using kubectl with file references
-              echo "🔐 Creating TLS secret from certificate files..."
-              kubectl create secret tls wildcard-tls-secret \
+              # Create or update the TLS secret
+              echo "🔐 Creating TLS secret '${{ inputs.secret-name }}'..."
+              kubectl create secret tls "${{ inputs.secret-name }}" \
                   --cert="$CERT_FILE" \
                   --key="$KEY_FILE" \
                   --namespace="${{ inputs.namespace }}" \
                   --dry-run=client -o yaml | \
-              kubectl annotate -f - --local \
-                  cert-manager.io/certificate-name=wildcard-certificate \
-                  --dry-run=client -o yaml | \
               kubectl apply -f -
-
-              # Apply the Certificate resource
-              echo "📜 Creating Certificate resource..."
-              kubectl apply -f "$MANIFEST_FILE"
 
               echo "✅ Wildcard certificate setup completed successfully"
               echo ""
               echo "📋 Created resources:"
-              echo "  - ClusterIssuer: wildcard-cluster-issuer (cluster-wide)"
-              echo "  - Certificate: wildcard-certificate (namespace: ${{ inputs.namespace }})"
-              echo "  - Secret: wildcard-tls-secret (namespace: ${{ inputs.namespace }})"
+              echo "  - Secret: ${{ inputs.secret-name }} (namespace: ${{ inputs.namespace }})"
+              echo "  - Type: kubernetes.io/tls"
+              echo "  - Certificate: *.${{ inputs.tld }}"
               echo ""
-              echo "🔒 Security: All certificate data is masked in logs"
-              echo "🎯 Usage options:"
-              echo "  1. Direct reference: secretName: wildcard-tls-secret"
-              echo "  2. Auto-generation: cert-manager.io/cluster-issuer: wildcard-cluster-issuer"

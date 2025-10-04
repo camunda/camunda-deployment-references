@@ -338,6 +338,8 @@ jobs:
         env:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: kubernetes
+            # Do not change this secret name without updating manifests that reference this TLS secret
+            WILDCARD_TLS_SECRET_NAME: camunda-c8-tls
         steps:
             - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
@@ -467,6 +469,8 @@ jobs:
                   tld: ${{ env.TLD }}
                   ref-arch: ${{ matrix.scenario.name }}
                   use-wildcard-cert: ${{ env.USE_WILDCARD_CERT }}
+                  wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
@@ -591,6 +595,22 @@ jobs:
                   fi
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
+
+                  # If using wildcard certificate, remove cert-manager annotations from values
+                  if [[ "${{ env.USE_WILDCARD_CERT }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
+                      echo "Removing cert-manager annotations from Helm values (using wildcard certificate)"
+                      echo "Using wildcard TLS secret: ${{ env.WILDCARD_TLS_SECRET_NAME }}"
+                      yq eval '
+                        del(.global.ingress.annotations."kubernetes.io/tls-acme") |
+                        del(.global.ingress.annotations."cert-manager.io/cluster-issuer") |
+                        .global.ingress.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}" |
+                        del(.orchestration.ingress.grpc.annotations."kubernetes.io/tls-acme") |
+                        del(.orchestration.ingress.grpc.annotations."cert-manager.io/cluster-issuer") |
+                        .orchestration.ingress.grpc.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}"
+                      ' values.yml > values-temp.yml
+                      mv values-temp.yml values.yml
+                      echo "Cert-manager annotations removed and wildcard TLS secret configured for HTTP and gRPC ingress"
+                  fi
 
             - name: 🛠️ Configure the PSQL database and associated access
               timeout-minutes: 10

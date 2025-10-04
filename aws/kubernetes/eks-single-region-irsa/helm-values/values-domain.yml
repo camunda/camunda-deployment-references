@@ -75,7 +75,7 @@ global:
 
 webModeler:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: SNAPSHOT # TODO: remove!
     enabled: false # by default, webModeler is not enabled
     contextPath: /modeler
 
