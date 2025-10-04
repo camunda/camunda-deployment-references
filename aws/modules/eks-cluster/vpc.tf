@@ -49,7 +49,7 @@ check "elastic_ip_quota_check" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "6.3.0"
+  version = "6.4.0"
 
   name = local.vpc_name
   # requires a /16 range, resulting in 2 leftover subnets, which can be used for DBs

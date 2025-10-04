@@ -64,6 +64,8 @@ github.com/aws/aws-sdk-go-v2/service/opensearch v1.52.5 h1:gkLP1OOn0/gBPD125+Ax+
 github.com/aws/aws-sdk-go-v2/service/opensearch v1.52.5/go.mod h1:c1RKL9jCAUP+7ZtY+99yWcWxRFBsQ3LG5Klkj5PEoJs=
 github.com/aws/aws-sdk-go-v2/service/rds v1.107.2 h1:pagAEL2/B78OIOlBH+k8alpuQA9zttl3FlqVDbdOXVo=
 github.com/aws/aws-sdk-go-v2/service/rds v1.107.2/go.mod h1:VOBL5tbhS7AF0m5YpfwLuRBpb5QVp4EWSPizUr/D6iE=
+github.com/aws/aws-sdk-go-v2/service/rds v1.108.0 h1:YjrOsnMMAv01zkaBxbGzEm2gy4/mrFfSiIlbYLAf8ZQ=
+github.com/aws/aws-sdk-go-v2/service/rds v1.108.0/go.mod h1:VOBL5tbhS7AF0m5YpfwLuRBpb5QVp4EWSPizUr/D6iE=
 github.com/aws/aws-sdk-go-v2/service/route53 v1.46.2 h1:wmt05tPp/CaRZpPV5B4SaJ5TwkHKom07/BzHoLdkY1o=
 github.com/aws/aws-sdk-go-v2/service/route53 v1.46.2/go.mod h1:d+K9HESMpGb1EU9/UmmpInbGIUcAkwmcY6ZO/A3zZsw=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.88.3 h1:P18I4ipbk+b/3dZNq5YYh+Hq6XC0vp5RWkLp1tJldDA=
