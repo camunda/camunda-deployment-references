@@ -773,12 +773,6 @@ jobs:
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
 
-                  # Component-specific tokens (generated from generate-passwords.sh)
-                  connectors-client-secret: ${{ env.CONNECTORS_CLIENT_SECRET }}
-                  optimize-client-secret: ${{ env.OPTIMIZE_CLIENT_SECRET }}
-                  orchestration-client-secret: ${{ env.ORCHESTRATION_CLIENT_SECRET }}
-                  admin-client-secret: ${{ env.ADMIN_CLIENT_SECRET }}
-
             - name: 🚨🔬 Get failed Pods info
               if: failure()
               run: |

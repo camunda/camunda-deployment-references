@@ -78,22 +78,6 @@ inputs:
     test-client-secret:
         description: Client secret for Camunda authentication tests
         required: true
-    connectors-client-secret:
-        description: Client secret for Connectors component
-        required: false
-        default: ''
-    optimize-client-secret:
-        description: Client secret for Optimize component
-        required: false
-        default: ''
-    orchestration-client-secret:
-        description: Client secret for Orchestration (Zeebe) component
-        required: false
-        default: ''
-    admin-client-secret:
-        description: Client secret for Admin component
-        required: false
-        default: ''
 
 runs:
     using: composite
@@ -443,11 +427,7 @@ runs:
               if [[ "$zeebe_authenticated" == "true" ]]; then
                 echo "Using authenticated Zeebe client credentials..."
                 export ZEEBE_CLIENT_ID="${{ inputs.test-client-id }}"
-
-                # Use orchestration-specific token if provided, otherwise fallback to default
-                ORCHESTRATION_TOKEN="${{ inputs.orchestration-client-secret }}"
-
-                export ZEEBE_CLIENT_SECRET="$ORCHESTRATION_TOKEN"
+                export ZEEBE_CLIENT_SECRET="${{ inputs.test-client-secret }}"
               fi
 
               # function to help with port-forwarding in the background

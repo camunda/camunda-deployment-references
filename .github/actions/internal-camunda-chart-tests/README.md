@@ -33,10 +33,6 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `elasticsearch-service-name` | <p>Name of the Elasticsearch service with optional port (e.g. elasticsearch-es-http:9200)</p> | `false` | `""` |
 | `test-client-id` | <p>Client ID for Camunda authentication tests</p> | `true` | `""` |
 | `test-client-secret` | <p>Client secret for Camunda authentication tests</p> | `true` | `""` |
-| `connectors-client-secret` | <p>Client secret for Connectors component</p> | `false` | `""` |
-| `optimize-client-secret` | <p>Client secret for Optimize component</p> | `false` | `""` |
-| `orchestration-client-secret` | <p>Client secret for Orchestration (Zeebe) component</p> | `false` | `""` |
-| `admin-client-secret` | <p>Client secret for Admin component</p> | `false` | `""` |
 
 
 ## Runs
@@ -190,29 +186,5 @@ This action is a `composite` action.
     # Client secret for Camunda authentication tests
     #
     # Required: true
-    # Default: ""
-
-    connectors-client-secret:
-    # Client secret for Connectors component
-    #
-    # Required: false
-    # Default: ""
-
-    optimize-client-secret:
-    # Client secret for Optimize component
-    #
-    # Required: false
-    # Default: ""
-
-    orchestration-client-secret:
-    # Client secret for Orchestration (Zeebe) component
-    #
-    # Required: false
-    # Default: ""
-
-    admin-client-secret:
-    # Client secret for Admin component
-    #
-    # Required: false
     # Default: ""
 ```

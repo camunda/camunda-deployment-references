@@ -32,9 +32,9 @@ global:
 orchestration:
     image:
         tag: 8.8-SNAPSHOT # TODO: remove!
-    clusterSize: 8
-    partitionCount: 8
-    replicationFactor: 4
+    clusterSize: '8'
+    partitionCount: '8'
+    replicationFactor: '4'
     env:
         - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
           value: camunda_backup
