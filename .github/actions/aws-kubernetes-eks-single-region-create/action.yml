@@ -4,6 +4,7 @@ name: Deploy AWS Kubernetes EKS Single Region Cluster
 description: |
     This GitHub Action automates the deployment of the aws/kubernetes/eks-single-region(-irsa) reference architecture cluster using Terraform.
     The kube context will be set on the created cluster.
+    Supports conditional deployment of Aurora PostgreSQL and OpenSearch.
 
 inputs:
     cluster-name:
@@ -54,6 +55,12 @@ inputs:
         description: The VPC within which the cluster resides will only have private subnets, meaning that it cannot be accessed at all from the public
             Internet (empty will fallback on default value of the module)
         default: ''
+    deploy-aurora:
+        description: Deploy Aurora PostgreSQL database
+        default: 'true'
+    deploy-opensearch:
+        description: Deploy OpenSearch domain
+        default: 'true'
 
 outputs:
     terraform-state-url-cluster:
@@ -173,17 +180,37 @@ runs:
               echo "Displaying templated cluster.tf file:"
               cat cluster.tf
 
-              sed -i -e 's/\(aurora_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-pg\2/' \
-                     db.tf
+              # Conditionally configure Aurora PostgreSQL
+              if [[ "${{ inputs.deploy-aurora }}" == "true" ]]; then
+                  echo "Configuring Aurora PostgreSQL database..."
+                  sed -i -e 's/\(aurora_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-pg\2/' \
+                         db.tf
+                  echo "Displaying templated db.tf file:"
+                  cat db.tf
+              else
+                  echo "Skipping Aurora PostgreSQL deployment"
+                  # Comment out or remove Aurora resources
+                  if [[ -f "db.tf" ]]; then
+                      mv db.tf db.tf.disabled
+                      echo "Aurora resources disabled"
+                  fi
+              fi
 
-              echo "Displaying templated db.tf file:"
-              cat db.tf
-
-              sed -i -e 's/\(opensearch_domain_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-os\2/' \
-                     opensearch.tf
-
-              echo "Displaying templated opensearch.tf file:"
-              cat opensearch.tf
+              # Conditionally configure OpenSearch
+              if [[ "${{ inputs.deploy-opensearch }}" == "true" ]]; then
+                  echo "Configuring OpenSearch domain..."
+                  sed -i -e 's/\(opensearch_domain_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-os\2/' \
+                         opensearch.tf
+                  echo "Displaying templated opensearch.tf file:"
+                  cat opensearch.tf
+              else
+                  echo "Skipping OpenSearch deployment"
+                  # Comment out or remove OpenSearch resources
+                  if [[ -f "opensearch.tf" ]]; then
+                      mv opensearch.tf opensearch.tf.disabled
+                      echo "OpenSearch resources disabled"
+                  fi
+              fi
 
               terraform plan -no-color -var-file=terraform-cluster.tfvars -out tf.plan
 

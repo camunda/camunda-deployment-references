@@ -1,0 +1,110 @@
+---
+name: Restart CoreDNS
+description: Restart CoreDNS deployment to clear DNS cache for domain-based deployments. Works with both Kubernetes and OpenShift.
+
+inputs:
+    cluster-type:
+        description: 'Type of cluster: kubernetes or openshift'
+        required: false
+        default: kubernetes
+    timeout-minutes:
+        description: Timeout in minutes for the CoreDNS restart operation
+        required: false
+        default: '10'
+    stabilization-wait:
+        description: Additional wait time in seconds for CoreDNS to stabilize after restart
+        required: false
+        default: '120'
+
+runs:
+    using: composite
+    steps:
+        - name: 🔄 Restart CoreDNS
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "🔄 Restarting CoreDNS for cluster type: ${{ inputs.cluster-type }}"
+
+              if [[ "${{ inputs.cluster-type }}" == "openshift" ]]; then
+                echo "🔍 Detecting OpenShift DNS configuration..."
+
+                # Check if DNS operator exists (OpenShift 4.x)
+                if kubectl get clusteroperator dns >/dev/null 2>&1; then
+                  echo "📍 Found DNS cluster operator, restarting DNS pods via daemonset..."
+
+                  # In OpenShift 4.x, DNS runs as a daemonset managed by the DNS operator
+                  if kubectl get daemonset dns-default -n openshift-dns >/dev/null 2>&1; then
+                    echo "🔄 Restarting DNS daemonset in openshift-dns namespace..."
+                    kubectl rollout restart daemonset dns-default -n openshift-dns
+                    kubectl rollout status daemonset dns-default -n openshift-dns --timeout=5m
+
+                    # Alternative method: Delete DNS pods to force restart
+                    # kubectl delete pods -n openshift-dns -l dns.operator.openshift.io/daemonset-dns=default
+
+                  else
+                    echo "⚠️  DNS daemonset not found, trying alternative approach..."
+                    # Force restart by deleting DNS pods
+                    kubectl delete pods -n openshift-dns -l dns.operator.openshift.io/daemonset-dns=default 2>/dev/null || \
+                    kubectl delete pods -n openshift-dns --all 2>/dev/null || true
+                  fi
+
+                else
+                  echo "📍 DNS operator not found, trying direct CoreDNS restart approaches..."
+
+                  # Try various fallback strategies for different OpenShift configurations
+                  if kubectl get deployment coredns -n openshift-dns >/dev/null 2>&1; then
+                    echo "🔄 Restarting CoreDNS deployment in openshift-dns..."
+                    kubectl rollout restart deployment coredns -n openshift-dns
+                    kubectl rollout status deployment coredns -n openshift-dns --timeout=5m
+
+                  elif kubectl get deployment coredns -n kube-dns >/dev/null 2>&1; then
+                    echo "🔄 Restarting CoreDNS deployment in kube-dns..."
+                    kubectl rollout restart deployment coredns -n kube-dns
+                    kubectl rollout status deployment coredns -n kube-dns --timeout=5m
+
+                  elif kubectl get deployment coredns -n kube-system >/dev/null 2>&1; then
+                    echo "🔄 Restarting CoreDNS deployment in kube-system..."
+                    kubectl rollout restart deployment coredns -n kube-system
+                    kubectl rollout status deployment coredns -n kube-system --timeout=5m
+
+                  else
+                    echo "⚠️  No CoreDNS deployment found, trying to restart any DNS-related pods..."
+                    # Last resort: restart any DNS-related pods we can find
+                    kubectl delete pods -n openshift-dns --all 2>/dev/null || \
+                    kubectl delete pods -n kube-system -l k8s-app=kube-dns 2>/dev/null || \
+                    kubectl delete pods -n kube-system -l app=coredns 2>/dev/null || true
+                  fi
+                fi
+
+                echo "⏳ Waiting for DNS pods to be ready..."
+                sleep 15
+
+                # Verify DNS pods are running
+                echo "🔍 Checking DNS pod status..."
+                if kubectl get pods -n openshift-dns >/dev/null 2>&1; then
+                  kubectl get pods -n openshift-dns
+                elif kubectl get pods -n kube-system -l k8s-app=kube-dns >/dev/null 2>&1; then
+                  kubectl get pods -n kube-system -l k8s-app=kube-dns
+                else
+                  kubectl get pods -n kube-system -l app=coredns 2>/dev/null || echo "⚠️  No DNS pods found for verification"
+                fi
+
+              else
+                echo "📍 Kubernetes cluster detected, restarting CoreDNS deployment..."
+
+                # Standard Kubernetes CoreDNS restart
+                kubectl rollout restart deployment coredns -n kube-system
+
+                # Wait for CoreDNS to be fully rolled out
+                kubectl rollout status deployment coredns -n kube-system --timeout=5m
+
+                # Verify pods are running
+                echo "🔍 Checking CoreDNS pod status..."
+                kubectl get pods -n kube-system -l k8s-app=kube-dns
+              fi
+
+              echo "⏳ Waiting additional ${{ inputs.stabilization-wait }}s for DNS to stabilize..."
+              sleep ${{ inputs.stabilization-wait }}
+
+              echo "✅ CoreDNS restart completed successfully!"

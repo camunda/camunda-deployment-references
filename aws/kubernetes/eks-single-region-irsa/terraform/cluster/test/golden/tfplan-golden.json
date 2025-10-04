@@ -2964,6 +2964,7 @@
                 ]
               }
             ],
+            "aiml_options": [],
             "auto_tune_options": [
               {
                 "maintenance_schedule": []
@@ -3092,7 +3093,7 @@
                 "enabled": true
               }
             ],
-            "engine_version": "OpenSearch_2.15",
+            "engine_version": "OpenSearch_2.19",
             "ip_address_type": "ipv4",
             "log_publishing_options": [],
             "node_to_node_encryption": [

@@ -7,10 +7,9 @@ locals {
   opensearch_iam_role_name = "OpenSearchRole-${local.opensearch_domain_name}" # Ensure uniqueness
 
   # IRSA configuration
-  camunda_namespace                = "camunda"     # Replace with your Kubernetes namespace that will host C8 Platform
-  camunda_zeebe_service_account    = "zeebe-sa"    # Replace with your Kubernetes ServiceAcccount that will be created for Zeebe
-  camunda_operate_service_account  = "operate-sa"  # Replace with your Kubernetes ServiceAcccount that will be created for Operate
-  camunda_tasklist_service_account = "tasklist-sa" # Replace with your Kubernetes ServiceAcccount that will be created for TaskList
+  camunda_namespace             = "camunda"  # Replace with your Kubernetes namespace that will host C8 Platform
+  camunda_zeebe_service_account = "zeebe-sa" # Replace with your Kubernetes ServiceAcccount that will be created for Zeebe
+
   camunda_optimize_service_account = "optimize-sa" # Replace with your Kubernetes ServiceAcccount that will be created for Optimize
 
   opensearch_tags = {} # additional tags that you may want to apply to the resources
@@ -20,7 +19,7 @@ module "opensearch_domain" {
   source      = "../../../../modules/opensearch"
   domain_name = local.opensearch_domain_name
   # renovate: datasource=custom.opensearch-camunda depName=opensearch versioning=semver
-  engine_version = "2.15"
+  engine_version = "2.19"
 
   instance_type   = "m7i.large.search"
   instance_count  = 3 # one instance per AZ
@@ -54,8 +53,6 @@ module "opensearch_domain" {
                   "StringEquals": {
                     "${module.eks_cluster.oidc_provider_id}:sub": [
                       "system:serviceaccount:${local.camunda_namespace}:${local.camunda_zeebe_service_account}",
-                      "system:serviceaccount:${local.camunda_namespace}:${local.camunda_operate_service_account}",
-                      "system:serviceaccount:${local.camunda_namespace}:${local.camunda_tasklist_service_account}",
                       "system:serviceaccount:${local.camunda_namespace}:${local.camunda_optimize_service_account}"
                     ]
                   }

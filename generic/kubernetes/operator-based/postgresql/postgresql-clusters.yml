@@ -1,0 +1,75 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+    name: pg-identity
+spec:
+    instances: 1
+    description: PostgreSQL cluster for Camunda Identity
+    # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
+    imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+    storage:
+        size: 15Gi
+    superuserSecret:
+        name: pg-identity-superuser-secret
+    # OpenShift Security Context - let SCC manage the security context
+    seccompProfile:
+        type: RuntimeDefault
+    bootstrap:
+        initdb:
+            database: identity
+            owner: identity
+            dataChecksums: true
+            secret:
+                name: pg-identity-secret
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+    name: pg-keycloak
+spec:
+    instances: 1
+    description: PostgreSQL cluster for Keycloak
+    # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
+    imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+    storage:
+        size: 15Gi
+    superuserSecret:
+        name: pg-keycloak-superuser-secret
+    # OpenShift Security Context - let SCC manage the security context
+    seccompProfile:
+        type: RuntimeDefault
+    postgresql:
+        parameters:
+            lock_timeout: 30s
+            statement_timeout: '0'
+    bootstrap:
+        initdb:
+            database: keycloak
+            owner: keycloak
+            dataChecksums: true
+            secret:
+                name: pg-keycloak-secret
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+    name: pg-webmodeler
+spec:
+    instances: 1
+    description: PostgreSQL cluster for Webmodeler
+    # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
+    imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+    superuserSecret:
+        name: pg-webmodeler-superuser-secret
+    # OpenShift Security Context - let SCC manage the security context
+    seccompProfile:
+        type: RuntimeDefault
+    bootstrap:
+        initdb:
+            database: webmodeler
+            owner: webmodeler
+            secret:
+                name: pg-webmodeler-secret
+    storage:
+        size: 15Gi

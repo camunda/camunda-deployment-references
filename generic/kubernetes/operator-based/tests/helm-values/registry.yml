@@ -1,0 +1,7 @@
+---
+# This file contains specific values used during the integration tests
+
+global:
+    image:
+        pullSecrets:
+            - name: index-docker-io

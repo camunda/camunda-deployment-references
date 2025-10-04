@@ -1,0 +1,29 @@
+---
+# Camunda Platform 8 Values - ECK snippet
+# This configuration uses external services managed by Kubernetes operators:
+# - Elasticsearch: ECK operator with master-only cluster configuration (uses 'elasticsearch-es-elastic-user' secret)
+#
+# Authentication Secrets:
+# - elasticsearch-es-elastic-user: Contains 'elastic' user password for Elasticsearch
+
+# Global configuration
+global:
+    # Elasticsearch configuration
+    elasticsearch:
+        enabled: true
+        external: true
+        # URL configuration
+        url:
+            protocol: http
+            host: elasticsearch-es-http
+            port: 9200
+        # Authentication using ECK-generated secret
+        auth:
+            username: elastic
+            secret:
+                existingSecret: elasticsearch-es-elastic-user
+                existingSecretKey: elastic
+
+
+elasticsearch:
+    enabled: false

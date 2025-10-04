@@ -30,6 +30,4 @@ export OPENSEARCH_HOST="$(terraform output -raw opensearch_endpoint)"
 export OPENSEARCH_ROLE_NAME="$(terraform console <<<local.opensearch_iam_role_name | tail -n 1 | jq -r)"
 export OPENSEARCH_ROLE_ARN=$(terraform output -json opensearch_iam_role_arns | jq -r ".[\"$OPENSEARCH_ROLE_NAME\"]")
 export CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME="$(terraform console <<<local.camunda_zeebe_service_account | tail -n 1 | jq -r)"
-export CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME="$(terraform console <<<local.camunda_operate_service_account | tail -n 1 | jq -r)"
-export CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME="$(terraform console <<<local.camunda_tasklist_service_account | tail -n 1 | jq -r)"
 export CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME="$(terraform console <<<local.camunda_optimize_service_account | tail -n 1 | jq -r)"

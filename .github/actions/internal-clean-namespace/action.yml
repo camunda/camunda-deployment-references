@@ -1,0 +1,48 @@
+---
+name: Clean namespace
+description: Clean a single namespace for a fresh test environment
+inputs:
+    namespace:
+        description: The namespace to clean
+        required: true
+    recreate:
+        description: Whether to recreate the namespace after deletion
+        required: false
+        default: 'false'
+    openshift-project:
+        description: Use oc new-project for OpenShift with metadata
+        required: false
+        default: 'false'
+runs:
+    using: composite
+    steps:
+        - name: Clean namespace
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              NAMESPACE="${{ inputs.namespace }}"
+              RECREATE="${{ inputs.recreate }}"
+              OPENSHIFT_PROJECT="${{ inputs.openshift-project }}"
+
+              if kubectl get namespace "$NAMESPACE" &>/dev/null; then
+                  echo "Deleting namespace: $NAMESPACE"
+                  kubectl delete namespace "$NAMESPACE" --wait
+                  echo "✓ Namespace $NAMESPACE deleted"
+              else
+                  echo "✓ Namespace $NAMESPACE does not exist"
+              fi
+
+              if [[ "$RECREATE" == "true" ]]; then
+                  if [[ "$OPENSHIFT_PROJECT" == "true" ]]; then
+                      # Use oc new-project for OpenShift with metadata
+                      oc new-project "$NAMESPACE" \
+                        --description="Integration project of $NAMESPACE" \
+                        --display-name="$NAMESPACE"
+                      echo "✓ Created fresh OpenShift project: $NAMESPACE"
+                  else
+                      # Use kubectl for standard Kubernetes
+                      kubectl create namespace "$NAMESPACE"
+                      echo "✓ Created fresh namespace: $NAMESPACE"
+                  fi
+              fi
