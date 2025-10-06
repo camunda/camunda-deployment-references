@@ -487,6 +487,7 @@ jobs:
                           INGRESS_CLASS_NAME="openshift-default"
 
                           echo "Enable HTTP/2 on OpenShift Ingress Controller"
+                          source ./../../openshift/single-region/procedure/get-ingress-http2-status.sh
                           ./../../openshift/single-region/procedure/enable-ingress-http2.sh
                       else
                           # EKS and other Kubernetes clusters use camunda.ie
