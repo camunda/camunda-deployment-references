@@ -24,6 +24,12 @@ spec:
     additionalOptions:
         - name: http-relative-path
           value: /auth
+        # Enable proxy mode for proper HTTPS redirect handling behind nginx ingress
+        - name: proxy-headers
+          value: xforwarded
+        # Trust X-Forwarded-* headers from proxy
+        - name: hostname-strict-https
+          value: 'true'
     ingress:
         # Ingress disabled - using separate Ingress object with path /auth and className nginx
         enabled: false
@@ -48,6 +54,9 @@ metadata:
     annotations:
         # TLS secret for HTTPS (cert-manager will create this automatically)
         kubernetes.io/tls-acme: 'true'
+        # Ensure proper HTTPS handling for Keycloak behind proxy
+        nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+        nginx.ingress.kubernetes.io/force-ssl-redirect: 'true'
 spec:
     ingressClassName: nginx
     tls:

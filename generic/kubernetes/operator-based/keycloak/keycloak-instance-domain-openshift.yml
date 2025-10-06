@@ -24,6 +24,12 @@ spec:
     additionalOptions:
         - name: http-relative-path
           value: /auth
+        # Enable proxy mode for proper HTTPS redirect handling behind OpenShift router
+        - name: proxy-headers
+          value: xforwarded
+        # Trust X-Forwarded-* headers from proxy
+        - name: hostname-strict-https
+          value: 'true'
     ingress:
         # Ingress disabled - using separate Ingress object with path /auth and className openshift-default
         enabled: false
@@ -48,6 +54,9 @@ metadata:
     name: keycloak-ingress
     annotations:
         route.openshift.io/termination: edge
+        # Ensure proper HTTPS handling for Keycloak behind OpenShift router
+        haproxy.router.openshift.io/disable_cookies: 'true'
+        haproxy.router.openshift.io/rewrite-target: /
 spec:
     ingressClassName: openshift-default
     # ensure we use TLS
