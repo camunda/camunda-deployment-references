@@ -557,14 +557,6 @@ jobs:
                       cp camunda-assembled-values-temp.yml camunda-assembled-values.yml
                   fi
 
-                  if [[ "${{ matrix.declination.name }}" != "domain" ]]; then
-                      echo "Configuring components contextPath to '' for no-domain mode (aligns with chart standard and tests)..."
-                      yq eval '.connectors.contextPath = ""' -i camunda-assembled-values.yml
-                      yq eval '.console.contextPath = ""' -i camunda-assembled-values.yml
-                      yq eval '.optimize.contextPath = ""' -i camunda-assembled-values.yml
-                      yq eval '.webModeler.restapi.contextPath = ""' -i camunda-assembled-values.yml
-                  fi
-
                   echo "Final assembled values file created: camunda-assembled-values.yml"
                   echo "Preview of assembled configuration:"
                   cat camunda-assembled-values.yml

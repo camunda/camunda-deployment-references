@@ -24,9 +24,24 @@ global:
 
 orchestration:
     contextPath: /
+    ingress:
+        grpc:
+            enabled: true
+            host: zeebe.${DOMAIN_NAME}
+            tls:
+                enabled: true
+                secretName: zeebe-c8-tls-grpc
+            annotations:
+                kubernetes.io/tls-acme: 'true'
 
 optimize:
     contextPath: /optimize
 
+console:
+    contextPath: /console
+
 webModeler:
     contextPath: /modeler
+
+connectors:
+    contextPath: /connectors

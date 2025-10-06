@@ -5,13 +5,11 @@ optimize:
 
 # Connectors configuration
 connectors:
-    contextPath: /connectors
     enabled: true
 
 # Console configuration
 console:
     enabled: true
-    contextPath: /console
 
 webModeler:
     enabled: true
