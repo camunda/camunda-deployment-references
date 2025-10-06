@@ -562,10 +562,10 @@ jobs:
                   # where Connectors use "/" as contextPath in no-domain/localhost setups
                   if [[ "${{ matrix.declination.name }}" != "domain" ]]; then
                       echo "Configuring components contextPath to '/' for no-domain mode (aligns with chart standard and tests)..."
-                      yq eval '.connectors.contextPath = "/"' -i camunda-assembled-values.yml
-                      yq eval '.console.contextPath = "/"' -i camunda-assembled-values.yml
-                      yq eval '.optimize.contextPath = "/"' -i camunda-assembled-values.yml
-                      yq eval '.webModeler.restapi.contextPath = "/"' -i camunda-assembled-values.yml
+                      yq eval '.connectors.contextPath = ""' -i camunda-assembled-values.yml
+                      yq eval '.console.contextPath = ""' -i camunda-assembled-values.yml
+                      yq eval '.optimize.contextPath = ""' -i camunda-assembled-values.yml
+                      yq eval '.webModeler.restapi.contextPath = ""' -i camunda-assembled-values.yml
                   fi
 
                   echo "Final assembled values file created: camunda-assembled-values.yml"
