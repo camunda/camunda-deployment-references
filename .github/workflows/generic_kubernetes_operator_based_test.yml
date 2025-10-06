@@ -557,6 +557,14 @@ jobs:
                       cp camunda-assembled-values-temp.yml camunda-assembled-values.yml
                   fi
 
+                  # Adjust Connectors contextPath for no-domain mode
+                  # Note: This aligns the configuration with the standard Helm chart behavior and test expectations,
+                  # where Connectors use "/" as contextPath in no-domain/localhost setups
+                  if [[ "${{ matrix.declination.name }}" != "domain" ]]; then
+                      echo "Configuring Connectors contextPath to '/' for no-domain mode (aligns with chart standard and tests)..."
+                      yq eval '.connectors.contextPath = "/"' -i camunda-assembled-values.yml
+                  fi
+
                   echo "Final assembled values file created: camunda-assembled-values.yml"
                   echo "Preview of assembled configuration:"
                   cat camunda-assembled-values.yml
