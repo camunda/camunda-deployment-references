@@ -763,7 +763,7 @@ jobs:
 
                   # Domain configuration (for domain declination)
                   camunda-domain: ${{ matrix.declination.name == 'domain' && env.CAMUNDA_DOMAIN || '' }}
-                  camunda-domain-grpc: ${{ matrix.declination.name == 'domain' && env.CAMUNDA_DOMAIN || '' }}
+                  camunda-domain-grpc: ${{ matrix.declination.name == 'domain' && format('zeebe-{0}', env.CAMUNDA_DOMAIN) || '' }}
 
                   # Component configuration
                   webmodeler-enabled: 'true'      # Always enabled in operator-based deployment
