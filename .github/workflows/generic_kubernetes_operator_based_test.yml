@@ -734,6 +734,13 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
+            - name: Setup tmate session
+              uses: mxschmitt/action-tmate@v3
+              with:
+                  detached: true
+                  limit-access-to-actor: true
+
+
             - name: 🧪 Run Camunda Platform tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60
