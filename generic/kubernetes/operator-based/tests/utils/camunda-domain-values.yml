@@ -27,7 +27,7 @@ orchestration:
     ingress:
         grpc:
             enabled: true
-            host: zeebe.${DOMAIN_NAME}
+            host: zeebe.${CAMUNDA_DOMAIN}
             tls:
                 enabled: true
                 secretName: zeebe-c8-tls-grpc
