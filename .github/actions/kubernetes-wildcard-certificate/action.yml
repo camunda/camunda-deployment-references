@@ -36,7 +36,7 @@ runs:
               roleId: ${{ inputs.vault-role-id }}
               secretId: ${{ inputs.vault-secret-id }}
               secrets: |
-                  secret/data/products/infrastructure-experience/certificates/${{ inputs.tld }}/wildcard certificate | WILDCARD_CERT ;
+                  secret/data/products/infrastructure-experience/certificates/${{ inputs.tld }}/wildcard full_chain | WILDCARD_CERT ;
                   secret/data/products/infrastructure-experience/certificates/${{ inputs.tld }}/wildcard private_key | WILDCARD_KEY
 
         - name: 📜 Create TLS secret from Vault certificate
