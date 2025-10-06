@@ -485,6 +485,9 @@ jobs:
                           source tests/utils/get-oc-app-domain.sh
                           BASE_DOMAIN="$OPENSHIFT_APPS_DOMAIN"
                           INGRESS_CLASS_NAME="openshift-default"
+
+                          echo "Enable HTTP/2 on OpenShift Ingress Controller"
+                          ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
                       else
                           # EKS and other Kubernetes clusters use camunda.ie
                           BASE_DOMAIN="camunda.ie"
@@ -543,7 +546,9 @@ jobs:
                       yq eval '
                         del(.global.ingress.annotations."kubernetes.io/tls-acme") |
                         .global.ingress.annotations."route.openshift.io/termination" = "edge" |
-                        .global.ingress.tls.secretName = "-"
+                        .global.ingress.tls.secretName = "-" |
+                        del(.orchestration.ingress.grpc.annotations."kubernetes.io/tls-acme") |
+                        .orchestration.ingress.grpc.tls.secretName = "-"
                       ' camunda-assembled-values-temp.yml > camunda-assembled-values.yml
                   elif [[ "${{ env.USE_WILDCARD_CERT }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
                       echo "Configuring wildcard certificate from Vault..."
@@ -551,7 +556,10 @@ jobs:
                       yq eval '
                         del(.global.ingress.annotations."kubernetes.io/tls-acme") |
                         del(.global.ingress.annotations."cert-manager.io/cluster-issuer") |
-                        .global.ingress.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}"
+                        .global.ingress.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}" |
+                        del(.orchestration.ingress.grpc.annotations."kubernetes.io/tls-acme") |
+                        del(.orchestration.ingress.grpc.annotations."cert-manager.io/cluster-issuer") |
+                        .orchestration.ingress.grpc.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}"
                       ' camunda-assembled-values-temp.yml > camunda-assembled-values.yml
                   else
                       cp camunda-assembled-values-temp.yml camunda-assembled-values.yml
