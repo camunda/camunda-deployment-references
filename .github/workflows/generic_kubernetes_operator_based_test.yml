@@ -74,13 +74,6 @@ env:
 
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
-    # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
-    # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
-    # Can be overridden by workflow_dispatch input
-    # TODO: revert
-    # USE_WILDCARD_CERT: ${{ github.event.inputs.use_wildcard_cert == 'true' || 'false' }}
-    USE_WILDCARD_CERT: 'true'
-
     AWS_PROFILE: infex
     AWS_REGION: eu-west-2
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
@@ -464,6 +457,12 @@ jobs:
 
             - name: Wait for cluster stability
               run: sleep 30
+
+            # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
+            # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
+            - name: Configure wildcard certificate usage (tests only)
+              run: echo "USE_WILDCARD_CERT=${{ github.event.inputs.use_wildcard_cert == 'true' || (github.event_name == 'pull_request' && env.IS_RENOVATE_PR
+                  != 'true' && env.IS_SCHEDULE != 'true') && 'true' || 'false' }}" | tee -a "$GITHUB_ENV"
 
             - name: 🛠️ Assemble deployment values
               timeout-minutes: 10

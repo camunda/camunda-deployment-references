@@ -29,7 +29,7 @@ orchestration:
           value: /usr/local/camunda/config/tls.crt
         - name: CAMUNDA_API_GRPC_SSL_CERTIFICATEPRIVATEKEY
           value: /usr/local/camunda/config/tls.key
-        # TODO: No idea whether below is still used by anything
+        # TODO: No idea whether below is still used by anything <8.8>
         # Docs still exist but unified config doesn't mention them at all
         - name: ZEEBE_BROKER_GATEWAY_CLUSTER_SECURITY_ENABLED
           value: 'true'

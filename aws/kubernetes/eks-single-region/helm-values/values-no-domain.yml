@@ -18,8 +18,9 @@ global:
     identity:
         auth:
             enabled: true
-            publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
             type: KEYCLOAK
+            # using localhost:18080 -> camunda-keycloak:80
+            publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
             orchestration:
                 secret:
@@ -42,39 +43,19 @@ global:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-optimize-client-token
-
                 redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
 
             webModeler:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-webmodeler-client-token
-
                 redirectUrl: http://localhost:8084
 
             console:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-console-client-token
-
                 redirectUrl: http://localhost:8085
-
-orchestration:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
-
-    security:
-        authentication:
-            method: oidc
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-
-
-connectors:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
 
 identityKeycloak:
     enabled: true
@@ -112,6 +93,41 @@ identity:
         existingSecret: identity-postgres-secret
         existingSecretPasswordKey: password
 
+connectors:
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+
+    # Configure OIDC for connectors
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-connectors-client-token
+
+optimize:
+    enabled: true
+    # OpenSearch prevents migration
+    migration:
+        enabled: false
+
+orchestration:
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+
+    security:
+        authentication:
+            method: oidc
+            redirectUrl: http://localhost:18080
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
+
+console:
+    enabled: false # by default, console is not enabled
+
+
 webModeler:
     enabled: false # by default, webModeler is not enabled
 
@@ -141,14 +157,6 @@ webModelerPostgresql:
             adminPasswordKey: identity-webmodeler-postgres-admin-password
             userPasswordKey: identity-webmodeler-postgres-user-password
 
-optimize:
-    enabled: true
-    # OpenSearch prevents migration
-    migration:
-        enabled: false
-
-console:
-    enabled: false # by default, console is not enabled
 
 elasticsearch:
     enabled: false

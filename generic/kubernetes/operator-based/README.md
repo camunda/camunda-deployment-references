@@ -2,4 +2,4 @@
 
 This guide documents the installation of Camunda infrastructure components using Kubernetes operators. All required files are provided in this directory for easy deployment.
 
-TODO : add link to the doc
+TODO : add link to the doc <8.8>

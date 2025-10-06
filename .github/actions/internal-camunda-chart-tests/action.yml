@@ -280,7 +280,7 @@ runs:
                   "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
                   "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
 
-                # TODO: [BUG] Fix Connectors URL in preflight tests - remove when upstream chart is fixed
+                # The generic operators uses a specific /connectors which is not recognized by the tests
                 echo "Patch Connectors URLs in preflight variables using yq"
 
                 # Get the connectors context path from assembled values, default to /connectors

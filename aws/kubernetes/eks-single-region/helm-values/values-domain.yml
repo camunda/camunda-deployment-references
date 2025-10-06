@@ -27,7 +27,6 @@ global:
         auth:
             enabled: true
             type: KEYCLOAK
-
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
 
             orchestration:
@@ -60,15 +59,27 @@ global:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-console-client-token
 
-
-elasticsearch:
-    enabled: false
+identityKeycloak:
+    enabled: true
+    postgresql:
+        enabled: false
+    externalDatabase:
+        # see https://artifacthub.io/packages/helm/bitnami/keycloak
+        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
+        existingSecretHostKey: host
+        existingSecretPortKey: port
+        existingSecretUserKey: user
+        existingSecretDatabaseKey: database
+        existingSecretPasswordKey: password
+    auth:
+        existingSecret: identity-secret-for-components
+        passwordSecretKey: identity-admin-client-token
 
 identity:
     enabled: true
     contextPath: /managementidentity
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     fullURL: https://${DOMAIN_NAME}/managementidentity
 
     firstUser:
@@ -87,30 +98,63 @@ identity:
             existingSecret: identity-postgres-secret
             existingSecretPasswordKey: password
 
-identityKeycloak:
-    enabled: true
-    postgresql:
-        enabled: false
-    externalDatabase:
-        # see https://artifacthub.io/packages/helm/bitnami/keycloak
-        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
-        existingSecretHostKey: host
-        existingSecretPortKey: port
-        existingSecretUserKey: user
-        existingSecretDatabaseKey: database
-        existingSecretPasswordKey: password
-    auth:
-        existingSecret: identity-secret-for-components
-        passwordSecretKey: identity-admin-client-token
-
 connectors:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     contextPath: /connectors
+
+    # Configure OIDC for connectors
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-connectors-client-token
+
+optimize:
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+    enabled: true
+    contextPath: /optimize
+
+    # OpenSearch prevents migration
+    migration:
+        enabled: false
+
+orchestration:
+    contextPath: /
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+
+    # Configure OIDC for orchestration
+    security:
+        authentication:
+            method: oidc
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
+
+    ingress:
+        grpc:
+            enabled: true
+            host: zeebe.${DOMAIN_NAME}
+            tls:
+                enabled: true
+                secretName: zeebe-c8-tls-grpc
+            annotations:
+                kubernetes.io/tls-acme: 'true'
+
+console:
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+    enabled: false # by default, console is not enabled
+    contextPath: /console
+
 
 webModeler:
     image:
-        tag: SNAPSHOT # TODO: remove!
+        tag: SNAPSHOT # TODO: remove! <8.8>
     enabled: false # by default, webModeler is not enabled
     contextPath: /modeler
 
@@ -140,41 +184,5 @@ webModelerPostgresql:
             adminPasswordKey: identity-webmodeler-postgres-admin-password
             userPasswordKey: identity-webmodeler-postgres-user-password
 
-optimize:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
-    enabled: true
-    contextPath: /optimize
-
-    # OpenSearch prevents migration
-    migration:
-        enabled: false
-
-orchestration:
-    contextPath: /
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
-
-    security:
-        authentication:
-            method: oidc
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-
-    ingress:
-        grpc:
-            enabled: true
-            host: zeebe.${DOMAIN_NAME}
-            tls:
-                enabled: true
-                secretName: zeebe-c8-tls-grpc
-            annotations:
-                kubernetes.io/tls-acme: 'true'
-
-console:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
-    enabled: false # by default, console is not enabled
-    contextPath: /console
+elasticsearch:
+    enabled: false

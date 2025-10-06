@@ -1,11 +1,11 @@
 ---
 identity:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
 
 connectors:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
 
 webModeler:
     image:
@@ -13,12 +13,12 @@ webModeler:
 
 optimize:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
 
 orchestration:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
 
 console:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>

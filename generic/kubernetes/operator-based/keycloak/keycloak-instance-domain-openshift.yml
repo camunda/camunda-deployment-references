@@ -40,7 +40,7 @@ spec:
             cpu: 250m
             memory: 512Mi
 ---
-# TODO: document this
+# TODO: document this <8.8>
 # Ingress for OpenShift - automatically converted to Route with TLS by openshift-default router
 apiVersion: networking.k8s.io/v1
 kind: Ingress

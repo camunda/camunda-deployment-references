@@ -1,4 +1,53 @@
 ---
+global:
+    elasticsearch:
+        enabled: true
+
+    ingress:
+        enabled: true
+        host: ${DOMAIN_NAME}
+        tls:
+            enabled: true
+            secretName: camunda-c8-tls
+        annotations:
+            kubernetes.io/tls-acme: 'true'
+
+    identity:
+        auth:
+            enabled: true
+            type: KEYCLOAK
+            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
+
+            orchestration:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
+
+            admin:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-admin-client-token
+
+            connectors:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-connectors-client-token
+
+            optimize:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-optimize-client-token
+
+            webModeler:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-webmodeler-client-token
+
+            console:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-console-client-token
+
 identityKeycloak:
     enabled: true
     postgresql:
@@ -16,50 +65,12 @@ identityKeycloak:
         existingSecret: identity-secret-for-components
         passwordSecretKey: identity-admin-client-token
 
-global:
-    elasticsearch:
-        enabled: true
-
-    ingress:
-        enabled: true
-        host: ${DOMAIN_NAME}
-        tls:
-            enabled: true
-            secretName: camunda-c8-tls
-        annotations:
-            kubernetes.io/tls-acme: 'true'
-
-    identity:
-        auth:
-            enabled: true
-            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
-            orchestration:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-                redirectUrl: https://${DOMAIN_NAME}
-            connectors:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-connectors-client-token
-            optimize:
-                redirectUrl: https://${DOMAIN_NAME}/optimize
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-optimize-client-token
-            webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
-            console:
-                redirectUrl: https://${DOMAIN_NAME}/console
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-console-client-token
 
 identity:
     enabled: true
     contextPath: /managementidentity
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     fullURL: https://${DOMAIN_NAME}/managementidentity
 
     firstUser:
@@ -80,12 +91,20 @@ identity:
 
 connectors:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     contextPath: /connectors
+
+    # Configure OIDC for connectors
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-connectors-client-token
 
 webModeler:
     image:
-        tag: SNAPSHOT # TODO: remove!
+        tag: SNAPSHOT # TODO: remove! <8.8>
     enabled: false
     contextPath: /modeler
 
@@ -105,17 +124,24 @@ webModeler:
 
 optimize:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     enabled: true
     contextPath: /optimize
 
 orchestration:
     contextPath: /
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+
+    # Configure OIDC for orchestration
     security:
         authentication:
             method: oidc
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
+
     ingress:
         grpc:
             enabled: true
@@ -128,7 +154,7 @@ orchestration:
 
 console:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     enabled: false # by default, console is not enabled
     contextPath: /console
 

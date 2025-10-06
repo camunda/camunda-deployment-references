@@ -1,4 +1,61 @@
 ---
+global:
+    elasticsearch:
+        enabled: false
+    opensearch:
+        enabled: true
+        aws:
+            enabled: true # enable IRSA auth
+        url:
+            protocol: https
+            host: ${OPENSEARCH_HOST}
+            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
+            port: 443
+
+    ingress:
+        enabled: true
+        host: ${DOMAIN_NAME}
+        tls:
+            enabled: true
+            secretName: camunda-c8-tls
+        annotations:
+            kubernetes.io/tls-acme: 'true'
+    identity:
+        auth:
+            enabled: true
+            type: KEYCLOAK
+            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
+
+            orchestration:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
+
+            admin:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-admin-client-token
+
+            connectors:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-connectors-client-token
+
+            optimize:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-optimize-client-token
+
+            webModeler:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-webmodeler-client-token
+
+            console:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-console-client-token
+
 identityKeycloak:
     enabled: true
     serviceAccount:
@@ -26,56 +83,104 @@ identityKeycloak:
         existingSecret: identity-secret-for-components
         passwordSecretKey: identity-admin-client-token
 
-global:
-    elasticsearch:
-        enabled: false
-    opensearch:
-        enabled: true
-        aws:
-            enabled: true # enable IRSA auth
-        url:
-            protocol: https
-            host: ${OPENSEARCH_HOST}
-            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
-            port: 443
 
-    ingress:
+identity:
+    enabled: true
+    contextPath: /managementidentity
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+    fullURL: https://${DOMAIN_NAME}/managementidentity
+
+    firstUser:
         enabled: true
-        host: ${DOMAIN_NAME}
-        tls:
-            enabled: true
-            secretName: camunda-c8-tls
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: identity-first-user-password
+
+    serviceAccount:
+        name: ${CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME}
         annotations:
-            kubernetes.io/tls-acme: 'true'
-    identity:
-        auth:
-            enabled: true
-            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
-            orchestration:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-                redirectUrl: https://${DOMAIN_NAME}
-            connectors:
+            eks.amazonaws.com/role-arn: ${DB_ROLE_IDENTITY_ARN}
+
+    externalDatabase:
+        enabled: true
+        host: ${DB_HOST}
+        port: 5432
+        username: ${DB_IDENTITY_USERNAME}
+        database: ${DB_IDENTITY_NAME}
+
+    env:
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_IDENTITY_NAME}?wrapperPlugins=iam
+        - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+          value: software.amazon.jdbc.Driver
+        - name: SPRING_DATASOURCE_USERNAME
+          value: ${DB_IDENTITY_USERNAME}
+
+connectors:
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+    contextPath: /connectors
+
+    # Configure OIDC for connectors
+    security:
+        authentication:
+            oidc:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-connectors-client-token
-            optimize:
-                redirectUrl: https://${DOMAIN_NAME}/optimize
+optimize:
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+    enabled: true
+    contextPath: /optimize
+
+    serviceAccount:
+        name: ${CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+
+    # OpenSearch prevents migration
+    migration:
+        enabled: false
+
+orchestration:
+    contextPath: /
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+    serviceAccount:
+        name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+
+    # Configure OIDC for orchestration
+    security:
+        authentication:
+            method: oidc
+            oidc:
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-optimize-client-token
-            webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
-            console:
-                redirectUrl: https://${DOMAIN_NAME}/console
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-console-client-token
+                    existingSecretKey: identity-orchestration-client-token
+    ingress:
+        grpc:
+            enabled: true
+            host: zeebe.${DOMAIN_NAME}
+            tls:
+                enabled: true
+                secretName: zeebe-c8-tls-grpc
+            annotations:
+                kubernetes.io/tls-acme: 'true'
+
+console:
+    image:
+        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+    enabled: false # by default, console is not enabled
+    contextPath: /console
+
 
 webModeler:
     image:
-        tag: SNAPSHOT # TODO: remove!
+        tag: SNAPSHOT # TODO: remove! <8.8>
     enabled: false # by default, webModeler is not enabled
     contextPath: /modeler
 
@@ -110,85 +215,6 @@ webModelerPostgresql:
             adminPasswordKey: identity-webmodeler-postgres-admin-password
             userPasswordKey: identity-webmodeler-postgres-user-password
 
-identity:
-    enabled: true
-    contextPath: /managementidentity
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
-    fullURL: https://${DOMAIN_NAME}/managementidentity
-
-    firstUser:
-        enabled: true
-        secret:
-            existingSecret: identity-secret-for-components
-            existingSecretKey: identity-first-user-password
-
-    serviceAccount:
-        name: ${CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${DB_ROLE_IDENTITY_ARN}
-
-    externalDatabase:
-        enabled: true
-        host: ${DB_HOST}
-        port: 5432
-        username: ${DB_IDENTITY_USERNAME}
-        database: ${DB_IDENTITY_NAME}
-
-    env:
-        - name: SPRING_DATASOURCE_URL
-          value: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_IDENTITY_NAME}?wrapperPlugins=iam
-        - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
-          value: software.amazon.jdbc.Driver
-        - name: SPRING_DATASOURCE_USERNAME
-          value: ${DB_IDENTITY_USERNAME}
-
-connectors:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
-    contextPath: /connectors
-
-optimize:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
-    enabled: true
-    contextPath: /optimize
-
-    serviceAccount:
-        name: ${CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
-    # OpenSearch prevents migration
-    migration:
-        enabled: false
-
-orchestration:
-    contextPath: /
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
-    serviceAccount:
-        name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-    security:
-        authentication:
-            method: oidc
-    ingress:
-        grpc:
-            enabled: true
-            host: zeebe.${DOMAIN_NAME}
-            tls:
-                enabled: true
-                secretName: zeebe-c8-tls-grpc
-            annotations:
-                kubernetes.io/tls-acme: 'true'
-
-console:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove!
-    enabled: false # by default, console is not enabled
-    contextPath: /console
 
 elasticsearch:
     enabled: false
