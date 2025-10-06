@@ -623,7 +623,8 @@ jobs:
                       envsubst < "$KEYCLOAK_CONFIG_FILE" | \
                           yq eval 'select(.kind == "Ingress") |= (
                             del(.metadata.annotations."kubernetes.io/tls-acme") |
-                            del(.metadata.annotations."cert-manager.io/cluster-issuer")
+                            del(.metadata.annotations."cert-manager.io/cluster-issuer") |
+                            .spec.tls[0].secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}"
                           )' \
                           > keycloak-instance-processed.yml
                       echo "KEYCLOAK_CONFIG_FILE=keycloak-instance-processed.yml" | tee -a "$GITHUB_ENV"
