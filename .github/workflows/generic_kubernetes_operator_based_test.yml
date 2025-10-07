@@ -464,6 +464,13 @@ jobs:
               run: echo "USE_WILDCARD_CERT=${{ github.event.inputs.use_wildcard_cert == 'true' || (github.event_name == 'pull_request' && env.IS_RENOVATE_PR
                   != 'true' && env.IS_SCHEDULE != 'true') && 'true' || 'false' }}" | tee -a "$GITHUB_ENV"
 
+            - name: 🌱 Register chart setup environment values
+              timeout-minutes: 3
+              run: |
+                  set -euo pipefail
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars generic/kubernetes/operator-based/0-set-environment.sh
+
             - name: 🛠️ Assemble deployment values
               timeout-minutes: 10
               working-directory: ./generic/kubernetes/operator-based/
@@ -537,20 +544,35 @@ jobs:
                   echo "Assembling final values file from: ${VALUES_FILES[*]}"
                   yq eval-all ". as \$item ireduce ({}; . * \$item)" "${VALUES_FILES[@]}" > camunda-assembled-values-raw.yml
 
-                  # Apply envsubst to the assembled file for variable substitution
-                  echo "Processing assembled values with envsubst for variable substitution..."
-                  envsubst < camunda-assembled-values-raw.yml > camunda-assembled-values-temp.yml
-
+                  # Process and merge OpenShift route configurations for domain setups
                   # Adjust TLS configuration based on cluster type and wildcard cert usage
                   if [[ "${{ matrix.distro.type }}" == "openshift" && "${{ matrix.declination.name }}" == "domain" ]]; then
-                      echo "Configuring OpenShift routes with automatic TLS..."
+                      echo "Processing and merging OpenShift route configurations (orchestration + connectors)..."
+
+                      # Process both orchestration-route.yml and connectors-route.yml with envsubst
+                      CAMUNDA_RELEASE_NAME="$CAMUNDA_RELEASE_NAME" \
+                      CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}" \
+                      DOMAIN_NAME="$CAMUNDA_DOMAIN" \
+                      envsubst < "../../../generic/openshift/single-region/helm-values/orchestration-route.yml" > orchestration-route-processed.yml
+
+                      CAMUNDA_RELEASE_NAME="$CAMUNDA_RELEASE_NAME" \
+                      CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}" \
+                      envsubst < "../../../generic/openshift/single-region/helm-values/connectors-route.yml" > connectors-route-processed.yml
+
+                      # Merge processed routes with assembled values and apply TLS adjustments
+                      yq eval-all ". as \$item ireduce ({}; . * \$item)" \
+                        camunda-assembled-values-raw.yml \
+                        orchestration-route-processed.yml \
+                        connectors-route-processed.yml | \
                       yq eval '
                         del(.global.ingress.annotations."kubernetes.io/tls-acme") |
                         .global.ingress.annotations."route.openshift.io/termination" = "edge" |
                         .global.ingress.tls.secretName = "-" |
                         del(.orchestration.ingress.grpc.annotations."kubernetes.io/tls-acme") |
                         .orchestration.ingress.grpc.tls.secretName = "-"
-                      ' camunda-assembled-values-temp.yml > camunda-assembled-values.yml
+                      ' > camunda-assembled-values-raw-temp.yml
+                      mv camunda-assembled-values-raw-temp.yml camunda-assembled-values-raw.yml
+
                   elif [[ "${{ env.USE_WILDCARD_CERT }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
                       echo "Configuring wildcard certificate from Vault..."
                       echo "Using TLS secret: ${{ env.WILDCARD_TLS_SECRET_NAME }}"
@@ -561,21 +583,17 @@ jobs:
                         del(.orchestration.ingress.grpc.annotations."kubernetes.io/tls-acme") |
                         del(.orchestration.ingress.grpc.annotations."cert-manager.io/cluster-issuer") |
                         .orchestration.ingress.grpc.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}"
-                      ' camunda-assembled-values-temp.yml > camunda-assembled-values.yml
-                  else
-                      cp camunda-assembled-values-temp.yml camunda-assembled-values.yml
+                      ' camunda-assembled-values-raw.yml > camunda-assembled-values-raw-tls.yml
+                      mv camunda-assembled-values-raw-tls.yml camunda-assembled-values-raw.yml
                   fi
+
+                  # Apply envsubst to the assembled file for variable substitution
+                  echo "Processing assembled values with envsubst for variable substitution..."
+                  envsubst < camunda-assembled-values-raw.yml > camunda-assembled-values.yml
 
                   echo "Final assembled values file created: camunda-assembled-values.yml"
                   echo "Preview of assembled configuration:"
                   cat camunda-assembled-values.yml
-
-            - name: 🌱 Register chart setup environment values
-              timeout-minutes: 3
-              run: |
-                  set -euo pipefail
-                  source .github/scripts/gha-functions.sh
-                  export_new_env_vars generic/kubernetes/operator-based/0-set-environment.sh
 
             - name: 🧹 Clean ingress components for EKS domain setup
               if: ${{ matrix.distro.type == 'eks' && matrix.declination.name == 'domain' }}

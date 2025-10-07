@@ -445,13 +445,6 @@ jobs:
                   kubectl config current-context
                   kubectl get nodes
 
-            # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
-            # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
-            - name: Configure wildcard certificate usage (tests only)
-              run: echo "USE_WILDCARD_CERT=${{ github.event.inputs.use_wildcard_cert == 'true' || (github.event_name == 'pull_request' && env.IS_RENOVATE_PR
-                  != 'true' && env.IS_SCHEDULE != 'true') && 'true' || 'false' }}" | tee -a "$GITHUB_ENV"
-
-
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
               run: |
@@ -460,24 +453,6 @@ jobs:
 
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
-
-            - name: 🏗️ Ingress Setup prerequisites
-              if: ${{ matrix.declination.name == 'domain' }}
-              timeout-minutes: 15
-              uses: ./.github/actions/aws-kubernetes-ingress-setup
-              with:
-                  cluster-name: ${{ matrix.distro.clusterName }}
-                  scenario-short-name: ${{ matrix.scenario.shortName }}
-                  aws-region: ${{ env.AWS_REGION }}
-                  mail: ${{ env.MAIL_OVERWRITE }}
-                  tld: ${{ env.TLD }}
-                  ref-arch: ${{ matrix.scenario.name }}
-                  use-wildcard-cert: ${{ env.USE_WILDCARD_CERT }}
-                  wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: 🌱 Register chart setup environment values
               timeout-minutes: 3
@@ -558,6 +533,30 @@ jobs:
 
                   kubectl delete secret setup-os-secret --namespace "$CAMUNDA_NAMESPACE"
 
+            # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
+            # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
+            - name: Configure wildcard certificate usage (tests only)
+              run: echo "USE_WILDCARD_CERT=${{ github.event.inputs.use_wildcard_cert == 'true' || (github.event_name == 'pull_request' && env.IS_RENOVATE_PR
+                  != 'true' && env.IS_SCHEDULE != 'true') && 'true' || 'false' }}" | tee -a "$GITHUB_ENV"
+
+            - name: 🏗️ Ingress Setup prerequisites
+              if: ${{ matrix.declination.name == 'domain' }}
+              timeout-minutes: 15
+              uses: ./.github/actions/aws-kubernetes-ingress-setup
+              with:
+                  cluster-name: ${{ matrix.distro.clusterName }}
+                  scenario-short-name: ${{ matrix.scenario.shortName }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  mail: ${{ env.MAIL_OVERWRITE }}
+                  tld: ${{ env.TLD }}
+                  ref-arch: ${{ matrix.scenario.name }}
+                  use-wildcard-cert: ${{ env.USE_WILDCARD_CERT }}
+                  wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
             - name: 🛠️ Assemble deployment values of aws/kubernetes/${{ matrix.scenario.name }}/${{ matrix.declination.name }}
               timeout-minutes: 10
               run: |
@@ -598,8 +597,6 @@ jobs:
                     done
                   fi
 
-                  ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
-
                   # If using wildcard certificate, remove cert-manager annotations from values
                   if [[ "${{ env.USE_WILDCARD_CERT }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
                       echo "Removing cert-manager annotations from Helm values (using wildcard certificate)"
@@ -615,6 +612,9 @@ jobs:
                       mv values-temp.yml values.yml
                       echo "Cert-manager annotations removed and wildcard TLS secret configured for HTTP and gRPC ingress"
                   fi
+
+                  ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
+
 
             - name: 🛠️ Configure the PSQL database and associated access
               timeout-minutes: 10
