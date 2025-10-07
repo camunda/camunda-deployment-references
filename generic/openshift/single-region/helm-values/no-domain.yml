@@ -26,3 +26,7 @@ orchestration:
         authentication:
             oidc:
                 redirectUrl: http://localhost:8080
+
+identity:
+    contextPath: /managementidentity
+    fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
