@@ -58,6 +58,11 @@ identityKeycloak:
         existingSecret: identity-secret-for-components
         passwordSecretKey: identity-admin-client-token
 
+    extraEnvVars:
+        # This is required to ensure proper issuer of JWT tokens
+        - name: KC_HOSTNAME
+          value: ${CAMUNDA_RELEASE_NAME}-keycloak
+
 
 identity:
     enabled: true

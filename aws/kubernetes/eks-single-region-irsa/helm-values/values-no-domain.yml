@@ -71,6 +71,11 @@ identityKeycloak:
           value: wrapperPlugins=iam&ssl=true&sslmode=require
         - name: KEYCLOAK_JDBC_DRIVER
           value: aws-wrapper:postgresql
+
+        # This is required to ensure proper issuer of JWT tokens
+        - name: KC_HOSTNAME
+          value: ${CAMUNDA_RELEASE_NAME}-keycloak
+
     auth:
         existingSecret: identity-secret-for-components
         passwordSecretKey: identity-admin-client-token
