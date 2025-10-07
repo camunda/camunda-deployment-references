@@ -18,6 +18,7 @@ global:
         auth:
             enabled: true
             type: KEYCLOAK
+
             issuerBackendUrl: http://keycloak-service:8080/auth/realms/camunda-platform
             issuer: http://keycloak-service:8080/auth/realms/camunda-platform
             # Local testing with port-forwarding
