@@ -55,8 +55,14 @@ metadata:
     annotations:
         route.openshift.io/termination: edge
         # Ensure proper HTTPS handling for Keycloak behind OpenShift router
+        # Disable router-inserted session-affinity cookies so the router doesn't add its own
+        # cookie (for example ROUTEID). Use this when Keycloak is clustered with session
+        # replication (so any pod can serve a user) or when you're running a single instance
+        # (instances: 1) and don't need sticky sessions. If you run multiple Keycloak pods
+        # without shared session storage/replication, remove this annotation (or set to
+        # 'false') so the OpenShift router will set a cookie and perform sticky sessions
+        # (ensuring users are routed to the same pod).
         haproxy.router.openshift.io/disable_cookies: 'true'
-        haproxy.router.openshift.io/rewrite-target: /
 spec:
     ingressClassName: openshift-default
     # ensure we use TLS
