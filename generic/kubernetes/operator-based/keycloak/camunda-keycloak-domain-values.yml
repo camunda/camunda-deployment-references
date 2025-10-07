@@ -9,6 +9,10 @@
 # - pg-keycloak-secret: Contains PostgreSQL user credentials for Keycloak
 
 global:
+    security:
+        authentication:
+            method: oidc
+
     # Identity configuration for authentication
     identity:
         auth:
@@ -40,14 +44,8 @@ global:
 orchestration:
     security:
         authentication:
-            method: oidc
-        oidc:
-            redirectUrl: https://${CAMUNDA_DOMAIN}
-
-connectors:
-    security:
-        authentication:
-            method: oidc
+            oidc:
+                redirectUrl: https://${CAMUNDA_DOMAIN}
 
 identityKeycloak:
     enabled: false

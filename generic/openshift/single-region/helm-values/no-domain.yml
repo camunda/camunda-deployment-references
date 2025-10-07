@@ -6,17 +6,21 @@ global:
             # using localhost:18080 -> keycloak-service:8080 (kubectl port-forward svc/keycloak-service 18080:8080)
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            orchestration:
-                redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
+            identity:
+                redirectUrl: http://localhost:8085  # replace this with a port of your choice when you will do port forwarding
+
             optimize:
                 redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
+
             webModeler:
-                redirectUrl: http://localhost:8084
+                redirectUrl: http://localhost:8070
+
             console:
-                redirectUrl: http://localhost:8085
+                redirectUrl: http://localhost:8087
 
 
 orchestration:
     security:
-        oidc:
-            redirectUrl: http://localhost:18080
+        authentication:
+            oidc:
+                redirectUrl: http://localhost:8080

@@ -19,6 +19,18 @@ global:
         auth:
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
+            identity:
+                redirectUrl: https://${DOMAIN_NAME}/managementidentity
+
+            optimize:
+                redirectUrl: https://${DOMAIN_NAME}/optimize
+
+            webModeler:
+                redirectUrl: https://${DOMAIN_NAME}/modeler
+
+            console:
+                redirectUrl: https://${DOMAIN_NAME}/console
+
 identity:
     contextPath: /managementidentity
     fullURL: https://${DOMAIN_NAME}/managementidentity
@@ -32,8 +44,9 @@ optimize:
 orchestration:
     contextPath: /
     security:
-        oidc:
-            redirectUrl: https://${CAMUNDA_DOMAIN}
+        authentication:
+            oidc:
+                redirectUrl: https://${DOMAIN_NAME}
 
 console:
     contextPath: /console

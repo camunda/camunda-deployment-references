@@ -23,14 +23,13 @@ global:
 
     identity:
         identity:
-            redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
+            redirectUrl: http://localhost:8085
         console:
-            redirectUrl: https://${CAMUNDA_DOMAIN}/console
+            redirectUrl: http://localhost:8087
         webModeler:
-            redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
+            redirectUrl: http://localhost:8070
         optimize:
-            redirectUrl: https://${CAMUNDA_DOMAIN}/optimize
-
+            redirectUrl: http://localhost:8083
 
 orchestration:
     contextPath: /
@@ -43,11 +42,11 @@ orchestration:
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
+
     security:
         authentication:
             oidc:
-                redirectUrl: https://${CAMUNDA_DOMAIN}
-
+                redirectUrl: http://localhost:8080
 
 optimize:
     contextPath: /optimize

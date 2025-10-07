@@ -9,6 +9,10 @@
 # - pg-keycloak-secret: Contains PostgreSQL user credentials for Keycloak
 
 global:
+    security:
+        authentication:
+            method: oidc
+
     # Identity configuration for authentication
     identity:
         auth:
@@ -41,14 +45,8 @@ global:
 orchestration:
     security:
         authentication:
-            method: oidc
-        oidc:
-            redirectUrl: http://localhost:18080
-
-connectors:
-    security:
-        authentication:
-            method: oidc
+            oidc:
+                redirectUrl: http://localhost:8080
 
 identityKeycloak:
     enabled: false

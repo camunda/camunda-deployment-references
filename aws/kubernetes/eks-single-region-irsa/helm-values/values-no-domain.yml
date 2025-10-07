@@ -12,6 +12,10 @@ global:
             # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
             port: 443
 
+    security:
+        authentication:
+            method: oidc
+
     identity:
         auth:
             enabled: true
@@ -19,21 +23,16 @@ global:
             # using localhost:18080 -> camunda-keycloak:8080
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            orchestration:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-                redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
-
             admin:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-admin-client-token
 
-            connectors:
+            identity:
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-connectors-client-token
+                    existingSecretKey: identity-identity-client-token
+                redirectUrl: http://localhost:8085  # replace this with a port of your choice when you will do port forwarding
 
             optimize:
                 secret:
@@ -42,16 +41,13 @@ global:
                 redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
 
             webModeler:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-webmodeler-client-token
-                redirectUrl: http://localhost:8084
+                redirectUrl: http://localhost:8070
 
             console:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-console-client-token
-                redirectUrl: http://localhost:8085
+                redirectUrl: http://localhost:8087
 
 identityKeycloak:
     enabled: true
@@ -144,12 +140,11 @@ orchestration:
     # Configure OIDC for orchestration
     security:
         authentication:
-            method: oidc
-            redirectUrl: http://localhost:18080
             oidc:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-orchestration-client-token
+                redirectUrl: http://localhost:8080
 
 console:
     enabled: false # by default, console is not enabled

@@ -12,41 +12,41 @@ global:
         annotations:
             kubernetes.io/tls-acme: 'true'
 
+    security:
+        authentication:
+            method: oidc
+
     identity:
         auth:
             enabled: true
             type: KEYCLOAK
             publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
 
-            orchestration:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-
             admin:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-admin-client-token
 
-            connectors:
+            identity:
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-connectors-client-token
+                    existingSecretKey: identity-identity-client-token
+                redirectUrl: https://${DOMAIN_NAME}/managementidentity
 
             optimize:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-optimize-client-token
+                redirectUrl: https://${DOMAIN_NAME}/optimize
 
             webModeler:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-webmodeler-client-token
+                redirectUrl: https://${DOMAIN_NAME}/modeler
 
             console:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-console-client-token
+                redirectUrl: https://${DOMAIN_NAME}/console
 
 identityKeycloak:
     enabled: true
@@ -136,11 +136,11 @@ orchestration:
     # Configure OIDC for orchestration
     security:
         authentication:
-            method: oidc
             oidc:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-orchestration-client-token
+                redirectUrl: https://${DOMAIN_NAME}
 
     ingress:
         grpc:

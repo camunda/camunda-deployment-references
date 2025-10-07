@@ -2,6 +2,11 @@
 global:
     elasticsearch:
         enabled: true # use the embbeded elasticsearch
+
+    security:
+        authentication:
+            method: oidc
+
     identity:
         enabled: true
 
@@ -9,30 +14,20 @@ global:
             enabled: true
             type: KEYCLOAK
 
-            orchestration:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-
             admin:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-admin-client-token
 
-            connectors:
+            identity:
                 secret:
                     existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-connectors-client-token
+                    existingSecretKey: identity-identity-client-token
 
             optimize:
                 secret:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-optimize-client-token
-
-            webModeler:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-webmodeler-client-token
 
             console:
                 secret:
@@ -47,7 +42,6 @@ orchestration:
     # Configure OIDC for orchestration
     security:
         authentication:
-            method: oidc
             oidc:
                 secret:
                     existingSecret: identity-secret-for-components
