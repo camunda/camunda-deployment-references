@@ -84,8 +84,6 @@ identityKeycloak:
 identity:
     enabled: true
     contextPath: /managementidentity
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     fullURL: https://${DOMAIN_NAME}/managementidentity
 
     firstUser:
@@ -115,8 +113,6 @@ identity:
           value: ${DB_IDENTITY_USERNAME}
 
 connectors:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     contextPath: /connectors
 
     # Configure OIDC for connectors
@@ -127,8 +123,6 @@ connectors:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-connectors-client-token
 optimize:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     enabled: true
     contextPath: /optimize
 
@@ -143,8 +137,6 @@ optimize:
 
 orchestration:
     contextPath: /
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     serviceAccount:
         name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
         annotations:
@@ -170,15 +162,11 @@ orchestration:
                 kubernetes.io/tls-acme: 'true'
 
 console:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     enabled: false # by default, console is not enabled
     contextPath: /console
 
 
 webModeler:
-    image:
-        tag: SNAPSHOT # TODO: remove! <8.8>
     enabled: false # by default, webModeler is not enabled
     contextPath: /modeler
 

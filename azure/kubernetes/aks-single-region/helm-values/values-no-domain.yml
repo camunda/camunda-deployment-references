@@ -72,9 +72,6 @@ identity:
             existingSecretPasswordKey: password
 
 connectors:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
-
     # Configure OIDC for connectors
     security:
         authentication:
@@ -84,9 +81,6 @@ connectors:
                     existingSecretKey: identity-connectors-client-token
 
 orchestration:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
-
     # Configure OIDC for orchestration
     security:
         authentication:

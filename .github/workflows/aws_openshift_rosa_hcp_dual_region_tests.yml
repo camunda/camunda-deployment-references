@@ -673,6 +673,15 @@ jobs:
                     done
                   fi
 
+                  # TODO: remove this when fixed
+                  echo "Region 1:"
+                  yq ". *d load(\"generic/kubernetes/dual-region/tests/utils/tmp-tags-8.8.yml\")" values-region-1.yml > values-region-1-result.yml
+                  cat values-region-1-result.yml && mv values-region-1-result.yml values-region-1.yml
+
+                  echo "Region 2:"
+                  yq ". *d load(\"generic/kubernetes/dual-region/tests/utils/tmp-tags-8.8.yml\")" values-region-2.yml > values-region-2-result.yml
+                  cat values-region-2-result.yml && mv values-region-2-result.yml values-region-2.yml
+
                   ./generic/openshift/dual-region/procedure/assemble-envsubst-values.sh
 
 

@@ -30,8 +30,6 @@ global:
                     existingSecretKey: identity-console-client-token
 
 orchestration:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     contextPath: /
 
     # Configure OIDC for orchestration
@@ -44,13 +42,9 @@ orchestration:
 
 optimize:
     enabled: true
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
 
 connectors:
     enabled: true
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
 
     # Configure OIDC for connectors
     security:
@@ -62,14 +56,9 @@ connectors:
 
 console:
     enabled: false # by default, console is not enabled
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
-
 
 identity:
     enabled: true
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     firstUser:
         enabled: true
         secret:
@@ -92,8 +81,6 @@ identityKeycloak:
 
 webModeler:
     enabled: false # by default, webModeler is not enabled
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
 
     restapi:
         mail:

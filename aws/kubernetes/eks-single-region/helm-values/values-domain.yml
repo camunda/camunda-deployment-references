@@ -75,8 +75,7 @@ identityKeycloak:
 identity:
     enabled: true
     contextPath: /managementidentity
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+
     fullURL: https://${DOMAIN_NAME}/managementidentity
 
     firstUser:
@@ -96,8 +95,7 @@ identity:
             existingSecretPasswordKey: password
 
 connectors:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+
     contextPath: /connectors
 
     # Configure OIDC for connectors
@@ -109,8 +107,6 @@ connectors:
                     existingSecretKey: identity-connectors-client-token
 
 optimize:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     enabled: true
     contextPath: /optimize
 
@@ -120,8 +116,6 @@ optimize:
 
 orchestration:
     contextPath: /
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
 
     # Configure OIDC for orchestration
     security:
@@ -143,15 +137,11 @@ orchestration:
                 kubernetes.io/tls-acme: 'true'
 
 console:
-    image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
     enabled: false # by default, console is not enabled
     contextPath: /console
 
 
 webModeler:
-    image:
-        tag: SNAPSHOT # TODO: remove! <8.8>
     enabled: false # by default, webModeler is not enabled
     contextPath: /modeler
 
