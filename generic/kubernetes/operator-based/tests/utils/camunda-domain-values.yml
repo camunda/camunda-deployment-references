@@ -22,14 +22,15 @@ global:
             kubernetes.io/tls-acme: 'true'
 
     identity:
-        identity:
-            redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
-        console:
-            redirectUrl: https://${CAMUNDA_DOMAIN}/console
-        webModeler:
-            redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
-        optimize:
-            redirectUrl: https://${CAMUNDA_DOMAIN}/optimize
+        auth:
+            identity:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
+            console:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/console
+            webModeler:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
+            optimize:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/optimize
 
 
 orchestration:

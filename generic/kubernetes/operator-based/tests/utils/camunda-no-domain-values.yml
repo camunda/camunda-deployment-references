@@ -22,14 +22,15 @@ global:
             kubernetes.io/tls-acme: 'true'
 
     identity:
-        identity:
-            redirectUrl: http://localhost:8085
-        console:
-            redirectUrl: http://localhost:8087
-        webModeler:
-            redirectUrl: http://localhost:8070
-        optimize:
-            redirectUrl: http://localhost:8083
+        auth:
+            identity:
+                redirectUrl: http://localhost:8085
+            console:
+                redirectUrl: http://localhost:8087
+            webModeler:
+                redirectUrl: http://localhost:8070
+            optimize:
+                redirectUrl: http://localhost:8083
 
 orchestration:
     contextPath: /
