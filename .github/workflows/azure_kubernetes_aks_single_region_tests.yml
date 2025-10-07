@@ -86,7 +86,9 @@ env:
     # Test environment for cloud provider, please keep it synced between the workflows
     AZURE_REGION: swedencentral
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # TODO: revert
+    CLEANUP_CLUSTERS: 'false'
 
     # TEST VARIABLES
 
@@ -134,7 +136,9 @@ jobs:
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
                   ref_arch: ${{ inputs.ref-arch }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  # TODO: revert
+                  # cluster_name: ${{ inputs.cluster_name }}
+                  cluster_name: leiaks
 
 
     prepare-clusters:
