@@ -574,7 +574,7 @@ jobs:
                     export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
-                    export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"
+                    export DOMAIN_NAME_GRPC="zeebe-$DOMAIN_NAME:443"
                     echo "DOMAIN_NAME_GRPC=$DOMAIN_NAME_GRPC" | tee -a "$GITHUB_ENV"
                   fi
 
