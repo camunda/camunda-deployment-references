@@ -28,9 +28,6 @@ global:
                     existingSecretKey: identity-admin-client-token
 
             identity:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-identity-client-token
                 redirectUrl: https://${DOMAIN_NAME}/managementidentity
 
             optimize:
