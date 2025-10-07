@@ -39,6 +39,7 @@ orchestration:
         grpc:
             enabled: true
             host: zeebe-${CAMUNDA_DOMAIN}
+            className: ${INGRESS_CLASS_NAME}
             tls:
                 enabled: true
                 secretName: zeebe-c8-tls-grpc
