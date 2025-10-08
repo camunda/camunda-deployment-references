@@ -175,7 +175,7 @@ runs:
                 echo "  Keycloak: http://$KEYCLOAK_TARGET"
                 echo "  Elasticsearch: http://$ELASTICSEARCH_TARGET"
 
-                # Update variables-default.yaml
+                # Update variables-default.yaml (used for no-domain scenarios)
                 yq eval ".preflightVars.baseURLs.keycloak = \"http://${KEYCLOAK_TARGET}\"" -i \
                   "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
                 yq eval ".preflightVars.baseURLs.elasticsearch = \"http://${ELASTICSEARCH_TARGET}\"" -i \
@@ -183,12 +183,18 @@ runs:
                 yq eval ".coreVars.authURL = \"http://${KEYCLOAK_TARGET}/auth/realms/camunda-platform/protocol/openid-connect/token\"" -i \
                   "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
 
-                # Update variables-ingress-combined.yaml (if domain is set, this file will be used)
+                # Update variables-ingress-combined.yaml (used for domain/ingress scenarios)
+                # For domain scenarios, keep the public HTTPS URLs, only update internal service references
                 if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml" ]]; then
-                  yq eval ".coreVars.baseURLs.keycloak = \"http://${KEYCLOAK_TARGET}\"" -i \
+                  # Only update preflightVars (internal service checks) and elasticsearch
+                  yq eval ".preflightVars.baseURLs.keycloak = \"http://${KEYCLOAK_TARGET}\"" -i \
+                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                  yq eval ".preflightVars.baseURLs.elasticsearch = \"http://${ELASTICSEARCH_TARGET}\"" -i \
                     "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
                   yq eval ".coreVars.baseURLs.elasticsearch = \"http://${ELASTICSEARCH_TARGET}\"" -i \
                     "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                  # DO NOT update coreVars.baseURLs.keycloak - it should use the public ingress URL (https://$DOMAIN/auth/)
+                  echo "Note: Keycloak coreVars URL preserved for public ingress access"
                 fi
 
                 echo "✅ Service references updated successfully"
