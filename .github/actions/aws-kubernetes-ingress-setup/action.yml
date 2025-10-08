@@ -52,6 +52,17 @@ inputs:
 runs:
     using: composite
     steps:
+
+        - name: 🏗️ Clean cert-manager operator namespace
+          uses: ./.github/actions/internal-clean-namespace
+          with:
+              namespace: cert-manager
+
+        - name: 🏗️ Clean external-dns operator namespace
+          uses: ./.github/actions/internal-clean-namespace
+          with:
+              namespace: external-dns
+
         - name: Setup ingress components for EKS cluster
           shell: bash
           run: |

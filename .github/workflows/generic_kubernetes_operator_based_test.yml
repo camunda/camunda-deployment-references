@@ -538,7 +538,7 @@ jobs:
                   fi
 
                   # TODO : remove this when fixed
-                  VALUES_FILES+=("./../../generic/kubernetes/single-region/tests/helm-values/tmp-tags-8.8.yml")
+                  VALUES_FILES+=("./../../../generic/kubernetes/single-region/tests/helm-values/tmp-tags-8.8.yml")
 
                   # Create final assembled values file using yq
                   echo "Assembling final values file from: ${VALUES_FILES[*]}"
