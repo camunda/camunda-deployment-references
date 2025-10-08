@@ -167,6 +167,8 @@ runs:
                   "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
                 yq eval ".preflightVars.baseURLs.elasticsearch = \"http://${ELASTICSEARCH_TARGET}\"" -i \
                   "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+                yq eval ".coreVars.authURL = \"http://${KEYCLOAK_TARGET}/auth/realms/camunda-platform/protocol/openid-connect/token\"" -i \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
 
                 # Update variables-ingress-combined.yaml (if domain is set, this file will be used)
                 if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml" ]]; then
