@@ -14,5 +14,6 @@ matrix:
     declination:
         - name: no-domain
           desc: Setup chart in production-like setup with Ingress and TLS.
-        - name: domain
-          desc: Setup chart in production-like setup without Ingress and TLS.
+          # TODO: revert
+          # - name: domain
+          #   desc: Setup chart in production-like setup without Ingress and TLS.
