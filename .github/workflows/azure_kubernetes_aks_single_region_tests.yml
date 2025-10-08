@@ -673,6 +673,14 @@ jobs:
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
 
+            - name: 🔬🚨 Get failed certificate info
+              if: failure() && matrix.declination.name == 'domain'
+              run: |
+                  set -euo pipefail
+
+                  kubectl -n "$CAMUNDA_NAMESPACE" get certificates
+                  kubectl -n "$CAMUNDA_NAMESPACE" describe certificates
+
             - name: 🔬🚨 Get failed Pods info
               if: failure()
               run: |
