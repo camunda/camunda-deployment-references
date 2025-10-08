@@ -100,6 +100,9 @@ connectors:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-connectors-client-token
 
+optimize:
+    enabled: true
+
 orchestration:
     # Configure OIDC for orchestration
     security:
