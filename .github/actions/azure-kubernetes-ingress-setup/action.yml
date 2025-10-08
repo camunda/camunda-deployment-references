@@ -100,20 +100,16 @@ runs:
               export AZURE_SUBSCRIPTION_ID="${{ inputs.azure-subscription-id }}"
               ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/external-dns-azure-config.sh
 
-              # Install cert-manager with appropriate default issuer
-              if [[ "${{ inputs.use-wildcard-cert }}" == "true" ]]; then
-                  echo "⏭️  Skipping cert-manager issuer installation - using wildcard certificate from Vault"
-              else
-                  echo "Installing cert-manager CRDs..."
-                  ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
-                  echo "Installing cert-manager with ACME issuer as default..."
-                  ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-cert-manager.sh
+              echo "Installing cert-manager CRDs..."
+              ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
-                  echo "Installing ACME/Let's Encrypt issuer..."
-                  export AZURE_DNS_ZONE="${{ inputs.tld }}"
-                  ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-cert-manager-issuer.sh
-              fi
+              echo "Installing cert-manager with ACME issuer as default..."
+              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-cert-manager.sh
+
+              echo "Installing ACME/Let's Encrypt issuer..."
+              export AZURE_DNS_ZONE="${{ inputs.tld }}"
+              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-cert-manager-issuer.sh
 
               echo "✅ Ingress setup completed successfully for AKS cluster."
 

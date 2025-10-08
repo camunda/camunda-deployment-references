@@ -110,20 +110,15 @@ runs:
               export EXTERNAL_DNS_OWNER_ID="external-dns-${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
               ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-external-dns.sh
 
-              # Install cert-manager issuer (only for ACME mode)
-              if [[ "${{ inputs.use-wildcard-cert }}" != "true" ]]; then
-                  # Install cert-manager CRDs
-                  echo "Installing cert-manager CRDs..."
-                  ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
+              # Install cert-manager CRDs
+              echo "Installing cert-manager CRDs..."
+              ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
-                  echo "Installing cert-manager..."
-                  ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager.sh
+              echo "Installing cert-manager..."
+              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager.sh
 
-                  echo "Installing ACME/Let's Encrypt issuer..."
-                  ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager-issuer.sh
-              else
-                  echo "⏭️  Skipping cert-manager issuer installation - using wildcard certificate from Vault"
-              fi
+              echo "Installing ACME/Let's Encrypt issuer..."
+              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager-issuer.sh
 
               echo "✅ Ingress setup completed successfully for EKS cluster."
 
