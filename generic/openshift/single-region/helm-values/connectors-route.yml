@@ -1,13 +1,14 @@
 ---
 connectors:
     env:
-        - name: CAMUNDA_CLIENT_GRPCADDRESS
-          value: https://${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local:26500
-        - name: CAMUNDA_CLIENT_RESTADDRESS
-          value: http://${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local:8080
-        - name: CAMUNDA_CLIENT_CACERTIFICATEPATH
+        - name: CAMUNDA_API_GRPCADDRESS
+          value: https://${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local
+        - name: CAMUNDA_API_GRPCPORT
+          value: '26500'
+        - name: CAMUNDA_API_RESTADDRESS
+          value: https://${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${CAMUNDA_NAMESPACE}.svc.cluster.local:8080
+        - name: CAMUNDA_API_CACERTIFICATEPATH
           value: /usr/local/certificates/tls.crt
-
     extraVolumeMounts:
         - name: certificate
           mountPath: /usr/local/certificates/tls.crt
