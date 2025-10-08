@@ -7,18 +7,19 @@ matrix:
           version: 4.19.7
           clusterName: op-based # cluster name for operator-based tests
           type: openshift
-        - name: EKS Latest
-          schedule_only: false
-          # renovate: datasource=github-releases depName=kubernetes/kubernetes versioning=kubernetes
-          clusterName: op-based-eks # cluster name for operator-based EKS tests
-          type: eks
+          # - name: EKS Latest
+          #   schedule_only: false
+          #   # renovate: datasource=github-releases depName=kubernetes/kubernetes versioning=kubernetes
+          #   clusterName: op-based-eks # cluster name for operator-based EKS tests
+          #   type: eks
 
     scenario:
         - name: operator-based
           shortName: opb
 
+    # TODO: revert
+    # - name: no-domain
+    #   desc: Setup operator-basedc stack without domain configuration.
     declination:
-        - name: no-domain
-          desc: Setup operator-based stack without domain configuration.
         - name: domain
           desc: Setup operator-based stack with domain configuration.
