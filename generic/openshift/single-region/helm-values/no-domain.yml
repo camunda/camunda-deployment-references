@@ -3,9 +3,9 @@ global:
     identity:
 
         auth:
-            issuerBackendUrl: http://${CAMUNDA_RELEASE_NAME}-keycloak:80/auth/realms/camunda-platform
-            issuer: http://${CAMUNDA_RELEASE_NAME}-keycloak:80/auth/realms/camunda-platform
-            # using localhost:18080 -> keycloak-service:8080 (kubectl port-forward svc/keycloak-service 18080:8080)
+            issuerBackendUrl: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
+            issuer: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
+            # using localhost:18080 -> keycloak-service:80 (kubectl port-forward svc/keycloak-service 18080:80)
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
             identity:

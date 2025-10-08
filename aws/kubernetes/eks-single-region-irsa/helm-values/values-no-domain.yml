@@ -21,8 +21,8 @@ global:
             enabled: true
             type: KEYCLOAK
 
-            issuerBackendUrl: http://${CAMUNDA_RELEASE_NAME}-keycloak:80/auth/realms/camunda-platform
-            issuer: http://${CAMUNDA_RELEASE_NAME}-keycloak:80/auth/realms/camunda-platform
+            issuerBackendUrl: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
+            issuer: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
             # using localhost:18080 -> camunda-keycloak:80
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
