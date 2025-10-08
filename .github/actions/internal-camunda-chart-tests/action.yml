@@ -105,6 +105,25 @@ runs:
               path: ${{ inputs.tests-camunda-helm-chart-repo-path }}
               fetch-depth: 0
 
+        - name: 🔧 Configure service references
+          shell: bash
+          env:
+              CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name }}
+          run: |
+              set -euo pipefail
+
+              # Configure Keycloak service reference
+              KEYCLOAK_SERVICE_INPUT="${{ inputs.keycloak-service-name }}"
+              KEYCLOAK_TARGET="${KEYCLOAK_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-keycloak:8080}"
+
+              # Configure Elasticsearch service reference
+              ELASTICSEARCH_SERVICE_INPUT="${{ inputs.elasticsearch-service-name }}"
+              ELASTICSEARCH_TARGET="${ELASTICSEARCH_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-elasticsearch:9200}"
+
+              # Export service configurations for subsequent steps
+              echo "KEYCLOAK_TARGET=$KEYCLOAK_TARGET" | tee -a "$GITHUB_ENV"
+              echo "ELASTICSEARCH_TARGET=$ELASTICSEARCH_TARGET" | tee -a "$GITHUB_ENV"
+
         - name: 🧪 TESTS - Set variables
           if: ${{ inputs.enable-helm-chart-tests == 'true' }}
           shell: bash
@@ -151,13 +170,7 @@ runs:
               if [[ "${{ inputs.enable-helm-chart-tests }}" == "true" ]]; then
                 find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i "s/integration/$CAMUNDA_RELEASE_NAME/g"
 
-                # Configure service references using yq for precise YAML updates
-                KEYCLOAK_SERVICE_INPUT="${{ inputs.keycloak-service-name }}"
-                KEYCLOAK_TARGET="${KEYCLOAK_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-keycloak:8080}"
-
-                ELASTICSEARCH_SERVICE_INPUT="${{ inputs.elasticsearch-service-name }}"
-                ELASTICSEARCH_TARGET="${ELASTICSEARCH_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-elasticsearch:9200}"
-
+                # Use pre-configured service references from environment
                 echo "Updating service references:"
                 echo "  Keycloak: http://$KEYCLOAK_TARGET"
                 echo "  Elasticsearch: http://$ELASTICSEARCH_TARGET"
@@ -332,21 +345,13 @@ runs:
                 # Without domain:
                 source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 
-                # Use configurable Keycloak service name or fallback to default pattern
-                KEYCLOAK_SERVICE_INPUT="${{ inputs.keycloak-service-name }}"
-
-                if [[ -z "$KEYCLOAK_SERVICE_INPUT" ]]; then
-                  KEYCLOAK_SERVICE_NAME="${CAMUNDA_RELEASE_NAME}-keycloak"
-                  KEYCLOAK_SERVICE_PORT="80"  # Default port for Helm-based services
+                # Parse Keycloak service name and port from KEYCLOAK_TARGET
+                if [[ "$KEYCLOAK_TARGET" == *":"* ]]; then
+                  KEYCLOAK_SERVICE_NAME="${KEYCLOAK_TARGET%:*}"
+                  KEYCLOAK_SERVICE_PORT="${KEYCLOAK_TARGET#*:}"
                 else
-                  # Parse service name and port from input (same logic as above)
-                  if [[ "$KEYCLOAK_SERVICE_INPUT" == *":"* ]]; then
-                    KEYCLOAK_SERVICE_NAME="${KEYCLOAK_SERVICE_INPUT%:*}"  # Extract service name
-                    KEYCLOAK_SERVICE_PORT="${KEYCLOAK_SERVICE_INPUT#*:}"  # Extract port
-                  else
-                    KEYCLOAK_SERVICE_NAME="$KEYCLOAK_SERVICE_INPUT"
-                    KEYCLOAK_SERVICE_PORT="80"  # Default port if not specified
-                  fi
+                  KEYCLOAK_SERVICE_NAME="$KEYCLOAK_TARGET"
+                  KEYCLOAK_SERVICE_PORT="8080"
                 fi
 
                 echo "Using Keycloak service: $KEYCLOAK_SERVICE_NAME:$KEYCLOAK_SERVICE_PORT"
