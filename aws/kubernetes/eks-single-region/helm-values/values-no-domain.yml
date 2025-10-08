@@ -26,7 +26,7 @@ global:
 
             issuerBackendUrl: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
             issuer: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
-            # using localhost:18080 -> camunda-keycloak:80
+            # using localhost:18080 -> camunda-keycloak:8080
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
             admin:
@@ -72,6 +72,10 @@ identityKeycloak:
         # This is required to ensure proper issuer of JWT tokens
         - name: KC_HOSTNAME
           value: ${CAMUNDA_RELEASE_NAME}-keycloak
+
+    ports:
+        # match the internal keycloak port to the external port for JWT Tokens issuer
+        http: 8080
 
 identity:
     enabled: true
