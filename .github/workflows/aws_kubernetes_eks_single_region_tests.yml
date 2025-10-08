@@ -711,6 +711,14 @@ jobs:
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
 
+            - name: 🔬🚨 Get failed certificate info
+              if: failure() && matrix.declination.name == 'domain'
+              run: |
+                  set -euo pipefail
+
+                  kubectl -n "$CAMUNDA_NAMESPACE" get certificates
+                  kubectl -n "$CAMUNDA_NAMESPACE" describe certificates
+
             - name: 🔬🚨 Get failed Pods info
               timeout-minutes: 10
               if: failure()
