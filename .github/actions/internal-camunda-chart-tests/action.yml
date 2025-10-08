@@ -151,48 +151,32 @@ runs:
               if [[ "${{ inputs.enable-helm-chart-tests }}" == "true" ]]; then
                 find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i "s/integration/$CAMUNDA_RELEASE_NAME/g"
 
-                # Replace Keycloak service references with custom service name
+                # Configure service references using yq for precise YAML updates
                 KEYCLOAK_SERVICE_INPUT="${{ inputs.keycloak-service-name }}"
-                # Use provided value or default to ${CAMUNDA_RELEASE_NAME}-keycloak:8080
                 KEYCLOAK_TARGET="${KEYCLOAK_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-keycloak:8080}"
-                echo "Replacing Keycloak references with: $KEYCLOAK_TARGET"
 
-                # Replace keycloak patterns with our target using generic regex patterns
-                find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0 | \
-                  xargs -0 sed -i \
-                    -e "s|\(http://\)\?\(${CAMUNDA_RELEASE_NAME}-keycloak\|camunda-keycloak\)\(:[0-9]\+\)\?|\1${KEYCLOAK_TARGET}|g"
-
-                echo "✅ Keycloak service references updated to: $KEYCLOAK_TARGET"
-
-                # Debug: Show what Keycloak references exist after modification
-                echo "Current Keycloak references in test files:"
-                grep -r "keycloak" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -10 || echo "No keycloak references found"
-                echo ""
-                echo "JSON baseURLs configuration:"
-                grep -r "baseURLs" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -3 || echo "No baseURLs found"
-
-                # Replace Elasticsearch service references with custom service name if provided
                 ELASTICSEARCH_SERVICE_INPUT="${{ inputs.elasticsearch-service-name }}"
-                if [[ -n "$ELASTICSEARCH_SERVICE_INPUT" && "$ELASTICSEARCH_SERVICE_INPUT" != "${CAMUNDA_RELEASE_NAME}-elasticsearch" ]]; then
-                  echo "Processing Elasticsearch service configuration: $ELASTICSEARCH_SERVICE_INPUT"
+                ELASTICSEARCH_TARGET="${ELASTICSEARCH_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-elasticsearch:9200}"
 
-                  # Use the service name with port directly (expected format: service-name:port)
-                  ELASTICSEARCH_TARGET="$ELASTICSEARCH_SERVICE_INPUT"
-                  echo "Replacing Elasticsearch references with: $ELASTICSEARCH_TARGET"
+                echo "Updating service references:"
+                echo "  Keycloak: http://$KEYCLOAK_TARGET"
+                echo "  Elasticsearch: http://$ELASTICSEARCH_TARGET"
 
-                  # Replace elasticsearch patterns with our target using generic regex patterns
-                  find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0 | \
-                    xargs -0 sed -i \
-                      -e "s|\(https\?://\)\?\(${CAMUNDA_RELEASE_NAME}-elasticsearch\|camunda-elasticsearch\)\(:[0-9]\+\)\?|\1${ELASTICSEARCH_TARGET}|g"
+                # Update variables-default.yaml
+                yq eval ".preflightVars.baseURLs.keycloak = \"http://${KEYCLOAK_TARGET}\"" -i \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+                yq eval ".preflightVars.baseURLs.elasticsearch = \"http://${ELASTICSEARCH_TARGET}\"" -i \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
 
-                  echo "✅ Elasticsearch service references updated to: $ELASTICSEARCH_TARGET"
-
-                  # Debug: Show what Elasticsearch references exist after modification
-                  echo "Current Elasticsearch references in test files:"
-                  grep -r "elasticsearch" "$TEST_CHART_DIR_STATIC/test/integration/" 2>/dev/null | head -10 || echo "No elasticsearch references found"
-                else
-                  echo "Using default Elasticsearch service name: ${CAMUNDA_RELEASE_NAME}-elasticsearch"
+                # Update variables-ingress-combined.yaml (if domain is set, this file will be used)
+                if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml" ]]; then
+                  yq eval ".coreVars.baseURLs.keycloak = \"http://${KEYCLOAK_TARGET}\"" -i \
+                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                  yq eval ".coreVars.baseURLs.elasticsearch = \"http://${ELASTICSEARCH_TARGET}\"" -i \
+                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
                 fi
+
+                echo "✅ Service references updated successfully"
 
                 echo "Configure Venom tests"
                 # (adapted from https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L56)
