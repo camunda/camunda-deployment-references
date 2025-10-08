@@ -870,9 +870,7 @@
                   {}
                 ],
                 "certificate_authority": [],
-                "compute_config": [
-                  {}
-                ],
+                "compute_config": [],
                 "enabled_cluster_log_types": [
                   false,
                   false,
@@ -891,20 +889,12 @@
                 "identity": [],
                 "kubernetes_network_config": [
                   {
-                    "elastic_load_balancing": [
-                      {}
-                    ]
+                    "elastic_load_balancing": []
                   }
                 ],
                 "outpost_config": [],
                 "remote_network_config": [],
-                "storage_config": [
-                  {
-                    "block_storage": [
-                      {}
-                    ]
-                  }
-                ],
+                "storage_config": [],
                 "tags": {},
                 "tags_all": {},
                 "upgrade_policy": [],
@@ -928,13 +918,6 @@
                   }
                 ],
                 "bootstrap_self_managed_addons": false,
-                "compute_config": [
-                  {
-                    "enabled": false,
-                    "node_pools": null,
-                    "node_role_arn": null
-                  }
-                ],
                 "enabled_cluster_log_types": [
                   "api",
                   "audit",
@@ -953,11 +936,6 @@
                 "force_update_version": null,
                 "kubernetes_network_config": [
                   {
-                    "elastic_load_balancing": [
-                      {
-                        "enabled": false
-                      }
-                    ],
                     "ip_family": "ipv4",
                     "service_ipv4_cidr": "10.190.0.0/16"
                   }
@@ -966,15 +944,6 @@
                 "outpost_config": [],
                 "region": "eu-west-2",
                 "remote_network_config": [],
-                "storage_config": [
-                  {
-                    "block_storage": [
-                      {
-                        "enabled": false
-                      }
-                    ]
-                  }
-                ],
                 "tags": {
                   "terraform-aws-modules": "eks"
                 },
