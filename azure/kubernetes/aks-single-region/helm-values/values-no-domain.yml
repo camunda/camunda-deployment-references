@@ -63,9 +63,12 @@ identityKeycloak:
         - name: KC_HOSTNAME
           value: ${CAMUNDA_RELEASE_NAME}-keycloak
 
+    # match the internal keycloak port to the external port for JWT Tokens issuer
     ports:
-        # match the internal keycloak port to the external port for JWT Tokens issuer
         http: 8080
+    service:
+        ports:
+            http: 8080
 
 identity:
     enabled: true
