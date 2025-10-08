@@ -157,20 +157,10 @@ runs:
                 KEYCLOAK_TARGET="${KEYCLOAK_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-keycloak:8080}"
                 echo "Replacing Keycloak references with: $KEYCLOAK_TARGET"
 
-                # Ultra-generic approach: replace any keycloak pattern with our target
-                # This covers all possible variations in a single sed command per file type
+                # Replace keycloak patterns with our target using generic regex patterns
                 find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0 | \
                   xargs -0 sed -i \
-                    -e "s|${CAMUNDA_RELEASE_NAME}-keycloak:80|${KEYCLOAK_TARGET}|g" \
-                    -e "s|${CAMUNDA_RELEASE_NAME}-keycloak\"|${KEYCLOAK_TARGET}\"|g" \
-                    -e "s|${CAMUNDA_RELEASE_NAME}-keycloak|${KEYCLOAK_TARGET}|g" \
-                    -e "s|camunda-keycloak:80|${KEYCLOAK_TARGET}|g" \
-                    -e "s|camunda-keycloak\"|${KEYCLOAK_TARGET}\"|g" \
-                    -e "s|camunda-keycloak|${KEYCLOAK_TARGET}|g" \
-                    -e "s|http://${CAMUNDA_RELEASE_NAME}-keycloak|http://${KEYCLOAK_TARGET}|g" \
-                    -e "s|http://camunda-keycloak|http://${KEYCLOAK_TARGET}|g" \
-                    -e "s|\"keycloak\":\"http://[^\"]*keycloak[^\"]*\"|\"keycloak\":\"http://${KEYCLOAK_TARGET}\"|g" \
-                    -e "s|keycloak: http://[^[:space:]]*keycloak[^[:space:]]*|keycloak: http://${KEYCLOAK_TARGET}|g"
+                    -e "s|\(http://\)\?\(${CAMUNDA_RELEASE_NAME}-keycloak\|camunda-keycloak\)\(:[0-9]\+\)\?|\1${KEYCLOAK_TARGET}|g"
 
                 echo "✅ Keycloak service references updated to: $KEYCLOAK_TARGET"
 
@@ -190,23 +180,10 @@ runs:
                   ELASTICSEARCH_TARGET="$ELASTICSEARCH_SERVICE_INPUT"
                   echo "Replacing Elasticsearch references with: $ELASTICSEARCH_TARGET"
 
-                  # Ultra-generic approach: replace any elasticsearch pattern with our target
+                  # Replace elasticsearch patterns with our target using generic regex patterns
                   find "$TEST_CHART_DIR_STATIC/test/integration/" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0 | \
                     xargs -0 sed -i \
-                      -e "s|${CAMUNDA_RELEASE_NAME}-elasticsearch:9200|${ELASTICSEARCH_TARGET}|g" \
-                      -e "s|${CAMUNDA_RELEASE_NAME}-elasticsearch\"|${ELASTICSEARCH_TARGET}\"|g" \
-                      -e "s|${CAMUNDA_RELEASE_NAME}-elasticsearch|${ELASTICSEARCH_TARGET}|g" \
-                      -e "s|camunda-elasticsearch:9200|${ELASTICSEARCH_TARGET}|g" \
-                      -e "s|camunda-elasticsearch\"|${ELASTICSEARCH_TARGET}\"|g" \
-                      -e "s|camunda-elasticsearch|${ELASTICSEARCH_TARGET}|g" \
-                      -e "s|http://${CAMUNDA_RELEASE_NAME}-elasticsearch|http://${ELASTICSEARCH_TARGET}|g" \
-                      -e "s|https://${CAMUNDA_RELEASE_NAME}-elasticsearch|https://${ELASTICSEARCH_TARGET}|g" \
-                      -e "s|http://camunda-elasticsearch|http://${ELASTICSEARCH_TARGET}|g" \
-                      -e "s|https://camunda-elasticsearch|https://${ELASTICSEARCH_TARGET}|g" \
-                      -e "s|\"elasticsearch\":\"http://[^\"]*elasticsearch[^\"]*\"|\"elasticsearch\":\"http://${ELASTICSEARCH_TARGET}\"|g" \
-                      -e "s|\"elasticsearch\":\"https://[^\"]*elasticsearch[^\"]*\"|\"elasticsearch\":\"https://${ELASTICSEARCH_TARGET}|g" \
-                      -e "s|elasticsearch: http://[^[:space:]]*elasticsearch[^[:space:]]*|elasticsearch: http://${ELASTICSEARCH_TARGET}|g" \
-                      -e "s|elasticsearch: https://[^[:space:]]*elasticsearch[^[:space:]]*|elasticsearch: https://${ELASTICSEARCH_TARGET}|g"
+                      -e "s|\(https\?://\)\?\(${CAMUNDA_RELEASE_NAME}-elasticsearch\|camunda-elasticsearch\)\(:[0-9]\+\)\?|\1${ELASTICSEARCH_TARGET}|g"
 
                   echo "✅ Elasticsearch service references updated to: $ELASTICSEARCH_TARGET"
 
