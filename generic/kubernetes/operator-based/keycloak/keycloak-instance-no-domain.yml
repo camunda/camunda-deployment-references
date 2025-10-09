@@ -5,7 +5,7 @@ metadata:
     name: keycloak
 spec:
     # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<version>.*)$
-    image: docker.io/camunda/keycloak:quay-optimized-26.3.3
+    image: docker.io/camunda/keycloak:quay-optimized-26.3.2
     instances: 1
     db:
         # Use official url parameter instead of individual host/port/database

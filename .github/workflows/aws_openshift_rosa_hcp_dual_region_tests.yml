@@ -397,41 +397,53 @@ jobs:
                   echo "================================================================"
                   echo ""
 
-                  TIMEOUT_SECONDS=300
+                  MANAGEDCLUSTER_TIMEOUT=60  # Reduced timeout for ManagedCluster deletion
                   CLUSTERS=("local-cluster" "$CLUSTER_2_NAME")
 
-                  # Step 1: Delete all ManagedClusters
+                  # Step 1: Delete all ManagedClusters (aggressive mode)
                   echo "Step 1: Deleting all ManagedClusters..."
                   echo "----------------------------------------"
                   for cluster_name in "${CLUSTERS[@]}"; do
                     echo "🗑️  Deleting ManagedCluster: $cluster_name"
 
                     if oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; then
-                      CLUSTER_NAME="$cluster_name" \
-                      envsubst < ./generic/openshift/dual-region/procedure/acm/managed-cluster.yml.tpl \
-                      | oc --context "$CLUSTER_1_NAME" delete -f - \
-                      || true
 
-                      echo "⏳ Waiting for ManagedCluster '$cluster_name' to be deleted..."
+                      # Immediately remove finalizers (don't wait for graceful deletion in cleanup scenario)
+                      echo "  Removing finalizers immediately..."
+                      oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" \
+                        --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+
+                      # Now delete with short timeout
+                      echo "  Deleting resource..."
+                      oc --context "$CLUSTER_1_NAME" delete managedcluster "$cluster_name" \
+                        --timeout=30s --grace-period=0 2>/dev/null || true
+
+                      # Verify deletion (short wait)
+                      echo "⏳ Verifying deletion of '$cluster_name'..."
                       SECONDS=0
                       while oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; do
-                        if [ $((SECONDS % 30)) -eq 0 ]; then
-                          echo "  Still deleting '$cluster_name'... (${SECONDS}s elapsed)"
-                          oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" \
-                            -o jsonpath='{.status.conditions[?(@.type=="ManagedClusterConditionAvailable")].message}' \
-                            2>/dev/null || true
+                        if [ $((SECONDS % 10)) -eq 0 ]; then
+                          echo "  Still waiting... (${SECONDS}s elapsed)"
                         fi
-                        sleep 5
+                        sleep 2
 
-                        if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
-                          echo "  ⛔ Timeout reached - enforcing finalizer removal"
-                          oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                        if [ "$SECONDS" -ge "$MANAGEDCLUSTER_TIMEOUT" ]; then
+                          echo "  ⚠️  ManagedCluster still present after $MANAGEDCLUSTER_TIMEOUT seconds"
+                          echo "  Forcing final removal..."
+                          oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" \
+                            --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+                          oc --context "$CLUSTER_1_NAME" delete managedcluster "$cluster_name" \
+                            --grace-period=0 --force 2>/dev/null || true
                           sleep 5
                           break
                         fi
                       done
 
-                      echo "  ✅ ManagedCluster '$cluster_name' deleted"
+                      if ! oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; then
+                        echo "  ✅ ManagedCluster '$cluster_name' deleted"
+                      else
+                        echo "  ⚠️  ManagedCluster '$cluster_name' still exists - continuing anyway"
+                      fi
                     else
                       echo "  ℹ️  ManagedCluster '$cluster_name' not found - skipping"
                     fi
