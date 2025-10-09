@@ -1,24 +1,24 @@
 ---
+# TODO: remove! <8.8>
 identity:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+        tag: 8.8.0
 
 connectors:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+        tag: 8.8.0-rc6
 
 webModeler:
     image:
-        tag: SNAPSHOT
+        tag: 8.8.0-rc4
 
 optimize:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+        tag: 8.8.0-rc1
 
 orchestration:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
-
+        tag: 8.8.0-rc4
 console:
     image:
-        tag: 8.8-SNAPSHOT # TODO: remove! <8.8>
+        tag: 8.8.3

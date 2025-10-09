@@ -23,13 +23,6 @@ orchestration:
 
     # mount the Service certificate in the pod
     env:
-        - name: SERVER_SSL_ENABLED
-          value: 'true'
-        - name: SERVER_SSL_CERTIFICATE
-          value: /usr/local/camunda/config/tls.crt
-        - name: SERVER_SSL_CERTIFICATEPRIVATEKEY
-          value: /usr/local/camunda/config/tls.key
-
         - name: CAMUNDA_API_GRPC_SSL_ENABLED
           value: 'true'
         - name: CAMUNDA_API_GRPC_SSL_CERTIFICATE
