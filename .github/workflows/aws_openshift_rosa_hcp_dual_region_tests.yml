@@ -633,26 +633,83 @@ jobs:
                   else
                     echo "  ℹ️  MultiClusterEngine CRD not found - skipping"
                   fi
-                  echo ""                  # Step 8: Delete open-cluster-management namespace
+                  echo ""
+
+                  # Step 8: Delete open-cluster-management namespace (with thorough verification)
                   echo "Step 8: Deleting open-cluster-management namespace..."
                   echo "------------------------------------------------------"
                   if oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management >/dev/null 2>&1; then
-                    echo "🗑️  Deleting namespace: open-cluster-management"
+                    echo "🗑️  Initiating deletion of namespace: open-cluster-management"
+
+                    # First, try graceful deletion
                     oc --context="$CLUSTER_1_NAME" delete namespace open-cluster-management --timeout=120s || {
-                      echo "  ⚠️  Normal deletion failed, forcing..."
-                      oc --context="$CLUSTER_1_NAME" patch namespace open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                      # Wait a bit for the patch to take effect
-                      sleep 10
+                      echo "  ⚠️  Graceful deletion timed out, investigating..."
+
+                      # Check namespace status
+                      ns_status=$(oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
+                      echo "  Namespace status: $ns_status"
+
+                      if [ "$ns_status" = "Terminating" ]; then
+                        echo "  Namespace stuck in Terminating state, removing finalizers..."
+
+                        # Remove finalizers from all resources in the namespace
+                        echo "  Removing finalizers from all pods..."
+                        for pod in $(oc --context="$CLUSTER_1_NAME" get pods -n open-cluster-management -o name 2>/dev/null); do
+                          oc --context="$CLUSTER_1_NAME" patch "$pod" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+                        done
+
+                        echo "  Removing finalizers from all deployments..."
+                        for deploy in $(oc --context="$CLUSTER_1_NAME" get deployments -n open-cluster-management -o name 2>/dev/null); do
+                          oc --context="$CLUSTER_1_NAME" patch "$deploy" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+                        done
+
+                        # Finally remove namespace finalizers
+                        echo "  Removing namespace finalizers..."
+                        oc --context="$CLUSTER_1_NAME" patch namespace open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+
+                        sleep 5
+                      fi
                     }
 
-                    # Verify namespace is gone
+                    # Wait for namespace to be completely gone
+                    echo "⏳ Waiting for namespace to be completely deleted..."
+                    SECONDS=0
+                    while oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management >/dev/null 2>&1; do
+                      if [ $((SECONDS % 15)) -eq 0 ]; then
+                        ns_phase=$(oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o jsonpath='{.status.phase}' 2>/dev/null || echo "Deleted")
+                        echo "  Still waiting... namespace phase: $ns_phase (${SECONDS}s elapsed)"
+
+                        # Show what's preventing deletion
+                        if [ $((SECONDS % 30)) -eq 0 ]; then
+                          echo "  Resources still in namespace:"
+                          oc --context="$CLUSTER_1_NAME" api-resources --verbs=list --namespaced -o name 2>/dev/null | \
+                            xargs -n 1 oc --context="$CLUSTER_1_NAME" get -n open-cluster-management --ignore-not-found --show-kind 2>/dev/null | \
+                            head -20 || true
+                        fi
+                      fi
+                      sleep 3
+
+                      if [ $SECONDS -ge 180 ]; then
+                        echo "  ⛔ Timeout after 3 minutes - forcing final removal"
+                        # Last resort: remove all finalizers from namespace
+                        oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o json 2>/dev/null | \
+                          jq '.metadata.finalizers = []' | \
+                          oc --context="$CLUSTER_1_NAME" replace --raw "/api/v1/namespaces/open-cluster-management/finalize" -f - || true
+                        sleep 10
+                        break
+                      fi
+                    done
+
+                    # Final verification
                     if ! oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management >/dev/null 2>&1; then
-                      echo "  ✅ Namespace deleted successfully"
+                      echo "  ✅ Namespace completely deleted"
                     else
-                      echo "  ⚠️  Namespace still exists - may require manual cleanup"
+                      echo "  ⚠️  WARNING: Namespace still exists after cleanup attempts!"
+                      echo "  This may cause ACM installation to fail. Manual intervention may be required."
+                      oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o yaml || true
                     fi
                   else
-                    echo "  ℹ️  Namespace not found - skipping"
+                    echo "  ℹ️  Namespace not found - already deleted"
                   fi
                   echo ""
 
