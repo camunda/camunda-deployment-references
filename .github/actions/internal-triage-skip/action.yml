@@ -34,9 +34,7 @@ runs:
                 echo "[debug] pull_request.base.ref='${{ github.event.pull_request.base.ref }}'"
                 echo "[debug] pull_request.title='${{ github.event.pull_request.title }}'"
                 echo "[debug] Labels on PR:"
-                if [[ -f "$GITHUB_EVENT_PATH" ]]; then
-                  jq -r '.pull_request.labels[]?.name' "$GITHUB_EVENT_PATH" || true
-                fi
+                echo '${{ toJSON(github.event.pull_request.labels.*.name) }}' | jq -r '.[]' || true
               elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
                 echo "[debug] workflow_dispatch inputs (raw JSON):"
                 if [[ -f "$GITHUB_EVENT_PATH" ]]; then
@@ -65,7 +63,7 @@ runs:
               workflow_file_name=$(basename "$workflow_file_name" | sed 's/\(.*\)\(\.yaml\|\.yml\)$/\1/')
               echo "workflow_file_name=$workflow_file_name" | tee -a "$GITHUB_ENV"
 
-              labels=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
+              labels=$(echo '${{ toJSON(github.event.pull_request.labels.*.name) }}' | jq -r '.[]')
               workflow_labels="skip_$workflow_file_name"
 
               if echo "$labels" | grep -qE "$workflow_labels|testing-ci-not-necessary"; then
