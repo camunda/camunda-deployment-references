@@ -530,7 +530,7 @@ jobs:
                   fi
                   echo ""
 
-                  # Step 5: Delete MultiClusterHub
+                  # Step 5: Delete MultiClusterHub (aggressive cleanup)
                   echo "Step 5: Deleting MultiClusterHub..."
                   echo "------------------------------------"
                   if oc --context="$CLUSTER_1_NAME" get clusterrole open-cluster-management:cluster-manager-admin >/dev/null 2>&1; then
@@ -539,27 +539,38 @@ jobs:
                   fi
 
                   if oc --context="$CLUSTER_1_NAME" get crd multiclusterhubs.operator.open-cluster-management.io >/dev/null 2>&1; then
-                    echo "🗑️  Deleting MultiClusterHub resource"
-                    oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/multi-cluster-hub.yml --timeout=60s || true
+                    # Check if MultiClusterHub exists
+                    if oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management >/dev/null 2>&1; then
+                      echo "🗑️  MultiClusterHub found - forcing immediate deletion"
 
-                    echo "⏳ Waiting for MultiClusterHub to be fully deleted..."
-                    SECONDS=0
-                    while oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management >/dev/null 2>&1; do
-                      if [ $((SECONDS % 30)) -eq 0 ]; then
-                        echo "  Still deleting MultiClusterHub... (${SECONDS}s elapsed)"
-                      fi
-                      sleep 5
+                      # Immediate finalizer removal (don't wait for graceful deletion)
+                      echo "  Removing finalizers immediately..."
+                      for mch in $(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o name 2>/dev/null); do
+                        oc --context="$CLUSTER_1_NAME" patch "$mch" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                      done
 
-                      if [ $SECONDS -ge 180 ]; then
-                        echo "  ⛔ Timeout reached - enforcing finalizer removal"
-                        for mch in $(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o name 2>/dev/null); do
-                          oc --context="$CLUSTER_1_NAME" patch "$mch" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                        done
-                        sleep 5
-                        break
-                      fi
-                    done
-                    echo "  ✅ MultiClusterHub deleted"
+                      # Force delete with zero grace period
+                      echo "  Force deleting resource..."
+                      oc --context="$CLUSTER_1_NAME" delete multiclusterhub --all -n open-cluster-management --grace-period=0 --force 2>/dev/null || true
+
+                      # Verify deletion (short timeout since we forced it)
+                      echo "⏳ Verifying deletion..."
+                      SECONDS=0
+                      while oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management >/dev/null 2>&1; do
+                        if [ $((SECONDS % 10)) -eq 0 ]; then
+                          echo "  Still waiting for deletion... (${SECONDS}s elapsed)"
+                        fi
+                        sleep 2
+
+                        if [ $SECONDS -ge 60 ]; then
+                          echo "  ⚠️  MultiClusterHub still present after force delete - will clean namespace"
+                          break
+                        fi
+                      done
+                      echo "  ✅ MultiClusterHub deletion complete"
+                    else
+                      echo "  ℹ️  MultiClusterHub not found - already deleted"
+                    fi
                   else
                     echo "  ℹ️  MultiClusterHub CRD not found - skipping"
                   fi
@@ -583,42 +594,46 @@ jobs:
                   fi
                   echo ""
 
-                  # Step 7: Delete MultiClusterEngine
+                  # Step 7: Delete MultiClusterEngine (aggressive cleanup)
                   echo "Step 7: Deleting MultiClusterEngine..."
                   echo "---------------------------------------"
                   if oc --context="$CLUSTER_1_NAME" get crd multiclusterengines.multicluster.openshift.io >/dev/null 2>&1; then
-                    echo "🗑️  Deleting MultiClusterEngine resources"
+                    # Check if MultiClusterEngine exists
+                    if oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management >/dev/null 2>&1; then
+                      echo "🗑️  MultiClusterEngine found - forcing immediate deletion"
 
-                    # Delete all MultiClusterEngine instances
-                    for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o name 2>/dev/null); do
-                      echo "  Deleting $mce"
-                      oc --context="$CLUSTER_1_NAME" delete "$mce" -n open-cluster-management --timeout=60s || true
-                    done
+                      # Immediate finalizer removal
+                      echo "  Removing finalizers immediately..."
+                      for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o name 2>/dev/null); do
+                        oc --context="$CLUSTER_1_NAME" patch "$mce" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                      done
 
-                    echo "⏳ Waiting for MultiClusterEngine to be fully deleted..."
-                    SECONDS=0
-                    while oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management >/dev/null 2>&1; do
-                      if [ $((SECONDS % 30)) -eq 0 ]; then
-                        echo "  Still deleting MultiClusterEngine... (${SECONDS}s elapsed)"
-                      fi
-                      sleep 5
+                      # Force delete with zero grace period
+                      echo "  Force deleting resource..."
+                      oc --context="$CLUSTER_1_NAME" delete multiclusterengine --all -n open-cluster-management --grace-period=0 --force 2>/dev/null || true
 
-                      if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
-                        echo "  ⛔ Timeout reached - enforcing finalizer removal"
-                        for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o name 2>/dev/null); do
-                          oc --context="$CLUSTER_1_NAME" patch "$mce" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                        done
-                        sleep 5
-                        break
-                      fi
-                    done
-                    echo "  ✅ MultiClusterEngine deleted"
+                      # Verify deletion (short timeout)
+                      echo "⏳ Verifying deletion..."
+                      SECONDS=0
+                      while oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management >/dev/null 2>&1; do
+                        if [ $((SECONDS % 10)) -eq 0 ]; then
+                          echo "  Still waiting for deletion... (${SECONDS}s elapsed)"
+                        fi
+                        sleep 2
+
+                        if [ "$SECONDS" -ge 60 ]; then
+                          echo "  ⚠️  MultiClusterEngine still present after force delete - will clean namespace"
+                          break
+                        fi
+                      done
+                      echo "  ✅ MultiClusterEngine deletion complete"
+                    else
+                      echo "  ℹ️  MultiClusterEngine not found - already deleted"
+                    fi
                   else
                     echo "  ℹ️  MultiClusterEngine CRD not found - skipping"
                   fi
-                  echo ""
-
-                  # Step 8: Delete open-cluster-management namespace
+                  echo ""                  # Step 8: Delete open-cluster-management namespace
                   echo "Step 8: Deleting open-cluster-management namespace..."
                   echo "------------------------------------------------------"
                   if oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management >/dev/null 2>&1; then
