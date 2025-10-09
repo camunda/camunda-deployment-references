@@ -127,7 +127,7 @@ webModeler:
             user: ${DB_WEBMODELER_USERNAME}
             secret:
                 existingSecret: webmodeler-postgres-secret
-                existingSecretPasswordKey: password
+                existingSecretKey: password
 
         mail:
             secret:
