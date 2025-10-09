@@ -101,6 +101,7 @@ webModeler:
 
     restapi:
         externalDatabase:
+            enabled: true
             url: jdbc:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?sslmode=require
             user: ${DB_WEBMODELER_USERNAME}
             secret:
@@ -112,6 +113,10 @@ webModeler:
                 existingSecret: identity-secret-for-components
                 existingSecretKey: smtp-password
             fromAddress: changeme@example.com
+
+
+webModelerPostgresql:
+    enabled: false
 
 optimize:
     enabled: true

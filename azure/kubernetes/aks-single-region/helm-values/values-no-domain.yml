@@ -118,6 +118,7 @@ webModeler:
 
     restapi:
         externalDatabase:
+            enabled: true
             url: jdbc:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?sslmode=require
             user: ${DB_WEBMODELER_USERNAME}
             secret:
@@ -131,8 +132,6 @@ webModeler:
             fromAddress: changeme@example.com
 
 webModelerPostgresql:
-    # Will deploy a postgresql datbase for webModeler.
-    # If you enable webModeler, you either need to turn it true or use an external database
     enabled: false
 
 console:
