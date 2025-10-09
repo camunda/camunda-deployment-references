@@ -503,7 +503,7 @@ jobs:
 
 
             - name: 🚢 Configure ACM
-              timeout-minutes: 20
+              timeout-minutes: 30
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
               run: |
@@ -533,32 +533,73 @@ jobs:
                     exit 1
                   fi
 
-                  ./verify-managed-cluster-set.sh
+                  # Initial verification (should be quick)
+                  timeout 60 ./verify-managed-cluster-set.sh || echo "Initial verification timeout - continuing with import"
 
-                  echo "Import Cluster 2 in the ManagedClusterSet"
+                  echo "Import Clusters in the ManagedClusterSet"
                   if ! ./initiate-cluster-set.sh 2>&1; then
-                    echo "Cluster 2 import to ManagedClusterSet failed."
+                    echo "Cluster import to ManagedClusterSet failed."
+                    echo ""
+                    echo "Running diagnostics..."
+                    ./debug-managed-cluster.sh local-cluster || true
+                    ./debug-managed-cluster.sh "$CLUSTER_2_NAME" || true
                     exit 1
                   fi
 
+                  echo "Verify all clusters are healthy (with timeout and retry logic)"
                   ./verify-managed-cluster-set.sh
 
             - name: 🐠 Configure Submariner
-              timeout-minutes: 20
+              timeout-minutes: 30
               run: |
                   set -euo pipefail
 
-                  echo "Install Submariner"
+                  echo "Configure Submariner"
                   cd ./generic/openshift/dual-region/procedure/submariner/
 
+                  echo "Running pre-flight checks..."
+                  if ! ./preflight-check.sh; then
+                    echo "⚠️  Pre-flight checks failed!"
+                    echo "Attempting to wait for clusters to become healthy..."
+
+                    cd ../acm/
+                    if ! ./verify-managed-cluster-set.sh; then
+                      echo "❌ Clusters are not healthy. Cannot proceed with Submariner installation."
+                      echo ""
+                      echo "Running diagnostics..."
+                      ./debug-managed-cluster.sh local-cluster || true
+                      ./debug-managed-cluster.sh "$CLUSTER_2_NAME" || true
+                      exit 1
+                    fi
+                    cd ../submariner/
+
+                    echo "Re-running pre-flight checks after waiting for clusters..."
+                    if ! ./preflight-check.sh; then
+                      echo "❌ Pre-flight checks still failing. Aborting Submariner installation."
+                      exit 1
+                    fi
+                  fi
+
+                  echo "Listing available broker nodes..."
                   ./list-nodes-brokers.sh
+
+                  echo "Labeling broker nodes..."
                   ./label-nodes-brokers.sh
+
+                  echo "Verifying node labels..."
+                  ./list-nodes-brokers.sh
+
+                  echo "Installing Submariner..."
                   ./install-submariner.sh
+
+                  echo "Verifying Submariner installation..."
                   ./verify-submariner.sh
 
+                  echo "Installing subctl CLI..."
                   source ./install-subctl.sh
                   echo "PATH=$PATH" | tee -a "$GITHUB_ENV"
 
+                  echo "Verifying subctl..."
                   ./verify-subctl.sh
 
             - name: 🏗️ Retrieve exported Environment values from outputs

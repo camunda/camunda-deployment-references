@@ -138,7 +138,7 @@ jobs:
                   ref_arch: ${{ inputs.ref-arch }}
                   # TODO: revert
                   # cluster_name: ${{ inputs.cluster_name }}
-                  cluster_name: leiakz
+                  cluster_name: leiaky
 
 
     prepare-clusters:
