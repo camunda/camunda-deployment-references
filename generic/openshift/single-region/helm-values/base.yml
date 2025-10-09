@@ -61,6 +61,10 @@ identity:
     enabled: true
     firstUser:
         enabled: true
+        username: admin
+        email: admin@camunda.local
+        firstName: Admin
+        lastName: User
         secret:
             existingSecret: identity-secret-for-components
             existingSecretKey: identity-first-user-password

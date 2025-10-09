@@ -24,8 +24,8 @@ webModeler:
 
         # Mail configuration (required)
         mail:
-            fromAddress: noreply@camunda-demo.local
-            fromName: Camunda Platform Demo
+            fromAddress: noreply@camunda.local
+            fromName: Camunda Platform
 
 webModelerPostgresql:
     enabled: false
