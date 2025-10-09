@@ -19,6 +19,9 @@ spec:
               # Disable deprecation warnings - https://github.com/camunda/camunda/issues/26285
               # yamllint disable-line
               logger.org.elasticsearch.deprecation: 'off'
+              # Set the number of replica shards (2 replicas = 3 total copies of data)
+              # yamllint disable-line
+              index.number_of_replicas: 2
           podTemplate:
               spec:
                   affinity:
@@ -54,4 +57,4 @@ spec:
                     accessModes: [ReadWriteOnce]
                     resources:
                         requests:
-                            storage: 15Gi
+                            storage: 64Gi

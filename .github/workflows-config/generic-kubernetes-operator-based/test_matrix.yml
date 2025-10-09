@@ -7,10 +7,10 @@ matrix:
           version: 4.19.7
           clusterName: op-based # cluster name for operator-based tests
           type: openshift
-          # - name: EKS Latest
-          #   schedule_only: false
-          #   clusterName: op-based-eks # cluster name for operator-based EKS tests
-          #   type: eks
+        - name: EKS Latest
+          schedule_only: false
+          clusterName: op-based-eks # cluster name for operator-based EKS tests
+          type: eks
 
     scenario:
         - name: operator-based
@@ -19,6 +19,5 @@ matrix:
     declination:
         - name: domain
           desc: Setup operator-based stack with domain configuration.
-          # TODO: revert
-          # - name: no-domain
-          #   desc: Setup operator-based stack without domain configuration.
+        - name: no-domain
+          desc: Setup operator-based stack without domain configuration.

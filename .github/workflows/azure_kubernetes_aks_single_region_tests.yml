@@ -736,6 +736,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
+              if: env.CLEANUP_CLUSTERS == 'true'
               uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
@@ -750,6 +751,7 @@ jobs:
 
             - name: Azure Login with OIDC
               uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              if: env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -758,6 +760,7 @@ jobs:
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
+              if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}

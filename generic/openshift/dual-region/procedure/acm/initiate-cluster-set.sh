@@ -27,6 +27,35 @@ validate_cluster_access() {
     return 0
 }
 
+# Function to extract CA certificate from cluster
+extract_ca_certificate() {
+    local context=$1
+
+    echo "  🔐 Extracting CA certificate from cluster..."
+
+    # Try to get CA from the kubeconfig
+    local ca_data
+    ca_data=$(oc config view --context "$context" --raw -o json | jq -r '.clusters[0].cluster."certificate-authority-data"' 2>/dev/null || echo "")
+
+    if [ -n "$ca_data" ] && [ "$ca_data" != "null" ]; then
+        # CA is embedded in kubeconfig, decode it
+        echo "$ca_data" | base64 -d
+        return 0
+    fi
+
+    # Fallback: try to get from kube-root-ca ConfigMap
+    local ca_from_cm
+    ca_from_cm=$(oc --context "$context" get configmap kube-root-ca.crt -n kube-system -o jsonpath='{.data.ca\.crt}' 2>/dev/null || echo "")
+
+    if [ -n "$ca_from_cm" ]; then
+        echo "$ca_from_cm"
+        return 0
+    fi
+
+    echo "  ⚠️  WARNING: Could not extract CA certificate" >&2
+    return 1
+}
+
 # Function to import a cluster with retries
 import_cluster() {
     local cluster_name=$1
@@ -43,6 +72,15 @@ import_cluster() {
         echo "❌ Failed to validate cluster access for $cluster_name"
         return 1
     fi
+
+    # Extract CA certificate from the hub cluster (CLUSTER_1_NAME)
+    # This is needed for the managed cluster to trust the hub's API server
+    local ca_cert
+    if ! ca_cert=$(extract_ca_certificate "$CLUSTER_1_NAME"); then
+        echo "❌ Failed to extract CA certificate from hub cluster"
+        return 1
+    fi
+    echo "  ✅ CA certificate extracted successfully"
 
     # Ensure namespace exists first
     if ! oc --context "$CLUSTER_1_NAME" get namespace "$cluster_name" &>/dev/null; then
@@ -62,9 +100,16 @@ import_cluster() {
     echo "  ⏳ Waiting for ACM to setup cluster namespace..."
     sleep 5
 
-    # Apply auto-import-secret
-    echo "  ⏳ Creating auto-import-secret..."
-    CLUSTER_NAME="$cluster_name" CLUSTER_TOKEN="$cluster_token" CLUSTER_API="$cluster_api" \
+    # Apply auto-import-secret with CA certificate
+    echo "  ⏳ Creating auto-import-secret with CA certificate..."
+    # Indent the CA cert for YAML formatting
+    local cluster_ca_cert_indented
+    cluster_ca_cert_indented=${ca_cert//$'\n'/$'\n    '}
+
+    CLUSTER_NAME="$cluster_name" \
+    CLUSTER_TOKEN="$cluster_token" \
+    CLUSTER_API="$cluster_api" \
+    CLUSTER_CA_CERT="$cluster_ca_cert_indented" \
         envsubst < auto-import-cluster-secret.yml.tpl | oc --context "$CLUSTER_1_NAME" apply -f -
 
     # Verify secret was created

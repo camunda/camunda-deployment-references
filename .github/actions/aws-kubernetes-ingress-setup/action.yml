@@ -63,6 +63,11 @@ runs:
           with:
               namespace: external-dns
 
+        - name: 🏗️ Clean ingress-nginx operator namespace
+          uses: ./.github/actions/internal-clean-namespace
+          with:
+              namespace: ingress-nginx
+
         - name: Setup ingress components for EKS cluster
           shell: bash
           run: |
