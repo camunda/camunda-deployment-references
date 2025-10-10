@@ -202,12 +202,19 @@ echo ""
 # Step 7: Delete MultiClusterEngine (fast, no waiting)
 echo "Step 7: Deleting MultiClusterEngine..."
 echo "---------------------------------------"
-if oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management >/dev/null 2>&1; then
+# MultiClusterEngine is cluster-scoped, not namespaced
+if oc --context="$CLUSTER_1_NAME" get multiclusterengine >/dev/null 2>&1; then
   echo "🗑️  Force deleting MultiClusterEngine instances"
-  for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o name 2>/dev/null); do
+  for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -o name 2>/dev/null); do
     mce_name=$(echo "$mce" | cut -d'/' -f2)
-    force_delete_resource "$CLUSTER_1_NAME" "multiclusterengine" "$mce_name" "open-cluster-management"
+    echo "  Deleting cluster-scoped MultiClusterEngine: $mce_name"
+    # Remove finalizers from cluster-scoped resource
+    oc --context="$CLUSTER_1_NAME" patch multiclusterengine "$mce_name" \
+      --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+    oc --context="$CLUSTER_1_NAME" delete multiclusterengine "$mce_name" \
+      --grace-period=0 --wait=false 2>/dev/null || true &
   done
+  wait
   echo "  ✅ MultiClusterEngine deletion initiated"
 else
   echo "  ℹ️  MultiClusterEngine not found - skipping"
