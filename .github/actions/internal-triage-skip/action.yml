@@ -51,6 +51,8 @@ runs:
         - name: Get the current workflow filename and check for skip labels
           id: check_labels
           shell: bash
+          env:
+              GH_TOKEN: ${{ github.token }}
           run: |
               set -euo pipefail
 
@@ -63,7 +65,16 @@ runs:
               workflow_file_name=$(basename "$workflow_file_name" | sed 's/\(.*\)\(\.yaml\|\.yml\)$/\1/')
               echo "workflow_file_name=$workflow_file_name" | tee -a "$GITHUB_ENV"
 
-              labels=$(echo '${{ toJSON(github.event.pull_request.labels.*.name) }}' | jq -r '.[]')
+              # Fetch fresh labels from GitHub API using gh CLI
+              pr_number="${{ github.event.pull_request.number }}"
+              repo="${{ github.repository }}"
+
+              echo "[debug] Fetching fresh labels for PR #$pr_number in $repo"
+              labels=$(gh pr view "$pr_number" --repo "$repo" --json labels --jq '.labels[].name')
+
+              echo "[debug] Fresh labels from API:"
+              echo "$labels"
+
               workflow_labels="skip_$workflow_file_name"
 
               if echo "$labels" | grep -qE "$workflow_labels|testing-ci-not-necessary"; then
