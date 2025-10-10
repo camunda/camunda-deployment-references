@@ -16,7 +16,7 @@ inputs:
 
     engine-version:
         description: Version of the OpenSearch engine to deploy
-        # renovate: datasource=custom.opensearch-camunda depName=opensearch versioning=semver
+        # renovate: datasource=custom.opensearch-camunda depName=opensearch versioning=loose
         default: '2.19'
 
     vpc-id:
