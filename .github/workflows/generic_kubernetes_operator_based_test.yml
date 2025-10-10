@@ -85,9 +85,7 @@ env:
     S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION: aws/openshift/rosa-hcp-single-region/
     S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION: aws/kubernetes/eks-single-region/
 
-    # TODO: revert
-    CLEANUP_CLUSTERS: false
-    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
@@ -138,9 +136,7 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  # TODO: revert
-                  # cluster_name: ${{ inputs.cluster_name }}
-                  cluster_name: lei2
+                  cluster_name: ${{ inputs.cluster_name }}
                   ref_arch: ${{ inputs.ref-arch }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
