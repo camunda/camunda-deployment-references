@@ -100,23 +100,29 @@ import_cluster() {
     echo "  ⏳ Waiting for ACM to setup cluster namespace..."
     sleep 5
 
-    # Apply auto-import-secret with CA certificate
+    # Create auto-import-secret with CA certificate using oc create secret
     echo "  ⏳ Creating auto-import-secret with CA certificate..."
-    # Indent the CA cert for YAML formatting
-    local cluster_ca_cert_indented
-    cluster_ca_cert_indented=${ca_cert//$'\n'/$'\n    '}
 
-    CLUSTER_NAME="$cluster_name" \
-    CLUSTER_TOKEN="$cluster_token" \
-    CLUSTER_API="$cluster_api" \
-    CLUSTER_CA_CERT="$cluster_ca_cert_indented" \
-        envsubst < auto-import-cluster-secret.yml.tpl | oc --context "$CLUSTER_1_NAME" apply -f -
+    # Delete existing secret if it exists
+    oc --context "$CLUSTER_1_NAME" delete secret auto-import-secret -n "$cluster_name" &>/dev/null || true
 
-    # Verify secret was created
-    if oc --context "$CLUSTER_1_NAME" get secret auto-import-secret -n "$cluster_name" &>/dev/null; then
+    # Save CA cert to a temporary file
+    local ca_cert_file
+    ca_cert_file=$(mktemp)
+    echo "$ca_cert" > "$ca_cert_file"
+
+    # Create secret using oc create secret generic
+    if oc --context "$CLUSTER_1_NAME" create secret generic auto-import-secret \
+        -n "$cluster_name" \
+        --from-literal=autoImportRetry=5 \
+        --from-literal=token="$cluster_token" \
+        --from-literal=server="$cluster_api" \
+        --from-file=ca.crt="$ca_cert_file"; then
         echo "  ✅ auto-import-secret created successfully"
+        rm -f "$ca_cert_file"
     else
         echo "  ❌ Failed to create auto-import-secret"
+        rm -f "$ca_cert_file"
         return 1
     fi
 
