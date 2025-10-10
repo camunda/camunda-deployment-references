@@ -1,7 +1,7 @@
 ---
-# This workflow updates an artifact containing the OpenSearch versions,
-# it's used by renovate and published at https://camunda.github.io/camunda-deployment-references/opensearch_versions.txt
-name: Internal - AWS - Save OpenSearch Versions as an artifact
+# This workflow updates an artifact containing the Aurora PostgreSQL versions,
+# it's used by renovate and published at https://camunda.github.io/camunda-deployment-references/aurora_postgres_versions.txt
+name: Internal - AWS - Save Aurora PostgreSQL Versions as an artifact
 
 on:
     schedule:
@@ -9,14 +9,14 @@ on:
     workflow_dispatch:
     pull_request:
         paths:
-            - .github/workflows/internal_aws_artifact_opensearch_versions.yml
+            - .github/workflows/internal_aws_artifact_aurora_versions.yml
 
 env:
     AWS_REGION: eu-west-2
     AWS_PROFILE: infraex
 
 jobs:
-    save-opensearch-versions:
+    save-aurora-versions:
         runs-on: ubuntu-latest
 
         steps:
@@ -35,28 +35,31 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            - name: Output OpenSearch versions to file
+            - name: Output Aurora PostgreSQL versions to file
               shell: bash
               run: |
                   set -euo pipefail
 
                   mkdir -p docs
-                  aws opensearch list-versions --no-cli-pager \
-                    | jq -r '.Versions[] | select(startswith("OpenSearch_")) | sub("OpenSearch_"; "")' \
-                    > docs/opensearch_versions.txt
-                  cat docs/opensearch_versions.txt
+                  aws rds describe-db-engine-versions \
+                    --engine aurora-postgresql \
+                    --no-cli-pager \
+                    | jq -r '.DBEngineVersions[].EngineVersion' \
+                    | sort -V \
+                    > docs/aurora_postgres_versions.txt
+                  cat docs/aurora_postgres_versions.txt
 
-            - name: Commit and push OpenSearch versions file to gh-pages
+            - name: Commit and push Aurora PostgreSQL versions file to gh-pages
               shell: bash
               run: |
                   set -euo pipefail
 
-                  git diff --exit-code docs/opensearch_versions.txt || {
+                  git diff --exit-code docs/aurora_postgres_versions.txt || {
                     echo "Changes detected, committing and pushing to gh-pages"
                     git config --local user.name "github-actions[bot]"
                     git config --local user.email "github-actions[bot]@users.noreply.github.com"
-                    git add docs/opensearch_versions.txt
-                    git commit -m "Update OpenSearch versions"
+                    git add docs/aurora_postgres_versions.txt
+                    git commit -m "Update Aurora PostgreSQL versions"
                     git push origin gh-pages
                   }
               env:
