@@ -26,7 +26,9 @@ force_delete_resource() {
   # shellcheck disable=SC2086
   oc --context "$context" delete "$resource_type" "$resource_name" $ns_flag \
     --grace-period=0 --wait=false 2>/dev/null || true
-}# Helper function to print list items
+}
+
+# Helper function to print list items
 print_list() {
   while IFS= read -r item; do
     [ -n "$item" ] && echo "  - $item"
@@ -124,7 +126,9 @@ cleanup_agent_namespaces() {
       oc --context "$context" delete "$kl" --grace-period=0 --wait=false 2>/dev/null || true
     done
   fi
-}# Clean both clusters in parallel
+}
+
+# Clean both clusters in parallel
 cleanup_agent_namespaces "$CLUSTER_1_NAME" "cluster 1" &
 cleanup_agent_namespaces "$CLUSTER_2_NAME" "cluster 2" &
 wait
