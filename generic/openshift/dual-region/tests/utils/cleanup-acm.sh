@@ -52,24 +52,32 @@ echo ""
 
 CLUSTERS=("local-cluster" "$CLUSTER_2_NAME")
 
-# Step 1: Delete all ManagedClusters (aggressive mode - no waiting)
+# Step 1: Delete all ManagedClusters (clean deletion with timeout, then force if needed)
 echo "Step 1: Deleting all ManagedClusters..."
 echo "----------------------------------------"
+MANAGEDCLUSTER_TIMEOUT=120  # 2 minutes timeout for clean deletion
+
 for cluster_name in "${CLUSTERS[@]}"; do
   if oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; then
-    echo "🗑️  Force deleting ManagedCluster: $cluster_name"
-    # Remove finalizers immediately
-    oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" \
-      --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
-    # Delete in background without waiting
-    oc --context "$CLUSTER_1_NAME" delete managedcluster "$cluster_name" \
-      --grace-period=0 --wait=false 2>/dev/null || true &
-    echo "  ✅ ManagedCluster '$cluster_name' deletion initiated"
+    echo "🗑️  Deleting ManagedCluster: $cluster_name (waiting up to ${MANAGEDCLUSTER_TIMEOUT}s for clean deletion)"
+
+    # Try clean deletion first with timeout
+    if timeout "${MANAGEDCLUSTER_TIMEOUT}s" oc --context "$CLUSTER_1_NAME" delete managedcluster "$cluster_name" \
+      --wait=true 2>&1 | grep -v "^$" || true; then
+      echo "  ✅ ManagedCluster '$cluster_name' deleted cleanly"
+    else
+      # If timeout or failure, force deletion
+      echo "  ⚠️  Clean deletion timed out or failed, forcing deletion of ManagedCluster: $cluster_name"
+      oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" \
+        --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+      oc --context "$CLUSTER_1_NAME" delete managedcluster "$cluster_name" \
+        --grace-period=0 --wait=false 2>/dev/null || true
+      echo "  ✅ ManagedCluster '$cluster_name' force deletion initiated"
+    fi
   else
     echo "  ℹ️  ManagedCluster '$cluster_name' not found - skipping"
   fi
 done
-wait  # Wait for background deletions to start
 echo ""
 
 # Step 2: Delete MultiClusterHub (BEFORE deleting namespaces)
@@ -78,12 +86,17 @@ echo "------------------------------------"
 oc --context="$CLUSTER_1_NAME" delete clusterrole open-cluster-management:cluster-manager-admin 2>/dev/null || true
 
 if oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management >/dev/null 2>&1; then
-  echo "🗑️  Force deleting MultiClusterHub instances"
+  echo "🗑️  Deleting MultiClusterHub instances (waiting for clean deletion)..."
   for mch in $(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o name 2>/dev/null); do
     mch_name=$(echo "$mch" | cut -d'/' -f2)
-    force_delete_resource "$CLUSTER_1_NAME" "multiclusterhub" "$mch_name" "open-cluster-management"
+    echo "  Deleting MultiClusterHub: $mch_name"
+    # Delete WITHOUT removing finalizers - let MCH clean up its resources properly
+    # Use --wait=true to wait synchronously for complete deletion
+    oc --context="$CLUSTER_1_NAME" delete multiclusterhub "$mch_name" \
+      -n open-cluster-management --wait=true --timeout=300s 2>&1 | grep -v "^$" || true
+    echo "  ✅ MultiClusterHub '$mch_name' deleted successfully"
   done
-  echo "  ✅ MultiClusterHub deletion initiated"
+  echo "  ✅ All MultiClusterHub instances deleted"
 else
   echo "  ℹ️  MultiClusterHub not found - skipping"
 fi
@@ -93,19 +106,19 @@ echo ""
 echo "Step 3: Deleting MultiClusterEngine..."
 echo "---------------------------------------"
 # MultiClusterEngine is cluster-scoped, not namespaced
+# We MUST wait synchronously for MCE deletion as it manages critical resources
 if oc --context="$CLUSTER_1_NAME" get multiclusterengine >/dev/null 2>&1; then
-  echo "🗑️  Force deleting MultiClusterEngine instances"
+  echo "🗑️  Deleting MultiClusterEngine instances (waiting for clean deletion)..."
   for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -o name 2>/dev/null); do
     mce_name=$(echo "$mce" | cut -d'/' -f2)
     echo "  Deleting cluster-scoped MultiClusterEngine: $mce_name"
-    # Remove finalizers from cluster-scoped resource
-    oc --context="$CLUSTER_1_NAME" patch multiclusterengine "$mce_name" \
-      --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+    # Delete WITHOUT removing finalizers - let MCE clean up its resources properly
+    # Use --wait=true to wait synchronously for complete deletion
     oc --context="$CLUSTER_1_NAME" delete multiclusterengine "$mce_name" \
-      --grace-period=0 --wait=false 2>/dev/null || true &
+      --wait=true --timeout=300s 2>&1 | grep -v "^$" || true
+    echo "  ✅ MultiClusterEngine '$mce_name' deleted successfully"
   done
-  wait
-  echo "  ✅ MultiClusterEngine deletion initiated"
+  echo "  ✅ All MultiClusterEngine instances deleted"
 else
   echo "  ℹ️  MultiClusterEngine not found - skipping"
 fi
