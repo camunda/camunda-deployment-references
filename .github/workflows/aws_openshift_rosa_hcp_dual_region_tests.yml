@@ -737,9 +737,52 @@ jobs:
                   echo ""
 
                   echo "================================================================"
-                  echo "✅ ACM cleanup completed - system ready for fresh installation"
+                  echo "✅ ACM cleanup completed"
                   echo "================================================================"
+                  echo ""
 
+                  # Step 10: Wait for namespace to be fully deleted before proceeding
+                  echo "Step 10: Waiting for namespace deletion to complete..."
+                  echo "-------------------------------------------------------"
+                  echo "⏳ Ensuring open-cluster-management namespace is fully deleted..."
+
+                  SECONDS=0
+                  MAX_WAIT=240  # 4 minutes max
+
+                  while oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management >/dev/null 2>&1; do
+                    if [ $((SECONDS % 10)) -eq 0 ]; then
+                      ns_phase=$(oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o jsonpath='{.status.phase}' 2>/dev/null || echo "Deleted")
+                      echo "  ⏱️  Waiting for namespace deletion... phase: $ns_phase (${SECONDS}s elapsed)"
+                    fi
+
+                    sleep 3
+
+                    if [ $SECONDS -ge $MAX_WAIT ]; then
+                      echo "  ⚠️  WARNING: Namespace still exists after ${MAX_WAIT}s"
+                      echo "  Attempting final cleanup..."
+
+                      # Last attempt to remove finalizers
+                      oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o json 2>/dev/null | \
+                        jq '.metadata.finalizers = []' | \
+                        oc --context="$CLUSTER_1_NAME" replace --raw "/api/v1/namespaces/open-cluster-management/finalize" -f - || true
+
+                      sleep 10
+                      break
+                    fi
+                  done
+
+                  if ! oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management >/dev/null 2>&1; then
+                    echo "  ✅ Namespace fully deleted - ready for ACM installation"
+                  else
+                    echo "  ❌ ERROR: Namespace still exists!"
+                    oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o yaml || true
+                    exit 1
+                  fi
+                  echo ""
+
+                  echo "================================================================"
+                  echo "✅ System ready for fresh ACM installation"
+                  echo "================================================================"
 
             - name: 🚢 Configure ACM
               timeout-minutes: 30
