@@ -72,35 +72,47 @@ done
 wait  # Wait for background deletions to start
 echo ""
 
-# Step 2: Clean up cluster-specific and ACM/Submariner namespaces (parallel deletion)
-echo "Step 2: Cleaning up ACM and Submariner namespaces on hub..."
-echo "------------------------------------------------------------"
-NAMESPACES_TO_DELETE=(
-  "${CLUSTERS[@]}"
-  "open-cluster-management-global-set"
-  "open-cluster-management-hub"
-  "multicluster-engine"
-  "hive"
-  "submariner-operator"
-  "submariner-k8s-broker"
-  "open-cluster-management-addon"
-  "open-cluster-management-observability"
-  "open-cluster-management-backup"
-)
+# Step 2: Delete MultiClusterHub (BEFORE deleting namespaces)
+echo "Step 2: Deleting MultiClusterHub..."
+echo "------------------------------------"
+oc --context="$CLUSTER_1_NAME" delete clusterrole open-cluster-management:cluster-manager-admin 2>/dev/null || true
 
-for ns in "${NAMESPACES_TO_DELETE[@]}"; do
-  if oc --context "$CLUSTER_1_NAME" get namespace "$ns" >/dev/null 2>&1; then
-    echo "🗑️  Force deleting namespace: $ns"
-    oc --context "$CLUSTER_1_NAME" patch namespace "$ns" --type='json' \
-      -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
-    oc --context "$CLUSTER_1_NAME" delete namespace "$ns" --grace-period=0 --wait=false 2>/dev/null || true
-  fi
-done
-echo "  ✅ Namespace deletion initiated for all ACM/Submariner namespaces"
+if oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management >/dev/null 2>&1; then
+  echo "🗑️  Force deleting MultiClusterHub instances"
+  for mch in $(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o name 2>/dev/null); do
+    mch_name=$(echo "$mch" | cut -d'/' -f2)
+    force_delete_resource "$CLUSTER_1_NAME" "multiclusterhub" "$mch_name" "open-cluster-management"
+  done
+  echo "  ✅ MultiClusterHub deletion initiated"
+else
+  echo "  ℹ️  MultiClusterHub not found - skipping"
+fi
 echo ""
 
-# Step 3: Clean up klusterlet and agent resources on managed clusters (parallel)
-echo "Step 3: Cleaning up klusterlet and agent resources..."
+# Step 3: Delete MultiClusterEngine (BEFORE deleting namespaces)
+echo "Step 3: Deleting MultiClusterEngine..."
+echo "---------------------------------------"
+# MultiClusterEngine is cluster-scoped, not namespaced
+if oc --context="$CLUSTER_1_NAME" get multiclusterengine >/dev/null 2>&1; then
+  echo "🗑️  Force deleting MultiClusterEngine instances"
+  for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -o name 2>/dev/null); do
+    mce_name=$(echo "$mce" | cut -d'/' -f2)
+    echo "  Deleting cluster-scoped MultiClusterEngine: $mce_name"
+    # Remove finalizers from cluster-scoped resource
+    oc --context="$CLUSTER_1_NAME" patch multiclusterengine "$mce_name" \
+      --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+    oc --context="$CLUSTER_1_NAME" delete multiclusterengine "$mce_name" \
+      --grace-period=0 --wait=false 2>/dev/null || true &
+  done
+  wait
+  echo "  ✅ MultiClusterEngine deletion initiated"
+else
+  echo "  ℹ️  MultiClusterEngine not found - skipping"
+fi
+echo ""
+
+# Step 4: Clean up klusterlet and agent resources on managed clusters (parallel)
+echo "Step 4: Cleaning up klusterlet and agent resources..."
 echo "------------------------------------------------------"
 
 # Function to clean agent namespaces on a cluster
@@ -150,8 +162,35 @@ wait
 echo "  ✅ Agent namespace cleanup initiated on both clusters"
 echo ""
 
-# Step 4: Delete ManagedClusterSet and related resources (fast)
-echo "Step 4: Deleting ManagedClusterSet..."
+# Step 5: Clean up cluster-specific and ACM/Submariner namespaces (parallel deletion)
+echo "Step 5: Cleaning up ACM and Submariner namespaces on hub..."
+echo "------------------------------------------------------------"
+NAMESPACES_TO_DELETE=(
+  "${CLUSTERS[@]}"
+  "open-cluster-management-global-set"
+  "open-cluster-management-hub"
+  "multicluster-engine"
+  "hive"
+  "submariner-operator"
+  "submariner-k8s-broker"
+  "open-cluster-management-addon"
+  "open-cluster-management-observability"
+  "open-cluster-management-backup"
+)
+
+for ns in "${NAMESPACES_TO_DELETE[@]}"; do
+  if oc --context "$CLUSTER_1_NAME" get namespace "$ns" >/dev/null 2>&1; then
+    echo "🗑️  Force deleting namespace: $ns"
+    oc --context "$CLUSTER_1_NAME" patch namespace "$ns" --type='json' \
+      -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+    oc --context "$CLUSTER_1_NAME" delete namespace "$ns" --grace-period=0 --wait=false 2>/dev/null || true
+  fi
+done
+echo "  ✅ Namespace deletion initiated for all ACM/Submariner namespaces"
+echo ""
+
+# Step 6: Delete ManagedClusterSet and related resources (fast)
+echo "Step 6: Deleting ManagedClusterSet..."
 echo "-------------------------------------"
 if oc --context="$CLUSTER_1_NAME" get managedclusterset camunda-zeebe >/dev/null 2>&1; then
   echo "🗑️  Force deleting ManagedClusterSet: camunda-zeebe"
@@ -164,25 +203,9 @@ if oc --context="$CLUSTER_1_NAME" get managedclustersetbinding camunda-zeebe -n 
 fi
 echo ""
 
-# Step 5: Delete MultiClusterHub (fast, no waiting)
-echo "Step 5: Deleting MultiClusterHub..."
-echo "------------------------------------"
-oc --context="$CLUSTER_1_NAME" delete clusterrole open-cluster-management:cluster-manager-admin 2>/dev/null || true
-
-if oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management >/dev/null 2>&1; then
-  echo "🗑️  Force deleting MultiClusterHub instances"
-  for mch in $(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o name 2>/dev/null); do
-    mch_name=$(echo "$mch" | cut -d'/' -f2)
-    force_delete_resource "$CLUSTER_1_NAME" "multiclusterhub" "$mch_name" "open-cluster-management"
-  done
-  echo "  ✅ MultiClusterHub deletion initiated"
-else
-  echo "  ℹ️  MultiClusterHub not found - skipping"
-fi
-echo ""
-
-# Step 6: Delete ACM Operator Subscription and CSV (fast)
-echo "Step 6: Deleting ACM Operator..."
+# Step 5: Delete ACM Operator Subscription and CSV
+# Step 7: Delete ACM Operator subscriptions and CSVs (fast)
+echo "Step 7: Deleting ACM Operator..."
 echo "---------------------------------"
 if oc --context="$CLUSTER_1_NAME" get subscription advanced-cluster-management -n open-cluster-management >/dev/null 2>&1; then
   echo "🗑️  Force deleting ACM subscription"
@@ -199,29 +222,7 @@ if oc --context="$CLUSTER_1_NAME" get csv -n open-cluster-management 2>/dev/null
 fi
 echo ""
 
-# Step 7: Delete MultiClusterEngine (fast, no waiting)
-echo "Step 7: Deleting MultiClusterEngine..."
-echo "---------------------------------------"
-# MultiClusterEngine is cluster-scoped, not namespaced
-if oc --context="$CLUSTER_1_NAME" get multiclusterengine >/dev/null 2>&1; then
-  echo "🗑️  Force deleting MultiClusterEngine instances"
-  for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -o name 2>/dev/null); do
-    mce_name=$(echo "$mce" | cut -d'/' -f2)
-    echo "  Deleting cluster-scoped MultiClusterEngine: $mce_name"
-    # Remove finalizers from cluster-scoped resource
-    oc --context="$CLUSTER_1_NAME" patch multiclusterengine "$mce_name" \
-      --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
-    oc --context="$CLUSTER_1_NAME" delete multiclusterengine "$mce_name" \
-      --grace-period=0 --wait=false 2>/dev/null || true &
-  done
-  wait
-  echo "  ✅ MultiClusterEngine deletion initiated"
-else
-  echo "  ℹ️  MultiClusterEngine not found - skipping"
-fi
-echo ""
-
-# Step 8: Force delete remaining ACM-related namespaces (fast, no waiting per namespace)
+# Step 8: Force delete remaining ACM-related namespaces
 echo "Step 8: Force deleting remaining ACM-related namespaces..."
 echo "-----------------------------------------------------------"
 
