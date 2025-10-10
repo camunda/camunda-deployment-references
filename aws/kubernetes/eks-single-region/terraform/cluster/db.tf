@@ -21,7 +21,8 @@ locals {
 }
 
 module "postgresql" {
-  source                     = "../../../../modules/aurora"
+  source = "../../../../modules/aurora"
+  # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
   engine_version             = "17.5"
   auto_minor_version_upgrade = false
   cluster_name               = local.aurora_cluster_name
