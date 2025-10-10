@@ -455,7 +455,7 @@ jobs:
 
                     # Enable Routes
                     for file in orchestration-route.yml connectors-route.yml domain.yml; do
-                        yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
+                        yq ". *+ load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
                         cat values-result.yml && mv values-result.yml values.yml
                     done
                   elif [[ ${{ matrix.declination.name }} == "no-domain" ]]; then
@@ -463,7 +463,7 @@ jobs:
                       echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
                       echo "CAMUNDA_GRPC_DOMAIN=" | tee -a "$GITHUB_ENV"
 
-                      yq ". *d load(\"generic/openshift/single-region/helm-values/no-domain.yml\")" values.yml > values-result.yml
+                      yq ". *+ load(\"generic/openshift/single-region/helm-values/no-domain.yml\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                   else
                     echo "Error: matrix.declaration must be set to 'domain' or 'no-domain'" >&2
@@ -471,7 +471,7 @@ jobs:
                   fi
 
                   # Enable SCC
-                  yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
+                  yq '. *+ load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
                   # TODO: remove this when fixed
@@ -492,7 +492,7 @@ jobs:
                   # Add integration tests values
                   if [ "$TESTS_ENABLED" == "true" ]; then
                     for file in registry.yml identity.yml; do
-                      yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
+                      yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                     done
                   fi

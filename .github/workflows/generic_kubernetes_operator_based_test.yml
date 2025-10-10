@@ -547,7 +547,7 @@ jobs:
 
                   # Create final assembled values file using yq
                   echo "Assembling final values file from: ${VALUES_FILES[*]}"
-                  yq eval-all ". as \$item ireduce ({}; . * \$item)" "${VALUES_FILES[@]}" > camunda-assembled-values-raw.yml
+                  yq eval-all ". as \$item ireduce ({}; . *+ \$item)" "${VALUES_FILES[@]}" > camunda-assembled-values-raw.yml
 
                   # Process and merge OpenShift route configurations for domain setups
                   # Adjust TLS configuration based on cluster type and wildcard cert usage
@@ -565,7 +565,7 @@ jobs:
                       envsubst < "../../../generic/openshift/single-region/helm-values/connectors-route.yml" > connectors-route-processed.yml
 
                       # Merge processed routes with assembled values and apply TLS adjustments
-                      yq eval-all ". as \$item ireduce ({}; . * \$item)" \
+                      yq eval-all ". as \$item ireduce ({}; . *+ \$item)" \
                         camunda-assembled-values-raw.yml \
                         orchestration-route-processed.yml \
                         connectors-route-processed.yml | \
