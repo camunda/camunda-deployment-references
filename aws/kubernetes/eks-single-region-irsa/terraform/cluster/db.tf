@@ -25,8 +25,7 @@ locals {
 }
 
 module "postgresql" {
-  source = "../../../../modules/aurora"
-  # renovate: datasource=github-tags depName=postgres packageName=postgres/postgres versioning=loose extractVersion=^REL_(?<version>\d+)_(?<minor>\d+)$ registryUrl=https://github.com
+  source                     = "../../../../modules/aurora"
   engine_version             = "17.5"
   auto_minor_version_upgrade = false
   cluster_name               = local.aurora_cluster_name
