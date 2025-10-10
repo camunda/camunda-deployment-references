@@ -19,8 +19,9 @@ on:
             - aws/kubernetes/eks-single-region-irsa/**
             - '!aws/kubernetes/eks-single-region-irsa/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
+            - .github/actions/aws-openshift-rosa-hcp-single-region-cleanup/**
             - .github/actions/aws-kubernetes-eks-single-region-create/**
-            - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/aws-eks-cleanup-resources/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-helm-chart-tests/**
             - .github/actions/internal-apply-skip-label/**
@@ -866,7 +867,7 @@ jobs:
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand ROSA HCP Cluster
-              uses: ./.github/actions/aws-generic-terraform-cleanup
+              uses: ./.github/actions/aws-openshift-rosa-hcp-single-region-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.distro.type == 'openshift'
               timeout-minutes: 125
               env:
@@ -874,24 +875,20 @@ jobs:
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours: 0
+                  max-age-hours-cluster: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-                  openshift: 'true'
-                  delete-ghost-rosa-clusters: 'false'
-                  modules-order: vpn,cluster
+                  delete-ghost-clusters: 'false'
 
             - name: Delete on-demand EKS Cluster
-              uses: ./.github/actions/aws-generic-terraform-cleanup
+              uses: ./.github/actions/aws-eks-cleanup-resources
               if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.distro.type == 'eks'
               timeout-minutes: 125
               with:
-                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
-                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-                  modules-order: vpn,cluster
 
     report-success:
         name: Report success

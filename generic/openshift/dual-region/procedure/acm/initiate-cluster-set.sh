@@ -38,8 +38,9 @@ extract_ca_certificate() {
     ca_data=$(oc config view --context "$context" --raw -o json | jq -r '.clusters[0].cluster."certificate-authority-data"' 2>/dev/null || echo "")
 
     if [ -n "$ca_data" ] && [ "$ca_data" != "null" ]; then
-        # CA is embedded in kubeconfig, decode it
-        echo "$ca_data" | base64 -d
+        # CA is embedded in kubeconfig, decode it and extract ONLY the first certificate
+        # (avoid including Let's Encrypt chain which causes TLS verification issues)
+        echo "$ca_data" | base64 -d | awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/ {print; if (/END CERTIFICATE/) exit}'
         return 0
     fi
 
