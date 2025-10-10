@@ -459,9 +459,14 @@ jobs:
 
             # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
             # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
-            - name: Configure wildcard certificate usage (tests only)
-              run: echo "USE_WILDCARD_CERT=${{ github.event.inputs.use_wildcard_cert == 'true' || (github.event_name == 'pull_request' && env.IS_RENOVATE_PR
-                  == 'true') || 'false' }}" | tee -a "$GITHUB_ENV"
+            - name: Configure wildcard certificate usage
+              id: cert-config
+              uses: ./.github/actions/internal-configure-wildcard-cert
+              with:
+                  manual-wildcard-cert: ${{ github.event.inputs.use_wildcard_cert }}
+                  is-renovate-pr: ${{ env.IS_RENOVATE_PR }}
+                  is-schedule: ${{ env.IS_SCHEDULE }}
+                  base-ref: ${{ github.base_ref }}
 
             - name: 🏗️ Ingress Setup prerequisites
               if: ${{ matrix.declination.name == 'domain' }}
@@ -475,7 +480,7 @@ jobs:
                   tld: ${{ env.TLD }}
                   azure-dns-resource-group: ${{ env.AZURE_DNS_RESOURCE_GROUP }}
                   azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
-                  use-wildcard-cert: ${{ env.USE_WILDCARD_CERT }}
+                  use-wildcard-cert: ${{ steps.cert-config.outputs.use-wildcard-cert }}
                   wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
                   vault-addr: ${{ secrets.VAULT_ADDR }}
@@ -535,7 +540,7 @@ jobs:
                   fi
 
                   # If using wildcard certificate, remove cert-manager annotations from values
-                  if [[ "${{ env.USE_WILDCARD_CERT }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
+                  if [[ "${{ steps.cert-config.outputs.use-wildcard-cert }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
                       echo "Removing cert-manager annotations from Helm values (using wildcard certificate)"
                       echo "Using wildcard TLS secret: ${{ env.WILDCARD_TLS_SECRET_NAME }}"
                       yq eval '
