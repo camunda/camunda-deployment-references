@@ -6,19 +6,19 @@ identity:
 
 connectors:
     image:
-        tag: 8.8.0-rc6
+        tag: 8.8.0
 
 webModeler:
     image:
-        tag: 8.8.0-rc4
+        tag: 8.8.0
 
 optimize:
     image:
-        tag: 8.8.0-rc1
+        tag: 8.8-SNAPSHOT
 
 orchestration:
     image:
-        tag: 8.8.0-rc4
+        tag: 8.8.0
 console:
     image:
         tag: 8.8.3
