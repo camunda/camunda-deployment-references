@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-# Helper function to remove finalizers and force delete a resource
+# Helper function to remove finalizers and force delete a resource (non-blocking)
 force_delete_resource() {
   local context=$1
   local resource_type=$2
@@ -17,15 +17,16 @@ force_delete_resource() {
     ns_flag="-n $namespace"
   fi
 
+  # Remove finalizers first
   # shellcheck disable=SC2086
   oc --context "$context" patch "$resource_type" "$resource_name" $ns_flag \
-    --type='merge' -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+    --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+
+  # Delete without waiting (non-blocking)
   # shellcheck disable=SC2086
   oc --context "$context" delete "$resource_type" "$resource_name" $ns_flag \
-    --grace-period=0 --force 2>/dev/null || true
-}
-
-# Helper function to print list items
+    --grace-period=0 --wait=false 2>/dev/null || true
+}# Helper function to print list items
 print_list() {
   while IFS= read -r item; do
     [ -n "$item" ] && echo "  - $item"
@@ -55,12 +56,18 @@ echo "----------------------------------------"
 for cluster_name in "${CLUSTERS[@]}"; do
   if oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; then
     echo "🗑️  Force deleting ManagedCluster: $cluster_name"
-    force_delete_resource "$CLUSTER_1_NAME" "managedcluster" "$cluster_name"
+    # Remove finalizers immediately
+    oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" \
+      --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+    # Delete in background without waiting
+    oc --context "$CLUSTER_1_NAME" delete managedcluster "$cluster_name" \
+      --grace-period=0 --wait=false 2>/dev/null || true &
     echo "  ✅ ManagedCluster '$cluster_name' deletion initiated"
   else
     echo "  ℹ️  ManagedCluster '$cluster_name' not found - skipping"
   fi
 done
+wait  # Wait for background deletions to start
 echo ""
 
 # Step 2: Clean up cluster-specific and ACM/Submariner namespaces (parallel deletion)
@@ -82,11 +89,11 @@ NAMESPACES_TO_DELETE=(
 for ns in "${NAMESPACES_TO_DELETE[@]}"; do
   if oc --context "$CLUSTER_1_NAME" get namespace "$ns" >/dev/null 2>&1; then
     echo "🗑️  Force deleting namespace: $ns"
-    oc --context "$CLUSTER_1_NAME" patch namespace "$ns" --type='merge' -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true &
-    oc --context "$CLUSTER_1_NAME" delete namespace "$ns" --grace-period=0 2>/dev/null || true &
+    oc --context "$CLUSTER_1_NAME" patch namespace "$ns" --type='json' \
+      -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+    oc --context "$CLUSTER_1_NAME" delete namespace "$ns" --grace-period=0 --wait=false 2>/dev/null || true
   fi
 done
-wait  # Wait for all parallel namespace deletions to start
 echo "  ✅ Namespace deletion initiated for all ACM/Submariner namespaces"
 echo ""
 
@@ -102,8 +109,9 @@ cleanup_agent_namespaces() {
   for ns in open-cluster-management-agent open-cluster-management-agent-addon submariner-operator; do
     if oc --context "$context" get namespace "$ns" >/dev/null 2>&1; then
       echo "🗑️  Force deleting $ns on $cluster_label"
-      oc --context "$context" patch namespace "$ns" --type='merge' -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
-      oc --context "$context" delete namespace "$ns" --grace-period=0 2>/dev/null || true
+      oc --context "$context" patch namespace "$ns" --type='json' \
+        -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+      oc --context "$context" delete namespace "$ns" --grace-period=0 --wait=false 2>/dev/null || true
     fi
   done
 
@@ -111,13 +119,12 @@ cleanup_agent_namespaces() {
   if oc --context "$context" get klusterlet >/dev/null 2>&1; then
     echo "🗑️  Deleting klusterlet CRs on $cluster_label"
     for kl in $(oc --context "$context" get klusterlet -o name 2>/dev/null); do
-      oc --context "$context" patch "$kl" --type='merge' -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
-      oc --context "$context" delete "$kl" --grace-period=0 --force 2>/dev/null || true
+      oc --context "$context" patch "$kl" --type='json' \
+        -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+      oc --context "$context" delete "$kl" --grace-period=0 --wait=false 2>/dev/null || true
     done
   fi
-}
-
-# Clean both clusters in parallel
+}# Clean both clusters in parallel
 cleanup_agent_namespaces "$CLUSTER_1_NAME" "cluster 1" &
 cleanup_agent_namespaces "$CLUSTER_2_NAME" "cluster 2" &
 wait
@@ -208,13 +215,15 @@ if [ -n "$ACM_NAMESPACES" ]; then
       if [ "$ns" = "open-cluster-management" ]; then
         # Remove finalizers from search resources
         for search in $(oc --context="$CLUSTER_1_NAME" get searches.search.open-cluster-management.io -n "$ns" -o name 2>/dev/null); do
-          oc --context="$CLUSTER_1_NAME" patch "$search" -n "$ns" --type='merge' -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true &
+          oc --context="$CLUSTER_1_NAME" patch "$search" -n "$ns" --type='json' \
+            -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
         done
       fi
 
       # Force delete namespace immediately (no waiting)
-      oc --context="$CLUSTER_1_NAME" patch namespace "$ns" --type='merge' -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
-      oc --context="$CLUSTER_1_NAME" delete namespace "$ns" --grace-period=0 2>/dev/null || true
+      oc --context="$CLUSTER_1_NAME" patch namespace "$ns" --type='json' \
+        -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+      oc --context="$CLUSTER_1_NAME" delete namespace "$ns" --grace-period=0 --wait=false 2>/dev/null || true
     fi
   done
   wait  # Wait for all parallel operations
