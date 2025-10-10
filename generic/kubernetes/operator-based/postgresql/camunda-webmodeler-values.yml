@@ -1,0 +1,31 @@
+---
+# Camunda Platform 8 Values - CNPG Webmodeler Snippet
+# This configuration uses external services managed by Kubernetes operators:
+# - PostgreSQL: CloudNativePG operator with a dedicated cluster for WebModeler
+#
+# Authentication Secrets:
+# - pg-webmodeler-secret: Contains PostgreSQL user credentials for WebModeler
+
+# WebModeler configuration
+webModeler:
+    enabled: true
+
+    # Use external PostgreSQL for WebModeler
+    restapi:
+        externalDatabase:
+            enabled: true
+            host: pg-webmodeler-rw
+            port: 5432
+            database: webmodeler
+            user: webmodeler
+            secret:
+                existingSecret: pg-webmodeler-secret
+                existingSecretKey: password
+
+        # Mail configuration (required)
+        mail:
+            fromAddress: noreply@camunda.local
+            fromName: Camunda Platform
+
+webModelerPostgresql:
+    enabled: false

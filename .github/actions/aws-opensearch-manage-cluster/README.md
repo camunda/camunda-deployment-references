@@ -12,7 +12,7 @@ It will also install Terraform and awscli. It will output the OpenSearch domain 
 | --- | --- | --- | --- |
 | `aws-region` | <p>AWS region where the cluster will be deployed</p> | `true` | `""` |
 | `domain-name` | <p>Name of the OpenSearch domain to deploy</p> | `true` | `""` |
-| `engine-version` | <p>Version of the OpenSearch engine to deploy</p> | `false` | `2.15` |
+| `engine-version` | <p>Version of the OpenSearch engine to deploy</p> | `false` | `2.19` |
 | `vpc-id` | <p>VPC ID to create the domain in</p> | `true` | `""` |
 | `subnet-ids` | <p>List of subnet IDs to create the domain in</p> | `true` | `""` |
 | `cidr-blocks` | <p>CIDR blocks to allow access from and to</p> | `true` | `""` |
@@ -66,7 +66,7 @@ This action is a `composite` action.
     # Version of the OpenSearch engine to deploy
     #
     # Required: false
-    # Default: 2.15
+    # Default: 2.19
 
     vpc-id:
     # VPC ID to create the domain in

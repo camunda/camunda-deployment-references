@@ -112,17 +112,17 @@ echo "  value: $initial_contact"
 
 export ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS="$initial_contact"
 
-echo -e "\nPlease use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL $target_text. It's part of the 'zeebe.env' path."
-echo "- name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL"
+echo -e "\nPlease use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
+echo "- name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL"
 echo "  value: $elastic0"
 
-export ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL="$elastic0"
+export ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL="$elastic0"
 
-echo -e "\nPlease use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL $target_text. It's part of the 'zeebe.env' path."
-echo "- name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL"
+echo -e "\nPlease use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
+echo "- name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL"
 echo "  value: $elastic1"
 
-export ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL="$elastic1"
+export ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL="$elastic1"
 
 # Define the broker name of Zeebe Service
 export REGION_0_ZEEBE_SERVICE_NAME="${cluster_0}.${helm_release_name}-zeebe.${namespace_0}.svc.clusterset.local"

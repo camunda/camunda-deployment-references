@@ -1,0 +1,57 @@
+---
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+    name: elasticsearch
+spec:
+    # renovate: datasource=docker depName=docker.elastic.co/elasticsearch/elasticsearch
+    version: 8.19.4
+    http:
+        tls:
+            selfSignedCertificate:
+                disabled: true
+    nodeSets:
+        - name: masters
+          count: 3
+          config:
+              # yamllint disable-line
+              node.store.allow_mmap: 'false'
+              # Disable deprecation warnings - https://github.com/camunda/camunda/issues/26285
+              # yamllint disable-line
+              logger.org.elasticsearch.deprecation: 'off'
+          podTemplate:
+              spec:
+                  affinity:
+                      podAntiAffinity:
+                          requiredDuringSchedulingIgnoredDuringExecution:
+                              - labelSelector:
+                                    matchExpressions:
+                                        - key: elasticsearch.k8s.elastic.co/cluster-name
+                                          operator: In
+                                          values:
+                                              - elasticsearch
+                                topologyKey: kubernetes.io/hostname
+                  containers:
+                      - name: elasticsearch
+                        securityContext:
+                            readOnlyRootFilesystem: true
+                        env:
+                            - name: ELASTICSEARCH_ENABLE_REST_TLS
+                              value: 'false'
+                            - name: READINESS_PROBE_TIMEOUT
+                              value: '300'
+                        resources:
+                            requests:
+                                cpu: 1
+                                memory: 2Gi
+                            limits:
+                                cpu: 2
+                                memory: 2Gi
+          volumeClaimTemplates:
+              - metadata:
+                    name: elasticsearch-data
+                spec:
+                    accessModes: [ReadWriteOnce]
+                    resources:
+                        requests:
+                            storage: 64Gi

@@ -1,0 +1,80 @@
+---
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+    name: keycloak
+spec:
+    # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<version>.*)$
+    image: docker.io/camunda/keycloak:quay-optimized-26.3.2
+    instances: 1
+    db:
+        # Use official url parameter instead of individual host/port/database
+        # pg-keycloak-rw service is provided by the CNPG keycloak
+        # aws-wrapper is required for optimized images (no impact on functionality)
+        url: jdbc:aws-wrapper:postgresql://pg-keycloak-rw:5432/keycloak
+        schema: public
+        usernameSecret:
+            name: pg-keycloak-secret
+            key: username
+        passwordSecret:
+            name: pg-keycloak-secret
+            key: password
+    http:
+        httpEnabled: true
+    additionalOptions:
+        - name: http-relative-path
+          value: /auth
+        # Enable proxy mode for proper HTTPS redirect handling behind OpenShift router
+        - name: proxy-headers
+          value: xforwarded
+        # Trust X-Forwarded-* headers from proxy
+        - name: hostname-strict-https
+          value: 'true'
+    ingress:
+        # Ingress disabled - using separate Ingress object with path /auth and className openshift-default
+        enabled: false
+    hostname:
+        hostname: ${CAMUNDA_DOMAIN}
+        # Dynamic backchannel for ingress environments (set to false for localhost/no-ingress)
+        backchannelDynamic: false
+        strict: true
+    resources:
+        limits:
+            cpu: 500m
+            memory: 1Gi
+        requests:
+            cpu: 250m
+            memory: 512Mi
+---
+# Ingress for OpenShift - automatically converted to Route with TLS by openshift-default router
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: keycloak-ingress
+    annotations:
+        route.openshift.io/termination: edge
+        # Ensure proper HTTPS handling for Keycloak behind OpenShift router
+        # Disable router-inserted session-affinity cookies so the router doesn't add its own
+        # cookie (for example ROUTEID). Use this when Keycloak is clustered with session
+        # replication (so any pod can serve a user) or when you're running a single instance
+        # (instances: 1) and don't need sticky sessions. If you run multiple Keycloak pods
+        # without shared session storage/replication, remove this annotation (or set to
+        # 'false') so the OpenShift router will set a cookie and perform sticky sessions
+        # (ensuring users are routed to the same pod).
+        haproxy.router.openshift.io/disable_cookies: 'true'
+spec:
+    ingressClassName: openshift-default
+    # ensure we use TLS
+    tls:
+        - hosts:
+    rules:
+        - host: ${CAMUNDA_DOMAIN}
+          http:
+              paths:
+                  - path: /auth
+                    pathType: Prefix
+                    backend:
+                        service:
+                            name: keycloak-service
+                            port:
+                                number: 8080

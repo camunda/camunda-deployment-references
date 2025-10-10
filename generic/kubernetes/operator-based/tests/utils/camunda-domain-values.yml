@@ -1,0 +1,64 @@
+---
+# Camunda Platform 8 Values - Domain Configuration
+# This configuration enables external access via ingress/routes with custom domains
+#
+# Variables substituted by envsubst:
+# - CAMUNDA_DOMAIN: Domain for Camunda components (e.g., lei-standard.camunda.ie)
+# - INGRESS_CLASS_NAME: Ingress controller class (nginx for EKS, openshift-default for OpenShift)
+
+global:
+    # Ingress configuration for external access
+    ingress:
+        enabled: true
+        className: ${INGRESS_CLASS_NAME}
+        host: ${CAMUNDA_DOMAIN}
+        tls:
+            # TLS/HTTPS configuration - behavior depends on platform:
+            # - EKS/Kubernetes: Uses cert-manager + Let's Encrypt for automatic certificates
+            enabled: true  # Set to true for HTTPS
+            # - OpenShift: secretName will be '-' because OpenShift routes handle TLS termination automatically
+            secretName: camunda-c8-tls
+        annotations:
+            kubernetes.io/tls-acme: 'true'
+
+    identity:
+        auth:
+            identity:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
+            console:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/console
+            webModeler:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
+            optimize:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/optimize
+
+
+orchestration:
+    contextPath: /
+    ingress:
+        grpc:
+            enabled: true
+            host: zeebe-${CAMUNDA_DOMAIN}
+            className: ${INGRESS_CLASS_NAME}
+            tls:
+                enabled: true
+                secretName: zeebe-c8-tls-grpc
+            annotations:
+                kubernetes.io/tls-acme: 'true'
+    security:
+        authentication:
+            oidc:
+                redirectUrl: https://${CAMUNDA_DOMAIN}
+
+
+optimize:
+    contextPath: /optimize
+
+console:
+    contextPath: /console
+
+webModeler:
+    contextPath: /modeler
+
+connectors:
+    contextPath: /connectors

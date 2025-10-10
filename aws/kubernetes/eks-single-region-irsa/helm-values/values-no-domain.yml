@@ -1,5 +1,56 @@
 ---
+global:
+    elasticsearch:
+        enabled: false
+    opensearch:
+        enabled: true
+        aws:
+            enabled: true # enable IRSA auth
+        url:
+            protocol: https
+            host: ${OPENSEARCH_HOST}
+            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
+            port: 443
+
+    security:
+        authentication:
+            method: oidc
+
+    identity:
+        auth:
+            enabled: true
+            type: KEYCLOAK
+
+            issuerBackendUrl: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
+            issuer: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
+            # using localhost:18080 -> camunda-keycloak:8080
+            publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
+
+            admin:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-admin-client-token
+
+            identity:
+                redirectUrl: http://localhost:8085  # replace this with a port of your choice when you will do port forwarding
+
+            optimize:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-optimize-client-token
+                redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
+
+            webModeler:
+                redirectUrl: http://localhost:8070
+
+            console:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-console-client-token
+                redirectUrl: http://localhost:8087
+
 identityKeycloak:
+    enabled: true
     serviceAccount:
         name: ${CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME}
         annotations:
@@ -20,81 +71,41 @@ identityKeycloak:
           value: wrapperPlugins=iam&ssl=true&sslmode=require
         - name: KEYCLOAK_JDBC_DRIVER
           value: aws-wrapper:postgresql
+
+        # This is required to ensure proper issuer of JWT tokens
+        - name: KC_HOSTNAME
+          value: ${CAMUNDA_RELEASE_NAME}-keycloak
+
+    # match the internal keycloak port to the external port for JWT Tokens issuer
+    ports:
+        http: 8080
+    service:
+        ports:
+            http: 8080
+
     auth:
         existingSecret: identity-secret-for-components
-
-global:
-    elasticsearch:
-        enabled: false
-    opensearch:
-        enabled: true
-        aws:
-            enabled: true # enable IRSA auth
-        url:
-            protocol: https
-            host: ${OPENSEARCH_HOST}
-            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
-            port: 443
-
-    identity:
-
-        auth:
-            publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
-
-            zeebe:
-                existingSecret:
-                    name: identity-secret-for-components
-            connectors:
-                existingSecret:
-                    name: identity-secret-for-components
-            operate:
-                redirectUrl: http://localhost:8081  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            tasklist:
-                redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            optimize:
-                redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            webModeler:
-                redirectUrl: http://localhost:8084
-            console:
-                redirectUrl: http://localhost:8085
-                existingSecret:
-                    name: identity-secret-for-components
-
-webModeler:
-    enabled: false # by default, webModeler is not enabled
-
-    serviceAccount:
-        name: ${CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${DB_ROLE_WEBMODELER_ARN}
-
-    restapi:
-        externalDatabase:
-            url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?wrapperPlugins=iam
-            user: ${DB_WEBMODELER_USERNAME}
-            existingSecret: identity-secret-for-components # this fake password reference is needed to let the chart deploy webmodeler
-            existingSecretPasswordKey: password
-        env:
-            - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
-              value: software.amazon.jdbc.Driver
-        mail:
-            existingSecret:
-                name: identity-secret-for-components # reference the smtp password
-            fromAddress: changeme@example.com   # change this required value
+        passwordSecretKey: identity-admin-client-token
 
 identity:
+    enabled: true
+    contextPath: /managementidentity
     serviceAccount:
         name: ${CAMUNDA_IDENTITY_SERVICE_ACCOUNT_NAME}
         annotations:
             eks.amazonaws.com/role-arn: ${DB_ROLE_IDENTITY_ARN}
 
-    fullURL: http://localhost:8080 # replace this with a port of your choice when you will do port forwarding
+    fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
+
+    firstUser:
+        enabled: true
+        username: admin
+        email: admin@camunda.local
+        firstName: Admin
+        lastName: User
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: identity-first-user-password
 
     externalDatabase:
         enabled: true
@@ -111,25 +122,17 @@ identity:
         - name: SPRING_DATASOURCE_USERNAME
           value: ${DB_IDENTITY_USERNAME}
 
-zeebe:
-    serviceAccount:
-        name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
-operate:
-    serviceAccount:
-        name: ${CAMUNDA_OPERATE_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
-
-tasklist:
-    serviceAccount:
-        name: ${CAMUNDA_TASKLIST_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+connectors:
+    # Configure OIDC for connectors
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-connectors-client-token
 
 optimize:
+    enabled: true
     serviceAccount:
         name: ${CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME}
         annotations:
@@ -139,9 +142,52 @@ optimize:
     migration:
         enabled: false
 
+orchestration:
+    serviceAccount:
+        name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
+
+    # Configure OIDC for orchestration
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
+                redirectUrl: http://localhost:8080
+
 console:
     enabled: false # by default, console is not enabled
-    contextPath: /
+
+webModeler:
+    enabled: false # by default, webModeler is not enabled
+
+    serviceAccount:
+        name: ${CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME}
+        annotations:
+            eks.amazonaws.com/role-arn: ${DB_ROLE_WEBMODELER_ARN}
+
+    restapi:
+        externalDatabase:
+            url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?wrapperPlugins=iam
+            user: ${DB_WEBMODELER_USERNAME}
+            secret:
+                existingSecret: identity-secret-for-components # this fake password reference is needed to let the chart deploy webmodeler
+                existingSecretPasswordKey: password
+        env:
+            - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+              value: software.amazon.jdbc.Driver
+        mail:
+            secret:
+                existingSecret: identity-secret-for-components # reference the smtp password
+                existingSecretKey: smtp-password
+            fromAddress: changeme@example.com   # change this required value
+
+webModelerPostgresql:
+    # Will deploy a postgresql datbase for webModeler.
+    # If you enable webModeler, you either need to turn it true or use an external database
+    enabled: false
 
 elasticsearch:
     enabled: false

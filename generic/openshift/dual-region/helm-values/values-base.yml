@@ -5,7 +5,7 @@
 # https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform/values.yaml
 
 global:
-    # Multiregion options for Zeebe
+    # Multiregion options for the Orchestration Cluster
     #
     ## WARNING: In order to get your multi-region setup covered by Camunda enterprise support
     # you MUST get your configuration and run books reviewed by Camunda before going to production.
@@ -22,66 +22,44 @@ global:
             # Disable the Identity authentication
             # it will fall back to basic-auth: demo/demo as default user
             enabled: false
-    elasticsearch:
-        disableExporter: true
 
     compatibility:
         openshift:
             adaptSecurityContext: force # enforce compatibility with SCCs
 
-
-operate:
-    env:
-        - name: CAMUNDA_OPERATE_BACKUP_REPOSITORYNAME
-          value: camunda_backup
-tasklist:
-    env:
-        - name: CAMUNDA_TASKLIST_BACKUP_REPOSITORYNAME
-          value: camunda_backup
-
-identity:
-    enabled: false
-
-# Temporary Helm chart v10 fix
-identityKeycloak:
-    enabled: false
-
-optimize:
-    enabled: false
-
 connectors:
-    enabled: false
+    enabled: true
 
-zeebe:
-    clusterSize: 8
-    partitionCount: 8
-    replicationFactor: 4
+orchestration:
+    clusterSize: '8'
+    partitionCount: '8'
+    replicationFactor: '4'
+    # Disable the Camunda and Zeebe exporters as we use region specific ones below
+    exporters:
+        camunda:
+            enabled: false
+        zeebe:
+            enabled: false
     env:
-        - name: ZEEBE_BROKER_DATA_SNAPSHOTPERIOD
-          value: 5m
-        - name: ZEEBE_BROKER_DATA_DISKUSAGECOMMANDWATERMARK
-          value: '0.85'
-        - name: ZEEBE_BROKER_DATA_DISKUSAGEREPLICATIONWATERMARK
-          value: '0.87'
+        - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
+          value: camunda_backup
+        - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
+          value: 'true'
         - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
           value: ${ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS}
-        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_CLASSNAME
-          value: io.camunda.zeebe.exporter.ElasticsearchExporter
-        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL
-          value: ${ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL}
-        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_CLASSNAME
-          value: io.camunda.zeebe.exporter.ElasticsearchExporter
-        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL
-          value: ${ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL}
-        # Enable JSON logging for Google Cloud Stackdriver
-        - name: ZEEBE_LOG_APPENDER
-          value: Stackdriver
-        - name: ZEEBE_LOG_STACKDRIVER_SERVICENAME
-          value: zeebe
-        - name: ZEEBE_LOG_STACKDRIVER_SERVICEVERSION
-          valueFrom:
-              fieldRef:
-                  fieldPath: metadata.namespace
+        # Region 0 exporter config
+        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_CLASSNAME
+          value: io.camunda.exporter.CamundaExporter
+        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL
+          value: ${ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL}
+        # Region 1 exporter config
+        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_CLASSNAME
+          value: io.camunda.exporter.CamundaExporter
+        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL
+          value: ${ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL}
+        # Zeebe cluster tuning
+        - name: CAMUNDA_DATA_SNAPSHOTPERIOD
+          value: 5m
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBETIMEOUT
           value: 500ms
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBEINTERVAL
@@ -94,36 +72,31 @@ zeebe:
           value: 1s
         - name: ZEEBE_BROKER_NETWORK_ADVERTISEDHOST
           value: ${DOLLAR}(K8S_NAME).$ZEEBE_SERVICE_NAME
-    pvcSize: 1Gi
-
-    resources:
-        requests:
-            cpu: 100m
-            memory: 512M
-        limits:
-            cpu: 512m
-            memory: 2Gi
-
-zeebeGateway:
-    replicas: 1
-
-    env:
-        - name: ZEEBE_GATEWAY_CLUSTER_MESSAGECOMPRESSION
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MESSAGECOMPRESSION
           value: GZIP
-        - name: ZEEBE_GATEWAY_CLUSTER_MEMBERSHIP_PROBETIMEOUT
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBETIMEOUT
           value: 500ms
-        - name: ZEEBE_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
           value: 2s
+    pvcSize: 32Gi
+    logLevel: ERROR
 
     resources:
         requests:
-            cpu: 100m
-            memory: 512M
-        limits:
-            cpu: 1000m
+            cpu: 200m
             memory: 1Gi
+        limits:
+            cpu: 1512m
+            memory: 3Gi
 
-    logLevel: ERROR
+identity:
+    enabled: false
+
+identityKeycloak:
+    enabled: false
+
+optimize:
+    enabled: false
 
 elasticsearch:
     enabled: true
@@ -137,7 +110,7 @@ elasticsearch:
                 cpu: 1000m
                 memory: 2Gi
         persistence:
-            size: 15Gi
+            size: 30Gi
     initScripts:
         init-keystore.sh: |
             #!/bin/bash

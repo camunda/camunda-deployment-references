@@ -1,19 +1,4 @@
 ---
-identityKeycloak:
-    postgresql:
-        enabled: false
-    externalDatabase:
-        # see https://artifacthub.io/packages/helm/bitnami/keycloak
-        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
-        existingSecretHostKey: host
-        existingSecretPortKey: port
-        existingSecretUserKey: user
-        existingSecretDatabaseKey: database
-        existingSecretPasswordKey: password
-
-    auth:
-        existingSecret: identity-secret-for-components
-
 global:
     elasticsearch:
         enabled: false
@@ -30,38 +15,85 @@ global:
             # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
             port: 443
 
-    identity:
+    security:
+        authentication:
+            method: oidc
 
+    identity:
         auth:
+            enabled: true
+            type: KEYCLOAK
+
+            issuerBackendUrl: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
+            issuer: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
+            # using localhost:18080 -> camunda-keycloak:8080
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            zeebe:
-                existingSecret:
-                    name: identity-secret-for-components
-            connectors:
-                existingSecret:
-                    name: identity-secret-for-components
-            operate:
-                redirectUrl: http://localhost:8081  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            tasklist:
-                redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
+            admin:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-admin-client-token
+
+            identity:
+                redirectUrl: http://localhost:8085  # replace this with a port of your choice when you will do port forwarding
+
             optimize:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-optimize-client-token
                 redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
+
             webModeler:
-                redirectUrl: http://localhost:8084
+                redirectUrl: http://localhost:8070
+
             console:
-                redirectUrl: http://localhost:8085
-                existingSecret:
-                    name: identity-secret-for-components
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-console-client-token
+                redirectUrl: http://localhost:8087
+
+identityKeycloak:
+    enabled: true
+    postgresql:
+        enabled: false
+    externalDatabase:
+        # see https://artifacthub.io/packages/helm/bitnami/keycloak
+        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
+        existingSecretHostKey: host
+        existingSecretPortKey: port
+        existingSecretUserKey: user
+        existingSecretDatabaseKey: database
+        existingSecretPasswordKey: password
+    auth:
+        existingSecret: identity-secret-for-components
+        passwordSecretKey: identity-admin-client-token
+
+    extraEnvVars:
+        # This is required to ensure proper issuer of JWT tokens
+        - name: KC_HOSTNAME
+          value: ${CAMUNDA_RELEASE_NAME}-keycloak
+
+    # match the internal keycloak port to the external port for JWT Tokens issuer
+    ports:
+        http: 8080
+    service:
+        ports:
+            http: 8080
 
 identity:
-    fullURL: http://localhost:8080 # replace this with a port of your choice when you will do port forwarding
+    enabled: true
+    contextPath: /managementidentity
+    fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
+
+    firstUser:
+        enabled: true
+        username: admin
+        email: admin@camunda.local
+        firstName: Admin
+        lastName: User
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: identity-first-user-password
 
     externalDatabase:
         enabled: true
@@ -72,6 +104,34 @@ identity:
         existingSecret: identity-postgres-secret
         existingSecretPasswordKey: password
 
+connectors:
+    # Configure OIDC for connectors
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-connectors-client-token
+
+optimize:
+    enabled: true
+    # OpenSearch prevents migration
+    migration:
+        enabled: false
+
+orchestration:
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
+                redirectUrl: http://localhost:8080
+
+console:
+    enabled: false # by default, console is not enabled
+
+
 webModeler:
     enabled: false # by default, webModeler is not enabled
 
@@ -79,24 +139,22 @@ webModeler:
         externalDatabase:
             url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}
             user: ${DB_WEBMODELER_USERNAME}
-            existingSecret:
-                name: webmodeler-postgres-secret
-            existingSecretPasswordKey: password
+            secret:
+                existingSecret: webmodeler-postgres-secret
+                existingSecretKey: password
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
         mail:
-            existingSecret:
-                name: identity-secret-for-components # reference the smtp password
+            secret:
+                existingSecret: identity-secret-for-components # reference the smtp password
+                existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
 
-optimize:
-    migration:
-        enabled: false
-
-console:
-    enabled: false # by default, console is not enabled
-    contextPath: /
+webModelerPostgresql:
+    # Will deploy a postgresql datbase for webModeler.
+    # If you enable webModeler, you either need to turn it true or use an external database
+    enabled: false
 
 elasticsearch:
     enabled: false

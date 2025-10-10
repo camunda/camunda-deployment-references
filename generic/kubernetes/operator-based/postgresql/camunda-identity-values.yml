@@ -1,0 +1,22 @@
+---
+# Camunda Platform 8 Values - CNPG Identity Snippet
+# This configuration uses external services managed by Kubernetes operators:
+# - PostgreSQL: CloudNativePG operator with a dedicated cluster for Identity
+#
+# Authentication Secrets:
+# - pg-identity-secret: Contains PostgreSQL user credentials for Identity
+
+identity:
+    enabled: true
+
+    # Use external PostgreSQL
+    externalDatabase:
+        enabled: true
+        host: pg-identity-rw
+        port: 5432
+        database: identity
+        username: '' # Will be read from secret
+        # Use the new secret configuration format
+        secret:
+            existingSecret: pg-identity-secret
+            existingSecretKey: password

@@ -20,7 +20,11 @@ on:
             - '!azure/kubernetes/aks-single-region/test/golden/**'
             - .github/actions/azure-kubernetes-aks-single-region-create/**
             - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
+            - .github/actions/azure-kubernetes-ingress-setup/**
             - .github/actions/internal-terraform-drift-detect/**
+            - .github/actions/internal-clean-namespace/**
+            - .github/actions/kubernetes-restart-coredns/**
+            - .github/actions/kubernetes-wildcard-certificate/**
 
     workflow_dispatch:
         inputs:
@@ -53,6 +57,10 @@ on:
                 required: false
                 type: string
                 default: aks-single-region
+            use_wildcard_cert:
+                description: Use wildcard certificate from Vault instead of ACME/Let's Encrypt
+                type: boolean
+                default: false
 
 
 concurrency:
@@ -86,10 +94,10 @@ env:
     # Docker Hub auth to avoid image pull rate limit.
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
-    # TODO: [release-duty] before the release, update repo ref!
+
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    # TODO: temporary fix to allow tests of enterprise keycloak to pass
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix/venom-login-page-error-check   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+    # TODO: resolve this branch when merging to playwright <8.8>
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Optional components that are not enabled by default in the doc
@@ -127,8 +135,6 @@ jobs:
 
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_name: ${{ inputs.cluster_name }}
-
-
     prepare-clusters:
         name: Prepare clusters
         needs:
@@ -184,7 +190,6 @@ jobs:
                   subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
 
             - name: Set current target branch
-              if: env.CLEANUP_CLUSTERS == 'true'
               id: target-branch
               run: |
                   set -euo pipefail
@@ -316,6 +321,8 @@ jobs:
         env:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: kubernetes
+            # Do not change this secret name without updating manifests that reference this TLS secret
+            WILDCARD_TLS_SECRET_NAME: camunda-c8-tls
         steps:
             - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
@@ -396,39 +403,6 @@ jobs:
 
                   kubectl config current-context
                   kubectl get nodes
-
-            - name: 🏗️ Ingress Setup prerequisites
-              if: ${{ matrix.declination.name == 'domain' }}
-              timeout-minutes: 20
-              run: |
-                  set -euo pipefail
-
-                  source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
-
-                  # Overwriting the mail
-                  export MAIL=${{ env.MAIL_OVERWRITE }}
-
-                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/install-ingress-nginx.sh
-
-                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}"
-
-                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/install-external-dns.sh
-
-                  source azure/kubernetes/${{ matrix.scenario.name }}/procedure/export-domain-setup-vars.sh
-
-                  # Overwriting dummy values
-                  export AZURE_DNS_RESOURCE_GROUP="${{ env.AZURE_DNS_RESOURCE_GROUP }}"
-                  export AZURE_SUBSCRIPTION_ID="${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}"
-                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/external-dns-azure-config.sh
-
-                  ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
-
-                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager.sh
-
-                  export AZURE_DNS_ZONE="${{ env.TLD }}"
-                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager-issuer.sh
-
-
             - name: 🌱 Register chart setup environment values
               timeout-minutes: 3
               run: |
@@ -439,22 +413,15 @@ jobs:
                   export_new_env_vars generic/kubernetes/single-region/procedure/chart-env.sh
 
 
-            - name: 🏗️ Prepare a fresh namespace for the tests
-              timeout-minutes: 10
-              run: |
-                  set -euo pipefail
+            - name: 🏗️ Clean and recreate Camunda namespace
+              uses: ./.github/actions/internal-clean-namespace
+              timeout-minutes: 20
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  recreate: 'true'
 
-                  # Delete the namespace to ensure a fresh start
-                  if kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; then
-                  kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
-                  while kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; do
-                      echo "Namespace $CAMUNDA_NAMESPACE still being deleted, waiting..."
-                      sleep 5
-                  done
-                  fi
-
-                  # Create the namespace
-                  kubectl create namespace "$CAMUNDA_NAMESPACE"
+            - name: Wait for cluster stability
+              run: sleep 30
 
             - name: 🧹 Clean up databases
               timeout-minutes: 20
@@ -483,6 +450,36 @@ jobs:
                   kubectl delete job reset-azure-postgres --namespace "$CAMUNDA_NAMESPACE"
 
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
+
+            # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
+            # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
+            - name: Configure wildcard certificate usage
+              id: cert-config
+              uses: ./.github/actions/internal-configure-wildcard-cert
+              with:
+                  manual-wildcard-cert: ${{ github.event.inputs.use_wildcard_cert }}
+                  is-renovate-pr: ${{ env.IS_RENOVATE_PR }}
+                  is-schedule: ${{ env.IS_SCHEDULE }}
+                  base-ref: ${{ github.base_ref }}
+
+            - name: 🏗️ Ingress Setup prerequisites
+              if: ${{ matrix.declination.name == 'domain' }}
+              timeout-minutes: 20
+              uses: ./.github/actions/azure-kubernetes-ingress-setup
+              with:
+                  cluster-name: ${{ matrix.distro.clusterName }}
+                  scenario-short-name: ${{ matrix.scenario.shortName }}
+                  scenario-name: ${{ matrix.scenario.name }}
+                  mail: ${{ env.MAIL_OVERWRITE }}
+                  tld: ${{ env.TLD }}
+                  azure-dns-resource-group: ${{ env.AZURE_DNS_RESOURCE_GROUP }}
+                  azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+                  use-wildcard-cert: ${{ steps.cert-config.outputs.use-wildcard-cert }}
+                  wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: 🛠️ Assemble deployment values of azure/kubernetes/${{ matrix.scenario.name }}/${{ matrix.declination.name }}
               timeout-minutes: 10
@@ -513,11 +510,15 @@ jobs:
                   yq ". *+ load(\"azure/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml\")" values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
+                  # TODO: [release-duty] remove this when fixed
+                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/tmp-tags-8.8.yml\")" values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
+
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
                     export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
-                    export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"
+                    export DOMAIN_NAME_GRPC="zeebe-$DOMAIN_NAME:443"
                     echo "DOMAIN_NAME_GRPC=$DOMAIN_NAME_GRPC" | tee -a "$GITHUB_ENV"
                   fi
 
@@ -530,6 +531,22 @@ jobs:
                   if [ "$CONSOLE_ENABLED" == "true" ]; then
                     echo "Enabling Console"
                     yq -i '.console.enabled = true' values.yml
+                  fi
+
+                  # If using wildcard certificate, remove cert-manager annotations from values
+                  if [[ "${{ steps.cert-config.outputs.use-wildcard-cert }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
+                      echo "Removing cert-manager annotations from Helm values (using wildcard certificate)"
+                      echo "Using wildcard TLS secret: ${{ env.WILDCARD_TLS_SECRET_NAME }}"
+                      yq eval '
+                        del(.global.ingress.annotations."kubernetes.io/tls-acme") |
+                        del(.global.ingress.annotations."cert-manager.io/cluster-issuer") |
+                        .global.ingress.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}" |
+                        del(.orchestration.ingress.grpc.annotations."kubernetes.io/tls-acme") |
+                        del(.orchestration.ingress.grpc.annotations."cert-manager.io/cluster-issuer") |
+                        .orchestration.ingress.grpc.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}"
+                      ' values.yml > values-temp.yml
+                      mv values-temp.yml values.yml
+                      echo "Cert-manager annotations removed and wildcard TLS secret configured for HTTP and gRPC ingress"
                   fi
 
                   # Apply registry-harbor configuration (used in all scenarios for better performance)
@@ -616,10 +633,17 @@ jobs:
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
-              timeout-minutes: 10
+              timeout-minutes: 20
               run: |
                   set -euo pipefail
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+
+            - name: 🔄 Restart CoreDNS
+              if: matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'false'
+              uses: ./.github/actions/kubernetes-restart-coredns
+              timeout-minutes: 10
+              with:
+                  cluster-type: kubernetes
 
             - name: 📐 Set current Camunda version
               id: camunda-version
@@ -645,6 +669,8 @@ jobs:
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
+                  test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
 
             - name: 🔬🚨 Get failed certificate info
               if: failure() && matrix.declination.name == 'domain'
@@ -678,14 +704,10 @@ jobs:
             - name: 🧹 Cleanup domain specific resources
               if: always() && matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 10
-              run: |
-                  set -euo pipefail
-
-                  echo "Let external-dns remove the domain" && sleep 45
-
-                  helm uninstall ingress-nginx --namespace ingress-nginx --wait
-                  helm uninstall external-dns --namespace external-dns --wait
-                  helm uninstall cert-manager --namespace cert-manager --wait
+              uses: ./.github/actions/kubernetes-ingress-cleanup
+              with:
+                  wait-for-dns-cleanup: 'true'
+                  dns-cleanup-wait-seconds: '45'
 
     cleanup-clusters:
         name: Cleanup AKS clusters
@@ -713,6 +735,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
+              if: env.CLEANUP_CLUSTERS == 'true'
               uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
@@ -727,6 +750,7 @@ jobs:
 
             - name: Azure Login with OIDC
               uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              if: env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -735,6 +759,7 @@ jobs:
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
+              if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}

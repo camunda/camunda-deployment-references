@@ -81,7 +81,8 @@ env:
     # Docker Hub auth to avoid image pull rate limit.
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+    # TODO: resolve this branch when merging to playwright <8.8>
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     ROSA_CLI_VERSION: latest
@@ -381,124 +382,364 @@ jobs:
                   tree
 
             # It's expected to always run in case an existing cluster is present.
-            # E.g. manual development deployment.
+            # E.g. manual development deployment or retry after failure.
+            # This ensures a completely clean state before installing ACM.
             - name: Ensure ACM and associated MultiCluster are not installed
-              timeout-minutes: 25
+              timeout-minutes: 30
               run: |
                   set -euo pipefail
 
-                  TIMEOUT_SECONDS=300
+                  echo "🧹 Starting comprehensive ACM cleanup for fresh installation..."
+                  echo "================================================================"
+                  echo ""
+
+                  MANAGEDCLUSTER_TIMEOUT=60  # Reduced timeout for ManagedCluster deletion
                   CLUSTERS=("local-cluster" "$CLUSTER_2_NAME")
 
+                  # Step 1: Delete all ManagedClusters (aggressive mode)
+                  echo "Step 1: Deleting all ManagedClusters..."
+                  echo "----------------------------------------"
                   for cluster_name in "${CLUSTERS[@]}"; do
-                    echo "Deleting ManagedCluster: $cluster_name"
+                    echo "🗑️  Deleting ManagedCluster: $cluster_name"
 
-                    CLUSTER_NAME="$cluster_name" \
-                    envsubst < ./generic/openshift/dual-region/procedure/acm/managed-cluster.yml.tpl \
-                    | oc --context "$CLUSTER_1_NAME" delete -f - \
-                    || true
+                    if oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; then
 
-                    echo "⏳ Waiting for ManagedCluster '$cluster_name' to be deleted..."
-                    SECONDS=0
-                    while oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; do
-                      echo "Still deleting '$cluster_name'..."
-                      echo "Current state:"
-                      oc --context "$CLUSTER_1_NAME" describe managedcluster "$cluster_name" | \
-                        grep -E 'Name:|Namespace:|Status:|Conditions:' -A 5 || \
-                        echo "Describe failed or resource partially removed."
-                      sleep 5
+                      # Immediately remove finalizers (don't wait for graceful deletion in cleanup scenario)
+                      echo "  Removing finalizers immediately..."
+                      oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" \
+                        --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
 
-                      if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
-                        echo "⛔ Timeout reached while deleting '$cluster_name' — enforcing finalizers!"
-                        oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" --type='merge' -p '{"metadata":{"finalizers":[]}}'
-                        break
+                      # Now delete with short timeout
+                      echo "  Deleting resource..."
+                      oc --context "$CLUSTER_1_NAME" delete managedcluster "$cluster_name" \
+                        --timeout=30s --grace-period=0 2>/dev/null || true
+
+                      # Verify deletion (short wait)
+                      echo "⏳ Verifying deletion of '$cluster_name'..."
+                      SECONDS=0
+                      while oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; do
+                        if [ $((SECONDS % 10)) -eq 0 ]; then
+                          echo "  Still waiting... (${SECONDS}s elapsed)"
+                        fi
+                        sleep 2
+
+                        if [ "$SECONDS" -ge "$MANAGEDCLUSTER_TIMEOUT" ]; then
+                          echo "  ⚠️  ManagedCluster still present after $MANAGEDCLUSTER_TIMEOUT seconds"
+                          echo "  Forcing final removal..."
+                          oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" \
+                            --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+                          oc --context "$CLUSTER_1_NAME" delete managedcluster "$cluster_name" \
+                            --grace-period=0 --force 2>/dev/null || true
+                          sleep 5
+                          break
+                        fi
+                      done
+
+                      if ! oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; then
+                        echo "  ✅ ManagedCluster '$cluster_name' deleted"
+                      else
+                        echo "  ⚠️  ManagedCluster '$cluster_name' still exists - continuing anyway"
                       fi
-                    done
-
-                    echo "✅ ManagedCluster '$cluster_name' has been successfully deleted or forced."
+                    else
+                      echo "  ℹ️  ManagedCluster '$cluster_name' not found - skipping"
+                    fi
                     echo ""
                   done
 
-                  echo "⏳ Uninstalling MultiClusterHub..."
+                  # Step 2: Clean up cluster-specific namespaces on hub
+                  echo "Step 2: Cleaning up cluster namespaces on hub..."
+                  echo "-------------------------------------------------"
+                  for cluster_name in "${CLUSTERS[@]}"; do
+                    if oc --context "$CLUSTER_1_NAME" get namespace "$cluster_name" >/dev/null 2>&1; then
+                      echo "🗑️  Deleting namespace: $cluster_name"
+                      oc --context "$CLUSTER_1_NAME" delete namespace "$cluster_name" --timeout=60s || {
+                        echo "  ⚠️  Normal deletion failed, forcing..."
+                        # Remove finalizers from all resources in the namespace
+                        oc --context "$CLUSTER_1_NAME" patch namespace "$cluster_name" --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                      }
+                    fi
+                  done
+                  echo ""
+
+                  # Step 3: Clean up klusterlet resources on managed clusters
+                  echo "Step 3: Cleaning up klusterlet resources on managed clusters..."
+                  echo "----------------------------------------------------------------"
+
+                  # Clean cluster 1 (hub, also a managed cluster as local-cluster)
+                  if oc --context "$CLUSTER_1_NAME" get namespace open-cluster-management-agent >/dev/null 2>&1; then
+                    echo "🗑️  Cleaning klusterlet on cluster 1 (hub/local-cluster)"
+                    oc --context "$CLUSTER_1_NAME" -n open-cluster-management-agent delete all --all --timeout=30s || true
+                    oc --context "$CLUSTER_1_NAME" delete namespace open-cluster-management-agent --timeout=60s || {
+                      oc --context "$CLUSTER_1_NAME" patch namespace open-cluster-management-agent --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                    }
+                  fi
+
+                  if oc --context "$CLUSTER_1_NAME" get namespace open-cluster-management-agent-addon >/dev/null 2>&1; then
+                    echo "🗑️  Cleaning klusterlet addon namespace on cluster 1"
+                    oc --context "$CLUSTER_1_NAME" delete namespace open-cluster-management-agent-addon --timeout=60s || {
+                      oc --context "$CLUSTER_1_NAME" patch namespace open-cluster-management-agent-addon --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                    }
+                  fi
+
+                  # Clean cluster 2
+                  if oc --context "$CLUSTER_2_NAME" get namespace open-cluster-management-agent >/dev/null 2>&1; then
+                    echo "🗑️  Cleaning klusterlet on cluster 2"
+                    oc --context "$CLUSTER_2_NAME" -n open-cluster-management-agent delete all --all --timeout=30s || true
+                    oc --context "$CLUSTER_2_NAME" delete namespace open-cluster-management-agent --timeout=60s || {
+                      oc --context "$CLUSTER_2_NAME" patch namespace open-cluster-management-agent --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                    }
+                  fi
+
+                  if oc --context "$CLUSTER_2_NAME" get namespace open-cluster-management-agent-addon >/dev/null 2>&1; then
+                    echo "🗑️  Cleaning klusterlet addon namespace on cluster 2"
+                    oc --context "$CLUSTER_2_NAME" delete namespace open-cluster-management-agent-addon --timeout=60s || {
+                      oc --context "$CLUSTER_2_NAME" patch namespace open-cluster-management-agent-addon --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                    }
+                  fi
+
+                  # Delete klusterlet CRs if they exist
+                  if oc --context "$CLUSTER_1_NAME" get klusterlet >/dev/null 2>&1; then
+                    echo "🗑️  Deleting klusterlet CRs on cluster 1"
+                    oc --context "$CLUSTER_1_NAME" delete klusterlet --all --timeout=30s || {
+                      for kl in $(oc --context "$CLUSTER_1_NAME" get klusterlet -o name); do
+                        oc --context "$CLUSTER_1_NAME" patch "$kl" --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                      done
+                    }
+                  fi
+
+                  if oc --context "$CLUSTER_2_NAME" get klusterlet >/dev/null 2>&1; then
+                    echo "🗑️  Deleting klusterlet CRs on cluster 2"
+                    oc --context "$CLUSTER_2_NAME" delete klusterlet --all --timeout=30s || {
+                      for kl in $(oc --context "$CLUSTER_2_NAME" get klusterlet -o name); do
+                        oc --context "$CLUSTER_2_NAME" patch "$kl" --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                      done
+                    }
+                  fi
+                  echo ""
+
+                  # Step 4: Delete ManagedClusterSet and related resources
+                  echo "Step 4: Deleting ManagedClusterSet..."
+                  echo "-------------------------------------"
+                  if oc --context="$CLUSTER_1_NAME" get managedclusterset camunda-zeebe >/dev/null 2>&1; then
+                    echo "🗑️  Deleting ManagedClusterSet: camunda-zeebe"
+                    oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/managed-cluster-set.yml --timeout=60s || {
+                      oc --context="$CLUSTER_1_NAME" patch managedclusterset camunda-zeebe --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                    }
+                  fi
+
+                  if oc --context="$CLUSTER_1_NAME" get managedclustersetbinding camunda-zeebe \
+                      -n open-cluster-management >/dev/null 2>&1; then
+                    echo "🗑️  Deleting ManagedClusterSetBinding: camunda-zeebe"
+                    oc --context="$CLUSTER_1_NAME" delete managedclustersetbinding camunda-zeebe \
+                      -n open-cluster-management --timeout=60s || {
+                      oc --context="$CLUSTER_1_NAME" patch managedclustersetbinding camunda-zeebe \
+                        -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                    }
+                  fi
+                  echo ""
+
+                  # Step 5: Delete MultiClusterHub (aggressive cleanup)
+                  echo "Step 5: Deleting MultiClusterHub..."
+                  echo "------------------------------------"
                   if oc --context="$CLUSTER_1_NAME" get clusterrole open-cluster-management:cluster-manager-admin >/dev/null 2>&1; then
-                    oc --context="$CLUSTER_1_NAME" delete clusterrole open-cluster-management:cluster-manager-admin
+                    echo "🗑️  Deleting cluster role: open-cluster-management:cluster-manager-admin"
+                    oc --context="$CLUSTER_1_NAME" delete clusterrole open-cluster-management:cluster-manager-admin || true
                   fi
 
-                  SECONDS=0
-                  echo "⏳ Checking for MultiClusterHub CRD..."
-
-                  # Check if the CRD exists before attempting to delete a resource
                   if oc --context="$CLUSTER_1_NAME" get crd multiclusterhubs.operator.open-cluster-management.io >/dev/null 2>&1; then
-                    echo "CRD found, attempting to delete MultiClusterHub..."
-                    oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/multi-cluster-hub.yml || true
+                    # Check if MultiClusterHub exists
+                    if oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management >/dev/null 2>&1; then
+                      echo "🗑️  MultiClusterHub found - forcing immediate deletion"
 
-                    while true; do
-                      output=$(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o yaml 2>/dev/null)
+                      # Immediate finalizer removal (don't wait for graceful deletion)
+                      echo "  Removing finalizers immediately..."
+                      for mch in $(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o name 2>/dev/null); do
+                        oc --context="$CLUSTER_1_NAME" patch "$mch" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                      done
 
-                      if [[ -z "$output" || "$output" == *"items: []"* ]]; then
-                        echo "✅ MultiClusterHub resource deleted or not found."
-                        break
-                      fi
+                      # Force delete with zero grace period
+                      echo "  Force deleting resource..."
+                      oc --context="$CLUSTER_1_NAME" delete multiclusterhub --all -n open-cluster-management --grace-period=0 --force 2>/dev/null || true
 
-                      echo "MultiClusterHub still exists, fetching details:"
-                      echo "$output"
+                      # Verify deletion (short timeout since we forced it)
+                      echo "⏳ Verifying deletion..."
+                      SECONDS=0
+                      while oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management >/dev/null 2>&1; do
+                        if [ $((SECONDS % 10)) -eq 0 ]; then
+                          echo "  Still waiting for deletion... (${SECONDS}s elapsed)"
+                        fi
+                        sleep 2
 
-                      echo "Still waiting for MultiClusterHub to be deleted..."
-                      sleep 10
-
-                      if [ $SECONDS -ge 100 ]; then
-                        echo "⛔ Timeout reached - Uninstallation of MultiClusterHub is stuck - enforcing finalizer removal!"
-                        oc --context="$CLUSTER_1_NAME" patch multiclusterhub multiclusterhub --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
-                      fi
-                    done
-
+                        if [ $SECONDS -ge 60 ]; then
+                          echo "  ⚠️  MultiClusterHub still present after force delete - will clean namespace"
+                          break
+                        fi
+                      done
+                      echo "  ✅ MultiClusterHub deletion complete"
+                    else
+                      echo "  ℹ️  MultiClusterHub not found - already deleted"
+                    fi
                   else
-                    echo "MultiClusterHub CRD not found. Skipping deletion."
+                    echo "  ℹ️  MultiClusterHub CRD not found - skipping"
+                  fi
+                  echo ""
+
+                  # Step 6: Delete ACM Operator Subscription and CSV
+                  echo "Step 6: Deleting ACM Operator..."
+                  echo "---------------------------------"
+                  if oc --context="$CLUSTER_1_NAME" get subscription advanced-cluster-management -n open-cluster-management >/dev/null 2>&1; then
+                    echo "🗑️  Deleting ACM subscription"
+                    oc --context="$CLUSTER_1_NAME" delete subscription advanced-cluster-management -n open-cluster-management --timeout=30s || true
                   fi
 
-                  echo "Uninstalling ACM Install Manifest..."
-                  oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/install-manifest.yml || true
+                  # Delete ClusterServiceVersion (CSV) for ACM
+                  if oc --context="$CLUSTER_1_NAME" get csv -n open-cluster-management \
+                      | grep -q advanced-cluster-management; then
+                    echo "🗑️  Deleting ACM ClusterServiceVersion"
+                    oc --context="$CLUSTER_1_NAME" delete csv -n open-cluster-management \
+                      -l operators.coreos.com/advanced-cluster-management.open-cluster-management= \
+                      --timeout=30s || true
+                  fi
+                  echo ""
 
-                  # Check if the CRD exists before attempting to delete a resource
+                  # Step 7: Delete MultiClusterEngine (aggressive cleanup)
+                  echo "Step 7: Deleting MultiClusterEngine..."
+                  echo "---------------------------------------"
                   if oc --context="$CLUSTER_1_NAME" get crd multiclusterengines.multicluster.openshift.io >/dev/null 2>&1; then
-                    echo "CRD found, attempting to delete MultiClusterEngine..."
+                    # Check if MultiClusterEngine exists
+                    if oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management >/dev/null 2>&1; then
+                      echo "🗑️  MultiClusterEngine found - forcing immediate deletion"
 
-                    echo "⏳ Waiting for MultiClusterEngine to be deleted..."
-                    SECONDS=0
-                    while true; do
-                      output=$(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o yaml 2>/dev/null)
+                      # Immediate finalizer removal
+                      echo "  Removing finalizers immediately..."
+                      for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o name 2>/dev/null); do
+                        oc --context="$CLUSTER_1_NAME" patch "$mce" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+                      done
 
-                      if [[ -z "$output" || "$output" == *"items: []"* ]]; then
-                        echo "✅ MultiClusterEngine resource deleted or not found."
-                        break
-                      fi
+                      # Force delete with zero grace period
+                      echo "  Force deleting resource..."
+                      oc --context="$CLUSTER_1_NAME" delete multiclusterengine --all -n open-cluster-management --grace-period=0 --force 2>/dev/null || true
 
-                      echo "MultiClusterEngine still exists, fetching details:"
-                      echo "$output"
+                      # Verify deletion (short timeout)
+                      echo "⏳ Verifying deletion..."
+                      SECONDS=0
+                      while oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management >/dev/null 2>&1; do
+                        if [ $((SECONDS % 10)) -eq 0 ]; then
+                          echo "  Still waiting for deletion... (${SECONDS}s elapsed)"
+                        fi
+                        sleep 2
 
-                      if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
-                        echo "⛔ Timeout reached — enforcing MultiClusterEngine finalizer removal!"
-
-                        for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o jsonpath='{.items[*].metadata.name}'); do
-                          oc --context="$CLUSTER_1_NAME" patch multiclusterengine "$mce" \
-                            --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
-                        done
-                        break
-                      fi
-
-                      echo "Still waiting for MultiClusterEngine to be deleted..."
-                      sleep 10
-
-                    done
+                        if [ "$SECONDS" -ge 60 ]; then
+                          echo "  ⚠️  MultiClusterEngine still present after force delete - will clean namespace"
+                          break
+                        fi
+                      done
+                      echo "  ✅ MultiClusterEngine deletion complete"
+                    else
+                      echo "  ℹ️  MultiClusterEngine not found - already deleted"
+                    fi
                   else
-                    echo "MultiClusterEngine CRD not found. Skipping deletion."
+                    echo "  ℹ️  MultiClusterEngine CRD not found - skipping"
                   fi
+                  echo ""
 
-                  echo "✅ ACM and related resources successfully uninstalled (with finalizer enforcement if needed)."
+                  # Step 8: Delete open-cluster-management namespace (with thorough verification)
+                  echo "Step 8: Deleting open-cluster-management namespace..."
+                  echo "------------------------------------------------------"
+                  if oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management >/dev/null 2>&1; then
+                    echo "🗑️  Initiating deletion of namespace: open-cluster-management"
+
+                    # First, try graceful deletion
+                    oc --context="$CLUSTER_1_NAME" delete namespace open-cluster-management --timeout=120s || {
+                      echo "  ⚠️  Graceful deletion timed out, investigating..."
+
+                      # Check namespace status
+                      ns_status=$(oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
+                      echo "  Namespace status: $ns_status"
+
+                      if [ "$ns_status" = "Terminating" ]; then
+                        echo "  Namespace stuck in Terminating state, removing finalizers..."
+
+                        # Remove finalizers from all resources in the namespace
+                        echo "  Removing finalizers from all pods..."
+                        for pod in $(oc --context="$CLUSTER_1_NAME" get pods -n open-cluster-management -o name 2>/dev/null); do
+                          oc --context="$CLUSTER_1_NAME" patch "$pod" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+                        done
+
+                        echo "  Removing finalizers from all deployments..."
+                        for deploy in $(oc --context="$CLUSTER_1_NAME" get deployments -n open-cluster-management -o name 2>/dev/null); do
+                          oc --context="$CLUSTER_1_NAME" patch "$deploy" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+                        done
+
+                        # Finally remove namespace finalizers
+                        echo "  Removing namespace finalizers..."
+                        oc --context="$CLUSTER_1_NAME" patch namespace open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
+
+                        sleep 5
+                      fi
+                    }
+
+                    # Wait for namespace to be completely gone
+                    echo "⏳ Waiting for namespace to be completely deleted..."
+                    SECONDS=0
+                    while oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management >/dev/null 2>&1; do
+                      if [ $((SECONDS % 15)) -eq 0 ]; then
+                        ns_phase=$(oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o jsonpath='{.status.phase}' 2>/dev/null || echo "Deleted")
+                        echo "  Still waiting... namespace phase: $ns_phase (${SECONDS}s elapsed)"
+
+                        # Show what's preventing deletion
+                        if [ $((SECONDS % 30)) -eq 0 ]; then
+                          echo "  Resources still in namespace:"
+                          oc --context="$CLUSTER_1_NAME" api-resources --verbs=list --namespaced -o name 2>/dev/null | \
+                            xargs -n 1 oc --context="$CLUSTER_1_NAME" get -n open-cluster-management --ignore-not-found --show-kind 2>/dev/null | \
+                            head -20 || true
+                        fi
+                      fi
+                      sleep 3
+
+                      if [ $SECONDS -ge 180 ]; then
+                        echo "  ⛔ Timeout after 3 minutes - forcing final removal"
+                        # Last resort: remove all finalizers from namespace
+                        oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o json 2>/dev/null | \
+                          jq '.metadata.finalizers = []' | \
+                          oc --context="$CLUSTER_1_NAME" replace --raw "/api/v1/namespaces/open-cluster-management/finalize" -f - || true
+                        sleep 10
+                        break
+                      fi
+                    done
+
+                    # Final verification
+                    if ! oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management >/dev/null 2>&1; then
+                      echo "  ✅ Namespace completely deleted"
+                    else
+                      echo "  ⚠️  WARNING: Namespace still exists after cleanup attempts!"
+                      echo "  This may cause ACM installation to fail. Manual intervention may be required."
+                      oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o yaml || true
+                    fi
+                  else
+                    echo "  ℹ️  Namespace not found - already deleted"
+                  fi
+                  echo ""
+
+                  # Step 9: Clean up remaining ACM CRDs and cluster-scoped resources
+                  echo "Step 9: Cleaning up ACM CRDs and cluster resources..."
+                  echo "------------------------------------------------------"
+                  echo "🗑️  Removing ACM-related ClusterRoles and ClusterRoleBindings"
+                  oc --context="$CLUSTER_1_NAME" delete clusterrole -l open-cluster-management.io/aggregate-to-work= --timeout=30s 2>/dev/null || true
+                  oc --context="$CLUSTER_1_NAME" delete clusterrolebinding -l open-cluster-management.io/aggregate-to-work= --timeout=30s 2>/dev/null || true
+
+                  echo "🗑️  Removing webhook configurations"
+                  oc --context="$CLUSTER_1_NAME" delete validatingwebhookconfiguration -l app=multicluster-operators-subscription --timeout=30s 2>/dev/null || true
+                  oc --context="$CLUSTER_1_NAME" delete mutatingwebhookconfiguration -l app=multicluster-operators-subscription --timeout=30s 2>/dev/null || true
+                  echo ""
+
+                  echo "================================================================"
+                  echo "✅ ACM cleanup completed - system ready for fresh installation"
+                  echo "================================================================"
 
 
             - name: 🚢 Configure ACM
-              timeout-minutes: 20
+              timeout-minutes: 30
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
               run: |
@@ -528,32 +769,73 @@ jobs:
                     exit 1
                   fi
 
-                  ./verify-managed-cluster-set.sh
+                  # Initial verification (should be quick)
+                  timeout 60 ./verify-managed-cluster-set.sh || echo "Initial verification timeout - continuing with import"
 
-                  echo "Import Cluster 2 in the ManagedClusterSet"
+                  echo "Import Clusters in the ManagedClusterSet"
                   if ! ./initiate-cluster-set.sh 2>&1; then
-                    echo "Cluster 2 import to ManagedClusterSet failed."
+                    echo "Cluster import to ManagedClusterSet failed."
+                    echo ""
+                    echo "Running diagnostics..."
+                    ./debug-managed-cluster.sh local-cluster || true
+                    ./debug-managed-cluster.sh "$CLUSTER_2_NAME" || true
                     exit 1
                   fi
 
+                  echo "Verify all clusters are healthy (with timeout and retry logic)"
                   ./verify-managed-cluster-set.sh
 
             - name: 🐠 Configure Submariner
-              timeout-minutes: 20
+              timeout-minutes: 30
               run: |
                   set -euo pipefail
 
-                  echo "Install Submariner"
+                  echo "Configure Submariner"
                   cd ./generic/openshift/dual-region/procedure/submariner/
 
+                  echo "Running pre-flight checks..."
+                  if ! ./preflight-check.sh; then
+                    echo "⚠️  Pre-flight checks failed!"
+                    echo "Attempting to wait for clusters to become healthy..."
+
+                    cd ../acm/
+                    if ! ./verify-managed-cluster-set.sh; then
+                      echo "❌ Clusters are not healthy. Cannot proceed with Submariner installation."
+                      echo ""
+                      echo "Running diagnostics..."
+                      ./debug-managed-cluster.sh local-cluster || true
+                      ./debug-managed-cluster.sh "$CLUSTER_2_NAME" || true
+                      exit 1
+                    fi
+                    cd ../submariner/
+
+                    echo "Re-running pre-flight checks after waiting for clusters..."
+                    if ! ./preflight-check.sh; then
+                      echo "❌ Pre-flight checks still failing. Aborting Submariner installation."
+                      exit 1
+                    fi
+                  fi
+
+                  echo "Listing available broker nodes..."
                   ./list-nodes-brokers.sh
+
+                  echo "Labeling broker nodes..."
                   ./label-nodes-brokers.sh
+
+                  echo "Verifying node labels..."
+                  ./list-nodes-brokers.sh
+
+                  echo "Installing Submariner..."
                   ./install-submariner.sh
+
+                  echo "Verifying Submariner installation..."
                   ./verify-submariner.sh
 
+                  echo "Installing subctl CLI..."
                   source ./install-subctl.sh
                   echo "PATH=$PATH" | tee -a "$GITHUB_ENV"
 
+                  echo "Verifying subctl..."
                   ./verify-subctl.sh
 
             - name: 🏗️ Retrieve exported Environment values from outputs
@@ -645,11 +927,11 @@ jobs:
                   cp -f generic/openshift/dual-region/helm-values/values-base.yml ./values.yml
 
                   echo "Region 1:"
-                  yq '. *d load("generic/openshift/dual-region/helm-values/values-region-1.yml")' values.yml > values-region-1-result.yml
+                  yq '. *+ load("generic/openshift/dual-region/helm-values/values-region-1.yml")' values.yml > values-region-1-result.yml
                   cat values-region-1-result.yml && mv values-region-1-result.yml values-region-1.yml
 
                   echo "Region 2:"
-                  yq '. *d load("generic/openshift/dual-region/helm-values/values-region-2.yml")' values.yml > values-region-2-result.yml
+                  yq '. *+ load("generic/openshift/dual-region/helm-values/values-region-2.yml")' values.yml > values-region-2-result.yml
                   cat values-region-2-result.yml && mv values-region-2-result.yml values-region-2.yml
 
                   # Add integration tests values
@@ -658,15 +940,24 @@ jobs:
                     for file in registry.yml; do
 
                       echo "Region 1:"
-                      yq ". *d load(\"generic/kubernetes/dual-region/tests/helm-values/$file\")" values-region-1.yml > values-region-1-result.yml
+                      yq ". *+ load(\"generic/kubernetes/dual-region/tests/helm-values/$file\")" values-region-1.yml > values-region-1-result.yml
                       cat values-region-1-result.yml && mv values-region-1-result.yml values-region-1.yml
 
                       echo "Region 2:"
-                      yq ". *d load(\"generic/kubernetes/dual-region/tests/helm-values/$file\")" values-region-2.yml > values-region-2-result.yml
+                      yq ". *+ load(\"generic/kubernetes/dual-region/tests/helm-values/$file\")" values-region-2.yml > values-region-2-result.yml
                       cat values-region-2-result.yml && mv values-region-2-result.yml values-region-2.yml
 
                     done
                   fi
+
+                  # TODO: [release-duty] remove this when fixed
+                  echo "Region 1:"
+                  yq ". *+ load(\"generic/kubernetes/dual-region/tests/utils/tmp-tags-8.8.yml\")" values-region-1.yml > values-region-1-result.yml
+                  cat values-region-1-result.yml && mv values-region-1-result.yml values-region-1.yml
+
+                  echo "Region 2:"
+                  yq ". *+ load(\"generic/kubernetes/dual-region/tests/utils/tmp-tags-8.8.yml\")" values-region-2.yml > values-region-2-result.yml
+                  cat values-region-2-result.yml && mv values-region-2-result.yml values-region-2.yml
 
                   ./generic/openshift/dual-region/procedure/assemble-envsubst-values.sh
 
@@ -737,6 +1028,8 @@ jobs:
                   cluster-2-name: ${{ env.CLUSTER_2_NAME }}
                   camunda-namespace-2: ${{ env.CAMUNDA_NAMESPACE_2 }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
+                  test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
 
             - name: 🔬🚨 Get failed Pods info - Cluster 1
               if: failure()

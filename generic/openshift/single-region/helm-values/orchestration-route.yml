@@ -1,0 +1,53 @@
+---
+orchestration:
+
+    service:
+        annotations:
+            # generate a TLS certificate for the Zeebe Gateway Service
+            service.beta.openshift.io/serving-cert-secret-name: camunda-platform-internal-service-certificate
+
+    ingress:
+        grpc:
+            enabled: true
+            annotations:
+                haproxy.router.openshift.io/timeout: 300s
+                route.openshift.io/termination: reencrypt
+                # reference the re-encrypt secret
+                route.openshift.io/destination-ca-certificate-secret: camunda-platform-internal-service-certificate
+            className: openshift-default
+            tls:
+                enabled: true
+                # explicitely '-' as secret name as we rely on the IngressOperator to handle the TLS secret, if you use a custom certificate, you might want to fill this value
+                secretName: '-'
+            host: zeebe-${DOMAIN_NAME}
+
+    # mount the Service certificate in the pod
+    env:
+        - name: CAMUNDA_API_GRPC_SSL_ENABLED
+          value: 'true'
+        - name: CAMUNDA_API_GRPC_SSL_CERTIFICATE
+          value: /usr/local/camunda/config/tls.crt
+        - name: CAMUNDA_API_GRPC_SSL_CERTIFICATEPRIVATEKEY
+          value: /usr/local/camunda/config/tls.key
+    extraVolumeMounts:
+        - name: certificate
+          mountPath: /usr/local/camunda/config/tls.crt
+          subPath: tls.crt
+        - name: key
+          mountPath: /usr/local/camunda/config/tls.key
+          subPath: tls.key
+    extraVolumes:
+        - name: certificate
+          secret:
+              secretName: camunda-platform-internal-service-certificate
+              items:
+                  - key: tls.crt
+                    path: tls.crt
+              defaultMode: 420
+        - name: key
+          secret:
+              secretName: camunda-platform-internal-service-certificate
+              items:
+                  - key: tls.key
+                    path: tls.key
+              defaultMode: 420

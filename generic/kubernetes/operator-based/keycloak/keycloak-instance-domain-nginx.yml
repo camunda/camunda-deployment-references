@@ -1,0 +1,75 @@
+---
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+    name: keycloak
+spec:
+    # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<version>.*)$
+    image: docker.io/camunda/keycloak:quay-optimized-26.3.2
+    instances: 1
+    db:
+        # Use official url parameter instead of individual host/port/database
+        # pg-keycloak-rw service is provided by the CNPG keycloak
+        # aws-wrapper is required for optimized images (no impact on functionality)
+        url: jdbc:aws-wrapper:postgresql://pg-keycloak-rw:5432/keycloak
+        schema: public
+        usernameSecret:
+            name: pg-keycloak-secret
+            key: username
+        passwordSecret:
+            name: pg-keycloak-secret
+            key: password
+    http:
+        httpEnabled: true
+    additionalOptions:
+        - name: http-relative-path
+          value: /auth
+        # Enable proxy mode for proper HTTPS redirect handling behind nginx ingress
+        - name: proxy-headers
+          value: xforwarded
+        # Trust X-Forwarded-* headers from proxy
+        - name: hostname-strict-https
+          value: 'true'
+    ingress:
+        # Ingress disabled - using separate Ingress object with path /auth and className nginx
+        enabled: false
+    hostname:
+        hostname: ${CAMUNDA_DOMAIN}
+        # Dynamic backchannel for ingress environments (set to false for localhost/no-ingress)
+        backchannelDynamic: false
+        strict: true
+    resources:
+        limits:
+            cpu: 500m
+            memory: 1Gi
+        requests:
+            cpu: 250m
+            memory: 512Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: keycloak-ingress
+    annotations:
+        # TLS secret for HTTPS (cert-manager will create this automatically)
+        kubernetes.io/tls-acme: 'true'
+        # Ensure proper HTTPS handling for Keycloak behind proxy
+        nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+        nginx.ingress.kubernetes.io/force-ssl-redirect: 'true'
+spec:
+    ingressClassName: nginx
+    tls:
+        - hosts:
+              - ${CAMUNDA_DOMAIN}
+          secretName: camunda-keycloak-tls
+    rules:
+        - host: ${CAMUNDA_DOMAIN}
+          http:
+              paths:
+                  - path: /auth
+                    pathType: Prefix
+                    backend:
+                        service:
+                            name: keycloak-service
+                            port:
+                                number: 8080

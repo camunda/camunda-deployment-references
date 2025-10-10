@@ -26,6 +26,8 @@ on:
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-terraform-drift-detect/**
+            - .github/actions/internal-clean-namespace/**
+            - .github/actions/kubernetes-restart-coredns/**
 
     workflow_dispatch:
         inputs:
@@ -80,9 +82,10 @@ env:
     # Docker Hub auth to avoid image pull rate limit.
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
-    # TODO: [release-duty] before the release, update repo ref!
+
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+    # TODO: resolve this branch when merging to playwright <8.8>
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Components that are not enabled by default in the doc, but enabled in our tests to have a better coverage
@@ -172,7 +175,6 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Set current target branch
-              if: env.CLEANUP_CLUSTERS == 'true'
               id: target-branch
               run: |
                   set -euo pipefail
@@ -414,26 +416,16 @@ jobs:
                   source .github/scripts/gha-functions.sh
                   export_new_env_vars generic/openshift/single-region/procedure/chart-env.sh
 
-            - name: 🏗️ Prepare a fresh namespace for the tests
-              run: |
-                  set -o errexit
-                  set -euo pipefail
+            - name: 🏗️ Clean and recreate Camunda namespace
+              uses: ./.github/actions/internal-clean-namespace
+              timeout-minutes: 20
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  recreate: 'true'
+                  openshift-project: 'true'
 
-                  # Delete the namespace to ensure a fresh start
-                  if kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; then
-                    kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
-                    while kubectl get namespace "$CAMUNDA_NAMESPACE" &>/dev/null; do
-                      echo "Namespace $CAMUNDA_NAMESPACE still being deleted, waiting..."
-                      sleep 5
-                    done
-                  fi
-
-                  oc new-project "$CAMUNDA_NAMESPACE" \
-                    --description="Integration project of $CAMUNDA_NAMESPACE" \
-                    --display-name="$CAMUNDA_NAMESPACE"
-
-                  echo "Sleeping 30s"
-                  sleep 30
+            - name: Wait for cluster stability
+              run: sleep 30
 
             - name: 🛠️ Assemble deployment values of generic/openshift/single-region
               timeout-minutes: 10
@@ -462,8 +454,8 @@ jobs:
                     ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
 
                     # Enable Routes
-                    for file in zeebe-gateway-route.yml operate-route.yml tasklist-route.yml connectors-route.yml domain.yml; do
-                        yq ". *d load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
+                    for file in orchestration-route.yml connectors-route.yml domain.yml; do
+                        yq ". *+ load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
                         cat values-result.yml && mv values-result.yml values.yml
                     done
                   elif [[ ${{ matrix.declination.name }} == "no-domain" ]]; then
@@ -471,7 +463,7 @@ jobs:
                       echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
                       echo "CAMUNDA_GRPC_DOMAIN=" | tee -a "$GITHUB_ENV"
 
-                      yq ". *d load(\"generic/openshift/single-region/helm-values/no-domain.yml\")" values.yml > values-result.yml
+                      yq ". *+ load(\"generic/openshift/single-region/helm-values/no-domain.yml\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                   else
                     echo "Error: matrix.declaration must be set to 'domain' or 'no-domain'" >&2
@@ -479,13 +471,17 @@ jobs:
                   fi
 
                   # Enable SCC
-                  yq '. *d load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
+                  yq '. *+ load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
+
+                  # TODO: [release-duty] remove this when fixed
+                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/tmp-tags-8.8.yml\")" values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
                     echo "Enabling WebModeler"
                     yq -i '.webModeler.enabled = true' values.yml
-                    yq -i '.postgresql.enabled = true' values.yml
+                    yq -i '.webModelerPostgresql.enabled = true' values.yml
                   fi
 
                   if [ "$CONSOLE_ENABLED" == "true" ]; then
@@ -496,7 +492,7 @@ jobs:
                   # Add integration tests values
                   if [ "$TESTS_ENABLED" == "true" ]; then
                     for file in registry.yml identity.yml; do
-                      yq ". *d load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
+                      yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                     done
                   fi
@@ -531,11 +527,18 @@ jobs:
                   ./generic/openshift/single-region/procedure/install-chart.sh
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
-              timeout-minutes: 10
+              timeout-minutes: 20
               run: |
                   set -euo pipefail
 
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+
+            - name: 🔄 Restart CoreDNS
+              if: matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'false'
+              uses: ./.github/actions/kubernetes-restart-coredns
+              timeout-minutes: 10
+              with:
+                  cluster-type: openshift
 
             - name: Set current Camunda version
               id: camunda-version
@@ -562,6 +565,8 @@ jobs:
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
+                  test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()

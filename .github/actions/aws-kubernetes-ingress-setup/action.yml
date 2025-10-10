@@ -1,0 +1,139 @@
+---
+name: AWS Kubernetes Ingress Setup
+description: Install and configure ingress-nginx, external-dns, and cert-manager for AWS EKS clusters
+
+inputs:
+    cluster-name:
+        description: Name of the cluster (used for external-dns owner ID)
+        required: true
+    scenario-short-name:
+        description: Short name of the scenario (used for external-dns owner ID)
+        required: true
+    aws-region:
+        description: AWS region where the cluster is deployed
+        required: true
+        default: eu-west-2
+    mail:
+        description: Email address for Let's Encrypt certificates
+        required: false
+        default: admin@camunda.ie
+    tld:
+        description: Top-level domain for the cluster
+        required: false
+        default: camunda.ie
+    ref-arch:
+        description: Reference architecture name (eks-single-region, eks-single-region-irsa)
+        required: false
+        default: eks-single-region
+    use-wildcard-cert:
+        description: |
+            Use wildcard certificate from Vault instead of ACME/Let's Encrypt.
+            When true, ACME issuer is not installed and wildcard certificate is created from Vault.
+        required: false
+        default: 'false'
+    wildcard-cert-namespace:
+        description: Namespace where the wildcard TLS certificate will be created (when use-wildcard-cert is true)
+        required: false
+        default: camunda
+    wildcard-cert-secret-name:
+        description: Name of the wildcard TLS secret to create (when use-wildcard-cert is true)
+        required: false
+        default: camunda-tls
+    vault-addr:
+        description: Vault server address (required when use-wildcard-cert is true)
+        required: false
+    vault-role-id:
+        description: Vault AppRole role ID (required when use-wildcard-cert is true)
+        required: false
+    vault-secret-id:
+        description: Vault AppRole secret ID (required when use-wildcard-cert is true)
+        required: false
+
+runs:
+    using: composite
+    steps:
+
+        - name: 🏗️ Clean cert-manager operator namespace
+          uses: ./.github/actions/internal-clean-namespace
+          with:
+              namespace: cert-manager
+
+        - name: 🏗️ Clean external-dns operator namespace
+          uses: ./.github/actions/internal-clean-namespace
+          with:
+              namespace: external-dns
+
+        - name: 🏗️ Clean ingress-nginx operator namespace
+          uses: ./.github/actions/internal-clean-namespace
+          with:
+              namespace: ingress-nginx
+
+        - name: Setup ingress components for EKS cluster
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "Setting up ingress components for EKS cluster..."
+              echo "Cluster: ${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
+              echo "Region: ${{ inputs.aws-region }}"
+              echo "Mail: ${{ inputs.mail }}"
+              echo "TLD: ${{ inputs.tld }}"
+              echo "Ref-arch: ${{ inputs.ref-arch }}"
+              echo "Use wildcard cert: ${{ inputs.use-wildcard-cert }}"
+
+              # Set required environment variables for ingress setup
+              export REGION="${{ inputs.aws-region }}"
+              export MAIL_OVERWRITE="${{ inputs.mail }}"
+              export TLD="${{ inputs.tld }}"
+
+              # Source ingress setup variables
+              source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
+
+              # Validate that IRSA ARNs are available
+              if [[ -z "$EXTERNAL_DNS_IRSA_ARN" ]]; then
+                  echo "❌ ERROR: Could not retrieve external_dns_arn from Terraform outputs"
+                  echo "This ARN is required for external-dns to manage Route53 DNS records."
+                  echo "Ensure that the EKS cluster has been created with IRSA support."
+                  exit 1
+              fi
+              echo "✅ Found external-dns IRSA ARN: $EXTERNAL_DNS_IRSA_ARN"
+
+              if [[ -z "$CERT_MANAGER_IRSA_ARN" ]]; then
+                  echo "❌ ERROR: Could not retrieve cert_manager_arn from Terraform outputs"
+                  echo "This ARN is required for cert-manager to perform DNS-01 ACME challenges."
+                  echo "Ensure that the EKS cluster has been created with IRSA support."
+                  exit 1
+              fi
+              echo "✅ Found cert-manager IRSA ARN: $CERT_MANAGER_IRSA_ARN"
+
+              # Install ingress-nginx
+              echo "Installing ingress-nginx..."
+              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-ingress-nginx.sh
+
+              # Install external-dns
+              echo "Installing external-dns..."
+              export EXTERNAL_DNS_OWNER_ID="external-dns-${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
+              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-external-dns.sh
+
+              # Install cert-manager CRDs
+              echo "Installing cert-manager CRDs..."
+              ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
+
+              echo "Installing cert-manager..."
+              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager.sh
+
+              echo "Installing ACME/Let's Encrypt issuer..."
+              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager-issuer.sh
+
+              echo "✅ Ingress setup completed successfully for EKS cluster."
+
+        - name: 🔐 Setup wildcard TLS certificate from Vault
+          if: ${{ inputs.use-wildcard-cert == 'true' }}
+          uses: ./.github/actions/kubernetes-wildcard-certificate
+          with:
+              tld: ${{ inputs.tld }}
+              namespace: ${{ inputs.wildcard-cert-namespace }}
+              secret-name: ${{ inputs.wildcard-cert-secret-name }}
+              vault-addr: ${{ inputs.vault-addr }}
+              vault-role-id: ${{ inputs.vault-role-id }}
+              vault-secret-id: ${{ inputs.vault-secret-id }}

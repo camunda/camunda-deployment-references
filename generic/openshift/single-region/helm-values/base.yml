@@ -3,27 +3,102 @@ global:
     elasticsearch:
         enabled: true # use the embbeded elasticsearch
 
-identityKeycloak:
-    postgresql:
-        enabled: true # use the embbeded database
+    security:
+        authentication:
+            method: oidc
 
-    auth:
-        existingSecret: identity-secret-for-components
+    identity:
+        enabled: true
+
+        auth:
+            enabled: true
+            type: KEYCLOAK
+
+            admin:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-admin-client-token
+
+            optimize:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-optimize-client-token
+
+            console:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-console-client-token
+
+orchestration:
+    contextPath: /
+
+    # Configure OIDC for orchestration
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
+
+optimize:
+    enabled: true
 
 connectors:
     enabled: true
 
+    # Configure OIDC for connectors
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-connectors-client-token
+
 console:
     enabled: false # by default, console is not enabled
+
+identity:
+    enabled: true
+    firstUser:
+        enabled: true
+        username: admin
+        email: admin@camunda.local
+        firstName: Admin
+        lastName: User
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: identity-first-user-password
+
+identityKeycloak:
+    enabled: true
+    postgresql:
+        enabled: true # use the embbeded database
+        auth:
+            existingSecret: identity-secret-for-components
+            secretKeys:
+                adminPasswordKey: identity-keycloak-pg-admin-password-key
+                userPasswordKey: identity-keycloak-pg-user-password-key
+
+    auth:
+        existingSecret: identity-secret-for-components
+        passwordSecretKey: identity-admin-client-token
 
 webModeler:
     enabled: false # by default, webModeler is not enabled
 
     restapi:
         mail:
-            existingSecret: identity-secret-for-components # reference the smtp password
+            secret:
+                existingSecret: identity-secret-for-components # reference the smtp password
+                existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
-postgresql:
-    # Will deploy a postgresql datbase for webModeler.
+
+webModelerPostgresql:
+    # Will deploy a postgresql database for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
     enabled: false
+    auth:
+        existingSecret: identity-secret-for-components
+        secretKeys:
+            adminPasswordKey: identity-webmodeler-pg-admin-password
+            userPasswordKey: identity-webmodeler-pg-user-password

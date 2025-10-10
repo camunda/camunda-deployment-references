@@ -3,32 +3,43 @@ global:
     identity:
 
         auth:
+            issuerBackendUrl: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
+            issuer: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
+            # using localhost:18080 -> keycloak-service:8080 (kubectl port-forward svc/keycloak-service 18080:8080)
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
 
-            zeebe:
-                existingSecret:
-                    name: identity-secret-for-components
-            connectors:
-                existingSecret:
-                    name: identity-secret-for-components
-            operate:
-                redirectUrl: http://localhost:8081  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
-            tasklist:
-                redirectUrl: http://localhost:8082  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
+            identity:
+                redirectUrl: http://localhost:8085  # replace this with a port of your choice when you will do port forwarding
+
             optimize:
                 redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
-                existingSecret:
-                    name: identity-secret-for-components
+
             webModeler:
-                redirectUrl: http://localhost:8084
+                redirectUrl: http://localhost:8070
+
             console:
-                redirectUrl: http://localhost:8085
-                existingSecret:
-                    name: identity-secret-for-components
+                redirectUrl: http://localhost:8087
+
+
+orchestration:
+    security:
+        authentication:
+            oidc:
+                redirectUrl: http://localhost:8080
 
 identity:
-    fullURL: http://localhost:8080 # replace this with a port of your choice when you will do port forwarding
+    contextPath: /managementidentity
+    fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
+
+identityKeycloak:
+    extraEnvVars:
+        # This is required to ensure proper issuer of JWT tokens
+        - name: KC_HOSTNAME
+          value: ${CAMUNDA_RELEASE_NAME}-keycloak
+
+    # match the internal keycloak port to the external port for JWT Tokens issuer
+    ports:
+        http: 8080
+    service:
+        ports:
+            http: 8080

@@ -1,0 +1,56 @@
+---
+# Camunda Platform 8 Values - Keycloak with CNPG Snippet
+# This configuration uses external services managed by Kubernetes operators:
+# - PostgreSQL: CloudNativePG operator with a dedicated cluster for Keycloak
+# - Keycloak: Keycloak operator for identity management (uses 'keycloak-initial-admin' secret)
+#
+# Authentication Secrets:
+# - keycloak-initial-admin: Contains admin username/password for Keycloak (kubernetes.io/basic-auth type, default user: temp-admin)
+# - pg-keycloak-secret: Contains PostgreSQL user credentials for Keycloak
+
+global:
+    security:
+        authentication:
+            method: oidc
+
+    # Identity configuration for authentication
+    identity:
+        auth:
+            enabled: true
+            type: KEYCLOAK
+            issuerBackendUrl: http://keycloak-service:8080/auth/realms/camunda-platform
+            issuer: https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform
+            publicIssuerUrl: https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform
+
+
+        # Keycloak configuration for external instance
+        keycloak:
+            # For external Keycloak managed by operator
+            internal: false # Disable internal Keycloak
+            url:
+                # Configuration for external Keycloak service
+                protocol: http
+                host: keycloak-service
+                port: '8080'
+            contextPath: /auth
+            realm: /realms/camunda-platform
+            auth:
+                # Configuration for accessing external Keycloak instance
+                # For operator-managed Keycloak, use the generated admin secret
+                existingSecret: keycloak-initial-admin
+                existingSecretKey: password
+                adminUser: temp-admin
+
+orchestration:
+    security:
+        authentication:
+            oidc:
+                redirectUrl: https://${CAMUNDA_DOMAIN}
+
+identityKeycloak:
+    enabled: false
+
+identity:
+    enabled: true
+    contextPath: /managementidentity
+    fullURL: https://${CAMUNDA_DOMAIN}/managementidentity

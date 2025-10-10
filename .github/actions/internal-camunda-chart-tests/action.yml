@@ -66,6 +66,18 @@ inputs:
     camunda-namespace-1:
         description: Optional namespace for region 1 (dual-region only)
         required: false
+    keycloak-service-name:
+        description: Name of the Keycloak service with optional port (e.g. keycloak-service:8080)
+        default: ''  # Will use ${CAMUNDA_RELEASE_NAME}-keycloak:8080 by default
+    elasticsearch-service-name:
+        description: Name of the Elasticsearch service with optional port (e.g. elasticsearch-es-http:9200)
+        default: ''  # Will use ${CAMUNDA_RELEASE_NAME}-elasticsearch by default
+    test-client-id:
+        description: Client ID for Camunda authentication tests
+        required: true
+    test-client-secret:
+        description: Client secret for Camunda authentication tests
+        required: true
 
 runs:
     using: composite
@@ -83,8 +95,6 @@ runs:
               secrets: |
                   secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
                   secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
-                  secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
-                  secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
 
         - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
           uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
@@ -94,6 +104,25 @@ runs:
               ref: ${{ inputs.tests-camunda-helm-chart-repo-ref }}
               path: ${{ inputs.tests-camunda-helm-chart-repo-path }}
               fetch-depth: 0
+
+        - name: 🔧 Configure service references
+          shell: bash
+          env:
+              CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name }}
+          run: |
+              set -euo pipefail
+
+              # Configure Keycloak service reference
+              KEYCLOAK_SERVICE_INPUT="${{ inputs.keycloak-service-name }}"
+              KEYCLOAK_TARGET="${KEYCLOAK_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-keycloak:8080}"
+
+              # Configure Elasticsearch service reference
+              ELASTICSEARCH_SERVICE_INPUT="${{ inputs.elasticsearch-service-name }}"
+              ELASTICSEARCH_TARGET="${ELASTICSEARCH_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-elasticsearch:9200}"
+
+              # Export service configurations for subsequent steps
+              echo "KEYCLOAK_TARGET=$KEYCLOAK_TARGET" | tee -a "$GITHUB_ENV"
+              echo "ELASTICSEARCH_TARGET=$ELASTICSEARCH_TARGET" | tee -a "$GITHUB_ENV"
 
         - name: 🧪 TESTS - Set variables
           if: ${{ inputs.enable-helm-chart-tests == 'true' }}
@@ -138,98 +167,122 @@ runs:
               echo "TEST_VALUES_BASE_DIR=$TEST_VALUES_BASE_DIR" | tee -a "$GITHUB_ENV"
 
               # replace integration with the camunda release name as part of adaptation required to run the tests in our environment
-              find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i "s/integration/$CAMUNDA_RELEASE_NAME/g"
+              if [[ "${{ inputs.enable-helm-chart-tests }}" == "true" ]]; then
+                find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i "s/integration/$CAMUNDA_RELEASE_NAME/g"
 
-              echo "Configure Venom tests"
-              # (adapted from https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L56)
-              export VARIABLES_ENV_FILE="$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables.env"
-              # Enable the ingress tests
+                # Use pre-configured service references from environment
+                echo "Updating service references:"
+                echo "  Keycloak: http://$KEYCLOAK_TARGET"
+                echo "  Elasticsearch: http://$ELASTICSEARCH_TARGET"
 
-              if [[ "$CAMUNDA_DOMAIN" != "" ]]; then
-                # shellcheck disable=SC2129
-                echo "VENOM_VAR_TEST_INGRESS_HOST=$TEST_INGRESS_HOST" >> "$VARIABLES_ENV_FILE"
-                echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
+                # Update variables-default.yaml (used for no-domain scenarios)
+                yq eval ".preflightVars.baseURLs.keycloak = \"http://${KEYCLOAK_TARGET}\"" -i \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+                yq eval ".preflightVars.baseURLs.elasticsearch = \"http://${ELASTICSEARCH_TARGET}\"" -i \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+                yq eval ".coreVars.authURL = \"http://${KEYCLOAK_TARGET}/auth/realms/camunda-platform/protocol/openid-connect/token\"" -i \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
 
-                # Setting is broken and results in always skipping ingress tests
-                # This removes the faulty setting but should only be done in domain context
-                echo "Skip test ingress is also broken, fixing it"
-                yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-                yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-
-                if [[ "$CAMUNDA_DOMAIN_GRPC" != "" ]]; then
-                  yq eval '.coreVars.baseURLs.zeebeGatewayGRPC = env(CAMUNDA_DOMAIN_GRPC)' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                # Update variables-ingress-combined.yaml (used for domain/ingress scenarios)
+                # For domain scenarios, keep the public HTTPS URLs, only update internal service references
+                if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml" ]]; then
+                  # Only update preflightVars (internal service checks) and elasticsearch
+                  yq eval ".preflightVars.baseURLs.keycloak = \"http://${KEYCLOAK_TARGET}\"" -i \
+                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                  yq eval ".preflightVars.baseURLs.elasticsearch = \"http://${ELASTICSEARCH_TARGET}\"" -i \
+                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                  yq eval ".coreVars.baseURLs.elasticsearch = \"http://${ELASTICSEARCH_TARGET}\"" -i \
+                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                  # DO NOT update coreVars.baseURLs.keycloak - it should use the public ingress URL (https://$DOMAIN/auth/)
+                  echo "Note: Keycloak coreVars URL preserved for public ingress access"
                 fi
-              else
-                # Some variables are not working correctly, patching it with yq directly
-                echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
 
-                # fix wrong default zeebeGatewayGRPC port
-                yq eval '.coreVars.baseURLs.zeebeGatewayGRPC |= (select(tag == "!!str") | sub("^http://", "") | sub(":9600$", ":26500"))' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+                echo "✅ Service references updated successfully"
+
+                echo "Configure Venom tests"
+                # (adapted from https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L56)
+                export VARIABLES_ENV_FILE="$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables.env"
+
+                # False because we run OIDC
+                echo "VENOM_VAR_SKIP_TEST_KEYCLOAK=false" >> "$VARIABLES_ENV_FILE"
+
+                # Enable the ingress tests
+
+                if [[ "$CAMUNDA_DOMAIN" != "" ]]; then
+                  # shellcheck disable=SC2129
+                  echo "VENOM_VAR_TEST_INGRESS_HOST=$TEST_INGRESS_HOST" >> "$VARIABLES_ENV_FILE"
+                  echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
+
+                  # Setting is broken and results in always skipping ingress tests
+                  # This removes the faulty setting but should only be done in domain context
+                  echo "Skip test ingress is also broken, fixing it"
+                  yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                  yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+
+                  if [[ "$CAMUNDA_DOMAIN_GRPC" != "" ]]; then
+                    yq eval '.coreVars.baseURLs.orchestrationGRPC = env(CAMUNDA_DOMAIN_GRPC)' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
+                  fi
+                else
+                  # Some variables are not working correctly, patching it with yq directly
+                  echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
+
+                  # fix wrong default orchestrationGRPC port
+                  yq eval '.coreVars.baseURLs.orchestrationGRPC |= (select(tag == "!!str") | sub("^http://", "") | sub(":9600$", ":26500"))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
+                fi
+
+                echo "VENOM_VAR_TEST_CLIENT_ID=${{ inputs.test-client-id }}" >> "$VARIABLES_ENV_FILE"
+                echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ inputs.test-client-secret }}" >> "$VARIABLES_ENV_FILE"
+
+                ZEEBE_VERSION=$(yq '.zeebe.image.tag' "$TEST_CHART_DIR_STATIC/values.yaml")
+                # shellcheck disable=SC2129
+                echo "ZEEBE_VERSION=$ZEEBE_VERSION" >> "$VARIABLES_ENV_FILE"
+                # In case the Zeebe version has not been released officially yet.
+                echo "ZEEBE_VERSION_FALLBACK=8.5.6" >> "$VARIABLES_ENV_FILE"
+
+                echo "Patch the test files..."
+
+                # TODO: [BUG] remove the patchs when https://github.com/camunda/camunda-platform-helm/issues/3081 is fixed
+                echo "Patch expression ShoudBeFalse"
+                sed -i "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+
+                echo "Patch expression ShouldBeTrue"
+                sed -i "s/ ShouldBeTrue/ ShouldEqual 'true'/g" \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
+                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+
+                if [[ "$ELASTICSEARCH_ENABLED" != "true" ]]; then
+                  echo "Disable Elasticsearch in the core tests as it's not enabled"
+
+                  yq eval 'del(.. | select(has("component") and .component == "Elasticsearch"))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+                fi
+
+                if [ "$WEBMODELER_ENABLED" != "true" ]; then
+                  echo "Disable Webmodeler in the core tests as it's not enabled"
+
+                  echo "VENOM_VAR_SKIP_TEST_WEBMODELER=false" >> "$VARIABLES_ENV_FILE"
+                  yq eval 'del(.. | select(has("component") and .component == "WebModeler"))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+                fi
+
+                echo "Patch the identity secrets to allow venom to access to the platform"
+                sed -i -e 's/integration-test-credentials/identity-secret-for-components/g' \
+                        "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+
+                # remove venom var client secret as we define it in the file
+                yq e 'del(.spec.template.spec.containers[].env[] | select(.name == "VENOM_VAR_TEST_CLIENT_SECRET"))' \
+                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
+
+                # we're overwriting the tool-versions of the Helm chart tests with our own
+                echo "Ensure asdf tool is available in the test suite by using our global one"
+                cp .tool-versions "$TESTS_CAMUNDA_HELM_CHART_REPO_PATH"
               fi
-
-              echo "VENOM_VAR_TEST_CLIENT_ID=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" >> "$VARIABLES_ENV_FILE"
-              echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" >> "$VARIABLES_ENV_FILE"
-
-              ZEEBE_VERSION=$(yq '.zeebe.image.tag' "$TEST_CHART_DIR_STATIC/values.yaml")
-              # shellcheck disable=SC2129
-              echo "ZEEBE_VERSION=$ZEEBE_VERSION" >> "$VARIABLES_ENV_FILE"
-              # In case the Zeebe version has not been released officially yet.
-              echo "ZEEBE_VERSION_FALLBACK=8.5.6" >> "$VARIABLES_ENV_FILE"
-
-              echo "Patch the test files..."
-
-              # TODO: [BUG] remove the patchs when https://github.com/camunda/camunda-platform-helm/issues/3081 is fixed
-              echo "Patch expression ShoudBeFalse"
-              sed -i "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
-                "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
-                "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
-
-              if [[ "$ELASTICSEARCH_ENABLED" != "true" ]]; then
-                echo "Disable Elasticsearch in the core tests as it's not enabled"
-
-                yq eval 'del(.. | select(has("component") and .component == "Elasticsearch"))' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
-              fi
-
-              if [ "$WEBMODELER_ENABLED" != "true" ]; then
-                echo "Disable Webmodeler in the core tests as it's not enabled"
-
-                echo "VENOM_VAR_SKIP_TEST_WEBMODELER=false" >> "$VARIABLES_ENV_FILE"
-                yq eval 'del(.. | select(has("component") and .component == "WebModeler"))' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-              fi
-
-              # TODO: Fix later for Console and re-investigate
-              # Tests are failing for some reason with no-domain, can't replicate locally
-              # Assumption is that the jwt issuer is different in the test than expected
-              # Disabling for now for no-domain setups
-              if [[ "$CONSOLE_ENABLED" != "true" || "$CAMUNDA_DOMAIN" == "" ]]; then
-                echo "Disable Console in the core tests as it's not enabled"
-
-                yq eval 'del(.. | select(has("component") and .component == "Console"))' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-              fi
-
-              echo "Patch the identity secrets to allow venom to access to the platform"
-              sed -i -e 's/integration-test-credentials/identity-secret-for-components/g' \
-                      -e 's/identity-operate-client-password/operate-secret/g' \
-                      -e 's/identity-optimize-client-password/optimize-secret/g' \
-                      -e 's/identity-tasklist-client-password/tasklist-secret/g' \
-                      -e 's/identity-zeebe-client-password/zeebe-secret/g' \
-                      -e 's/identity-connectors-client-password/connectors-secret/g' \
-                      "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
-
-              # remove venom var client secret as we define it in the file
-              yq e 'del(.spec.template.spec.containers[].env[] | select(.name == "VENOM_VAR_TEST_CLIENT_SECRET"))' \
-                -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
-
-              # we're overwriting the tool-versions of the Helm chart tests with our own
-              echo "Ensure asdf tool is available in the test suite by using our global one"
-              cp .tool-versions "$TESTS_CAMUNDA_HELM_CHART_REPO_PATH"
 
         - name: 🧪 TESTS - Run Preflight TestSuite
           if: ${{ inputs.enable-helm-chart-tests == 'true' }}
@@ -268,8 +321,8 @@ runs:
 
               if [[ "$zeebe_authenticated" == "true" ]]; then
                 echo "Using authenticated Zeebe client credentials..."
-                export ZEEBE_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
-                export ZEEBE_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+                export ZEEBE_CLIENT_ID="${{ inputs.test-client-id }}"
+                export ZEEBE_CLIENT_SECRET="${{ inputs.test-client-secret }}"
               fi
 
               # function to help with port-forwarding in the background
@@ -298,8 +351,21 @@ runs:
                 # Without domain:
                 source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 
+                # Parse Keycloak service name and port from KEYCLOAK_TARGET
+                if [[ "$KEYCLOAK_TARGET" == *":"* ]]; then
+                  KEYCLOAK_SERVICE_NAME="${KEYCLOAK_TARGET%:*}"
+                  KEYCLOAK_SERVICE_PORT="${KEYCLOAK_TARGET#*:}"
+                else
+                  KEYCLOAK_SERVICE_NAME="$KEYCLOAK_TARGET"
+                  KEYCLOAK_SERVICE_PORT="8080"
+                fi
+
+                echo "Using Keycloak service: $KEYCLOAK_SERVICE_NAME:$KEYCLOAK_SERVICE_PORT"
+
                 start_port_forward "${CAMUNDA_RELEASE_NAME}-zeebe-gateway" 8080:8080
-                start_port_forward "${CAMUNDA_RELEASE_NAME}-keycloak" 18080:80
+
+                # Setup Keycloak port-forwarding with dynamic port
+                start_port_forward "$KEYCLOAK_SERVICE_NAME" "18080:$KEYCLOAK_SERVICE_PORT"
 
                 echo "Waiting for port-forwarding to be established..." && sleep 10
               else

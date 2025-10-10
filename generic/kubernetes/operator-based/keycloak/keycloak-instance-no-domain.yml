@@ -1,0 +1,39 @@
+---
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+    name: keycloak
+spec:
+    # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<version>.*)$
+    image: docker.io/camunda/keycloak:quay-optimized-26.3.2
+    instances: 1
+    db:
+        # Use official url parameter instead of individual host/port/database
+        # pg-keycloak-rw service is provided by the CNPG keycloak
+        # aws-wrapper is required for optimized images (no impact on functionality)
+        url: jdbc:aws-wrapper:postgresql://pg-keycloak-rw:5432/keycloak
+        schema: public
+        usernameSecret:
+            name: pg-keycloak-secret
+            key: username
+        passwordSecret:
+            name: pg-keycloak-secret
+            key: password
+    http:
+        httpEnabled: true
+    additionalOptions:
+        - name: http-relative-path
+          value: /auth
+    ingress:
+        enabled: false
+    hostname:
+        # use the service name as hostname to sign the tokens correctly
+        hostname: keycloak-service
+        strict: false
+    resources:
+        limits:
+            cpu: 500m
+            memory: 1Gi
+        requests:
+            cpu: 250m
+            memory: 512Mi
