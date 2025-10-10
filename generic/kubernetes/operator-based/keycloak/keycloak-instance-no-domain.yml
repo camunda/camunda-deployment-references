@@ -4,7 +4,7 @@ kind: Keycloak
 metadata:
     name: keycloak
 spec:
-    # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<version>.*)$
+    # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
     image: docker.io/camunda/keycloak:quay-optimized-26.3.2
     instances: 1
     db:
