@@ -598,7 +598,7 @@ jobs:
                     done
                   fi
 
-                  # TODO: remove this when fixed
+                  # TODO: [release-duty] remove this when fixed
                   yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/tmp-tags-8.8.yml\")" values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 

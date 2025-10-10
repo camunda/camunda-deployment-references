@@ -82,7 +82,7 @@ env:
     # Docker Hub auth to avoid image pull rate limit.
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
-    # TODO: [release-duty] before the release, update repo ref!
+
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
     # TODO: resolve this branch when merging to playwright <8.8>
     TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
@@ -474,7 +474,7 @@ jobs:
                   yq '. *+ load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
-                  # TODO: remove this when fixed
+                  # TODO: [release-duty] remove this when fixed
                   yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/tmp-tags-8.8.yml\")" values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 

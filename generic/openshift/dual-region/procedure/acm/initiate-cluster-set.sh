@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# TODO: once it works, revert this as it's exposed to doc
+# TODO:  once it works, revert this as it's exposed to doc
 
 set -euo pipefail
 

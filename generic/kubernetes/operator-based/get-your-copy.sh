@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Download a copy of the reference architecture
-#BRANCH="main"  # TODO: [release-duty] before the release, update this!
-BRANCH="feature/operator-playground"  # TODO: revert this
+# TODO: [release-duty] before the release, update this!
+BRANCH="main"
 
 git clone --depth 1 --branch "$BRANCH" https://github.com/camunda/camunda-deployment-references.git
 

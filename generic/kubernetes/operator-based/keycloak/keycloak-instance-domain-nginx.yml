@@ -46,7 +46,6 @@ spec:
             cpu: 250m
             memory: 512Mi
 ---
-# TODO: document this change <8.8>
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

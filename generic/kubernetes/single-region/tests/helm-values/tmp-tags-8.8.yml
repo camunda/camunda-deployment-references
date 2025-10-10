@@ -1,5 +1,5 @@
 ---
-# TODO: remove! <8.8>
+# TODO: [release-duty] remove! <8.8>
 identity:
     image:
         tag: 8.8.0

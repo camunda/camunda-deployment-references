@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# TODO: doc add a note about postgres passwords for keycloak and webmodeler
 
 oc create secret generic identity-secret-for-components \
   --namespace "$CAMUNDA_NAMESPACE" \

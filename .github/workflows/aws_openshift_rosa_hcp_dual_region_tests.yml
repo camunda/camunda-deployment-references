@@ -71,9 +71,7 @@ env:
     CLUSTER_1_AWS_REGION: eu-west-2
     CLUSTER_2_AWS_REGION: eu-west-3
 
-    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-    # TODO: revert
-    CLEANUP_CLUSTERS: 'false'
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
@@ -121,9 +119,7 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  # TODO: revert
-                  # cluster_name: ${{ inputs.cluster_name }}
-                  cluster_name: leir2
+                  cluster_name: ${{ inputs.cluster_name }}
                   ref_arch: ${{ inputs.ref-arch }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
@@ -954,7 +950,7 @@ jobs:
                     done
                   fi
 
-                  # TODO: remove this when fixed
+                  # TODO: [release-duty] remove this when fixed
                   echo "Region 1:"
                   yq ". *+ load(\"generic/kubernetes/dual-region/tests/utils/tmp-tags-8.8.yml\")" values-region-1.yml > values-region-1-result.yml
                   cat values-region-1-result.yml && mv values-region-1-result.yml values-region-1.yml

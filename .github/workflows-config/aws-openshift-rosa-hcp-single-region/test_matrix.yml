@@ -8,9 +8,7 @@ matrix:
         - name: OpenShift 4.19
           schedule_only: false
           # ! Unlike EKS, 'private_vpc' is defined in 'distro' and not in 'scenario'.
-          # private_vpc: true # latest always use vpn, olders use public
-          # TODO: revert
-          private_vpc: false
+          private_vpc: true # latest always use vpn, olders use public
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
           version: 4.19.7
           # /!\ Warning: When a new minor version of OpenShift is released,
@@ -29,8 +27,7 @@ matrix:
         - name: rosa-hcp-single-region
 
     declination:
-        # - name: no-domain
-        #   desc: Setup chart in production-like setup with Ingress and TLS.
-        # TODO: revert
+        - name: no-domain
+          desc: Setup chart in production-like setup with Ingress and TLS.
         - name: domain
           desc: Setup chart in production-like setup without Ingress and TLS.
