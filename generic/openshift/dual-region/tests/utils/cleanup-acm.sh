@@ -353,13 +353,13 @@ elapsed=0
 MAX_WAIT=240  # 4 minutes max
 
 while true; do
-  # Check if any ACM-related namespaces still exist on CLUSTER_1 (hub)
-  REMAINING_NS=$(oc --context="$CLUSTER_1_NAME" get namespaces -o name 2>/dev/null | \
+  # Check if any ACM-related namespaces are still in Terminating state on CLUSTER_1 (hub)
+  REMAINING_NS=$(oc --context="$CLUSTER_1_NAME" get namespaces --field-selector status.phase=Terminating -o name 2>/dev/null | \
     grep -E 'namespace/(open-cluster-management|multicluster-engine|submariner|hive|local-cluster)' | \
     sed 's|namespace/||' || echo "")
 
-  # Check if any ACM-related namespaces still exist on CLUSTER_2 (managed)
-  REMAINING_NS_C2=$(oc --context="$CLUSTER_2_NAME" get namespaces -o name 2>/dev/null | \
+  # Check if any ACM-related namespaces are still in Terminating state on CLUSTER_2 (managed)
+  REMAINING_NS_C2=$(oc --context="$CLUSTER_2_NAME" get namespaces --field-selector status.phase=Terminating -o name 2>/dev/null | \
     grep -E 'namespace/(open-cluster-management|multicluster-engine|submariner|hive)' | \
     sed 's|namespace/||' || echo "")
 
