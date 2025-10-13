@@ -59,37 +59,6 @@ extract_managed_cluster_ca() {
     return 1
 }
 
-# Function to wait for ACM import pods
-wait_for_import_pods() {
-    local cluster_name=$1
-    local max_wait=120  # 2 minutes
-    local elapsed=0
-
-    echo "  ⏳ Waiting for ACM import pods to start..."
-
-    while [ $elapsed -lt $max_wait ]; do
-        local pod_count
-        pod_count=$(oc --context "$CLUSTER_1_NAME" get pods -n "$cluster_name" --no-headers 2>/dev/null | wc -l | tr -d ' ')
-
-        if [ "$pod_count" -gt 0 ]; then
-            echo "  ✅ Import pods detected in namespace $cluster_name"
-            oc --context "$CLUSTER_1_NAME" get pods -n "$cluster_name"
-            return 0
-        fi
-
-        sleep 5
-        elapsed=$((elapsed + 5))
-
-        if [ $((elapsed % 30)) -eq 0 ]; then
-            echo "  ⏱️  Still waiting for import pods... (${elapsed}s elapsed)"
-        fi
-    done
-
-    echo "  ⚠️  WARNING: No import pods detected after ${max_wait}s"
-    echo "  This may indicate an issue with the auto-import-secret configuration"
-    return 1
-}
-
 # Function to import a cluster with retries
 import_cluster() {
     local cluster_name=$1
@@ -179,17 +148,6 @@ import_cluster() {
     # Wait for ACM to process the auto-import-secret and start import pods
     echo "  ⏳ Waiting for ACM to process auto-import-secret..."
     sleep 10
-
-    # Verify that import pods are starting
-    if ! wait_for_import_pods "$cluster_name"; then
-        echo "  ⚠️  Import pods not detected - checking configuration..."
-        echo ""
-        echo "  🔍 Auto-import-secret status:"
-        oc --context "$CLUSTER_1_NAME" get secret auto-import-secret -n "$cluster_name" -o yaml 2>/dev/null || echo "  ❌ Secret not found"
-        echo ""
-        echo "  � ManagedCluster status:"
-        oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" -o yaml 2>/dev/null || echo "  ❌ ManagedCluster not found"
-    fi
 
     # Check initial status
     echo "  📊 Initial status:"
