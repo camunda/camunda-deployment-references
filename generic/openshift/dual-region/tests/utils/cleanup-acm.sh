@@ -349,7 +349,7 @@ echo ""
 
 echo "⏳ Waiting for all ACM/Submariner namespaces to be fully deleted..."
 
-SECONDS=0
+elapsed=0
 MAX_WAIT=240  # 4 minutes max
 
 while true; do
@@ -368,8 +368,8 @@ while true; do
     break
   fi
 
-  if [ $((SECONDS % 15)) -eq 0 ]; then
-    echo "  ⏱️  Still waiting for namespaces to be deleted (${SECONDS}s elapsed):"
+  if [ $((elapsed % 15)) -eq 0 ]; then
+    echo "  ⏱️  Still waiting for namespaces to be deleted (${elapsed}s elapsed):"
     if [ -n "$REMAINING_NS" ]; then
       echo "    On cluster 1 (hub):"
       print_list "$REMAINING_NS"
@@ -381,8 +381,9 @@ while true; do
   fi
 
   sleep 3
+  elapsed=$((elapsed + 3))
 
-  if [ $SECONDS -ge $MAX_WAIT ]; then
+  if [ $elapsed -ge $MAX_WAIT ]; then
     echo "  ⚠️  WARNING: Some namespaces still exist after ${MAX_WAIT}s"
     echo "  Attempting final forceful cleanup..."
 
