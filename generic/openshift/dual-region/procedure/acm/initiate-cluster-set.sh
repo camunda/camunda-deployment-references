@@ -101,11 +101,17 @@ import_cluster() {
         return 1
     fi
 
-    # Extract CA certificate from the managed cluster (not hub!)
+    # Extract CA certificate from the managed cluster
     # This CA is needed for the hub's import process to connect to the managed cluster's API
+    # For local-cluster, we need to use CLUSTER_1_NAME context since it's the hub itself
+    local ca_context="$context"
+    if [ "$cluster_name" = "local-cluster" ]; then
+        ca_context="$CLUSTER_1_NAME"
+    fi
+
     local ca_cert
-    if ! ca_cert=$(extract_managed_cluster_ca "$context"); then
-        echo "❌ Failed to extract CA certificate from managed cluster"
+    if ! ca_cert=$(extract_managed_cluster_ca "$ca_context"); then
+        echo "❌ Failed to extract CA certificate from managed cluster (context: $ca_context)"
         return 1
     fi
     echo "  ✅ CA certificate extracted successfully from managed cluster"
