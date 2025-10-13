@@ -384,70 +384,67 @@ while true; do
   elapsed=$((elapsed + 3))
 
   if [ $elapsed -ge $MAX_WAIT ]; then
-    echo "  ⚠️  WARNING: Some namespaces still exist after ${MAX_WAIT}s"
-    echo "  Attempting final forceful cleanup..."
+    echo "  ⚠️  WARNING: Timeout reached after ${MAX_WAIT}s - namespaces still in Terminating state"
+    break
+  fi
+done
 
-    # Force cleanup on cluster 1
-    if [ -n "$REMAINING_NS" ]; then
-      for ns in $REMAINING_NS; do
-        echo "    Force finalizing namespace on cluster 1: $ns"
-        # Try multiple methods to remove finalizers
-        oc --context="$CLUSTER_1_NAME" patch namespace "$ns" \
-          --type='json' -p='[{"op": "replace", "path": "/spec/finalizers", "value":[]}]' 2>/dev/null || true
-        oc --context="$CLUSTER_1_NAME" patch namespace "$ns" \
-          --type='json' -p='[{"op": "replace", "path": "/metadata/finalizers", "value":[]}]' 2>/dev/null || true
-        oc --context="$CLUSTER_1_NAME" get namespace "$ns" -o json 2>/dev/null | \
-          jq '.metadata.finalizers = [] | .spec.finalizers = []' | \
-          oc --context="$CLUSTER_1_NAME" replace --raw "/api/v1/namespaces/$ns/finalize" -f - 2>/dev/null || true
-      done
-    fi
+# If we exited the loop due to timeout, attempt forceful cleanup
+if [ $elapsed -ge $MAX_WAIT ]; then
+  echo ""
+  echo "  🔧 Attempting final forceful cleanup on ALL ACM namespaces (not just Terminating)..."
 
-    # Force cleanup on cluster 2
-    if [ -n "$REMAINING_NS_C2" ]; then
-      for ns in $REMAINING_NS_C2; do
-        echo "    Force finalizing namespace on cluster 2: $ns"
-        # Try multiple methods to remove finalizers
-        oc --context="$CLUSTER_2_NAME" patch namespace "$ns" \
-          --type='json' -p='[{"op": "replace", "path": "/spec/finalizers", "value":[]}]' 2>/dev/null || true
-        oc --context="$CLUSTER_2_NAME" patch namespace "$ns" \
-          --type='json' -p='[{"op": "replace", "path": "/metadata/finalizers", "value":[]}]' 2>/dev/null || true
-        oc --context="$CLUSTER_2_NAME" get namespace "$ns" -o json 2>/dev/null | \
-          jq '.metadata.finalizers = [] | .spec.finalizers = []' | \
-          oc --context="$CLUSTER_2_NAME" replace --raw "/api/v1/namespaces/$ns/finalize" -f - 2>/dev/null || true
-      done
-    fi
+  # Get ALL ACM namespaces on cluster 1 (not filtered by status)
+  ALL_NS=$(oc --context="$CLUSTER_1_NAME" get namespaces -o name 2>/dev/null | \
+    grep -E 'namespace/(open-cluster-management|multicluster-engine|submariner|hive|local-cluster)' | \
+    sed 's|namespace/||' || echo "")
 
-    echo "  ⏳ Waiting up to 5 minutes for finalizers to be processed..."
+  # Get ALL ACM namespaces on cluster 2 (not filtered by status)
+  ALL_NS_C2=$(oc --context="$CLUSTER_2_NAME" get namespaces -o name 2>/dev/null | \
+    grep -E 'namespace/(open-cluster-management|multicluster-engine|submariner|hive)' | \
+    sed 's|namespace/||' || echo "")
 
-    # Wait up to 5 minutes (300s) checking every 10s
-    force_wait=0
-    force_max_wait=300
-
-    while [ $force_wait -lt $force_max_wait ]; do
-      sleep 10
-      force_wait=$((force_wait + 10))
-
-      # Check on both clusters
-      STILL_REMAINING=$(oc --context="$CLUSTER_1_NAME" get namespaces -o name 2>/dev/null | \
-        grep -E 'namespace/(open-cluster-management|multicluster-engine|submariner|hive|local-cluster)' | \
-        sed 's|namespace/||' || echo "")
-      STILL_REMAINING_C2=$(oc --context="$CLUSTER_2_NAME" get namespaces -o name 2>/dev/null | \
-        grep -E 'namespace/(open-cluster-management|multicluster-engine|submariner|hive)' | \
-        sed 's|namespace/||' || echo "")
-
-      # If all gone, exit early
-      if [ -z "$STILL_REMAINING" ] && [ -z "$STILL_REMAINING_C2" ]; then
-        echo "  ✅ All namespaces deleted after ${force_wait}s"
-        break
-      fi
-
-      # Report every 30s
-      if [ $((force_wait % 30)) -eq 0 ]; then
-        echo "  ⏱️  Still waiting for finalizers... (${force_wait}s elapsed)"
-      fi
+  # Force cleanup on cluster 1
+  if [ -n "$ALL_NS" ]; then
+    for ns in $ALL_NS; do
+      echo "    Force finalizing namespace on cluster 1: $ns"
+      # Try multiple methods to remove finalizers
+      oc --context="$CLUSTER_1_NAME" patch namespace "$ns" \
+        --type='json' -p='[{"op": "replace", "path": "/spec/finalizers", "value":[]}]' 2>/dev/null || true
+      oc --context="$CLUSTER_1_NAME" patch namespace "$ns" \
+        --type='json' -p='[{"op": "replace", "path": "/metadata/finalizers", "value":[]}]' 2>/dev/null || true
+      oc --context="$CLUSTER_1_NAME" get namespace "$ns" -o json 2>/dev/null | \
+        jq '.metadata.finalizers = [] | .spec.finalizers = []' | \
+        oc --context="$CLUSTER_1_NAME" replace --raw "/api/v1/namespaces/$ns/finalize" -f - 2>/dev/null || true
     done
+  fi
 
-    # Final check on both clusters
+  # Force cleanup on cluster 2
+  if [ -n "$ALL_NS_C2" ]; then
+    for ns in $ALL_NS_C2; do
+      echo "    Force finalizing namespace on cluster 2: $ns"
+      # Try multiple methods to remove finalizers
+      oc --context="$CLUSTER_2_NAME" patch namespace "$ns" \
+        --type='json' -p='[{"op": "replace", "path": "/spec/finalizers", "value":[]}]' 2>/dev/null || true
+      oc --context="$CLUSTER_2_NAME" patch namespace "$ns" \
+        --type='json' -p='[{"op": "replace", "path": "/metadata/finalizers", "value":[]}]' 2>/dev/null || true
+      oc --context="$CLUSTER_2_NAME" get namespace "$ns" -o json 2>/dev/null | \
+        jq '.metadata.finalizers = [] | .spec.finalizers = []' | \
+        oc --context="$CLUSTER_2_NAME" replace --raw "/api/v1/namespaces/$ns/finalize" -f - 2>/dev/null || true
+    done
+  fi
+
+  echo "  ⏳ Waiting up to 5 minutes for finalizers to be processed..."
+
+  # Wait up to 5 minutes (300s) checking every 10s
+  force_wait=0
+  force_max_wait=300
+
+  while [ $force_wait -lt $force_max_wait ]; do
+    sleep 10
+    force_wait=$((force_wait + 10))
+
+    # Check on both clusters
     STILL_REMAINING=$(oc --context="$CLUSTER_1_NAME" get namespaces -o name 2>/dev/null | \
       grep -E 'namespace/(open-cluster-management|multicluster-engine|submariner|hive|local-cluster)' | \
       sed 's|namespace/||' || echo "")
@@ -455,63 +452,81 @@ while true; do
       grep -E 'namespace/(open-cluster-management|multicluster-engine|submariner|hive)' | \
       sed 's|namespace/||' || echo "")
 
-    if [ -n "$STILL_REMAINING" ] || [ -n "$STILL_REMAINING_C2" ]; then
-      echo "  ⚠️  WARNING: Some namespaces still exist after forceful cleanup:"
-      if [ -n "$STILL_REMAINING" ]; then
-        echo "    On cluster 1 (hub):"
-        print_list "$STILL_REMAINING"
-
-        # Check if namespaces are in Terminating state (acceptable for fresh install)
-        echo "    Checking status of remaining namespaces..."
-        for ns in $STILL_REMAINING; do
-          status=$(oc --context="$CLUSTER_1_NAME" get namespace "$ns" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
-          deletion_ts=$(oc --context="$CLUSTER_1_NAME" get namespace "$ns" -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || echo "None")
-          echo "      - $ns: status=$status, deletionTimestamp=$deletion_ts"
-        done
-      fi
-      if [ -n "$STILL_REMAINING_C2" ]; then
-        echo "    On cluster 2 (managed):"
-        print_list "$STILL_REMAINING_C2"
-
-        # Check if namespaces are in Terminating state (acceptable for fresh install)
-        echo "    Checking status of remaining namespaces..."
-        for ns in $STILL_REMAINING_C2; do
-          status=$(oc --context="$CLUSTER_2_NAME" get namespace "$ns" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
-          deletion_ts=$(oc --context="$CLUSTER_2_NAME" get namespace "$ns" -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || echo "None")
-          echo "      - $ns: status=$status, deletionTimestamp=$deletion_ts"
-        done
-      fi
-
-      # Check if all namespaces are in Terminating state (which is acceptable)
-      all_terminating=true
-      for ns in $STILL_REMAINING; do
-        status=$(oc --context="$CLUSTER_1_NAME" get namespace "$ns" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Active")
-        if [ "$status" != "Terminating" ]; then
-          all_terminating=false
-          break
-        fi
-      done
-
-      for ns in $STILL_REMAINING_C2; do
-        status=$(oc --context="$CLUSTER_2_NAME" get namespace "$ns" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Active")
-        if [ "$status" != "Terminating" ]; then
-          all_terminating=false
-          break
-        fi
-      done
-
-      if [ "$all_terminating" = true ]; then
-        echo "  ✅ All remaining namespaces are in 'Terminating' state - safe to proceed"
-        echo "     These will be cleaned up by Kubernetes eventually."
-      else
-        echo "  ❌ ERROR: Some namespaces are not in Terminating state."
-        echo "     Manual intervention may be required."
-        exit 1
-      fi
+    # If all gone, exit early
+    if [ -z "$STILL_REMAINING" ] && [ -z "$STILL_REMAINING_C2" ]; then
+      echo "  ✅ All namespaces deleted after ${force_wait}s"
+      break
     fi
-    break
+
+    # Report every 30s
+    if [ $((force_wait % 30)) -eq 0 ]; then
+      echo "  ⏱️  Still waiting for finalizers... (${force_wait}s elapsed)"
+    fi
+  done
+
+  # Final check on both clusters
+  STILL_REMAINING=$(oc --context="$CLUSTER_1_NAME" get namespaces -o name 2>/dev/null | \
+    grep -E 'namespace/(open-cluster-management|multicluster-engine|submariner|hive|local-cluster)' | \
+    sed 's|namespace/||' || echo "")
+  STILL_REMAINING_C2=$(oc --context="$CLUSTER_2_NAME" get namespaces -o name 2>/dev/null | \
+    grep -E 'namespace/(open-cluster-management|multicluster-engine|submariner|hive)' | \
+    sed 's|namespace/||' || echo "")
+
+  if [ -n "$STILL_REMAINING" ] || [ -n "$STILL_REMAINING_C2" ]; then
+    echo "  ⚠️  WARNING: Some namespaces still exist after forceful cleanup:"
+    if [ -n "$STILL_REMAINING" ]; then
+      echo "    On cluster 1 (hub):"
+      print_list "$STILL_REMAINING"
+
+      # Check if namespaces are in Terminating state (acceptable for fresh install)
+      echo "    Checking status of remaining namespaces..."
+      for ns in $STILL_REMAINING; do
+        status=$(oc --context="$CLUSTER_1_NAME" get namespace "$ns" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+        deletion_ts=$(oc --context="$CLUSTER_1_NAME" get namespace "$ns" -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || echo "None")
+        echo "      - $ns: status=$status, deletionTimestamp=$deletion_ts"
+      done
+    fi
+    if [ -n "$STILL_REMAINING_C2" ]; then
+      echo "    On cluster 2 (managed):"
+      print_list "$STILL_REMAINING_C2"
+
+      # Check if namespaces are in Terminating state (acceptable for fresh install)
+      echo "    Checking status of remaining namespaces..."
+      for ns in $STILL_REMAINING_C2; do
+        status=$(oc --context="$CLUSTER_2_NAME" get namespace "$ns" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+        deletion_ts=$(oc --context="$CLUSTER_2_NAME" get namespace "$ns" -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || echo "None")
+        echo "      - $ns: status=$status, deletionTimestamp=$deletion_ts"
+      done
+    fi
+
+    # Check if all namespaces are in Terminating state (which is acceptable)
+    all_terminating=true
+    for ns in $STILL_REMAINING; do
+      status=$(oc --context="$CLUSTER_1_NAME" get namespace "$ns" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Active")
+      if [ "$status" != "Terminating" ]; then
+        all_terminating=false
+        break
+      fi
+    done
+
+    for ns in $STILL_REMAINING_C2; do
+      status=$(oc --context="$CLUSTER_2_NAME" get namespace "$ns" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Active")
+      if [ "$status" != "Terminating" ]; then
+        all_terminating=false
+        break
+      fi
+    done
+
+    if [ "$all_terminating" = true ]; then
+      echo "  ✅ All remaining namespaces are in 'Terminating' state - safe to proceed"
+      echo "     These will be cleaned up by Kubernetes eventually."
+    else
+      echo "  ❌ ERROR: Some namespaces are not in Terminating state."
+      echo "     Manual intervention may be required."
+      exit 1
+    fi
   fi
-done
+fi
 echo ""
 
 echo "================================================================"
