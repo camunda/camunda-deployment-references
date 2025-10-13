@@ -106,6 +106,7 @@ resource "aws_opensearch_domain" "opensearch_cluster" {
 
   timeouts {
     create = var.create_timeout
+    delete = var.delete_timeout
   }
 }
 
