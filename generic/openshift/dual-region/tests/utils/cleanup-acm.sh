@@ -55,7 +55,7 @@ CLUSTERS=("local-cluster" "$CLUSTER_2_NAME")
 # Step 1: Delete all ManagedClusters (clean deletion with timeout, then force if needed)
 echo "Step 1: Deleting all ManagedClusters..."
 echo "----------------------------------------"
-MANAGEDCLUSTER_TIMEOUT=120  # 2 minutes timeout for clean deletion
+MANAGEDCLUSTER_TIMEOUT=600  # 10 minutes timeout for clean deletion
 
 for cluster_name in "${CLUSTERS[@]}"; do
   if oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; then
@@ -124,8 +124,20 @@ else
 fi
 echo ""
 
-# Step 4: Clean up klusterlet and agent resources on managed clusters (parallel)
-echo "Step 4: Cleaning up klusterlet and agent resources..."
+# Step 4: Clean up auto-import-secrets (ACM will recreate them)
+echo "Step 4: Cleaning up auto-import-secrets..."
+echo "-------------------------------------------"
+for cluster_name in "${CLUSTERS[@]}"; do
+  if oc --context="$CLUSTER_1_NAME" get namespace "$cluster_name" &>/dev/null; then
+    echo "🗑️  Cleaning auto-import-secret for cluster: $cluster_name"
+    oc --context="$CLUSTER_1_NAME" delete secret auto-import-secret -n "$cluster_name" 2>/dev/null || true
+  fi
+done
+echo "  ✅ Auto-import-secrets cleaned"
+echo ""
+
+# Step 5: Clean up klusterlet and agent resources on managed clusters (parallel)
+echo "Step 5: Cleaning up klusterlet and agent resources..."
 echo "------------------------------------------------------"
 
 # Function to clean agent namespaces on a cluster
@@ -175,8 +187,8 @@ wait
 echo "  ✅ Agent namespace cleanup initiated on both clusters"
 echo ""
 
-# Step 5: Clean up cluster-specific and ACM/Submariner namespaces (parallel deletion)
-echo "Step 5: Cleaning up ACM and Submariner namespaces on hub..."
+# Step 6: Clean up cluster-specific and ACM/Submariner namespaces (parallel deletion)
+echo "Step 6: Cleaning up ACM and Submariner namespaces on hub..."
 echo "------------------------------------------------------------"
 NAMESPACES_TO_DELETE=(
   "${CLUSTERS[@]}"
@@ -202,8 +214,8 @@ done
 echo "  ✅ Namespace deletion initiated for all ACM/Submariner namespaces"
 echo ""
 
-# Step 6: Delete ManagedClusterSet and related resources (fast)
-echo "Step 6: Deleting ManagedClusterSet..."
+# Step 7: Delete ManagedClusterSet and related resources (fast)
+echo "Step 7: Deleting ManagedClusterSet..."
 echo "-------------------------------------"
 if oc --context="$CLUSTER_1_NAME" get managedclusterset camunda-zeebe >/dev/null 2>&1; then
   echo "🗑️  Force deleting ManagedClusterSet: camunda-zeebe"
@@ -216,9 +228,8 @@ if oc --context="$CLUSTER_1_NAME" get managedclustersetbinding camunda-zeebe -n 
 fi
 echo ""
 
-# Step 5: Delete ACM Operator Subscription and CSV
-# Step 7: Delete ACM Operator subscriptions and CSVs (fast)
-echo "Step 7: Deleting ACM Operator..."
+# Step 8: Delete ACM Operator subscriptions and CSVs (fast)
+echo "Step 8: Deleting ACM Operator..."
 echo "---------------------------------"
 if oc --context="$CLUSTER_1_NAME" get subscription advanced-cluster-management -n open-cluster-management >/dev/null 2>&1; then
   echo "🗑️  Force deleting ACM subscription"
@@ -235,8 +246,8 @@ if oc --context="$CLUSTER_1_NAME" get csv -n open-cluster-management 2>/dev/null
 fi
 echo ""
 
-# Step 8: Force delete remaining ACM-related namespaces
-echo "Step 8: Force deleting remaining ACM-related namespaces..."
+# Step 9: Force delete remaining ACM-related namespaces
+echo "Step 9: Force deleting remaining ACM-related namespaces..."
 echo "-----------------------------------------------------------"
 
 # Get all ACM-related namespaces
@@ -273,8 +284,8 @@ else
 fi
 echo ""
 
-# Step 9: Clean up ACM and Submariner cluster-scoped resources (parallel)
-echo "Step 9: Cleaning up cluster-scoped resources..."
+# Step 10: Clean up ACM and Submariner cluster-scoped resources (parallel)
+echo "Step 10: Cleaning up cluster-scoped resources..."
 echo "------------------------------------------------"
 
 # Run all cluster-scoped cleanup in parallel for speed
@@ -321,8 +332,8 @@ echo "✅ ACM cleanup completed"
 echo "================================================================"
 echo ""
 
-# Step 10: Final verification that all ACM namespaces are deleted
-echo "Step 10: Final cleanup and verification..."
+# Step 11: Final verification that all ACM namespaces are deleted
+echo "Step 11: Final cleanup and verification..."
 echo "-----------------------------------------------------"
 echo "🗑️  Final cleanup of potentially recreated namespaces..."
 # The local-cluster namespace may be recreated by ACM operator during deletion
