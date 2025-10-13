@@ -350,7 +350,7 @@ echo ""
 echo "⏳ Waiting for all ACM/Submariner namespaces to be fully deleted..."
 
 SECONDS=0
-MAX_WAIT=120  # 2 minutes max (reduced from 4 since we're more aggressive)
+MAX_WAIT=240  # 4 minutes max
 
 while true; do
   # Check if any ACM-related namespaces still exist on CLUSTER_1 (hub)
@@ -416,8 +416,35 @@ while true; do
       done
     fi
 
-    echo "  ⏳ Waiting additional 30s for finalizers to be processed..."
-    sleep 30
+    echo "  ⏳ Waiting up to 5 minutes for finalizers to be processed..."
+
+    # Wait up to 5 minutes (300s) checking every 10s
+    force_wait=0
+    force_max_wait=300
+
+    while [ $force_wait -lt $force_max_wait ]; do
+      sleep 10
+      force_wait=$((force_wait + 10))
+
+      # Check on both clusters
+      STILL_REMAINING=$(oc --context="$CLUSTER_1_NAME" get namespaces -o name 2>/dev/null | \
+        grep -E 'namespace/(open-cluster-management|multicluster-engine|submariner|hive|local-cluster)' | \
+        sed 's|namespace/||' || echo "")
+      STILL_REMAINING_C2=$(oc --context="$CLUSTER_2_NAME" get namespaces -o name 2>/dev/null | \
+        grep -E 'namespace/(open-cluster-management|multicluster-engine|submariner|hive)' | \
+        sed 's|namespace/||' || echo "")
+
+      # If all gone, exit early
+      if [ -z "$STILL_REMAINING" ] && [ -z "$STILL_REMAINING_C2" ]; then
+        echo "  ✅ All namespaces deleted after ${force_wait}s"
+        break
+      fi
+
+      # Report every 30s
+      if [ $((force_wait % 30)) -eq 0 ]; then
+        echo "  ⏱️  Still waiting for finalizers... (${force_wait}s elapsed)"
+      fi
+    done
 
     # Final check on both clusters
     STILL_REMAINING=$(oc --context="$CLUSTER_1_NAME" get namespaces -o name 2>/dev/null | \

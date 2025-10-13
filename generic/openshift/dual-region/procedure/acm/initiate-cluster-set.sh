@@ -31,25 +31,31 @@ validate_cluster_access() {
 extract_managed_cluster_ca() {
     local context=$1
 
-    echo "   Extracting CA certificate from managed cluster..."
+    echo "  🔐 Extracting CA certificate from kube-root-ca ConfigMap..."
 
-    # Try to get CA from the kubeconfig
-    local ca_data
-    ca_data=$(oc config view --context "$context" --raw -o json | jq -r '.clusters[0].cluster."certificate-authority-data"' 2>/dev/null || echo "")
+    # Get CA certificate directly from kube-root-ca.crt ConfigMap in kube-system
+    # This ConfigMap contains the root CA that OpenShift uses
+    local ca_from_cm
+    ca_from_cm=$(oc --context "$context" get configmap kube-root-ca.crt -n kube-system -o jsonpath='{.data.ca\.crt}' 2>/dev/null || echo "")
 
-    if [ -n "$ca_data" ] && [ "$ca_data" != "null" ]; then
-        # CA is embedded in kubeconfig, decode it
-        # Extract ONLY the LAST certificate in the chain (the root CA)
-        echo "$ca_data" | base64 -d | awk '
-            /BEGIN CERTIFICATE/ { cert = $0; next }
-            cert { cert = cert "\n" $0 }
-            /END CERTIFICATE/ { last_cert = cert "\n" $0; cert = "" }
-            END { print last_cert }
+    if [ -n "$ca_from_cm" ]; then
+        # Extract ONLY the FIRST certificate (the root CA, not Let's Encrypt intermediates)
+        echo "$ca_from_cm" | awk '
+            /BEGIN CERTIFICATE/ { cert = $0; in_cert = 1; next }
+            in_cert { cert = cert "\n" $0 }
+            /END CERTIFICATE/ {
+                if (!printed) {
+                    print cert "\n" $0
+                    printed = 1
+                }
+                cert = ""
+                in_cert = 0
+            }
         '
         return 0
     fi
 
-    echo "  ⚠️  WARNING: Could not extract CA certificate from managed cluster" >&2
+    echo "  ⚠️  WARNING: Could not extract CA certificate from kube-root-ca ConfigMap" >&2
     return 1
 }
 
