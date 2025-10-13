@@ -27,16 +27,16 @@ validate_cluster_access() {
     return 0
 }
 
-# Function to extract CA certificate from managed cluster for auto-import
-extract_managed_cluster_ca() {
-    local context=$1
+# Function to extract CA certificate from HUB cluster for auto-import
+# The CA must be from the HUB so the klusterlet on the managed cluster can verify
+# the hub's API server certificate when connecting back to the hub
+extract_hub_cluster_ca() {
+    echo "  🔐 Extracting CA certificate from hub's kube-root-ca ConfigMap..."
 
-    echo "  🔐 Extracting CA certificate from kube-root-ca ConfigMap..."
-
-    # Get CA certificate directly from kube-root-ca.crt ConfigMap in kube-system
+    # Get CA certificate directly from kube-root-ca.crt ConfigMap in kube-system on the HUB
     # This ConfigMap contains the root CA that OpenShift uses
     local ca_from_cm
-    ca_from_cm=$(oc --context "$context" get configmap kube-root-ca.crt -n kube-system -o jsonpath='{.data.ca\.crt}' 2>/dev/null || echo "")
+    ca_from_cm=$(oc --context "$CLUSTER_1_NAME" get configmap kube-root-ca.crt -n kube-system -o jsonpath='{.data.ca\.crt}' 2>/dev/null || echo "")
 
     if [ -n "$ca_from_cm" ]; then
         # Extract ONLY the FIRST certificate (the root CA, not Let's Encrypt intermediates)
@@ -55,7 +55,7 @@ extract_managed_cluster_ca() {
         return 0
     fi
 
-    echo "  ⚠️  WARNING: Could not extract CA certificate from kube-root-ca ConfigMap" >&2
+    echo "  ⚠️  WARNING: Could not extract CA certificate from hub's kube-root-ca ConfigMap" >&2
     return 1
 }
 
@@ -76,20 +76,16 @@ import_cluster() {
         return 1
     fi
 
-    # Extract CA certificate from the managed cluster
-    # This CA is needed for the hub's import process to connect to the managed cluster's API
-    # For local-cluster, we need to use CLUSTER_1_NAME context since it's the hub itself
-    local ca_context="$context"
-    if [ "$cluster_name" = "local-cluster" ]; then
-        ca_context="$CLUSTER_1_NAME"
-    fi
-
+    # Extract CA certificate from the HUB cluster (not the managed cluster!)
+    # This CA is needed so the klusterlet on the managed cluster can verify
+    # the hub's API server certificate when connecting back to the hub
+    echo "  🔐 Extracting hub CA certificate for klusterlet authentication..."
     local ca_cert
-    if ! ca_cert=$(extract_managed_cluster_ca "$ca_context"); then
-        echo "❌ Failed to extract CA certificate from managed cluster (context: $ca_context)"
+    if ! ca_cert=$(extract_hub_cluster_ca); then
+        echo "❌ Failed to extract CA certificate from hub cluster"
         return 1
     fi
-    echo "  ✅ CA certificate extracted successfully from managed cluster"
+    echo "  ✅ Hub CA certificate extracted successfully"
 
     # Ensure namespace exists first
     if ! oc --context "$CLUSTER_1_NAME" get namespace "$cluster_name" &>/dev/null; then
@@ -109,23 +105,25 @@ import_cluster() {
     echo "  ⏳ Waiting for ACM to setup cluster namespace..."
     sleep 5
 
-    # Create auto-import-secret with CA certificate
-    # This secret allows the hub to connect to the managed cluster and deploy the klusterlet
+    # Create auto-import-secret with CA certificate from the HUB
+    # This secret configures ACM to:
+    # 1. Connect to the managed cluster API using token/server (managed cluster credentials)
+    # 2. Deploy the klusterlet with the hub's CA certificate
+    # 3. Allow the klusterlet to verify the hub's API server certificate
     echo "  ⏳ Creating auto-import-secret for ACM auto-import..."
 
     # Delete existing secret if it exists
     oc --context "$CLUSTER_1_NAME" delete secret auto-import-secret -n "$cluster_name" &>/dev/null || true
 
-    # Save CA cert to a temporary file (needed for --from-file)
+    # Save hub CA cert to a temporary file (needed for --from-file)
     local ca_cert_file
     ca_cert_file=$(mktemp)
     echo "$ca_cert" > "$ca_cert_file"
 
-    # Create the auto-import-secret with proper configuration
-    # ACM will use this to:
-    # 1. Connect to the managed cluster API
-    # 2. Deploy the klusterlet operator and agent
-    # 3. Create the bootstrap-hub-kubeconfig automatically on the managed cluster
+    # Create the auto-import-secret with proper configuration:
+    # - token: managed cluster token (for hub to connect TO managed cluster)
+    # - server: managed cluster API (for hub to connect TO managed cluster)
+    # - ca.crt: HUB cluster CA (for klusterlet to verify hub's certificate)
     if oc --context "$CLUSTER_1_NAME" create secret generic auto-import-secret \
         -n "$cluster_name" \
         --from-literal=autoImportRetry=5 \
@@ -133,7 +131,7 @@ import_cluster() {
         --from-literal=server="$cluster_api" \
         --from-file=ca.crt="$ca_cert_file"; then
         echo "  ✅ auto-import-secret created successfully"
-        echo "  📦 ACM will now automatically deploy klusterlet and configure bootstrap"
+        echo "  📦 ACM will now automatically deploy klusterlet with hub CA"
         rm -f "$ca_cert_file"
     else
         echo "  ❌ Failed to create auto-import-secret"
