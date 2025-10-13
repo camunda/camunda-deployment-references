@@ -1,7 +1,6 @@
 ---
 name: Tests - Daily Cleanup - AWS Kubernetes EKS Single Region (IRSA)
 
-# TODO: remove me, only here to trigger cleanup
 on:
     workflow_dispatch:
         inputs:
