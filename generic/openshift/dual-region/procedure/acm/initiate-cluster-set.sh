@@ -7,6 +7,56 @@ set -euo pipefail
 echo "🚀 Starting cluster import process..."
 echo ""
 
+# Function to setup hub CA configuration for klusterlet
+setup_hub_ca_configuration() {
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔐 Setting up Hub CA Configuration"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+    # Extract CA certificate from hub cluster
+    echo "  🔐 Extracting hub CA certificate..."
+    local hub_ca
+    if ! hub_ca=$(extract_hub_cluster_ca); then
+        echo "  ❌ Failed to extract hub CA certificate"
+        return 1
+    fi
+    echo "  ✅ Hub CA certificate extracted successfully"
+
+    # Save CA to temporary file
+    local ca_file
+    ca_file=$(mktemp)
+    echo "$hub_ca" > "$ca_file"
+
+    # Create ConfigMap with hub CA in multicluster-engine namespace
+    echo "  ⏳ Creating ConfigMap hub-ca-bundle in multicluster-engine namespace..."
+    if oc --context "$CLUSTER_1_NAME" create configmap hub-ca-bundle \
+        --from-file=ca.crt="$ca_file" \
+        -n multicluster-engine \
+        --dry-run=client -o yaml | oc --context "$CLUSTER_1_NAME" apply -f -; then
+        echo "  ✅ ConfigMap hub-ca-bundle created successfully"
+    else
+        echo "  ❌ Failed to create ConfigMap hub-ca-bundle"
+        rm -f "$ca_file"
+        return 1
+    fi
+    rm -f "$ca_file"
+
+    # Create KlusterletConfig with UseAutoDetectedCABundle strategy
+    echo "  ⏳ Creating KlusterletConfig hub-ca-config..."
+    if oc --context "$CLUSTER_1_NAME" apply -f hub-klusterlet-config.yml.tpl; then
+        echo "  ✅ KlusterletConfig hub-ca-config created successfully"
+        echo "  📦 Strategy: UseAutoDetectedCABundle with trusted CA bundle"
+    else
+        echo "  ❌ Failed to create KlusterletConfig"
+        return 1
+    fi
+
+    echo "  ✅ Hub CA configuration setup completed"
+    echo ""
+    return 0
+}
+
 # Function to validate token and API
 validate_cluster_access() {
     local context=$1
@@ -155,6 +205,13 @@ import_cluster() {
     echo "✅ Import initiated for cluster: $cluster_name"
     echo "   ACM will automatically handle klusterlet deployment and bootstrap configuration"
 }
+
+# Setup hub CA configuration (ConfigMap + KlusterletConfig)
+# This must be done BEFORE importing clusters so the configuration is available
+if ! setup_hub_ca_configuration; then
+    echo "❌ Failed to setup hub CA configuration"
+    exit 1
+fi
 
 # Import first cluster (local-cluster)
 echo "1️⃣  CLUSTER 1: local-cluster"
