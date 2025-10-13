@@ -617,7 +617,7 @@ jobs:
                     # TODO: For production deployments, this secret creation should be documented in the procedure
                     # as registry-harbor.yml is now applied to all deployments (not just tests).
                     # Users will need to create this secret manually following the documentation:
-                    # https://docs.camunda.io/docs/next/self-managed/installation-methods/helm/configure/registry-and-images/install-bitnami-enterprise-images/#step-1-create-a-kubernetes-registry-secret
+                    # https://docs.camunda.io/docs/self-managed/installation-methods/helm/configure/registry-and-images/install-bitnami-enterprise-images/#step-1-create-a-kubernetes-registry-secret
                     kubectl create secret docker-registry registry-camunda-cloud \
                         --docker-server=registry.camunda.cloud \
                         --docker-username="${{ steps.secrets.outputs.MACHINE_USR }}" \
