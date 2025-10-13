@@ -185,6 +185,12 @@ variable "create_timeout" {
   default     = "2h"
 }
 
+variable "delete_timeout" {
+  type        = string
+  description = "How much time to wait for the deletion before timing out."
+  default     = "60m"
+}
+
 variable "ebs_enabled" {
   type        = bool
   description = "Whether EBS volumes are attached to data nodes in the domain."
