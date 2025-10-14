@@ -1,0 +1,103 @@
+---
+name: Kubernetes Wildcard Certificate Setup
+description: Setup wildcard TLS certificate from Vault for Kubernetes clusters
+
+inputs:
+    tld:
+        description: Top-level domain for the wildcard certificate
+        required: false
+        default: camunda.ie
+    namespace:
+        description: Kubernetes namespace where the TLS secret will be created
+        required: false
+        default: camunda
+    secret-name:
+        description: Name of the TLS secret to create
+        required: false
+        default: camunda-tls
+    vault-addr:
+        description: Vault server address
+        required: true
+    vault-role-id:
+        description: Vault AppRole role ID
+        required: true
+    vault-secret-id:
+        description: Vault AppRole secret ID
+        required: true
+
+runs:
+    using: composite
+    steps:
+        - name: 🔐 Import wildcard certificate from Vault
+          uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+          with:
+              url: ${{ inputs.vault-addr }}
+              method: approle
+              roleId: ${{ inputs.vault-role-id }}
+              secretId: ${{ inputs.vault-secret-id }}
+              secrets: |
+                  secret/data/products/infrastructure-experience/certificates/${{ inputs.tld }}/wildcard full_chain | WILDCARD_CERT ;
+                  secret/data/products/infrastructure-experience/certificates/${{ inputs.tld }}/wildcard private_key | WILDCARD_KEY
+
+        - name: 📜 Create TLS secret from Vault certificate
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "🌐 Creating TLS secret for wildcard certificate *.${{ inputs.tld }}"
+              echo "📍 Target namespace: ${{ inputs.namespace }}"
+              echo "🔑 Secret name: ${{ inputs.secret-name }}"
+
+              # Mask sensitive certificate data in logs
+              echo "::add-mask::$WILDCARD_CERT"
+              echo "::add-mask::$WILDCARD_KEY"
+
+              # Validate that certificates were retrieved
+              if [[ -z "${WILDCARD_CERT:-}" ]]; then
+                  echo "❌ ERROR: Failed to retrieve certificate from Vault"
+                  exit 1
+              fi
+
+              if [[ -z "${WILDCARD_KEY:-}" ]]; then
+                  echo "❌ ERROR: Failed to retrieve private key from Vault"
+                  exit 1
+              fi
+
+              echo "✅ Successfully retrieved certificates from Vault"
+              echo "🔒 Certificate data is masked in logs for security"
+
+
+              # Create temporary files for certificate data
+              TEMP_DIR=$(mktemp -d)
+              CERT_FILE="$TEMP_DIR/tls.crt"
+              KEY_FILE="$TEMP_DIR/tls.key"
+
+              # Cleanup function
+              cleanup() {
+                  echo "🧹 Cleaning up temporary files..."
+                  rm -rf "$TEMP_DIR"
+              }
+              trap cleanup EXIT
+
+              # Write certificate data to files
+              echo "📝 Writing certificate data to temporary files..."
+              echo "$WILDCARD_CERT" > "$CERT_FILE"
+              echo "$WILDCARD_KEY" > "$KEY_FILE"
+
+
+              # Create or update the TLS secret
+              echo "🔐 Creating TLS secret '${{ inputs.secret-name }}'..."
+              kubectl create secret tls "${{ inputs.secret-name }}" \
+                  --cert="$CERT_FILE" \
+                  --key="$KEY_FILE" \
+                  --namespace="${{ inputs.namespace }}" \
+                  --dry-run=client -o yaml | \
+              kubectl apply -f -
+
+              echo "✅ Wildcard certificate setup completed successfully"
+              echo ""
+              echo "📋 Created resources:"
+              echo "  - Secret: ${{ inputs.secret-name }} (namespace: ${{ inputs.namespace }})"
+              echo "  - Type: kubernetes.io/tls"
+              echo "  - Certificate: *.${{ inputs.tld }}"
+              echo ""
