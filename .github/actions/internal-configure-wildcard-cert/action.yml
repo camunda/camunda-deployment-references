@@ -61,22 +61,26 @@ runs:
 
               # Logic for wildcard cert usage:
               # 1. Manual input: use the specified value (highest priority)
-              # 2. Renovate PR with cert-manager changes: use Let's Encrypt (false)
-              # 3. Renovate PR without cert-manager changes: use wildcard (true)
-              # 4. Regular PR: use Let's Encrypt (false)
-              # 5. Schedule: use Let's Encrypt (false)
+              # 2. Renovate PR targeting main with cert-manager changes: use Let's Encrypt (false)
+              # 3. Renovate PR targeting main without cert-manager changes: use wildcard (true)
+              # 4. Renovate PR targeting non-main branches: use wildcard (true) - legacy branches don't have cert-manager
+              # 5. Regular PR: use Let's Encrypt (false)
+              # 6. Schedule: use Let's Encrypt (false)
 
               if [[ "${{ inputs.manual-wildcard-cert }}" == "true" ]]; then
                   USE_WILDCARD="true"
                   echo "📋 Manual override: Using wildcard certificate"
               elif [[ "${{ github.event_name }}" == "pull_request" && "${{ inputs.is-renovate-pr }}" == "true" ]]; then
-                  # For Renovate PRs, use wildcard unless there are cert-manager changes
-                  if [[ "${{ steps.check_cert_manager_changes.outputs.HAS_CERT_MANAGER_CHANGES }}" == "true" ]]; then
+                  # For Renovate PRs, check target branch first
+                  if [[ "${{ inputs.base-ref }}" != "main" ]]; then
+                      USE_WILDCARD="true"
+                      echo "🔖 Renovate PR targeting non-main branch (${{ inputs.base-ref }}): Using wildcard certificate (legacy branch without cert-manager)"
+                  elif [[ "${{ steps.check_cert_manager_changes.outputs.HAS_CERT_MANAGER_CHANGES }}" == "true" ]]; then
                       USE_WILDCARD="false"
-                      echo "🔐 Renovate PR with cert-manager changes: Using Let's Encrypt"
+                      echo "🔐 Renovate PR targeting main with cert-manager changes: Using Let's Encrypt"
                   else
                       USE_WILDCARD="true"
-                      echo "🎫 Renovate PR without cert-manager changes: Using wildcard certificate"
+                      echo "🎫 Renovate PR targeting main without cert-manager changes: Using wildcard certificate"
                   fi
               elif [[ "${{ github.event_name }}" == "pull_request" && "${{ inputs.is-schedule }}" != "true" ]]; then
                   USE_WILDCARD="false"
@@ -91,6 +95,7 @@ runs:
               echo "📊 Summary:"
               echo "  - Manual override: ${{ inputs.manual-wildcard-cert }}"
               echo "  - Is Renovate PR: ${{ inputs.is-renovate-pr }}"
+              echo "  - Target branch: ${{ inputs.base-ref }}"
               echo "  - Is Schedule: ${{ inputs.is-schedule }}"
               echo "  - Has cert-manager Changes: ${{ steps.check_cert_manager_changes.outputs.HAS_CERT_MANAGER_CHANGES || 'N/A' }}"
               echo "  - Final Decision: USE_WILDCARD_CERT=$USE_WILDCARD"
