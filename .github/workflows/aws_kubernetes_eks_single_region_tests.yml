@@ -43,6 +43,10 @@ on:
                 required: false
                 type: string
                 default: eks-single-region
+            use_wildcard_cert:
+                description: Use wildcard certificate from Vault instead of ACME/Let's Encrypt
+                type: boolean
+                default: false
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -60,6 +64,7 @@ env:
     S3_BUCKET_REGION: eu-central-1
     TLD: camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
+    WILDCARD_TLS_SECRET_NAME: camunda-tls
 
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
@@ -412,28 +417,34 @@ jobs:
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
+            # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
+            # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
+            - name: Configure wildcard certificate usage
+              id: cert-config
+              uses: ./.github/actions/internal-configure-wildcard-cert
+              with:
+                  manual-wildcard-cert: ${{ github.event.inputs.use_wildcard_cert }}
+                  is-renovate-pr: ${{ env.IS_RENOVATE_PR }}
+                  is-schedule: ${{ env.IS_SCHEDULE }}
+                  base-ref: ${{ github.base_ref }}
+
             - name: 🏗️ Ingress Setup prerequisites
               if: ${{ matrix.declination.name == 'domain' }}
-              run: |
-                  set -euo pipefail
-
-                  export REGION=${{ env.AWS_REGION }}
-
-                  source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
-
-                  # Overwriting the mail
-                  export MAIL=${{ env.MAIL_OVERWRITE }}
-
-                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-ingress-nginx.sh
-
-                  export EXTERNAL_DNS_OWNER_ID="external-dns-${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}"
-                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-external-dns.sh
-
-                  ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
-
-                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager.sh
-
-                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/install-cert-manager-issuer.sh
+              timeout-minutes: 15
+              uses: ./.github/actions/aws-kubernetes-ingress-setup
+              with:
+                  cluster-name: ${{ matrix.distro.clusterName }}
+                  scenario-short-name: ${{ matrix.scenario.shortName }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  mail: ${{ env.MAIL_OVERWRITE }}
+                  tld: ${{ env.TLD }}
+                  ref-arch: ${{ matrix.scenario.name }}
+                  use-wildcard-cert: ${{ steps.cert-config.outputs.use-wildcard-cert }}
+                  wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: 🌱 Register chart setup environment values
               timeout-minutes: 3

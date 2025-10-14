@@ -1,0 +1,143 @@
+---
+name: Azure Kubernetes Ingress Setup
+description: Install and configure ingress-nginx, external-dns, and cert-manager for Azure AKS clusters
+
+inputs:
+    cluster-name:
+        description: Name of the cluster (used for external-dns owner ID)
+        required: true
+    scenario-short-name:
+        description: Short name of the scenario (used for external-dns owner ID)
+        required: true
+    scenario-name:
+        description: Full name of the scenario (e.g., aks-single-region)
+        required: true
+    mail:
+        description: Email address for Let's Encrypt certificates
+        required: false
+        default: admin@camunda.ie
+    tld:
+        description: Top-level domain for the cluster
+        required: false
+        default: azure.camunda.ie
+    azure-dns-resource-group:
+        description: Azure resource group containing the DNS zone
+        required: true
+    azure-subscription-id:
+        description: Azure subscription ID where the DNS zone is located
+        required: true
+    use-wildcard-cert:
+        description: |
+            Use wildcard certificate from Vault instead of ACME/Let's Encrypt.
+            When true, ACME issuer is not installed and wildcard certificate is created from Vault.
+        required: false
+        default: 'false'
+    wildcard-cert-namespace:
+        description: Namespace where the wildcard TLS certificate will be created (when use-wildcard-cert is true)
+        required: false
+        default: camunda
+    wildcard-cert-secret-name:
+        description: Name of the wildcard TLS secret to create (when use-wildcard-cert is true)
+        required: false
+        default: camunda-tls
+    vault-addr:
+        description: Vault server address (required when use-wildcard-cert is true)
+        required: false
+    vault-role-id:
+        description: Vault AppRole role ID (required when use-wildcard-cert is true)
+        required: false
+    vault-secret-id:
+        description: Vault AppRole secret ID (required when use-wildcard-cert is true)
+        required: false
+
+runs:
+    using: composite
+    steps:
+        - name: 🏗️ Clean cert-manager operator namespace
+          uses: ./.github/actions/internal-clean-namespace
+          with:
+              namespace: cert-manager
+
+        - name: 🏗️ Clean external-dns operator namespace
+          uses: ./.github/actions/internal-clean-namespace
+          with:
+              namespace: external-dns
+
+        - name: 🏗️ Clean ingress-nginx operator namespace
+          uses: ./.github/actions/internal-clean-namespace
+          with:
+              namespace: ingress-nginx
+
+        - name: Setup ingress components for AKS cluster
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "Setting up ingress components for AKS cluster..."
+              echo "Cluster: ${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
+              echo "Mail: ${{ inputs.mail }}"
+              echo "TLD: ${{ inputs.tld }}"
+              echo "Scenario: ${{ inputs.scenario-name }}"
+              echo "Use wildcard cert: ${{ inputs.use-wildcard-cert }}"
+
+              # Set required environment variables for ingress setup
+              export MAIL="${{ inputs.mail }}"
+              export MAIL_OVERWRITE="${{ inputs.mail }}"
+              export TLD="${{ inputs.tld }}"
+
+              # Source ingress setup variables
+              source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
+
+              # Install ingress-nginx
+              echo "Installing ingress-nginx..."
+              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-ingress-nginx.sh
+
+              # Install external-dns
+              echo "Installing external-dns..."
+              export EXTERNAL_DNS_OWNER_ID="external-dns-${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
+              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-external-dns.sh
+
+              source azure/kubernetes/${{ matrix.scenario.name }}/procedure/export-domain-setup-vars.sh
+
+              # Configure external-dns with Azure credentials
+              echo "Configuring external-dns with Azure credentials..."
+              export AZURE_DNS_RESOURCE_GROUP="${{ inputs.azure-dns-resource-group }}"
+              export AZURE_SUBSCRIPTION_ID="${{ inputs.azure-subscription-id }}"
+              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/external-dns-azure-config.sh
+
+
+              echo "Installing cert-manager CRDs..."
+              ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
+
+              echo "Installing cert-manager with ACME issuer as default..."
+              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-cert-manager.sh
+
+              echo "Installing ACME/Let's Encrypt issuer..."
+              export AZURE_DNS_ZONE="${{ inputs.tld }}"
+              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-cert-manager-issuer.sh
+
+              echo "✅ Ingress setup completed successfully for AKS cluster."
+
+        - name: Prepare TLD for wildcard certificate
+          if: ${{ inputs.use-wildcard-cert == 'true' }}
+          id: prepare-tld
+          shell: bash
+          run: |
+              TLD="${{ inputs.tld }}"
+              # Remove azure. prefix if present (e.g., azure.camunda.ie -> camunda.ie)
+              if [[ "$TLD" == azure.* ]]; then
+                TLD="${TLD#azure.}"
+              fi
+              echo "tld=$TLD" >> $GITHUB_OUTPUT
+              echo "Prepared TLD for wildcard certificate: $TLD"
+
+        - name: Setup wildcard TLS certificate from Vault
+          if: ${{ inputs.use-wildcard-cert == 'true' }}
+          uses: ./.github/actions/kubernetes-wildcard-certificate
+          with:
+              tld: ${{ steps.prepare-tld.outputs.tld }}
+              namespace: ${{ inputs.wildcard-cert-namespace }}
+              secret-name: ${{ inputs.wildcard-cert-secret-name }}
+              vault-addr: ${{ inputs.vault-addr }}
+              vault-role-id: ${{ inputs.vault-role-id }}
+              vault-secret-id: ${{ inputs.vault-secret-id }}
