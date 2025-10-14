@@ -95,8 +95,6 @@ runs:
         - name: Delete Resources
           id: delete_resources
           shell: bash
-          env:
-              RETRY_DESTROY: 'true' # trigger cloud nuke by default as we may have to deal with remaining LB etc
           run: |
               set -euo pipefail
 
@@ -107,9 +105,21 @@ runs:
               # Use repo .tool-version as global version
               cp .tool-versions ~/.tool-versions
 
-              ${{ github.action_path }}/scripts/destroy-resources.sh "${{ inputs.tf-bucket }}" \
+              # First attempt without RETRY_DESTROY
+              echo "🚀 First attempt: Running destroy without cloud-nuke retry..."
+              if ${{ github.action_path }}/scripts/destroy-resources.sh "${{ inputs.tf-bucket }}" \
                 ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.modules-order }} ${{ inputs.tf-bucket-key-prefix }} \
-                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
+                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found"); then
+                  echo "✅ Destroy succeeded without retry"
+              else
+                  echo "⚠️  First attempt failed, retrying with cloud-nuke..."
+                  # RETRY_DESTROY enables cloud-nuke to clean up resources created outside of Terraform
+                  # such as Load Balancers created by ingress-nginx, EBS volumes, etc.
+                  export RETRY_DESTROY='true'
+                  ${{ github.action_path }}/scripts/destroy-resources.sh "${{ inputs.tf-bucket }}" \
+                    ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.modules-order }} ${{ inputs.tf-bucket-key-prefix }} \
+                    $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
+              fi
 
               if [ "${{ inputs.delete-ghost-rosa-clusters }}" == "true" ]; then
                 ${{ github.action_path }}/scripts/cleanup-ghost-rosa-clusters.sh ${{ inputs.max-age-hours }}
