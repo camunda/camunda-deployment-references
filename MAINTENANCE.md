@@ -38,11 +38,7 @@ Whenever the branching strategy changes (for example when `main` is cut into a n
 
 When a new version is ready for release, we need to cut the `main` branch to create a new stable branch (`stable/8.x`). Follow these steps:
 
-0. Update the value of the release in `.camunda-version`.
-
-1. Add all the schedules for the version in `.github/workflows-config/workflow-scheduler.yml`.
-
-2. **Create the stable branch**
+1. **Create the stable branch**
 
    * From `main`, create a new branch `stable/8.x`.
    * Example: If the current stable version is `8.6` and we are preparing to release `8.7`, run:
@@ -58,9 +54,14 @@ When a new version is ready for release, we need to cut the `main` branch to cre
    * Resolve all `TODO [release-duty]` items in the codebase.
    * Verify that documentation, configurations, and dependencies are up to date.
 
-4. **Prepare `main` for the next version**
+4. Update the value of the release in `.camunda-version` (e.g: `8.7`).
+
+5. * **Update `.target-branch`** so that it continues to point to `stable/8.x` (or whichever branch is the version target).
+
+6. **Prepare `main` for the next version**
 
    * The `main` branch now represents the next unreleased version (`8.8`).
+   * Add all the schedules for the version in `.github/workflows-config/workflow-scheduler.yml`.
    * Update version references in relevant files to reflect the new development cycle.
    * **Update `.target-branch`** so that it continues to point to `main` (or whichever branch is the new default target).
 
