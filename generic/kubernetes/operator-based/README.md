@@ -2,4 +2,4 @@
 
 This guide documents the installation of Camunda infrastructure components using Kubernetes operators. All required files are provided in this directory for easy deployment.
 
-<!-- TODO : [release-duty] add link to the doc <8.8> !-->
+See the official documentation for more details: https://docs.camunda.io/docs/self-managed/deployment/helm/configure/vendor-supported-infrastructure/
