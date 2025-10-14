@@ -38,7 +38,7 @@ kustomize 5.7.1 # used by the tests
 
 pre-commit 4.3.0
 
-python 3.13.7
+python 3.14.0
 
 shellcheck 0.11.0
 
@@ -52,4 +52,4 @@ tflint 0.59.1
 
 trivy 0.60.0
 
-yq 4.47.2
+yq 4.48.1
