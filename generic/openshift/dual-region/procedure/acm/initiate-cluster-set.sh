@@ -7,6 +7,56 @@ set -euo pipefail
 echo "🚀 Starting cluster import process..."
 echo ""
 
+# Function to setup hub CA configuration for klusterlet
+setup_hub_ca_configuration() {
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔐 Setting up Hub CA Configuration"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+    # Extract CA certificate from hub cluster
+    echo "  🔐 Extracting hub CA certificate..."
+    local hub_ca
+    if ! hub_ca=$(extract_hub_cluster_ca); then
+        echo "  ❌ Failed to extract hub CA certificate"
+        return 1
+    fi
+    echo "  ✅ Hub CA certificate extracted successfully"
+
+    # Save CA to temporary file
+    local ca_file
+    ca_file=$(mktemp)
+    echo "$hub_ca" > "$ca_file"
+
+    # Create ConfigMap with hub CA in multicluster-engine namespace
+    echo "  ⏳ Creating ConfigMap hub-ca-bundle in multicluster-engine namespace..."
+    if oc --context "$CLUSTER_1_NAME" create configmap hub-ca-bundle \
+        --from-file=ca.crt="$ca_file" \
+        -n multicluster-engine \
+        --dry-run=client -o yaml | oc --context "$CLUSTER_1_NAME" apply -f -; then
+        echo "  ✅ ConfigMap hub-ca-bundle created successfully"
+    else
+        echo "  ❌ Failed to create ConfigMap hub-ca-bundle"
+        rm -f "$ca_file"
+        return 1
+    fi
+    rm -f "$ca_file"
+
+    # Create KlusterletConfig with UseAutoDetectedCABundle strategy
+    echo "  ⏳ Creating KlusterletConfig hub-ca-config..."
+    if oc --context "$CLUSTER_1_NAME" apply -f hub-klusterlet-config.yml.tpl; then
+        echo "  ✅ KlusterletConfig hub-ca-config created successfully"
+        echo "  📦 Strategy: UseAutoDetectedCABundle with trusted CA bundle"
+    else
+        echo "  ❌ Failed to create KlusterletConfig"
+        return 1
+    fi
+
+    echo "  ✅ Hub CA configuration setup completed"
+    echo ""
+    return 0
+}
+
 # Function to validate token and API
 validate_cluster_access() {
     local context=$1
@@ -27,32 +77,35 @@ validate_cluster_access() {
     return 0
 }
 
-# Function to extract CA certificate from cluster
-extract_ca_certificate() {
-    local context=$1
+# Function to extract CA certificate from HUB cluster for auto-import
+# The CA must be from the HUB so the klusterlet on the managed cluster can verify
+# the hub's API server certificate when connecting back to the hub
+extract_hub_cluster_ca() {
+    echo "  🔐 Extracting CA certificate from hub's kube-root-ca ConfigMap..."
 
-    echo "  🔐 Extracting CA certificate from cluster..."
-
-    # Try to get CA from the kubeconfig
-    local ca_data
-    ca_data=$(oc config view --context "$context" --raw -o json | jq -r '.clusters[0].cluster."certificate-authority-data"' 2>/dev/null || echo "")
-
-    if [ -n "$ca_data" ] && [ "$ca_data" != "null" ]; then
-        # CA is embedded in kubeconfig, decode it
-        echo "$ca_data" | base64 -d
-        return 0
-    fi
-
-    # Fallback: try to get from kube-root-ca ConfigMap
+    # Get CA certificate directly from kube-root-ca.crt ConfigMap in kube-system on the HUB
+    # This ConfigMap contains the root CA that OpenShift uses
     local ca_from_cm
-    ca_from_cm=$(oc --context "$context" get configmap kube-root-ca.crt -n kube-system -o jsonpath='{.data.ca\.crt}' 2>/dev/null || echo "")
+    ca_from_cm=$(oc --context "$CLUSTER_1_NAME" get configmap kube-root-ca.crt -n kube-system -o jsonpath='{.data.ca\.crt}' 2>/dev/null || echo "")
 
     if [ -n "$ca_from_cm" ]; then
-        echo "$ca_from_cm"
+        # Extract ONLY the FIRST certificate (the root CA, not Let's Encrypt intermediates)
+        echo "$ca_from_cm" | awk '
+            /BEGIN CERTIFICATE/ { cert = $0; in_cert = 1; next }
+            in_cert { cert = cert "\n" $0 }
+            /END CERTIFICATE/ {
+                if (!printed) {
+                    print cert "\n" $0
+                    printed = 1
+                }
+                cert = ""
+                in_cert = 0
+            }
+        '
         return 0
     fi
 
-    echo "  ⚠️  WARNING: Could not extract CA certificate" >&2
+    echo "  ⚠️  WARNING: Could not extract CA certificate from hub's kube-root-ca ConfigMap" >&2
     return 1
 }
 
@@ -73,14 +126,16 @@ import_cluster() {
         return 1
     fi
 
-    # Extract CA certificate from the hub cluster (CLUSTER_1_NAME)
-    # This is needed for the managed cluster to trust the hub's API server
-    local ca_cert
-    if ! ca_cert=$(extract_ca_certificate "$CLUSTER_1_NAME"); then
-        echo "❌ Failed to extract CA certificate from hub cluster"
+    # Generate kubeconfig for the managed cluster
+    # This kubeconfig is used by ACM to connect to the managed cluster
+    echo "  🔐 Generating kubeconfig for managed cluster..."
+    local kubeconfig_content
+    kubeconfig_content=$(oc config view --minify --context "$context" --flatten --raw)
+    if [ -z "$kubeconfig_content" ]; then
+        echo "❌ Failed to generate kubeconfig for managed cluster"
         return 1
     fi
-    echo "  ✅ CA certificate extracted successfully"
+    echo "  ✅ Kubeconfig generated successfully"
 
     # Ensure namespace exists first
     if ! oc --context "$CLUSTER_1_NAME" get namespace "$cluster_name" &>/dev/null; then
@@ -100,29 +155,33 @@ import_cluster() {
     echo "  ⏳ Waiting for ACM to setup cluster namespace..."
     sleep 5
 
-    # Create auto-import-secret with CA certificate using oc create secret
-    echo "  ⏳ Creating auto-import-secret with CA certificate..."
+    # Create auto-import-secret with kubeconfig
+    # This secret configures ACM to connect to the managed cluster and deploy the klusterlet
+    # The hub CA certificate is configured separately via KlusterletConfig
+    echo "  ⏳ Creating auto-import-secret for ACM auto-import..."
 
     # Delete existing secret if it exists
     oc --context "$CLUSTER_1_NAME" delete secret auto-import-secret -n "$cluster_name" &>/dev/null || true
 
-    # Save CA cert to a temporary file
-    local ca_cert_file
-    ca_cert_file=$(mktemp)
-    echo "$ca_cert" > "$ca_cert_file"
+    # Save kubeconfig to a temporary file (needed for --from-file)
+    local kubeconfig_file
+    kubeconfig_file=$(mktemp)
+    echo "$kubeconfig_content" > "$kubeconfig_file"
 
-    # Create secret using oc create secret generic
+    # Create the auto-import-secret with kubeconfig
+    # ACM will use this kubeconfig to connect to the managed cluster
+    # The hub CA for klusterlet is provided via KlusterletConfig (not in this secret)
     if oc --context "$CLUSTER_1_NAME" create secret generic auto-import-secret \
         -n "$cluster_name" \
         --from-literal=autoImportRetry=5 \
-        --from-literal=token="$cluster_token" \
-        --from-literal=server="$cluster_api" \
-        --from-file=ca.crt="$ca_cert_file"; then
+        --from-file=kubeconfig="$kubeconfig_file"; then
         echo "  ✅ auto-import-secret created successfully"
-        rm -f "$ca_cert_file"
+        echo "  📦 ACM will use kubeconfig to connect to managed cluster"
+        echo "  🔐 Hub CA configuration is handled by KlusterletConfig"
+        rm -f "$kubeconfig_file"
     else
         echo "  ❌ Failed to create auto-import-secret"
-        rm -f "$ca_cert_file"
+        rm -f "$kubeconfig_file"
         return 1
     fi
 
@@ -130,22 +189,25 @@ import_cluster() {
     echo "  ⏳ Creating KlusterletAddonConfig..."
     CLUSTER_NAME="$cluster_name" envsubst < klusterlet-config.yml.tpl | oc --context "$CLUSTER_1_NAME" apply -f -
 
-    # Wait for initial import to start
-    echo "  ⏳ Waiting for import process to initialize (30s)..."
-    sleep 30
+    # Wait for ACM to process the auto-import-secret and start import pods
+    echo "  ⏳ Waiting for ACM to process auto-import-secret..."
+    sleep 10
 
     # Check initial status
     echo "  📊 Initial status:"
     oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" || echo "  ⚠️  ManagedCluster not found yet"
 
-    # Check for import pods
-    echo ""
-    echo "  📦 Checking import pods in namespace $cluster_name:"
-    oc --context "$CLUSTER_1_NAME" -n "$cluster_name" get pods 2>/dev/null || echo "  ⚠️  No pods found yet (this is normal initially)"
-
     echo ""
     echo "✅ Import initiated for cluster: $cluster_name"
+    echo "   ACM will automatically handle klusterlet deployment and bootstrap configuration"
 }
+
+# Setup hub CA configuration (ConfigMap + KlusterletConfig)
+# This must be done BEFORE importing clusters so the configuration is available
+# if ! setup_hub_ca_configuration; then
+#     echo "❌ Failed to setup hub CA configuration"
+#     exit 1
+# fi
 
 # Import first cluster (local-cluster)
 echo "1️⃣  CLUSTER 1: local-cluster"
