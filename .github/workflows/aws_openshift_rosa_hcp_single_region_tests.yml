@@ -474,10 +474,6 @@ jobs:
                   yq '. *+ load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
-                  # TODO: [release-duty] remove this when fixed
-                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/tmp-tags-8.8.yml\")" values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
-
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
                     echo "Enabling WebModeler"
                     yq -i '.webModeler.enabled = true' values.yml

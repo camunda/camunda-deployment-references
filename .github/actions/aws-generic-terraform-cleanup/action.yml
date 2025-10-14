@@ -59,7 +59,6 @@ runs:
 
         - name: Install Cloud Nuke for retry
           shell: bash
-          if: ${{ env.RETRY_DESTROY == 'true' }}
           working-directory: /tmp
           env:
               # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
@@ -96,6 +95,8 @@ runs:
         - name: Delete Resources
           id: delete_resources
           shell: bash
+          env:
+              RETRY_DESTROY: 'true' # trigger cloud nuke by default as we may have to deal with remaining LB etc
           run: |
               set -euo pipefail
 
