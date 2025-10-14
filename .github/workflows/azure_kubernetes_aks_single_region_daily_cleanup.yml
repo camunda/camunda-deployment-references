@@ -149,7 +149,7 @@ jobs:
               timeout-minutes: 125
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               env:
-                  RETRY_DESTROY: 'true' # trigger cloud nuke
+                  RETRY_DESTROY: 'true' # trigger az deletion of rg
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
