@@ -56,7 +56,7 @@ When a new version is ready for release, we need to cut the `main` branch to cre
 
 4. Update the value of the release in `.camunda-version` (e.g: `8.7`).
 
-5. * **Update `.target-branch`** so that it continues to point to `stable/8.x` (or whichever branch is the version target).
+5. **Update `.target-branch`** so that it continues to point to `stable/8.x` (or whichever branch is the version target).
 
 6. **Prepare `main` for the next version**
 
