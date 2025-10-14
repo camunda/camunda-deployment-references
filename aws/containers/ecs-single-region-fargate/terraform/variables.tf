@@ -42,7 +42,7 @@ variable "enable_opensearch_logging" {
 variable "prefix" {
   type        = string
   description = "The prefix to use for names of resources"
-  default     = "lars-ecs-v2"
+  default     = "prj-ecs"
 }
 
 variable "camunda_count" {

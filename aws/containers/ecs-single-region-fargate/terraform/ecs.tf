@@ -29,7 +29,8 @@ resource "aws_ecs_task_definition" "core" {
   cpu                      = 4096
   memory                   = 8192
   container_definitions = templatefile("./templates/core.json.tpl", {
-    core_image  = "registry.camunda.cloud/team-hto/camunda/camunda:ecs-lease-hack-v4"
+    core_image  = "registry.camunda.cloud/team-zeebe/camunda-ecs"
+    # core_image  = "registry.camunda.cloud/team-hto/camunda/camunda:ecs-lease-hack-v4"
     core_cpu    = 4096
     core_memory = 8192
     aws_region  = "eu-north-1"
