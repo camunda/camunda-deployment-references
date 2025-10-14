@@ -8,7 +8,7 @@ inputs:
     manual-wildcard-cert:
         description: Manual override to use wildcard certificate (takes precedence)
         required: false
-        default: 'false'
+        default: ''
     is-renovate-pr:
         description: Whether this is a Renovate bot PR
         required: true
@@ -59,35 +59,23 @@ runs:
 
               echo "🔧 Determining certificate configuration strategy..."
 
-              # Logic for wildcard cert usage:
-              # 1. Manual input: use the specified value (highest priority)
-              # 2. Renovate PR targeting main with cert-manager changes: use Let's Encrypt (false)
-              # 3. Renovate PR targeting main without cert-manager changes: use wildcard (true)
-              # 4. Renovate PR targeting non-main branches: use wildcard (true) - legacy branches don't have cert-manager
-              # 5. Regular PR: use Let's Encrypt (false)
-              # 6. Schedule: use Let's Encrypt (false)
+              # Logic: Manual override takes precedence over everything
+              # - If manual-wildcard-cert is set (not empty) -> use its value directly
+              # - Then use Let's Encrypt ONLY for Renovate PRs on main with cert-manager changes
+              # - All other cases use wildcard certificate (default)
 
-              if [[ "${{ inputs.manual-wildcard-cert }}" == "true" ]]; then
-                  USE_WILDCARD="true"
-                  echo "📋 Manual override: Using wildcard certificate"
-              elif [[ "${{ github.event_name }}" == "pull_request" && "${{ inputs.is-renovate-pr }}" == "true" ]]; then
-                  # For Renovate PRs, check target branch first
-                  if [[ "${{ inputs.base-ref }}" != "main" ]]; then
-                      USE_WILDCARD="true"
-                      echo "🔖 Renovate PR targeting non-main branch (${{ inputs.base-ref }}): Using wildcard certificate (legacy branch without cert-manager)"
-                  elif [[ "${{ steps.check_cert_manager_changes.outputs.HAS_CERT_MANAGER_CHANGES }}" == "true" ]]; then
-                      USE_WILDCARD="false"
-                      echo "🔐 Renovate PR targeting main with cert-manager changes: Using Let's Encrypt"
-                  else
-                      USE_WILDCARD="true"
-                      echo "🎫 Renovate PR targeting main without cert-manager changes: Using wildcard certificate"
-                  fi
-              elif [[ "${{ github.event_name }}" == "pull_request" && "${{ inputs.is-schedule }}" != "true" ]]; then
+              if [[ -n "${{ inputs.manual-wildcard-cert }}" ]]; then
+                  USE_WILDCARD="${{ inputs.manual-wildcard-cert }}"
+                  echo "📋 Manual override: USE_WILDCARD_CERT=$USE_WILDCARD"
+              elif [[ "${{ github.event_name }}" == "pull_request" && \
+                    "${{ inputs.is-renovate-pr }}" == "true" && \
+                    "${{ inputs.base-ref }}" == "main" && \
+                    "${{ steps.check_cert_manager_changes.outputs.HAS_CERT_MANAGER_CHANGES }}" == "true" ]]; then
                   USE_WILDCARD="false"
-                  echo "🔐 Regular PR: Using Let's Encrypt"
+                  echo "🎫 Renovate PR targeting main with cert-manager changes: Using Let's Encrypt to test cert-manager"
               else
-                  USE_WILDCARD="false"
-                  echo "🔐 Default behavior: Using Let's Encrypt"
+                  USE_WILDCARD="true"
+                  echo "🎫 Using wildcard certificate (default)"
               fi
 
               echo "USE_WILDCARD_CERT=$USE_WILDCARD" | tee -a "$GITHUB_OUTPUT"
