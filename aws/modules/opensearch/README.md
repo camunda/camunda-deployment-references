@@ -98,6 +98,7 @@ No modules.
 | <a name="input_dedicated_master_count"></a> [dedicated\_master\_count](#input\_dedicated\_master\_count) | Number of dedicated master nodes in the cluster. | `number` | `3` | no |
 | <a name="input_dedicated_master_enabled"></a> [dedicated\_master\_enabled](#input\_dedicated\_master\_enabled) | Indicates whether dedicated master nodes are enabled for the cluster. | `bool` | `true` | no |
 | <a name="input_dedicated_master_type"></a> [dedicated\_master\_type](#input\_dedicated\_master\_type) | Instance type of the dedicated master nodes in the cluster. | `string` | `"m5.large.search"` | no |
+| <a name="input_delete_timeout"></a> [delete\_timeout](#input\_delete\_timeout) | How much time to wait for the deletion before timing out. | `string` | `"60m"` | no |
 | <a name="input_domain_endpoint_options"></a> [domain\_endpoint\_options](#input\_domain\_endpoint\_options) | Configuration block for domain endpoint HTTP(S) related options | `any` | <pre>{<br/>  "enforce_https": true,<br/>  "tls_security_policy": "Policy-Min-TLS-1-2-2019-07"<br/>}</pre> | no |
 | <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | Name of the domain. | `string` | n/a | yes |
 | <a name="input_ebs_enabled"></a> [ebs\_enabled](#input\_ebs\_enabled) | Whether EBS volumes are attached to data nodes in the domain. | `bool` | `true` | no |

@@ -3089,7 +3089,7 @@
             "tags": null,
             "timeouts": {
               "create": "2h",
-              "delete": null,
+              "delete": "60m",
               "update": null
             },
             "vpc_options": [
