@@ -62,7 +62,6 @@ runs:
 
         - name: Install Cloud Nuke for retry
           shell: bash
-          if: ${{ env.RETRY_DESTROY == 'true' }}
           env:
               # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
               CLOUD_NUKE_VERSION: v0.43.0
@@ -78,6 +77,8 @@ runs:
         - name: Delete clusters
           id: delete_clusters
           shell: bash
+          env:
+              RETRY_DESTROY: 'true' # trigger cloud nuke by default as we may have to deal with remaining LB etc
           run: |
               if [ -n "${{ inputs.tf-bucket-region }}" ]; then
                 export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
