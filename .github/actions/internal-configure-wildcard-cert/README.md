@@ -10,7 +10,7 @@ For Renovate PRs, automatically detects if cert-manager is modified.
 
 | name | description | required | default |
 | --- | --- | --- | --- |
-| `manual-wildcard-cert` | <p>Manual override to use wildcard certificate (takes precedence)</p> | `false` | `false` |
+| `manual-wildcard-cert` | <p>Manual override to use wildcard certificate (takes precedence)</p> | `false` | `""` |
 | `is-renovate-pr` | <p>Whether this is a Renovate bot PR</p> | `true` | `""` |
 | `is-schedule` | <p>Whether this is a scheduled run</p> | `true` | `""` |
 | `base-ref` | <p>Base branch reference for diff comparison</p> | `false` | `main` |
@@ -37,7 +37,7 @@ This action is a `composite` action.
     # Manual override to use wildcard certificate (takes precedence)
     #
     # Required: false
-    # Default: false
+    # Default: ""
 
     is-renovate-pr:
     # Whether this is a Renovate bot PR
