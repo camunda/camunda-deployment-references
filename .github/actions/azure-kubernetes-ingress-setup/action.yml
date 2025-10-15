@@ -118,24 +118,11 @@ runs:
 
               echo "✅ Ingress setup completed successfully for AKS cluster."
 
-        - name: Prepare TLD for wildcard certificate
-          if: ${{ inputs.use-wildcard-cert == 'true' }}
-          id: prepare-tld
-          shell: bash
-          run: |
-              TLD="${{ inputs.tld }}"
-              # Remove azure. prefix if present (e.g., azure.camunda.ie -> camunda.ie)
-              if [[ "$TLD" == azure.* ]]; then
-                TLD="${TLD#azure.}"
-              fi
-              echo "tld=$TLD" >> $GITHUB_OUTPUT
-              echo "Prepared TLD for wildcard certificate: $TLD"
-
         - name: Setup wildcard TLS certificate from Vault
           if: ${{ inputs.use-wildcard-cert == 'true' }}
           uses: ./.github/actions/kubernetes-wildcard-certificate
           with:
-              tld: ${{ steps.prepare-tld.outputs.tld }}
+              tld: ${{ inputs.tld }}
               namespace: ${{ inputs.wildcard-cert-namespace }}
               secret-name: ${{ inputs.wildcard-cert-secret-name }}
               vault-addr: ${{ inputs.vault-addr }}
