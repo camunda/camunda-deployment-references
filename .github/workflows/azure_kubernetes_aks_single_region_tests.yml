@@ -398,6 +398,14 @@ jobs:
 
                   kubectl config current-context
                   kubectl get nodes
+            - name: 🌱 Register chart setup environment values
+              timeout-minutes: 3
+              run: |
+                  set -euo pipefail
+
+                  # the chart env should be loaded by the client at the very first step of his installation
+                  source .github/scripts/gha-functions.sh
+                  export_new_env_vars generic/kubernetes/single-region/procedure/chart-env.sh
 
             # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
             # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
@@ -428,16 +436,6 @@ jobs:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-            - name: 🌱 Register chart setup environment values
-              timeout-minutes: 3
-              run: |
-                  set -euo pipefail
-
-                  # the chart env should be loaded by the client at the very first step of his installation
-                  source .github/scripts/gha-functions.sh
-                  export_new_env_vars generic/kubernetes/single-region/procedure/chart-env.sh
-
 
             - name: 🏗️ Prepare a fresh namespace for the tests
               timeout-minutes: 10
@@ -517,7 +515,12 @@ jobs:
                     export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
-                    export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"
+                    # Set DOMAIN_NAME_GRPC based on whether wildcard certificate is used
+                    if [[ "${{ steps.cert-config.outputs.use-wildcard-cert }}" == "true" ]]; then
+                      export DOMAIN_NAME_GRPC="zeebe-$DOMAIN_NAME:443"
+                    else
+                      export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"
+                    fi
                     echo "DOMAIN_NAME_GRPC=$DOMAIN_NAME_GRPC" | tee -a "$GITHUB_ENV"
                   fi
 
@@ -538,6 +541,27 @@ jobs:
                       yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                     done
+                  fi
+
+                  # If using wildcard certificate, remove cert-manager annotations from values
+                  if [[ "${{ steps.cert-config.outputs.use-wildcard-cert }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
+                      echo "Removing cert-manager annotations from Helm values (using wildcard certificate)"
+                      echo "Using wildcard TLS secret: ${{ env.WILDCARD_TLS_SECRET_NAME }}"
+
+                      # Extract hostname without port from DOMAIN_NAME_GRPC and export for yq
+                      export GRPC_HOST="${DOMAIN_NAME_GRPC%:*}"
+
+                      yq eval '
+                        del(.global.ingress.annotations."kubernetes.io/tls-acme") |
+                        del(.global.ingress.annotations."cert-manager.io/cluster-issuer") |
+                        .global.ingress.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}" |
+                        del(.zeebeGateway.ingress.grpc.annotations."kubernetes.io/tls-acme") |
+                        del(.zeebeGateway.ingress.grpc.annotations."cert-manager.io/cluster-issuer") |
+                        .zeebeGateway.ingress.grpc.host = env(GRPC_HOST) |
+                        .zeebeGateway.ingress.grpc.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}"
+                      ' values.yml > values-temp.yml
+                      mv values-temp.yml values.yml
+                      echo "Cert-manager annotations removed and wildcard TLS secret configured for HTTP and gRPC ingress"
                   fi
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
