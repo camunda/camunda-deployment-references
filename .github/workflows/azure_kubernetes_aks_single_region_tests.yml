@@ -407,36 +407,6 @@ jobs:
                   source .github/scripts/gha-functions.sh
                   export_new_env_vars generic/kubernetes/single-region/procedure/chart-env.sh
 
-            # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
-            # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
-            - name: Configure wildcard certificate usage
-              id: cert-config
-              uses: ./.github/actions/internal-configure-wildcard-cert
-              with:
-                  manual-wildcard-cert: ${{ github.event.inputs.use_wildcard_cert }}
-                  is-renovate-pr: ${{ env.IS_RENOVATE_PR }}
-                  is-schedule: ${{ env.IS_SCHEDULE }}
-                  base-ref: ${{ github.base_ref }}
-
-            - name: 🏗️ Ingress Setup prerequisites
-              if: ${{ matrix.declination.name == 'domain' }}
-              timeout-minutes: 20
-              uses: ./.github/actions/azure-kubernetes-ingress-setup
-              with:
-                  cluster-name: ${{ matrix.distro.clusterName }}
-                  scenario-short-name: ${{ matrix.scenario.shortName }}
-                  scenario-name: ${{ matrix.scenario.name }}
-                  mail: ${{ env.MAIL_OVERWRITE }}
-                  tld: ${{ env.TLD }}
-                  azure-dns-resource-group: ${{ env.AZURE_DNS_RESOURCE_GROUP }}
-                  azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
-                  use-wildcard-cert: ${{ steps.cert-config.outputs.use-wildcard-cert }}
-                  wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
             - name: 🏗️ Prepare a fresh namespace for the tests
               timeout-minutes: 10
               run: |
@@ -481,6 +451,36 @@ jobs:
                   kubectl delete job reset-azure-postgres --namespace "$CAMUNDA_NAMESPACE"
 
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
+
+            # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
+            # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
+            - name: Configure wildcard certificate usage
+              id: cert-config
+              uses: ./.github/actions/internal-configure-wildcard-cert
+              with:
+                  manual-wildcard-cert: ${{ github.event.inputs.use_wildcard_cert }}
+                  is-renovate-pr: ${{ env.IS_RENOVATE_PR }}
+                  is-schedule: ${{ env.IS_SCHEDULE }}
+                  base-ref: ${{ github.base_ref }}
+
+            - name: 🏗️ Ingress Setup prerequisites
+              if: ${{ matrix.declination.name == 'domain' }}
+              timeout-minutes: 20
+              uses: ./.github/actions/azure-kubernetes-ingress-setup
+              with:
+                  cluster-name: ${{ matrix.distro.clusterName }}
+                  scenario-short-name: ${{ matrix.scenario.shortName }}
+                  scenario-name: ${{ matrix.scenario.name }}
+                  mail: ${{ env.MAIL_OVERWRITE }}
+                  tld: ${{ env.TLD }}
+                  azure-dns-resource-group: ${{ env.AZURE_DNS_RESOURCE_GROUP }}
+                  azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+                  use-wildcard-cert: ${{ steps.cert-config.outputs.use-wildcard-cert }}
+                  wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: 🛠️ Assemble deployment values of azure/kubernetes/${{ matrix.scenario.name }}/${{ matrix.declination.name }}
               timeout-minutes: 10
