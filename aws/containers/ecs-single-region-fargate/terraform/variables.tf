@@ -146,7 +146,7 @@ variable "ports" {
 
 variable "ecs-revision" {
  type = number
- default = 0
+ default = 6
  description = "last digit of the revision"
 }
 variable "docker_hub_username" {
