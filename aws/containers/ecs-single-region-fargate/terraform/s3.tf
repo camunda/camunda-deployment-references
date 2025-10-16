@@ -1,6 +1,7 @@
 # S3 bucket
 resource "aws_s3_bucket" "main" {
   bucket_prefix = "${var.prefix}-bucket"
+  force_destroy = true
 }
 
 # Block public access
