@@ -398,37 +398,6 @@ jobs:
 
                   kubectl config current-context
                   kubectl get nodes
-
-            # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
-            # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
-            - name: Configure wildcard certificate usage
-              id: cert-config
-              uses: ./.github/actions/internal-configure-wildcard-cert
-              with:
-                  manual-wildcard-cert: ${{ github.event.inputs.use_wildcard_cert }}
-                  is-renovate-pr: ${{ env.IS_RENOVATE_PR }}
-                  is-schedule: ${{ env.IS_SCHEDULE }}
-                  base-ref: ${{ github.base_ref }}
-
-            - name: 🏗️ Ingress Setup prerequisites
-              if: ${{ matrix.declination.name == 'domain' }}
-              timeout-minutes: 20
-              uses: ./.github/actions/azure-kubernetes-ingress-setup
-              with:
-                  cluster-name: ${{ matrix.distro.clusterName }}
-                  scenario-short-name: ${{ matrix.scenario.shortName }}
-                  scenario-name: ${{ matrix.scenario.name }}
-                  mail: ${{ env.MAIL_OVERWRITE }}
-                  tld: ${{ env.TLD }}
-                  azure-dns-resource-group: ${{ env.AZURE_DNS_RESOURCE_GROUP }}
-                  azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
-                  use-wildcard-cert: ${{ steps.cert-config.outputs.use-wildcard-cert }}
-                  wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
             - name: 🌱 Register chart setup environment values
               timeout-minutes: 3
               run: |
@@ -437,7 +406,6 @@ jobs:
                   # the chart env should be loaded by the client at the very first step of his installation
                   source .github/scripts/gha-functions.sh
                   export_new_env_vars generic/kubernetes/single-region/procedure/chart-env.sh
-
 
             - name: 🏗️ Prepare a fresh namespace for the tests
               timeout-minutes: 10
@@ -484,6 +452,36 @@ jobs:
 
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
+            # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
+            # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
+            - name: Configure wildcard certificate usage
+              id: cert-config
+              uses: ./.github/actions/internal-configure-wildcard-cert
+              with:
+                  manual-wildcard-cert: ${{ github.event.inputs.use_wildcard_cert }}
+                  is-renovate-pr: ${{ env.IS_RENOVATE_PR }}
+                  is-schedule: ${{ env.IS_SCHEDULE }}
+                  base-ref: ${{ github.base_ref }}
+
+            - name: 🏗️ Ingress Setup prerequisites
+              if: ${{ matrix.declination.name == 'domain' }}
+              timeout-minutes: 20
+              uses: ./.github/actions/azure-kubernetes-ingress-setup
+              with:
+                  cluster-name: ${{ matrix.distro.clusterName }}
+                  scenario-short-name: ${{ matrix.scenario.shortName }}
+                  scenario-name: ${{ matrix.scenario.name }}
+                  mail: ${{ env.MAIL_OVERWRITE }}
+                  tld: ${{ env.TLD }}
+                  azure-dns-resource-group: ${{ env.AZURE_DNS_RESOURCE_GROUP }}
+                  azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+                  use-wildcard-cert: ${{ steps.cert-config.outputs.use-wildcard-cert }}
+                  wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
             - name: 🛠️ Assemble deployment values of azure/kubernetes/${{ matrix.scenario.name }}/${{ matrix.declination.name }}
               timeout-minutes: 10
               run: |
@@ -492,13 +490,37 @@ jobs:
 
                   echo "Construct the values.yml file"
 
-                  cp -f azure/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
+                  # Get the Camunda version to determine the correct values-enterprise.yaml file
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "Using Camunda version: $CAMUNDA_VERSION"
+
+                  # TODO: In the future, we should pass values-enterprise.yaml directly to helm install command
+                  # using the -f flag as documented in the official Camunda documentation:
+                  # However, we cannot update the procedure documentation yet, so we download and merge manually for now.
+
+                  # Download values-enterprise.yaml from the corresponding chart version
+                  # This follows the best practice of using enterprise images for Camunda components.
+                  # For third-party images (e.g., Bitnami charts like PostgreSQL, Keycloak),
+                  # values-enterprise.yaml already points to enterprise-supported registries when available.
+                  # This configuration is applied in both test and non-test scenarios to ensure consistency.
+                  curl -fsSL \
+                    "https://raw.githubusercontent.com/camunda/camunda-platform-helm/refs/heads/main/charts/camunda-platform-${CAMUNDA_VERSION}/values-enterprise.yaml" \
+                    -o ./values.yml
+
+                  # Merge with specific azure/kubernetes values
+                  yq ". *+ load(\"azure/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml\")" values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
                     export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
-                    export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"
+                    # Set DOMAIN_NAME_GRPC based on whether wildcard certificate is used
+                    if [[ "${{ steps.cert-config.outputs.use-wildcard-cert }}" == "true" ]]; then
+                      export DOMAIN_NAME_GRPC="zeebe-$DOMAIN_NAME:443"
+                    else
+                      export DOMAIN_NAME_GRPC="zeebe.$DOMAIN_NAME:443"
+                    fi
                     echo "DOMAIN_NAME_GRPC=$DOMAIN_NAME_GRPC" | tee -a "$GITHUB_ENV"
                   fi
 
@@ -519,6 +541,27 @@ jobs:
                       yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                     done
+                  fi
+
+                  # If using wildcard certificate, remove cert-manager annotations from values
+                  if [[ "${{ steps.cert-config.outputs.use-wildcard-cert }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
+                      echo "Removing cert-manager annotations from Helm values (using wildcard certificate)"
+                      echo "Using wildcard TLS secret: ${{ env.WILDCARD_TLS_SECRET_NAME }}"
+
+                      # Extract hostname without port from DOMAIN_NAME_GRPC and export for yq
+                      export GRPC_HOST="${DOMAIN_NAME_GRPC%:*}"
+
+                      yq eval '
+                        del(.global.ingress.annotations."kubernetes.io/tls-acme") |
+                        del(.global.ingress.annotations."cert-manager.io/cluster-issuer") |
+                        .global.ingress.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}" |
+                        del(.zeebeGateway.ingress.grpc.annotations."kubernetes.io/tls-acme") |
+                        del(.zeebeGateway.ingress.grpc.annotations."cert-manager.io/cluster-issuer") |
+                        .zeebeGateway.ingress.grpc.host = env(GRPC_HOST) |
+                        .zeebeGateway.ingress.grpc.tls.secretName = "${{ env.WILDCARD_TLS_SECRET_NAME }}"
+                      ' values.yml > values-temp.yml
+                      mv values-temp.yml values.yml
+                      echo "Cert-manager annotations removed and wildcard TLS secret configured for HTTP and gRPC ingress"
                   fi
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
