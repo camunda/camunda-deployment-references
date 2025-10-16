@@ -7,6 +7,7 @@ locals {
       name  = trim(split("=", line)[0], " ")
       value = trim(join("=", slice(split("=", line), 1, length(split("=", line)))), " ")
     }
+    if length(split("=", line)) > 1  # Filter out lines without '='
   ]
 }
 
