@@ -4,7 +4,6 @@ data "aws_caller_identity" "current" {}
 ################################################################
 #                        Feature Flags                         #
 ################################################################
-
 variable "enable_opensearch" {
   type        = bool
   default     = false
@@ -42,7 +41,7 @@ variable "enable_opensearch_logging" {
 variable "prefix" {
   type        = string
   description = "The prefix to use for names of resources"
-  default     = "prj-ecs"
+  default     = "prj-ecs-test"
 }
 
 variable "camunda_count" {
@@ -145,6 +144,11 @@ variable "ports" {
 #                     Docker Hub Options                      #
 ################################################################
 
+variable "ecs-revision" {
+ type = number
+ default = 0
+ description = "last digit of the revision"
+}
 variable "docker_hub_username" {
   type        = string
   description = "Docker Hub username for authenticated pulls"
