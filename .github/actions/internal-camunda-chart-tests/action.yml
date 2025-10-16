@@ -188,6 +188,12 @@ runs:
                 "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
                 "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
 
+              # Remove "result.body ShouldNotContainSubstring error" assertion that causes false positives
+              # with enterprise images (login pages legitimately contain error containers in HTML)
+              echo "Remove false positive error check in login page tests"
+              sed -i '/- result.body ShouldNotContainSubstring error/d' \
+                "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
+
               if [[ "$ELASTICSEARCH_ENABLED" != "true" ]]; then
                 echo "Disable Elasticsearch in the core tests as it's not enabled"
 
