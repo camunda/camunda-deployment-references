@@ -104,10 +104,10 @@ elasticsearch:
         replicaCount: 3
         resources:
             requests:
-                cpu: 100m
+                cpu: 0.1
                 memory: 512M
             limits:
-                cpu: 1000m
+                cpu: 1
                 memory: 2Gi
         persistence:
             size: 30Gi
