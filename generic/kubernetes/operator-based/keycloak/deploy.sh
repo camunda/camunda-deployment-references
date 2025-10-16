@@ -7,8 +7,8 @@ set -euo pipefail
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 KEYCLOAK_CONFIG_FILE=${KEYCLOAK_CONFIG_FILE:-"keycloak-instance-no-domain.yml"}
 
-# renovate: datasource=github-releases depName=keycloak/keycloak
-KEYCLOAK_VERSION="26.4.0"
+# renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+KEYCLOAK_VERSION="26.3.2"
 
 # Install Keycloak operator CRDs
 kubectl apply --server-side -f \
