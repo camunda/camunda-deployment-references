@@ -145,8 +145,8 @@ variable "ports" {
 ################################################################
 
 variable "ecs-revision" {
- type = number
- default = 6
+ type = string
+ default = "6-flaky-node-id-2"
  description = "last digit of the revision"
 }
 variable "docker_hub_username" {
