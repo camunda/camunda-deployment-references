@@ -27,13 +27,13 @@ resource "aws_ecs_task_definition" "core" {
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = 4096
-  memory                   = 8192
+  cpu                      = 1024 
+  memory                   = 2048
   container_definitions = templatefile("./templates/core.json.tpl", {
     core_image  = "registry.camunda.cloud/team-zeebe/camunda-ecs:8.9.0.${var.ecs-revision}"
     # core_image  = "registry.camunda.cloud/team-hto/camunda/camunda:ecs-lease-hack-v4"
-    core_cpu    = 4096
-    core_memory = 8192
+    core_cpu    = 1024
+    core_memory = 2048 
     aws_region  = "eu-north-1"
     prefix      = var.prefix
     env_vars_json = jsonencode(concat([
