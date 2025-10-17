@@ -5,8 +5,7 @@ resource "aws_efs_file_system" "efs" {
   performance_mode = "generalPurpose"
   encrypted        = true
 
-  throughput_mode                 = "provisioned"
-  provisioned_throughput_in_mibps = 125 # gp3 baseline
+  throughput_mode                 = "bursting"
 }
 
 resource "aws_efs_access_point" "camunda_data" {
