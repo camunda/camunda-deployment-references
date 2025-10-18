@@ -1,7 +1,7 @@
 # https://github.com/terraform-aws-modules/terraform-aws-eks
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "21.3.2"
+  version = "21.4.0"
 
   name                    = var.name
   kubernetes_version      = var.kubernetes_version
