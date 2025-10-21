@@ -1,4 +1,8 @@
 // IAM Role
+
+locals {
+  oidc_1 = replace(module.eks.oidc_provider_arn, "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/", "")
+}
 resource "aws_iam_role" "roles" {
   name               = "SNSRole-${var.name}"
   assume_role_policy = <<EOF
@@ -13,7 +17,7 @@ resource "aws_iam_role" "roles" {
                 "Action": "sts:AssumeRoleWithWebIdentity",
                 "Condition": {
                   "StringEquals": {
-                    "${module.eks.oidc_provider_id}:sub": "system:serviceaccount:camunda:sns-sa"
+                    "${local.oidc_1}:sub": "system:serviceaccount:camunda:sns-sa"
                   }
                 }
               }
@@ -27,7 +31,8 @@ resource "aws_iam_policy" "access_policies" {
   name        = "${var.name}-access-policy"
   description = "Access policy for ${var.name}"
 
-  policy = {
+  policy = <<EOF
+  {
     "Version" : "2012-10-17",
     "Statement" : [
       {
@@ -39,7 +44,10 @@ resource "aws_iam_policy" "access_policies" {
       }
     ]
   }
+EOF
+
 }
+
 
 // Attach the policy to the role
 resource "aws_iam_role_policy_attachment" "attach_policies" {
