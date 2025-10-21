@@ -14,3 +14,9 @@ output "nlb_endpoint" {
   value       = join("", aws_lb.grpc[*].dns_name)
   description = "(Optional) The DNS name of the Network Load Balancer (NLB) to access the Camunda Core."
 }
+
+
+output "grafana_endpoint" {
+  value       = var.enable_alb ? "http://${aws_lb.main[0].dns_name}:3000" : null
+  description = "Grafana endpoint if ALB enabled"
+}

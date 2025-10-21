@@ -130,6 +130,7 @@ variable "ports" {
   default = {
     ssh                                   = 22
     opensearch_https                      = 443
+    grafana                               = 3000
     camunda_web_ui                        = 8080
     camunda_metrics_endpoint              = 9600
     connectors_port                       = 9090
@@ -146,7 +147,7 @@ variable "ports" {
 
 variable "ecs-revision" {
  type = string
- default = "6-flaky-node-id-2"
+ default = "13"
  description = "last digit of the revision"
 }
 variable "docker_hub_username" {

@@ -57,6 +57,54 @@ resource "aws_lb_target_group" "main_9600" {
   }
 }
 
+# Grafana target group
+resource "aws_lb_target_group" "grafana_3000" {
+  count = var.enable_alb ? 1 : 0
+
+  name        = "${var.prefix}-tg-grafana-3000-${count.index}"
+  port        = 3000
+  protocol    = "HTTP"
+  vpc_id      = module.vpc.vpc_id
+  target_type = "ip"
+
+  deregistration_delay = 30
+
+  health_check {
+    path                = "/login"
+    port                = "3000"
+    protocol            = "HTTP"
+    timeout             = 5
+    interval            = 30
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+}
+
+
+# Prometheus target group
+resource "aws_lb_target_group" "prometheus_9090" {
+  count = var.enable_alb ? 1 : 0
+
+  name        = "${var.prefix}-tg-prom-9090-${count.index}"
+  port        = 9090
+  protocol    = "HTTP"
+  vpc_id      = module.vpc.vpc_id
+  target_type = "ip"
+
+  deregistration_delay = 30
+
+  health_check {
+    path                = "/-/ready"
+    port                = "9090"
+    protocol            = "HTTP"
+    timeout             = 5
+    interval            = 30
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+}
+
+
 resource "aws_lb_target_group" "main_26500" {
   count = var.enable_nlb ? 1 : 0
 
@@ -91,9 +139,24 @@ resource "aws_lb" "main" {
     aws_security_group.allow_remote_80_443.id,
     aws_security_group.allow_remote_9090.id,
     aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
+    aws_security_group.allow_remote_3000.id,
     aws_security_group.allow_remote_9600.id
   ]
   subnets = module.vpc.public_subnets
+}
+
+# Grafana listener
+resource "aws_lb_listener" "http_3000" {
+  count = var.enable_alb ? 1 : 0
+
+  load_balancer_arn = aws_lb.main[count.index].arn
+  port              = "3000"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.grafana_3000[count.index].arn
+  }
 }
 
 # core webapp + rest api
@@ -107,6 +170,20 @@ resource "aws_lb_listener" "http_8080" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.main[count.index].arn
+  }
+}
+
+# Prometheus listener (optional exposure)
+resource "aws_lb_listener" "http_9090" {
+  count = var.enable_alb ? 1 : 0
+
+  load_balancer_arn = aws_lb.main[count.index].arn
+  port              = "9090"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.prometheus_9090[count.index].arn
   }
 }
 

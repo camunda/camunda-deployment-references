@@ -139,6 +139,35 @@ resource "aws_security_group" "allow_remote_9090" {
   }
 }
 
+resource "aws_security_group" "allow_remote_3000" {
+  name        = "allow_remote_3000"
+  description = "Allow remote traffic on 3000 for the LoadBalancer (Grafana)"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow inbound traffic on port 3000"
+  }
+
+  egress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow outbound traffic on port 3000"
+  }
+
+  tags = {
+    Name = "allow_remote_3000"
+  }
+}
+
+
+
+
 // TODO: Temporary overwrite as containered OpenSearch and Core are fighting for 9600
 resource "aws_security_group" "allow_remote_9600" {
   name        = "allow_remote_9605"
