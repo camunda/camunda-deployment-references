@@ -66,7 +66,8 @@ env:
     MAIL_OVERWRITE: admin@camunda.ie
     WILDCARD_TLS_SECRET_NAME: camunda-tls
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    CLEANUP_CLUSTERS: false
+    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
@@ -115,9 +116,11 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  # cluster_name: ${{ inputs.cluster_name }}
+                  cluster_name: math1
                   ref_arch: ${{ inputs.ref-arch }}
-                  cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
+                  cluster_prefix: ''
+                  # cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
