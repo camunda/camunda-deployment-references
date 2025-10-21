@@ -35,7 +35,7 @@ resource "aws_iam_policy" "access_policies" {
         "Action" : [
           "SNS:*"
         ],
-        "Resource" : "arn:aws:sns:${var.region}:${module.eks.aws_caller_identity_account_id}:test"
+        "Resource" : "arn:aws:sns:${var.region}:${data.aws_caller_identity.current.account_id}:test"
       }
     ]
   }
