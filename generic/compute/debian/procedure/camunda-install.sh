@@ -14,7 +14,7 @@ OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
 CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.8.0"}
 # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
 # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.8?(\.(?<patch>\d+))?$
-CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.8.0"}
+CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.8.1"}
 
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 USERNAME=${USERNAME:-"camunda"}
