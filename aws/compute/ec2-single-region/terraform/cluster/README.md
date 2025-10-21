@@ -10,7 +10,7 @@ Instructions can be found on the official documentation: https://docs.camunda.io
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_opensearch_domain"></a> [opensearch\_domain](#module\_opensearch\_domain) | ../../../../modules/opensearch | n/a |
-| <a name="module_vpc"></a> [vpc](#module\_vpc) | terraform-aws-modules/vpc/aws | 6.4.0 |
+| <a name="module_vpc"></a> [vpc](#module\_vpc) | terraform-aws-modules/vpc/aws | 6.4.1 |
 ## Resources
 
 | Name | Type |
