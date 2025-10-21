@@ -17,14 +17,14 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.8
 
-awscli 2.31.13
+awscli 2.31.18
 
 delta 0.18.2
 
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
 eksctl 0.215.0
 
-golang 1.25.2
+golang 1.25.3
 
 helm 3.19.0
 
@@ -44,7 +44,7 @@ shellcheck 0.11.0
 
 task 3.30.1  # used by the tests
 
-terraform 1.13.3
+terraform 1.13.4
 
 terraform-docs 0.20.0
 
