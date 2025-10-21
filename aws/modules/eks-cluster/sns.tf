@@ -28,7 +28,7 @@ EOF
 
 // IAM Policy for Access
 resource "aws_iam_policy" "access_policies" {
-  name        = "${var.name}-access-policy"
+  name        = "${var.name}-sns-access-policy"
   description = "Access policy for ${var.name}"
 
   policy = <<EOF
