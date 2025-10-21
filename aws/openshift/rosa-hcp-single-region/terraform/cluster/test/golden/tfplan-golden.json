@@ -2635,6 +2635,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_vpc.vpc": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "vpc",
               "provider_name": "registry.terraform.io/hashicorp/aws",
