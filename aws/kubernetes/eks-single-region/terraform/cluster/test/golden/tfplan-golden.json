@@ -2611,6 +2611,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_vpc.this[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
