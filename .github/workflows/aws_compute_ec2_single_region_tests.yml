@@ -266,7 +266,7 @@ jobs:
                   sed 's/\n/&#xA;/g' > "./tests-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-filtered.xml"
             - name: Upload test reports
               if: always()
-              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
               with:
                   name: test-reports-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-${{ matrix.distro.name }}
                   path: ${{ github.workspace }}/aws/compute/ec2-single-region/test/src/tests-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS
@@ -335,7 +335,7 @@ jobs:
             SNAPSHOT_ERROR: ${{ steps.determine-if-failed-tests-include-snapshot.outputs.SNAPSHOT_ERROR }}
         steps:
             - name: Download artifacts
-              uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+              uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
               with:
                   pattern: test-reports-*
                   path: /tmp/testreports
