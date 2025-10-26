@@ -9,7 +9,7 @@ CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 OPERATOR_NAMESPACE=${1:-cnpg-system}
 
 # renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
-CNPG_VERSION="1.27.0"
+CNPG_VERSION="1.27.1"
 
 # Install CloudNativePG operator CRDs and operator
 echo "OpenShift detected - downloading and patching CloudNativePG manifest for SCC compatibility..."
