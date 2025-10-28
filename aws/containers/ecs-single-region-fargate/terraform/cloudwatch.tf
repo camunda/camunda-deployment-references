@@ -34,3 +34,16 @@ resource "aws_cloudwatch_log_stream" "grafana_log_stream" {
   name           = "${var.prefix}-grafana-log-stream"
   log_group_name = aws_cloudwatch_log_group.grafana_log_group.name
 }
+
+
+resource "aws_cloudwatch_log_group" "starter_log_group" {
+  name              = "/ecs/${var.prefix}-starter"
+  retention_in_days = 7
+  tags = { Name = "${var.prefix}-starter-log-group" }
+}
+
+resource "aws_cloudwatch_log_group" "worker_log_group" {
+  name              = "/ecs/${var.prefix}-worker"
+  retention_in_days = 7
+  tags = { Name = "${var.prefix}-worker-log-group" }
+}

@@ -147,7 +147,7 @@ variable "ports" {
 
 variable "ecs-revision" {
  type = string
- default = "13"
+ default = "21"
  description = "last digit of the revision"
 }
 variable "docker_hub_username" {
@@ -162,4 +162,16 @@ variable "docker_hub_password" {
   description = "Docker Hub password or access token for authenticated pulls"
   default     = ""
   sensitive   = true
+}
+
+
+################################################################
+#                     BENCHMARK TYPE                           #
+################################################################
+
+
+variable "benchmark-type"{
+  type = string 
+  default = "regular" # or realistic
+  description = "regular or realistic benchmark type"
 }

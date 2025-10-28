@@ -27,13 +27,13 @@ resource "aws_ecs_task_definition" "core" {
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = 1024 
-  memory                   = 2048
+  cpu                      = 2048
+  memory                   = 4096
   container_definitions = templatefile("./templates/core.json.tpl", {
     core_image  = "registry.camunda.cloud/team-zeebe/camunda-ecs:8.9.0.${var.ecs-revision}"
     # core_image  = "registry.camunda.cloud/team-hto/camunda/camunda:ecs-lease-hack-v4"
-    core_cpu    = 1024
-    core_memory = 2048 
+    core_cpu    = 2048
+    core_memory = 4096
     aws_region  = "eu-north-1"
     prefix      = var.prefix
     env_vars_json = jsonencode(concat([
@@ -97,12 +97,13 @@ resource "aws_ecs_service" "core" {
   desired_count                     = 3
   launch_type                       = "FARGATE"
   health_check_grace_period_seconds = 300
+  force_new_deployment = true
 
   # Enable execute command for debugging
   enable_execute_command = true
 
   deployment_maximum_percent         = 100
-  deployment_minimum_healthy_percent = 0
+  deployment_minimum_healthy_percent = 67
 
   network_configuration {
     subnets = module.vpc.private_subnets
@@ -138,6 +139,131 @@ resource "aws_ecs_service" "core" {
   }
 }
 
+
+
+# Starter task definition (Zeebe client load generator)
+resource "aws_ecs_task_definition" "starter" {
+  family                   = "${var.prefix}-starter"
+  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+  network_mode             = "awsvpc"
+  depends_on = [aws_ecs_service.core  ]
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 256
+  memory                   = 512
+
+  container_definitions = jsonencode([
+    {
+      name      = "starter"
+      image = "registry.camunda.cloud/team-zeebe/starter:SNAPSHOT"
+      essential = true
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.starter_log_group.name
+          awslogs-region        = data.aws_region.current.name
+          awslogs-stream-prefix = "starter"
+        }
+      }
+      repositoryCredentials: {
+        credentialsParameter: aws_secretsmanager_secret.docker_hub_credentials[0].arn
+      },
+      environment = [
+        { name = "JDK_JAVA_OPTIONS", value = "-Dconfig.override_with_env_vars=true -Dapp.brokerUrl=grpc://${var.prefix}-ecs-0.${var.prefix}.service.local:26500 -Dapp.brokerRestUrl=http://${var.prefix}-core-service-0.${var.prefix}.service.local:8080 -Dapp.preferRest=false -Dapp.starter.rate=100 -Dapp.starter.durationLimit=0 -Dzeebe.client.requestTimeout=62000 -Dapp.starter.processId=benchmark -Dapp.starter.bpmnXmlPath=bpmn/one_task.bpmn -Dapp.starter.businessKey=businessKey -Dapp.starter.payloadPath=bpmn/typical_payload.json -XX:+HeapDumpOnOutOfMemoryError" },
+        { name = "LOG_LEVEL", value = "WARN" }
+      ]
+      portMappings = [
+        { containerPort = 9600, hostPort = 9600, protocol = "tcp" }
+      ],
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.prometheus_log_group.name
+          awslogs-region        = data.aws_region.current.name
+          awslogs-stream-prefix = "starter"
+        }
+      }
+    }
+  ])
+}
+
+# Starter service (no public exposure, single task)
+resource "aws_ecs_service" "starter" {
+  name            = "${var.prefix}-starter-service"
+  cluster         = aws_ecs_cluster.ecs.id
+  task_definition = aws_ecs_task_definition.starter.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  enable_execute_command = true
+
+  network_configuration {
+    subnets         = module.vpc.private_subnets
+    security_groups = [
+      aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
+      aws_security_group.allow_package_80_443.id,
+    ]
+    assign_public_ip = false
+  }
+}
+
+
+# Worker task definition (Zeebe job worker)
+resource "aws_ecs_task_definition" "worker" {
+  family                   = "${var.prefix}-worker"
+  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+  network_mode             = "awsvpc"
+  depends_on = [aws_ecs_service.core  ]
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 256 
+  memory                   = 512
+
+  container_definitions = jsonencode([
+    {
+      name      = "worker"
+      image = "registry.camunda.cloud/team-zeebe/worker:SNAPSHOT"
+      repositoryCredentials: {
+        credentialsParameter: aws_secretsmanager_secret.docker_hub_credentials[0].arn
+      },
+      essential = true
+      environment = [
+        { name = "JDK_JAVA_OPTIONS", value = "-Dconfig.override_with_env_vars=true -Dapp.brokerUrl=grpc://${var.prefix}-ecs-0.${var.prefix}.service.local:26500 -Dapp.brokerRestUrl=http://${var.prefix}-core-service-0.${var.prefix}.service.local:8080 -Dapp.preferRest=false -Dzeebe.client.requestTimeout=62000 -Dapp.worker.capacity=60 -Dapp.worker.threads=10 -Dapp.worker.pollingDelay=1ms -Dapp.worker.completionDelay=50ms -Dapp.worker.workerName=worker -Dapp.worker.jobType=benchmark-task -Dapp.worker.payloadPath=bpmn/typical_payload.json -XX:+HeapDumpOnOutOfMemoryError" },
+        { name = "LOG_LEVEL", value = "WARN" }
+      ]
+      portMappings = [
+        { containerPort = 9600, hostPort = 9600, protocol = "tcp" }
+      ],
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.prometheus_log_group.name
+          awslogs-region        = data.aws_region.current.name
+          awslogs-stream-prefix = "worker"
+        }
+      }
+    }
+  ])
+}
+
+# Worker service (internal only, 3 replicas)
+resource "aws_ecs_service" "worker" {
+  name            = "${var.prefix}-worker-service"
+  cluster         = aws_ecs_cluster.ecs.id
+  task_definition = aws_ecs_task_definition.worker.arn
+  desired_count   = 3
+  launch_type     = "FARGATE"
+  enable_execute_command = true
+
+  network_configuration {
+    subnets         = module.vpc.private_subnets
+    security_groups = [
+      aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
+      aws_security_group.allow_package_80_443.id,
+    ]
+    assign_public_ip = false
+  }
+}
 
 # Prometheus task definition
 resource "aws_ecs_task_definition" "prometheus" {
@@ -228,20 +354,11 @@ resource "aws_ecs_task_definition" "grafana" {
         { name = "GF_FEATURE_TOGGLES_ENABLE", value = "publicDashboards" }
       ]
       entryPoint = ["/bin/sh", "-c"]
-      command = ["cat <<EOF >/etc/grafana/provisioning/datasources/prometheus.yml\napiVersion: 1\ndatasources:\n  - name: Prometheus\n    type: prometheus\n    url: http://prometheus.${var.prefix}.service.local:9090\n    access: proxy\n    isDefault: true\n    editable: true\n    jsonData:\n      httpMethod: GET\nEOF\nexec /run.sh"]
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.grafana_log_group.name
-          awslogs-region        = data.aws_region.current.name
-          awslogs-stream-prefix = "grafana"
-        }
-      }
+      command = ["cat <<'EOF' >/etc/grafana/provisioning/datasources/prometheus.yml\napiVersion: 1\ndatasources:\n  - name: Prometheus\n    type: prometheus\n    url: http://prometheus.${var.prefix}.service.local:9090\n    access: proxy\n    isDefault: true\n    editable: true\n    jsonData:\n      httpMethod: GET\nEOF\nmkdir -p /etc/grafana/provisioning/dashboards /var/lib/grafana/dashboards && cat <<'YAML' >/etc/grafana/provisioning/dashboards/zeebe.yaml\napiVersion: 1\nproviders:\n  - name: 'zeebe'\n    orgId: 1\n    folder: ''\n    type: file\n    disableDeletion: true\n    editable: false\n    options:\n      path: /var/lib/grafana/dashboards\nYAML\ncurl -Ls https://raw.githubusercontent.com/camunda/camunda/main/monitor/grafana/zeebe.json -o /var/lib/grafana/dashboards/zeebe.json || echo 'failed to fetch dashboard';\nexec /run.sh"]
+      # CloudWatch logging disabled per request
     }
   ])
 }
-
-
 
 # Grafana service (exposed via ALB 3000)
 resource "aws_ecs_service" "grafana" {
@@ -268,3 +385,5 @@ resource "aws_ecs_service" "grafana" {
     container_port   = 3000
   }
 }
+
+
