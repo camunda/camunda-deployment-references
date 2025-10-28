@@ -175,3 +175,18 @@ variable "benchmark-type"{
   default = "regular" # or realistic
   description = "regular or realistic benchmark type"
 }
+
+
+################################################################
+#                     MONITORING                               #
+################################################################
+
+
+variable "grafana_user"{
+  type = string
+  sensitive =  true
+}
+variable "grafana_pass"{
+  type = string
+  sensitive = true
+}
