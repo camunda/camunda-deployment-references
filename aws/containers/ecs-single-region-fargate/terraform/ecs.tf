@@ -285,7 +285,7 @@ resource "aws_ecs_task_definition" "prometheus" {
       ]
       entryPoint = ["/bin/sh", "-c"]
       command = [
-        "cat <<'EOF' >/etc/prometheus/prometheus.yml\nglobal:\n  scrape_interval: 15s\n  external_labels:\n    cluster: ${var.prefix}\nscrape_configs:\n  - job_name: 'core'\n    metrics_path: /actuator/prometheus\n    static_configs:\n      - targets:\n${join("\n", [for i in range(var.camunda_count) : "        - ${var.prefix}-ecs-${i}.${var.prefix}.service.local:9600"]) }\nEOF\nexec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.retention.time=6h --web.enable-lifecycle"
+        "cat <<'EOF' >/etc/prometheus/prometheus.yml\n${templatefile("${path.module}/templates/prometheus-config.yml.tpl", { prefix = var.prefix, names = join("\n", [for i in range(var.camunda_count) : "        - ${var.prefix}-ecs-${i}.${var.prefix}.service.local"]) }) }\nEOF\nexec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.retention.time=6h --web.enable-lifecycle"
       ]
       logConfiguration = {
         logDriver = "awslogs"
