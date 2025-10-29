@@ -372,10 +372,7 @@ resource "aws_ecs_task_definition" "prometheus" {
         { containerPort = 9090, hostPort = 9090, protocol = "tcp" }
       ]
       entryPoint = ["/bin/sh", "-c"]
-      command = [
-        "cat <<'EOF' >/etc/prometheus/web.yml\n${path.module}/templates/web.yml",
-        "cat <<'EOF' >/etc/prometheus/prometheus.yml\n${templatefile("${path.module}/templates/prometheus-config.yml.tpl", { prefix = var.prefix, names = join("\n", [for i in range(var.camunda_count) : "        - ${var.prefix}-ecs-${i}.${var.prefix}.service.local"]) }) }\nEOF\nexec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.retention.time=6h --web.enable-lifecycle"
-      ]
+      command = ["cat <<'EOF' >/etc/prometheus/web.yml\n${file("${path.module}/templates/web.yml")}\nEOF\ncat <<'EOF' >/etc/prometheus/prometheus.yml\n${templatefile("${path.module}/templates/prometheus-config.yml.tpl", { prefix = var.prefix, names = join("\n", [for i in range(var.camunda_count) : "        - ${var.prefix}-ecs-${i}.${var.prefix}.service.local"]) }) }\nEOF\nexec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --web.config.file=/etc/prometheus/web.yml --storage.tsdb.retention.time=6h --web.enable-lifecycle"]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -390,7 +387,7 @@ resource "aws_ecs_task_definition" "prometheus" {
 
 # Prometheus service (internal only)
 resource "aws_ecs_service" "prometheus" {
-  depends_on = [aws_lb_target_group.prometheus_9090]
+  # depends_on = [aws_lb_target_group.prometheus_9090]
   name            = "${var.prefix}-prometheus"
   cluster         = aws_ecs_cluster.ecs.id
   task_definition = aws_ecs_task_definition.prometheus.arn
@@ -402,7 +399,7 @@ resource "aws_ecs_service" "prometheus" {
     subnets         = module.vpc.private_subnets
     security_groups = [
       aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
-      aws_security_group.allow_package_80_443.id,
+      # aws_security_group.allow_package_80_443.id,
     ]
     assign_public_ip = false
   }
@@ -411,11 +408,11 @@ resource "aws_ecs_service" "prometheus" {
     registry_arn = aws_service_discovery_service.prometheus.arn
   }
 
-  load_balancer {
-    target_group_arn = aws_lb_target_group.prometheus_9090[0].arn
-    container_name   = "prometheus"
-    container_port   = 9090
-  }
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.prometheus_9090[0].arn
+  #   container_name   = "prometheus"
+  #   container_port   = 9090
+  # }
 }
 
 # Grafana task definition
