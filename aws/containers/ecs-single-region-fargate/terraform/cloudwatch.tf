@@ -12,10 +12,20 @@ resource "aws_cloudwatch_log_stream" "core_log_stream" {
   log_group_name = aws_cloudwatch_log_group.core_log_group.name
 }
 
+resource "aws_cloudwatch_log_group" "nginx_log_group" {
+  name              = "/ecs/${var.prefix}-nginx"
+  retention_in_days = 1
+  tags = { Name = "${var.prefix}-nginx-log-group" }
+}
+
+resource "aws_cloudwatch_log_stream" "nginx_log_stream" {
+  name           = "${var.prefix}-nginx-log-stream"
+  log_group_name = aws_cloudwatch_log_group.nginx_log_group.name
+}
 
 resource "aws_cloudwatch_log_group" "prometheus_log_group" {
   name              = "/ecs/${var.prefix}-prometheus"
-  retention_in_days = 7
+  retention_in_days = 1
   tags = { Name = "${var.prefix}-prometheus-log-group" }
 }
 
@@ -26,7 +36,7 @@ resource "aws_cloudwatch_log_stream" "prometheus_log_stream" {
 
 resource "aws_cloudwatch_log_group" "grafana_log_group" {
   name              = "/ecs/${var.prefix}-grafana"
-  retention_in_days = 7
+  retention_in_days = 1
   tags = { Name = "${var.prefix}-grafana-log-group" }
 }
 
@@ -38,12 +48,12 @@ resource "aws_cloudwatch_log_stream" "grafana_log_stream" {
 
 resource "aws_cloudwatch_log_group" "starter_log_group" {
   name              = "/ecs/${var.prefix}-starter"
-  retention_in_days = 7
+  retention_in_days = 1
   tags = { Name = "${var.prefix}-starter-log-group" }
 }
 
 resource "aws_cloudwatch_log_group" "worker_log_group" {
   name              = "/ecs/${var.prefix}-worker"
-  retention_in_days = 7
+  retention_in_days = 1
   tags = { Name = "${var.prefix}-worker-log-group" }
 }

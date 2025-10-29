@@ -190,3 +190,8 @@ variable "grafana_pass"{
   type = string
   sensitive = true
 }
+
+variable "nginx_pass"{
+  type = string 
+  sensitive =  true
+}
