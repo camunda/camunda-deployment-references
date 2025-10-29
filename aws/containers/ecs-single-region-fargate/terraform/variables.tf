@@ -182,6 +182,10 @@ variable "benchmark-type"{
 ################################################################
 
 
+variable "prometheus_pass"{
+  type = string 
+  sensitive = true
+}
 variable "grafana_user"{
   type = string
   sensitive =  true
