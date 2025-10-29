@@ -24,6 +24,19 @@ resource "aws_service_discovery_service" "discovery" {
 }
 
 
+resource "aws_service_discovery_service" "nginx" {
+  name = "nginx"
+
+  dns_config {
+    namespace_id = aws_service_discovery_private_dns_namespace.namespace.id
+    dns_records {
+      type = "A"
+      ttl  = 10
+    }
+    routing_policy = "MULTIVALUE"
+  }
+
+}
 
 # Service discovery for Prometheus
 resource "aws_service_discovery_service" "prometheus" {

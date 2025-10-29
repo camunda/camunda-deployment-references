@@ -164,6 +164,31 @@ resource "aws_security_group" "allow_remote_3000" {
     Name = "allow_remote_3000"
   }
 }
+resource "aws_security_group" "allow_remote_4000" {
+  name        = "allow_remote_4000"
+  description = "Allow remote traffic on 4000 for the LoadBalancer (Grafana)"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 4000
+    to_port     = 4000
+    protocol    = "tcp"
+    cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow inbound traffic on port 4000"
+  }
+
+  egress {
+    from_port   = 4000
+    to_port     = 4000
+    protocol    = "tcp"
+    cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow outbound traffic on port 4000"
+  }
+
+  tags = {
+    Name = "allow_remote_4000"
+  }
+}
 
 
 
