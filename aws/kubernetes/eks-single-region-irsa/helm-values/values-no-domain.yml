@@ -157,6 +157,30 @@ orchestration:
                     existingSecretKey: identity-orchestration-client-token
                 redirectUrl: http://localhost:8080
 
+            mappingRules:
+                - mappingRuleID: admin-user-mapping-rule
+                  claimName: preferred_username
+                  claimValue: admin
+
+    env:
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_0_MAPPINGRULEID
+          value: admin-user-mapping-rule
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_0_CLAIMNAME
+          value: preferred_username
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_0_CLAIMVALUE
+          value: admin
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_2_MAPPINGRULEID
+          value: connectors-client-mapping-rule
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_2_CLAIMNAME
+          value: client_id
+        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_2_CLAIMVALUE
+          value: connectors
+        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGRULES_0
+          value: admin-user-mapping-rule
+        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGRULES_2
+          value: connectors-client-mapping-rule
+
+
 console:
     enabled: false # by default, console is not enabled
 
