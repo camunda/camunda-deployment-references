@@ -154,7 +154,7 @@ orchestration:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-orchestration-client-token
                 redirectUrl: https://${DOMAIN_NAME}
-
+        initialization:
             mappingRules:
                 - mappingRuleID: admin-user-mapping-rule
                   claimName: preferred_username

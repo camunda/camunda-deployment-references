@@ -127,7 +127,7 @@ orchestration:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-orchestration-client-token
                 redirectUrl: http://localhost:8080
-
+        initialization:
             mappingRules:
                 - mappingRuleID: admin-user-mapping-rule
                   claimName: preferred_username
