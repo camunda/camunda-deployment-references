@@ -182,7 +182,7 @@ resource "aws_ecs_service" "core" {
   name                              = "${var.prefix}-core-service-${count.index}"
   cluster                           = aws_ecs_cluster.ecs.id
   task_definition                   = aws_ecs_task_definition.core[count.index].arn
-  desired_count                     = 0
+  desired_count                     = 3
   launch_type                       = "FARGATE"
   health_check_grace_period_seconds = 300
   force_new_deployment = true
