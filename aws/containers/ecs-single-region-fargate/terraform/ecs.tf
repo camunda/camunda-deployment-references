@@ -348,8 +348,8 @@ resource "aws_ecs_task_definition" "grafana" {
         { containerPort = 3000, hostPort = 3000, protocol = "tcp" }
       ]
       environment = [
-        { name = "GF_SECURITY_ADMIN_USER", value = vars.grafana_user },
-        { name = "GF_SECURITY_ADMIN_PASSWORD", value = vars.grafana_pass },
+        { name = "GF_SECURITY_ADMIN_USER", value = var.grafana_user },
+        { name = "GF_SECURITY_ADMIN_PASSWORD", value = var.grafana_pass },
         { name = "GF_INSTALL_PLUGINS", value = "grafana-piechart-panel" },
         { name = "GF_FEATURE_TOGGLES_ENABLE", value = "publicDashboards" }
       ]
