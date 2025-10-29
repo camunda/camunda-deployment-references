@@ -1,31 +1,12 @@
 ---
 name: Tests - Integration - AWS OpenShift ROSA HCP Dual Region
-
 permissions:
-    contents: read # don't allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
-
+    contents: read
+    pull-requests: write
 on:
     schedule:
-        - cron: 0 3 * * 2 # Runs at 3 AM on Tuesday
-    pull_request:
-        paths:
-            - .github/workflows/aws_openshift_rosa_hcp_dual_region_tests.yml
-            - .github/workflows-config/aws-openshift-rosa-hcp-dual-region/test_matrix.yml
-            - .tool-versions
-            - generic/kubernetes/dual-region/**
-            - generic/openshift/dual-region/**
-            - aws/openshift/rosa-hcp-dual-region/**
-            - '!aws/openshift/rosa-hcp-dual-region/terraform/*/test/golden/**'
-            - .github/actions/aws-openshift-rosa-hcp-dual-region-create/**
-            - .github/actions/aws-generic-terraform-cleanup/**
-            - .github/actions/aws-configure-cli/**
-            - .github/actions/internal-apply-skip-label/**
-            - .github/actions/internal-generic-encrypt-export/**
-            - .github/actions/internal-generic-decrypt-import/**
-            - .github/actions/internal-tests-matrix/**
-            - .github/actions/internal-terraform-drift-detect/**
-
+        - cron: 0 3 * * 2
+    pull_request: {}
     workflow_dispatch:
         inputs:
             cluster_name:
@@ -40,7 +21,6 @@ on:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
-
             ref-arch:
                 description: |
                     Reference architecture to use, can only deploy one at a time.
@@ -50,54 +30,35 @@ on:
                 required: false
                 type: string
                 default: rosa-hcp-dual-region
-
-# limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
     cancel-in-progress: false
-
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
-
     AWS_PROFILE: infex
-
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
-    S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-dual-region/ # keep it synced with the name of the module for simplicity
-    TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
-
+    S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-dual-region/
+    TF_MODULES_DIRECTORY: ./.tf-modules-workflow/
     CLUSTER_1_AWS_REGION: eu-west-2
     CLUSTER_2_AWS_REGION: eu-west-3
-
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-
-    # TEST VARIABLES
-
-    # Vars with "CI_" prefix are used in the CI workflow only.
     CI_MATRIX_FILE: .github/workflows-config/aws-openshift-rosa-hcp-dual-region/test_matrix.yml
-
-    # Docker Hub auth to avoid image pull rate limit.
-    # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
-    # TODO: resolve this branch when merging to playwright <8.8>
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
-    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
-
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8
+    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo
     ROSA_CLI_VERSION: latest
-
 jobs:
     triage:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
-
     clusters-info:
         needs:
             - triage
@@ -107,13 +68,11 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
               with:
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
               id: matrix
@@ -123,7 +82,6 @@ jobs:
                   ref_arch: ${{ inputs.ref-arch }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
-
     prepare-clusters:
         name: Prepare clusters
         needs:
@@ -133,20 +91,17 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -158,7 +113,6 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_PASSWORD;
                       secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_USERNAME;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
-
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -167,19 +121,15 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
-
             - name: Set current target branch
               id: target-branch
               run: |
                   set -euo pipefail
                   TARGET_BRANCH=$(cat .target-branch)
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
-            # Also remove the versioning
             - name: Create ROSA cluster and login
               uses: ./.github/actions/aws-openshift-rosa-hcp-dual-region-create
               id: create_clusters
-              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               with:
                   rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
@@ -199,9 +149,10 @@ jobs:
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
                   cleanup-tf-modules-path: 'false'
-
                   tags: >
                       {
+
+
                         "ci-run-id": "${{ github.run_id }}",
                         "ci-run-number": "${{ github.run_number }}",
                         "ci-workflow": "${{ github.workflow }}",
@@ -216,15 +167,13 @@ jobs:
             - name: Dump kubeconfig before encryption
               run: |
                   kubectl config view --raw > "${{ runner.temp }}/kubeconfig.yaml"
-
-            - name: Export kubeconfig and encrypt it # this is required to pass matrix outputs securely using artifacts
+            - name: Export kubeconfig and encrypt it
               id: export_kube_config
               uses: ./.github/actions/internal-generic-encrypt-export
               with:
                   file_path: ${{ runner.temp }}/kubeconfig.yaml
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
-
-            - name: Dump other secrets from the action # this is required to pass matrix outputs securely using artifacts
+            - name: Dump other secrets from the action
               id: dump_secrets
               run: |
                   set -euo pipefail
@@ -233,16 +182,13 @@ jobs:
                     '.["backup-bucket-s3-aws-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-access-key }}" |
                     .["backup-bucket-s3-aws-secret-access-key"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-aws-secret-access-key }}" |
                     .["backup-bucket-s3-bucket-name"] = "${{ steps.create_clusters.outputs.backup-bucket-s3-bucket-name }}"' > "${{ runner.temp }}/sensitive_values.yaml"
-
-            - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
+            - name: Export other secrets from the action
               id: export_secrets
               uses: ./.github/actions/internal-generic-encrypt-export
               with:
                   file_path: ${{ runner.temp }}/sensitive_values.yaml
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
-
-            ## Write for matrix outputs workaround
-            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
+            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375
               id: out
               with:
                   matrix-step-name: ${{ github.job }}
@@ -250,7 +196,6 @@ jobs:
                   outputs: |-
                       kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
                       sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_file_base64 }}
-
             - name: 🌐 Post-creation steps
               timeout-minutes: 20
               run: |
@@ -273,8 +218,6 @@ jobs:
 
 
                   ./aws/openshift/${{ matrix.scenario.name }}/procedure/verify-cluster-nodes.sh
-
-
     access-info:
         name: Read kube configs from matrix
         runs-on: ubuntu-latest
@@ -282,11 +225,10 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
-
     integration-tests:
         name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }}
         runs-on: ubuntu-latest
@@ -299,22 +241,18 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         env:
-            # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: openshift
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a
             - name: Install CLI tools from OpenShift Mirror
-              uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+              uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82
               with:
                   oc: ${{ matrix.distro.version }}
-
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -328,21 +266,22 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
-
             - name: 🔐 Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
               with:
                   output_path: ${{ runner.temp }}/kubeconfig
                   encrypted_file_base64: >
                       ${{ fromJson(needs.access-info.outputs.config).kubeconfig_encrypted[
+
+
                         format(
                           '{0}-{1}',
                           matrix.distro.name,
                           matrix.scenario.name
                         )
                       ] }}
-                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
             - name: 🔐 Login into the clusters
               timeout-minutes: 2
               run: |
@@ -351,28 +290,15 @@ jobs:
 
                   oc config current-context
                   # get nodes will be performed in the next step
-
             - name: 🏷️ Configure clusters informations
               timeout-minutes: 10
-              run: |
-                  set -euo pipefail
-
-                  sed -i -e 's/^export CLUSTER_1_NAME=".*"/export CLUSTER_1_NAME="${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1"/' \
-                         -e 's/^export CLUSTER_2_NAME=".*"/export CLUSTER_2_NAME="${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-2"/' \
-                        generic/openshift/dual-region/procedure/set-cluster-names.sh
-
-                  source ./generic/openshift/dual-region/procedure/set-cluster-names.sh
-
-                  echo "CLUSTER_1_NAME=$CLUSTER_1_NAME" | tee -a "$GITHUB_ENV"
-                  echo "CLUSTER_2_NAME=$CLUSTER_2_NAME" | tee -a "$GITHUB_ENV"
-
-                  # ensure we are logged in
-                  oc --context="$CLUSTER_1_NAME" get nodes
-                  oc --context="$CLUSTER_2_NAME" get nodes
-
-                  echo "📤 Export all env variables in GITHUB_ENV for consistency between steps"
-                  env | while IFS= read -r line; do echo "$line" >> "$GITHUB_ENV"; done
-
+              run: "set -euo pipefail\n\nsed -i -e 's/^export CLUSTER_1_NAME=\".*\"/export CLUSTER_1_NAME=\"${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName\
+                  \ }}-1\"/' \\\n       -e 's/^export CLUSTER_2_NAME=\".*\"/export CLUSTER_2_NAME=\"${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName\
+                  \ }}-2\"/' \\\n      generic/openshift/dual-region/procedure/set-cluster-names.sh\n\nsource ./generic/openshift/dual-region/procedure/set-cluster-names.sh\n\
+                  \necho \"CLUSTER_1_NAME=$CLUSTER_1_NAME\" | tee -a \"$GITHUB_ENV\"\necho \"CLUSTER_2_NAME=$CLUSTER_2_NAME\" | tee -a \"$GITHUB_ENV\"\n\
+                  \n# ensure we are logged in\noc --context=\"$CLUSTER_1_NAME\" get nodes\noc --context=\"$CLUSTER_2_NAME\" get nodes\n\necho \"\U0001F4E4\
+                  \ Export all env variables in GITHUB_ENV for consistency between steps\"\nenv | while IFS= read -r line; do echo \"$line\" >> \"$GITHUB_ENV\"\
+                  ; done\n"
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
               run: |
@@ -380,364 +306,135 @@ jobs:
 
                   ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
-
-            # It's expected to always run in case an existing cluster is present.
-            # E.g. manual development deployment or retry after failure.
-            # This ensures a completely clean state before installing ACM.
             - name: Ensure ACM and associated MultiCluster are not installed
               timeout-minutes: 30
-              run: |
-                  set -euo pipefail
-
-                  echo "🧹 Starting comprehensive ACM cleanup for fresh installation..."
-                  echo "================================================================"
-                  echo ""
-
-                  MANAGEDCLUSTER_TIMEOUT=60  # Reduced timeout for ManagedCluster deletion
-                  CLUSTERS=("local-cluster" "$CLUSTER_2_NAME")
-
-                  # Step 1: Delete all ManagedClusters (aggressive mode)
-                  echo "Step 1: Deleting all ManagedClusters..."
-                  echo "----------------------------------------"
-                  for cluster_name in "${CLUSTERS[@]}"; do
-                    echo "🗑️  Deleting ManagedCluster: $cluster_name"
-
-                    if oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; then
-
-                      # Immediately remove finalizers (don't wait for graceful deletion in cleanup scenario)
-                      echo "  Removing finalizers immediately..."
-                      oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" \
-                        --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-
-                      # Now delete with short timeout
-                      echo "  Deleting resource..."
-                      oc --context "$CLUSTER_1_NAME" delete managedcluster "$cluster_name" \
-                        --timeout=30s --grace-period=0 2>/dev/null || true
-
-                      # Verify deletion (short wait)
-                      echo "⏳ Verifying deletion of '$cluster_name'..."
-                      SECONDS=0
-                      while oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; do
-                        if [ $((SECONDS % 10)) -eq 0 ]; then
-                          echo "  Still waiting... (${SECONDS}s elapsed)"
-                        fi
-                        sleep 2
-
-                        if [ "$SECONDS" -ge "$MANAGEDCLUSTER_TIMEOUT" ]; then
-                          echo "  ⚠️  ManagedCluster still present after $MANAGEDCLUSTER_TIMEOUT seconds"
-                          echo "  Forcing final removal..."
-                          oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" \
-                            --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
-                          oc --context "$CLUSTER_1_NAME" delete managedcluster "$cluster_name" \
-                            --grace-period=0 --force 2>/dev/null || true
-                          sleep 5
-                          break
-                        fi
-                      done
-
-                      if ! oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; then
-                        echo "  ✅ ManagedCluster '$cluster_name' deleted"
-                      else
-                        echo "  ⚠️  ManagedCluster '$cluster_name' still exists - continuing anyway"
-                      fi
-                    else
-                      echo "  ℹ️  ManagedCluster '$cluster_name' not found - skipping"
-                    fi
-                    echo ""
-                  done
-
-                  # Step 2: Clean up cluster-specific namespaces on hub
-                  echo "Step 2: Cleaning up cluster namespaces on hub..."
-                  echo "-------------------------------------------------"
-                  for cluster_name in "${CLUSTERS[@]}"; do
-                    if oc --context "$CLUSTER_1_NAME" get namespace "$cluster_name" >/dev/null 2>&1; then
-                      echo "🗑️  Deleting namespace: $cluster_name"
-                      oc --context "$CLUSTER_1_NAME" delete namespace "$cluster_name" --timeout=60s || {
-                        echo "  ⚠️  Normal deletion failed, forcing..."
-                        # Remove finalizers from all resources in the namespace
-                        oc --context "$CLUSTER_1_NAME" patch namespace "$cluster_name" --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                      }
-                    fi
-                  done
-                  echo ""
-
-                  # Step 3: Clean up klusterlet resources on managed clusters
-                  echo "Step 3: Cleaning up klusterlet resources on managed clusters..."
-                  echo "----------------------------------------------------------------"
-
-                  # Clean cluster 1 (hub, also a managed cluster as local-cluster)
-                  if oc --context "$CLUSTER_1_NAME" get namespace open-cluster-management-agent >/dev/null 2>&1; then
-                    echo "🗑️  Cleaning klusterlet on cluster 1 (hub/local-cluster)"
-                    oc --context "$CLUSTER_1_NAME" -n open-cluster-management-agent delete all --all --timeout=30s || true
-                    oc --context "$CLUSTER_1_NAME" delete namespace open-cluster-management-agent --timeout=60s || {
-                      oc --context "$CLUSTER_1_NAME" patch namespace open-cluster-management-agent --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                    }
-                  fi
-
-                  if oc --context "$CLUSTER_1_NAME" get namespace open-cluster-management-agent-addon >/dev/null 2>&1; then
-                    echo "🗑️  Cleaning klusterlet addon namespace on cluster 1"
-                    oc --context "$CLUSTER_1_NAME" delete namespace open-cluster-management-agent-addon --timeout=60s || {
-                      oc --context "$CLUSTER_1_NAME" patch namespace open-cluster-management-agent-addon --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                    }
-                  fi
-
-                  # Clean cluster 2
-                  if oc --context "$CLUSTER_2_NAME" get namespace open-cluster-management-agent >/dev/null 2>&1; then
-                    echo "🗑️  Cleaning klusterlet on cluster 2"
-                    oc --context "$CLUSTER_2_NAME" -n open-cluster-management-agent delete all --all --timeout=30s || true
-                    oc --context "$CLUSTER_2_NAME" delete namespace open-cluster-management-agent --timeout=60s || {
-                      oc --context "$CLUSTER_2_NAME" patch namespace open-cluster-management-agent --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                    }
-                  fi
-
-                  if oc --context "$CLUSTER_2_NAME" get namespace open-cluster-management-agent-addon >/dev/null 2>&1; then
-                    echo "🗑️  Cleaning klusterlet addon namespace on cluster 2"
-                    oc --context "$CLUSTER_2_NAME" delete namespace open-cluster-management-agent-addon --timeout=60s || {
-                      oc --context "$CLUSTER_2_NAME" patch namespace open-cluster-management-agent-addon --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                    }
-                  fi
-
-                  # Delete klusterlet CRs if they exist
-                  if oc --context "$CLUSTER_1_NAME" get klusterlet >/dev/null 2>&1; then
-                    echo "🗑️  Deleting klusterlet CRs on cluster 1"
-                    oc --context "$CLUSTER_1_NAME" delete klusterlet --all --timeout=30s || {
-                      for kl in $(oc --context "$CLUSTER_1_NAME" get klusterlet -o name); do
-                        oc --context "$CLUSTER_1_NAME" patch "$kl" --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                      done
-                    }
-                  fi
-
-                  if oc --context "$CLUSTER_2_NAME" get klusterlet >/dev/null 2>&1; then
-                    echo "🗑️  Deleting klusterlet CRs on cluster 2"
-                    oc --context "$CLUSTER_2_NAME" delete klusterlet --all --timeout=30s || {
-                      for kl in $(oc --context "$CLUSTER_2_NAME" get klusterlet -o name); do
-                        oc --context "$CLUSTER_2_NAME" patch "$kl" --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                      done
-                    }
-                  fi
-                  echo ""
-
-                  # Step 4: Delete ManagedClusterSet and related resources
-                  echo "Step 4: Deleting ManagedClusterSet..."
-                  echo "-------------------------------------"
-                  if oc --context="$CLUSTER_1_NAME" get managedclusterset camunda-zeebe >/dev/null 2>&1; then
-                    echo "🗑️  Deleting ManagedClusterSet: camunda-zeebe"
-                    oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/managed-cluster-set.yml --timeout=60s || {
-                      oc --context="$CLUSTER_1_NAME" patch managedclusterset camunda-zeebe --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                    }
-                  fi
-
-                  if oc --context="$CLUSTER_1_NAME" get managedclustersetbinding camunda-zeebe \
-                      -n open-cluster-management >/dev/null 2>&1; then
-                    echo "🗑️  Deleting ManagedClusterSetBinding: camunda-zeebe"
-                    oc --context="$CLUSTER_1_NAME" delete managedclustersetbinding camunda-zeebe \
-                      -n open-cluster-management --timeout=60s || {
-                      oc --context="$CLUSTER_1_NAME" patch managedclustersetbinding camunda-zeebe \
-                        -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                    }
-                  fi
-                  echo ""
-
-                  # Step 5: Delete MultiClusterHub (aggressive cleanup)
-                  echo "Step 5: Deleting MultiClusterHub..."
-                  echo "------------------------------------"
-                  if oc --context="$CLUSTER_1_NAME" get clusterrole open-cluster-management:cluster-manager-admin >/dev/null 2>&1; then
-                    echo "🗑️  Deleting cluster role: open-cluster-management:cluster-manager-admin"
-                    oc --context="$CLUSTER_1_NAME" delete clusterrole open-cluster-management:cluster-manager-admin || true
-                  fi
-
-                  if oc --context="$CLUSTER_1_NAME" get crd multiclusterhubs.operator.open-cluster-management.io >/dev/null 2>&1; then
-                    # Check if MultiClusterHub exists
-                    if oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management >/dev/null 2>&1; then
-                      echo "🗑️  MultiClusterHub found - forcing immediate deletion"
-
-                      # Immediate finalizer removal (don't wait for graceful deletion)
-                      echo "  Removing finalizers immediately..."
-                      for mch in $(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o name 2>/dev/null); do
-                        oc --context="$CLUSTER_1_NAME" patch "$mch" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                      done
-
-                      # Force delete with zero grace period
-                      echo "  Force deleting resource..."
-                      oc --context="$CLUSTER_1_NAME" delete multiclusterhub --all -n open-cluster-management --grace-period=0 --force 2>/dev/null || true
-
-                      # Verify deletion (short timeout since we forced it)
-                      echo "⏳ Verifying deletion..."
-                      SECONDS=0
-                      while oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management >/dev/null 2>&1; do
-                        if [ $((SECONDS % 10)) -eq 0 ]; then
-                          echo "  Still waiting for deletion... (${SECONDS}s elapsed)"
-                        fi
-                        sleep 2
-
-                        if [ $SECONDS -ge 60 ]; then
-                          echo "  ⚠️  MultiClusterHub still present after force delete - will clean namespace"
-                          break
-                        fi
-                      done
-                      echo "  ✅ MultiClusterHub deletion complete"
-                    else
-                      echo "  ℹ️  MultiClusterHub not found - already deleted"
-                    fi
-                  else
-                    echo "  ℹ️  MultiClusterHub CRD not found - skipping"
-                  fi
-                  echo ""
-
-                  # Step 6: Delete ACM Operator Subscription and CSV
-                  echo "Step 6: Deleting ACM Operator..."
-                  echo "---------------------------------"
-                  if oc --context="$CLUSTER_1_NAME" get subscription advanced-cluster-management -n open-cluster-management >/dev/null 2>&1; then
-                    echo "🗑️  Deleting ACM subscription"
-                    oc --context="$CLUSTER_1_NAME" delete subscription advanced-cluster-management -n open-cluster-management --timeout=30s || true
-                  fi
-
-                  # Delete ClusterServiceVersion (CSV) for ACM
-                  if oc --context="$CLUSTER_1_NAME" get csv -n open-cluster-management \
-                      | grep -q advanced-cluster-management; then
-                    echo "🗑️  Deleting ACM ClusterServiceVersion"
-                    oc --context="$CLUSTER_1_NAME" delete csv -n open-cluster-management \
-                      -l operators.coreos.com/advanced-cluster-management.open-cluster-management= \
-                      --timeout=30s || true
-                  fi
-                  echo ""
-
-                  # Step 7: Delete MultiClusterEngine (aggressive cleanup)
-                  echo "Step 7: Deleting MultiClusterEngine..."
-                  echo "---------------------------------------"
-                  if oc --context="$CLUSTER_1_NAME" get crd multiclusterengines.multicluster.openshift.io >/dev/null 2>&1; then
-                    # Check if MultiClusterEngine exists
-                    if oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management >/dev/null 2>&1; then
-                      echo "🗑️  MultiClusterEngine found - forcing immediate deletion"
-
-                      # Immediate finalizer removal
-                      echo "  Removing finalizers immediately..."
-                      for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o name 2>/dev/null); do
-                        oc --context="$CLUSTER_1_NAME" patch "$mce" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-                      done
-
-                      # Force delete with zero grace period
-                      echo "  Force deleting resource..."
-                      oc --context="$CLUSTER_1_NAME" delete multiclusterengine --all -n open-cluster-management --grace-period=0 --force 2>/dev/null || true
-
-                      # Verify deletion (short timeout)
-                      echo "⏳ Verifying deletion..."
-                      SECONDS=0
-                      while oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management >/dev/null 2>&1; do
-                        if [ $((SECONDS % 10)) -eq 0 ]; then
-                          echo "  Still waiting for deletion... (${SECONDS}s elapsed)"
-                        fi
-                        sleep 2
-
-                        if [ "$SECONDS" -ge 60 ]; then
-                          echo "  ⚠️  MultiClusterEngine still present after force delete - will clean namespace"
-                          break
-                        fi
-                      done
-                      echo "  ✅ MultiClusterEngine deletion complete"
-                    else
-                      echo "  ℹ️  MultiClusterEngine not found - already deleted"
-                    fi
-                  else
-                    echo "  ℹ️  MultiClusterEngine CRD not found - skipping"
-                  fi
-                  echo ""
-
-                  # Step 8: Delete open-cluster-management namespace (with thorough verification)
-                  echo "Step 8: Deleting open-cluster-management namespace..."
-                  echo "------------------------------------------------------"
-                  if oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management >/dev/null 2>&1; then
-                    echo "🗑️  Initiating deletion of namespace: open-cluster-management"
-
-                    # First, try graceful deletion
-                    oc --context="$CLUSTER_1_NAME" delete namespace open-cluster-management --timeout=120s || {
-                      echo "  ⚠️  Graceful deletion timed out, investigating..."
-
-                      # Check namespace status
-                      ns_status=$(oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
-                      echo "  Namespace status: $ns_status"
-
-                      if [ "$ns_status" = "Terminating" ]; then
-                        echo "  Namespace stuck in Terminating state, removing finalizers..."
-
-                        # Remove finalizers from all resources in the namespace
-                        echo "  Removing finalizers from all pods..."
-                        for pod in $(oc --context="$CLUSTER_1_NAME" get pods -n open-cluster-management -o name 2>/dev/null); do
-                          oc --context="$CLUSTER_1_NAME" patch "$pod" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
-                        done
-
-                        echo "  Removing finalizers from all deployments..."
-                        for deploy in $(oc --context="$CLUSTER_1_NAME" get deployments -n open-cluster-management -o name 2>/dev/null); do
-                          oc --context="$CLUSTER_1_NAME" patch "$deploy" -n open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
-                        done
-
-                        # Finally remove namespace finalizers
-                        echo "  Removing namespace finalizers..."
-                        oc --context="$CLUSTER_1_NAME" patch namespace open-cluster-management --type='merge' -p '{"metadata":{"finalizers":[]}}' || true
-
-                        sleep 5
-                      fi
-                    }
-
-                    # Wait for namespace to be completely gone
-                    echo "⏳ Waiting for namespace to be completely deleted..."
-                    SECONDS=0
-                    while oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management >/dev/null 2>&1; do
-                      if [ $((SECONDS % 15)) -eq 0 ]; then
-                        ns_phase=$(oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o jsonpath='{.status.phase}' 2>/dev/null || echo "Deleted")
-                        echo "  Still waiting... namespace phase: $ns_phase (${SECONDS}s elapsed)"
-
-                        # Show what's preventing deletion
-                        if [ $((SECONDS % 30)) -eq 0 ]; then
-                          echo "  Resources still in namespace:"
-                          oc --context="$CLUSTER_1_NAME" api-resources --verbs=list --namespaced -o name 2>/dev/null | \
-                            xargs -n 1 oc --context="$CLUSTER_1_NAME" get -n open-cluster-management --ignore-not-found --show-kind 2>/dev/null | \
-                            head -20 || true
-                        fi
-                      fi
-                      sleep 3
-
-                      if [ $SECONDS -ge 180 ]; then
-                        echo "  ⛔ Timeout after 3 minutes - forcing final removal"
-                        # Last resort: remove all finalizers from namespace
-                        oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o json 2>/dev/null | \
-                          jq '.metadata.finalizers = []' | \
-                          oc --context="$CLUSTER_1_NAME" replace --raw "/api/v1/namespaces/open-cluster-management/finalize" -f - || true
-                        sleep 10
-                        break
-                      fi
-                    done
-
-                    # Final verification
-                    if ! oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management >/dev/null 2>&1; then
-                      echo "  ✅ Namespace completely deleted"
-                    else
-                      echo "  ⚠️  WARNING: Namespace still exists after cleanup attempts!"
-                      echo "  This may cause ACM installation to fail. Manual intervention may be required."
-                      oc --context="$CLUSTER_1_NAME" get namespace open-cluster-management -o yaml || true
-                    fi
-                  else
-                    echo "  ℹ️  Namespace not found - already deleted"
-                  fi
-                  echo ""
-
-                  # Step 9: Clean up remaining ACM CRDs and cluster-scoped resources
-                  echo "Step 9: Cleaning up ACM CRDs and cluster resources..."
-                  echo "------------------------------------------------------"
-                  echo "🗑️  Removing ACM-related ClusterRoles and ClusterRoleBindings"
-                  oc --context="$CLUSTER_1_NAME" delete clusterrole -l open-cluster-management.io/aggregate-to-work= --timeout=30s 2>/dev/null || true
-                  oc --context="$CLUSTER_1_NAME" delete clusterrolebinding -l open-cluster-management.io/aggregate-to-work= --timeout=30s 2>/dev/null || true
-
-                  echo "🗑️  Removing webhook configurations"
-                  oc --context="$CLUSTER_1_NAME" delete validatingwebhookconfiguration -l app=multicluster-operators-subscription --timeout=30s 2>/dev/null || true
-                  oc --context="$CLUSTER_1_NAME" delete mutatingwebhookconfiguration -l app=multicluster-operators-subscription --timeout=30s 2>/dev/null || true
-                  echo ""
-
-                  echo "================================================================"
-                  echo "✅ ACM cleanup completed - system ready for fresh installation"
-                  echo "================================================================"
-
-
+              run: "set -euo pipefail\n\necho \"\U0001F9F9 Starting comprehensive ACM cleanup for fresh installation...\"\necho \"================================================================\"\
+                  \necho \"\"\n\nMANAGEDCLUSTER_TIMEOUT=60  # Reduced timeout for ManagedCluster deletion\nCLUSTERS=(\"local-cluster\" \"$CLUSTER_2_NAME\"\
+                  )\n\n# Step 1: Delete all ManagedClusters (aggressive mode)\necho \"Step 1: Deleting all ManagedClusters...\"\necho \"----------------------------------------\"\
+                  \nfor cluster_name in \"${CLUSTERS[@]}\"; do\n  echo \"\U0001F5D1️  Deleting ManagedCluster: $cluster_name\"\n\n  if oc --context \"$CLUSTER_1_NAME\"\
+                  \ get managedcluster \"$cluster_name\" >/dev/null 2>&1; then\n\n    # Immediately remove finalizers (don't wait for graceful deletion\
+                  \ in cleanup scenario)\n    echo \"  Removing finalizers immediately...\"\n    oc --context \"$CLUSTER_1_NAME\" patch managedcluster \"\
+                  $cluster_name\" \\\n      --type='merge' -p '{\"metadata\":{\"finalizers\":[]}}' || true\n\n    # Now delete with short timeout\n    echo\
+                  \ \"  Deleting resource...\"\n    oc --context \"$CLUSTER_1_NAME\" delete managedcluster \"$cluster_name\" \\\n      --timeout=30s --grace-period=0\
+                  \ 2>/dev/null || true\n\n    # Verify deletion (short wait)\n    echo \"⏳ Verifying deletion of '$cluster_name'...\"\n    SECONDS=0\n\
+                  \    while oc --context \"$CLUSTER_1_NAME\" get managedcluster \"$cluster_name\" >/dev/null 2>&1; do\n      if [ $((SECONDS % 10)) -eq\
+                  \ 0 ]; then\n        echo \"  Still waiting... (${SECONDS}s elapsed)\"\n      fi\n      sleep 2\n\n      if [ \"$SECONDS\" -ge \"$MANAGEDCLUSTER_TIMEOUT\"\
+                  \ ]; then\n        echo \"  ⚠️  ManagedCluster still present after $MANAGEDCLUSTER_TIMEOUT seconds\"\n        echo \"  Forcing final removal...\"\
+                  \n        oc --context \"$CLUSTER_1_NAME\" patch managedcluster \"$cluster_name\" \\\n          --type='json' -p='[{\"op\": \"remove\"\
+                  , \"path\": \"/metadata/finalizers\"}]' 2>/dev/null || true\n        oc --context \"$CLUSTER_1_NAME\" delete managedcluster \"$cluster_name\"\
+                  \ \\\n          --grace-period=0 --force 2>/dev/null || true\n        sleep 5\n        break\n      fi\n    done\n\n    if ! oc --context\
+                  \ \"$CLUSTER_1_NAME\" get managedcluster \"$cluster_name\" >/dev/null 2>&1; then\n      echo \"  ✅ ManagedCluster '$cluster_name' deleted\"\
+                  \n    else\n      echo \"  ⚠️  ManagedCluster '$cluster_name' still exists - continuing anyway\"\n    fi\n  else\n    echo \"  ℹ️  ManagedCluster\
+                  \ '$cluster_name' not found - skipping\"\n  fi\n  echo \"\"\ndone\n\n# Step 2: Clean up cluster-specific namespaces on hub\necho \"Step\
+                  \ 2: Cleaning up cluster namespaces on hub...\"\necho \"-------------------------------------------------\"\nfor cluster_name in \"${CLUSTERS[@]}\"\
+                  ; do\n  if oc --context \"$CLUSTER_1_NAME\" get namespace \"$cluster_name\" >/dev/null 2>&1; then\n    echo \"\U0001F5D1️  Deleting namespace:\
+                  \ $cluster_name\"\n    oc --context \"$CLUSTER_1_NAME\" delete namespace \"$cluster_name\" --timeout=60s || {\n      echo \"  ⚠️  Normal\
+                  \ deletion failed, forcing...\"\n      # Remove finalizers from all resources in the namespace\n      oc --context \"$CLUSTER_1_NAME\"\
+                  \ patch namespace \"$cluster_name\" --type='merge' -p '{\"metadata\":{\"finalizers\":[]}}' || true\n    }\n  fi\ndone\necho \"\"\n\n#\
+                  \ Step 3: Clean up klusterlet resources on managed clusters\necho \"Step 3: Cleaning up klusterlet resources on managed clusters...\"\n\
+                  echo \"----------------------------------------------------------------\"\n\n# Clean cluster 1 (hub, also a managed cluster as local-cluster)\n\
+                  if oc --context \"$CLUSTER_1_NAME\" get namespace open-cluster-management-agent >/dev/null 2>&1; then\n  echo \"\U0001F5D1️  Cleaning\
+                  \ klusterlet on cluster 1 (hub/local-cluster)\"\n  oc --context \"$CLUSTER_1_NAME\" -n open-cluster-management-agent delete all --all\
+                  \ --timeout=30s || true\n  oc --context \"$CLUSTER_1_NAME\" delete namespace open-cluster-management-agent --timeout=60s || {\n    oc\
+                  \ --context \"$CLUSTER_1_NAME\" patch namespace open-cluster-management-agent --type='merge' -p '{\"metadata\":{\"finalizers\":[]}}' ||\
+                  \ true\n  }\nfi\n\nif oc --context \"$CLUSTER_1_NAME\" get namespace open-cluster-management-agent-addon >/dev/null 2>&1; then\n  echo\
+                  \ \"\U0001F5D1️  Cleaning klusterlet addon namespace on cluster 1\"\n  oc --context \"$CLUSTER_1_NAME\" delete namespace open-cluster-management-agent-addon\
+                  \ --timeout=60s || {\n    oc --context \"$CLUSTER_1_NAME\" patch namespace open-cluster-management-agent-addon --type='merge' -p '{\"\
+                  metadata\":{\"finalizers\":[]}}' || true\n  }\nfi\n\n# Clean cluster 2\nif oc --context \"$CLUSTER_2_NAME\" get namespace open-cluster-management-agent\
+                  \ >/dev/null 2>&1; then\n  echo \"\U0001F5D1️  Cleaning klusterlet on cluster 2\"\n  oc --context \"$CLUSTER_2_NAME\" -n open-cluster-management-agent\
+                  \ delete all --all --timeout=30s || true\n  oc --context \"$CLUSTER_2_NAME\" delete namespace open-cluster-management-agent --timeout=60s\
+                  \ || {\n    oc --context \"$CLUSTER_2_NAME\" patch namespace open-cluster-management-agent --type='merge' -p '{\"metadata\":{\"finalizers\"\
+                  :[]}}' || true\n  }\nfi\n\nif oc --context \"$CLUSTER_2_NAME\" get namespace open-cluster-management-agent-addon >/dev/null 2>&1; then\n\
+                  \  echo \"\U0001F5D1️  Cleaning klusterlet addon namespace on cluster 2\"\n  oc --context \"$CLUSTER_2_NAME\" delete namespace open-cluster-management-agent-addon\
+                  \ --timeout=60s || {\n    oc --context \"$CLUSTER_2_NAME\" patch namespace open-cluster-management-agent-addon --type='merge' -p '{\"\
+                  metadata\":{\"finalizers\":[]}}' || true\n  }\nfi\n\n# Delete klusterlet CRs if they exist\nif oc --context \"$CLUSTER_1_NAME\" get klusterlet\
+                  \ >/dev/null 2>&1; then\n  echo \"\U0001F5D1️  Deleting klusterlet CRs on cluster 1\"\n  oc --context \"$CLUSTER_1_NAME\" delete klusterlet\
+                  \ --all --timeout=30s || {\n    for kl in $(oc --context \"$CLUSTER_1_NAME\" get klusterlet -o name); do\n      oc --context \"$CLUSTER_1_NAME\"\
+                  \ patch \"$kl\" --type='merge' -p '{\"metadata\":{\"finalizers\":[]}}' || true\n    done\n  }\nfi\n\nif oc --context \"$CLUSTER_2_NAME\"\
+                  \ get klusterlet >/dev/null 2>&1; then\n  echo \"\U0001F5D1️  Deleting klusterlet CRs on cluster 2\"\n  oc --context \"$CLUSTER_2_NAME\"\
+                  \ delete klusterlet --all --timeout=30s || {\n    for kl in $(oc --context \"$CLUSTER_2_NAME\" get klusterlet -o name); do\n      oc --context\
+                  \ \"$CLUSTER_2_NAME\" patch \"$kl\" --type='merge' -p '{\"metadata\":{\"finalizers\":[]}}' || true\n    done\n  }\nfi\necho \"\"\n\n#\
+                  \ Step 4: Delete ManagedClusterSet and related resources\necho \"Step 4: Deleting ManagedClusterSet...\"\necho \"-------------------------------------\"\
+                  \nif oc --context=\"$CLUSTER_1_NAME\" get managedclusterset camunda-zeebe >/dev/null 2>&1; then\n  echo \"\U0001F5D1️  Deleting ManagedClusterSet:\
+                  \ camunda-zeebe\"\n  oc --context=\"$CLUSTER_1_NAME\" delete -f ./generic/openshift/dual-region/procedure/acm/managed-cluster-set.yml\
+                  \ --timeout=60s || {\n    oc --context=\"$CLUSTER_1_NAME\" patch managedclusterset camunda-zeebe --type='merge' -p '{\"metadata\":{\"\
+                  finalizers\":[]}}' || true\n  }\nfi\n\nif oc --context=\"$CLUSTER_1_NAME\" get managedclustersetbinding camunda-zeebe \\\n    -n open-cluster-management\
+                  \ >/dev/null 2>&1; then\n  echo \"\U0001F5D1️  Deleting ManagedClusterSetBinding: camunda-zeebe\"\n  oc --context=\"$CLUSTER_1_NAME\"\
+                  \ delete managedclustersetbinding camunda-zeebe \\\n    -n open-cluster-management --timeout=60s || {\n    oc --context=\"$CLUSTER_1_NAME\"\
+                  \ patch managedclustersetbinding camunda-zeebe \\\n      -n open-cluster-management --type='merge' -p '{\"metadata\":{\"finalizers\":[]}}'\
+                  \ || true\n  }\nfi\necho \"\"\n\n# Step 5: Delete MultiClusterHub (aggressive cleanup)\necho \"Step 5: Deleting MultiClusterHub...\"\n\
+                  echo \"------------------------------------\"\nif oc --context=\"$CLUSTER_1_NAME\" get clusterrole open-cluster-management:cluster-manager-admin\
+                  \ >/dev/null 2>&1; then\n  echo \"\U0001F5D1️  Deleting cluster role: open-cluster-management:cluster-manager-admin\"\n  oc --context=\"\
+                  $CLUSTER_1_NAME\" delete clusterrole open-cluster-management:cluster-manager-admin || true\nfi\n\nif oc --context=\"$CLUSTER_1_NAME\"\
+                  \ get crd multiclusterhubs.operator.open-cluster-management.io >/dev/null 2>&1; then\n  # Check if MultiClusterHub exists\n  if oc --context=\"\
+                  $CLUSTER_1_NAME\" get multiclusterhub -n open-cluster-management >/dev/null 2>&1; then\n    echo \"\U0001F5D1️  MultiClusterHub found\
+                  \ - forcing immediate deletion\"\n\n    # Immediate finalizer removal (don't wait for graceful deletion)\n    echo \"  Removing finalizers\
+                  \ immediately...\"\n    for mch in $(oc --context=\"$CLUSTER_1_NAME\" get multiclusterhub -n open-cluster-management -o name 2>/dev/null);\
+                  \ do\n      oc --context=\"$CLUSTER_1_NAME\" patch \"$mch\" -n open-cluster-management --type='merge' -p '{\"metadata\":{\"finalizers\"\
+                  :[]}}' || true\n    done\n\n    # Force delete with zero grace period\n    echo \"  Force deleting resource...\"\n    oc --context=\"\
+                  $CLUSTER_1_NAME\" delete multiclusterhub --all -n open-cluster-management --grace-period=0 --force 2>/dev/null || true\n\n    # Verify\
+                  \ deletion (short timeout since we forced it)\n    echo \"⏳ Verifying deletion...\"\n    SECONDS=0\n    while oc --context=\"$CLUSTER_1_NAME\"\
+                  \ get multiclusterhub -n open-cluster-management >/dev/null 2>&1; do\n      if [ $((SECONDS % 10)) -eq 0 ]; then\n        echo \"  Still\
+                  \ waiting for deletion... (${SECONDS}s elapsed)\"\n      fi\n      sleep 2\n\n      if [ $SECONDS -ge 60 ]; then\n        echo \"  ⚠️\
+                  \  MultiClusterHub still present after force delete - will clean namespace\"\n        break\n      fi\n    done\n    echo \"  ✅ MultiClusterHub\
+                  \ deletion complete\"\n  else\n    echo \"  ℹ️  MultiClusterHub not found - already deleted\"\n  fi\nelse\n  echo \"  ℹ️  MultiClusterHub\
+                  \ CRD not found - skipping\"\nfi\necho \"\"\n\n# Step 6: Delete ACM Operator Subscription and CSV\necho \"Step 6: Deleting ACM Operator...\"\
+                  \necho \"---------------------------------\"\nif oc --context=\"$CLUSTER_1_NAME\" get subscription advanced-cluster-management -n open-cluster-management\
+                  \ >/dev/null 2>&1; then\n  echo \"\U0001F5D1️  Deleting ACM subscription\"\n  oc --context=\"$CLUSTER_1_NAME\" delete subscription advanced-cluster-management\
+                  \ -n open-cluster-management --timeout=30s || true\nfi\n\n# Delete ClusterServiceVersion (CSV) for ACM\nif oc --context=\"$CLUSTER_1_NAME\"\
+                  \ get csv -n open-cluster-management \\\n    | grep -q advanced-cluster-management; then\n  echo \"\U0001F5D1️  Deleting ACM ClusterServiceVersion\"\
+                  \n  oc --context=\"$CLUSTER_1_NAME\" delete csv -n open-cluster-management \\\n    -l operators.coreos.com/advanced-cluster-management.open-cluster-management=\
+                  \ \\\n    --timeout=30s || true\nfi\necho \"\"\n\n# Step 7: Delete MultiClusterEngine (aggressive cleanup)\necho \"Step 7: Deleting MultiClusterEngine...\"\
+                  \necho \"---------------------------------------\"\nif oc --context=\"$CLUSTER_1_NAME\" get crd multiclusterengines.multicluster.openshift.io\
+                  \ >/dev/null 2>&1; then\n  # Check if MultiClusterEngine exists\n  if oc --context=\"$CLUSTER_1_NAME\" get multiclusterengine -n open-cluster-management\
+                  \ >/dev/null 2>&1; then\n    echo \"\U0001F5D1️  MultiClusterEngine found - forcing immediate deletion\"\n\n    # Immediate finalizer\
+                  \ removal\n    echo \"  Removing finalizers immediately...\"\n    for mce in $(oc --context=\"$CLUSTER_1_NAME\" get multiclusterengine\
+                  \ -n open-cluster-management -o name 2>/dev/null); do\n      oc --context=\"$CLUSTER_1_NAME\" patch \"$mce\" -n open-cluster-management\
+                  \ --type='merge' -p '{\"metadata\":{\"finalizers\":[]}}' || true\n    done\n\n    # Force delete with zero grace period\n    echo \" \
+                  \ Force deleting resource...\"\n    oc --context=\"$CLUSTER_1_NAME\" delete multiclusterengine --all -n open-cluster-management --grace-period=0\
+                  \ --force 2>/dev/null || true\n\n    # Verify deletion (short timeout)\n    echo \"⏳ Verifying deletion...\"\n    SECONDS=0\n    while\
+                  \ oc --context=\"$CLUSTER_1_NAME\" get multiclusterengine -n open-cluster-management >/dev/null 2>&1; do\n      if [ $((SECONDS % 10))\
+                  \ -eq 0 ]; then\n        echo \"  Still waiting for deletion... (${SECONDS}s elapsed)\"\n      fi\n      sleep 2\n\n      if [ \"$SECONDS\"\
+                  \ -ge 60 ]; then\n        echo \"  ⚠️  MultiClusterEngine still present after force delete - will clean namespace\"\n        break\n \
+                  \     fi\n    done\n    echo \"  ✅ MultiClusterEngine deletion complete\"\n  else\n    echo \"  ℹ️  MultiClusterEngine not found - already\
+                  \ deleted\"\n  fi\nelse\n  echo \"  ℹ️  MultiClusterEngine CRD not found - skipping\"\nfi\necho \"\"\n\n# Step 8: Delete open-cluster-management\
+                  \ namespace (with thorough verification)\necho \"Step 8: Deleting open-cluster-management namespace...\"\necho \"------------------------------------------------------\"\
+                  \nif oc --context=\"$CLUSTER_1_NAME\" get namespace open-cluster-management >/dev/null 2>&1; then\n  echo \"\U0001F5D1️  Initiating deletion\
+                  \ of namespace: open-cluster-management\"\n\n  # First, try graceful deletion\n  oc --context=\"$CLUSTER_1_NAME\" delete namespace open-cluster-management\
+                  \ --timeout=120s || {\n    echo \"  ⚠️  Graceful deletion timed out, investigating...\"\n\n    # Check namespace status\n    ns_status=$(oc\
+                  \ --context=\"$CLUSTER_1_NAME\" get namespace open-cluster-management -o jsonpath='{.status.phase}' 2>/dev/null || echo \"NotFound\")\n\
+                  \    echo \"  Namespace status: $ns_status\"\n\n    if [ \"$ns_status\" = \"Terminating\" ]; then\n      echo \"  Namespace stuck in Terminating\
+                  \ state, removing finalizers...\"\n\n      # Remove finalizers from all resources in the namespace\n      echo \"  Removing finalizers\
+                  \ from all pods...\"\n      for pod in $(oc --context=\"$CLUSTER_1_NAME\" get pods -n open-cluster-management -o name 2>/dev/null); do\n\
+                  \        oc --context=\"$CLUSTER_1_NAME\" patch \"$pod\" -n open-cluster-management --type='merge' -p '{\"metadata\":{\"finalizers\":[]}}'\
+                  \ 2>/dev/null || true\n      done\n\n      echo \"  Removing finalizers from all deployments...\"\n      for deploy in $(oc --context=\"\
+                  $CLUSTER_1_NAME\" get deployments -n open-cluster-management -o name 2>/dev/null); do\n        oc --context=\"$CLUSTER_1_NAME\" patch\
+                  \ \"$deploy\" -n open-cluster-management --type='merge' -p '{\"metadata\":{\"finalizers\":[]}}' 2>/dev/null || true\n      done\n\n  \
+                  \    # Finally remove namespace finalizers\n      echo \"  Removing namespace finalizers...\"\n      oc --context=\"$CLUSTER_1_NAME\"\
+                  \ patch namespace open-cluster-management --type='merge' -p '{\"metadata\":{\"finalizers\":[]}}' || true\n\n      sleep 5\n    fi\n  }\n\
+                  \n  # Wait for namespace to be completely gone\n  echo \"⏳ Waiting for namespace to be completely deleted...\"\n  SECONDS=0\n  while oc\
+                  \ --context=\"$CLUSTER_1_NAME\" get namespace open-cluster-management >/dev/null 2>&1; do\n    if [ $((SECONDS % 15)) -eq 0 ]; then\n\
+                  \      ns_phase=$(oc --context=\"$CLUSTER_1_NAME\" get namespace open-cluster-management -o jsonpath='{.status.phase}' 2>/dev/null ||\
+                  \ echo \"Deleted\")\n      echo \"  Still waiting... namespace phase: $ns_phase (${SECONDS}s elapsed)\"\n\n      # Show what's preventing\
+                  \ deletion\n      if [ $((SECONDS % 30)) -eq 0 ]; then\n        echo \"  Resources still in namespace:\"\n        oc --context=\"$CLUSTER_1_NAME\"\
+                  \ api-resources --verbs=list --namespaced -o name 2>/dev/null | \\\n          xargs -n 1 oc --context=\"$CLUSTER_1_NAME\" get -n open-cluster-management\
+                  \ --ignore-not-found --show-kind 2>/dev/null | \\\n          head -20 || true\n      fi\n    fi\n    sleep 3\n\n    if [ $SECONDS -ge\
+                  \ 180 ]; then\n      echo \"  ⛔ Timeout after 3 minutes - forcing final removal\"\n      # Last resort: remove all finalizers from namespace\n\
+                  \      oc --context=\"$CLUSTER_1_NAME\" get namespace open-cluster-management -o json 2>/dev/null | \\\n        jq '.metadata.finalizers\
+                  \ = []' | \\\n        oc --context=\"$CLUSTER_1_NAME\" replace --raw \"/api/v1/namespaces/open-cluster-management/finalize\" -f - || true\n\
+                  \      sleep 10\n      break\n    fi\n  done\n\n  # Final verification\n  if ! oc --context=\"$CLUSTER_1_NAME\" get namespace open-cluster-management\
+                  \ >/dev/null 2>&1; then\n    echo \"  ✅ Namespace completely deleted\"\n  else\n    echo \"  ⚠️  WARNING: Namespace still exists after\
+                  \ cleanup attempts!\"\n    echo \"  This may cause ACM installation to fail. Manual intervention may be required.\"\n    oc --context=\"\
+                  $CLUSTER_1_NAME\" get namespace open-cluster-management -o yaml || true\n  fi\nelse\n  echo \"  ℹ️  Namespace not found - already deleted\"\
+                  \nfi\necho \"\"\n\n# Step 9: Clean up remaining ACM CRDs and cluster-scoped resources\necho \"Step 9: Cleaning up ACM CRDs and cluster\
+                  \ resources...\"\necho \"------------------------------------------------------\"\necho \"\U0001F5D1️  Removing ACM-related ClusterRoles\
+                  \ and ClusterRoleBindings\"\noc --context=\"$CLUSTER_1_NAME\" delete clusterrole -l open-cluster-management.io/aggregate-to-work= --timeout=30s\
+                  \ 2>/dev/null || true\noc --context=\"$CLUSTER_1_NAME\" delete clusterrolebinding -l open-cluster-management.io/aggregate-to-work= --timeout=30s\
+                  \ 2>/dev/null || true\n\necho \"\U0001F5D1️  Removing webhook configurations\"\noc --context=\"$CLUSTER_1_NAME\" delete validatingwebhookconfiguration\
+                  \ -l app=multicluster-operators-subscription --timeout=30s 2>/dev/null || true\noc --context=\"$CLUSTER_1_NAME\" delete mutatingwebhookconfiguration\
+                  \ -l app=multicluster-operators-subscription --timeout=30s 2>/dev/null || true\necho \"\"\n\necho \"================================================================\"\
+                  \necho \"✅ ACM cleanup completed - system ready for fresh installation\"\necho \"================================================================\"\
+                  \n"
             - name: 🚢 Configure ACM
               timeout-minutes: 30
               env:
@@ -784,7 +481,6 @@ jobs:
 
                   echo "Verify all clusters are healthy (with timeout and retry logic)"
                   ./verify-managed-cluster-set.sh
-
             - name: 🐠 Configure Submariner
               timeout-minutes: 30
               run: |
@@ -837,81 +533,49 @@ jobs:
 
                   echo "Verifying subctl..."
                   ./verify-subctl.sh
-
             - name: 🏗️ Retrieve exported Environment values from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
               with:
                   output_path: ${{ runner.temp }}/sensitive.yaml
                   encrypted_file_base64: >
                       ${{ fromJson(needs.access-info.outputs.config).sensitive_values_raw[
+
+
                         format(
                           '{0}-{1}',
                           matrix.distro.name,
                           matrix.scenario.name
                         )
                       ] }}
-                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
             - name: 🏗️ Prepare the environment for the deployment
               timeout-minutes: 20
-              run: |
-                  set -euo pipefail
-
-                  echo "Load outputs values from creation of the clusters"
-
-                  # shellcheck disable=SC2086
-                  export BACKUP_BUCKET_S3_AWS_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-access-key"]' "${{ runner.temp }}/sensitive.yaml")
-                  # protect sensitive values
-                  echo "::add-mask::$BACKUP_BUCKET_S3_AWS_ACCESS_KEY"
-                  # shellcheck disable=SC2086
-                  export BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml")
-                  # protect sensitive values
-                  echo "::add-mask::$BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY"
-                  # shellcheck disable=SC2086
-                  export BACKUP_BUCKET_S3_BUCKET_NAME=$(yq eval '.["backup-bucket-s3-bucket-name"]' "${{ runner.temp }}/sensitive.yaml")
-
-                  echo "Setup environment values"
-                  sed -i \
-                    -e "s#^export CLUSTER_1_NAME=\".*\"#export CLUSTER_1_NAME=\"${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1\"#" \
-                    -e "s#^export CLUSTER_2_NAME=\".*\"#export CLUSTER_2_NAME=\"${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-2\"#" \
-                    -e "s#^export CLUSTER_1_REGION=\".*\"#export CLUSTER_1_REGION=\"${{ env.CLUSTER_1_AWS_REGION }}\"#" \
-                    -e "s#^export CLUSTER_2_REGION=\".*\"#export CLUSTER_2_REGION=\"${{ env.CLUSTER_2_AWS_REGION }}\"#" \
-                    -e "s#^export AWS_ACCESS_KEY_ES=\".*\"#export AWS_ACCESS_KEY_ES=\"${BACKUP_BUCKET_S3_AWS_ACCESS_KEY}\"#" \
-                    -e "s#^export AWS_SECRET_ACCESS_KEY_ES=\".*\"#export AWS_SECRET_ACCESS_KEY_ES=\"${BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY}\"#" \
-                    -e "s#^export AWS_ES_BUCKET_NAME=\".*\"#export AWS_ES_BUCKET_NAME=\"${BACKUP_BUCKET_S3_BUCKET_NAME}\"#" \
-                    -e "s#^export AWS_ES_BUCKET_REGION=\".*\"#export AWS_ES_BUCKET_REGION=\"${{ env.CLUSTER_1_AWS_REGION }}\"#" \
-                    generic/openshift/dual-region/procedure/chart-env.sh
-
-                  # the chart env should be loaded by the client at the very first step of his installation
-                  source .github/scripts/gha-functions.sh
-                  export_new_env_vars ./generic/openshift/dual-region/procedure/chart-env.sh
-
-                  echo "Delete the namespaces to ensure a fresh start"
-                  if kubectl --context "$CLUSTER_1_NAME" get namespace "$CAMUNDA_NAMESPACE_1" &>/dev/null; then
-                    kubectl --context "$CLUSTER_1_NAME" delete namespace "$CAMUNDA_NAMESPACE_1" --wait
-                    while kubectl --context "$CLUSTER_1_NAME" get namespace "$CAMUNDA_NAMESPACE_1" &>/dev/null; do
-                      echo "Namespace $CAMUNDA_NAMESPACE_1 still being deleted, waiting..."
-                      sleep 5
-                    done
-                  fi
-
-                  if kubectl --context "$CLUSTER_2_NAME" get namespace "$CAMUNDA_NAMESPACE_2" &>/dev/null; then
-                    kubectl --context "$CLUSTER_2_NAME" delete namespace "$CAMUNDA_NAMESPACE_2" --wait
-                    while kubectl --context "$CLUSTER_2_NAME" get namespace "$CAMUNDA_NAMESPACE_2" &>/dev/null; do
-                      echo "Namespace $CAMUNDA_NAMESPACE_2 still being deleted, waiting..."
-                      sleep 5
-                    done
-                  fi
-
-                  echo "Setup namespaces and initial secrets"
-                  source ./generic/openshift/dual-region/procedure/setup-namespaces-secrets.sh
-
-                  echo "Generate dual-region variables"
-                  CLUSTER_1_NAME='local-cluster' ZEEBE_CLUSTER_SIZE=8 source ./generic/openshift/dual-region/procedure/generate-zeebe-helm-values.sh
-
-                  echo "📤 Export all env variables in GITHUB_ENV for consistency between steps"
-                  env | while IFS= read -r line; do echo "$line" >> "$GITHUB_ENV"; done
-
+              run: "set -euo pipefail\n\necho \"Load outputs values from creation of the clusters\"\n\n# shellcheck disable=SC2086\nexport BACKUP_BUCKET_S3_AWS_ACCESS_KEY=$(yq\
+                  \ eval '.[\"backup-bucket-s3-aws-access-key\"]' \"${{ runner.temp }}/sensitive.yaml\")\n# protect sensitive values\necho \"::add-mask::$BACKUP_BUCKET_S3_AWS_ACCESS_KEY\"\
+                  \n# shellcheck disable=SC2086\nexport BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY=$(yq eval '.[\"backup-bucket-s3-aws-secret-access-key\"]'\
+                  \ \"${{ runner.temp }}/sensitive.yaml\")\n# protect sensitive values\necho \"::add-mask::$BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY\"\n#\
+                  \ shellcheck disable=SC2086\nexport BACKUP_BUCKET_S3_BUCKET_NAME=$(yq eval '.[\"backup-bucket-s3-bucket-name\"]' \"${{ runner.temp }}/sensitive.yaml\"\
+                  )\n\necho \"Setup environment values\"\nsed -i \\\n  -e \"s#^export CLUSTER_1_NAME=\\\".*\\\"#export CLUSTER_1_NAME=\\\"${{ matrix.distro.clusterName\
+                  \ }}-${{matrix.scenario.shortName }}-1\\\"#\" \\\n  -e \"s#^export CLUSTER_2_NAME=\\\".*\\\"#export CLUSTER_2_NAME=\\\"${{ matrix.distro.clusterName\
+                  \ }}-${{matrix.scenario.shortName }}-2\\\"#\" \\\n  -e \"s#^export CLUSTER_1_REGION=\\\".*\\\"#export CLUSTER_1_REGION=\\\"${{ env.CLUSTER_1_AWS_REGION\
+                  \ }}\\\"#\" \\\n  -e \"s#^export CLUSTER_2_REGION=\\\".*\\\"#export CLUSTER_2_REGION=\\\"${{ env.CLUSTER_2_AWS_REGION }}\\\"#\" \\\n \
+                  \ -e \"s#^export AWS_ACCESS_KEY_ES=\\\".*\\\"#export AWS_ACCESS_KEY_ES=\\\"${BACKUP_BUCKET_S3_AWS_ACCESS_KEY}\\\"#\" \\\n  -e \"s#^export\
+                  \ AWS_SECRET_ACCESS_KEY_ES=\\\".*\\\"#export AWS_SECRET_ACCESS_KEY_ES=\\\"${BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY}\\\"#\" \\\n  -e \"\
+                  s#^export AWS_ES_BUCKET_NAME=\\\".*\\\"#export AWS_ES_BUCKET_NAME=\\\"${BACKUP_BUCKET_S3_BUCKET_NAME}\\\"#\" \\\n  -e \"s#^export AWS_ES_BUCKET_REGION=\\\
+                  \".*\\\"#export AWS_ES_BUCKET_REGION=\\\"${{ env.CLUSTER_1_AWS_REGION }}\\\"#\" \\\n  generic/openshift/dual-region/procedure/chart-env.sh\n\
+                  \n# the chart env should be loaded by the client at the very first step of his installation\nsource .github/scripts/gha-functions.sh\n\
+                  export_new_env_vars ./generic/openshift/dual-region/procedure/chart-env.sh\n\necho \"Delete the namespaces to ensure a fresh start\"\n\
+                  if kubectl --context \"$CLUSTER_1_NAME\" get namespace \"$CAMUNDA_NAMESPACE_1\" &>/dev/null; then\n  kubectl --context \"$CLUSTER_1_NAME\"\
+                  \ delete namespace \"$CAMUNDA_NAMESPACE_1\" --wait\n  while kubectl --context \"$CLUSTER_1_NAME\" get namespace \"$CAMUNDA_NAMESPACE_1\"\
+                  \ &>/dev/null; do\n    echo \"Namespace $CAMUNDA_NAMESPACE_1 still being deleted, waiting...\"\n    sleep 5\n  done\nfi\n\nif kubectl\
+                  \ --context \"$CLUSTER_2_NAME\" get namespace \"$CAMUNDA_NAMESPACE_2\" &>/dev/null; then\n  kubectl --context \"$CLUSTER_2_NAME\" delete\
+                  \ namespace \"$CAMUNDA_NAMESPACE_2\" --wait\n  while kubectl --context \"$CLUSTER_2_NAME\" get namespace \"$CAMUNDA_NAMESPACE_2\" &>/dev/null;\
+                  \ do\n    echo \"Namespace $CAMUNDA_NAMESPACE_2 still being deleted, waiting...\"\n    sleep 5\n  done\nfi\n\necho \"Setup namespaces\
+                  \ and initial secrets\"\nsource ./generic/openshift/dual-region/procedure/setup-namespaces-secrets.sh\n\necho \"Generate dual-region variables\"\
+                  \nCLUSTER_1_NAME='local-cluster' ZEEBE_CLUSTER_SIZE=8 source ./generic/openshift/dual-region/procedure/generate-zeebe-helm-values.sh\n\
+                  \necho \"\U0001F4E4 Export all env variables in GITHUB_ENV for consistency between steps\"\nenv | while IFS= read -r line; do echo \"\
+                  $line\" >> \"$GITHUB_ENV\"; done\n"
             - name: 🛠️ Assemble deployment values of generic/openshift/dual-region
               timeout-minutes: 10
               run: |
@@ -951,8 +615,6 @@ jobs:
                   fi
 
                   ./generic/openshift/dual-region/procedure/assemble-envsubst-values.sh
-
-
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 30
               run: |
@@ -982,15 +644,12 @@ jobs:
 
                   ./generic/openshift/dual-region/procedure/export-services-submariner.sh
                   ./generic/openshift/dual-region/procedure/verify-exported-services.sh
-
             - name: 👀⏳ Wait for the deployment to be healthy using generic/openshift/dual-region
               timeout-minutes: 10
               run: |
                   set -euo pipefail
 
                   ./generic/openshift/dual-region/procedure/check-deployment-ready.sh
-
-
             - name: Set current Camunda version
               id: camunda-version
               run: |
@@ -998,9 +657,6 @@ jobs:
 
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
-
-            # TODO: integrate c8-multi-region tests as a lego test
-
             - name: 🧪 Run Helm Chart tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60
@@ -1011,7 +667,7 @@ jobs:
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
-                  enable-helm-chart-tests: 'false' # TODO: integrate helm chart dual region tests if they exists
+                  enable-helm-chart-tests: 'false'
                   zeebe-authenticated: 'false'
                   zeebe-topology-check-script: ./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh
                   zeebe-topology-golden-file: ./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology-output.json
@@ -1021,7 +677,6 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
-
             - name: 🔬🚨 Get failed Pods info - Cluster 1
               if: failure()
               run: |
@@ -1037,7 +692,6 @@ jobs:
                     kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" describe po "$pod_name"
                     kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" logs "$pod_name"
                   done
-
             - name: 🔬🚨 Get failed Pods info - Cluster 2
               if: failure()
               run: |
@@ -1049,12 +703,8 @@ jobs:
                     kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" describe po "$pod_name"
                     kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name"
                   done
-
-
     cleanup-clusters:
         name: Cleanup ROSA clusters
-        # in case of a failure that is retried, we will spawn a new cluster
-        # as ACM is bugged
         if: always()
         runs-on: ubuntu-latest
         needs:
@@ -1065,20 +715,17 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   url: ${{ secrets.VAULT_ADDR }}
@@ -1088,7 +735,6 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
-
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -1098,7 +744,6 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
-
             - name: Set current target branch
               if: env.CLEANUP_CLUSTERS == 'true'
               id: target-branch
@@ -1106,7 +751,6 @@ jobs:
                   set -euo pipefail
                   TARGET_BRANCH=$(cat .target-branch)
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
             - name: Delete on-demand ROSA HCP Cluster
               uses: ./.github/actions/aws-generic-terraform-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
@@ -1122,7 +766,6 @@ jobs:
                   openshift: 'true'
                   delete-ghost-rosa-clusters: 'true'
                   modules-order: backup_bucket,peering,clusters
-
     integration-tests-retry:
         name: Retry Tests in case of failure after cleanup
         if: failure() && fromJSON(github.run_attempt) < 3
@@ -1132,10 +775,10 @@ jobs:
             - cleanup-clusters
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@75b32885926bca384a8feb15adbbf3055b4f9ad7 # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@75b32885926bca384a8feb15adbbf3055b4f9ad7
               with:
-                  error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
-                  rerun-whole-workflow: 'true' # we want to rerun the whole workflow instead of just the failed job, to recreate a new cluster
+                  error-messages: ''
+                  rerun-whole-workflow: 'true'
                   run-id: ${{ github.run_id }}
                   repository: ${{ github.repository }}
                   vault-addr: ${{ secrets.VAULT_ADDR }}
@@ -1148,15 +791,12 @@ jobs:
             - integration-tests
             - cleanup-clusters
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
               env:
                   GH_TOKEN: ${{ github.token }}
               uses: ./.github/actions/internal-apply-skip-label
-
-
     report-failure:
         name: Report failures
         if: failure() && (needs.integration-tests-retry.result != 'success' || fromJSON(github.run_attempt) >= 3)
@@ -1168,7 +808,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
