@@ -372,7 +372,9 @@ resource "aws_ecs_task_definition" "prometheus" {
         { containerPort = 9090, hostPort = 9090, protocol = "tcp" }
       ]
       entryPoint = ["/bin/sh", "-c"]
-      command = ["cat <<'EOF' >/etc/prometheus/web.yml\n${file("${path.module}/templates/web.yml")}\nEOF\ncat <<'EOF' >/etc/prometheus/prometheus.yml\n${templatefile("${path.module}/templates/prometheus-config.yml.tpl", { prefix = var.prefix, names = join("\n", [for i in range(var.camunda_count) : "        - ${var.prefix}-ecs-${i}.${var.prefix}.service.local"]) }) }\nEOF\nexec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --web.config.file=/etc/prometheus/web.yml --storage.tsdb.retention.time=6h --web.enable-lifecycle"]
+      command = [
+        "cat <<'EOF' >/etc/prometheus/prometheus.yml\n${templatefile("${path.module}/templates/prometheus-config.yml.tpl", { prefix = var.prefix, names = join("\n", [for i in range(var.camunda_count) : "        - ${var.prefix}-ecs-${i}.${var.prefix}.service.local"]) }) }\nEOF\nexec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.retention.time=6h --web.enable-lifecycle"
+      ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -440,7 +442,7 @@ resource "aws_ecs_task_definition" "grafana" {
         { name = "GF_FEATURE_TOGGLES_ENABLE", value = "publicDashboards" }
       ]
       entryPoint = ["/bin/sh", "-c"]
-      command = ["cat <<'EOF' >/etc/grafana/provisioning/datasources/prometheus.yml\napiVersion: 1\ndatasources:\n  - name: Prometheus\n    type: prometheus\n    url: http://prometheus.${var.prefix}.service.local:9090\n    basicAuth: true\n    basicAuthUser: admin\n    secureJsonData:\n      basicAuthPassword: ${var.prometheus_pass}\n    access: proxy\n    isDefault: true\n    editable: true\n    jsonData:\n      httpMethod: GET\nEOF\nmkdir -p /etc/grafana/provisioning/dashboards /var/lib/grafana/dashboards && cat <<'YAML' >/etc/grafana/provisioning/dashboards/zeebe.yaml\napiVersion: 1\nproviders:\n  - name: 'zeebe'\n    orgId: 1\n    folder: ''\n    type: file\n    disableDeletion: true\n    editable: false\n    options:\n      path: /var/lib/grafana/dashboards\nYAML\ncurl -Ls https://raw.githubusercontent.com/camunda/camunda/main/monitor/grafana/zeebe.json -o /var/lib/grafana/dashboards/zeebe.json || echo 'failed to fetch dashboard';\nexec /run.sh"]
+      command = ["cat <<'EOF' >/etc/grafana/provisioning/datasources/prometheus.yml\napiVersion: 1\ndatasources:\n  - name: Prometheus\n    type: prometheus\n    url: http://prometheus.${var.prefix}.service.local:9090\n    access: proxy\n    isDefault: true\n    editable: true\n    jsonData:\n      httpMethod: GET\nEOF\nmkdir -p /etc/grafana/provisioning/dashboards /var/lib/grafana/dashboards && cat <<'YAML' >/etc/grafana/provisioning/dashboards/zeebe.yaml\napiVersion: 1\nproviders:\n  - name: 'zeebe'\n    orgId: 1\n    folder: ''\n    type: file\n    disableDeletion: true\n    editable: false\n    options:\n      path: /var/lib/grafana/dashboards\nYAML\ncurl -Ls https://raw.githubusercontent.com/camunda/camunda/main/monitor/grafana/zeebe.json -o /var/lib/grafana/dashboards/zeebe.json || echo 'failed to fetch dashboard';\nexec /run.sh"]
       # CloudWatch logging disabled per request
     }
   ])
