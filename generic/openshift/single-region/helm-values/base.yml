@@ -40,6 +40,10 @@ orchestration:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-orchestration-client-token
         initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
             mappingRules:
                 - mappingRuleID: admin-user-mapping-rule
                   claimName: preferred_username

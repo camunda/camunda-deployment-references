@@ -128,6 +128,10 @@ orchestration:
                     existingSecretKey: identity-orchestration-client-token
                 redirectUrl: http://localhost:8080
         initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
             mappingRules:
                 - mappingRuleID: admin-user-mapping-rule
                   claimName: preferred_username

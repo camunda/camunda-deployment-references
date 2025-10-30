@@ -58,6 +58,10 @@ identity:
 orchestration:
     security:
         initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
             mappingRules:
                 - mappingRuleID: venom-test-client-mapping
                   claimName: client_id

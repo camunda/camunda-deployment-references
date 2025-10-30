@@ -130,6 +130,10 @@ orchestration:
                     existingSecretKey: identity-orchestration-client-token
                 redirectUrl: https://${DOMAIN_NAME}
         initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
             mappingRules:
                 - mappingRuleID: admin-user-mapping-rule
                   claimName: preferred_username
