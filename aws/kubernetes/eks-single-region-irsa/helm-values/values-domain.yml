@@ -159,13 +159,11 @@ orchestration:
                 admin:
                     users:
                         - admin
-            mappingRules:
-                - mappingRuleID: admin-user-mapping-rule
-                  claimName: preferred_username
-                  claimValue: admin
-                - mappingRuleID: connectors-client-mapping-rule
-                  claimName: preferred_username
-                  claimValue: connectors
+                connectors:
+                    users:
+                        - connectors
+                    clients:
+                        - connectors
 
     ingress:
         grpc:

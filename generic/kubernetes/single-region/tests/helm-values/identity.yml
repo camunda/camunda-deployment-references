@@ -60,12 +60,5 @@ orchestration:
         initialization:
             defaultRoles:
                 admin:
-                    users:
-                        - admin
-            mappingRules:
-                - mappingRuleID: venom-test-client-mapping
-                  claimName: client_id
-                  claimValue: venom
-                - mappingRuleID: admin-user-mapping-rule
-                  claimName: preferred_username
-                  claimValue: admin
+                    clients:
+                        - venom
