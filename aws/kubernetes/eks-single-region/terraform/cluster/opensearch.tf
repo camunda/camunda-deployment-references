@@ -7,7 +7,7 @@ module "opensearch_domain" {
   source      = "../../../../modules/opensearch"
   domain_name = local.opensearch_domain_name
   # renovate: datasource=custom.opensearch-camunda depName=opensearch versioning=loose
-  engine_version = "2.19"
+  engine_version = "3.1"
 
   instance_type = "m7i.large.search"
 
