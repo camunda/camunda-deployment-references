@@ -156,6 +156,16 @@ orchestration:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-orchestration-client-token
                 redirectUrl: http://localhost:8080
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
+                connectors:
+                    users:
+                        - connectors
+                    clients:
+                        - connectors
 
 console:
     enabled: false # by default, console is not enabled

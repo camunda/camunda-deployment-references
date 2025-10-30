@@ -74,7 +74,9 @@ env:
     TLD: camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # TODO: revert
+    CLEANUP_CLUSTERS: 'false'
 
     # TEST VARIABLES
 
@@ -83,7 +85,10 @@ env:
 
     # Docker Hub auth to avoid image pull rate limit.
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
-    TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+    # TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+    # TODO: revert
+    TESTS_ENABLED: 'false'
+
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
     TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
@@ -124,7 +129,9 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  # cluster_name: ${{ inputs.cluster_name }}
+                  # TODO: revert
+                  cluster_name: incdeb
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
