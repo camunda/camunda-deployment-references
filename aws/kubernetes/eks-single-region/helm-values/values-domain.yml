@@ -134,25 +134,9 @@ orchestration:
                 - mappingRuleID: admin-user-mapping-rule
                   claimName: preferred_username
                   claimValue: admin
-
-    env:
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_0_MAPPINGRULEID
-          value: admin-user-mapping-rule
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_0_CLAIMNAME
-          value: preferred_username
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_0_CLAIMVALUE
-          value: admin
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_1_MAPPINGRULEID
-          value: connectors-client-mapping-rule
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_1_CLAIMNAME
-          value: client_id
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_1_CLAIMVALUE
-          value: connectors
-        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGRULES_0
-          value: admin-user-mapping-rule
-        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGRULES_1
-          value: connectors-client-mapping-rule
-
+                - mappingRuleID: connectors-client-mapping-rule
+                  claimName: preferred_username
+                  claimValue: connectors
 
     ingress:
         grpc:
