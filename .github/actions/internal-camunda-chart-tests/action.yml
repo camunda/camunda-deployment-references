@@ -545,8 +545,8 @@ runs:
               CAMUNDA_MINOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f2)
 
               if [[ "$CAMUNDA_MAJOR_VERSION" -ge 8 && "$CAMUNDA_MINOR_VERSION" -ge 8 ]]; then
-                # Camunda 8.8+ uses 'orchestration' instead of 'zeebe,zeebe-gateway'
-                REQUIRED_CONTAINERS="connector,optimize,orchestration"
+                # Camunda 8.8+ uses 'zeebe' instead of 'zeebe,zeebe-gateway'
+                REQUIRED_CONTAINERS="connector,optimize,zeebe"
               else
                 # Older versions use separate zeebe and zeebe-gateway
                 REQUIRED_CONTAINERS="connector,optimize,zeebe,zeebe-gateway"
