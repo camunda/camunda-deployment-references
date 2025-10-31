@@ -134,11 +134,7 @@ orchestration:
                 admin:
                     users:
                         - admin
-                connectors:
-                    users:
-                        - connectors
-                    clients:
-                        - connectors
+
     ingress:
         grpc:
             enabled: true

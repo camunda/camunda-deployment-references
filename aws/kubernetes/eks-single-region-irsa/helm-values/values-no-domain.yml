@@ -161,11 +161,6 @@ orchestration:
                 admin:
                     users:
                         - admin
-                connectors:
-                    users:
-                        - connectors
-                    clients:
-                        - connectors
 
 console:
     enabled: false # by default, console is not enabled

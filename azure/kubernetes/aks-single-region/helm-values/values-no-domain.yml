@@ -121,11 +121,6 @@ orchestration:
                 admin:
                     users:
                         - admin
-                connectors:
-                    users:
-                        - connectors
-                    clients:
-                        - connectors
 
 webModeler:
     enabled: false # by default, webModeler is not enabled

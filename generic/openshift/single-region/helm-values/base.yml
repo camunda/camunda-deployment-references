@@ -45,11 +45,6 @@ orchestration:
                 admin:
                     users:
                         - admin
-                connectors:
-                    users:
-                        - connectors
-                    clients:
-                        - connectors
 
 optimize:
     enabled: true
