@@ -70,6 +70,7 @@
       "version": "8.8.z"
     }
   ],
+  "clusterId": "44dc8d48-7531-4100-a666-cec24707eb07",
   "clusterSize": 3,
   "partitionsCount": 3,
   "replicationFactor": 3,
