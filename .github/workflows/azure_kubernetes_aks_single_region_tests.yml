@@ -25,6 +25,7 @@ on:
             - .github/actions/internal-clean-namespace/**
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/kubernetes-wildcard-certificate/**
+            - .github/actions/internal-camunda-chart-tests/**
 
     workflow_dispatch:
         inputs:
