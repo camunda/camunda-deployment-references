@@ -5,6 +5,16 @@ description: >
     Run the Camunda Helm chart tests.
     Already requires the Helm chart to be deployed and cluster access granted.
 
+    This action integrates multiple testing layers:
+    1. Helm chart integration tests (from camunda-platform-helm)
+    2. C8 Self-Managed checks (from c8-sm-checks repository):
+       - Deployment verification (checks pods and containers status)
+       - Kubernetes connectivity checks (services and ingress resolution)
+       - AWS IRSA configuration checks (for EKS clusters with IRSA)
+       - Zeebe token generation and connectivity checks
+
+    All C8 SM checks can be individually enabled/disabled via inputs.
+
 inputs:
     tests-camunda-helm-chart-repo-ref:
         description: The branch, tag or commit to checkout
@@ -12,6 +22,12 @@ inputs:
     tests-camunda-helm-chart-repo-path:
         description: Path to the Helm chart repository
         default: ./.camunda_helm_repo
+    tests-c8-sm-checks-repo-ref:
+        description: The branch, tag or commit to checkout for c8-sm-checks
+        default: fix/88-compat
+    tests-c8-sm-checks-repo-path:
+        description: Path to clone the c8-sm-checks repository
+        default: ./.c8-sm-checks
     secrets:
         description: JSON wrapped secrets for easier secret passing
         required: true
@@ -41,6 +57,9 @@ inputs:
         default: camunda
     test-cluster-type:
         description: The type of the cluster to use for the tests
+        default: kubernetes
+    cluster-type:
+        description: The cloud provider type (eks, aks, gke, kubernetes) - used to determine IRSA checks
         default: kubernetes
     zeebe-topology-golden-file:
         description: The golden file to compare the Zeebe topology output against.
@@ -78,6 +97,21 @@ inputs:
     test-client-secret:
         description: Client secret for Camunda authentication tests
         required: true
+    enable-c8sm-deployment-check:
+        description: Whether the C8 SM deployment check should be run
+        default: 'true'
+    enable-c8sm-connectivity-check:
+        description: Whether the C8 SM Kubernetes connectivity check should be run
+        default: 'true'
+    enable-c8sm-irsa-check:
+        description: Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)
+        default: 'true'
+    enable-c8sm-zeebe-token-check:
+        description: Whether the C8 SM Zeebe token generation check should be run
+        default: 'true'
+    enable-c8sm-zeebe-connectivity-check:
+        description: Whether the C8 SM Zeebe connectivity check should be run
+        default: 'true'
 
 runs:
     using: composite
@@ -104,6 +138,41 @@ runs:
               ref: ${{ inputs.tests-camunda-helm-chart-repo-ref }}
               path: ${{ inputs.tests-camunda-helm-chart-repo-path }}
               fetch-depth: 0
+
+        - name: 🧙‍♂️ Clone camunda/c8-sm-checks
+          uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+          with:
+              repository: camunda/c8-sm-checks
+              ref: ${{ inputs.tests-c8-sm-checks-repo-ref }}
+              path: ${{ inputs.tests-c8-sm-checks-repo-path }}
+              fetch-depth: 0
+
+        - name: 📋 Display C8-SM-CHECKS Configuration
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "======================================"
+              echo "C8 Self-Managed Checks Configuration"
+              echo "======================================"
+              echo ""
+              echo "Tests enabled:"
+              echo "  - Deployment Check: ${{ inputs.enable-c8sm-deployment-check }}"
+              echo "  - Kubernetes Connectivity Check: ${{ inputs.enable-c8sm-connectivity-check }}"
+              echo "  - AWS IRSA Check: ${{ inputs.enable-c8sm-irsa-check }} (cluster-type: ${{ inputs.cluster-type }})"
+              echo "  - Zeebe Token Generation Check: ${{ inputs.enable-c8sm-zeebe-token-check }}"
+              echo "  - Zeebe Connectivity Check: ${{ inputs.enable-c8sm-zeebe-connectivity-check }}"
+              echo ""
+              echo "Configuration:"
+              echo "  - Namespace: ${{ inputs.test-namespace }}"
+              echo "  - Release Name: ${{ inputs.test-release-name }}"
+              echo "  - Cluster Type: ${{ inputs.cluster-type }}"
+              echo "  - Domain: ${{ inputs.camunda-domain || '(not configured)' }}"
+              echo "  - WebModeler Enabled: ${{ inputs.webmodeler-enabled }}"
+              echo "  - Console Enabled: ${{ inputs.console-enabled }}"
+              echo "  - Elasticsearch Enabled: ${{ inputs.elasticsearch-enabled }}"
+              echo ""
+              echo "======================================"
 
         - name: 🔧 Configure service references
           shell: bash
@@ -458,3 +527,164 @@ runs:
                 exit 1
               fi
               echo "✅ The cluster meets all the expected criteria."
+
+        - name: 🧪 C8-SM-CHECKS - Run Deployment Check
+          if: ${{ inputs.enable-c8sm-deployment-check == 'true' }}
+          shell: bash
+          env:
+              NAMESPACE: ${{ inputs.test-namespace }}
+              HELM_DEPLOYMENT_NAME: ${{ inputs.test-release-name }}
+          run: |
+              set -euo pipefail
+
+              echo "🔍 Running deployment check..."
+
+              # Determine required containers based on what's enabled and Camunda version
+              # For Camunda 8.8+, zeebe components are unified under 'orchestration'
+              CAMUNDA_MAJOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f1)
+              CAMUNDA_MINOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f2)
+
+              if [[ "$CAMUNDA_MAJOR_VERSION" -ge 8 && "$CAMUNDA_MINOR_VERSION" -ge 8 ]]; then
+                # Camunda 8.8+ uses 'orchestration' instead of 'zeebe,zeebe-gateway'
+                REQUIRED_CONTAINERS="connector,optimize,orchestration"
+              else
+                # Older versions use separate zeebe and zeebe-gateway
+                REQUIRED_CONTAINERS="connector,optimize,zeebe,zeebe-gateway"
+              fi
+
+              if [[ "${{ inputs.webmodeler-enabled }}" == "true" ]]; then
+                REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},web-modeler"
+              fi
+
+              if [[ "${{ inputs.console-enabled }}" == "true" ]]; then
+                REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},console"
+              fi
+
+              echo "Required containers for Camunda ${{ inputs.camunda-version }}: $REQUIRED_CONTAINERS"
+
+              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              chmod +x "$C8_SM_CHECKS_PATH/checks/kube/deployment.sh"
+              "$C8_SM_CHECKS_PATH/checks/kube/deployment.sh" \
+                -n "$NAMESPACE" \
+                -d "$HELM_DEPLOYMENT_NAME" \
+                -c "$REQUIRED_CONTAINERS"
+
+        - name: 🧪 C8-SM-CHECKS - Run Kubernetes Connectivity Check
+          if: ${{ inputs.enable-c8sm-connectivity-check == 'true' }}
+          shell: bash
+          env:
+              NAMESPACE: ${{ inputs.test-namespace }}
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+          run: |
+              set -euo pipefail
+
+              echo "🔍 Running Kubernetes connectivity check..."
+
+              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              chmod +x "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh"
+
+              # Skip ingress checks if no domain is configured
+              if [[ -z "$CAMUNDA_DOMAIN" ]]; then
+                echo "ℹ️ No domain configured, skipping ingress checks"
+                "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" -n "$NAMESPACE" -i
+              else
+                "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" -n "$NAMESPACE"
+              fi
+
+        - name: 🧪 C8-SM-CHECKS - Run AWS IRSA Check
+          if: ${{ inputs.enable-c8sm-irsa-check == 'true' && inputs.cluster-type == 'eks' }}
+          shell: bash
+          env:
+              NAMESPACE: ${{ inputs.test-namespace }}
+              ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
+          run: |
+              set -euo pipefail
+
+              echo "🔍 Running AWS IRSA check..."
+
+              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              chmod +x "$C8_SM_CHECKS_PATH/checks/kube/aws-irsa.sh"
+
+              # Exclude components based on configuration
+              if [[ "$ELASTICSEARCH_ENABLED" == "true" ]]; then
+                # If Elasticsearch is enabled, IRSA won't work with OpenSearch
+                echo "⚠️ Elasticsearch is enabled, skipping IRSA checks"
+                exit 0
+              fi
+
+              # Build component lists based on Camunda version
+              CAMUNDA_MAJOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f1)
+              CAMUNDA_MINOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f2)
+
+              if [[ "$CAMUNDA_MAJOR_VERSION" -ge 8 && "$CAMUNDA_MINOR_VERSION" -ge 8 ]]; then
+                # Camunda 8.8+ uses 'orchestration' and 'optimize' for OpenSearch
+                OS_COMPONENTS="orchestration,optimize"
+              else
+                # Older versions use separate components
+                OS_COMPONENTS="zeebe,operate,tasklist,optimize"
+              fi
+
+              PG_COMPONENTS="identityKeycloak,identity"
+
+              if [[ "${{ inputs.webmodeler-enabled }}" == "true" ]]; then
+                PG_COMPONENTS="${PG_COMPONENTS},webModeler"
+              fi
+
+              echo "OpenSearch components: $OS_COMPONENTS"
+              echo "PostgreSQL components: $PG_COMPONENTS"
+
+              "$C8_SM_CHECKS_PATH/checks/kube/aws-irsa.sh" \
+                -n "$NAMESPACE" \
+                -p "$PG_COMPONENTS" \
+                -l "$OS_COMPONENTS"
+
+        - name: 🧪 C8-SM-CHECKS - Run Zeebe Token Generation Check
+          if: ${{ inputs.enable-c8sm-zeebe-token-check == 'true' && inputs.zeebe-authenticated == 'true' && inputs.camunda-domain != '' }}
+          shell: bash
+          env:
+              ZEEBE_AUTHORIZATION_SERVER_URL: ${{ format('https://{0}/auth/realms/camunda-platform/protocol/openid-connect/token', inputs.camunda-domain)
+                  }}
+              ZEEBE_CLIENT_ID: ${{ inputs.test-client-id }}
+              ZEEBE_CLIENT_SECRET: ${{ inputs.test-client-secret }}
+              ZEEBE_TOKEN_AUDIENCE: ${{ inputs.camunda-domain-grpc || inputs.camunda-domain }}
+          run: |
+              set -euo pipefail
+
+              echo "🔍 Running Zeebe token generation check..."
+
+              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              chmod +x "$C8_SM_CHECKS_PATH/checks/zeebe/token.sh"
+
+              "$C8_SM_CHECKS_PATH/checks/zeebe/token.sh" \
+                -a "$ZEEBE_AUTHORIZATION_SERVER_URL" \
+                -i "$ZEEBE_CLIENT_ID" \
+                -s "$ZEEBE_CLIENT_SECRET" \
+                -u "$ZEEBE_TOKEN_AUDIENCE"
+
+        - name: 🧪 C8-SM-CHECKS - Run Zeebe Connectivity Check
+          if: ${{ inputs.enable-c8sm-zeebe-connectivity-check == 'true' && inputs.enable-zeebe-client-tests == 'true' && inputs.camunda-domain != '' }}
+          shell: bash
+          env:
+              ZEEBE_ADDRESS: ${{ inputs.camunda-domain-grpc || format('{0}:443', inputs.camunda-domain) }}
+              ZEEBE_AUTHORIZATION_SERVER_URL: ${{ format('https://{0}/auth/realms/camunda-platform/protocol/openid-connect/token', inputs.camunda-domain)
+                  }}
+              ZEEBE_CLIENT_ID: ${{ inputs.test-client-id }}
+              ZEEBE_CLIENT_SECRET: ${{ inputs.test-client-secret }}
+              ZEEBE_TOKEN_AUDIENCE: ${{ inputs.camunda-domain-grpc || inputs.camunda-domain }}
+              CAMUNDA_VERSION: ${{ inputs.camunda-version }}
+          run: |
+              set -euo pipefail
+
+              echo "🔍 Running Zeebe connectivity check..."
+
+              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              chmod +x "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh"
+
+              "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh" \
+                -H "$ZEEBE_ADDRESS" \
+                -p "$CAMUNDA_VERSION" \
+                -a "$ZEEBE_AUTHORIZATION_SERVER_URL" \
+                -i "$ZEEBE_CLIENT_ID" \
+                -s "$ZEEBE_CLIENT_SECRET" \
+                -u "$ZEEBE_TOKEN_AUDIENCE" \
+                -q grpc

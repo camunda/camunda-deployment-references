@@ -3,6 +3,13 @@
 ## Description
 
 Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed and cluster access granted.
+This action integrates multiple testing layers: 1. Helm chart integration tests (from camunda-platform-helm) 2. C8 Self-Managed checks (from c8-sm-checks repository):
+   - Deployment verification (checks pods and containers status)
+   - Kubernetes connectivity checks (services and ingress resolution)
+   - AWS IRSA configuration checks (for EKS clusters with IRSA)
+   - Zeebe token generation and connectivity checks
+
+All C8 SM checks can be individually enabled/disabled via inputs.
 
 
 ## Inputs
@@ -11,6 +18,8 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | --- | --- | --- | --- |
 | `tests-camunda-helm-chart-repo-ref` | <p>The branch, tag or commit to checkout</p> | `false` | `main` |
 | `tests-camunda-helm-chart-repo-path` | <p>Path to the Helm chart repository</p> | `false` | `./.camunda_helm_repo` |
+| `tests-c8-sm-checks-repo-ref` | <p>The branch, tag or commit to checkout for c8-sm-checks</p> | `false` | `fix/88-compat` |
+| `tests-c8-sm-checks-repo-path` | <p>Path to clone the c8-sm-checks repository</p> | `false` | `./.c8-sm-checks` |
 | `secrets` | <p>JSON wrapped secrets for easier secret passing</p> | `true` | `""` |
 | `camunda-version` | <p>The version of the Camunda Helm chart to test</p> | `true` | `""` |
 | `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `""` |
@@ -21,6 +30,7 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `test-namespace` | <p>The namespace to use for the helm tests</p> | `false` | `camunda` |
 | `test-release-name` | <p>The helm release name to used for by the helm tests</p> | `false` | `camunda` |
 | `test-cluster-type` | <p>The type of the cluster to use for the tests</p> | `false` | `kubernetes` |
+| `cluster-type` | <p>The cloud provider type (eks, aks, gke, kubernetes) - used to determine IRSA checks</p> | `false` | `kubernetes` |
 | `zeebe-topology-golden-file` | <p>The golden file to compare the Zeebe topology output against.</p> | `false` | `./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json` |
 | `zeebe-topology-check-script` | <p>The script called to the current Zeebe topology.</p> | `false` | `./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh` |
 | `zeebe-authenticated` | <p>Use the authentication layer to interact with zeebe</p> | `false` | `true` |
@@ -33,6 +43,11 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `elasticsearch-service-name` | <p>Name of the Elasticsearch service with optional port (e.g. elasticsearch-es-http:9200)</p> | `false` | `""` |
 | `test-client-id` | <p>Client ID for Camunda authentication tests</p> | `true` | `""` |
 | `test-client-secret` | <p>Client secret for Camunda authentication tests</p> | `true` | `""` |
+| `enable-c8sm-deployment-check` | <p>Whether the C8 SM deployment check should be run</p> | `false` | `true` |
+| `enable-c8sm-connectivity-check` | <p>Whether the C8 SM Kubernetes connectivity check should be run</p> | `false` | `true` |
+| `enable-c8sm-irsa-check` | <p>Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)</p> | `false` | `true` |
+| `enable-c8sm-zeebe-token-check` | <p>Whether the C8 SM Zeebe token generation check should be run</p> | `false` | `true` |
+| `enable-c8sm-zeebe-connectivity-check` | <p>Whether the C8 SM Zeebe connectivity check should be run</p> | `false` | `true` |
 
 
 ## Runs
@@ -55,6 +70,18 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ./.camunda_helm_repo
+
+    tests-c8-sm-checks-repo-ref:
+    # The branch, tag or commit to checkout for c8-sm-checks
+    #
+    # Required: false
+    # Default: fix/88-compat
+
+    tests-c8-sm-checks-repo-path:
+    # Path to clone the c8-sm-checks repository
+    #
+    # Required: false
+    # Default: ./.c8-sm-checks
 
     secrets:
     # JSON wrapped secrets for easier secret passing
@@ -112,6 +139,12 @@ This action is a `composite` action.
 
     test-cluster-type:
     # The type of the cluster to use for the tests
+    #
+    # Required: false
+    # Default: kubernetes
+
+    cluster-type:
+    # The cloud provider type (eks, aks, gke, kubernetes) - used to determine IRSA checks
     #
     # Required: false
     # Default: kubernetes
@@ -187,4 +220,34 @@ This action is a `composite` action.
     #
     # Required: true
     # Default: ""
+
+    enable-c8sm-deployment-check:
+    # Whether the C8 SM deployment check should be run
+    #
+    # Required: false
+    # Default: true
+
+    enable-c8sm-connectivity-check:
+    # Whether the C8 SM Kubernetes connectivity check should be run
+    #
+    # Required: false
+    # Default: true
+
+    enable-c8sm-irsa-check:
+    # Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)
+    #
+    # Required: false
+    # Default: true
+
+    enable-c8sm-zeebe-token-check:
+    # Whether the C8 SM Zeebe token generation check should be run
+    #
+    # Required: false
+    # Default: true
+
+    enable-c8sm-zeebe-connectivity-check:
+    # Whether the C8 SM Zeebe connectivity check should be run
+    #
+    # Required: false
+    # Default: true
 ```
