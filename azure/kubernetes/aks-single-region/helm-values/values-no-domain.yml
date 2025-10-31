@@ -116,6 +116,11 @@ orchestration:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-orchestration-client-token
                 redirectUrl: http://localhost:8080
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
 
 webModeler:
     enabled: false # by default, webModeler is not enabled

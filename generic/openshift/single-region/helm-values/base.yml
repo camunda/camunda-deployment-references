@@ -40,6 +40,12 @@ orchestration:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-orchestration-client-token
 
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
+
 optimize:
     enabled: true
 
