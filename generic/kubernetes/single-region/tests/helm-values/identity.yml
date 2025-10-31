@@ -54,43 +54,11 @@ identity:
         - name: KEYCLOAK_CLIENTS_2_PERMISSIONS_6_DEFINITION
           value: write:*
 
-# We need to add a mapping for embedded identity
-# this will also overwrite the default mapping for the first user, so we need to readd it again
-# by default the Helm Chart adds any mapping to the admin role
+
 orchestration:
     security:
         initialization:
-            mappingRules:
-                - mappingRuleID: venom-test-client-mapping
-                  claimName: client_id
-                  claimValue: venom
-                - mappingRuleID: admin-user-mapping-rule
-                  claimName: preferred_username
-                  claimValue: admin
-
-    #################### Only needed for keycloak auth
-    env:
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_0_MAPPINGRULEID
-          value: admin-user-mapping-rule
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_0_CLAIMNAME
-          value: preferred_username
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_0_CLAIMVALUE
-          value: admin
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_1_MAPPINGRULEID
-          value: venom-client-mapping-rule
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_1_CLAIMNAME
-          value: client_id
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_1_CLAIMVALUE
-          value: venom
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_2_MAPPINGRULEID
-          value: connectors-client-mapping-rule
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_2_CLAIMNAME
-          value: client_id
-        - name: CAMUNDA_SECURITY_INITIALIZATION_MAPPINGRULES_2_CLAIMVALUE
-          value: connectors
-        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGRULES_0
-          value: admin-user-mapping-rule
-        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGRULES_1
-          value: venom-client-mapping-rule
-        - name: CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_MAPPINGRULES_2
-          value: connectors-client-mapping-rule
+            defaultRoles:
+                admin:
+                    clients:
+                        - venom

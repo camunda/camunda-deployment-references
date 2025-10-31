@@ -129,6 +129,11 @@ orchestration:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-orchestration-client-token
                 redirectUrl: https://${DOMAIN_NAME}
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
 
     ingress:
         grpc:
