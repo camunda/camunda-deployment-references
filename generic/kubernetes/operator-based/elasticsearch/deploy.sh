@@ -8,7 +8,7 @@ CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 OPERATOR_NAMESPACE=${1:-elastic-system}
 
 # renovate: datasource=github-releases depName=elastic/cloud-on-k8s
-ECK_VERSION="3.1.0"
+ECK_VERSION="3.2.0"
 
 # Install ECK operator CRDs
 kubectl apply --server-side -f \
