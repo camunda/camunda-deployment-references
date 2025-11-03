@@ -1791,6 +1791,7 @@
                     "disable_waiting_in_destroy": null,
                     "ec2_metadata_http_tokens": "optional",
                     "etcd_kms_key_arn": null,
+                    "external_auth_providers_enabled": null,
                     "host_prefix": 23,
                     "kms_key_arn": null,
                     "machine_cidr": "10.0.0.0/18",
