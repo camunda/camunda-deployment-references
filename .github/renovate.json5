@@ -2,11 +2,5 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["github>camunda/infraex-common-config:default.json5"],
   groupName: "mono-update-renovate", // we keep all updates in a single renovate branch in order to save CI tests
-  packageRules: [
-    {
-      // we're temporarily ignoring ingress-nginx 4.13.0 as it's been broken for weeks
-      matchPackageNames: ["ingress-nginx"],
-      allowedVersions: "!/^4\\.13\\.0$/"
-    }
-  ]
+  packageRules: []
 }
