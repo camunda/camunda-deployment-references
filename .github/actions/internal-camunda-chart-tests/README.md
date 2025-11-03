@@ -3,7 +3,9 @@
 ## Description
 
 Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed and cluster access granted.
-This action integrates multiple testing layers: 1. Helm chart integration tests (from camunda-platform-helm) 2. C8 Self-Managed checks (from c8-sm-checks repository):
+This action integrates multiple testing layers:
+1. Helm chart integration tests (from camunda-platform-helm)
+2. C8 Self-Managed checks (from c8-sm-checks repository):
    - Deployment verification (checks pods and containers status)
    - Kubernetes connectivity checks (services and ingress resolution)
    - AWS IRSA configuration checks (for EKS clusters with IRSA)
