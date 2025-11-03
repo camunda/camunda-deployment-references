@@ -417,6 +417,10 @@ runs:
               yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$temp_output"
               yq e '.brokers[].version |= sub("[.].*$", ".z") | .gatewayVersion |= sub("[.].*$", ".z")' -i "$reference_file"
 
+              # Replace clusterId with fixed value
+              yq e '.clusterId = "zzzzzz-xxxxx-yyyy-dddd-cccc"' -i "$temp_output"
+              yq e '.clusterId = "zzzzzz-xxxxx-yyyy-dddd-cccc"' -i "$reference_file"
+
               # Replace namespace names with cluster names if env vars are set
               if [[ -n "${CLUSTER_2_NAME:-}" && -n "${CAMUNDA_NAMESPACE_2:-}" && -n "${CAMUNDA_NAMESPACE_1:-}" ]]; then
                 echo "Replacing namespace values in golden file..."
