@@ -10,7 +10,7 @@
         { "partitionId": 6, "role": "follower", "health": "healthy" },
         { "partitionId": 7, "role": "leader", "health": "healthy" }
       ],
-      "version": "8.8.z"
+      "version": "8.9.z"
     },
     {
       "nodeId": 3,
@@ -22,7 +22,7 @@
         { "partitionId": 1, "role": "follower", "health": "healthy" },
         { "partitionId": 2, "role": "follower", "health": "healthy" }
       ],
-      "version": "8.8.z"
+      "version": "8.9.z"
     },
     {
       "nodeId": 2,
@@ -34,7 +34,7 @@
         { "partitionId": 2, "role": "leader", "health": "healthy" },
         { "partitionId": 8, "role": "follower", "health": "healthy" }
       ],
-      "version": "8.8.z"
+      "version": "8.9.z"
     },
     {
       "nodeId": 4,
@@ -46,7 +46,7 @@
         { "partitionId": 3, "role": "follower", "health": "healthy" },
         { "partitionId": 2, "role": "follower", "health": "healthy" }
       ],
-      "version": "8.8.z"
+      "version": "8.9.z"
     },
     {
       "nodeId": 1,
@@ -58,7 +58,7 @@
         { "partitionId": 2, "role": "follower", "health": "healthy" },
         { "partitionId": 8, "role": "follower", "health": "healthy" }
       ],
-      "version": "8.8.z"
+      "version": "8.9.z"
     },
     {
       "nodeId": 0,
@@ -70,7 +70,7 @@
         { "partitionId": 1, "role": "leader", "health": "healthy" },
         { "partitionId": 8, "role": "follower", "health": "healthy" }
       ],
-      "version": "8.8.z"
+      "version": "8.9.z"
     },
     {
       "nodeId": 5,
@@ -82,7 +82,7 @@
         { "partitionId": 3, "role": "follower", "health": "healthy" },
         { "partitionId": 6, "role": "leader", "health": "healthy" }
       ],
-      "version": "8.8.z"
+      "version": "8.9.z"
     },
     {
       "nodeId": 7,
@@ -94,13 +94,13 @@
         { "partitionId": 7, "role": "follower", "health": "healthy" },
         { "partitionId": 8, "role": "leader", "health": "healthy" }
       ],
-      "version": "8.8.z"
+      "version": "8.9.z"
     }
   ],
-  "clusterId": "cluster-id",
+  "clusterId": "db13f764-40be-4d5f-9713-6c4c0546638c",
   "clusterSize": 8,
   "partitionsCount": 8,
   "replicationFactor": 4,
-  "gatewayVersion": "8.8.z",
+  "gatewayVersion": "8.9.z",
   "lastCompletedChangeId": "-1"
 }

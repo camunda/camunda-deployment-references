@@ -21,7 +21,7 @@
           "health": "healthy"
         }
       ],
-      "version": "8.8.z"
+      "version": "8.9.z"
     },
     {
       "nodeId": 1,
@@ -44,7 +44,7 @@
           "health": "healthy"
         }
       ],
-      "version": "8.8.z"
+      "version": "8.9.z"
     },
     {
       "nodeId": 2,
@@ -67,13 +67,13 @@
           "health": "healthy"
         }
       ],
-      "version": "8.8.z"
+      "version": "8.9.z"
     }
   ],
-  "clusterId": "cluster-id",
+  "clusterId": "2f065b42-3b12-4c91-8a26-8d89f4b526e2",
   "clusterSize": 3,
   "partitionsCount": 3,
   "replicationFactor": 3,
-  "gatewayVersion": "8.8.z",
+  "gatewayVersion": "8.9.z",
   "lastCompletedChangeId": "-1"
 }
