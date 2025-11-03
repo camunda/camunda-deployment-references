@@ -97,6 +97,7 @@
       "version": "8.8.z"
     }
   ],
+  "clusterId": "cluster-id",
   "clusterSize": 8,
   "partitionsCount": 8,
   "replicationFactor": 4,
