@@ -30,7 +30,6 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | `test-namespace` | <p>The namespace to use for the helm tests</p> | `false` | `camunda` |
 | `test-release-name` | <p>The helm release name to used for by the helm tests</p> | `false` | `camunda` |
 | `test-cluster-type` | <p>The type of the cluster to use for the tests</p> | `false` | `kubernetes` |
-| `cluster-type` | <p>The cloud provider type (eks, aks, gke, kubernetes) - used to determine IRSA checks</p> | `false` | `kubernetes` |
 | `zeebe-topology-golden-file` | <p>The golden file to compare the Zeebe topology output against.</p> | `false` | `./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json` |
 | `zeebe-topology-check-script` | <p>The script called to the current Zeebe topology.</p> | `false` | `./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh` |
 | `zeebe-authenticated` | <p>Use the authentication layer to interact with zeebe</p> | `false` | `true` |
@@ -45,7 +44,7 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | `test-client-secret` | <p>Client secret for Camunda authentication tests</p> | `true` | `""` |
 | `enable-c8sm-deployment-check` | <p>Whether the C8 SM deployment check should be run</p> | `false` | `true` |
 | `enable-c8sm-connectivity-check` | <p>Whether the C8 SM Kubernetes connectivity check should be run</p> | `false` | `true` |
-| `enable-c8sm-irsa-check` | <p>Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)</p> | `false` | `true` |
+| `enable-c8sm-irsa-check` | <p>Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)</p> | `false` | `false` |
 | `enable-c8sm-zeebe-token-check` | <p>Whether the C8 SM Zeebe token generation check should be run</p> | `false` | `true` |
 | `enable-c8sm-zeebe-connectivity-check` | <p>Whether the C8 SM Zeebe connectivity check should be run</p> | `false` | `true` |
 
@@ -143,12 +142,6 @@ This action is a `composite` action.
     # Required: false
     # Default: kubernetes
 
-    cluster-type:
-    # The cloud provider type (eks, aks, gke, kubernetes) - used to determine IRSA checks
-    #
-    # Required: false
-    # Default: kubernetes
-
     zeebe-topology-golden-file:
     # The golden file to compare the Zeebe topology output against.
     #
@@ -237,7 +230,7 @@ This action is a `composite` action.
     # Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)
     #
     # Required: false
-    # Default: true
+    # Default: false
 
     enable-c8sm-zeebe-token-check:
     # Whether the C8 SM Zeebe token generation check should be run

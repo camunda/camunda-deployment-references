@@ -58,9 +58,6 @@ inputs:
     test-cluster-type:
         description: The type of the cluster to use for the tests
         default: kubernetes
-    cluster-type:
-        description: The cloud provider type (eks, aks, gke, kubernetes) - used to determine IRSA checks
-        default: kubernetes
     zeebe-topology-golden-file:
         description: The golden file to compare the Zeebe topology output against.
         default: ./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json
@@ -105,7 +102,7 @@ inputs:
         default: 'true'
     enable-c8sm-irsa-check:
         description: Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)
-        default: 'true'
+        default: 'false'
     enable-c8sm-zeebe-token-check:
         description: Whether the C8 SM Zeebe token generation check should be run
         default: 'true'
@@ -159,14 +156,14 @@ runs:
               echo "Tests enabled:"
               echo "  - Deployment Check: ${{ inputs.enable-c8sm-deployment-check }}"
               echo "  - Kubernetes Connectivity Check: ${{ inputs.enable-c8sm-connectivity-check }}"
-              echo "  - AWS IRSA Check: ${{ inputs.enable-c8sm-irsa-check }} (cluster-type: ${{ inputs.cluster-type }})"
+              echo "  - AWS IRSA Check: ${{ inputs.enable-c8sm-irsa-check }}"
               echo "  - Zeebe Token Generation Check: ${{ inputs.enable-c8sm-zeebe-token-check }}"
               echo "  - Zeebe Connectivity Check: ${{ inputs.enable-c8sm-zeebe-connectivity-check }}"
               echo ""
               echo "Configuration:"
               echo "  - Namespace: ${{ inputs.test-namespace }}"
               echo "  - Release Name: ${{ inputs.test-release-name }}"
-              echo "  - Cluster Type: ${{ inputs.cluster-type }}"
+              echo "  - Cluster Type: ${{ inputs.test-cluster-type }}"
               echo "  - Domain: ${{ inputs.camunda-domain || '(not configured)' }}"
               echo "  - WebModeler Enabled: ${{ inputs.webmodeler-enabled }}"
               echo "  - Console Enabled: ${{ inputs.console-enabled }}"
@@ -592,7 +589,7 @@ runs:
               fi
 
         - name: 🧪 C8-SM-CHECKS - Run AWS IRSA Check
-          if: ${{ inputs.enable-c8sm-irsa-check == 'true' && inputs.cluster-type == 'eks' }}
+          if: ${{ inputs.enable-c8sm-irsa-check == 'true' }}
           shell: bash
           env:
               NAMESPACE: ${{ inputs.test-namespace }}
