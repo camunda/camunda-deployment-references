@@ -22,7 +22,7 @@ awscli 2.31.27
 delta 0.18.2
 
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
-eksctl 0.215.0
+eksctl 0.216.0
 
 golang 1.25.3
 
