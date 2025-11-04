@@ -1245,6 +1245,28 @@
                 "type": "egress"
               }
             },
+            "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_10251_webhook\"]": {
+              "index": "ingress_cluster_10251_webhook",
+              "mode": "managed",
+              "name": "node",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 2,
+              "sensitive_values": {},
+              "type": "aws_security_group_rule",
+              "values": {
+                "cidr_blocks": null,
+                "description": "Cluster API to node 10251/tcp webhook",
+                "from_port": 10251,
+                "ipv6_cidr_blocks": null,
+                "prefix_list_ids": null,
+                "protocol": "tcp",
+                "region": "eu-west-2",
+                "self": false,
+                "timeouts": null,
+                "to_port": 10251,
+                "type": "ingress"
+              }
+            },
             "module.eks_cluster.module.eks.aws_security_group_rule.node[\"ingress_cluster_443\"]": {
               "index": "ingress_cluster_443",
               "mode": "managed",
