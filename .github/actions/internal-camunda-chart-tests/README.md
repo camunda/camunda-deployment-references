@@ -3,9 +3,7 @@
 ## Description
 
 Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed and cluster access granted.
-This action integrates multiple testing layers:
-1. Helm chart integration tests (from camunda-platform-helm)
-2. C8 Self-Managed checks (from c8-sm-checks repository):
+This action integrates multiple testing layers: 1. Helm chart integration tests (from camunda-platform-helm) 2. C8 Self-Managed checks (from c8-sm-checks repository):
    - Deployment verification (checks pods and containers status)
    - Kubernetes connectivity checks (services and ingress resolution)
    - AWS IRSA configuration checks (for EKS clusters with IRSA)
@@ -20,10 +18,10 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | --- | --- | --- | --- |
 | `tests-camunda-helm-chart-repo-ref` | <p>The branch, tag or commit to checkout</p> | `false` | `main` |
 | `tests-camunda-helm-chart-repo-path` | <p>Path to the Helm chart repository</p> | `false` | `./.camunda_helm_repo` |
-| `tests-c8-sm-checks-repo-ref` | <p>The branch, tag or commit to checkout for c8-sm-checks</p> | `false` | `fix/88-compat` |
+| `tests-c8-sm-checks-repo-ref` | <p>The branch, tag or commit to checkout for c8-sm-checks</p> | `false` | `main` |
 | `tests-c8-sm-checks-repo-path` | <p>Path to clone the c8-sm-checks repository</p> | `false` | `./.c8-sm-checks` |
 | `secrets` | <p>JSON wrapped secrets for easier secret passing</p> | `true` | `""` |
-| `camunda-version` | <p>The version of the Camunda Helm chart to test</p> | `true` | `""` |
+| `camunda-version` | <p>The version of the Camunda to test</p> | `true` | `""` |
 | `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `""` |
 | `camunda-domain-grpc` | <p>The domain to use for the gRPC tests</p> | `false` | `""` |
 | `webmodeler-enabled` | <p>Whether the Webmodeler is enabled in the chart</p> | `false` | `false` |
@@ -76,7 +74,7 @@ This action is a `composite` action.
     # The branch, tag or commit to checkout for c8-sm-checks
     #
     # Required: false
-    # Default: fix/88-compat
+    # Default: main
 
     tests-c8-sm-checks-repo-path:
     # Path to clone the c8-sm-checks repository
@@ -91,7 +89,7 @@ This action is a `composite` action.
     # Default: ""
 
     camunda-version:
-    # The version of the Camunda Helm chart to test
+    # The version of the Camunda to test
     #
     # Required: true
     # Default: ""

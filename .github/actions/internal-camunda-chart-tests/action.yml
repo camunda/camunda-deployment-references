@@ -24,7 +24,7 @@ inputs:
         default: ./.camunda_helm_repo
     tests-c8-sm-checks-repo-ref:
         description: The branch, tag or commit to checkout for c8-sm-checks
-        default: fix/88-compat
+        default: main
     tests-c8-sm-checks-repo-path:
         description: Path to clone the c8-sm-checks repository
         default: ./.c8-sm-checks
@@ -32,7 +32,7 @@ inputs:
         description: JSON wrapped secrets for easier secret passing
         required: true
     camunda-version:
-        description: The version of the Camunda Helm chart to test
+        description: The version of the Camunda to test
         required: true
     camunda-domain:
         description: The domain to use for the tests
@@ -643,7 +643,7 @@ runs:
                   }}
               ZEEBE_CLIENT_ID: ${{ inputs.test-client-id }}
               ZEEBE_CLIENT_SECRET: ${{ inputs.test-client-secret }}
-              ZEEBE_TOKEN_AUDIENCE: ${{ inputs.camunda-domain-grpc || inputs.camunda-domain }}
+              ZEEBE_TOKEN_AUDIENCE: orchestration-api
           run: |
               set -euo pipefail
 
@@ -667,8 +667,8 @@ runs:
                   }}
               ZEEBE_CLIENT_ID: ${{ inputs.test-client-id }}
               ZEEBE_CLIENT_SECRET: ${{ inputs.test-client-secret }}
-              ZEEBE_TOKEN_AUDIENCE: ${{ inputs.camunda-domain-grpc || inputs.camunda-domain }}
-              CAMUNDA_VERSION: ${{ inputs.camunda-version }}
+              ZEEBE_TOKEN_AUDIENCE: orchestration-api
+              ZEEBE_DEFAULT_VERSION: ${{ inputs.camunda-version }}
           run: |
               set -euo pipefail
 
