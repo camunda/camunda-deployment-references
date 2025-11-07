@@ -783,6 +783,14 @@ jobs:
                     exit 1
                   fi
 
+                  echo "Apply import secrets to managed clusters to install klusterlet"
+                  if ! ./apply-import-secret.sh 2>&1; then
+                    echo "❌ Failed to apply import secrets to managed clusters"
+                    echo "Checking cluster status for debugging..."
+                    oc --context "$CLUSTER_1_NAME" get managedclusters || true
+                    exit 1
+                  fi
+
                   echo "Verify all clusters are healthy (with timeout and retry logic)"
                   ./verify-managed-cluster-set.sh
 
