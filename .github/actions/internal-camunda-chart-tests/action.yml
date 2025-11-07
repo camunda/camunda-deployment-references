@@ -679,7 +679,7 @@ runs:
 
               "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh" \
                 -H "$ZEEBE_ADDRESS" \
-                -p "$CAMUNDA_VERSION" \
+                -p "$ZEEBE_DEFAULT_VERSION" \
                 -a "$ZEEBE_AUTHORIZATION_SERVER_URL" \
                 -i "$ZEEBE_CLIENT_ID" \
                 -s "$ZEEBE_CLIENT_SECRET" \
