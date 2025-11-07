@@ -3,6 +3,13 @@
 ## Description
 
 Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed and cluster access granted.
+This action integrates multiple testing layers: 1. Helm chart integration tests (from camunda-platform-helm) 2. C8 Self-Managed checks (from c8-sm-checks repository):
+   - Deployment verification (checks pods and containers status)
+   - Kubernetes connectivity checks (services and ingress resolution)
+   - AWS IRSA configuration checks (for EKS clusters with IRSA)
+   - Zeebe token generation and connectivity checks
+
+All C8 SM checks can be individually enabled/disabled via inputs.
 
 
 ## Inputs
@@ -11,8 +18,10 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | --- | --- | --- | --- |
 | `tests-camunda-helm-chart-repo-ref` | <p>The branch, tag or commit to checkout</p> | `false` | `main` |
 | `tests-camunda-helm-chart-repo-path` | <p>Path to the Helm chart repository</p> | `false` | `./.camunda_helm_repo` |
+| `tests-c8-sm-checks-repo-ref` | <p>The branch, tag or commit to checkout for c8-sm-checks</p> | `false` | `main` |
+| `tests-c8-sm-checks-repo-path` | <p>Path to clone the c8-sm-checks repository</p> | `false` | `./.c8-sm-checks` |
 | `secrets` | <p>JSON wrapped secrets for easier secret passing</p> | `true` | `""` |
-| `camunda-version` | <p>The version of the Camunda Helm chart to test</p> | `true` | `""` |
+| `camunda-version` | <p>The version of the Camunda to test</p> | `true` | `""` |
 | `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `""` |
 | `camunda-domain-grpc` | <p>The domain to use for the gRPC tests</p> | `false` | `""` |
 | `webmodeler-enabled` | <p>Whether the Webmodeler is enabled in the chart</p> | `false` | `false` |
@@ -33,6 +42,11 @@ Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed
 | `elasticsearch-service-name` | <p>Name of the Elasticsearch service with optional port (e.g. elasticsearch-es-http:9200)</p> | `false` | `""` |
 | `test-client-id` | <p>Client ID for Camunda authentication tests</p> | `true` | `""` |
 | `test-client-secret` | <p>Client secret for Camunda authentication tests</p> | `true` | `""` |
+| `enable-c8sm-deployment-check` | <p>Whether the C8 SM deployment check should be run</p> | `false` | `true` |
+| `enable-c8sm-connectivity-check` | <p>Whether the C8 SM Kubernetes connectivity check should be run</p> | `false` | `true` |
+| `enable-c8sm-irsa-check` | <p>Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)</p> | `false` | `false` |
+| `enable-c8sm-zeebe-token-check` | <p>Whether the C8 SM Zeebe token generation check should be run</p> | `false` | `true` |
+| `enable-c8sm-zeebe-connectivity-check` | <p>Whether the C8 SM Zeebe connectivity check should be run</p> | `false` | `true` |
 
 
 ## Runs
@@ -56,6 +70,18 @@ This action is a `composite` action.
     # Required: false
     # Default: ./.camunda_helm_repo
 
+    tests-c8-sm-checks-repo-ref:
+    # The branch, tag or commit to checkout for c8-sm-checks
+    #
+    # Required: false
+    # Default: main
+
+    tests-c8-sm-checks-repo-path:
+    # Path to clone the c8-sm-checks repository
+    #
+    # Required: false
+    # Default: ./.c8-sm-checks
+
     secrets:
     # JSON wrapped secrets for easier secret passing
     #
@@ -63,7 +89,7 @@ This action is a `composite` action.
     # Default: ""
 
     camunda-version:
-    # The version of the Camunda Helm chart to test
+    # The version of the Camunda to test
     #
     # Required: true
     # Default: ""
@@ -187,4 +213,34 @@ This action is a `composite` action.
     #
     # Required: true
     # Default: ""
+
+    enable-c8sm-deployment-check:
+    # Whether the C8 SM deployment check should be run
+    #
+    # Required: false
+    # Default: true
+
+    enable-c8sm-connectivity-check:
+    # Whether the C8 SM Kubernetes connectivity check should be run
+    #
+    # Required: false
+    # Default: true
+
+    enable-c8sm-irsa-check:
+    # Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)
+    #
+    # Required: false
+    # Default: false
+
+    enable-c8sm-zeebe-token-check:
+    # Whether the C8 SM Zeebe token generation check should be run
+    #
+    # Required: false
+    # Default: true
+
+    enable-c8sm-zeebe-connectivity-check:
+    # Whether the C8 SM Zeebe connectivity check should be run
+    #
+    # Required: false
+    # Default: true
 ```

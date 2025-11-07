@@ -2921,6 +2921,7 @@
             "encrypt_at_rest": [
               {}
             ],
+            "identity_center_options": [],
             "log_publishing_options": [],
             "node_to_node_encryption": [
               {}
@@ -3024,6 +3025,7 @@
               }
             ],
             "engine_version": "OpenSearch_2.19",
+            "identity_center_options": [],
             "ip_address_type": "ipv4",
             "log_publishing_options": [],
             "node_to_node_encryption": [
