@@ -541,13 +541,8 @@ runs:
               CAMUNDA_MAJOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f1)
               CAMUNDA_MINOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f2)
 
-              if [[ "$CAMUNDA_MAJOR_VERSION" -ge 8 && "$CAMUNDA_MINOR_VERSION" -ge 8 ]]; then
-                # Camunda 8.8+ uses 'zeebe' instead of 'zeebe,zeebe-gateway'
-                REQUIRED_CONTAINERS="connector,optimize,zeebe"
-              else
-                # Older versions use separate zeebe and zeebe-gateway
-                REQUIRED_CONTAINERS="connector,optimize,zeebe,zeebe-gateway"
-              fi
+              # Camunda 8.8+ uses 'zeebe' instead of 'zeebe,zeebe-gateway'
+              REQUIRED_CONTAINERS="connector,optimize,zeebe"
 
               if [[ "${{ inputs.webmodeler-enabled }}" == "true" ]]; then
                 REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},web-modeler"
@@ -613,13 +608,8 @@ runs:
               CAMUNDA_MAJOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f1)
               CAMUNDA_MINOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f2)
 
-              if [[ "$CAMUNDA_MAJOR_VERSION" -ge 8 && "$CAMUNDA_MINOR_VERSION" -ge 8 ]]; then
-                # Camunda 8.8+ uses 'orchestration' and 'optimize' for OpenSearch
-                OS_COMPONENTS="orchestration,optimize"
-              else
-                # Older versions use separate components
-                OS_COMPONENTS="zeebe,operate,tasklist,optimize"
-              fi
+              # Camunda 8.8+ uses 'orchestration' and 'optimize' for OpenSearch
+              OS_COMPONENTS="orchestration,optimize"
 
               PG_COMPONENTS="identityKeycloak,identity"
 
