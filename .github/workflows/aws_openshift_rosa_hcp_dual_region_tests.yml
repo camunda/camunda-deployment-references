@@ -394,7 +394,7 @@ jobs:
                   ./generic/openshift/dual-region/tests/utils/cleanup-acm.sh
 
             - name: 🚢 Configure ACM
-              timeout-minutes: 30
+              timeout-minutes: 15
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
               run: |
@@ -434,14 +434,6 @@ jobs:
                     echo "Running diagnostics..."
                     ./debug-managed-cluster.sh local-cluster || true
                     ./debug-managed-cluster.sh "$CLUSTER_2_NAME" || true
-                    exit 1
-                  fi
-
-                  echo "Apply import secrets to managed clusters to install klusterlet"
-                  if ! ./apply-import-secret.sh 2>&1; then
-                    echo "❌ Failed to apply import secrets to managed clusters"
-                    echo "Checking cluster status for debugging..."
-                    oc --context "$CLUSTER_1_NAME" get managedclusters || true
                     exit 1
                   fi
 

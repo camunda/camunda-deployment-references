@@ -3,8 +3,8 @@ kind: ManagedCluster
 metadata:
   name: $CLUSTER_NAME
   labels:
-    name: $CLUSTER_NAME
-    cluster.open-cluster-management.io/clusterset: oc-clusters
+    cloud: auto-detect
+    vendor: auto-detect
   annotations: {}
 spec:
   hubAcceptsClient: true
