@@ -643,8 +643,6 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-            # TODO: integrate c8-multi-region tests as a lego test
-
             - name: 🧪 Run Helm Chart tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60
@@ -671,6 +669,21 @@ jobs:
                   enable-c8sm-irsa-check: 'false'
                   enable-c8sm-zeebe-token-check: 'false'
                   enable-c8sm-zeebe-connectivity-check: 'false'
+
+            - name: Run Multi-region tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 45
+              uses: ./.github/actions/internal-multi-region-tests
+              with:
+                  cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  cluster-1-namespace: ${{ env.CAMUNDA_NAMESPACE_2 }}
+                  helm-version: ${{ env.HELM_CHART_VERSION }}
+                  backup-name: ${{ env.CAMUNDA_RELEASE_NAME }}-backup
+                  cluster-name: ${{ env.CLUSTER_2_NAME }}
+                  default-values-yaml: ${{ github.path }}/generic/openshift/dual-region/helm-values/values-base.yml
+                  region-0-values-yaml: ${{ github.path }}/generic/openshift/dual-region/helm-values/values-region-1.yml
+                  region-1-values-yaml: ${{ github.path }}/generic/openshift/dual-region/helm-values/values-region-2.yml
+
 
             - name: 🔬🚨 Get failed Pods info - Cluster 1
               if: failure()
