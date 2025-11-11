@@ -382,17 +382,6 @@ jobs:
                   ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
-            # It's expected to always run in case an existing cluster is present.
-            # E.g. manual development deployment or retry after failure.
-            # This ensures a completely clean state before installing ACM.
-            - name: ♻️ Ensure ACM and associated MultiCluster are not installed
-              timeout-minutes: 30
-              env:
-                  RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
-              run: |
-                  set -euo pipefail
-                  ./generic/openshift/dual-region/tests/utils/cleanup-acm.sh
-
             - name: 🚢 Configure ACM
               timeout-minutes: 15
               env:
