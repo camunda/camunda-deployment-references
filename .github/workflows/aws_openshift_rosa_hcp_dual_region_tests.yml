@@ -441,7 +441,7 @@ jobs:
                   ./verify-managed-cluster-set.sh
 
             - name: 🐠 Configure Submariner
-              timeout-minutes: 30
+              timeout-minutes: 10
               run: |
                   set -euo pipefail
 
@@ -711,22 +711,22 @@ jobs:
                     kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name"
                   done
 
-    integration-tests-retry:
-        name: Retry Tests in case of failure
-        if: failure() && fromJSON(github.run_attempt) < 3
-        runs-on: ubuntu-latest
-        needs:
-            - integration-tests
-        steps:
-            - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@98d1314ca835f199797565423661bc1a66acc802 # main
-              with:
-                  error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
-                  run-id: ${{ github.run_id }}
-                  repository: ${{ github.repository }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+    # integration-tests-retry:
+    #     name: Retry Tests in case of failure
+    #     if: failure() && fromJSON(github.run_attempt) < 3
+    #     runs-on: ubuntu-latest
+    #     needs:
+    #         - integration-tests
+    #     steps:
+    #         - name: Retrigger job
+    #           uses: camunda/infra-global-github-actions/rerun-failed-run@98d1314ca835f199797565423661bc1a66acc802 # main
+    #           with:
+    #               error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
+    #               run-id: ${{ github.run_id }}
+    #               repository: ${{ github.repository }}
+    #               vault-addr: ${{ secrets.VAULT_ADDR }}
+    #               vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+    #               vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
@@ -735,7 +735,7 @@ jobs:
         needs:
             - clusters-info
             - integration-tests
-            - integration-tests-retry
+            # - integration-tests-retry
         strategy:
             fail-fast: false
             matrix:
@@ -798,35 +798,35 @@ jobs:
                   openshift: 'true'
                   delete-ghost-rosa-clusters: 'true'
                   modules-order: backup_bucket,peering,clusters
-    report-success:
-        name: Report success
-        runs-on: ubuntu-latest
-        needs:
-            - integration-tests
-            - cleanup-clusters
-        steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+    # report-success:
+    #     name: Report success
+    #     runs-on: ubuntu-latest
+    #     needs:
+    #         - integration-tests
+    #         - cleanup-clusters
+    #     steps:
+    #         - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
-            - name: Prevent other runs for renovate
-              if: ${{ env.IS_RENOVATE_PR == 'true' }}
-              env:
-                  GH_TOKEN: ${{ github.token }}
-              uses: ./.github/actions/internal-apply-skip-label
+    #         - name: Prevent other runs for renovate
+    #           if: ${{ env.IS_RENOVATE_PR == 'true' }}
+    #           env:
+    #               GH_TOKEN: ${{ github.token }}
+    #           uses: ./.github/actions/internal-apply-skip-label
 
 
-    report-failure:
-        name: Report failures
-        if: failure() && (needs.integration-tests-retry.result != 'success' || fromJSON(github.run_attempt) >= 3)
-        runs-on: ubuntu-latest
-        needs:
-            - integration-tests-retry
-            - report-success
-        steps:
-            - name: Notify in Slack in case of failure
-              id: slack-notification
-              if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
-              with:
-                  vault_addr: ${{ secrets.VAULT_ADDR }}
-                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+    # report-failure:
+    #     name: Report failures
+    #     if: failure() && (needs.integration-tests-retry.result != 'success' || fromJSON(github.run_attempt) >= 3)
+    #     runs-on: ubuntu-latest
+    #     needs:
+    #         - integration-tests-retry
+    #         - report-success
+    #     steps:
+    #         - name: Notify in Slack in case of failure
+    #           id: slack-notification
+    #           if: ${{ env.IS_SCHEDULE == 'true' }}
+    #           uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+    #           with:
+    #               vault_addr: ${{ secrets.VAULT_ADDR }}
+    #               vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+    #               vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
