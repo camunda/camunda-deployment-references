@@ -56,6 +56,11 @@ runs:
               set -euo pipefail
 
               for ctx in $(kubectl config get-contexts -o name); do
+                if [[ "$ctx" == *default* ]]; then
+                  echo "Skipping $ctx (contains 'default')" # it's a faulty one
+                  continue
+                fi
+
                 echo "Exporting $ctx ..."
                 kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
               done
