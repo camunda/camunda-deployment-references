@@ -672,17 +672,19 @@ jobs:
 
             - name: Run Multi-region tests
               if: env.TESTS_ENABLED == 'true'
-              timeout-minutes: 45
+              timeout-minutes: 60
               uses: ./.github/actions/internal-multi-region-tests
               with:
+                  cluster-0-name: ${{ env.CLUSTER_1_NAME }}
+                  cluster-1-name: ${{ env.CLUSTER_2_NAME }}
                   cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   cluster-1-namespace: ${{ env.CAMUNDA_NAMESPACE_2 }}
                   helm-version: ${{ env.HELM_CHART_VERSION }}
                   backup-name: ${{ env.CAMUNDA_RELEASE_NAME }}-backup
-                  cluster-name: ${{ env.CLUSTER_2_NAME }}
-                  default-values-yaml: ${{ github.path }}/generic/openshift/dual-region/helm-values/values-base.yml
-                  region-0-values-yaml: ${{ github.path }}/generic/openshift/dual-region/helm-values/values-region-1.yml
-                  region-1-values-yaml: ${{ github.path }}/generic/openshift/dual-region/helm-values/values-region-2.yml
+                  backup-bucket: ${{ env.BACKUP_BUCKET_S3_BUCKET_NAME }}
+                  default-values-yaml: ${{ github.workspace }}/openshift.yml
+                  region-0-values-yaml: ${{ github.workspace }}/generated-values-region-1.yml
+                  region-1-values-yaml: ${{ github.workspace }}/generated-values-region-2.yml
 
 
             - name: 🔬🚨 Get failed Pods info - Cluster 1

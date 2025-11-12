@@ -13,13 +13,19 @@ inputs:
     helm-version:
         description: Helm version to test
         required: true
-    cluster-name:
-        description: Value used for naming some things but not actively used to decide on context
-        required: false
-        default: dual-region-cluster
+    cluster-0-name:
+        description: Name of cluster in region 0
+        required: true
+    cluster-1-name:
+        description: Name of cluster in region 1
+        required: true
     backup-name:
         description: Name of the backup that should be created, important in shared s3 buckets
         required: false
+    backup-bucket:
+        description: Name of the S3 bucket where backups are stored
+        required: false
+        default: camunda-platform-backups
     default-values-yaml:
         description: Path to default values yaml file
         required: false
@@ -42,36 +48,20 @@ runs:
         - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
           with:
               repository: camunda/c8-multi-region
-              ref: infraex-559-SNAPSHOT
+              ref: infraex-559-SNAPSHOT # TODO: remove when merged to main
               path: multi-region-tests
         - name: Split up Kubeconfig
           shell: bash
           run: |
               set -euo pipefail
-              # there's a 3rd context in there that skews with the order
-              yq eval '
-              {
-                "apiVersion": .apiVersion,
-                "kind": .kind,
-                "preferences": .preferences,
-                "clusters": [ .clusters[0] ],
-                "contexts": [ .contexts[1] ],
-                "current-context": .contexts[1].name,
-                "users": [ .users[0] ]
-              }
-              ' $HOME/.kube/config > ./multi-region-tests/test/kubeconfig-london
 
-              yq eval '
-              {
-                "apiVersion": .apiVersion,
-                "kind": .kind,
-                "preferences": .preferences,
-                "clusters": [ .clusters[1] ],
-                "contexts": [ .contexts[2] ],
-                "current-context": .contexts[2].name,
-                "users": [ .users[1] ]
-              }
-              ' $HOME/.kube/config > ./multi-region-tests/test/kubeconfig-paris
+              for ctx in $(kubectl config get-contexts -o name); do
+                echo "Exporting $ctx ..."
+                kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
+              done
+
+              mv kubeconfig-{{ inputs.cluster-0-name }}.yaml ./multi-region-tests/test/kubeconfig-london
+              mv kubeconfig-{{ inputs.cluster-1-name }}.yaml ./multi-region-tests/test/kubeconfig-paris
         - name: Set Up Environment Variables
           shell: bash
           run: |
@@ -84,17 +74,35 @@ runs:
                 } >> "$GITHUB_ENV"
               fi
 
+              # create empty file if not exists
+              # OpenShift specific fix but doesn't harm others
+              touch ${{ inputs.default-values-yaml }}
+
               {
                 echo "CLUSTER_0_NAMESPACE=${{ inputs.cluster-0-namespace }}"
                 echo "CLUSTER_1_NAMESPACE=${{ inputs.cluster-1-namespace }}"
                 echo "HELM_CHART_VERSION=${{ inputs.helm-version }}"
-                echo "CLUSTER_NAME=${{ inputs.cluster-name }}"
-                echo "BACKUP_NAME${{ inputs.backup-name }}"
+                echo "BACKUP_NAME=${{ inputs.backup-name }}"
+                echo "BACKUP_BUCKET=${{ inputs.backup-bucket }}"
                 echo "DEFAULT_VALUES_YAML=${{ inputs.default-values-yaml }}"
                 echo "REGION0_VALUES_YAML=${{ inputs.region-0-values-yaml }}"
                 echo "REGION1_VALUES_YAML=${{ inputs.region-1-values-yaml }}"
                 echo "EXTRA_VALUES_YAML=${{ inputs.extra-values-yaml }}"
               } >> "$GITHUB_ENV"
+        - name: Clean Environment
+          shell: bash
+          working-directory: ./multi-region-tests/test
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 15m -run TestAWSDualRegCleanup
+        - name: Deploy multi-region setup - ${{ inputs.helm-version }}
+          shell: bash
+          working-directory: ./multi-region-tests/test
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
         - name: Set start timestamp for Failover
           shell: bash
           id: failover-start
@@ -145,12 +153,6 @@ runs:
               if [ "$duration" -gt "1500" ]; then
               echo "::error ::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
               fi
-    # - name: Test multi-tenancy - ${{ inputs.helm-version }}
-    #   shell: bash
-    #   if: ${{ fromJSON(env.MAJOR_VERSION) >= 13 }}
-    #   working-directory: ./multi-region-tests/test
-    #   run: |
-    #       go test --count=1 -v -timeout 20m -run TestMultiTenancyDualReg
         - name: Debug Step
           shell: bash
           working-directory: ./multi-region-tests/test
