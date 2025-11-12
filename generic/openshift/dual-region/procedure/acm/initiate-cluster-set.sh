@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # AWS OpenShift specific requirement to ensure CA store is trusted
-oc --context "$CLUSTER_1_NAME" apply -f klusterlet-global-config.yml
+oc --context "$CLUSTER_1_NAME" apply -f klusterlet-global-config.yml || true # ignore if e.g. on non AWS
 
 # local-cluster is the default name for the hub cluster and is by default already registered
 # we need to add it to the same clusterset and label it for submariner
