@@ -99,7 +99,7 @@ jobs:
         name: Define Matrix
         runs-on: ubuntu-latest
         outputs:
-            platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
+            platform-matrix: ${{ steps.matrix.outputs.platform-matrix }}
         steps:
             - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
               with:
@@ -400,123 +400,8 @@ jobs:
                   ./aws/openshift/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
-            # It's expected to always run in case an existing cluster is present.
-            # E.g. manual development deployment.
-            - name: Ensure ACM and associated MultiCluster are not installed
-              timeout-minutes: 25
-              run: |
-                  set -euo pipefail
-
-                  TIMEOUT_SECONDS=300
-                  CLUSTERS=("local-cluster" "$CLUSTER_2_NAME")
-
-                  for cluster_name in "${CLUSTERS[@]}"; do
-                    echo "Deleting ManagedCluster: $cluster_name"
-
-                    CLUSTER_NAME="$cluster_name" \
-                    envsubst < ./generic/openshift/dual-region/procedure/acm/managed-cluster.yml.tpl \
-                    | oc --context "$CLUSTER_1_NAME" delete -f - \
-                    || true
-
-                    echo "⏳ Waiting for ManagedCluster '$cluster_name' to be deleted..."
-                    SECONDS=0
-                    while oc --context "$CLUSTER_1_NAME" get managedcluster "$cluster_name" >/dev/null 2>&1; do
-                      echo "Still deleting '$cluster_name'..."
-                      echo "Current state:"
-                      oc --context "$CLUSTER_1_NAME" describe managedcluster "$cluster_name" | \
-                        grep -E 'Name:|Namespace:|Status:|Conditions:' -A 5 || \
-                        echo "Describe failed or resource partially removed."
-                      sleep 5
-
-                      if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
-                        echo "⛔ Timeout reached while deleting '$cluster_name' — enforcing finalizers!"
-                        oc --context "$CLUSTER_1_NAME" patch managedcluster "$cluster_name" --type='merge' -p '{"metadata":{"finalizers":[]}}'
-                        break
-                      fi
-                    done
-
-                    echo "✅ ManagedCluster '$cluster_name' has been successfully deleted or forced."
-                    echo ""
-                  done
-
-                  echo "⏳ Uninstalling MultiClusterHub..."
-                  if oc --context="$CLUSTER_1_NAME" get clusterrole open-cluster-management:cluster-manager-admin >/dev/null 2>&1; then
-                    oc --context="$CLUSTER_1_NAME" delete clusterrole open-cluster-management:cluster-manager-admin
-                  fi
-
-                  SECONDS=0
-                  echo "⏳ Checking for MultiClusterHub CRD..."
-
-                  # Check if the CRD exists before attempting to delete a resource
-                  if oc --context="$CLUSTER_1_NAME" get crd multiclusterhubs.operator.open-cluster-management.io >/dev/null 2>&1; then
-                    echo "CRD found, attempting to delete MultiClusterHub..."
-                    oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/multi-cluster-hub.yml || true
-
-                    while true; do
-                      output=$(oc --context="$CLUSTER_1_NAME" get multiclusterhub -n open-cluster-management -o yaml 2>/dev/null)
-
-                      if [[ -z "$output" || "$output" == *"items: []"* ]]; then
-                        echo "✅ MultiClusterHub resource deleted or not found."
-                        break
-                      fi
-
-                      echo "MultiClusterHub still exists, fetching details:"
-                      echo "$output"
-
-                      echo "Still waiting for MultiClusterHub to be deleted..."
-                      sleep 10
-
-                      if [ $SECONDS -ge 100 ]; then
-                        echo "⛔ Timeout reached - Uninstallation of MultiClusterHub is stuck - enforcing finalizer removal!"
-                        oc --context="$CLUSTER_1_NAME" patch multiclusterhub multiclusterhub --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
-                      fi
-                    done
-
-                  else
-                    echo "MultiClusterHub CRD not found. Skipping deletion."
-                  fi
-
-                  echo "Uninstalling ACM Install Manifest..."
-                  oc --context="$CLUSTER_1_NAME" delete -f ./generic/openshift/dual-region/procedure/acm/install-manifest.yml || true
-
-                  # Check if the CRD exists before attempting to delete a resource
-                  if oc --context="$CLUSTER_1_NAME" get crd multiclusterengines.multicluster.openshift.io >/dev/null 2>&1; then
-                    echo "CRD found, attempting to delete MultiClusterEngine..."
-
-                    echo "⏳ Waiting for MultiClusterEngine to be deleted..."
-                    SECONDS=0
-                    while true; do
-                      output=$(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o yaml 2>/dev/null)
-
-                      if [[ -z "$output" || "$output" == *"items: []"* ]]; then
-                        echo "✅ MultiClusterEngine resource deleted or not found."
-                        break
-                      fi
-
-                      echo "MultiClusterEngine still exists, fetching details:"
-                      echo "$output"
-
-                      if [ "$SECONDS" -ge "$TIMEOUT_SECONDS" ]; then
-                        echo "⛔ Timeout reached — enforcing MultiClusterEngine finalizer removal!"
-
-                        for mce in $(oc --context="$CLUSTER_1_NAME" get multiclusterengine -n open-cluster-management -o jsonpath='{.items[*].metadata.name}'); do
-                          oc --context="$CLUSTER_1_NAME" patch multiclusterengine "$mce" \
-                            --type='merge' -p '{"metadata":{"finalizers":[]}}' -n open-cluster-management
-                        done
-                        break
-                      fi
-
-                      echo "Still waiting for MultiClusterEngine to be deleted..."
-                      sleep 10
-
-                    done
-                  else
-                    echo "MultiClusterEngine CRD not found. Skipping deletion."
-                  fi
-
-                  echo "✅ ACM and related resources successfully uninstalled (with finalizer enforcement if needed)."
             - name: 🚢 Configure ACM
-              timeout-minutes: 20
+              timeout-minutes: 15
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
               run: |
@@ -557,7 +442,7 @@ jobs:
                   ./verify-managed-cluster-set.sh
 
             - name: 🐠 Configure Submariner
-              timeout-minutes: 20
+              timeout-minutes: 10
               run: |
                   set -euo pipefail
 
@@ -780,16 +665,31 @@ jobs:
                     kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name"
                   done
 
+    integration-tests-retry:
+        name: Retry Tests in case of failure
+        if: failure() && fromJSON(github.run_attempt) < 3
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+        steps:
+            - name: Retrigger job
+              uses: camunda/infra-global-github-actions/rerun-failed-run@98d1314ca835f199797565423661bc1a66acc802 # main
+              with:
+                  error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
+                  run-id: ${{ github.run_id }}
+                  repository: ${{ github.repository }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
-        # in case of a failure that is retried, we will spawn a new cluster
-        # as ACM is bugged
-        if: always()
+        if: always() && (needs.integration-tests.result == 'success' || fromJson(github.run_attempt) >= 3)
         runs-on: ubuntu-latest
         needs:
             - clusters-info
             - integration-tests
+            - integration-tests-retry
         strategy:
             fail-fast: false
             matrix:
@@ -850,23 +750,6 @@ jobs:
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
 
-    integration-tests-retry:
-        name: Retry Tests in case of failure after cleanup
-        if: failure() && fromJSON(github.run_attempt) < 3
-        runs-on: ubuntu-latest
-        needs:
-            - integration-tests
-            - cleanup-clusters
-        steps:
-            - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@98d1314ca835f199797565423661bc1a66acc802 # main
-              with:
-                  error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
-                  run-id: ${{ github.run_id }}
-                  repository: ${{ github.repository }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
     report-success:
         name: Report success
         runs-on: ubuntu-latest

@@ -1,0 +1,8 @@
+---
+apiVersion: config.open-cluster-management.io/v1alpha1
+kind: KlusterletConfig
+metadata:
+    name: global
+spec:
+    hubKubeAPIServerConfig:
+        serverVerificationStrategy: UseSystemTruststore
