@@ -1,18 +1,12 @@
 #!/bin/bash
 
-# Import the first cluster
-SUB1_TOKEN=$(oc --context "$CLUSTER_1_NAME" whoami -t)
-CLUSTER_1_API=$(oc config view --minify --context "$CLUSTER_1_NAME" --raw -o json | jq -r '.clusters[].cluster.server')
+# AWS OpenShift specific requirement to ensure CA store is trusted
+oc --context "$CLUSTER_1_NAME" apply -f klusterlet-global-config.yml || true # ignore if e.g. on non AWS
 
-# for the first cluster, the cluster name is hardcoded on purpose
-CLUSTER_NAME="local-cluster" envsubst < managed-cluster.yml.tpl | oc --context "$CLUSTER_1_NAME" apply -f -
-
-CLUSTER_NAME="local-cluster" CLUSTER_TOKEN="$SUB1_TOKEN" CLUSTER_API="$CLUSTER_1_API" envsubst < auto-import-cluster-secret.yml.tpl | oc --context "$CLUSTER_1_NAME" apply -f -
-
-CLUSTER_NAME="local-cluster" envsubst < klusterlet-config.yml.tpl | oc --context "$CLUSTER_1_NAME" apply -f -
-
-# List Managed Cluster sets
-oc --context "$CLUSTER_1_NAME" get managedclusters
+# local-cluster is the default name for the hub cluster and is by default already registered
+# we need to add it to the same clusterset and label it for submariner
+oc --context "$CLUSTER_1_NAME" label managedclusters local-cluster "cluster.open-cluster-management.io/clusterset=oc-clusters" --overwrite
+oc --context "$CLUSTER_1_NAME" label managedclusters local-cluster "cluster.open-cluster-management.io/submariner-agent=true" --overwrite
 
 # Import second cluster
 SUB2_TOKEN=$(oc --context "$CLUSTER_2_NAME" whoami -t)
