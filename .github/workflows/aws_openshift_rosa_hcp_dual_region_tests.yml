@@ -99,7 +99,7 @@ jobs:
         name: Define Matrix
         runs-on: ubuntu-latest
         outputs:
-            platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
+            platform-matrix: ${{ steps.matrix.outputs.platform-matrix }}
         steps:
             - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
               with:
