@@ -1,32 +1,13 @@
 ---
 name: Tests - Integration - Azure Kubernetes AKS Single Region
-
 permissions:
-    id-token: write # this is required for azure login
-    contents: write # allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
-
+    id-token: write
+    contents: write
+    pull-requests: write
 on:
     schedule:
-        - cron: 0 3 * * 3 # Runs at 3 AM on Wednesdays
-    pull_request:
-        paths:
-            - .github/workflows/azure_kubernetes_aks_single_region_tests.yml
-            - .tool-versions
-            - generic/kubernetes/single-region/**
-            - azure/kubernetes/aks-single-region/**
-            - azure/modules/**
-            - generic/kubernetes/single-region/procedure/**
-            - '!azure/kubernetes/aks-single-region/test/golden/**'
-            - .github/actions/azure-kubernetes-aks-single-region-create/**
-            - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
-            - .github/actions/azure-kubernetes-ingress-setup/**
-            - .github/actions/internal-terraform-drift-detect/**
-            - .github/actions/internal-clean-namespace/**
-            - .github/actions/kubernetes-restart-coredns/**
-            - .github/actions/kubernetes-wildcard-certificate/**
-            - .github/actions/internal-camunda-chart-tests/**
-
+        - cron: 0 3 * * 3
+    pull_request: {}
     workflow_dispatch:
         inputs:
             delete_clusters:
@@ -62,19 +43,12 @@ on:
                 description: Use wildcard certificate from Vault instead of ACME/Let's Encrypt
                 type: boolean
                 default: false
-
-
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
     cancel-in-progress: false
-
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
-
-    # terraform statefile is to be stored in an AWS S3 bucket to benefit from existing automated cleanup capabilities
-    # AWS itself is not used to deploy resources, only Azure
     AWS_PROFILE: infraex
     AWS_REGION: eu-central-1
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
@@ -82,40 +56,24 @@ env:
     TLD: azure.camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
     AZURE_DNS_RESOURCE_GROUP: rg-infraex-global-permanent
-
-
-    # Test environment for cloud provider, please keep it synced between the workflows
     AZURE_REGION: swedencentral
-
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-
-    # TEST VARIABLES
-
     CI_MATRIX_FILE: .github/workflows-config/azure-kubernetes-aks-single-region/test_matrix.yml
-    # Docker Hub auth to avoid image pull rate limit.
-    # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
-
-    # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    # TODO: resolve this branch when merging to playwright <8.8>
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
-    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
-
-    # Optional components that are not enabled by default in the doc
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8
+    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo
     WEBMODELER_ENABLED: 'true'
     CONSOLE_ENABLED: 'true'
-
 jobs:
     triage:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
-
     clusters-info:
         name: Generate test matrix
         runs-on: ubuntu-latest
@@ -124,8 +82,7 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.gen.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
             - name: Generate Tests Matrix
               id: gen
               uses: ./.github/actions/internal-tests-matrix
@@ -133,7 +90,6 @@ jobs:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
-
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_name: ${{ inputs.cluster_name }}
     prepare-clusters:
@@ -150,17 +106,15 @@ jobs:
             TF_MODULES_PATH: ./.action-tf-modules/azure-kubernetes-${{ matrix.scenario.name }}-create/
             CAMUNDA_NAMESPACE: camunda
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@7c1ce5e3e7ca90aa62f97f0024536f87903f42a5 # main
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@7c1ce5e3e7ca90aa62f97f0024536f87903f42a5
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -172,7 +126,6 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
-
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -181,15 +134,13 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
             - name: Azure Login with OIDC
-              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
                   subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
-
             - name: Set current target branch
               id: target-branch
               run: |
@@ -201,7 +152,6 @@ jobs:
               run: |
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
-
             - name: Create terraform.tfvars file
               id: create-tfvars
               working-directory: ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}
@@ -210,11 +160,9 @@ jobs:
                   set -euo pipefail
                   export AZURE_SP_ID=$(az account show --query user.name -o tsv)
                   ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/tfvars-domain.sh
-
             - name: Create K8S cluster and login
               uses: ./.github/actions/azure-kubernetes-aks-single-region-create
               id: create_cluster
-              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               timeout-minutes: 120
               with:
@@ -231,6 +179,8 @@ jobs:
                   ref-arch: ${{ matrix.scenario.name }}
                   tags: >
                       {
+
+
                         "ci-run-id": "${{ github.run_id }}",
                         "ci-run-number": "${{ github.run_number }}",
                         "ci-workflow": "${{ github.workflow }}",
@@ -267,7 +217,6 @@ jobs:
                     echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME"
                     echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
                   } > "${{ runner.temp }}/outputs_raw"
-
             - name: Export other secrets from the action
               id: encrypt_outputs
               if: always()
@@ -275,9 +224,7 @@ jobs:
               with:
                   file_path: ${{ runner.temp }}/outputs_raw
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
-
-            # Write for matrix outputs workaround
-            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
+            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375
               if: always()
               id: out
               with:
@@ -285,7 +232,6 @@ jobs:
                   matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   outputs: |-
                       outputs_raw: ${{ steps.encrypt_outputs.outputs.encrypted_file_base64 }}
-
     access-info:
         name: Read outputs from matrix
         runs-on: ubuntu-latest
@@ -294,18 +240,14 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
-
     integration-tests:
         name: Run integration tests
         runs-on: ubuntu-latest
         concurrency:
-            # instead of running sequentially in a matrix, we use concurrency to run the different scenarios
-            # in parallel but the declinations sequentially
-            # max-parallel would limit us to run 1 matrix job but this way we can run 2 jobs in parallel.
             group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.distro.name }}-${{ matrix.scenario.name }}
             cancel-in-progress: false
         needs:
@@ -318,21 +260,16 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
-
         env:
-            # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: kubernetes
-            # Do not change this secret name without updating manifests that reference this TLS secret
             WILDCARD_TLS_SECRET_NAME: camunda-c8-tls
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -350,22 +287,22 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
                       secret/data/products/infrastructure-experience/ci/common MACHINE_USR;
                       secret/data/products/infrastructure-experience/ci/common MACHINE_PWD;
-
-
             - name: 🚢 Retrieve environment variables from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
               with:
                   output_path: ${{ runner.temp }}/outputs_raw
                   encrypted_file_base64: >
                       ${{ fromJson(needs.access-info.outputs.config).outputs_raw[
+
+
                         format(
                           '{0}-{1}',
                           matrix.distro.name,
                           matrix.scenario.name
                         )
                       ] }}
-                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
             - name: 🚢 Export outputs as environment variables
               timeout-minutes: 3
               run: |
@@ -375,7 +312,6 @@ jobs:
                   while IFS= read -r line; do
                     echo "$line" | tee -a "$GITHUB_ENV"
                   done < "${{ runner.temp }}/outputs_raw"
-
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -384,15 +320,13 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
             - name: Azure Login with OIDC
-              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
                   subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
-
             - name: 🔐 Login into the cluster
               timeout-minutes: 10
               run: |
@@ -412,18 +346,14 @@ jobs:
                   # the chart env should be loaded by the client at the very first step of his installation
                   source .github/scripts/gha-functions.sh
                   export_new_env_vars generic/kubernetes/single-region/procedure/chart-env.sh
-
-
             - name: 🏗️ Clean and recreate Camunda namespace
               uses: ./.github/actions/internal-clean-namespace
               timeout-minutes: 20
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   recreate: 'true'
-
             - name: Wait for cluster stability
               run: sleep 30
-
             - name: 🧹 Clean up databases
               timeout-minutes: 20
               run: |
@@ -451,9 +381,6 @@ jobs:
                   kubectl delete job reset-azure-postgres --namespace "$CAMUNDA_NAMESPACE"
 
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
-
-            # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
-            # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
             - name: Configure wildcard certificate usage
               id: cert-config
               uses: ./.github/actions/internal-configure-wildcard-cert
@@ -462,7 +389,6 @@ jobs:
                   is-renovate-pr: ${{ env.IS_RENOVATE_PR }}
                   is-schedule: ${{ env.IS_SCHEDULE }}
                   base-ref: ${{ github.base_ref }}
-
             - name: 🏗️ Ingress Setup prerequisites
               if: ${{ matrix.declination.name == 'domain' }}
               timeout-minutes: 20
@@ -481,7 +407,6 @@ jobs:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
             - name: 🛠️ Assemble deployment values of azure/kubernetes/${{ matrix.scenario.name }}/${{ matrix.declination.name }}
               timeout-minutes: 10
               run: |
@@ -557,7 +482,6 @@ jobs:
                   fi
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
-
             - name: 🛠️ Configure the PSQL database and associated access
               timeout-minutes: 10
               run: |
@@ -585,13 +509,11 @@ jobs:
 
                   kubectl delete job create-setup-user-db --namespace "$CAMUNDA_NAMESPACE"
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
-
             - name: 💪 Execute DB secret creation scripts
               timeout-minutes: 10
               run: |
                   set -euo pipefail
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
-
             - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
               timeout-minutes: 10
               run: |
@@ -628,27 +550,23 @@ jobs:
                   fi
 
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
-
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
               run: |
                   set -euo pipefail
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
-
             - name: 🔄 Restart CoreDNS
               if: matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'false'
               uses: ./.github/actions/kubernetes-restart-coredns
               timeout-minutes: 10
               with:
                   cluster-type: kubernetes
-
             - name: 📐 Set current Camunda version
               id: camunda-version
               run: |
                   set -euo pipefail
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
-
             - name: 🧪 Run Helm Chart tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60
@@ -668,7 +586,6 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
-
             - name: 🔬🚨 Get failed certificate info
               if: failure() && matrix.declination.name == 'domain'
               run: |
@@ -676,7 +593,6 @@ jobs:
 
                   kubectl -n "$CAMUNDA_NAMESPACE" get certificates
                   kubectl -n "$CAMUNDA_NAMESPACE" describe certificates
-
             - name: 🔬🚨 Get failed Pods info
               if: failure()
               run: |
@@ -688,7 +604,6 @@ jobs:
                     kubectl -n "$CAMUNDA_NAMESPACE" describe po "$pod_name";
                     kubectl -n "$CAMUNDA_NAMESPACE" logs "$pod_name";
                   done
-
             - name: 🧹 Cleanup Namespace
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 20
@@ -697,7 +612,6 @@ jobs:
 
                   helm uninstall camunda --namespace "$CAMUNDA_NAMESPACE" --wait
                   kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
-
             - name: 🧹 Cleanup domain specific resources
               if: always() && matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 10
@@ -705,7 +619,6 @@ jobs:
               with:
                   wait-for-dns-cleanup: 'true'
                   dns-cleanup-wait-seconds: '45'
-
     cleanup-clusters:
         name: Cleanup AKS clusters
         if: always()
@@ -719,21 +632,18 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a
             - name: Import Secrets
               id: secrets
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -744,16 +654,14 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_CLIENT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
-
             - name: Azure Login with OIDC
-              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
               if: env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
                   subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
-
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -763,7 +671,6 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
             - name: Set current target branch
               if: env.CLEANUP_CLUSTERS == 'true'
               id: target-branch
@@ -771,14 +678,12 @@ jobs:
                   set -euo pipefail
                   TARGET_BRANCH=$(cat .target-branch)
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
             - name: Export S3_BACKEND_BUCKET based on matrix
               if: env.CLEANUP_CLUSTERS == 'true'
               id: s3_prefix
               run: |
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
-
             - name: Delete on-demand AKS Cluster
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
@@ -789,7 +694,6 @@ jobs:
                   max-age-hours-cluster: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-rg
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-
     report-success:
         name: Report success
         runs-on: ubuntu-latest
@@ -797,14 +701,12 @@ jobs:
             - integration-tests
             - cleanup-clusters
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-
+            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
               env:
                   GH_TOKEN: ${{ github.token }}
               uses: ./.github/actions/internal-apply-skip-label
-
     report-failure:
         name: Report failures
         if: failure()
@@ -815,7 +717,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
