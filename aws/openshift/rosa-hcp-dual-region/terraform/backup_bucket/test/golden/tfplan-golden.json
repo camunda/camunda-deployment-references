@@ -307,7 +307,7 @@
         ]
       }
     },
-    "aws_s3_bucket_versioning.versionning_backup": {
+    "aws_s3_bucket_versioning.versioning_backup": {
       "identity": {
         "account_id": null,
         "bucket": null,
@@ -316,7 +316,7 @@
       },
       "identity_schema_version": 0,
       "mode": "managed",
-      "name": "versionning_backup",
+      "name": "versioning_backup",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -336,7 +336,7 @@
         ]
       }
     },
-    "aws_s3_bucket_versioning.versionning_logs": {
+    "aws_s3_bucket_versioning.versioning_logs": {
       "identity": {
         "account_id": null,
         "bucket": null,
@@ -345,7 +345,7 @@
       },
       "identity_schema_version": 0,
       "mode": "managed",
-      "name": "versionning_logs",
+      "name": "versioning_logs",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {

@@ -41,14 +41,14 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "encrypt_log_bucke
 }
 
 
-resource "aws_s3_bucket_versioning" "versionning_backup" {
+resource "aws_s3_bucket_versioning" "versioning_backup" {
   bucket = aws_s3_bucket.elastic_backup.id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-resource "aws_s3_bucket_versioning" "versionning_logs" {
+resource "aws_s3_bucket_versioning" "versioning_logs" {
   bucket = aws_s3_bucket.log_bucket.id
   versioning_configuration {
     status = "Enabled"
@@ -125,9 +125,37 @@ resource "aws_iam_policy" "s3_access_policy" {
   })
 }
 
+resource "aws_iam_policy" "kms_access_policy" {
+  name        = "${var.bucket_name}-kms-access-policy"
+  description = "Policy for accessing KMS key"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        Resource = aws_kms_key.backup_bucket_key.arn
+      }
+    ]
+  })
+
+}
+
 resource "aws_iam_user_policy_attachment" "s3_access_attachment" {
   user       = aws_iam_user.service_account.name
   policy_arn = aws_iam_policy.s3_access_policy.arn
+}
+
+resource "aws_iam_user_policy_attachment" "kms_access_attachment" {
+  user       = aws_iam_user.service_account.name
+  policy_arn = aws_iam_policy.kms_access_policy.arn
 }
 
 output "s3_aws_access_key" {
