@@ -65,14 +65,14 @@ runs:
                 kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
               done
 
-              mv kubeconfig-${{ inputs.cluster-0-name }}.yaml ./multi-region-tests/test/kubeconfig-london
-              mv kubeconfig-${{ inputs.cluster-1-name }}.yaml ./multi-region-tests/test/kubeconfig-paris
+              mv "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./multi-region-tests/test/kubeconfig-london"
+              mv "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./multi-region-tests/test/kubeconfig-paris"
         - name: Set Up Environment Variables
           shell: bash
           run: |
               set -euo pipefail
 
-              if [[ ${{ inputs.helm-version }} =~ snapshot ]]; then
+              if [[ "${{ inputs.helm-version }}" =~ snapshot ]]; then
                 {
                   echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
                 } >> "$GITHUB_ENV"
@@ -81,7 +81,7 @@ runs:
               # create empty file if not exists
               # OpenShift specific fix but doesn't harm others
               # OpenShift already delivers ready2go region files, so we don't do the overlaying / patching anymore
-              touch ${{ inputs.default-values-yaml }}
+              touch "${{ inputs.default-values-yaml }}"
 
               {
                 echo "CLUSTER_0_NAMESPACE=${{ inputs.cluster-0-namespace }}"
@@ -130,8 +130,8 @@ runs:
               printf -v now '%(%s)T'
               duration=$((now - ${{ steps.failover-start.outputs.timestamp }}))
               echo $duration
-              if [ "$duration" -gt "900" ]; then
-              echo "::error ::Failover of ${{ inputs.helm-version }} is taking longer than 15 minutes"
+              if [ "$duration" -gt 900 ]; then
+              echo "::error::Failover of ${{ inputs.helm-version }} is taking longer than 15 minutes"
               fi
         - name: Set start timestamp for Failback
           shell: bash
@@ -155,8 +155,8 @@ runs:
               printf -v now '%(%s)T'
               duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
               echo $duration
-              if [ "$duration" -gt "1500" ]; then
-              echo "::error ::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
+              if [ "$duration" -gt 1500 ]; then
+                echo "::error::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
               fi
         - name: Debug Step
           shell: bash
