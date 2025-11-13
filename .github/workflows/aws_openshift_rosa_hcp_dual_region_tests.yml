@@ -796,12 +796,52 @@ jobs:
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             - name: Empty S3 buckets to allow TF deletion
+              if: env.CLEANUP_CLUSTERS == 'true'
               run: |
                   set -euo pipefail
                   export BACKUP_BUCKET_S3_BUCKET_NAME=$(yq eval '.["backup-bucket-s3-bucket-name"]' "${{ runner.temp }}/sensitive.yaml")
 
-                  aws s3 rm "s3://${BACKUP_BUCKET_S3_BUCKET_NAME}" --recursive || true
-                  aws s3 rm "s3://${BACKUP_BUCKET_S3_BUCKET_NAME}-log" --recursive || true
+                  for BUCKET in "$BACKUP_BUCKET_S3_BUCKET_NAME" "${BACKUP_BUCKET_S3_BUCKET_NAME}-log"; do
+                    if ! aws s3api head-bucket --bucket "$BUCKET" --no-cli-pager 2>/dev/null; then
+                      echo "ℹ️  Bucket $BUCKET does not exist, skipping."
+                      continue
+                    fi
+
+                    echo "🧹 Emptying bucket: $BUCKET"
+                    aws s3 rm "s3://${BUCKET}" --recursive || true
+
+                    MAX_ITERATIONS=100
+                    ITERATION=0
+                    while [[ $ITERATION -lt $MAX_ITERATIONS ]]; do
+                      JSON=$(aws s3api list-object-versions --bucket "$BUCKET" --output=json || echo '{}')
+                      VERSIONS=$(echo "$JSON" | jq -c '[.Versions[]? | {Key, VersionId}]')
+                      MARKERS=$(echo "$JSON" | jq -c '[.DeleteMarkers[]? | {Key, VersionId}]')
+
+                      VER_COUNT=$(echo "$VERSIONS" | jq 'length')
+                      MAR_COUNT=$(echo "$MARKERS" | jq 'length')
+
+                      if [[ "$VER_COUNT" -eq 0 && "$MAR_COUNT" -eq 0 ]]; then
+                        echo "✅ Bucket $BUCKET is now empty."
+                        break
+                      fi
+
+                      if [[ "$VER_COUNT" -gt 0 ]]; then
+                        echo "🗑️  Deleting $VER_COUNT object versions..."
+                        aws s3api delete-objects --bucket "$BUCKET" \
+                          --delete "{\"Objects\": $VERSIONS}" >/dev/null || true
+                      fi
+
+                      if [[ "$MAR_COUNT" -gt 0 ]]; then
+                        echo "🧹 Deleting $MAR_COUNT delete markers..."
+                        aws s3api delete-objects --bucket "$BUCKET" \
+                          --delete "{\"Objects\": $MARKERS}" >/dev/null || true
+                      fi
+
+                      ((ITERATION++))
+                    done
+
+                    [[ $ITERATION -ge $MAX_ITERATIONS ]] && echo "⚠️  Warning: Max iterations reached for $BUCKET"
+                  done
 
             - name: Set current target branch
               if: env.CLEANUP_CLUSTERS == 'true'
