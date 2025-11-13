@@ -16,6 +16,26 @@
         "user": "camunda-elastic-backup-rosa-dual-s3-service-account"
       }
     },
+    "aws_iam_policy.kms_access_policy": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "kms_access_policy",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_iam_policy",
+      "values": {
+        "description": "Policy for accessing KMS key",
+        "name": "camunda-elastic-backup-rosa-dual-kms-access-policy",
+        "path": "/",
+        "tags": null
+      }
+    },
     "aws_iam_policy.s3_access_policy": {
       "identity": {
         "arn": null
@@ -51,6 +71,17 @@
         "path": "/",
         "permissions_boundary": null,
         "tags": null
+      }
+    },
+    "aws_iam_user_policy_attachment.kms_access_attachment": {
+      "mode": "managed",
+      "name": "kms_access_attachment",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_iam_user_policy_attachment",
+      "values": {
+        "user": "camunda-elastic-backup-rosa-dual-s3-service-account"
       }
     },
     "aws_iam_user_policy_attachment.s3_access_attachment": {
