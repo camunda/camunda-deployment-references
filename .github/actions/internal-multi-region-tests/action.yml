@@ -72,7 +72,7 @@ runs:
           run: |
               set -euo pipefail
 
-              if [[ inputs.helm-version =~ snapshot ]]; then
+              if [[ ${{ inputs.helm-version }} =~ snapshot ]]; then
                 {
                   echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
                   echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
@@ -81,6 +81,7 @@ runs:
 
               # create empty file if not exists
               # OpenShift specific fix but doesn't harm others
+              # OpenShift already delivers ready2go region files, so we don't do the overlaying / patching anymore
               touch ${{ inputs.default-values-yaml }}
 
               {
