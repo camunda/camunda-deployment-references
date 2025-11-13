@@ -65,8 +65,8 @@ runs:
                 kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
               done
 
-              mv kubeconfig-{{ inputs.cluster-0-name }}.yaml ./multi-region-tests/test/kubeconfig-london
-              mv kubeconfig-{{ inputs.cluster-1-name }}.yaml ./multi-region-tests/test/kubeconfig-paris
+              mv kubeconfig-${{ inputs.cluster-0-name }}.yaml ./multi-region-tests/test/kubeconfig-london
+              mv kubeconfig-${{ inputs.cluster-1-name }}.yaml ./multi-region-tests/test/kubeconfig-paris
         - name: Set Up Environment Variables
           shell: bash
           run: |
