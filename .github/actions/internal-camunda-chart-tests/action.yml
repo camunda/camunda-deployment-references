@@ -100,6 +100,9 @@ inputs:
     enable-c8sm-connectivity-check:
         description: Whether the C8 SM Kubernetes connectivity check should be run
         default: 'true'
+    skip-c8sm-connectivity-ingress-class-check:
+        description: Whether to skip the ingress class check part of the C8 SM Kubernetes connectivity check
+        default: 'false'
     enable-c8sm-irsa-check:
         description: Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)
         default: 'false'
@@ -576,7 +579,7 @@ runs:
               chmod +x "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh"
 
               # Skip ingress checks if no domain is configured
-              if [[ -z "$CAMUNDA_DOMAIN" ]]; then
+              if [[ -z "$CAMUNDA_DOMAIN" ]] || [[ "${{ inputs.skip-c8sm-connectivity-ingress-class-check }}" == "true" ]]; then
                 echo "ℹ️ No domain configured, skipping ingress checks"
                 "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" -n "$NAMESPACE" -i
               else
