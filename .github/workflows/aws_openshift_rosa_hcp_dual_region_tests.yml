@@ -597,42 +597,42 @@ jobs:
                   ./generic/openshift/dual-region/procedure/assemble-envsubst-values.sh
 
 
-            # - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
-            #   timeout-minutes: 30
-            #   run: |
-            #       set -euo pipefail
+            - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
+              timeout-minutes: 30
+              run: |
+                  set -euo pipefail
 
-            #       # Generate tests objects
-            #       if [ "$TESTS_ENABLED" == "true" ]; then
-            #         # Create the pull secrets described in generic/kubernetes/dual-region/tests/helm-values/registry.yml
-            #         kubectl create secret docker-registry index-docker-io \
-            #             --docker-server=index.docker.io \
-            #             --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
-            #             --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
-            #             --context="$CLUSTER_1_NAME" \
-            #             --namespace="$CAMUNDA_NAMESPACE_1"
+                  # Generate tests objects
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    # Create the pull secrets described in generic/kubernetes/dual-region/tests/helm-values/registry.yml
+                    kubectl create secret docker-registry index-docker-io \
+                        --docker-server=index.docker.io \
+                        --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                        --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                        --context="$CLUSTER_1_NAME" \
+                        --namespace="$CAMUNDA_NAMESPACE_1"
 
-            #         kubectl create secret docker-registry index-docker-io \
-            #             --docker-server=index.docker.io \
-            #             --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
-            #             --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
-            #             --context="$CLUSTER_2_NAME" \
-            #             --namespace="$CAMUNDA_NAMESPACE_2"
-            #       fi
+                    kubectl create secret docker-registry index-docker-io \
+                        --docker-server=index.docker.io \
+                        --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                        --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                        --context="$CLUSTER_2_NAME" \
+                        --namespace="$CAMUNDA_NAMESPACE_2"
+                  fi
 
-            #       ./generic/openshift/dual-region/procedure/install-chart.sh
-            #       echo "Waiting for the manifests to be applied"
-            #       sleep 30
+                  ./generic/openshift/dual-region/procedure/install-chart.sh
+                  echo "Waiting for the manifests to be applied"
+                  sleep 30
 
-            #       ./generic/openshift/dual-region/procedure/export-services-submariner.sh
-            #       ./generic/openshift/dual-region/procedure/verify-exported-services.sh
+                  ./generic/openshift/dual-region/procedure/export-services-submariner.sh
+                  ./generic/openshift/dual-region/procedure/verify-exported-services.sh
 
-            # - name: 👀⏳ Wait for the deployment to be healthy using generic/openshift/dual-region
-            #   timeout-minutes: 10
-            #   run: |
-            #       set -euo pipefail
+            - name: 👀⏳ Wait for the deployment to be healthy using generic/openshift/dual-region
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
 
-            #       ./generic/openshift/dual-region/procedure/check-deployment-ready.sh
+                  ./generic/openshift/dual-region/procedure/check-deployment-ready.sh
 
 
             - name: Set current Camunda version
