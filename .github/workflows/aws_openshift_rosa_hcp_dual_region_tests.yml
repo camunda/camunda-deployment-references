@@ -738,6 +738,7 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - clusters-info
+            - access-info
             - integration-tests
             - integration-tests-retry
         strategy:
@@ -768,6 +769,7 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -778,6 +780,28 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
+
+            - name: 🏗️ Retrieve exported Environment values from outputs
+              uses: ./.github/actions/internal-generic-decrypt-import
+              with:
+                  output_path: ${{ runner.temp }}/sensitive.yaml
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).sensitive_values_raw[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            - name: Empty S3 buckets to allow TF deletion
+              run: |
+                  set -euo pipefail
+                  export BACKUP_BUCKET_S3_BUCKET_NAME=$(yq eval '.["backup-bucket-s3-bucket-name"]' "${{ runner.temp }}/sensitive.yaml")
+
+                  aws s3 rm "s3://${BACKUP_BUCKET_S3_BUCKET_NAME}" --recursive || true
+                  aws s3 rm "s3://${BACKUP_BUCKET_S3_BUCKET_NAME}-log" --recursive || true
 
             - name: Set current target branch
               if: env.CLEANUP_CLUSTERS == 'true'
