@@ -75,7 +75,6 @@ runs:
               if [[ ${{ inputs.helm-version }} =~ snapshot ]]; then
                 {
                   echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
-                  echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
                 } >> "$GITHUB_ENV"
               fi
 
