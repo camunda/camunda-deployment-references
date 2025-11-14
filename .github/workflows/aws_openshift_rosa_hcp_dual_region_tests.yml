@@ -680,7 +680,7 @@ jobs:
                   cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   cluster-1-namespace: ${{ env.CAMUNDA_NAMESPACE_2 }}
                   helm-version: ${{ env.HELM_CHART_VERSION }}
-                  backup-name: ${{ env.CAMUNDA_RELEASE_NAME }}-backup
+                  backup-name: ${{ env.CAMUNDA_RELEASE_NAME }}-backup-${{ github.run_attempt }}
                   backup-bucket: ${{ env.BACKUP_BUCKET_S3_BUCKET_NAME }}
                   default-values-yaml: ${{ github.workspace }}/openshift.yml
                   region-0-values-yaml: ${{ github.workspace }}/generated-values-region-1.yml

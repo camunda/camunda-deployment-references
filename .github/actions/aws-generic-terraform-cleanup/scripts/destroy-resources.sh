@@ -145,19 +145,19 @@ destroy_module() {
     echo "[$group_id][$module_name] Emptying S3 backup buckets before destroy"
     BACKUP_BUCKET_S3_BUCKET_NAME=$(terraform output -raw s3_bucket_name)
 
-    for BUCKET in "$BACKUP_BUCKET_S3_BUCKET_NAME" "${BACKUP_BUCKET_S3_BUCKET_NAME}-log"; do
-      if ! aws s3api head-bucket --bucket "$BUCKET" --no-cli-pager 2>/dev/null; then
-        echo "ℹ️  Bucket $BUCKET does not exist, skipping."
+    for TMP_BUCKET in "$BACKUP_BUCKET_S3_BUCKET_NAME" "${BACKUP_BUCKET_S3_BUCKET_NAME}-log"; do
+      if ! aws s3api head-bucket --bucket "$TMP_BUCKET" --no-cli-pager 2>/dev/null; then
+        echo "ℹ️  Bucket $TMP_BUCKET does not exist, skipping."
         continue
       fi
 
-      echo "🧹 Emptying bucket: $BUCKET"
-      aws s3 rm "s3://${BUCKET}" --recursive || true
+      echo "🧹 Emptying bucket: $TMP_BUCKET"
+      aws s3 rm "s3://${TMP_BUCKET}" --recursive || true
 
       MAX_ITERATIONS=100
       ITERATION=0
       while [[ $ITERATION -lt $MAX_ITERATIONS ]]; do
-        JSON=$(aws s3api list-object-versions --bucket "$BUCKET" --output=json || echo '{}')
+        JSON=$(aws s3api list-object-versions --bucket "$TMP_BUCKET" --output=json || echo '{}')
         VERSIONS=$(echo "$JSON" | jq -c '[.Versions[]? | {Key, VersionId}]')
         MARKERS=$(echo "$JSON" | jq -c '[.DeleteMarkers[]? | {Key, VersionId}]')
 
@@ -165,26 +165,26 @@ destroy_module() {
         MAR_COUNT=$(echo "$MARKERS" | jq 'length')
 
         if [[ "$VER_COUNT" -eq 0 && "$MAR_COUNT" -eq 0 ]]; then
-          echo "✅ Bucket $BUCKET is now empty."
+          echo "✅ Bucket $TMP_BUCKET is now empty."
           break
         fi
 
         if [[ "$VER_COUNT" -gt 0 ]]; then
           echo "🗑️  Deleting $VER_COUNT object versions..."
-          aws s3api delete-objects --bucket "$BUCKET" \
+          aws s3api delete-objects --bucket "$TMP_BUCKET" \
             --delete "{\"Objects\": $VERSIONS}" >/dev/null || true
         fi
 
         if [[ "$MAR_COUNT" -gt 0 ]]; then
           echo "🧹 Deleting $MAR_COUNT delete markers..."
-          aws s3api delete-objects --bucket "$BUCKET" \
+          aws s3api delete-objects --bucket "$TMP_BUCKET" \
             --delete "{\"Objects\": $MARKERS}" >/dev/null || true
         fi
 
         ITERATION=$((ITERATION + 1))
       done
 
-      [[ $ITERATION -ge $MAX_ITERATIONS ]] && echo "⚠️  Warning: Max iterations reached for $BUCKET"
+      [[ $ITERATION -ge $MAX_ITERATIONS ]] && echo "⚠️  Warning: Max iterations reached for $TMP_BUCKET"
     done
   fi
 
