@@ -837,7 +837,7 @@ jobs:
                           --delete "{\"Objects\": $MARKERS}" >/dev/null || true
                       fi
 
-                      ((ITERATION++))
+                      ITERATION=$((ITERATION + 1))
                     done
 
                     [[ $ITERATION -ge $MAX_ITERATIONS ]] && echo "⚠️  Warning: Max iterations reached for $BUCKET"
