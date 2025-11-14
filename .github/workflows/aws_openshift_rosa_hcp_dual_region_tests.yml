@@ -738,7 +738,6 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - clusters-info
-            - access-info
             - integration-tests
             - integration-tests-retry
         strategy:
@@ -769,7 +768,6 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
-                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -780,68 +778,6 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
-
-            - name: 🏗️ Retrieve exported Environment values from outputs
-              uses: ./.github/actions/internal-generic-decrypt-import
-              with:
-                  output_path: ${{ runner.temp }}/sensitive.yaml
-                  encrypted_file_base64: >
-                      ${{ fromJson(needs.access-info.outputs.config).sensitive_values_raw[
-                        format(
-                          '{0}-{1}',
-                          matrix.distro.name,
-                          matrix.scenario.name
-                        )
-                      ] }}
-                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
-
-            - name: Empty S3 buckets to allow TF deletion
-              if: env.CLEANUP_CLUSTERS == 'true'
-              run: |
-                  set -euo pipefail
-                  export BACKUP_BUCKET_S3_BUCKET_NAME=$(yq eval '.["backup-bucket-s3-bucket-name"]' "${{ runner.temp }}/sensitive.yaml")
-
-                  for BUCKET in "$BACKUP_BUCKET_S3_BUCKET_NAME" "${BACKUP_BUCKET_S3_BUCKET_NAME}-log"; do
-                    if ! aws s3api head-bucket --bucket "$BUCKET" --no-cli-pager 2>/dev/null; then
-                      echo "ℹ️  Bucket $BUCKET does not exist, skipping."
-                      continue
-                    fi
-
-                    echo "🧹 Emptying bucket: $BUCKET"
-                    aws s3 rm "s3://${BUCKET}" --recursive || true
-
-                    MAX_ITERATIONS=100
-                    ITERATION=0
-                    while [[ $ITERATION -lt $MAX_ITERATIONS ]]; do
-                      JSON=$(aws s3api list-object-versions --bucket "$BUCKET" --output=json || echo '{}')
-                      VERSIONS=$(echo "$JSON" | jq -c '[.Versions[]? | {Key, VersionId}]')
-                      MARKERS=$(echo "$JSON" | jq -c '[.DeleteMarkers[]? | {Key, VersionId}]')
-
-                      VER_COUNT=$(echo "$VERSIONS" | jq 'length')
-                      MAR_COUNT=$(echo "$MARKERS" | jq 'length')
-
-                      if [[ "$VER_COUNT" -eq 0 && "$MAR_COUNT" -eq 0 ]]; then
-                        echo "✅ Bucket $BUCKET is now empty."
-                        break
-                      fi
-
-                      if [[ "$VER_COUNT" -gt 0 ]]; then
-                        echo "🗑️  Deleting $VER_COUNT object versions..."
-                        aws s3api delete-objects --bucket "$BUCKET" \
-                          --delete "{\"Objects\": $VERSIONS}" >/dev/null || true
-                      fi
-
-                      if [[ "$MAR_COUNT" -gt 0 ]]; then
-                        echo "🧹 Deleting $MAR_COUNT delete markers..."
-                        aws s3api delete-objects --bucket "$BUCKET" \
-                          --delete "{\"Objects\": $MARKERS}" >/dev/null || true
-                      fi
-
-                      ITERATION=$((ITERATION + 1))
-                    done
-
-                    [[ $ITERATION -ge $MAX_ITERATIONS ]] && echo "⚠️  Warning: Max iterations reached for $BUCKET"
-                  done
 
             - name: Set current target branch
               if: env.CLEANUP_CLUSTERS == 'true'
