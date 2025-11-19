@@ -44,6 +44,7 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | `test-client-secret` | <p>Client secret for Camunda authentication tests</p> | `true` | `""` |
 | `enable-c8sm-deployment-check` | <p>Whether the C8 SM deployment check should be run</p> | `false` | `true` |
 | `enable-c8sm-connectivity-check` | <p>Whether the C8 SM Kubernetes connectivity check should be run</p> | `false` | `true` |
+| `skip-c8sm-connectivity-ingress-class-check` | <p>Whether to skip the ingress class check part of the C8 SM Kubernetes connectivity check</p> | `false` | `false` |
 | `enable-c8sm-irsa-check` | <p>Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)</p> | `false` | `false` |
 | `enable-c8sm-zeebe-token-check` | <p>Whether the C8 SM Zeebe token generation check should be run</p> | `false` | `true` |
 | `enable-c8sm-zeebe-connectivity-check` | <p>Whether the C8 SM Zeebe connectivity check should be run</p> | `false` | `true` |
@@ -225,6 +226,12 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
+
+    skip-c8sm-connectivity-ingress-class-check:
+    # Whether to skip the ingress class check part of the C8 SM Kubernetes connectivity check
+    #
+    # Required: false
+    # Default: false
 
     enable-c8sm-irsa-check:
     # Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)
