@@ -27,6 +27,7 @@ jq 1.7.1
 
 just 1.39.0
 
+# datasource=custom.helm-camunda depName=helm
 helm 3.17.3
 
 kubectl 1.32.3
