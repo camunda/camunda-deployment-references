@@ -29,6 +29,7 @@ golang 1.25.4
 # renovate: datasource=github-tags depName=fullstorydev/grpcurl
 grpcurl 1.9.3
 
+# datasource=custom.helm-camunda depName=helm
 helm 3.19.0
 
 jq 1.7.1
