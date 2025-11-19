@@ -65,7 +65,7 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.8?(\.(?<patch>\d+))?$
-    TESTS_CAMUNDA_VERSION: 8.8.3
+    TESTS_CAMUNDA_VERSION: 8.8.4
     TESTS_CAMUNDA_PREVIOUS_VERSION: 8.8.0 # Version to be used for upgrade tests, not updated automatically
 
     # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.8?(\.(?<patch>\d+))?$
@@ -78,7 +78,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -92,7 +92,7 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
               with:
                   fetch-depth: 0
 
@@ -121,7 +121,7 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
             - name: Checkout repository
-              uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+              uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
@@ -179,7 +179,7 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
             - name: Install asdf tools with cache for the project
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
@@ -284,7 +284,7 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
@@ -363,7 +363,7 @@ jobs:
             - cleanup-clusters
             - test-report
         steps:
-            - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
