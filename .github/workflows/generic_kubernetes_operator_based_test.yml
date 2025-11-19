@@ -787,6 +787,7 @@ jobs:
                   # Test configuration
                   enable-helm-chart-tests: 'true'
                   zeebe-authenticated: 'true' # we always have an auth provider
+                  skip-c8sm-connectivity-ingress-class-check: ${{ matrix.distro.type == 'openshift' && 'true' || 'false' }}
 
                   # Service name for operator-based deployment
                   keycloak-service-name: keycloak-service:8080
