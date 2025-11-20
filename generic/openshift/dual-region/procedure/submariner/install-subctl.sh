@@ -7,7 +7,7 @@ curl -Ls https://get.submariner.io -o submariner-install.sh
 cat submariner-install.sh
 
 # renovate: datasource=github-releases depName=submariner-io/subctl
-SUBCTL_VERSION=0.21.1
+SUBCTL_VERSION=0.21.2
 
 VERSION="$SUBCTL_VERSION" bash submariner-install.sh
 export PATH=$PATH:~/.local/bin
