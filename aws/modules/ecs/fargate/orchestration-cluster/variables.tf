@@ -22,11 +22,6 @@ variable "vpc_private_subnets" {
   type        = list(string)
 }
 
-variable "vpc_public_subnets" {
-  description = "List of public subnet IDs within the VPC"
-  type        = list(string)
-}
-
 variable "environment_variables" {
   description = "List of environment variable name-value pairs to set in the ECS task"
   type = list(object({
