@@ -38,14 +38,6 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
       {
         name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_REGION"
         value = var.aws_region
-      },
-      {
-        name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_SECRETKEY"
-        value = aws_iam_access_key.s3_user_key.secret # TODO: transform to secret / ssm parameter store
-      },
-      {
-        name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_ACCESSKEY"
-        value = aws_iam_access_key.s3_user_key.id
       }
     ], var.environment_variables))
   })
@@ -78,6 +70,7 @@ resource "aws_ecs_service" "orchestration_cluster" {
 
   # Enable execute command for debugging
   enable_execute_command = var.task_enable_execute_command # true
+  force_new_deployment   = var.service_force_new_deployment
 
   deployment_maximum_percent         = 100
   deployment_minimum_healthy_percent = 67

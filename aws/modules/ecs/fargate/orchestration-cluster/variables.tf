@@ -101,6 +101,12 @@ variable "extra_task_role_attachments" {
   default     = []
 }
 
+variable "service_force_new_deployment" {
+  description = "Whether to force a new deployment of the ECS service"
+  type        = bool
+  default     = true
+}
+
 ################################################################
 #                      Camunda Configs                         #
 ################################################################

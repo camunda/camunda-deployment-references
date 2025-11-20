@@ -77,6 +77,11 @@ resource "aws_iam_role_policy_attachment" "ecs_task_efs_policy" {
   policy_arn = aws_iam_policy.efs_sc_access.arn
 }
 
+resource "aws_iam_role_policy_attachment" "ecs_task_s3_policy" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.s3_access.arn
+}
+
 resource "aws_iam_policy" "efs_sc_access" {
   name = "${var.prefix}-efs-sc-access"
 
