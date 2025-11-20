@@ -57,7 +57,8 @@
       {
         "containerPort": 26502,
         "hostPort": 26502,
-        "protocol": "tcp"
+        "protocol": "tcp",
+        "name": "internal-api"
       },
       {
         "containerPort": 9600,

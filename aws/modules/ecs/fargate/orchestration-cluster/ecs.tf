@@ -16,7 +16,7 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
     env_vars_json = jsonencode(concat([
       {
         name  = "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS"
-        value = "orchestration-cluster.${var.prefix}.service.local:26502"
+        value = "orchestration-cluster-sc:26502"
       },
       {
         name  = "CAMUNDA_CLUSTER_SIZE"
@@ -73,7 +73,7 @@ resource "aws_ecs_service" "orchestration_cluster" {
   force_new_deployment   = var.service_force_new_deployment
 
   deployment_maximum_percent         = 100
-  deployment_minimum_healthy_percent = 67
+  deployment_minimum_healthy_percent = 33
 
   network_configuration {
     subnets          = var.vpc_private_subnets
@@ -83,6 +83,21 @@ resource "aws_ecs_service" "orchestration_cluster" {
 
   service_registries {
     registry_arn = aws_service_discovery_service.discovery.arn
+  }
+
+  # ECS Service Connect for internal service-to-service communication
+  service_connect_configuration {
+    enabled   = true
+    namespace = aws_service_discovery_http_namespace.service_connect.arn
+
+    service {
+      port_name      = "internal-api"
+      discovery_name = "orchestration-cluster-sc"
+      client_alias {
+        port     = 26502
+        dns_name = "orchestration-cluster-sc"
+      }
+    }
   }
 
   # Dynamic load balancer configuration
