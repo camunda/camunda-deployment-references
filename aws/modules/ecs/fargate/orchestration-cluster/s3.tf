@@ -13,24 +13,9 @@ resource "aws_s3_bucket_public_access_block" "main" {
   restrict_public_buckets = true
 }
 
-# IAM user for S3 access
-resource "aws_iam_user" "s3_user" {
-  name = "${var.prefix}-user"
-
-  tags = {
-    Description = "User for S3 bucket access"
-  }
-}
-
-# Access key for the IAM user
-resource "aws_iam_access_key" "s3_user_key" {
-  user = aws_iam_user.s3_user.name
-}
-
-# IAM policy for S3 bucket access
-resource "aws_iam_user_policy" "s3_user_policy" {
+# IAM policy for S3 bucket access - attached to ECS task role
+resource "aws_iam_policy" "s3_access" {
   name = "${var.prefix}-s3-access-policy"
-  user = aws_iam_user.s3_user.name
 
   policy = jsonencode({
     Version = "2012-10-17"
