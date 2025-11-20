@@ -22,15 +22,6 @@ variable "vpc_private_subnets" {
   type        = list(string)
 }
 
-variable "environment_variables" {
-  description = "List of environment variable name-value pairs to set in the ECS task"
-  type = list(object({
-    name  = string
-    value = string
-  }))
-  default = []
-}
-
 variable "service_security_group_ids" {
   description = "List of security group IDs to associate with the ECS service"
   type        = list(string)
@@ -53,12 +44,6 @@ variable "task_memory" {
   description = "The amount of memory to allocate to the ECS task"
   type        = number
   default     = 8192
-}
-
-variable "task_desired_count" {
-  description = "The desired count of ECS tasks to run in the ECS service"
-  type        = number
-  default     = 3
 }
 
 variable "task_enable_execute_command" {
@@ -99,7 +84,7 @@ variable "extra_task_role_attachments" {
 variable "service_force_new_deployment" {
   description = "Whether to force a new deployment of the ECS service"
   type        = bool
-  default     = true
+  default     = false
 }
 
 ################################################################
@@ -110,4 +95,19 @@ variable "image" {
   description = "The container image to use for the Camunda orchestration cluster"
   type        = string
   default     = "camunda/camunda:SNAPSHOT"
+}
+
+variable "environment_variables" {
+  description = "List of environment variable name-value pairs to set in the ECS task"
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  default = []
+}
+
+variable "task_desired_count" {
+  description = "The desired count of ECS tasks to run in the ECS service - directly impacts the Zeebe cluster size"
+  type        = number
+  default     = 3
 }

@@ -1,6 +1,40 @@
 # S3 bucket
+# trivy:ignore:AVD-AWS-0089 S3 bucket logging ignored for this use case, but can be enabled by customers themselves if needed
 resource "aws_s3_bucket" "main" {
   bucket_prefix = "${var.prefix}-bucket"
+}
+
+# Enable versioning
+resource "aws_s3_bucket_versioning" "main" {
+  bucket = aws_s3_bucket.main.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# KMS key for S3 bucket encryption
+resource "aws_kms_key" "s3" {
+  description             = "KMS key for ${var.prefix} S3 bucket encryption"
+  deletion_window_in_days = 10
+  enable_key_rotation     = true
+}
+
+resource "aws_kms_alias" "s3" {
+  name          = "alias/${var.prefix}-s3-encryption"
+  target_key_id = aws_kms_key.s3.key_id
+}
+
+# Enable server-side encryption with customer managed KMS key
+resource "aws_s3_bucket_server_side_encryption_configuration" "main" {
+  bucket = aws_s3_bucket.main.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.s3.arn
+    }
+    bucket_key_enabled = true
+  }
 }
 
 # Block public access
@@ -36,30 +70,17 @@ resource "aws_iam_policy" "s3_access" {
           "s3:DeleteObject"
         ]
         Resource = "${aws_s3_bucket.main.arn}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:Encrypt",
+          "kms:GenerateDataKey",
+          "kms:DescribeKey"
+        ]
+        Resource = aws_kms_key.s3.arn
       }
     ]
   })
 }
-
-# Outputs
-# output "s3_bucket_name" {
-#   value       = aws_s3_bucket.main.id
-#   description = "The name of the S3 bucket"
-# }
-
-# output "s3_bucket_arn" {
-#   value       = aws_s3_bucket.main.arn
-#   description = "The ARN of the S3 bucket"
-# }
-
-# output "s3_access_key_id" {
-#   value       = aws_iam_access_key.s3_user_key.id
-#   description = "The access key ID for S3 bucket access"
-#   sensitive   = true
-# }
-
-# output "s3_secret_access_key" {
-#   value       = aws_iam_access_key.s3_user_key.secret
-#   description = "The secret access key for S3 bucket access"
-#   sensitive   = true
-# }
