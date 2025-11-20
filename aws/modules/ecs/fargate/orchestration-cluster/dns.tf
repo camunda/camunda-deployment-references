@@ -16,3 +16,9 @@ resource "aws_service_discovery_service" "discovery" {
     routing_policy = "MULTIVALUE"
   }
 }
+
+# ECS Service Connect namespace for service-to-service communication
+resource "aws_service_discovery_http_namespace" "service_connect" {
+  name        = "${var.prefix}-sc"
+  description = "Service Connect namespace for ECS services"
+}
