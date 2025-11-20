@@ -76,10 +76,7 @@ resource "aws_ecs_service" "orchestration_cluster" {
   deployment_minimum_healthy_percent = 67
 
   network_configuration {
-    subnets = concat(
-      var.vpc_private_subnets,
-      var.vpc_public_subnets, # TODO: double check whether public is really needed
-    )
+    subnets          = var.vpc_private_subnets
     security_groups  = var.service_security_group_ids
     assign_public_ip = false
   }
@@ -88,22 +85,17 @@ resource "aws_ecs_service" "orchestration_cluster" {
     registry_arn = aws_service_discovery_service.discovery.arn
   }
 
-  # TODO: Dynamic?
-  # load_balancer {
-  #   target_group_arn = aws_lb_target_group.main.arn
-  #   container_name   = "orchestration-cluster"
-  #   container_port   = 8080
-  # }
-
-  load_balancer {
-    target_group_arn = aws_lb_target_group.main_9600.arn
-    container_name   = "orchestration-cluster"
-    container_port   = 9600
-  }
-
-  load_balancer {
-    target_group_arn = aws_lb_target_group.main_26500.arn
-    container_name   = "orchestration-cluster"
-    container_port   = 26500
+  # Dynamic load balancer configuration
+  dynamic "load_balancer" {
+    for_each = {
+      # 8080 = aws_lb_target_group.main.arn  # Commented out - uncomment when needed
+      9600  = aws_lb_target_group.main_9600.arn
+      26500 = aws_lb_target_group.main_26500.arn
+    }
+    content {
+      target_group_arn = load_balancer.value
+      container_name   = "orchestration-cluster"
+      container_port   = load_balancer.key
+    }
   }
 }

@@ -7,7 +7,6 @@ module "orchestration_cluster" {
   ecs_cluster_id      = aws_ecs_cluster.ecs.id
   vpc_id              = module.vpc.vpc_id
   vpc_private_subnets = module.vpc.private_subnets
-  vpc_public_subnets  = module.vpc.public_subnets
   aws_region          = data.aws_region.current.region
 
   alb_arn = aws_lb.main.arn
