@@ -1,7 +1,7 @@
 # S3 bucket
 # trivy:ignore:AVD-AWS-0089 S3 bucket logging ignored for this use case, but can be enabled by customers themselves if needed
 resource "aws_s3_bucket" "main" {
-  bucket_prefix = "${var.prefix}-bucket"
+  bucket = "${var.prefix}-bucket"
 }
 
 # Enable versioning
