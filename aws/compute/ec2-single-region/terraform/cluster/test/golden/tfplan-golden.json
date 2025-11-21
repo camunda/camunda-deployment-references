@@ -605,6 +605,7 @@
             "authenticate_oidc": [],
             "fixed_response": [],
             "forward": [],
+            "jwt_validation": [],
             "redirect": []
           }
         ],
@@ -621,6 +622,7 @@
             "authenticate_oidc": [],
             "fixed_response": [],
             "forward": [],
+            "jwt_validation": [],
             "redirect": [],
             "type": "forward"
           }
@@ -649,6 +651,7 @@
             "authenticate_oidc": [],
             "fixed_response": [],
             "forward": [],
+            "jwt_validation": [],
             "redirect": []
           }
         ],
@@ -665,6 +668,7 @@
             "authenticate_oidc": [],
             "fixed_response": [],
             "forward": [],
+            "jwt_validation": [],
             "redirect": [],
             "type": "forward"
           }
@@ -693,6 +697,7 @@
             "authenticate_oidc": [],
             "fixed_response": [],
             "forward": [],
+            "jwt_validation": [],
             "redirect": []
           }
         ],
@@ -709,6 +714,7 @@
             "authenticate_oidc": [],
             "fixed_response": [],
             "forward": [],
+            "jwt_validation": [],
             "redirect": [],
             "type": "forward"
           }
