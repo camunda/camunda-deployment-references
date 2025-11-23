@@ -91,7 +91,7 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
               with:
                   fetch-depth: 0
 
@@ -118,7 +118,7 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
@@ -236,7 +236,7 @@ jobs:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: openshift
         steps:
-            - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
             - name: Install asdf tools with cache for the project
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db # 1.3.9
@@ -407,7 +407,7 @@ jobs:
 
             - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
               if: env.TESTS_ENABLED == 'true'
-              uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+              uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
               with:
                   repository: camunda/camunda-platform-helm
                   ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
@@ -604,7 +604,7 @@ jobs:
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
-              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@9c31cdc697a4cf9e60fda4c392b8213e9101537d # main
+              uses: camunda/camunda-platform-helm/./.github/actions/failed-pods-info@4a2c32a97b1b614a0b6f09a1d1adf78055fc1a4e # main
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
@@ -619,7 +619,7 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
-            - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
@@ -679,7 +679,7 @@ jobs:
             - integration-tests
             - cleanup-clusters
         steps:
-            - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
