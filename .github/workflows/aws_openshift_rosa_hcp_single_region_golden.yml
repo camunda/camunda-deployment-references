@@ -34,7 +34,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -49,7 +49,7 @@ jobs:
             pull-requests: write
         steps:
             - name: Checkout repository
-              uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+              uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
