@@ -35,7 +35,7 @@ module "rosa_cluster" {
   private = local.rosa_private_cluster
 
   # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-  openshift_version = "4.19.7"
+  openshift_version = "4.20.3"
 
   tags = local.rosa_tags
 }
