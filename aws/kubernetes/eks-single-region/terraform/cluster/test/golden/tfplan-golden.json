@@ -321,7 +321,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.34.1-SUFFIX",
+                    "release_version": "1.34.2-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -3262,7 +3262,7 @@
             "enabled_cloudwatch_logs_exports": null,
             "engine": "aurora-postgresql",
             "engine_mode": "provisioned",
-            "engine_version": "17.5",
+            "engine_version": "17.6",
             "final_snapshot_identifier": null,
             "global_cluster_identifier": null,
             "iam_database_authentication_enabled": false,
@@ -3306,7 +3306,7 @@
             "custom_iam_instance_profile": null,
             "db_subnet_group_name": "cluster-name-pg-std",
             "engine": "aurora-postgresql",
-            "engine_version": "17.5",
+            "engine_version": "17.6",
             "force_destroy": false,
             "identifier": "cluster-name-pg-std-0",
             "instance_class": "db.t3.medium",
