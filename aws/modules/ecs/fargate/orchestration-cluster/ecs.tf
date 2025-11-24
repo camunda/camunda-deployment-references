@@ -4,8 +4,8 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = 4096
-  memory                   = 8192
+  cpu                      = var.task_cpu
+  memory                   = var.task_memory
   container_definitions = templatefile("${path.module}/templates/orchestration-cluster.json.tpl", {
     image                    = var.image
     cpu                      = var.task_cpu

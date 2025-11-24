@@ -1,15 +1,8 @@
 # S3 bucket
 # trivy:ignore:AVD-AWS-0089 S3 bucket logging ignored for this use case, but can be enabled by customers themselves if needed
+# trivy:ignore:AVD-AWS-0090 S3 bucket versioning ignored for this use case as the metadata changes cause excessive versioning with no benefit
 resource "aws_s3_bucket" "main" {
   bucket = "${var.prefix}-bucket"
-}
-
-# Enable versioning
-resource "aws_s3_bucket_versioning" "main" {
-  bucket = aws_s3_bucket.main.id
-  versioning_configuration {
-    status = "Enabled"
-  }
 }
 
 # KMS key for S3 bucket encryption
