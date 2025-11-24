@@ -44,7 +44,7 @@ inputs:
         description: Version of the OpenShift to install
         required: true
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.19.7
+        default: 4.20.3
 
     delete-ghost-rosa-clusters:
         description: Specify whether to delete ghost rosa clusters (true or false)

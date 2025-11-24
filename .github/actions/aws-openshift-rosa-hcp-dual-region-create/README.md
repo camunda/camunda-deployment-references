@@ -24,8 +24,8 @@ Each cluster will be added to the kube config with the name of the cluster as co
 | `availability-zones-cluster-1` | <p>Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)</p> | `false` | `a,b,c` |
 | `availability-zones-cluster-2` | <p>Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)</p> | `false` | `a,b,c` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
-| `openshift-version-cluster-1` | <p>Version of the OpenShift to install</p> | `false` | `4.19.7` |
-| `openshift-version-cluster-2` | <p>Version of the OpenShift to install</p> | `false` | `4.19.7` |
+| `openshift-version-cluster-1` | <p>Version of the OpenShift to install</p> | `false` | `4.20.3` |
+| `openshift-version-cluster-2` | <p>Version of the OpenShift to install</p> | `false` | `4.20.3` |
 | `replicas-cluster-1` | <p>Number of replicas for the ROSA cluster 1 (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `replicas-cluster-2` | <p>Number of replicas for the ROSA cluster 2 (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
@@ -143,13 +143,13 @@ This action is a `composite` action.
     # Version of the OpenShift to install
     #
     # Required: false
-    # Default: 4.19.7
+    # Default: 4.20.3
 
     openshift-version-cluster-2:
     # Version of the OpenShift to install
     #
     # Required: false
-    # Default: 4.19.7
+    # Default: 4.20.3
 
     replicas-cluster-1:
     # Number of replicas for the ROSA cluster 1 (empty will fallback on default value of the module)
