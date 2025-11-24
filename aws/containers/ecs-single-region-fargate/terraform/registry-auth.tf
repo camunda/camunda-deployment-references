@@ -5,12 +5,12 @@
 # Only create these resources if registry credentials are provided
 resource "aws_secretsmanager_secret" "registry_credentials" {
   count                   = var.registry_username != "" ? 1 : 0
-  name                    = "${var.prefix}-docker-hub-credentials"
-  description             = "Docker Hub credentials for ECS to pull images"
+  name                    = "${var.prefix}-registry-credentials"
+  description             = "Registry credentials for ECS to pull images"
   recovery_window_in_days = 0
 }
 
-# You'll need to manually populate this secret with your Docker Hub credentials
+# You'll need to manually populate this secret with your registry credentials
 resource "aws_secretsmanager_secret_version" "registry_credentials" {
   count     = var.registry_username != "" ? 1 : 0
   secret_id = aws_secretsmanager_secret.registry_credentials[0].id
@@ -20,10 +20,10 @@ resource "aws_secretsmanager_secret_version" "registry_credentials" {
   })
 }
 
-# IAM policy for ECS to access Docker Hub credentials
+# IAM policy for ECS to access registry credentials
 resource "aws_iam_policy" "registry_secrets_policy" {
   count = var.registry_username != "" ? 1 : 0
-  name  = "${var.prefix}-docker-hub-secrets-policy"
+  name  = "${var.prefix}-registry-secrets-policy"
 
   policy = jsonencode({
     Version = "2012-10-17"

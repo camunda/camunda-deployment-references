@@ -65,5 +65,6 @@ No modules.
 
 | Name | Description |
 |------|-------------|
+| <a name="output_dns_a_record"></a> [dns\_a\_record](#output\_dns\_a\_record) | n/a |
 | <a name="output_s3_bucket_name"></a> [s3\_bucket\_name](#output\_s3\_bucket\_name) | The name of the S3 bucket |
 <!-- END_TF_DOCS -->
