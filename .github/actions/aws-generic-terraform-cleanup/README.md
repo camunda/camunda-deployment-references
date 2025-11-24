@@ -18,7 +18,7 @@ This GitHub Action automates the deletion of generic terraform resources using a
 | `modules-order` | <p>Destruction order of modules, e.g. "vpn,cluster" or "cluster,vpn"</p> | `true` | `""` |
 | `openshift` | <p>Whether to install OpenShift tooling (ROSA CLI + oc)</p> | `false` | `false` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
-| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.19.7` |
+| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.20.3` |
 | `delete-ghost-rosa-clusters` | <p>Specify whether to delete ghost rosa clusters (true or false)</p> | `false` | `false` |
 
 
@@ -89,7 +89,7 @@ This action is a `composite` action.
     # Version of the OpenShift to install
     #
     # Required: true
-    # Default: 4.19.7
+    # Default: 4.20.3
 
     delete-ghost-rosa-clusters:
     # Specify whether to delete ghost rosa clusters (true or false)
