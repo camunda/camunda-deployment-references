@@ -87,17 +87,17 @@ jobs:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
 
-            - name: Run Terraform Golden Plan Comparison - Peering
-              uses: ./.github/actions/internal-terraform-golden-plan
-              # Note, currently we don't generate the golden file for this module as it requires security group that don't exists
-              if: false
-              env:
-                  GH_TOKEN: ${{ github.token }}
-              with:
-                  module-dir: ${{ env.MODULE_DIR_BASE }}peering/
-                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
+            # Note, currently we don't generate the golden file for this module as it requires security group that don't exists
+            # - name: Run Terraform Golden Plan Comparison - Peering
+            #   uses: ./.github/actions/internal-terraform-golden-plan
+            #   if: false
+            #   env:
+            #       GH_TOKEN: ${{ github.token }}
+            #   with:
+            #       module-dir: ${{ env.MODULE_DIR_BASE }}peering/
+            #       s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+            #       s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+            #       s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
 
             - name: Run Terraform Golden Plan Comparison - Backup Bucket
               uses: ./.github/actions/internal-terraform-golden-plan
