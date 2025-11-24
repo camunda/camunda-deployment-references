@@ -250,7 +250,8 @@
           {
             "apply_server_side_encryption_by_default": [
               {}
-            ]
+            ],
+            "blocked_encryption_types": []
           }
         ]
       },
@@ -265,6 +266,7 @@
                 "sse_algorithm": "aws:kms"
               }
             ],
+            "blocked_encryption_types": [],
             "bucket_key_enabled": null
           }
         ]
@@ -287,7 +289,8 @@
           {
             "apply_server_side_encryption_by_default": [
               {}
-            ]
+            ],
+            "blocked_encryption_types": []
           }
         ]
       },
@@ -302,6 +305,7 @@
                 "sse_algorithm": "aws:kms"
               }
             ],
+            "blocked_encryption_types": [],
             "bucket_key_enabled": null
           }
         ]
