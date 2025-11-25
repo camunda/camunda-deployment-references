@@ -56,12 +56,13 @@ repos:
                 - --hook-config=--add-to-existing-file=true
                 - --args=--config=.lint/terraform_docs/.terraform-docs.yml
 
-    - repo: https://github.com/dnephin/pre-commit-golang
-      rev: v0.5.1
+    - repo: https://github.com/tekwizely/pre-commit-golang
+      rev: v1.0.0-rc.4
       hooks:
           - id: go-fmt
-          - id: no-go-testing
+          - id: go-critic
           - id: go-mod-tidy
+          - id: go-mod-tidy-repo
 
     - repo: https://github.com/shellcheck-py/shellcheck-py
       rev: v0.9.0.6
@@ -89,3 +90,17 @@ repos:
             language: script
             types: [terraform]
             pass_filenames: false
+
+          - id: ci-just-regenerate
+            name: CI - Just regenerate golden files
+            entry: pre_commit_hooks/ci_just_regenerate.sh
+            language: script
+            pass_filenames: false
+            always_run: true
+
+          - id: ci-go-mod-tidy
+            name: CI - Go mod tidy
+            entry: pre_commit_hooks/ci_go_mod_tidy.sh
+            language: script
+            pass_filenames: false
+            always_run: true
