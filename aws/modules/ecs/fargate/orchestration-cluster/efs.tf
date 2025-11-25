@@ -1,11 +1,12 @@
 resource "aws_efs_file_system" "efs" {
   creation_token   = "${var.prefix}-efs"
-  performance_mode = "generalPurpose"
+  performance_mode = var.efs_performance_mode
   encrypted        = true
 
   # TODO: expensive?
-  throughput_mode                 = "provisioned"
-  provisioned_throughput_in_mibps = 125 # gp3 baseline
+  throughput_mode = var.efs_throughput_mode
+
+  provisioned_throughput_in_mibps = var.efs_throughput_mode == "provisioned" ? var.efs_provisioned_throughput_in_mibps : null
 }
 
 resource "aws_efs_access_point" "camunda_data" {
