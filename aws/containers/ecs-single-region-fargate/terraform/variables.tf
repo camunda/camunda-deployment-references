@@ -45,7 +45,6 @@ variable "ports" {
   default = {
     camunda_web_ui                        = 8080
     camunda_metrics_endpoint              = 9600
-    connectors_port                       = 9090
     zeebe_gateway_cluster_port            = 26502
     zeebe_gateway_network_port            = 26500
     zeebe_broker_network_command_api_port = 26501
