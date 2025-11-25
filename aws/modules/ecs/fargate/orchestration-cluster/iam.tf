@@ -192,3 +192,10 @@ resource "aws_iam_role_policy_attachment" "task_role_policy_attachment" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = var.extra_task_role_attachments[count.index]
 }
+
+resource "aws_iam_role_policy_attachment" "service_role_policy_attachment" {
+  count = length(var.extra_service_role_attachments)
+
+  role       = aws_iam_role.ecs_task_execution.name
+  policy_arn = var.extra_service_role_attachments[count.index]
+}

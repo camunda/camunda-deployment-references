@@ -1,7 +1,6 @@
 [
   {
     "name": "orchestration-cluster",
-    "family": "${prefix}-orchestration-cluster",
     "image": "${image}",
     "cpu": ${cpu},
     "memory": ${memory},
@@ -25,7 +24,7 @@
     "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/${prefix}-camunda",
+          "awslogs-group": "${log_group_name}",
           "awslogs-region": "${aws_region}",
           "awslogs-stream-prefix": "orchestration-cluster",
           "awslogs-multiline-pattern": "^\\[\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\]"

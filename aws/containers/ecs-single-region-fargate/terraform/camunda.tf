@@ -96,7 +96,8 @@ module "orchestration_cluster" {
 
   task_desired_count = 3
 
-  extra_task_role_attachments = var.registry_username != "" ? [
+  extra_service_role_attachments = var.registry_username != "" ? [
     aws_iam_policy.registry_secrets_policy[0].arn
   ] : []
+
 }
