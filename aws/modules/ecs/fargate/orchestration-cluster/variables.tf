@@ -81,6 +81,12 @@ variable "extra_task_role_attachments" {
   default     = []
 }
 
+variable "extra_service_role_attachments" {
+  description = "List of additional IAM policy ARNs to attach to the ECS service role"
+  type        = list(string)
+  default     = []
+}
+
 variable "service_force_new_deployment" {
   description = "Whether to force a new deployment of the ECS service"
   type        = bool
