@@ -43,6 +43,7 @@ variable "limit_access_to_cidrs" {
 variable "ports" {
   type = map(number)
   default = {
+    postgresql                            = 5432
     camunda_web_ui                        = 8080
     camunda_metrics_endpoint              = 9600
     zeebe_gateway_cluster_port            = 26502
