@@ -11,7 +11,7 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
     cpu                      = var.task_cpu
     memory                   = var.task_memory
     aws_region               = var.aws_region
-    log_group_name           = aws_cloudwatch_log_group.orchestration_cluster_log_group.name # TODO: fix logging, they have a different pattern than OC :(
+    log_group_name           = aws_cloudwatch_log_group.orchestration_cluster_log_group.name
     registry_credentials_arn = var.registry_credentials_arn
     env_vars_json = jsonencode(concat([
       {
