@@ -32,23 +32,23 @@ module "orchestration_cluster" {
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_TYPE"
-      value = "none"
+      value = "rdbms"
     },
     {
-      name  = "CAMUNDA_REST_QUERY_ENABLED"
-      value = "false"
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL"
+      value = "jdbc:postgresql://${module.postgresql.aurora_endpoint}:5432/camunda"
     },
     {
-      name  = "CAMUNDA_PERSISTENT_SESSIONS_ENABLED"
-      value = "false"
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_USERNAME"
+      value = "camunda_admin"
     },
     {
-      name  = "CAMUNDA_DATABASE_SCHEMA_MANAGER_CREATE_SCHEMA"
-      value = "false"
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_PASSWORD"
+      value = "camunda_admin_password"
     },
     {
       name  = "SPRING_PROFILES_ACTIVE"
-      value = "broker,standalone"
+      value = "broker,consolidated-auth,identity,tasklist"
     },
     {
       name  = "CAMUNDA_SECURITY_AUTHENTICATION_METHOD"
