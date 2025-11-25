@@ -101,3 +101,54 @@ module "orchestration_cluster" {
   ] : []
 
 }
+
+# module "connectors" {
+#   source = "../../../modules/ecs/fargate/connectors"
+
+#   prefix                         = "${var.prefix}-oc1"
+#   ecs_cluster_id                 = aws_ecs_cluster.ecs.id
+#   vpc_id                         = module.vpc.vpc_id
+#   vpc_private_subnets            = module.vpc.private_subnets
+#   aws_region                     = data.aws_region.current.region
+#   s2s_cloudmap_namespace         = module.orchestration_cluster.s2s_cloudmap_namespace
+#   alb_listener_http_80_arn       = aws_lb_listener.http_80.arn
+#   log_group_name                 = module.orchestration_cluster.log_group_name
+
+#   registry_credentials_arn = join("", aws_secretsmanager_secret.registry_credentials[*].arn)
+
+#   service_security_group_ids = [
+#     aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
+#     aws_security_group.allow_package_80_443.id,
+#   ]
+
+#   environment_variables = [
+#     {
+#         name = "CAMUNDA_CLIENT_MODE",
+#         value = "self-managed"
+#       },
+#       {
+#         name = "CAMUNDA_CLIENT_RESTADDRESS",
+#         value = "http://${module.orchestration_cluster.s2s_discovery_name}:8080"
+#       },
+#       {
+#         name = "CAMUNDA_CLIENT_GRPCADDRESS",
+#         value = "http://${module.orchestration_cluster.s2s_discovery_name}:26500"
+#       },
+#       # Debug
+#       {
+#         name = "SERVER_PORT"
+#         value = "8080"
+#       },
+#       {
+#         name = "MANAGEMENT_CONTEXTPATH"
+#         value = "/actuator"
+#       }
+#     ]
+
+#   task_desired_count = 1
+
+#   extra_task_role_attachments = var.registry_username != "" ? [
+#     aws_iam_policy.registry_secrets_policy[0].arn
+#   ] : []
+
+# }
