@@ -87,6 +87,30 @@ variable "service_force_new_deployment" {
   default     = false
 }
 
+variable "cloudwatch_retention_days" {
+  description = "The number of days to retain CloudWatch logs"
+  type        = number
+  default     = 30
+}
+
+variable "efs_throughput_mode" {
+  description = "The throughput mode for the EFS file system"
+  type        = string
+  default     = "provisioned"
+}
+
+variable "efs_provisioned_throughput_in_mibps" {
+  description = "The provisioned throughput in MiB/s for the EFS file system if using provisioned mode"
+  type        = number
+  default     = 125
+}
+
+variable "efs_performance_mode" {
+  description = "The performance mode for the EFS file system"
+  type        = string
+  default     = "generalPurpose"
+}
+
 ################################################################
 #                      Camunda Configs                         #
 ################################################################

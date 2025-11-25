@@ -45,8 +45,12 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_alb_arn"></a> [alb\_arn](#input\_alb\_arn) | The ARN of the Application Load Balancer to use | `string` | `""` | no |
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | The AWS region to deploy resources in | `string` | n/a | yes |
+| <a name="input_cloudwatch_retention_days"></a> [cloudwatch\_retention\_days](#input\_cloudwatch\_retention\_days) | The number of days to retain CloudWatch logs | `number` | `30` | no |
 | <a name="input_ecs_cluster_id"></a> [ecs\_cluster\_id](#input\_ecs\_cluster\_id) | The cluster id of the ECS cluster to spawn the ECS service in | `string` | n/a | yes |
+| <a name="input_efs_performance_mode"></a> [efs\_performance\_mode](#input\_efs\_performance\_mode) | The performance mode for the EFS file system | `string` | `"generalPurpose"` | no |
+| <a name="input_efs_provisioned_throughput_in_mibps"></a> [efs\_provisioned\_throughput\_in\_mibps](#input\_efs\_provisioned\_throughput\_in\_mibps) | The provisioned throughput in MiB/s for the EFS file system if using provisioned mode | `number` | `125` | no |
 | <a name="input_efs_security_group_ids"></a> [efs\_security\_group\_ids](#input\_efs\_security\_group\_ids) | List of security group IDs to associate with the EFS file system | `list(string)` | `[]` | no |
+| <a name="input_efs_throughput_mode"></a> [efs\_throughput\_mode](#input\_efs\_throughput\_mode) | The throughput mode for the EFS file system | `string` | `"provisioned"` | no |
 | <a name="input_environment_variables"></a> [environment\_variables](#input\_environment\_variables) | List of environment variable name-value pairs to set in the ECS task | <pre>list(object({<br/>    name  = string<br/>    value = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_extra_task_role_attachments"></a> [extra\_task\_role\_attachments](#input\_extra\_task\_role\_attachments) | List of additional IAM policy ARNs to attach to the ECS task role | `list(string)` | `[]` | no |
 | <a name="input_image"></a> [image](#input\_image) | The container image to use for the Camunda orchestration cluster | `string` | `"camunda/camunda:SNAPSHOT"` | no |
