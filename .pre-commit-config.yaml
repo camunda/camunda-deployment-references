@@ -58,12 +58,19 @@ repos:
 
     - repo: local
       hooks:
+          # This hook installs go-critic tool needed for the go-critic hook in the pre-commit-golang repo
           - id: install-go-critic
             name: Install go-critic
             entry: just install-go-critic
             language: system
             pass_filenames: false
             always_run: true
+          - id: trivy-scan
+            name: Trivy Scan
+            entry: .lint/trivy/trivy-scan.sh
+            language: script
+            types: [terraform]
+            pass_filenames: false
 
     - repo: https://github.com/tekwizely/pre-commit-golang
       rev: v1.0.0-rc.4
@@ -90,12 +97,3 @@ repos:
       hooks:
           - id: yamlfmt
             exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.yml)
-
-    - repo: local
-      hooks:
-          - id: trivy-scan
-            name: Trivy Scan
-            entry: .lint/trivy/trivy-scan.sh
-            language: script
-            types: [terraform]
-            pass_filenames: false
