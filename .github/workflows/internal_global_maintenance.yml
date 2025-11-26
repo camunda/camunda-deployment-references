@@ -12,6 +12,9 @@ name: Internal - Global - Maintenance
 on:
     pull_request:
 
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 env:
     AWS_PROFILE: infraex
     AWS_REGION: eu-west-2
@@ -26,8 +29,7 @@ jobs:
         permissions:
             id-token: write # required for azure login
             contents: write # allow commits
-        # TODO: revert
-        # if: github.event.pull_request.user.login == 'renovate[bot]'
+        if: github.event.pull_request.user.login == 'renovate[bot]'
         steps:
             - name: Generate token for GitHub
               id: generate-github-token
