@@ -52,23 +52,6 @@ just install-tooling
 
 This command will:
 1. Install all tools defined in `.tool-versions` via `asdf`
-2. Install Go-based tools like `go-critic` (pinned to specific versions managed by Renovate)
-
-### Go-Critic
-
-Go-critic is a linter that's automatically installed before pre-commit hooks run. The installation is managed through:
-
-- **Version**: Defined in `justfile` with Renovate annotation (currently v0.14.2)
-- **Installation**: Automatically triggered by pre-commit via `just install-go-critic`
-- **Dependencies**: Also defined in all `go.mod` files throughout the repository for module-level usage
-
-To manually install or update go-critic:
-
-```bash
-just install-go-critic
-```
-
-The pre-commit configuration includes a local hook that ensures go-critic is installed before running Go linting hooks.
 
 ## Skipping Workflows Using Labels
 

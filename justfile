@@ -3,9 +3,6 @@
 # renovate: datasource=github-releases depName=gotestyourself/gotestsum
 gotestsum_version := "v1.13.0"
 
-# renovate: datasource=github-releases depName=go-critic/go-critic
-gocritic_version := "v0.14.2"
-
 # Launch a single test using go test in verbose mode
 aws-tf-modules-test-verbose testname: aws-tf-modules-install-tests-go-mod
     cd aws/modules/.test/src/ && go test -v --timeout=120m -p 1 -run {{testname}}
@@ -176,12 +173,9 @@ regenerate-golden-file-all:
 
   echo "Processed ${count} environment(s)."
 
-# Install go-critic globally
-install-go-critic:
-    go install github.com/go-critic/go-critic/cmd/gocritic@{{gocritic_version}}
 
 # Install all the tooling
-install-tooling: asdf-install install-go-critic
+install-tooling: asdf-install
 
 # Install asdf plugins
 asdf-plugins tool_versions_dir="./":
