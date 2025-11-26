@@ -28,13 +28,13 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
-              uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+              uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
               with:
                   fetch-depth: 0
 
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@b42b4e889766e5b3ff50fb4864ca1e58585e2a8e # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@b80b223e3ebbe4ae3cfb87c4ff459fb19b56dded # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -75,7 +75,7 @@ jobs:
             schedules: ${{ steps.matrix.outputs.schedules }}
         steps:
             - name: Checkout repository
-              uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+              uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
               with:
                   fetch-depth: 0
 
@@ -125,7 +125,7 @@ jobs:
         steps:
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@b42b4e889766e5b3ff50fb4864ca1e58585e2a8e # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@b80b223e3ebbe4ae3cfb87c4ff459fb19b56dded # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -137,7 +137,7 @@ jobs:
                   vault-url: ${{ secrets.VAULT_ADDR }}
 
             - name: Checkout repository
-              uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+              uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
               with:
                   token: ${{ steps.generate-github-token.outputs.token }}
                   ref: ${{ matrix.schedule.branch }}
@@ -173,7 +173,7 @@ jobs:
                   extra_args: --all-files --verbose
 
             - name: Create the schedule PR
-              uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7
+              uses: peter-evans/create-pull-request@84ae59a2cdc2258d6fa0732dd66352dddae2a412 # v7
               with:
                   token: ${{ steps.generate-github-token.outputs.token }}
                   branch: ${{ steps.branch-update.outputs.current_branch }}

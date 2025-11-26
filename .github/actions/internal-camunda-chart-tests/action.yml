@@ -131,7 +131,7 @@ runs:
                   secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
 
         - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
-          uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+          uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
           if: ${{ inputs.enable-helm-chart-tests == 'true' }}
           with:
               repository: camunda/camunda-platform-helm
@@ -140,7 +140,7 @@ runs:
               fetch-depth: 0
 
         - name: 🧙‍♂️ Clone camunda/c8-sm-checks
-          uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+          uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
           with:
               repository: camunda/c8-sm-checks
               ref: ${{ inputs.tests-c8-sm-checks-repo-ref }}
