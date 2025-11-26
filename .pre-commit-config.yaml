@@ -56,6 +56,15 @@ repos:
                 - --hook-config=--add-to-existing-file=true
                 - --args=--config=.lint/terraform_docs/.terraform-docs.yml
 
+    - repo: local
+      hooks:
+          - id: install-go-critic
+            name: Install go-critic
+            entry: just install-go-critic
+            language: system
+            pass_filenames: false
+            always_run: true
+
     - repo: https://github.com/tekwizely/pre-commit-golang
       rev: v1.0.0-rc.4
       hooks:
