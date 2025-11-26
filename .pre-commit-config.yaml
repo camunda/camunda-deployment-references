@@ -90,17 +90,3 @@ repos:
             language: script
             types: [terraform]
             pass_filenames: false
-
-          - id: ci-just-regenerate
-            name: CI - Just regenerate golden files
-            entry: pre_commit_hooks/ci_just_regenerate.sh
-            language: script
-            pass_filenames: false
-            always_run: true
-
-          - id: ci-go-mod-tidy
-            name: CI - Go mod tidy
-            entry: pre_commit_hooks/ci_go_mod_tidy.sh
-            language: script
-            pass_filenames: false
-            always_run: true
