@@ -7,8 +7,9 @@ identity:
         - id: venom
           name: Venom
           # adjusted to align with our tests
-          existingSecret: identity-secret-for-components-integration
-          existingSecretKey: identity-admin-client-secret
+          secret:
+              existingSecret: identity-secret-for-components-integration
+              existingSecretKey: identity-admin-client-secret
           redirectUris: /dummy
           rootUrl: http://dummy
           type: confidential
