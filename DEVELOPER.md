@@ -42,6 +42,17 @@ Inside each workflow file, the `name` field is also standardized to maintain uni
 
 By following these conventions, we ensure a clear and structured approach to workflow management, making it easier to understand, maintain, and scale our CI/CD pipelines.
 
+## Tooling Installation
+
+The project uses `just` (a command runner) to manage tooling installation. To install all required tools, run:
+
+```bash
+just install-tooling
+```
+
+This command will:
+1. Install all tools defined in `.tool-versions` via `asdf`
+
 ## Skipping Workflows Using Labels
 
 The action `.github/actions/internal-triage-skip` allows skipping workflows using specific labels. This action must be included in every workflow to enable this functionality.

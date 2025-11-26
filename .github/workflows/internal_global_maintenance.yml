@@ -1,0 +1,111 @@
+---
+name: Internal - Global - Maintenance
+
+# This workflow performs automated maintenance tasks on Renovate pull requests:
+# - Runs 'go mod tidy' to ensure Go dependencies are up to date
+# - Regenerates golden files using 'just regenerate-golden-file-all'
+# - Automatically commits any changes detected
+#
+# This helps keep the repository in sync with dependency updates and
+# ensures golden files remain current with the latest infrastructure changes.
+
+on:
+    pull_request:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+env:
+    AWS_PROFILE: infraex
+    AWS_REGION: eu-west-2
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    S3_BUCKET_KEY: golden.tfstate
+
+jobs:
+    maintenance:
+        name: Automated maintenance
+        runs-on: ubuntu-latest
+        permissions:
+            id-token: write # required for azure login
+            contents: write # allow commits
+        if: github.event.pull_request.user.login == 'renovate[bot]'
+        steps:
+            - name: Generate token for GitHub
+              id: generate-github-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@91d83a1361508ada5bc48e82d21c3d7317e1d47b # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+
+            - name: Checkout repository
+              uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
+              with:
+                  token: ${{ steps.generate-github-token.outputs.token }}
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AZURE_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Azure Login with OIDC
+              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              with:
+                  client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+
+            - name: Run go mod tidy
+              run: |
+                  echo "Running 'go mod tidy' on all go.mod files..."
+                  find . -name 'go.mod' -execdir sh -c 'echo "Processing $(pwd)/go.mod" && go mod tidy' \;
+                  echo "✅ 'go mod tidy' completed successfully"
+
+            - name: Run just regenerate all golden files
+              run: |
+                  echo "Running 'just regenerate-golden-file-all'..."
+                  just regenerate-golden-file-all
+                  echo "✅ 'just regenerate-golden-file-all' completed successfully"
+
+            - name: Check for changes
+              id: check-changes
+              run: |
+                  if [[ -n $(git status --porcelain) ]]; then
+                    echo "changes=true" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "changes=false" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Commit changes
+              if: steps.check-changes.outputs.changes == 'true'
+              uses: getsentry/action-github-commit@5972d5f578ad77306063449e718c0c2a6fbc4ae1 # main
+              with:
+                  github-token: ${{ steps.generate-github-token.outputs.token }}
+                  message: 'chore: update from scheduled maintenance (go mod tidy & just regenerate)'
