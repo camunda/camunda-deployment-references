@@ -59,10 +59,10 @@ repos:
     - repo: https://github.com/tekwizely/pre-commit-golang
       rev: v1.0.0-rc.4
       hooks:
-          - id: go-fmt
-          - id: go-critic
           - id: go-mod-tidy
           - id: go-mod-tidy-repo
+          - id: go-fmt
+          - id: go-critic
 
     - repo: https://github.com/shellcheck-py/shellcheck-py
       rev: v0.9.0.6
