@@ -16,6 +16,7 @@ jobs:
     name: Create backport PRs
     runs-on: ubuntu-latest
     # Run when pull request is merged or when a comment starting with `/backport`
+    # Exclude the backport action bot (user ID 97796249) to prevent infinite loops
     if: >
       (
         github.event_name == 'pull_request' &&
@@ -48,7 +49,7 @@ jobs:
 
       - name: Notify in Slack in case of failure
         id: slack-notification
-        if: failure() && github.event_name == 'schedule'
+        if: failure() && (github.event_name == 'pull_request' || github.event_name == 'issue_comment')
         uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
         with:
             vault_addr: ${{ secrets.VAULT_ADDR }}
