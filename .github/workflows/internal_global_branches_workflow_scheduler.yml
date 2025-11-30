@@ -34,7 +34,7 @@ jobs:
 
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@83dd3777b573878a73ea4b9a0547ad42c5bd8500 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@b0fe528f9157c18a19402e23f1185a9bc28e2e8a # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -125,7 +125,7 @@ jobs:
         steps:
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@83dd3777b573878a73ea4b9a0547ad42c5bd8500 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@b0fe528f9157c18a19402e23f1185a9bc28e2e8a # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
