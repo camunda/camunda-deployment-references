@@ -173,6 +173,7 @@ regenerate-golden-file-all:
 
   echo "Processed ${count} environment(s)."
 
+
 # Install all the tooling
 install-tooling: asdf-install
 
