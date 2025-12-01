@@ -871,6 +871,7 @@
                 ],
                 "certificate_authority": [],
                 "compute_config": [],
+                "control_plane_scaling_config": [],
                 "enabled_cluster_log_types": [
                   false,
                   false,
