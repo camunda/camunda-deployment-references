@@ -87,6 +87,10 @@ just install-tooling
 
 # To list all available recipes:
 just --list
+
+# configure commit hooks
+pre-commit install
+
 ```
 
 ## Support
