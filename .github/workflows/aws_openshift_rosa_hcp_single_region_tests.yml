@@ -150,7 +150,6 @@ jobs:
                   aws configure set region ${{ env.AWS_REGION }} --profile ${{ env.AWS_PROFILE }}
 
             - name: Set current target branch
-              if: env.CLEANUP_CLUSTERS == 'true'
               id: target-branch
               run: |
                   set -euo pipefail
