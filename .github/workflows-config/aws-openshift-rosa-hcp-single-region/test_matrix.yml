@@ -5,16 +5,15 @@ matrix:
         # /!\ Please keep this matrix synced with the official documentation:
         # https://github.com/camunda/camunda-docs/blob/main/docs/self-managed/setup/deploy/openshift/redhat-openshift.md?plain=1#L2
         # According to https://access.redhat.com/support/policy/updates/openshift, this matrix should reference the first and the last of the supported versions of OpenShift
-        # TODO: revert
-        # - name: OpenShift 4.18
-        #   schedule_only: false
-        #   # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        #   version: 4.18.16
-        #   # /!\ Warning: When a new minor version of OpenShift is released,
-        #   # you must update the N-3 versions in this matrix.
-        #   # rationale: Red Hat supports the last four minor versions of OpenShift.
-        #   # Therefore, to ensure compatibility and support, we test the latest and the older.
-        #   # For more details, refer to the official support policy at https://endoflife.date/red-hat-openshift.
+        - name: OpenShift 4.18
+          schedule_only: false
+          # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+          version: 4.18.16
+          # /!\ Warning: When a new minor version of OpenShift is released,
+          # you must update the N-3 versions in this matrix.
+          # rationale: Red Hat supports the last four minor versions of OpenShift.
+          # Therefore, to ensure compatibility and support, we test the latest and the older.
+          # For more details, refer to the official support policy at https://endoflife.date/red-hat-openshift.
 
         - name: OpenShift 4.16
           schedule_only: true
