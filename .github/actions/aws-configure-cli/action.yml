@@ -1,0 +1,45 @@
+---
+name: Configure AWS CLI
+description: Import AWS Secrets from Vault and configure AWS CLI profile
+# The official action do not support profiles
+
+inputs:
+    vault-addr:
+        description: The URL of the Vault server
+        required: true
+    vault-role-id:
+        description: The Vault Role ID
+        required: true
+    vault-secret-id:
+        description: The Vault Secret ID
+        required: true
+    aws-profile:
+        description: AWS CLI profile name
+        required: true
+    aws-region:
+        description: AWS region
+        required: true
+
+runs:
+    using: composite
+    steps:
+        - name: Import Secrets from Vault
+          id: secrets
+          uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+          with:
+              url: ${{ inputs.vault-addr }}
+              method: approle
+              roleId: ${{ inputs.vault-role-id }}
+              secretId: ${{ inputs.vault-secret-id }}
+              exportEnv: false
+              secrets: |
+                  secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                  secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+
+        - name: Add AWS CLI credentials to profile
+          shell: bash
+          run: |
+              set -euo pipefail
+              aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ inputs.aws-profile }}
+              aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ inputs.aws-profile }}
+              aws configure set region ${{ inputs.aws-region }} --profile ${{ inputs.aws-profile }}
