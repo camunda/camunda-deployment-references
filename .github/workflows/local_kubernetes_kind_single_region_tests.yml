@@ -3,6 +3,7 @@ name: Tests - Integration - Local Kubernetes Kind Single Region
 
 permissions:
     contents: read
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
 on:
     schedule:
@@ -10,26 +11,23 @@ on:
     pull_request:
         paths:
             - .github/workflows/local_kubernetes_kind_single_region_tests.yml
+            - .github/workflows-config/local-kubernetes-kind-single-region/**
+            - .github/actions/internal-triage-skip/**
+            - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-tests-matrix/**
             - .tool-versions
             - local/kubernetes/kind-single-region/**
     workflow_dispatch:
-        inputs:
-            enable_domain_tests:
-                description: Run domain mode tests (TLS with mkcert)
-                type: boolean
-                default: true
-            enable_no_domain_tests:
-                description: Run no-domain mode tests (port-forward)
-                type: boolean
-                default: true
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+    cancel-in-progress: false
 
 env:
     REF_ARCH_PATH: local/kubernetes/kind-single-region
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
+    CI_MATRIX_FILE: .github/workflows-config/local-kubernetes-kind-single-region/test_matrix.yml
 
 jobs:
     triage:
@@ -37,55 +35,54 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
 
-    define-matrix:
+    clusters-info:
         needs: triage
         if: needs.triage.outputs.should_skip == 'false'
+        name: Define Matrix
         runs-on: ubuntu-latest
         outputs:
-            matrix: ${{ steps.set-matrix.outputs.matrix }}
+            platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - name: Define test matrix
-              id: set-matrix
-              run: |
-                  set -euo pipefail
+            - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
 
-                  # Build matrix based on inputs or defaults
-                  ENABLE_DOMAIN="${{ github.event.inputs.enable_domain_tests || 'true' }}"
-                  ENABLE_NO_DOMAIN="${{ github.event.inputs.enable_no_domain_tests || 'true' }}"
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
-                  MODES="[]"
-                  if [[ "$ENABLE_DOMAIN" == "true" ]]; then
-                      MODES=$(echo "$MODES" | jq '. + [{"name": "domain", "cluster_suffix": "domain", "use_tls": true}]')
-                  fi
-                  if [[ "$ENABLE_NO_DOMAIN" == "true" ]]; then
-                      MODES=$(echo "$MODES" | jq '. + [{"name": "no-domain", "cluster_suffix": "nodomain", "use_tls": false}]')
-                  fi
-
-                  echo "matrix={\"mode\": $MODES}" | tee -a "$GITHUB_OUTPUT"
+            - name: Define tests matrix
+              uses: ./.github/actions/internal-tests-matrix
+              id: matrix
+              with:
+                  ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
+                  cluster_prefix: kind-${{ github.event.pull_request.number || '' }}
+                  is_schedule: ${{ env.IS_SCHEDULE }}
+                  is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
     integration-tests:
-        name: Test Kind - ${{ matrix.mode.name }}
+        name: Test ${{ matrix.distro.name }} - ${{ matrix.declination.name }}
         needs:
             - triage
-            - define-matrix
+            - clusters-info
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         timeout-minutes: 45
         strategy:
             fail-fast: false
-            matrix: ${{ fromJson(needs.define-matrix.outputs.matrix) }}
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         env:
-            CLUSTER_NAME: camunda-${{ matrix.mode.cluster_suffix }}
+            CLUSTER_NAME: camunda-${{ matrix.declination.cluster_suffix }}
             CAMUNDA_NAMESPACE: camunda
             CAMUNDA_RELEASE_NAME: camunda
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
@@ -100,7 +97,7 @@ jobs:
 
                   # Update ports to avoid conflicts when running in parallel
                   # domain mode: 80/443, no-domain mode: 8080/8443
-                  if [[ "${{ matrix.mode.use_tls }}" == "false" ]]; then
+                  if [[ "${{ matrix.declination.use_tls }}" == "false" ]]; then
                       sed -i "s/hostPort: 80$/hostPort: 8080/g" configs/kind-cluster-config.yaml
                       sed -i "s/hostPort: 443$/hostPort: 8443/g" configs/kind-cluster-config.yaml
                   fi
@@ -118,33 +115,33 @@ jobs:
 
             # Domain mode specific steps
             - name: Configure CoreDNS
-              if: matrix.mode.use_tls
+              if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/coredns-config.sh
 
             - name: Generate TLS certificates
-              if: matrix.mode.use_tls
+              if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/certs-generate.sh
 
             - name: Create TLS secret
-              if: matrix.mode.use_tls
+              if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/certs-create-secret.sh
 
             - name: Create CA ConfigMap
-              if: matrix.mode.use_tls
+              if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/certs-create-ca-configmap.sh
 
             # Deploy Camunda
             - name: Deploy Camunda (domain mode)
-              if: matrix.mode.use_tls
+              if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/camunda-deploy-domain.sh
 
             - name: Deploy Camunda (no-domain mode)
-              if: ${{ !matrix.mode.use_tls }}
+              if: ${{ !matrix.declination.use_tls }}
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/camunda-deploy-no-domain.sh
 
@@ -267,10 +264,10 @@ jobs:
         needs:
             - integration-tests
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
 
             - name: Prevent other runs for renovate
-              if: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
               env:
                   GH_TOKEN: ${{ github.token }}
               uses: ./.github/actions/internal-apply-skip-label
