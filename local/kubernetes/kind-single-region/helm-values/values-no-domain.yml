@@ -137,10 +137,10 @@ orchestration:
             - test
 
 console:
-  enabled: false
+  enabled: true
 
 webModeler:
-  enabled: false
+  enabled: true
 
 webModelerPostgresql:
-  enabled: false
+  enabled: true
