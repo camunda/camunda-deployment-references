@@ -110,6 +110,7 @@ jobs:
               run: ./procedure/cluster-create.sh
 
             - name: Deploy Ingress NGINX
+              if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/ingress-nginx-deploy.sh
 
@@ -117,33 +118,51 @@ jobs:
             - name: Configure CoreDNS
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: ./procedure/coredns-config.sh
+              run: 
+                  set -euo pipefail
+
+                  ./procedure/coredns-config.sh
 
             - name: Generate TLS certificates
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: ./procedure/certs-generate.sh
+              run: 
+                  set -euo pipefail
+
+                  ./procedure/certs-generate.sh
 
             - name: Create TLS secret
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: ./procedure/certs-create-secret.sh
+              run: 
+                  set -euo pipefail
+
+                  ./procedure/certs-create-secret.sh
 
             - name: Create CA ConfigMap
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: ./procedure/certs-create-ca-configmap.sh
+              run: 
+                  set -euo pipefail
+
+                  ./procedure/certs-create-ca-configmap.sh
 
             # Deploy Camunda
             - name: Deploy Camunda (domain mode)
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: ./procedure/camunda-deploy-domain.sh
+              run: 
+                  set -euo pipefail
+
+                  ./procedure/camunda-deploy-domain.sh
 
             - name: Deploy Camunda (no-domain mode)
               if: ${{ !matrix.declination.use_tls }}
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: ./procedure/camunda-deploy-no-domain.sh
+              run: 
+                  set -euo pipefail
+
+                  ./procedure/camunda-deploy-no-domain.sh
 
             - name: Wait for Camunda deployment
               timeout-minutes: 20
