@@ -16,8 +16,3 @@ helm upgrade --install camunda camunda/camunda-platform \
 echo ""
 echo "Camunda Platform deployed!"
 echo "Monitor: kubectl get pods -n camunda -w"
-echo ""
-echo "Access via port-forward:"
-echo "  kubectl port-forward svc/camunda-keycloak 18080:80 -n camunda"
-echo "  kubectl port-forward svc/camunda-operate 8081:80 -n camunda"
-echo "  kubectl port-forward svc/camunda-tasklist 8082:80 -n camunda"
