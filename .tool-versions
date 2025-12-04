@@ -36,9 +36,15 @@ jq 1.7.1
 
 just 1.43.1
 
+# renovate: datasource=github-tags depName=kubernetes-sigs/kind
+kind 0.29.0
+
 kubectl 1.34.2
 
 kustomize 5.8.0 # used by the tests
+
+# renovate: datasource=github-tags depName=FiloSottile/mkcert
+mkcert 1.4.4
 
 pre-commit 4.5.0
 

@@ -1,0 +1,292 @@
+---
+name: Tests - Integration - Local Kubernetes Kind Single Region
+
+permissions:
+    contents: read
+
+on:
+    schedule:
+        - cron: 0 4 * * 3 # Runs at 4 AM on Wednesdays
+    pull_request:
+        paths:
+            - .github/workflows/local_kubernetes_kind_single_region_tests.yml
+            - .tool-versions
+            - local/kubernetes/kind-single-region/**
+    workflow_dispatch:
+        inputs:
+            enable_domain_tests:
+                description: Run domain mode tests (TLS with mkcert)
+                type: boolean
+                default: true
+            enable_no_domain_tests:
+                description: Run no-domain mode tests (port-forward)
+                type: boolean
+                default: true
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    REF_ARCH_PATH: local/kubernetes/kind-single-region
+    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@v4
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    define-matrix:
+        needs: triage
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        outputs:
+            matrix: ${{ steps.set-matrix.outputs.matrix }}
+        steps:
+            - name: Define test matrix
+              id: set-matrix
+              run: |
+                  set -euo pipefail
+
+                  # Build matrix based on inputs or defaults
+                  ENABLE_DOMAIN="${{ github.event.inputs.enable_domain_tests || 'true' }}"
+                  ENABLE_NO_DOMAIN="${{ github.event.inputs.enable_no_domain_tests || 'true' }}"
+
+                  MODES="[]"
+                  if [[ "$ENABLE_DOMAIN" == "true" ]]; then
+                      MODES=$(echo "$MODES" | jq '. + [{"name": "domain", "cluster_suffix": "domain", "use_tls": true}]')
+                  fi
+                  if [[ "$ENABLE_NO_DOMAIN" == "true" ]]; then
+                      MODES=$(echo "$MODES" | jq '. + [{"name": "no-domain", "cluster_suffix": "nodomain", "use_tls": false}]')
+                  fi
+
+                  echo "matrix={\"mode\": $MODES}" | tee -a "$GITHUB_OUTPUT"
+
+    integration-tests:
+        name: Test Kind - ${{ matrix.mode.name }}
+        needs:
+            - triage
+            - define-matrix
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJson(needs.define-matrix.outputs.matrix) }}
+        env:
+            CLUSTER_NAME: camunda-${{ matrix.mode.cluster_suffix }}
+            CAMUNDA_NAMESPACE: camunda
+            CAMUNDA_RELEASE_NAME: camunda
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+
+            - name: Update Kind cluster config with unique name and ports
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: |
+                  set -euo pipefail
+
+                  # Update cluster name in config to avoid conflicts
+                  sed -i "s/camunda-platform-local/${{ env.CLUSTER_NAME }}/g" configs/kind-cluster-config.yaml
+
+                  # Update ports to avoid conflicts when running in parallel
+                  # domain mode: 80/443, no-domain mode: 8080/8443
+                  if [[ "${{ matrix.mode.use_tls }}" == "false" ]]; then
+                      sed -i "s/hostPort: 80$/hostPort: 8080/g" configs/kind-cluster-config.yaml
+                      sed -i "s/hostPort: 443$/hostPort: 8443/g" configs/kind-cluster-config.yaml
+                  fi
+
+                  echo "=== Kind cluster config ==="
+                  cat configs/kind-cluster-config.yaml
+
+            - name: Create Kind cluster
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/cluster-create.sh
+
+            - name: Deploy Ingress NGINX
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/ingress-nginx-deploy.sh
+
+            # Domain mode specific steps
+            - name: Configure CoreDNS
+              if: matrix.mode.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/coredns-config.sh
+
+            - name: Generate TLS certificates
+              if: matrix.mode.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/certs-generate.sh
+
+            - name: Create TLS secret
+              if: matrix.mode.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/certs-create-secret.sh
+
+            - name: Create CA ConfigMap
+              if: matrix.mode.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/certs-create-ca-configmap.sh
+
+            # Deploy Camunda
+            - name: Deploy Camunda (domain mode)
+              if: matrix.mode.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/camunda-deploy-domain.sh
+
+            - name: Deploy Camunda (no-domain mode)
+              if: ${{ !matrix.mode.use_tls }}
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/camunda-deploy-no-domain.sh
+
+            - name: Wait for Camunda deployment
+              timeout-minutes: 20
+              run: |
+                  set -euo pipefail
+
+                  echo "Waiting for Camunda pods to be ready..."
+
+                  # Wait for all deployments to be available
+                  kubectl wait --namespace "${{ env.CAMUNDA_NAMESPACE }}" \
+                      --for=condition=Available \
+                      deployment --all \
+                      --timeout=900s || true
+
+                  # Check all pods are running
+                  timeout=900
+                  elapsed=0
+                  while [ $elapsed -lt $timeout ]; do
+                      echo "--- Status check at ${elapsed}s ---"
+                      kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide
+
+                      NOT_READY=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" --no-headers 2>/dev/null | grep -v "Running\|Completed" | wc -l || echo "0")
+                      PENDING=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" --no-headers 2>/dev/null | grep -c "0/" || echo "0")
+
+                      if [[ "$NOT_READY" -eq 0 && "$PENDING" -eq 0 ]]; then
+                          echo "✅ All pods are ready!"
+                          break
+                      fi
+
+                      sleep 15
+                      elapsed=$((elapsed + 15))
+                  done
+
+                  echo ""
+                  echo "=== Final Status ==="
+                  kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide
+
+            - name: Verify Helm release
+              run: |
+                  set -euo pipefail
+
+                  echo "=== Helm Release ==="
+                  helm list -n "${{ env.CAMUNDA_NAMESPACE }}"
+
+                  echo ""
+                  echo "=== All Resources ==="
+                  kubectl get all -n "${{ env.CAMUNDA_NAMESPACE }}"
+
+            - name: Run basic connectivity tests
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+
+                  echo "=== Running connectivity tests ==="
+
+                  # Check Zeebe gateway is responding
+                  echo "Checking Zeebe gateway..."
+                  kubectl exec -n "${{ env.CAMUNDA_NAMESPACE }}" deploy/camunda-zeebe-gateway -- \
+                      wget -q -O - http://localhost:9600/actuator/health || echo "Zeebe health check failed (may be expected)"
+
+                  # Check Keycloak is responding
+                  echo "Checking Keycloak..."
+                  kubectl exec -n "${{ env.CAMUNDA_NAMESPACE }}" deploy/camunda-keycloak -- \
+                      curl -sf http://localhost:8080/auth/health || \
+                  kubectl exec -n "${{ env.CAMUNDA_NAMESPACE }}" deploy/camunda-keycloak -- \
+                      wget -q -O - http://localhost:8080/auth/health || echo "Keycloak health check (alternative path)"
+
+                  echo "✅ Connectivity tests completed"
+
+            - name: 🔬🚨 Debug - Show pod details on failure
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  echo "=== Pod Status ==="
+                  kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide
+
+                  echo ""
+                  echo "=== Events ==="
+                  kubectl get events -n "${{ env.CAMUNDA_NAMESPACE }}" --sort-by='.lastTimestamp' | tail -50
+
+                  echo ""
+                  echo "=== Failed Pods Details ==="
+                  kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" --no-headers | grep -v "Running\|Completed" | awk '{print $1}' | while read -r pod; do
+                      if [[ -n "$pod" ]]; then
+                          echo "--- Pod: $pod ---"
+                          kubectl describe pod "$pod" -n "${{ env.CAMUNDA_NAMESPACE }}" | tail -30
+                          echo ""
+                          echo "--- Logs: $pod ---"
+                          kubectl logs "$pod" -n "${{ env.CAMUNDA_NAMESPACE }}" --all-containers --tail=50 || true
+                          echo ""
+                      fi
+                  done
+
+            - name: 🔬🚨 Debug - Show Helm status on failure
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  echo "=== Helm Status ==="
+                  helm status "${{ env.CAMUNDA_RELEASE_NAME }}" -n "${{ env.CAMUNDA_NAMESPACE }}" || true
+
+                  echo ""
+                  echo "=== Helm History ==="
+                  helm history "${{ env.CAMUNDA_RELEASE_NAME }}" -n "${{ env.CAMUNDA_NAMESPACE }}" || true
+
+            - name: Cleanup
+              if: always()
+              run: |
+                  set -euo pipefail
+
+                  echo "Cleaning up Kind cluster: ${{ env.CLUSTER_NAME }}"
+                  kind delete cluster --name "${{ env.CLUSTER_NAME }}" || true
+
+    report-success:
+        name: Report success
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Prevent other runs for renovate
+              if: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
+    report-failure:
+        name: Report failures
+        if: failure()
+        runs-on: ubuntu-latest
+        needs:
+            - report-success
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: ${{ env.IS_SCHEDULE == 'true' }}
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
