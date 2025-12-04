@@ -26,6 +26,6 @@ kubectl port-forward svc/camunda-optimize 8083:80 -n camunda &
 kubectl port-forward svc/camunda-web-modeler-webapp 8070:80 -n camunda &
 kubectl port-forward svc/camunda-connectors 8085:8080 -n camunda &
 kubectl port-forward svc/camunda-console 8087:80 -n camunda &
-kubectl port-forward svc/camunda-management-identity 18081:80 -n camunda &
-kubectl port-forward svc/camunda-keycloak 18080:80 -n camunda &
+kubectl port-forward svc/camunda-identity 18081:80 -n camunda &
+kubectl port-forward svc/camunda-keycloak 18080:8080 -n camunda &
 wait

@@ -23,7 +23,7 @@ global:
       type: "KEYCLOAK"
 
       issuerBackendUrl: http://camunda-keycloak:8080/auth/realms/camunda-platform
-      issuer: http://camunda-keycloak:80/auth/realms/camunda-platform
+      issuer: http://camunda-keycloak:8080/auth/realms/camunda-platform
       # using localhost:18080 -> keycloak-service:8080 (kubectl port-forward svc/keycloak-service 18080:8080)
       publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform
 
@@ -64,7 +64,7 @@ identity:
   enabled: true
 
   contextPath: /managementidentity
-  fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
+  fullURL: http://localhost:18081/managementidentity # replace this with a port of your choice when you will do port forwarding
 
   firstUser:
     enabled: true
