@@ -166,39 +166,9 @@ jobs:
 
             - name: Wait for Camunda deployment
               timeout-minutes: 20
-              run: |
-                  set -euo pipefail
-
-                  echo "Waiting for Camunda pods to be ready..."
-
-                  # Wait for all deployments to be available
-                  kubectl wait --namespace "${{ env.CAMUNDA_NAMESPACE }}" \
-                      --for=condition=Available \
-                      deployment --all \
-                      --timeout=900s || true
-
-                  # Check all pods are running
-                  timeout=900
-                  elapsed=0
-                  while [ $elapsed -lt $timeout ]; do
-                      echo "--- Status check at ${elapsed}s ---"
-                      kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide
-
-                      NOT_READY=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" --no-headers 2>/dev/null | grep -v "Running\|Completed" | wc -l || echo "0")
-                      PENDING=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" --no-headers 2>/dev/null | grep -c "0/" || echo "0")
-
-                      if [[ "$NOT_READY" -eq 0 && "$PENDING" -eq 0 ]]; then
-                          echo "✅ All pods are ready!"
-                          break
-                      fi
-
-                      sleep 15
-                      elapsed=$((elapsed + 15))
-                  done
-
-                  echo ""
-                  echo "=== Final Status ==="
-                  kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide
+              env:
+                  CAMUNDA_NAMESPACE: ${{ env.CAMUNDA_NAMESPACE }}
+              run: ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
             - name: Verify Helm release
               run: |
