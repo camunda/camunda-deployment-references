@@ -15,6 +15,7 @@ on:
             - .github/actions/internal-triage-skip/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-tests-matrix/**
+            - .github/actions/internal-camunda-chart-tests/**
             - .tool-versions
             - local/kubernetes/kind-single-region/**
     workflow_dispatch:
@@ -28,6 +29,12 @@ env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
     CI_MATRIX_FILE: .github/workflows-config/local-kubernetes-kind-single-region/test_matrix.yml
+
+    # TEST VARIABLES
+    TESTS_ENABLED: 'true'
+    # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
 jobs:
     triage:
@@ -80,12 +87,28 @@ jobs:
             CLUSTER_NAME: camunda-${{ matrix.declination.cluster_suffix }}
             CAMUNDA_NAMESPACE: camunda
             CAMUNDA_RELEASE_NAME: camunda
+            TEST_CLUSTER_TYPE: kubernetes
         steps:
             - name: Checkout repository
               uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
 
             - name: Update Kind cluster config with unique name and ports
               working-directory: ${{ env.REF_ARCH_PATH }}
@@ -118,7 +141,7 @@ jobs:
             - name: Configure CoreDNS
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: 
+              run: |
                   set -euo pipefail
 
                   ./procedure/coredns-config.sh
@@ -126,7 +149,7 @@ jobs:
             - name: Generate TLS certificates
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: 
+              run: |
                   set -euo pipefail
 
                   ./procedure/certs-generate.sh
@@ -134,7 +157,7 @@ jobs:
             - name: Create TLS secret
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: 
+              run: |
                   set -euo pipefail
 
                   ./procedure/certs-create-secret.sh
@@ -142,16 +165,52 @@ jobs:
             - name: Create CA ConfigMap
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: 
+              run: |
                   set -euo pipefail
 
                   ./procedure/certs-create-ca-configmap.sh
+
+            # Prepare test environment
+            - name: Create test secrets for integration tests
+              if: env.TESTS_ENABLED == 'true'
+              run: |
+                  set -euo pipefail
+
+                  echo "Creating identity secret for test client..."
+                  kubectl create secret generic identity-secret-for-components-integration \
+                      --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                      --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+                      --namespace="${{ env.CAMUNDA_NAMESPACE }}"
+
+            - name: Prepare Helm values with test client
+              if: env.TESTS_ENABLED == 'true'
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: |
+                  set -euo pipefail
+
+                  echo "Merging identity.yml test values into helm values..."
+
+                  # Merge test identity values into domain values
+                  if [[ -f helm-values/values-domain.yml ]]; then
+                      yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/identity.yml\")" \
+                          helm-values/values-domain.yml > helm-values/values-domain-with-tests.yml
+                      mv helm-values/values-domain-with-tests.yml helm-values/values-domain.yml
+                      echo "✅ Merged test client into values-domain.yml"
+                  fi
+
+                  # Merge test identity values into no-domain values
+                  if [[ -f helm-values/values-no-domain.yml ]]; then
+                      yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/identity.yml\")" \
+                          helm-values/values-no-domain.yml > helm-values/values-no-domain-with-tests.yml
+                      mv helm-values/values-no-domain-with-tests.yml helm-values/values-no-domain.yml
+                      echo "✅ Merged test client into values-no-domain.yml"
+                  fi
 
             # Deploy Camunda
             - name: Deploy Camunda (domain mode)
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: 
+              run: |
                   set -euo pipefail
 
                   ./procedure/camunda-deploy-domain.sh
@@ -159,7 +218,7 @@ jobs:
             - name: Deploy Camunda (no-domain mode)
               if: ${{ !matrix.declination.use_tls }}
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: 
+              run: |
                   set -euo pipefail
 
                   ./procedure/camunda-deploy-no-domain.sh
@@ -181,26 +240,47 @@ jobs:
                   echo "=== All Resources ==="
                   kubectl get all -n "${{ env.CAMUNDA_NAMESPACE }}"
 
-            - name: Run basic connectivity tests
-              timeout-minutes: 5
+
+            - name: Set Camunda domain environment variables
               run: |
                   set -euo pipefail
 
-                  echo "=== Running connectivity tests ==="
+                  if [[ "${{ matrix.declination.use_tls }}" == "true" ]]; then
+                      echo "CAMUNDA_DOMAIN=camunda.example.com" | tee -a "$GITHUB_ENV"
+                      echo "CAMUNDA_GRPC_DOMAIN=zeebe-camunda.example.com:443" | tee -a "$GITHUB_ENV"
+                  else
+                      echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
+                      echo "CAMUNDA_GRPC_DOMAIN=" | tee -a "$GITHUB_ENV"
+                  fi
 
-                  # Check Zeebe gateway is responding
-                  echo "Checking Zeebe gateway..."
-                  kubectl exec -n "${{ env.CAMUNDA_NAMESPACE }}" deploy/camunda-zeebe-gateway -- \
-                      wget -q -O - http://localhost:9600/actuator/health || echo "Zeebe health check failed (may be expected)"
+            - name: Set current Camunda version
+              id: camunda-version
+              run: |
+                  set -euo pipefail
 
-                  # Check Keycloak is responding
-                  echo "Checking Keycloak..."
-                  kubectl exec -n "${{ env.CAMUNDA_NAMESPACE }}" deploy/camunda-keycloak -- \
-                      curl -sf http://localhost:8080/auth/health || \
-                  kubectl exec -n "${{ env.CAMUNDA_NAMESPACE }}" deploy/camunda-keycloak -- \
-                      wget -q -O - http://localhost:8080/auth/health || echo "Keycloak health check (alternative path)"
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-                  echo "✅ Connectivity tests completed"
+            - name: 🧪 Run Camunda Platform tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 30
+              uses: ./.github/actions/internal-camunda-chart-tests
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
+                  camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
+                  webmodeler-enabled: 'true'
+                  console-enabled: 'true'
+                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
+                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
+                  test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
+                  # C8 SM checks configuration
+                  enable-c8sm-irsa-check: 'false'
 
             - name: 🔬🚨 Debug - Show pod details on failure
               if: failure()
