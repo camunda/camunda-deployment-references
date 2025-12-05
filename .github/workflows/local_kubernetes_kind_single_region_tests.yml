@@ -128,6 +128,9 @@ jobs:
                   echo "=== Kind cluster config ==="
                   cat configs/kind-cluster-config.yaml
 
+                  # Patch cluster-create.sh to use the updated cluster name
+                  sed -i "s/camunda-platform-local/${{ env.CLUSTER_NAME }}/g" procedure/cluster-create.sh
+
             - name: Create Kind cluster
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/cluster-create.sh
