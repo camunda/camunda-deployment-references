@@ -1,0 +1,27 @@
+---
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+name: camunda-platform-local
+
+networking:
+    apiServerAddress: 127.0.0.1
+    apiServerPort: 6443
+
+nodes:
+    - role: control-plane
+      # renovate: datasource=docker depName=kindest/node
+      image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
+      extraPortMappings:
+          - containerPort: 80
+            hostPort: 80
+            listenAddress: 0.0.0.0
+          - containerPort: 443
+            hostPort: 443
+            listenAddress: 0.0.0.0
+    - role: worker
+      # renovate: datasource=docker depName=kindest/node
+      image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
+    - role: worker
+      # renovate: datasource=docker depName=kindest/node
+      image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
