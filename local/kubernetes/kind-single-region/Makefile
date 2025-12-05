@@ -75,7 +75,7 @@ domain.clean: camunda.uninstall cluster.delete hosts.remove certs.clean
 	@echo "✓ Domain cleanup complete!"
 
 .PHONY: no-domain.init
-no-domain.init: cluster.create ingress.deploy camunda.deploy-no-domain
+no-domain.init: cluster.create camunda.deploy-no-domain
 	@echo ""
 	@echo "✓ No-domain setup complete!"
 	@echo "  Run: make port-forward"
