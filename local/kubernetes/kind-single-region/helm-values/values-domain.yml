@@ -26,12 +26,6 @@ global:
       publicIssuerUrl: "https://camunda.example.com/auth/realms/camunda-platform"
       issuer: "https://camunda.example.com/auth/realms/camunda-platform"
 
-      optimize:
-        redirectUrl: "https://camunda.example.com/optimize"
-        secret:
-          existingSecret: camunda-credentials
-          existingSecretKey: identity-optimize-client-token
-
       console:
         redirectUrl: "https://camunda.example.com"
 
@@ -108,8 +102,7 @@ identityKeycloak:
   enabled: true
 
 optimize:
-  enabled: true
-  contextPath: "/optimize"
+  enabled: false
 
 # Reduce Zeebe resources for local development
 orchestration:

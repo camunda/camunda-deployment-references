@@ -30,12 +30,6 @@ global:
       identity:
         redirectUrl: http://localhost:8085
 
-      optimize:
-        redirectUrl: http://localhost:8083
-        secret:
-          existingSecret: camunda-credentials
-          existingSecretKey: identity-optimize-client-token
-
       console:
         redirectUrl: http://localhost:8087
 
@@ -114,7 +108,7 @@ identityKeycloak:
           http: 8080
 
 optimize:
-  enabled: true
+  enabled: false
 
 # Reduce Zeebe resources for local development
 orchestration:
