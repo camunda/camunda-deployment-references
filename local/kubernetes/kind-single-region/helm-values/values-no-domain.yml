@@ -28,7 +28,7 @@ global:
       publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform
 
       identity:
-        redirectUrl: http://localhost:8085
+        redirectUrl: http://localhost:18081/managementidentity
 
       optimize:
         redirectUrl: http://localhost:8083

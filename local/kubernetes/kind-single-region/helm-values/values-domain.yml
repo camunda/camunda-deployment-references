@@ -29,6 +29,9 @@ global:
       console:
         redirectUrl: "https://camunda.example.com"
 
+      identity:
+        redirectUrl: "https://camunda.example.com/managementidentity"
+
       optimize:
         redirectUrl: "https://camunda.example.com/optimize"
         secret:
@@ -66,8 +69,8 @@ elasticsearch:
 
 identity:
   enabled: true
-  contextPath: "/identity"
-  fullURL: "https://camunda.example.com/identity"
+  contextPath: "/managementidentity"
+  fullURL: "https://camunda.example.com/managementidentity"
 
   firstUser:
     enabled: true
