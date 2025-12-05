@@ -135,6 +135,9 @@ console:
 
 webModeler:
   enabled: true
+  restapi:
+    mail:
+      fromAddress: noreply@camunda.local
 
 webModelerPostgresql:
   enabled: true
