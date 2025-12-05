@@ -15,4 +15,4 @@ kubectl get nodes -o wide
 
 kubectl create namespace camunda --dry-run=client -o yaml | kubectl apply -f -
 
-echo "Kind cluster created successfully!"
+echo "Kind cluster created successfully"

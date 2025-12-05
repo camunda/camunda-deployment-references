@@ -11,4 +11,4 @@ kubectl apply -f configs/coredns-configmap.yaml
 echo "Restarting CoreDNS..."
 kubectl delete pod -n kube-system -l k8s-app=kube-dns
 
-echo "CoreDNS configured for camunda.example.com!"
+echo "CoreDNS configured for camunda.example.com"

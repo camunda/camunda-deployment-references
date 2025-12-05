@@ -29,4 +29,4 @@ kubectl wait --namespace ingress-nginx \
     --selector=app.kubernetes.io/component=controller \
     --timeout=120s
 
-echo "Ingress NGINX deployed successfully!"
+echo "Ingress NGINX deployed successfully"

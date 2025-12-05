@@ -29,6 +29,9 @@ global:
       console:
         redirectUrl: "https://camunda.example.com"
 
+      optimize:
+        redirectUrl: "https://camunda.example.com/optimize"
+
       webModeler:
         redirectUrl: "https://camunda.example.com/modeler"
 
@@ -102,7 +105,11 @@ identityKeycloak:
   enabled: true
 
 optimize:
-  enabled: false
+  enabled: true
+  contextPath: "/optimize"
+  # Elasticsearch migration is not needed when using bundled ES
+  migration:
+    enabled: false
 
 # Reduce Zeebe resources for local development
 orchestration:

@@ -17,18 +17,8 @@ helm upgrade --install "camunda" oci://ghcr.io/camunda/helm/camunda-platform \
     --values helm-values/values-domain.yml \
     --values helm-values/values-mkcert.yml
 
-# TODO: [release-duty] before the release, update this by removing the oci pull above
-# and uncomment the installation instruction below
-
-# helm upgrade --install "camunda" camunda-platform \
-#     --repo https://helm.camunda.io \
-#     --version "$CAMUNDA_HELM_CHART_VERSION" \
-#     --namespace "camunda" \
-#     --values helm-values/values-domain.yml \
-#     --values helm-values/values-mkcert.yml
-
 echo ""
-echo "Camunda Platform deployed!"
+echo "Camunda Platform deployed"
 echo "Monitor: kubectl get pods -n camunda -w"
 echo ""
 echo "Access: https://camunda.example.com"

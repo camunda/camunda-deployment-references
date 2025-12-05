@@ -26,5 +26,5 @@ helm upgrade --install "camunda" oci://ghcr.io/camunda/helm/camunda-platform \
 #     --values helm-values/values-no-domain.yml
 
 echo ""
-echo "Camunda Platform deployed!"
+echo "Camunda Platform deployed"
 echo "Monitor: kubectl get pods -n camunda -w"

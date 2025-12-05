@@ -17,4 +17,4 @@ kubectl create secret tls camunda-platform \
     --namespace=camunda \
     --dry-run=client -o yaml | kubectl apply -f -
 
-echo "TLS secret created!"
+echo "TLS secret created"

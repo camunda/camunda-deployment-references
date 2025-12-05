@@ -22,4 +22,4 @@ kubectl create configmap mkcert-ca \
     --namespace=camunda \
     --dry-run=client -o yaml | kubectl apply -f -
 
-echo "CA ConfigMap created!"
+echo "CA ConfigMap created"
