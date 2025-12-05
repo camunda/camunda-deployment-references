@@ -32,6 +32,9 @@ global:
 
       optimize:
         redirectUrl: http://localhost:8083
+        secret:
+          existingSecret: camunda-credentials
+          existingSecretKey: identity-optimize-client-token
 
       console:
         redirectUrl: http://localhost:8087
@@ -73,31 +76,6 @@ identity:
       existingSecret: camunda-credentials
       existingSecretKey: identity-firstuser-password
 
-  # Keycloak client seed for querying Camunda APIs
-  clients:
-    - id: test
-      name: Test
-      secret:
-        inlineSecret: test_token
-      redirectUris: /dummy
-      rootUrl: http://dummy
-      type: confidential
-      permissions:
-        - resourceServerId: camunda-identity-resource-server
-          definition: read
-        - resourceServerId: camunda-identity-resource-server
-          definition: write
-        - resourceServerId: orchestration-api
-          definition: read:*
-        - resourceServerId: orchestration-api
-          definition: write:*
-        - resourceServerId: optimize-api
-          definition: write:*
-        - resourceServerId: web-modeler-api
-          definition: write:*
-        - resourceServerId: console-api
-          definition: write:*
-
 identityKeycloak:
   enabled: true
   extraEnvVars:
@@ -134,7 +112,6 @@ orchestration:
         admin:
           clients:
             - admin
-            - test
 
 console:
   enabled: true
