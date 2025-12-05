@@ -18,6 +18,6 @@ mkdir -p .certs
 mkcert \
     -cert-file .certs/tls.crt \
     -key-file .certs/tls.key \
-    "camunda.example.com" "*.camunda.example.com"
+    "camunda.example.com" "*.camunda.example.com" "zeebe-camunda.example.com"
 
 echo "Certificates generated in .certs/"
