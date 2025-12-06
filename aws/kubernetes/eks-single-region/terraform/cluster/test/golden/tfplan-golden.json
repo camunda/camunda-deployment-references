@@ -1947,6 +1947,8 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "availability_zone_address": [],
+                "regional_nat_gateway_address": [],
                 "secondary_allocation_ids": [],
                 "secondary_private_ip_addresses": [],
                 "tags": {},
@@ -1954,6 +1956,7 @@
               },
               "type": "aws_nat_gateway",
               "values": {
+                "availability_zone_address": [],
                 "connectivity_type": "public",
                 "region": "eu-west-2",
                 "tags": {
@@ -1972,6 +1975,8 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "availability_zone_address": [],
+                "regional_nat_gateway_address": [],
                 "secondary_allocation_ids": [],
                 "secondary_private_ip_addresses": [],
                 "tags": {},
@@ -1979,6 +1984,7 @@
               },
               "type": "aws_nat_gateway",
               "values": {
+                "availability_zone_address": [],
                 "connectivity_type": "public",
                 "region": "eu-west-2",
                 "tags": {
@@ -1997,6 +2003,8 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "availability_zone_address": [],
+                "regional_nat_gateway_address": [],
                 "secondary_allocation_ids": [],
                 "secondary_private_ip_addresses": [],
                 "tags": {},
@@ -2004,6 +2012,7 @@
               },
               "type": "aws_nat_gateway",
               "values": {
+                "availability_zone_address": [],
                 "connectivity_type": "public",
                 "region": "eu-west-2",
                 "tags": {
