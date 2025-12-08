@@ -34,7 +34,7 @@ jobs:
 
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@b0fe528f9157c18a19402e23f1185a9bc28e2e8a # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@c7794826624039d8cb9ddeaa38c9dfb2781e34ba # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -80,7 +80,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.6
 
             - id: matrix
               run: |
@@ -125,7 +125,7 @@ jobs:
         steps:
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@b0fe528f9157c18a19402e23f1185a9bc28e2e8a # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@c7794826624039d8cb9ddeaa38c9dfb2781e34ba # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -173,7 +173,7 @@ jobs:
                   extra_args: --all-files --verbose
 
             - name: Create the schedule PR
-              uses: peter-evans/create-pull-request@84ae59a2cdc2258d6fa0732dd66352dddae2a412 # v7
+              uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
               with:
                   token: ${{ steps.generate-github-token.outputs.token }}
                   branch: ${{ steps.branch-update.outputs.current_branch }}
@@ -208,7 +208,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
