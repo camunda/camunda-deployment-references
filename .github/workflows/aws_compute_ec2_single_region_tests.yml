@@ -65,11 +65,11 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.8?(\.(?<patch>\d+))?$
-    TESTS_CAMUNDA_VERSION: 8.8.5
+    TESTS_CAMUNDA_VERSION: 8.8.6
     TESTS_CAMUNDA_PREVIOUS_VERSION: 8.8.0 # Version to be used for upgrade tests, not updated automatically
 
     # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.8?(\.(?<patch>\d+))?$
-    TESTS_CONNECTORS_VERSION: 8.8.3
+    TESTS_CONNECTORS_VERSION: 8.8.4
     TESTS_CONNECTORS_PREVIOUS_VERSION: 8.8.0 # Version to be used for upgrade tests, not updated automatically
 
 jobs:
@@ -97,7 +97,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.6
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -124,7 +124,7 @@ jobs:
               uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.6
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -182,7 +182,7 @@ jobs:
             - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.6
 
             - name: Install zbctl
               run: |
@@ -291,7 +291,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.6
 
             - name: Configure AWS CLI
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -382,7 +382,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
