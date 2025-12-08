@@ -33,7 +33,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
               with:
                   fetch-depth: 0
             - name: Check labels
@@ -45,13 +45,13 @@ jobs:
         needs: triage
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.6
 
             - name: Import Secrets
               id: secrets
@@ -138,7 +138,7 @@ jobs:
         needs:
             - test-storage-account-creation
         steps:
-            - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -156,7 +156,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

@@ -507,6 +507,7 @@
       "sensitive_values": {
         "access_logs": [],
         "connection_logs": [],
+        "health_check_logs": [],
         "minimum_load_balancer_capacity": [],
         "security_groups": [],
         "subnet_mapping": [],
@@ -529,6 +530,7 @@
         "enable_waf_fail_open": null,
         "enable_xff_client_port": null,
         "enable_zonal_shift": false,
+        "health_check_logs": [],
         "idle_timeout": null,
         "internal": false,
         "load_balancer_type": "network",
@@ -554,6 +556,7 @@
       "sensitive_values": {
         "access_logs": [],
         "connection_logs": [],
+        "health_check_logs": [],
         "minimum_load_balancer_capacity": [],
         "security_groups": [],
         "subnet_mapping": [],
@@ -576,6 +579,7 @@
         "enable_waf_fail_open": false,
         "enable_xff_client_port": false,
         "enable_zonal_shift": false,
+        "health_check_logs": [],
         "idle_timeout": 60,
         "internal": false,
         "load_balancer_type": "application",
@@ -769,6 +773,7 @@
         "region": "eu-west-2",
         "slow_start": 0,
         "tags": null,
+        "target_control_port": null,
         "target_type": "instance"
       }
     },
@@ -814,6 +819,7 @@
         "region": "eu-west-2",
         "slow_start": 0,
         "tags": null,
+        "target_control_port": null,
         "target_type": "instance"
       }
     },
@@ -870,6 +876,7 @@
           }
         ],
         "tags": null,
+        "target_control_port": null,
         "target_type": "instance"
       }
     },
@@ -2306,6 +2313,8 @@
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
           "sensitive_values": {
+            "availability_zone_address": [],
+            "regional_nat_gateway_address": [],
             "secondary_allocation_ids": [],
             "secondary_private_ip_addresses": [],
             "tags": {},
@@ -2313,6 +2322,7 @@
           },
           "type": "aws_nat_gateway",
           "values": {
+            "availability_zone_address": [],
             "connectivity_type": "public",
             "region": "eu-west-2",
             "tags": {

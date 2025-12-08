@@ -5,7 +5,7 @@ metadata:
     name: elasticsearch
 spec:
     # renovate: datasource=docker depName=docker.elastic.co/elasticsearch/elasticsearch
-    version: 8.19.7
+    version: 8.19.8
     http:
         tls:
             selfSignedCertificate:
