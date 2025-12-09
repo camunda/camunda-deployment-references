@@ -78,6 +78,7 @@ webModeler:
               value: /mkcert-ca/ca.crt
 
 # Console is Node.js-based
+# Uses tls.certKeyFilename to set NODE_EXTRA_CA_CERTS via the chart
 console:
     extraVolumes:
         - name: mkcert-ca
@@ -85,11 +86,10 @@ console:
               name: mkcert-ca
     extraVolumeMounts:
         - name: mkcert-ca
-          mountPath: /mkcert-ca
+          mountPath: /usr/local/console/certificates
           readOnly: true
-    env:
-        - name: NODE_EXTRA_CA_CERTS
-          value: /mkcert-ca/ca.crt
+    tls:
+        certKeyFilename: ca.crt
 
 # Connectors is Java-based
 connectors:
