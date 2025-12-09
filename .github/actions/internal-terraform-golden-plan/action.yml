@@ -89,15 +89,23 @@ runs:
                   echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
               fi
 
-        - name: Post diff on PR
+        - name: Compute diff
+          id: diff
           if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
           uses: int128/diff-action@23ecde8a33f4dc2692dad4d207baf79be1eaebf8 # v2
           with:
               base: ${{ inputs.module-dir }}test/golden/tfplan-golden.json
               head: ${{ inputs.module-dir }}compare/tfplan-golden.json
-              comment-header: |
+
+        - name: Post diff on PR
+          if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
+          uses: int128/comment-action@2e7e2d8e385ee24454ea30ef135d5c5867011410 # v1
+          with:
+              update-if-exists: replace
+              post: |
                   ## Module ${{ inputs.module-dir }} - Terraform Golden Plan Diff
-              comment-footer: |
+                  ${{ steps.diff.outputs.comment-body || 'No diff' }}
+
                   🖲 **Check the delta diff**
                   in the [workflow run](${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}) for a detailed comparison.
 
