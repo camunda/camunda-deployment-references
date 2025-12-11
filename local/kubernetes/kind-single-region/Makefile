@@ -47,11 +47,14 @@ help:
 	@echo "  make cluster.create     Create Kind cluster"
 	@echo "  make cluster.delete     Delete Kind cluster"
 	@echo "  make ingress.deploy     Deploy Ingress NGINX"
-	@echo "  make hosts.add          Add /etc/hosts entries"
-	@echo "  make hosts.remove       Remove /etc/hosts entries"
+	@echo "  make hosts.add          Add /etc/hosts entries (domain mode)"
+	@echo "  make hosts.add-keycloak Add Keycloak host entry (no-domain mode)"
+	@echo "  make hosts.remove       Remove /etc/hosts entries (domain mode)"
+	@echo "  make hosts.remove-keycloak Remove Keycloak host entry"
 	@echo "  make certs.generate     Generate TLS certificates"
 	@echo "  make camunda.deploy-domain     Deploy Camunda (domain)"
 	@echo "  make camunda.deploy-no-domain  Deploy Camunda (no-domain)"
+	@echo "  make camunda.wait       Wait for Camunda pods to be ready"
 	@echo "  make camunda.uninstall  Uninstall Camunda"
 	@echo ""
 	@echo "Utilities:"
@@ -64,7 +67,7 @@ help:
 # =============================================================================
 
 .PHONY: domain.init
-domain.init: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap camunda.deploy-domain
+domain.init: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap camunda.deploy-domain camunda.wait
 	@echo ""
 	@echo "✓ Domain setup complete!"
 	@echo "  Access: https://camunda.example.com"
@@ -75,13 +78,13 @@ domain.clean: camunda.uninstall cluster.delete hosts.remove certs.clean
 	@echo "✓ Domain cleanup complete!"
 
 .PHONY: no-domain.init
-no-domain.init: cluster.create camunda.deploy-no-domain
+no-domain.init: cluster.create hosts.add-keycloak camunda.deploy-no-domain camunda.wait
 	@echo ""
 	@echo "✓ No-domain setup complete!"
 	@echo "  Run: make port-forward"
 
 .PHONY: no-domain.clean
-no-domain.clean: camunda.uninstall cluster.delete
+no-domain.clean: camunda.uninstall cluster.delete hosts.remove-keycloak
 	@echo ""
 	@echo "✓ No-domain cleanup complete!"
 
@@ -117,6 +120,16 @@ coredns.config:
 hosts.add:
 	@$(PROCEDURE_DIR)/hosts-add.sh
 
+.PHONY: hosts.add-keycloak
+hosts.add-keycloak:
+	@echo "Adding Keycloak host entry (requires sudo)..."
+	@if ! grep -q "$(CAMUNDA_RELEASE_NAME)-keycloak" /etc/hosts; then \
+		echo "127.0.0.1  $(CAMUNDA_RELEASE_NAME)-keycloak" | sudo tee -a /etc/hosts > /dev/null; \
+		echo "Added: 127.0.0.1  $(CAMUNDA_RELEASE_NAME)-keycloak"; \
+	else \
+		echo "Host entry already exists."; \
+	fi
+
 .PHONY: hosts.remove
 hosts.remove:
 	@echo "Removing hosts entries (requires sudo)..."
@@ -126,6 +139,16 @@ hosts.remove:
 		sudo sed -i '/camunda.example.com/d' /etc/hosts; \
 	fi
 	@echo "Hosts entries removed."
+
+.PHONY: hosts.remove-keycloak
+hosts.remove-keycloak:
+	@echo "Removing Keycloak host entry (requires sudo)..."
+	@if [[ "$$(uname)" == "Darwin" ]]; then \
+		sudo sed -i '' '/$(CAMUNDA_RELEASE_NAME)-keycloak/d' /etc/hosts; \
+	else \
+		sudo sed -i '/$(CAMUNDA_RELEASE_NAME)-keycloak/d' /etc/hosts; \
+	fi
+	@echo "Keycloak host entry removed."
 
 .PHONY: hosts.show
 hosts.show:
@@ -169,6 +192,11 @@ camunda.deploy-no-domain:
 camunda.uninstall:
 	@helm uninstall $(CAMUNDA_RELEASE_NAME) --namespace $(CAMUNDA_NAMESPACE) || true
 	@kubectl delete namespace $(CAMUNDA_NAMESPACE) --ignore-not-found
+
+.PHONY: camunda.wait
+camunda.wait:
+	@echo "Waiting for Camunda pods to be ready..."
+	@CAMUNDA_NAMESPACE=$(CAMUNDA_NAMESPACE) ../../../generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
 # =============================================================================
 # Utilities
