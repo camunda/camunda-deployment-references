@@ -68,9 +68,13 @@ help:
 
 .PHONY: domain.init
 domain.init: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap camunda.deploy-domain camunda.wait
-	@echo ""
-	@echo "✓ Domain setup complete!"
-	@echo "  Access: https://camunda.example.com"
+	@( \
+		PASSWORD=$$($(MAKE) --no-print-directory get-password); \
+		echo ""; \
+		echo "✓ Domain setup complete!"; \
+		echo "  Access: https://camunda.example.com"; \
+		echo "  Credentials: admin / $$PASSWORD"; \
+	)
 
 .PHONY: domain.clean
 domain.clean: camunda.uninstall cluster.delete hosts.remove certs.clean
@@ -79,9 +83,13 @@ domain.clean: camunda.uninstall cluster.delete hosts.remove certs.clean
 
 .PHONY: no-domain.init
 no-domain.init: cluster.create hosts.add-keycloak camunda.deploy-no-domain camunda.wait
-	@echo ""
-	@echo "✓ No-domain setup complete!"
-	@echo "  Run: make port-forward"
+	@( \
+		PASSWORD=$$($(MAKE) --no-print-directory get-password); \
+		echo ""; \
+		echo "✓ No-domain setup complete!"; \
+		echo "  Run: make port-forward"; \
+		echo "  Credentials: admin / $$PASSWORD"; \
+	)
 
 .PHONY: no-domain.clean
 no-domain.clean: camunda.uninstall cluster.delete hosts.remove-keycloak
