@@ -84,7 +84,7 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         env:
-            CLUSTER_NAME: camunda-${{ matrix.declination.cluster_suffix }}
+            CLUSTER_NAME: camunda-platform-local
             CAMUNDA_NAMESPACE: camunda
             CAMUNDA_RELEASE_NAME: camunda
             TEST_CLUSTER_TYPE: kubernetes
@@ -109,27 +109,6 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
-
-            - name: Update Kind cluster config with unique name and ports
-              working-directory: ${{ env.REF_ARCH_PATH }}
-              run: |
-                  set -euo pipefail
-
-                  # Update cluster name in config to avoid conflicts
-                  sed -i "s/camunda-platform-local/${{ env.CLUSTER_NAME }}/g" configs/kind-cluster-config.yaml
-
-                  # Update ports to avoid conflicts when running in parallel
-                  # domain mode: 80/443, no-domain mode: 8080/8443
-                  if [[ "${{ matrix.declination.use_tls }}" == "false" ]]; then
-                      sed -i "s/hostPort: 80$/hostPort: 8080/g" configs/kind-cluster-config.yaml
-                      sed -i "s/hostPort: 443$/hostPort: 8443/g" configs/kind-cluster-config.yaml
-                  fi
-
-                  echo "=== Kind cluster config ==="
-                  cat configs/kind-cluster-config.yaml
-
-                  # Patch cluster-create.sh to use the updated cluster name
-                  sed -i "s/camunda-platform-local/${{ env.CLUSTER_NAME }}/g" procedure/cluster-create.sh
 
             - name: Create Kind cluster
               working-directory: ${{ env.REF_ARCH_PATH }}
