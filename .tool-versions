@@ -30,13 +30,13 @@ golang 1.25.5
 grpcurl 1.9.3
 
 # datasource=custom.helm-camunda depName=helm
-helm 3.19.2
+helm 3.19.3
 
 jq 1.7.1
 
 just 1.43.1
 
-kubectl 1.34.2
+kubectl 1.34.3
 
 kustomize 5.7.1 # used by the tests
 
