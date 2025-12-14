@@ -341,7 +341,8 @@
                     "update_config": [
                       {
                         "max_unavailable": 1,
-                        "max_unavailable_percentage": null
+                        "max_unavailable_percentage": null,
+                        "update_strategy": null
                       }
                     ],
                     "version": "1.34"
