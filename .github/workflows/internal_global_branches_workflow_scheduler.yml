@@ -173,7 +173,7 @@ jobs:
                   extra_args: --all-files --verbose
 
             - name: Create the schedule PR
-              uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
+              uses: peter-evans/create-pull-request@98357b18bf14b5342f975ff684046ec3b2a07725 # v8
               with:
                   token: ${{ steps.generate-github-token.outputs.token }}
                   branch: ${{ steps.branch-update.outputs.current_branch }}
