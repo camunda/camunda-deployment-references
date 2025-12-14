@@ -1,7 +1,7 @@
 ---
 matrix:
     distro:
-        - name: OpenShift 4.19
+        - name: OpenShift Latest
           schedule_only: false
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
           version: 4.20.3
