@@ -30,7 +30,7 @@ golang 1.24.6
 grpcurl 1.9.3
 
 # datasource=custom.helm-camunda depName=helm
-helm 3.19.2
+helm 3.19.3
 
 jq 1.7.1
 
