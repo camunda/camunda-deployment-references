@@ -92,7 +92,7 @@ runs:
         - name: Compute diff
           id: diff
           if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
-          uses: int128/diff-action@23ecde8a33f4dc2692dad4d207baf79be1eaebf8 # v2
+          uses: int128/diff-action@ddd48b26efc80cbca9139353926ac2ec214e08e6 # v2
           with:
               base: ${{ inputs.module-dir }}test/golden/tfplan-golden.json
               head: ${{ inputs.module-dir }}compare/tfplan-golden.json
