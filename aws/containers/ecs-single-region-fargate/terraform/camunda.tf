@@ -111,10 +111,13 @@ module "orchestration_cluster" {
 
   task_desired_count = 3
 
-  # Pass registry credentials policy to task role if registry is configured
-  extra_task_role_attachments = var.registry_username != "" ? [
-    aws_iam_policy.registry_secrets_policy[0].arn
-  ] : []
+  # Pass additional policies to orchestration cluster task role
+  extra_task_role_attachments = concat(
+    # Registry credentials policy (if configured)
+    var.registry_username != "" ? [aws_iam_policy.registry_secrets_policy[0].arn] : [],
+    # Other policies
+    []
+  )
 
 }
 
@@ -182,9 +185,12 @@ module "connectors" {
 
   task_desired_count = 1
 
-  # Pass registry credentials policy to task role if registry is configured
-  extra_task_role_attachments = var.registry_username != "" ? [
-    aws_iam_policy.registry_secrets_policy[0].arn
-  ] : []
+  # Pass additional policies to connectors task role
+  extra_task_role_attachments = concat(
+    # Registry credentials policy (if configured)
+    var.registry_username != "" ? [aws_iam_policy.registry_secrets_policy[0].arn] : [],
+    # Other policies
+    []
+  )
 
 }
