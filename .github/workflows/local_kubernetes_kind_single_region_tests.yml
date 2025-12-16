@@ -170,7 +170,7 @@ jobs:
                   ./procedure/camunda-deploy-no-domain.sh
 
             - name: Wait for Camunda deployment
-              timeout-minutes: 20
+              timeout-minutes: 10
               env:
                   CAMUNDA_NAMESPACE: ${{ env.CAMUNDA_NAMESPACE }}
               run: ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
@@ -242,37 +242,121 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  echo "=== Pod Status ==="
+                  echo "========================================"
+                  echo "=== CLUSTER STATE DEBUG INFORMATION ==="
+                  echo "========================================"
+
+                  echo ""
+                  echo "=== Node Status ==="
+                  kubectl get nodes -o wide
+                  kubectl describe nodes | grep -A 10 "Allocated resources"
+
+                  echo ""
+                  echo "=== Pod Status (All Namespaces) ==="
+                  kubectl get pods -A -o wide
+
+                  echo ""
+                  echo "=== Pod Status (Camunda Namespace) ==="
                   kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide
 
                   echo ""
-                  echo "=== Events ==="
-                  kubectl get events -n "${{ env.CAMUNDA_NAMESPACE }}" --sort-by='.lastTimestamp' | tail -50
+                  echo "=== PVC Status ==="
+                  kubectl get pvc -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide || true
 
                   echo ""
-                  echo "=== Failed Pods Details ==="
-                  kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" --no-headers | grep -v "Running\|Completed" | awk '{print $1}' | while read -r pod; do
+                  echo "=== PV Status ==="
+                  kubectl get pv -o wide || true
+
+                  echo ""
+                  echo "=== Services ==="
+                  kubectl get svc -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide
+
+                  echo ""
+                  echo "=== ConfigMaps ==="
+                  kubectl get configmaps -n "${{ env.CAMUNDA_NAMESPACE }}"
+
+                  echo ""
+                  echo "=== Ingress ==="
+                  kubectl get ingress -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide || true
+
+                  echo ""
+                  echo "=== Events (sorted by time, last 100) ==="
+                  kubectl get events -n "${{ env.CAMUNDA_NAMESPACE }}" --sort-by='.lastTimestamp' | tail -100
+
+                  echo ""
+                  echo "========================================"
+                  echo "=== DETAILED POD ANALYSIS ==="
+                  echo "========================================"
+
+                  echo ""
+                  echo "=== All Pods Full Description ==="
+                  kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" --no-headers | awk '{print $1}' | while read -r pod; do
                       if [[ -n "$pod" ]]; then
-                          echo "--- Pod: $pod ---"
-                          kubectl describe pod "$pod" -n "${{ env.CAMUNDA_NAMESPACE }}" | tail -30
                           echo ""
-                          echo "--- Logs: $pod ---"
-                          kubectl logs "$pod" -n "${{ env.CAMUNDA_NAMESPACE }}" --all-containers --tail=50 || true
-                          echo ""
+                          echo "############################################"
+                          echo "### Pod: $pod"
+                          echo "############################################"
+                          kubectl describe pod "$pod" -n "${{ env.CAMUNDA_NAMESPACE }}"
                       fi
                   done
+
+                  echo ""
+                  echo "========================================"
+                  echo "=== POD LOGS (last 200 lines each) ==="
+                  echo "========================================"
+
+                  kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" --no-headers | awk '{print $1}' | while read -r pod; do
+                      if [[ -n "$pod" ]]; then
+                          echo ""
+                          echo "############################################"
+                          echo "### Logs: $pod"
+                          echo "############################################"
+                          kubectl logs "$pod" -n "${{ env.CAMUNDA_NAMESPACE }}" --all-containers --tail=200 || true
+                          echo ""
+                          echo "### Previous Logs (if container restarted): $pod"
+                          kubectl logs "$pod" -n "${{ env.CAMUNDA_NAMESPACE }}" --all-containers --tail=100 --previous 2>/dev/null || echo "No previous logs available"
+                      fi
+                  done
+
+                  echo ""
+                  echo "========================================"
+                  echo "=== RESOURCE USAGE ==="
+                  echo "========================================"
+                  kubectl top pods -n "${{ env.CAMUNDA_NAMESPACE }}" 2>/dev/null || echo "Metrics server not available"
+                  kubectl top nodes 2>/dev/null || echo "Metrics server not available"
 
             - name: 🔬🚨 Debug - Show Helm status on failure
               if: failure()
               run: |
                   set -euo pipefail
 
+                  echo "========================================"
+                  echo "=== HELM DEBUG INFORMATION ==="
+                  echo "========================================"
+
+                  echo ""
+                  echo "=== Helm Releases ==="
+                  helm list -n "${{ env.CAMUNDA_NAMESPACE }}" -a
+
+                  echo ""
                   echo "=== Helm Status ==="
                   helm status "${{ env.CAMUNDA_RELEASE_NAME }}" -n "${{ env.CAMUNDA_NAMESPACE }}" || true
 
                   echo ""
                   echo "=== Helm History ==="
                   helm history "${{ env.CAMUNDA_RELEASE_NAME }}" -n "${{ env.CAMUNDA_NAMESPACE }}" || true
+
+                  echo ""
+                  echo "=== Helm Values (computed) ==="
+                  helm get values "${{ env.CAMUNDA_RELEASE_NAME }}" -n "${{ env.CAMUNDA_NAMESPACE }}" --all || true
+
+                  echo ""
+                  echo "=== Helm Notes ==="
+                  helm get notes "${{ env.CAMUNDA_RELEASE_NAME }}" -n "${{ env.CAMUNDA_NAMESPACE }}" || true
+
+                  echo ""
+                  echo "=== Helm Hooks ==="
+                  helm get hooks "${{ env.CAMUNDA_RELEASE_NAME }}" -n "${{ env.CAMUNDA_NAMESPACE }}" || true
 
             - name: Cleanup
               if: always()
