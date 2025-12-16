@@ -1,64 +1,8 @@
-resource "aws_iam_role" "ecs_task_execution" {
-  name = "${var.prefix}-ecs-task-execution-role"
+# Task execution and service roles are managed centrally in workspace iam.tf
+# Task role remains module-specific due to service-specific permissions (EFS, S3, etc.)
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "ecs-tasks.amazonaws.com"
-      }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_execution_policy" {
-  role       = aws_iam_role.ecs_task_execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-resource "aws_iam_role" "ecs_service" {
-  name = "${var.prefix}-ecs-service-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "ecs.amazonaws.com"
-      }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "ecs_service" {
-  name   = "${var.prefix}-ecs-service-role-policy"
-  role   = aws_iam_role.ecs_service.name
-  policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "elasticloadbalancing:*",
-        "ec2:*",
-        "ecs:*"
-      ],
-      "Resource": [
-        "*"
-      ]
-    }
-  ]
-}
-EOF
-}
-
-# Create a separate task role for EFS access
 resource "aws_iam_role" "ecs_task_role" {
-  name = "${var.prefix}-ecs-task-role"
+  name = "${var.prefix}-orchestration-task-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -70,6 +14,10 @@ resource "aws_iam_role" "ecs_task_role" {
       }
     }]
   })
+
+  tags = {
+    Name = "${var.prefix}-orchestration-task-role"
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_efs_policy" {
@@ -86,87 +34,102 @@ resource "aws_iam_policy" "efs_sc_access" {
   name = "${var.prefix}-efs-sc-access"
 
   policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
+    Version = "2012-10-17"
+    Statement = [
       {
-        "Sid" : "AllowDescribe",
-        "Effect" : "Allow",
-        "Action" : [
+        Sid    = "AllowDescribeEFS"
+        Effect = "Allow"
+        Action = [
           "elasticfilesystem:DescribeAccessPoints",
           "elasticfilesystem:DescribeFileSystems",
-          "elasticfilesystem:DescribeMountTargets",
+          "elasticfilesystem:DescribeMountTargets"
+        ]
+        Resource = [
+          aws_efs_file_system.efs.arn,
+          "${aws_efs_file_system.efs.arn}/*"
+        ]
+      },
+      {
+        Sid    = "AllowDescribeEC2"
+        Effect = "Allow"
+        Action = [
           "ec2:DescribeAvailabilityZones"
-        ],
-        "Resource" : "*"
+        ]
+        Resource = "*"
       },
       {
-        "Sid" : "AllowCreateAccessPoint",
-        "Effect" : "Allow",
-        "Action" : [
-          "elasticfilesystem:CreateAccessPoint"
-        ],
-        "Resource" : "*",
-        "Condition" : {
-          "Null" : {
-            "aws:RequestTag/efs.csi.aws.com/cluster" : "false"
-          },
-          "ForAllValues:StringEquals" : {
-            "aws:TagKeys" : "efs.csi.aws.com/cluster"
-          }
-        }
-      },
-      {
-        "Sid" : "AllowTagNewAccessPoints",
-        "Effect" : "Allow",
-        "Action" : [
-          "elasticfilesystem:TagResource"
-        ],
-        "Resource" : "*",
-        "Condition" : {
-          "StringEquals" : {
-            "elasticfilesystem:CreateAction" : "CreateAccessPoint"
-          },
-          "Null" : {
-            "aws:RequestTag/efs.csi.aws.com/cluster" : "false"
-          },
-          "ForAllValues:StringEquals" : {
-            "aws:TagKeys" : "efs.csi.aws.com/cluster"
-          }
-        }
-      },
-      {
-        "Sid" : "AllowDeleteAccessPoint",
-        "Effect" : "Allow",
-        "Action" : "elasticfilesystem:DeleteAccessPoint",
-        "Resource" : "*",
-        "Condition" : {
-          "Null" : {
-            "aws:ResourceTag/efs.csi.aws.com/cluster" : "false"
-          }
-        }
-      },
-      {
-        "Sid" : "AllowClientMount",
-        "Effect" : "Allow",
-        "Action" : [
+        Sid    = "AllowEFSClientAccess"
+        Effect = "Allow"
+        Action = [
           "elasticfilesystem:ClientMount",
-          "elasticfilesystem:ClientWrite"
-        ],
-        "Resource" : "*"
+          "elasticfilesystem:ClientWrite",
+          "elasticfilesystem:ClientRootAccess"
+        ]
+        Resource = aws_efs_file_system.efs.arn
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "true"
+          }
+        }
+      },
+      {
+        Sid    = "AllowAccessPointOperations"
+        Effect = "Allow"
+        Action = [
+          "elasticfilesystem:CreateAccessPoint",
+          "elasticfilesystem:DeleteAccessPoint",
+          "elasticfilesystem:TagResource"
+        ]
+        Resource = aws_efs_file_system.efs.arn
+        Condition = {
+          StringEquals = {
+            "elasticfilesystem:AccessedViaMountTarget" = "true"
+          }
+        }
       }
     ]
   })
-
 }
 
-# Add ECS Execute Command permissions to task role
-resource "aws_iam_policy" "ecs_exec_policy" {
-  name = "${var.prefix}-ecs-exec-policy"
+# CloudWatch Logs policy for orchestration cluster
+resource "aws_iam_policy" "orchestration_cluster_logs_policy" {
+  name = "${var.prefix}-orchestration-cluster-logs-policy"
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
+        Sid    = "AllowLogsAccess"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams",
+          "logs:PutLogEvents"
+        ]
+        Resource = [
+          aws_cloudwatch_log_group.orchestration_cluster_log_group.arn,
+          "${aws_cloudwatch_log_group.orchestration_cluster_log_group.arn}:*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "orchestration_cluster_logs_policy_attachment" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.orchestration_cluster_logs_policy.arn
+}
+
+# ECS Execute Command permissions
+resource "aws_iam_policy" "ecs_exec_policy" {
+  name = "${var.prefix}-orchestration-exec-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowSSMMessaging"
         Effect = "Allow"
         Action = [
           "ssmmessages:CreateControlChannel",
@@ -175,9 +138,18 @@ resource "aws_iam_policy" "ecs_exec_policy" {
           "ssmmessages:OpenDataChannel"
         ]
         Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.aws_region
+          }
+        }
       }
     ]
   })
+
+  tags = {
+    Name = "${var.prefix}-orchestration-exec-policy"
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_exec_policy_attachment" {
@@ -191,11 +163,4 @@ resource "aws_iam_role_policy_attachment" "task_role_policy_attachment" {
 
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = var.extra_task_role_attachments[count.index]
-}
-
-resource "aws_iam_role_policy_attachment" "service_role_policy_attachment" {
-  count = length(var.extra_service_role_attachments)
-
-  role       = aws_iam_role.ecs_task_execution.name
-  policy_arn = var.extra_service_role_attachments[count.index]
 }

@@ -1,7 +1,7 @@
 
 resource "aws_ecs_task_definition" "connectors" {
   family                   = "${var.prefix}-connectors"
-  execution_role_arn       = aws_iam_role.ecs_task_execution.arn // TODO: could come from outside
+  execution_role_arn       = var.ecs_task_execution_role_arn
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.task_cpu
@@ -18,7 +18,7 @@ resource "aws_ecs_task_definition" "connectors" {
     ], var.environment_variables))
   })
 
-  task_role_arn = aws_iam_role.ecs_task_role.arn // makes sense to be defined inside isolated to the task
+  task_role_arn = aws_iam_role.ecs_task_role.arn
 
 }
 
@@ -34,8 +34,8 @@ resource "aws_ecs_service" "connectors" {
   enable_execute_command = var.task_enable_execute_command # true
   force_new_deployment   = var.service_force_new_deployment
 
-  deployment_maximum_percent         = 100
-  deployment_minimum_healthy_percent = 33
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 50
 
   network_configuration {
     subnets          = var.vpc_private_subnets

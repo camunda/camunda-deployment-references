@@ -9,6 +9,10 @@ module "orchestration_cluster" {
   vpc_private_subnets = module.vpc.private_subnets
   aws_region          = data.aws_region.current.region
 
+  # IAM Roles (execution role centrally managed, task role module-specific)
+  ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
+
+  # Load Balancer configuration
   alb_listener_http_80_arn   = aws_lb_listener.http_80.arn
   alb_listener_http_9600_arn = aws_lb_listener.http_9600.arn
   nlb_arn                    = aws_lb.grpc.arn
@@ -107,7 +111,8 @@ module "orchestration_cluster" {
 
   task_desired_count = 3
 
-  extra_service_role_attachments = var.registry_username != "" ? [
+  # Pass registry credentials policy to task role if registry is configured
+  extra_task_role_attachments = var.registry_username != "" ? [
     aws_iam_policy.registry_secrets_policy[0].arn
   ] : []
 
@@ -124,6 +129,9 @@ module "connectors" {
   s2s_cloudmap_namespace   = module.orchestration_cluster.s2s_cloudmap_namespace
   alb_listener_http_80_arn = aws_lb_listener.http_80.arn
   log_group_name           = module.orchestration_cluster.log_group_name
+
+  # IAM Roles (execution role centrally managed, task role module-specific)
+  ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
 
   registry_credentials_arn = join("", aws_secretsmanager_secret.registry_credentials[*].arn)
 
@@ -174,6 +182,7 @@ module "connectors" {
 
   task_desired_count = 1
 
+  # Pass registry credentials policy to task role if registry is configured
   extra_task_role_attachments = var.registry_username != "" ? [
     aws_iam_policy.registry_secrets_policy[0].arn
   ] : []
