@@ -69,7 +69,7 @@ help:
 .PHONY: domain.init
 domain.init: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap camunda.deploy-domain camunda.wait
 	@( \
-		PASSWORD=$$($(MAKE) --no-print-directory get-password); \
+		PASSWORD=$$($(PROCEDURE_DIR)/get-password.sh); \
 		echo ""; \
 		echo "✓ Domain setup complete!"; \
 		echo "  Access: https://camunda.example.com"; \
@@ -84,7 +84,7 @@ domain.clean: camunda.uninstall cluster.delete hosts.remove certs.clean
 .PHONY: no-domain.init
 no-domain.init: cluster.create hosts.add-keycloak camunda.deploy-no-domain camunda.wait
 	@( \
-		PASSWORD=$$($(MAKE) --no-print-directory get-password); \
+		PASSWORD=$$($(PROCEDURE_DIR)/get-password.sh); \
 		echo ""; \
 		echo "✓ No-domain setup complete!"; \
 		echo "  Run: make port-forward"; \

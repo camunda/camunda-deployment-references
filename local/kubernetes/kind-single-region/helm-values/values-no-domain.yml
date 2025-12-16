@@ -25,7 +25,7 @@ global:
 
             issuerBackendUrl: http://camunda-keycloak:8080/auth/realms/camunda-platform
             issuer: http://camunda-keycloak:8080/auth/realms/camunda-platform
-            # using localhost:18080 -> keycloak-service:8080 (kubectl port-forward svc/keycloak-service 18080:8080)
+            # using localhost:18080 -> camunda-keycloak:8080 (kubectl port-forward svc/camunda-keycloak 18080:8080)
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform
 
             identity:
