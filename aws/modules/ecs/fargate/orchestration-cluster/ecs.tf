@@ -132,4 +132,12 @@ resource "aws_ecs_service" "orchestration_cluster" {
       container_port   = load_balancer.key
     }
   }
+
+  wait_for_steady_state = var.wait_for_steady_state
+
+  timeouts {
+    create = var.service_timeouts.create
+    update = var.service_timeouts.update
+    delete = var.service_timeouts.delete
+  }
 }

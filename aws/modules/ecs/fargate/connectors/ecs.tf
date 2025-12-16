@@ -61,4 +61,12 @@ resource "aws_ecs_service" "connectors" {
       container_port   = load_balancer.key
     }
   }
+
+  wait_for_steady_state = var.wait_for_steady_state
+
+  timeouts {
+    create = var.service_timeouts.create
+    update = var.service_timeouts.update
+    delete = var.service_timeouts.delete
+  }
 }

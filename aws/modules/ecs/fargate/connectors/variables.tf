@@ -99,6 +99,26 @@ variable "log_group_name" {
   default     = ""
 }
 
+variable "wait_for_steady_state" {
+  description = "Whether to wait for the ECS service to reach a steady state after deployment"
+  type        = bool
+  default     = true
+}
+
+variable "service_timeouts" {
+  description = "Timeout configuration for ECS service operations"
+  type = object({
+    create = optional(string, "30m")
+    update = optional(string, "30m")
+    delete = optional(string, "20m")
+  })
+  default = {
+    create = "30m"
+    update = "30m"
+    delete = "20m"
+  }
+}
+
 ################################################################
 #                      Camunda Configs                         #
 ################################################################
