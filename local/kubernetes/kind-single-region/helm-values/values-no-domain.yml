@@ -127,4 +127,3 @@ webModelerPostgresql:
     enabled: true
     auth:
         existingSecret: camunda-credentials
-

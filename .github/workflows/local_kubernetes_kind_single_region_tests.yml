@@ -181,7 +181,7 @@ jobs:
 
                   echo "=== Deployment Successful ==="
                   echo "Camunda Platform has been successfully deployed and all pods are ready."
-                  
+
                   echo ""
                   echo "=== Helm Release ==="
                   helm list -n "${{ env.CAMUNDA_NAMESPACE }}"
@@ -241,8 +241,8 @@ jobs:
               if: failure()
               uses: mxschmitt/action-tmate@v3
               with:
-                detached: true
-                timeout-minutes: 15
+                  detached: true
+                  timeout-minutes: 15
 
             - name: 🔬🚨 Debug - Show pod details on failure
               if: failure()
