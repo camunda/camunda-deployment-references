@@ -17,7 +17,7 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.9
 
-awscli 2.32.7
+awscli 2.32.16
 
 delta 0.18.2
 
@@ -30,16 +30,16 @@ golang 1.25.5
 grpcurl 1.9.3
 
 # datasource=custom.helm-camunda depName=helm
-helm 3.19.2
+helm 3.19.3
 
 jq 1.7.1
 
-just 1.43.1
+just 1.45.0
 
 # renovate: datasource=github-tags depName=kubernetes-sigs/kind
 kind 0.30.0
 
-kubectl 1.34.2
+kubectl 1.34.3
 
 kustomize 5.8.0 # used by the tests
 
@@ -48,15 +48,15 @@ mkcert 1.4.4
 
 pre-commit 4.5.0
 
-python 3.14.0
+python 3.14.2
 
 shellcheck 0.11.0
 
 task 3.30.1  # used by the tests
 
-terraform 1.14.0
+terraform 1.14.2
 
-terraform-docs 0.20.0
+terraform-docs 0.21.0
 
 tflint 0.60.0
 

@@ -55,7 +55,7 @@ runs:
     steps:
 
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
 
         - name: Install Cloud Nuke for retry
           shell: bash
@@ -136,7 +136,7 @@ runs:
 
         - name: Upload cleanup logs
           if: always()
-          uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+          uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
           with:
               name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}-${{ steps.key-prefix-slug.outputs.PREFIX_SLUG }}
               path: ./logs/

@@ -8,7 +8,7 @@ NAMESPACE=${NAMESPACE:-camunda}
 OPERATOR_NAMESPACE=${1:-cnpg-system}
 
 # renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
-CNPG_VERSION="1.27.1"
+CNPG_VERSION="1.28.0"
 
 # Install CloudNativePG operator CRDs and operator
 kubectl apply -n "$OPERATOR_NAMESPACE" --server-side -f \
