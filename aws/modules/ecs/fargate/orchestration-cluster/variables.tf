@@ -117,6 +117,12 @@ variable "efs_performance_mode" {
   default     = "generalPurpose"
 }
 
+variable "alb_listener_http_80_arn" {
+  description = "The ARN of the ALB listener for HTTP on port 80"
+  type        = string
+  default     = ""
+}
+
 ################################################################
 #                      Camunda Configs                         #
 ################################################################

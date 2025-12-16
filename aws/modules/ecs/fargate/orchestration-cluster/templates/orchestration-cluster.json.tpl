@@ -46,7 +46,8 @@
       {
         "containerPort": 26500,
         "hostPort": 26500,
-        "protocol": "tcp"
+        "protocol": "tcp",
+        "name": "grpc"
       },
       {
         "containerPort": 26501,
@@ -62,12 +63,14 @@
       {
         "containerPort": 9600,
         "hostPort": 9600,
-        "protocol": "tcp"
+        "protocol": "tcp",
+        "name": "management"
       },
       {
         "containerPort": 8080,
         "hostPort": 8080,
-        "protocol": "tcp"
+        "protocol": "tcp",
+        "name": "rest"
       }
     ]
   }

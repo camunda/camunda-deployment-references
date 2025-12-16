@@ -12,9 +12,14 @@ output "s2s_cloudmap_namespace" {
   description = "The ARN of the Service Connect namespace for service-to-service communication"
 }
 
-output "s2s_discovery_name" {
+output "grpc_service_connect" {
   value       = aws_ecs_service.orchestration_cluster.service_connect_configuration[0].service[0].discovery_name
-  description = "The Service Connect discovery name for the orchestration cluster ECS service"
+  description = "The Service Connect discovery name for the orchestration cluster ECS service targeting gRPC"
+}
+
+output "rest_service_connect" {
+  value       = aws_ecs_service.orchestration_cluster.service_connect_configuration[0].service[2].discovery_name
+  description = "The Service Connect discovery name for the orchestration cluster ECS service targeting REST"
 }
 
 output "log_group_name" {

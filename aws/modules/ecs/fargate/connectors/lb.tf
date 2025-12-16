@@ -9,7 +9,7 @@ resource "aws_lb_target_group" "main" {
   deregistration_delay = 30
 
   health_check {
-    path                = "/actuator/health"
+    path                = "/connectors/inbound-instances"
     port                = "8080"
     protocol            = "HTTP"
     timeout             = 5
@@ -29,7 +29,7 @@ resource "aws_lb_target_group" "main" {
 // We create a listener rule to reuse the same Load Balancer Listener Port 80 to expose the applications via a path-based routing
 resource "aws_lb_listener_rule" "http_80" {
   listener_arn = var.alb_listener_http_80_arn
-  priority     = 100
+  priority     = 50
 
   action {
     type             = "forward"
@@ -38,7 +38,7 @@ resource "aws_lb_listener_rule" "http_80" {
 
   condition {
     path_pattern {
-      values = ["/connectors/*"]
+      values = ["/connectors*"]
     }
   }
 

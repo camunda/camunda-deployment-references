@@ -9,8 +9,9 @@ module "orchestration_cluster" {
   vpc_private_subnets = module.vpc.private_subnets
   aws_region          = data.aws_region.current.region
 
-  alb_arn = aws_lb.main.arn
-  nlb_arn = aws_lb.grpc.arn
+  alb_listener_http_80_arn = aws_lb_listener.http_80.arn
+  alb_arn                  = aws_lb.main.arn
+  nlb_arn                  = aws_lb.grpc.arn
 
   environment_variables = [
     {
@@ -30,6 +31,11 @@ module "orchestration_cluster" {
       name  = "SPRING_LIFECYCLE_TIMEOUTPERSHUTDOWNPHASE" # TODO: no fucking clue
       value = "5s"
     },
+    # RDBMS Secondary Storage
+    {
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_AUTOCONFIGURECAMUNDAEXPORTER"
+      value = "false"
+    },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_TYPE"
       value = "rdbms"
@@ -46,6 +52,11 @@ module "orchestration_cluster" {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_PASSWORD"
       value = "camunda_admin_password"
     },
+    {
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_AUTODDL"
+      value = "true"
+    },
+    # Embedded Identity
     {
       name  = "SPRING_PROFILES_ACTIVE"
       value = "broker,consolidated-auth,identity,tasklist"
@@ -102,53 +113,69 @@ module "orchestration_cluster" {
 
 }
 
-# module "connectors" {
-#   source = "../../../modules/ecs/fargate/connectors"
+module "connectors" {
+  source = "../../../modules/ecs/fargate/connectors"
 
-#   prefix                         = "${var.prefix}-oc1"
-#   ecs_cluster_id                 = aws_ecs_cluster.ecs.id
-#   vpc_id                         = module.vpc.vpc_id
-#   vpc_private_subnets            = module.vpc.private_subnets
-#   aws_region                     = data.aws_region.current.region
-#   s2s_cloudmap_namespace         = module.orchestration_cluster.s2s_cloudmap_namespace
-#   alb_listener_http_80_arn       = aws_lb_listener.http_80.arn
-#   log_group_name                 = module.orchestration_cluster.log_group_name
+  prefix                   = "${var.prefix}-oc1"
+  ecs_cluster_id           = aws_ecs_cluster.ecs.id
+  vpc_id                   = module.vpc.vpc_id
+  vpc_private_subnets      = module.vpc.private_subnets
+  aws_region               = data.aws_region.current.region
+  s2s_cloudmap_namespace   = module.orchestration_cluster.s2s_cloudmap_namespace
+  alb_listener_http_80_arn = aws_lb_listener.http_80.arn
+  log_group_name           = module.orchestration_cluster.log_group_name
 
-#   registry_credentials_arn = join("", aws_secretsmanager_secret.registry_credentials[*].arn)
+  registry_credentials_arn = join("", aws_secretsmanager_secret.registry_credentials[*].arn)
 
-#   service_security_group_ids = [
-#     aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
-#     aws_security_group.allow_package_80_443.id,
-#   ]
+  service_security_group_ids = [
+    aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
+    aws_security_group.allow_package_80_443.id,
+  ]
 
-#   environment_variables = [
-#     {
-#         name = "CAMUNDA_CLIENT_MODE",
-#         value = "self-managed"
-#       },
-#       {
-#         name = "CAMUNDA_CLIENT_RESTADDRESS",
-#         value = "http://${module.orchestration_cluster.s2s_discovery_name}:8080"
-#       },
-#       {
-#         name = "CAMUNDA_CLIENT_GRPCADDRESS",
-#         value = "http://${module.orchestration_cluster.s2s_discovery_name}:26500"
-#       },
-#       # Debug
-#       {
-#         name = "SERVER_PORT"
-#         value = "8080"
-#       },
-#       {
-#         name = "MANAGEMENT_CONTEXTPATH"
-#         value = "/actuator"
-#       }
-#     ]
+  environment_variables = [
+    {
+      name  = "SERVER_SERVLET_CONTEXT_PATH"
+      value = "/connectors"
+    },
+    {
+      name  = "CAMUNDA_CLIENT_MODE",
+      value = "self-managed"
+    },
+    {
+      name  = "CAMUNDA_CLIENT_RESTADDRESS",
+      value = "http://${module.orchestration_cluster.rest_service_connect}:8080"
+    },
+    {
+      name  = "CAMUNDA_CLIENT_GRPCADDRESS",
+      value = "http://${module.orchestration_cluster.grpc_service_connect}:26500"
+    },
+    {
+      name  = "CAMUNDA_CLIENT_AUTH_METHOD"
+      value = "basic"
+    },
+    {
+      name  = "CAMUNDA_CLIENT_AUTH_USERNAME"
+      value = "demo"
+    },
+    {
+      name  = "CAMUNDA_CLIENT_AUTH_PASSWORD"
+      value = "demo"
+    },
+    # Debug
+    {
+      name  = "SERVER_PORT"
+      value = "8080"
+    },
+    {
+      name  = "MANAGEMENT_CONTEXTPATH"
+      value = "/actuator"
+    }
+  ]
 
-#   task_desired_count = 1
+  task_desired_count = 1
 
-#   extra_task_role_attachments = var.registry_username != "" ? [
-#     aws_iam_policy.registry_secrets_policy[0].arn
-#   ] : []
+  extra_task_role_attachments = var.registry_username != "" ? [
+    aws_iam_policy.registry_secrets_policy[0].arn
+  ] : []
 
-# }
+}

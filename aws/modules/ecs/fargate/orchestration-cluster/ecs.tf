@@ -90,6 +90,16 @@ resource "aws_ecs_service" "orchestration_cluster" {
     enabled   = true
     namespace = aws_service_discovery_http_namespace.service_connect.arn
 
+    # dynamic for_each is not deterministic and we consume the outputs by index
+    service {
+      port_name      = "grpc"
+      discovery_name = "orchestration-cluster-grpc"
+      client_alias {
+        port     = 26500
+        dns_name = "orchestration-cluster-grpc"
+      }
+    }
+
     service {
       port_name      = "internal-api"
       discovery_name = "orchestration-cluster-sc"
@@ -98,12 +108,21 @@ resource "aws_ecs_service" "orchestration_cluster" {
         dns_name = "orchestration-cluster-sc"
       }
     }
+
+    service {
+      port_name      = "rest"
+      discovery_name = "orchestration-cluster-rest"
+      client_alias {
+        port     = 8080
+        dns_name = "orchestration-cluster-rest"
+      }
+    }
   }
 
   # Dynamic load balancer configuration
   dynamic "load_balancer" {
     for_each = {
-      # 8080 = aws_lb_target_group.main.arn  # Commented out - uncomment when needed
+      8080  = aws_lb_target_group.main.arn
       9600  = aws_lb_target_group.main_9600.arn
       26500 = aws_lb_target_group.main_26500.arn
     }

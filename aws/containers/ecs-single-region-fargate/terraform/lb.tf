@@ -15,7 +15,7 @@ resource "aws_lb_listener" "http_80" {
   port              = "80"
   protocol          = "HTTP"
 
-  # TODO: adjust as needed, for now easier to keep the rules where they are
+  # TODO: Maybe change default action
   default_action {
     type = "fixed-response"
 

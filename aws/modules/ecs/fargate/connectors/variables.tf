@@ -31,13 +31,13 @@ variable "service_security_group_ids" {
 variable "task_cpu" {
   description = "The amount of cpu to allocate to the ECS task"
   type        = number
-  default     = 512
+  default     = 1024
 }
 
 variable "task_memory" {
   description = "The amount of memory to allocate to the ECS task"
   type        = number
-  default     = 1024
+  default     = 2048
 }
 
 variable "task_enable_execute_command" {

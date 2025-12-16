@@ -8,7 +8,7 @@
     "healthCheck": {
       "command": [
         "CMD-SHELL",
-        "wget --spider --quiet http://localhost:8080/actuator/health/readiness || exit 1"
+        "wget --spider --quiet http://localhost:8080/connectors/inbound-instances || exit 1"
       ],
       "interval": 30,
       "timeout": 5,
@@ -27,7 +27,7 @@
           "awslogs-group": "${log_group_name}",
           "awslogs-region": "${aws_region}",
           "awslogs-stream-prefix": "connectors",
-          "awslogs-multiline-pattern": "^\\[\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\]"
+          "awslogs-multiline-pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z"
         }
     },
     "environment": ${env_vars_json},
