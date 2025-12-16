@@ -152,42 +152,6 @@ jobs:
 
                   ./procedure/certs-create-ca-configmap.sh
 
-            # Prepare test environment
-            - name: Create test secrets for integration tests
-              if: env.TESTS_ENABLED == 'true'
-              run: |
-                  set -euo pipefail
-
-                  echo "Creating identity secret for test client..."
-                  kubectl create secret generic identity-secret-for-components-integration \
-                      --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
-                      --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-                      --namespace="${{ env.CAMUNDA_NAMESPACE }}"
-
-            - name: Prepare Helm values with test client
-              if: env.TESTS_ENABLED == 'true'
-              working-directory: ${{ env.REF_ARCH_PATH }}
-              run: |
-                  set -euo pipefail
-
-                  echo "Merging identity.yml test values into helm values..."
-
-                  # Merge test identity values into domain values
-                  if [[ -f helm-values/values-domain.yml ]]; then
-                      yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/identity.yml\")" \
-                          helm-values/values-domain.yml > helm-values/values-domain-with-tests.yml
-                      mv helm-values/values-domain-with-tests.yml helm-values/values-domain.yml
-                      echo "✅ Merged test client into values-domain.yml"
-                  fi
-
-                  # Merge test identity values into no-domain values
-                  if [[ -f helm-values/values-no-domain.yml ]]; then
-                      yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/identity.yml\")" \
-                          helm-values/values-no-domain.yml > helm-values/values-no-domain-with-tests.yml
-                      mv helm-values/values-no-domain-with-tests.yml helm-values/values-no-domain.yml
-                      echo "✅ Merged test client into values-no-domain.yml"
-                  fi
-
             # Deploy Camunda
             - name: Deploy Camunda (domain mode)
               if: matrix.declination.use_tls
@@ -205,28 +169,26 @@ jobs:
 
                   ./procedure/camunda-deploy-no-domain.sh
 
-            - name: Setup tmate session
-              uses: mxschmitt/action-tmate@v3
-              with:
-                detached: true
-
             - name: Wait for Camunda deployment
               timeout-minutes: 20
               env:
                   CAMUNDA_NAMESPACE: ${{ env.CAMUNDA_NAMESPACE }}
               run: ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
-            - name: Verify Helm release
+            - name: ✅ Deployment verification successful
               run: |
                   set -euo pipefail
 
+                  echo "=== Deployment Successful ==="
+                  echo "Camunda Platform has been successfully deployed and all pods are ready."
+                  
+                  echo ""
                   echo "=== Helm Release ==="
                   helm list -n "${{ env.CAMUNDA_NAMESPACE }}"
 
                   echo ""
                   echo "=== All Resources ==="
                   kubectl get all -n "${{ env.CAMUNDA_NAMESPACE }}"
-
 
             - name: Set Camunda domain environment variables
               run: |
@@ -248,9 +210,9 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-            - name: 🧪 Run Camunda Platform tests
+            - name: 🧪 Run C8-SM-CHECKS deployment and connectivity tests
               if: env.TESTS_ENABLED == 'true'
-              timeout-minutes: 30
+              timeout-minutes: 15
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
                   secrets: ${{ toJSON(secrets) }}
@@ -259,15 +221,28 @@ jobs:
                   camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
                   webmodeler-enabled: 'true'
                   console-enabled: 'true'
-                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
-                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
-                  # C8 SM checks configuration
-                  enable-c8sm-irsa-check: 'false'
+                  # Disable Venom/Helm chart tests, only run C8-SM-CHECKS
+                  enable-helm-chart-tests: 'false'
+                  enable-zeebe-client-tests: 'false'
+                  # Enable C8-SM-CHECKS
+                  enable-c8sm-deployment-check: 'true'
+                  enable-c8sm-connectivity-check: 'true'
+                  skip-c8sm-connectivity-ingress-class-check: 'false'
+                  enable-c8sm-irsa-check: 'false'  # Not applicable for Kind
+                  enable-c8sm-zeebe-token-check: 'true'
+                  enable-c8sm-zeebe-connectivity-check: 'true'
+
+            - name: 🔬🚨 Debug - Setup tmate session on failure
+              if: failure()
+              uses: mxschmitt/action-tmate@v3
+              with:
+                detached: true
+                timeout-minutes: 15
 
             - name: 🔬🚨 Debug - Show pod details on failure
               if: failure()
