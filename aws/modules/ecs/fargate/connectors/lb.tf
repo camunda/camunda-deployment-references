@@ -9,7 +9,7 @@ resource "aws_lb_target_group" "main" {
   deregistration_delay = 30
 
   health_check {
-    path                = "/connectors/inbound-instances"
+    path                = "/connectors/inbound-instances" # TODO: adjust to actuator/health/readiness when available - SNAPSHOT is broken
     port                = "8080"
     protocol            = "HTTP"
     timeout             = 5
@@ -28,6 +28,8 @@ resource "aws_lb_target_group" "main" {
 
 // We create a listener rule to reuse the same Load Balancer Listener Port 80 to expose the applications via a path-based routing
 resource "aws_lb_listener_rule" "http_80" {
+  count = var.alb_listener_http_80_arn != "" ? 1 : 0
+
   listener_arn = var.alb_listener_http_80_arn
   priority     = 50
 

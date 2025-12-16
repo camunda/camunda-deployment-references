@@ -57,12 +57,6 @@ variable "prefix" {
   type        = string
 }
 
-variable "alb_arn" {
-  description = "The ARN of the Application Load Balancer to use"
-  type        = string
-  default     = ""
-}
-
 variable "nlb_arn" {
   description = "The ARN of the Network Load Balancer to use"
   type        = string
@@ -119,6 +113,12 @@ variable "efs_performance_mode" {
 
 variable "alb_listener_http_80_arn" {
   description = "The ARN of the ALB listener for HTTP on port 80"
+  type        = string
+  default     = ""
+}
+
+variable "alb_listener_http_9600_arn" {
+  description = "The ARN of the ALB listener for HTTP on port 9600"
   type        = string
   default     = ""
 }

@@ -27,6 +27,23 @@ resource "aws_lb_listener" "http_80" {
   }
 }
 
+resource "aws_lb_listener" "http_9600" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "9600"
+  protocol          = "HTTP"
+
+  # TODO: Maybe change default action
+  default_action {
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "text/plain"
+      message_body = ""
+      status_code  = "200"
+    }
+  }
+}
+
 resource "aws_lb" "grpc" {
   name               = "${var.prefix}-nlb-grpc"
   internal           = false

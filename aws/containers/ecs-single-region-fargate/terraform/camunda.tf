@@ -9,9 +9,9 @@ module "orchestration_cluster" {
   vpc_private_subnets = module.vpc.private_subnets
   aws_region          = data.aws_region.current.region
 
-  alb_listener_http_80_arn = aws_lb_listener.http_80.arn
-  alb_arn                  = aws_lb.main.arn
-  nlb_arn                  = aws_lb.grpc.arn
+  alb_listener_http_80_arn   = aws_lb_listener.http_80.arn
+  alb_listener_http_9600_arn = aws_lb_listener.http_9600.arn
+  nlb_arn                    = aws_lb.grpc.arn
 
   environment_variables = [
     {

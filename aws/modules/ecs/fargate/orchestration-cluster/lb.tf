@@ -55,6 +55,8 @@ resource "aws_lb_target_group" "main_9600" {
 # core webapp + rest api
 # We create a listener rule to reuse the same Load Balancer Listener Port 80 to expose the applications via a path-based routing
 resource "aws_lb_listener_rule" "http_80" {
+  count = var.alb_listener_http_80_arn != "" ? 1 : 0
+
   listener_arn = var.alb_listener_http_80_arn
   priority     = 100
 
@@ -71,18 +73,25 @@ resource "aws_lb_listener_rule" "http_80" {
 
 }
 
-# core management api
-resource "aws_lb_listener" "http_9600" {
-  load_balancer_arn = var.alb_arn
-  port              = "9600"
-  protocol          = "HTTP"
+# management port - not recommended to be exposed publicly
+resource "aws_lb_listener_rule" "http_9600" {
+  count = var.alb_listener_http_80_arn != "" ? 1 : 0
 
-  default_action {
+  listener_arn = var.alb_listener_http_9600_arn
+  priority     = 100
+
+  action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.main_9600.arn
   }
-}
 
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+
+}
 
 ################################################################
 #                      gRPC                                    #
@@ -110,6 +119,8 @@ resource "aws_lb_target_group" "main_26500" {
 }
 
 resource "aws_lb_listener" "grpc_26500" {
+  count = var.nlb_arn != "" ? 1 : 0
+
   load_balancer_arn = var.nlb_arn
   port              = "26500"
   protocol          = "TCP"
