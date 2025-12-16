@@ -56,8 +56,8 @@ connectors:
         mode: disabled
     resources:
         requests:
-            cpu: 200m
-            memory: 512Mi
+            cpu: 100m
+            memory: 256Mi
         limits:
             cpu: 1000m
             memory: 1Gi
@@ -76,8 +76,8 @@ elasticsearch:
             size: 15Gi
         resources:
             requests:
-                cpu: 500m
-                memory: 1Gi
+                cpu: 250m
+                memory: 512Mi
             limits:
                 cpu: 1000m
                 memory: 2Gi
@@ -89,8 +89,8 @@ identity:
 
     resources:
         requests:
-            cpu: 100m
-            memory: 256Mi
+            cpu: 50m
+            memory: 128Mi
         limits:
             cpu: 500m
             memory: 512Mi
@@ -109,8 +109,8 @@ identityKeycloak:
     enabled: true
     resources:
         requests:
-            cpu: 200m
-            memory: 512Mi
+            cpu: 100m
+            memory: 256Mi
         limits:
             cpu: 1000m
             memory: 1Gi
@@ -123,8 +123,8 @@ optimize:
         enabled: false
     resources:
         requests:
-            cpu: 300m
-            memory: 512Mi
+            cpu: 200m
+            memory: 256Mi
         limits:
             cpu: 1000m
             memory: 1Gi
@@ -138,8 +138,8 @@ orchestration:
     pvcSize: 10Gi
     resources:
         requests:
-            cpu: 500m
-            memory: 1Gi
+            cpu: 300m
+            memory: 512Mi
         limits:
             cpu: 2000m
             memory: 2Gi
@@ -169,8 +169,8 @@ console:
     contextPath: /
     resources:
         requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 50m
+            memory: 64Mi
         limits:
             cpu: 500m
             memory: 256Mi
@@ -183,24 +183,24 @@ webModeler:
             fromAddress: noreply@camunda.local
         resources:
             requests:
-                cpu: 200m
-                memory: 512Mi
+                cpu: 100m
+                memory: 256Mi
             limits:
                 cpu: 1000m
                 memory: 1Gi
     webapp:
         resources:
             requests:
-                cpu: 100m
-                memory: 256Mi
+                cpu: 50m
+                memory: 128Mi
             limits:
                 cpu: 500m
                 memory: 512Mi
     websockets:
         resources:
             requests:
-                cpu: 100m
-                memory: 256Mi
+                cpu: 50m
+                memory: 128Mi
             limits:
                 cpu: 500m
                 memory: 512Mi
@@ -212,8 +212,8 @@ webModelerPostgresql:
     primary:
         resources:
             requests:
-                cpu: 200m
-                memory: 256Mi
+                cpu: 100m
+                memory: 128Mi
             limits:
                 cpu: 1000m
                 memory: 512Mi
