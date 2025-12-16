@@ -45,8 +45,8 @@ orchestration:
           value: camunda_backup
         - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
           value: 'true'
-        - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
-          value: ${ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS}
+        - name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS
+          value: ${CAMUNDA_CLUSTER_INITIALCONTACTPOINTS}
         # Region 0 exporter config
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
@@ -60,24 +60,18 @@ orchestration:
         # Zeebe cluster tuning
         - name: CAMUNDA_DATA_SNAPSHOTPERIOD
           value: 5m
-        - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBETIMEOUT
+        - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBETIMEOUT
           value: 500ms
-        - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBEINTERVAL
+        - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBEINTERVAL
           value: 2s
-        - name: ZEEBE_BROKER_EXPERIMENTAL_RAFT_SNAPSHOTREQUESTTIMEOUT
+        - name: CAMUNDA_CLUSTER_RAFT_SNAPSHOTREQUESTTIMEOUT
           value: 10s
-        - name: ZEEBE_BROKER_CLUSTER_MESSAGECOMPRESSION
+        - name: CAMUNDA_CLUSTER_COMPRESSIONALGORITHM
           value: GZIP
-        - name: ZEEBE_BROKER_BACKPRESSURE_AIMD_REQUESTTIMEOUT
+        - name: CAMUNDA_PROCESSING_FLOWCONTROL_REQUEST_AIMD_REQUESTTIMEOUT
           value: 1s
-        - name: ZEEBE_BROKER_NETWORK_ADVERTISEDHOST
+        - name: CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST
           value: ${DOLLAR}(K8S_NAME).$ZEEBE_SERVICE_NAME
-        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MESSAGECOMPRESSION
-          value: GZIP
-        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBETIMEOUT
-          value: 500ms
-        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
-          value: 2s
     pvcSize: 32Gi
     logLevel: ERROR
 
