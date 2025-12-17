@@ -3,6 +3,8 @@ data "aws_region" "current" {}
 module "orchestration_cluster" {
   source = "../../../modules/ecs/fargate/orchestration-cluster"
 
+  depends_on = [null_resource.run_db_seed_task]
+
   prefix              = "${var.prefix}-oc1"
   ecs_cluster_id      = aws_ecs_cluster.ecs.id
   vpc_id              = module.vpc.vpc_id
@@ -16,6 +18,10 @@ module "orchestration_cluster" {
   alb_listener_http_80_arn   = aws_lb_listener.http_80.arn
   alb_listener_http_9600_arn = aws_lb_listener.http_9600.arn
   nlb_arn                    = aws_lb.grpc.arn
+
+  enable_alb_http_80_listener_rule   = true
+  enable_alb_http_9600_listener_rule = true
+  enable_nlb_grpc_26500_listener     = true
 
   environment_variables = [
     {
@@ -46,7 +52,7 @@ module "orchestration_cluster" {
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL"
-      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.db_name}?wrapperPlugins=iam"
+      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.db_name}?wrapperPlugins=iam&iamRegion=${data.aws_region.current.id}&sslmode=require"
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_USERNAME"
@@ -54,7 +60,11 @@ module "orchestration_cluster" {
     },
     {
       name  = "SPRING_DATASOURCE_URL"
-      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.db_name}?wrapperPlugins=iam"
+      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.db_name}?wrapperPlugins=iam&iamRegion=${data.aws_region.current.id}&sslmode=require"
+    },
+    {
+      name  = "SPRING_DATASOURCE_DRIVER_CLASS_NAME"
+      value = "software.amazon.jdbc.Driver"
     },
     {
       name  = "SPRING_DATASOURCE_USERNAME"
@@ -120,7 +130,7 @@ module "orchestration_cluster" {
     # Registry credentials policy (if configured)
     var.registry_username != "" ? [aws_iam_policy.registry_secrets_policy[0].arn] : [],
     # Other policies
-    []
+    [aws_iam_policy.rds_db_connect_camunda.arn]
   )
 
 }
@@ -128,14 +138,15 @@ module "orchestration_cluster" {
 module "connectors" {
   source = "../../../modules/ecs/fargate/connectors"
 
-  prefix                   = "${var.prefix}-oc1"
-  ecs_cluster_id           = aws_ecs_cluster.ecs.id
-  vpc_id                   = module.vpc.vpc_id
-  vpc_private_subnets      = module.vpc.private_subnets
-  aws_region               = data.aws_region.current.region
-  s2s_cloudmap_namespace   = module.orchestration_cluster.s2s_cloudmap_namespace
-  alb_listener_http_80_arn = aws_lb_listener.http_80.arn
-  log_group_name           = module.orchestration_cluster.log_group_name
+  prefix                           = "${var.prefix}-oc1"
+  ecs_cluster_id                   = aws_ecs_cluster.ecs.id
+  vpc_id                           = module.vpc.vpc_id
+  vpc_private_subnets              = module.vpc.private_subnets
+  aws_region                       = data.aws_region.current.region
+  s2s_cloudmap_namespace           = module.orchestration_cluster.s2s_cloudmap_namespace
+  alb_listener_http_80_arn         = aws_lb_listener.http_80.arn
+  enable_alb_http_80_listener_rule = true
+  log_group_name                   = module.orchestration_cluster.log_group_name
 
   # IAM Roles (execution role centrally managed, task role module-specific)
   ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn

@@ -116,10 +116,28 @@ variable "alb_listener_http_80_arn" {
   default     = ""
 }
 
+variable "enable_alb_http_80_listener_rule" {
+  description = "Whether to create the ALB listener rule on port 80 (must be a known boolean at plan time)"
+  type        = bool
+  default     = true
+}
+
 variable "alb_listener_http_9600_arn" {
   description = "The ARN of the ALB listener for HTTP on port 9600"
   type        = string
   default     = ""
+}
+
+variable "enable_alb_http_9600_listener_rule" {
+  description = "Whether to create the ALB listener rule on port 9600 (must be a known boolean at plan time)"
+  type        = bool
+  default     = true
+}
+
+variable "enable_nlb_grpc_26500_listener" {
+  description = "Whether to create the NLB listener on port 26500 (must be a known boolean at plan time)"
+  type        = bool
+  default     = true
 }
 
 variable "wait_for_steady_state" {

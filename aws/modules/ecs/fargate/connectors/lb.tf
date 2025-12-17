@@ -28,7 +28,7 @@ resource "aws_lb_target_group" "main" {
 
 // We create a listener rule to reuse the same Load Balancer Listener Port 80 to expose the applications via a path-based routing
 resource "aws_lb_listener_rule" "http_80" {
-  count = var.alb_listener_http_80_arn != "" ? 1 : 0
+  count = var.enable_alb_http_80_listener_rule ? 1 : 0
 
   listener_arn = var.alb_listener_http_80_arn
   priority     = 50

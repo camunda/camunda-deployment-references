@@ -92,6 +92,12 @@ variable "alb_listener_http_80_arn" {
   default     = ""
 }
 
+variable "enable_alb_http_80_listener_rule" {
+  description = "Whether to create the ALB listener rule on port 80 (must be a known boolean at plan time)"
+  type        = bool
+  default     = true
+}
+
 variable "log_group_name" {
   description = "The name of the CloudWatch log group for the ECS tasks"
   type        = string

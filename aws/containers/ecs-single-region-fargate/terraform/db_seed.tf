@@ -19,7 +19,7 @@ resource "aws_ecs_task_definition" "db_seed" {
   container_definitions = jsonencode([
     {
       name      = "db-seed"
-      image     = "postgres:17-alpine"
+      image     = "public.ecr.aws/docker/library/postgres:17-alpine"
       essential = true
 
       entryPoint = ["/bin/sh", "-lc"]
@@ -27,23 +27,23 @@ resource "aws_ecs_task_definition" "db_seed" {
         <<-EOT
           set -euo pipefail
 
-          if [ -z "${IAM_DB_USERS}" ]; then
+          if [ -z "$${IAM_DB_USERS}" ]; then
             echo "No IAM_DB_USERS provided; nothing to do."
             exit 0
           fi
 
-          echo "Seeding database users for IAM auth: ${IAM_DB_USERS}"
+          echo "Seeding database users for IAM auth: $${IAM_DB_USERS}"
 
-          for user in ${IAM_DB_USERS}; do
-            echo "Ensuring role exists: ${user}"
+          for user in $${IAM_DB_USERS}; do
+            echo "Ensuring role exists: $${user}"
 
-            psql "host=${AURORA_ENDPOINT} port=${AURORA_PORT} dbname=${AURORA_DB_NAME} user=${AURORA_ADMIN_USERNAME} password=${AURORA_ADMIN_PASSWORD} sslmode=require" \
+            psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
               -v ON_ERROR_STOP=1 \
-              -c "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${user}') THEN CREATE ROLE \"${user}\" WITH LOGIN; END IF; END $$;" \
-              -c "ALTER ROLE \"${user}\" WITH LOGIN;" \
-              -c "GRANT rds_iam TO \"${user}\";" \
-              -c "GRANT ALL PRIVILEGES ON DATABASE \"${AURORA_DB_NAME}\" TO \"${user}\";" \
-              -c "GRANT USAGE, CREATE ON SCHEMA public TO \"${user}\";"
+              -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${user}') THEN CREATE ROLE \"$${user}\" WITH LOGIN; END IF; END \$\$;" \
+              -c "ALTER ROLE \"$${user}\" WITH LOGIN;" \
+              -c "GRANT rds_iam TO \"$${user}\";" \
+              -c "GRANT ALL PRIVILEGES ON DATABASE \"$${AURORA_DB_NAME}\" TO \"$${user}\";" \
+              -c "GRANT USAGE, CREATE ON SCHEMA public TO \"$${user}\";"
           done
 
           echo "DB seeding complete."
@@ -97,7 +97,7 @@ resource "null_resource" "run_db_seed_task" {
         exit 0
       fi
 
-      NETWORK_CONF='{"awsvpcConfiguration":{"subnets":${jsonencode(module.vpc.private_subnets)},"securityGroups":${jsonencode([aws_security_group.allow_necessary_camunda_ports_within_vpc.id])},"assignPublicIp":"DISABLED"}}'
+      NETWORK_CONF='{"awsvpcConfiguration":{"subnets":${jsonencode(module.vpc.private_subnets)},"securityGroups":${jsonencode([aws_security_group.allow_necessary_camunda_ports_within_vpc.id, aws_security_group.allow_package_80_443.id])},"assignPublicIp":"DISABLED"}}'
 
       echo "Running one-time DB seed task..."
       TASK_ARN=$(aws ecs run-task \

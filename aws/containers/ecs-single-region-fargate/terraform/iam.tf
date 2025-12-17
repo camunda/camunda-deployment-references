@@ -154,3 +154,28 @@ resource "aws_iam_role_policy_attachment" "task_execution_registry" {
   role       = aws_iam_role.ecs_task_execution.name
   policy_arn = aws_iam_policy.registry_secrets_policy[0].arn
 }
+
+################################################################
+#                    RDS IAM Auth Support                      #
+################################################################
+
+resource "aws_iam_policy" "rds_db_connect_camunda" {
+  name        = "${var.prefix}-rds-db-connect-camunda"
+  description = "Allow ECS tasks to connect to Aurora PostgreSQL as the IAM DB user 'camunda'"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowRDSDBConnect"
+        Effect = "Allow"
+        Action = [
+          "rds-db:connect"
+        ]
+        Resource = [
+          "arn:aws:rds-db:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:dbuser:${module.postgresql.aurora_cluster_resource_id}/camunda"
+        ]
+      }
+    ]
+  })
+}
