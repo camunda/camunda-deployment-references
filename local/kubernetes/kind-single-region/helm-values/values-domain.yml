@@ -74,13 +74,15 @@ elasticsearch:
         replicaCount: 1
         persistence:
             size: 15Gi
+        # Increase heap size for better stability
+        heapSize: 1g
         resources:
             requests:
-                cpu: 250m
-                memory: 512Mi
+                cpu: 500m
+                memory: 1536Mi
             limits:
-                cpu: 1000m
-                memory: 2Gi
+                cpu: 2000m
+                memory: 3Gi
 
 identity:
     enabled: true
