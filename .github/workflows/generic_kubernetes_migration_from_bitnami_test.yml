@@ -439,13 +439,120 @@ jobs:
 
                   echo "✓ Bitnami deployment ready"
 
-            # TODO: Generate test data for migration validation
-            # - Deploy sample process definitions to Zeebe
-            # - Create test users in Keycloak (Identity realm)
-            # - Create sample data in Identity database
-            # - Create sample projects in WebModeler
-            # - Run workflows to populate Elasticsearch indices
-            # This will allow validating that data is correctly preserved after migration
+            # =========================================================================
+            # STEP 1.5: Generate Test Data for Migration Validation
+            # =========================================================================
+            - name: 📊 Generate test data using Camunda 8 Benchmark
+              timeout-minutes: 15
+              run: |
+                  set -euo pipefail
+
+                  echo "Generating test data using camunda-8-benchmark..."
+
+                  # Deploy the benchmark job that will create process instances
+                  cat <<EOF | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
+                  apiVersion: batch/v1
+                  kind: Job
+                  metadata:
+                    name: migration-test-data-generator
+                    labels:
+                      app: migration-test-data
+                  spec:
+                    ttlSecondsAfterFinished: 3600
+                    backoffLimit: 3
+                    template:
+                      metadata:
+                        labels:
+                          app: migration-test-data
+                      spec:
+                        restartPolicy: Never
+                        containers:
+                          - name: benchmark
+                            image: camundacommunityhub/camunda-8-benchmark:main
+                            env:
+                              - name: CAMUNDA_CLIENT_MODE
+                                value: "self-managed"
+                              - name: CAMUNDA_CLIENT_ZEEBE_BASE_URL
+                                value: "http://camunda-zeebe-gateway:26500"
+                              - name: CAMUNDA_CLIENT_ZEEBE_GRPC_ADDRESS
+                                value: "http://camunda-zeebe-gateway:26500"
+                              - name: CAMUNDA_CLIENT_ZEEBE_PREFER_REST_OVER_GRPC
+                                value: "false"
+                              - name: BENCHMARK_START_PROCESSES
+                                value: "true"
+                              - name: BENCHMARK_START_PI_PER_SECOND
+                                value: "5"
+                              - name: BENCHMARK_AUTO_DEPLOY_PROCESS
+                                value: "true"
+                              - name: BENCHMARK_BPMN_PROCESS_ID
+                                value: "benchmark"
+                              - name: BENCHMARK_START_WORKERS
+                                value: "true"
+                              - name: BENCHMARK_JOB_TYPE
+                                value: "benchmark-task"
+                              - name: BENCHMARK_TASK_COMPLETION_DELAY
+                                value: "100"
+                              - name: BENCHMARK_WARMUP_PHASE_DURATION_MILLIS
+                                value: "10000"
+                              - name: BENCHMARK_START_RATE_ADJUSTMENT_STRATEGY
+                                value: "none"
+                            resources:
+                              requests:
+                                cpu: 500m
+                                memory: 512Mi
+                              limits:
+                                cpu: 1
+                                memory: 1Gi
+                  EOF
+
+                  echo "Waiting for benchmark job to start..."
+                  sleep 10
+
+                  # Wait for the job to run for a bit and create some data
+                  echo "Benchmark is running, waiting for data generation (60s)..."
+                  sleep 60
+
+                  # Check job status
+                  kubectl get job migration-test-data-generator -n "${{ env.CAMUNDA_NAMESPACE }}" || true
+                  kubectl logs job/migration-test-data-generator -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=50 || true
+
+                  # Delete the job (we just needed it to generate some data)
+                  kubectl delete job migration-test-data-generator -n "${{ env.CAMUNDA_NAMESPACE }}" --ignore-not-found=true || true
+
+                  # Create a marker ConfigMap to track test data generation
+                  kubectl create configmap migration-test-data-marker \
+                      --namespace="${{ env.CAMUNDA_NAMESPACE }}" \
+                      --from-literal=created_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                      --from-literal=generator="camunda-8-benchmark" \
+                      --from-literal=process_id="benchmark" \
+                      --dry-run=client -o yaml | kubectl apply -f -
+
+                  echo "✓ Test data generation completed"
+
+            - name: ⏳ Wait for data to propagate to Elasticsearch
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+
+                  echo "Waiting for data to propagate to Elasticsearch..."
+                  sleep 60
+
+                  # Verify data in Elasticsearch
+                  ES_POD=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -l "app=elasticsearch" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+
+                  if [[ -n "$ES_POD" ]]; then
+                      echo "Checking Elasticsearch indices..."
+                      kubectl exec -n "${{ env.CAMUNDA_NAMESPACE }}" "$ES_POD" -- \
+                          curl -s "localhost:9200/_cat/indices?v" | grep -E "(operate|tasklist)" || true
+
+                      # Count process instances
+                      INSTANCE_COUNT=$(kubectl exec -n "${{ env.CAMUNDA_NAMESPACE }}" "$ES_POD" -- \
+                          curl -s "localhost:9200/operate-list-view-*/_count" 2>/dev/null | jq -r '.count // 0' || echo "0")
+                      echo "Found ${INSTANCE_COUNT} process instances in Elasticsearch"
+                  fi
+
+                  echo "✓ Data propagation complete"
 
             # =========================================================================
             # STEP 2: Run Migration Scripts
@@ -724,7 +831,21 @@ jobs:
                   echo ""
                   echo "✓ Migration tests completed successfully!"
 
-            - name: 🚨🔬 Get failed Pods info
+            - name: Validate migrated test data
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  echo "Validating test data after migration..."
+                  export CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
+                  export CAMUNDA_RELEASE_NAME="camunda"
+
+                  # Run the validation script
+                  ./generic/kubernetes/migration-from-bitnami/shared/test-data/validate-test-data.sh
+
+                  echo "✓ Test data validation completed"
+
+            - name: Get failed Pods info
               if: failure()
               run: |
                   set -euo pipefail
