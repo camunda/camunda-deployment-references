@@ -1,0 +1,21 @@
+---
+# Backup PVC for migration data
+# Required env vars:
+#   NAMESPACE, BACKUP_PVC, BACKUP_STORAGE_SIZE
+# Optional: STORAGE_CLASS
+# Usage: envsubst < backup-pvc.yml | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: ${BACKUP_PVC}
+    namespace: ${NAMESPACE}
+    labels:
+        app: keycloak-migration
+        migration.camunda.io/type: backup
+spec:
+    accessModes:
+        - ReadWriteOnce
+    resources:
+        requests:
+            storage: ${BACKUP_STORAGE_SIZE}
+    storageClassName: ${STORAGE_CLASS}

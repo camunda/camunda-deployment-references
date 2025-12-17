@@ -1,0 +1,31 @@
+---
+# Helm values for CNPG-managed PostgreSQL (WebModeler)
+# Based on: operator-based/postgresql/camunda-webmodeler-values.yml
+# Required env vars:
+#   CNPG_CLUSTER_NAME
+# Usage: envsubst < helm-values-cnpg.yml > values-cnpg.yaml
+#        helm upgrade camunda camunda/camunda-platform --reuse-values -f values-cnpg.yaml
+
+# Disable Bitnami PostgreSQL sub-chart for WebModeler
+webModelerPostgresql:
+    enabled: false
+
+# Configure WebModeler to use CNPG cluster
+webModeler:
+    enabled: true
+
+    restapi:
+        externalDatabase:
+            enabled: true
+            host: ${CNPG_CLUSTER_NAME}-rw
+            port: 5432
+            database: webmodeler
+            user: webmodeler
+            secret:
+                existingSecret: ${CNPG_CLUSTER_NAME}-secret
+                existingSecretKey: password
+
+        # Mail configuration (required)
+        mail:
+            fromAddress: noreply@camunda.local
+            fromName: Camunda Platform

@@ -1,0 +1,39 @@
+---
+# CloudNativePG Cluster for Keycloak
+# Based on: operator-based/postgresql/postgresql-clusters.yml
+# Required env vars:
+#   NAMESPACE, CNPG_CLUSTER_NAME, PG_IMAGE
+#   PG_DATABASE, PG_USERNAME, PG_REPLICAS, PG_STORAGE_SIZE
+# Usage: envsubst < cnpg-cluster.yml | kubectl apply -f -
+#
+# Note: Secrets must be created first using pg-secrets.yml template
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+    name: ${CNPG_CLUSTER_NAME}
+    namespace: ${NAMESPACE}
+    labels:
+        app: keycloak-migration
+        migration.camunda.io/component: postgresql
+spec:
+    instances: ${PG_REPLICAS}
+    description: PostgreSQL cluster for Keycloak (migrated)
+    imageName: ${PG_IMAGE}
+    storage:
+        size: ${PG_STORAGE_SIZE}
+    superuserSecret:
+        name: ${CNPG_CLUSTER_NAME}-superuser-secret
+    # OpenShift Security Context - let SCC manage the security context
+    seccompProfile:
+        type: RuntimeDefault
+    postgresql:
+        parameters:
+            lock_timeout: 30s
+            statement_timeout: '0'
+    bootstrap:
+        initdb:
+            database: ${PG_DATABASE}
+            owner: ${PG_USERNAME}
+            dataChecksums: true
+            secret:
+                name: ${CNPG_CLUSTER_NAME}-secret

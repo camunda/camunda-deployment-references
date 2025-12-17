@@ -1,0 +1,33 @@
+---
+# Test matrix configuration for Migration from Bitnami tests
+# This matrix defines the test scenarios for migrating from Bitnami sub-charts
+# to Kubernetes operators (ECK, CNPG, Keycloak Operator)
+
+matrix:
+    distro:
+        # EKS is the primary test platform for migration tests
+        - name: EKS Latest
+          schedule_only: false
+          clusterName: mig-bitnami  # cluster name for migration tests
+          type: eks
+
+    scenario:
+        # Test the full migration workflow
+        - name: migration-from-bitnami
+          shortName: mfb
+
+    declination:
+        # Migration tests run in no-domain mode for simplicity
+        # Domain mode can be added later if needed
+        - name: no-domain
+          desc: Test migration from Bitnami to operators without domain configuration.
+
+    # Components to test migration for
+    # Each component can be tested independently
+    component:
+        - name: full
+          desc: Run full migration (all components)
+          orchestration: true
+          identity: true
+          keycloak: true
+          webmodeler: true

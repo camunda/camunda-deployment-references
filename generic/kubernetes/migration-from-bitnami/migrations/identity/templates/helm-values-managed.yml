@@ -1,0 +1,27 @@
+---
+# Helm values for Managed PostgreSQL Service (Identity)
+# Based on: operator-based/postgresql/camunda-identity-values.yml
+# Required env vars:
+#   TARGET_PG_HOST, TARGET_PG_PORT, PG_DATABASE, TARGET_PG_USERNAME
+#   CNPG_CLUSTER_NAME
+# Usage: envsubst < helm-values-managed.yml > values-managed-pg.yaml
+#        helm upgrade camunda camunda/camunda-platform --reuse-values -f values-managed-pg.yaml
+
+# Disable Bitnami PostgreSQL sub-chart for Identity
+postgresql:
+    enabled: false
+
+# Configure Identity to use Managed PostgreSQL
+# (AWS RDS, Azure PostgreSQL Flexible Server, GCP Cloud SQL, etc.)
+identity:
+    enabled: true
+
+    externalDatabase:
+        enabled: true
+        host: ${TARGET_PG_HOST}
+        port: ${TARGET_PG_PORT}
+        database: ${PG_DATABASE}
+        username: '' # Will be read from secret
+        secret:
+            existingSecret: ${CNPG_CLUSTER_NAME}-secret
+            existingSecretKey: password
