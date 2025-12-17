@@ -52,7 +52,7 @@ module "orchestration_cluster" {
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL"
-      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.db_name}?wrapperPlugins=iam&iamRegion=${data.aws_region.current.id}&sslmode=require"
+      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.db_name}?wrapperPlugins=iam"
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_USERNAME"
@@ -60,7 +60,7 @@ module "orchestration_cluster" {
     },
     {
       name  = "SPRING_DATASOURCE_URL"
-      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.db_name}?wrapperPlugins=iam&iamRegion=${data.aws_region.current.id}&sslmode=require"
+      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.db_name}?wrapperPlugins=iam"
     },
     {
       name  = "SPRING_DATASOURCE_DRIVER_CLASS_NAME"

@@ -12,7 +12,7 @@ resource "aws_ecs_task_definition" "connectors" {
     memory                   = var.task_memory
     aws_region               = var.aws_region
     registry_credentials_arn = var.registry_credentials_arn
-    log_group_name           = var.log_group_name # TODO: fix logging, they have a different pattern than OC :(
+    log_group_name           = var.log_group_name
     env_vars_json = jsonencode(concat([
 
     ], var.environment_variables))

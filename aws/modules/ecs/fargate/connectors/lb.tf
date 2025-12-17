@@ -9,7 +9,7 @@ resource "aws_lb_target_group" "main" {
   deregistration_delay = 30
 
   health_check {
-    path                = "/connectors/inbound-instances" # TODO: adjust to actuator/health/readiness when available - SNAPSHOT is broken
+    path                = "/connectors/actuator/health/readiness"
     port                = "8080"
     protocol            = "HTTP"
     timeout             = 5
