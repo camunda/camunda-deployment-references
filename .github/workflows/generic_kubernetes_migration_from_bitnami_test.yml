@@ -105,7 +105,9 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  # TODO: revert later
+                  cluster_name: migr
+                  # cluster_name: ${{ inputs.cluster_name }}
                   ref_arch: migration-from-bitnami
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
@@ -346,8 +348,8 @@ jobs:
                         cpu: 1
                         memory: 2Gi
 
-                  # Enable Bitnami PostgreSQL for Identity
-                  postgresql:
+                  # Enable Bitnami PostgreSQL for Identity (renamed from postgresql to identityPostgresql in 8.8)
+                  identityPostgresql:
                     enabled: true
                     auth:
                       username: identity
@@ -382,29 +384,20 @@ jobs:
                       password: webmodeler-password
                       database: webmodeler
 
-                  # Minimal resource configuration for CI
-                  zeebe:
-                    clusterSize: 1
-                    partitionCount: 1
-                    replicationFactor: 1
+                  # Orchestration cluster configuration (replaces zeebe, operate, tasklist in 8.8+)
+                  orchestration:
+                    enabled: true
+                    clusterSize: "1"
+                    partitionCount: "1"
+                    replicationFactor: "1"
+                    profiles:
+                      broker: true
+                      operate: true
+                      tasklist: true
                     resources:
                       requests:
                         cpu: 500m
                         memory: 1Gi
-
-                  operate:
-                    enabled: true
-                    resources:
-                      requests:
-                        cpu: 250m
-                        memory: 512Mi
-
-                  tasklist:
-                    enabled: true
-                    resources:
-                      requests:
-                        cpu: 250m
-                        memory: 512Mi
 
                   optimize:
                     enabled: false  # Disable Optimize for faster testing
