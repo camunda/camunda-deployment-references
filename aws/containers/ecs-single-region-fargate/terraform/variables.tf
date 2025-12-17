@@ -52,3 +52,45 @@ variable "ports" {
   }
   description = "The ports to open for the security groups within the VPC"
 }
+
+################################################################
+#                     Database / IAM Options                    #
+################################################################
+
+variable "db_name" {
+  type        = string
+  description = "Database name used by Camunda components"
+  default     = "camunda"
+}
+
+variable "db_admin_username" {
+  type        = string
+  description = "Admin username for the Aurora PostgreSQL cluster (demo default; use Secrets Manager in production)"
+  default     = "camunda_admin"
+  sensitive   = true
+}
+
+variable "db_admin_password" {
+  type        = string
+  description = "Admin password for the Aurora PostgreSQL cluster (demo default; use Secrets Manager in production)"
+  default     = "camunda_admin_password"
+  sensitive   = true
+}
+
+variable "db_iam_auth_enabled" {
+  type        = bool
+  description = "Enable IAM database authentication on the Aurora cluster"
+  default     = true
+}
+
+variable "db_seed_enabled" {
+  type        = bool
+  description = "Run a one-time ECS task to create/grant IAM DB users (uses db_admin_username/password)"
+  default     = true
+}
+
+variable "db_seed_iam_usernames" {
+  type        = list(string)
+  description = "Database users to create and grant rds_iam + privileges for (used for IAM DB auth)"
+  default     = ["camunda"]
+}

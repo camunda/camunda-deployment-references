@@ -6,13 +6,15 @@ module "postgresql" {
   engine_version             = "17.5"
   auto_minor_version_upgrade = false
   cluster_name               = "${var.prefix}-camunda-db-cluster"
-  default_database_name      = "camunda"
+  default_database_name      = var.db_name
+
+  iam_auth_enabled = var.db_iam_auth_enabled
 
   # create each AZs
   availability_zones = module.vpc.azs
 
-  username = "camunda_admin"
-  password = "camunda_admin_password" # TODO: use secrets manager or SSM parameter store in production
+  username = var.db_admin_username
+  password = var.db_admin_password # TODO: use secrets manager or SSM parameter store in production
 
   vpc_id      = module.vpc.vpc_id
   subnet_ids  = module.vpc.private_subnets

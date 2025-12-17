@@ -46,15 +46,19 @@ module "orchestration_cluster" {
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL"
-      value = "jdbc:postgresql://${module.postgresql.aurora_endpoint}:5432/camunda"
+      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.db_name}?wrapperPlugins=iam"
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_USERNAME"
-      value = "camunda_admin"
+      value = "camunda"
     },
     {
-      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_PASSWORD"
-      value = "camunda_admin_password"
+      name  = "SPRING_DATASOURCE_URL"
+      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.db_name}?wrapperPlugins=iam"
+    },
+    {
+      name  = "SPRING_DATASOURCE_USERNAME"
+      value = "camunda"
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_AUTODDL"
