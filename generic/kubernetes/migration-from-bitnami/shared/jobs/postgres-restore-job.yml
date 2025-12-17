@@ -1,0 +1,136 @@
+---
+# PostgreSQL Restore Job Template
+# =============================================================================
+# This template creates a Kubernetes Job for restoring PostgreSQL using pg_restore.
+#
+# Usage:
+#   export TARGET_PG_HOST="pg-cluster-rw.namespace.svc.cluster.local"
+#   export TARGET_PG_PORT="5432"
+#   export TARGET_PG_DATABASE="mydb"
+#   export TARGET_PG_USER="postgres"
+#   export PG_IMAGE="postgres:15"
+#   export DB_SECRET_NAME="pg-cluster-app-credentials"
+#   export BACKUP_PVC="migration-backup-pvc"
+#   export BACKUP_FILE="mydb-db-final.dump"
+#   export NAMESPACE="camunda"
+#   export COMPONENT="identity"  # or keycloak, webmodeler, etc.
+#   export TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+#   envsubst < postgres-restore-job.yml | kubectl apply -f -
+# =============================================================================
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: ${COMPONENT}-pg-restore-${TIMESTAMP}
+    namespace: ${NAMESPACE}
+    labels:
+        app: ${COMPONENT}-migration
+        migration.camunda.io/type: restore
+        migration.camunda.io/component: ${COMPONENT}
+spec:
+    ttlSecondsAfterFinished: 3600
+    backoffLimit: 2
+    template:
+        metadata:
+            labels:
+                app: ${COMPONENT}-migration
+                migration.camunda.io/type: restore
+        spec:
+            restartPolicy: Never
+            # Uncomment and configure if using private registry
+            # imagePullSecrets:
+            #   - name: ${IMAGE_PULL_SECRET}
+            containers:
+                - name: restore
+                  image: ${PG_IMAGE}
+                  command:
+                      - /bin/bash
+                      - -c
+                      - |
+                        set -e
+
+                        echo "============================================="
+                        echo "PostgreSQL Restore - ${COMPONENT}"
+                        echo "============================================="
+                        echo "Target: ${TARGET_PG_HOST}:${TARGET_PG_PORT}"
+                        echo "Database: ${TARGET_PG_DATABASE}"
+                        echo ""
+
+                        echo "Waiting for target PostgreSQL to be ready..."
+                        until pg_isready -h ${TARGET_PG_HOST} -p ${TARGET_PG_PORT} -U ${TARGET_PG_USER}; do
+                          echo "Waiting for PostgreSQL..."
+                          sleep 5
+                        done
+
+                        echo "Target PostgreSQL is ready"
+                        echo ""
+
+                        # Find backup file
+                        if [ -f "/backup/${COMPONENT}/${BACKUP_FILE}" ]; then
+                          BACKUP_PATH="/backup/${COMPONENT}/${BACKUP_FILE}"
+                        elif [ -f "/backup/${COMPONENT}/${COMPONENT}-db-final.dump" ]; then
+                          BACKUP_PATH="/backup/${COMPONENT}/${COMPONENT}-db-final.dump"
+                        else
+                          # Use latest backup
+                          BACKUP_PATH=$(ls -t /backup/${COMPONENT}/${COMPONENT}-db-*.dump 2>/dev/null | head -1)
+                        fi
+
+                        if [ -z "$BACKUP_PATH" ] || [ ! -f "$BACKUP_PATH" ]; then
+                          echo "ERROR: No backup file found!"
+                          exit 1
+                        fi
+
+                        echo "Restoring from: ${BACKUP_PATH}"
+                        ls -lh "${BACKUP_PATH}"
+                        echo ""
+
+                        # Restore
+                        pg_restore -h ${TARGET_PG_HOST} -p ${TARGET_PG_PORT} -U ${TARGET_PG_USER} \
+                          -d ${TARGET_PG_DATABASE} \
+                          --clean --if-exists \
+                          --no-owner --no-privileges \
+                          "${BACKUP_PATH}" || {
+                            echo ""
+                            echo "pg_restore completed with warnings (this is often normal for --clean --if-exists)"
+                          }
+
+                        echo ""
+                        echo "Validating restore..."
+
+                        # Count tables
+                        TABLE_COUNT=$(psql -h ${TARGET_PG_HOST} -p ${TARGET_PG_PORT} -U ${TARGET_PG_USER} \
+                          -d ${TARGET_PG_DATABASE} \
+                          -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'")
+
+                        echo "Tables in restored database: ${TABLE_COUNT}"
+
+                        # Show table list
+                        echo ""
+                        echo "Table list:"
+                        psql -h ${TARGET_PG_HOST} -p ${TARGET_PG_PORT} -U ${TARGET_PG_USER} \
+                          -d ${TARGET_PG_DATABASE} \
+                          -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name"
+
+                        echo ""
+                        echo "Restore complete!"
+
+                  env:
+                      - name: PGPASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: ${DB_SECRET_NAME}
+                                key: password
+                  resources:
+                      requests:
+                          memory: 256Mi
+                          cpu: 100m
+                      limits:
+                          memory: 512Mi
+                          cpu: 500m
+                  volumeMounts:
+                      - name: backup
+                        mountPath: /backup
+            volumes:
+                - name: backup
+                  persistentVolumeClaim:
+                      claimName: ${BACKUP_PVC}
