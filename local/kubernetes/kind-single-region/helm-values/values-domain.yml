@@ -27,6 +27,7 @@ global:
             type: KEYCLOAK
             publicIssuerUrl: https://camunda.example.com/auth/realms/camunda-platform
             issuer: https://camunda.example.com/auth/realms/camunda-platform
+            issuerBackendUrl: http://camunda-keycloak:80/auth/realms/camunda-platform
 
             console:
                 redirectUrl: https://camunda.example.com/console
@@ -45,8 +46,13 @@ global:
 
     ingress:
         enabled: true
-        className: ''
+        className: 'nginx'
         host: camunda.example.com
+        annotations:
+            nginx.ingress.kubernetes.io/ssl-redirect: "false"
+            nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+            nginx.ingress.kubernetes.io/proxy-buffering: "on"
+            nginx.ingress.kubernetes.io/proxy-body-size: "10m"
         tls:
             enabled: true
             secretName: camunda-platform
@@ -149,7 +155,7 @@ orchestration:
     ingress:
         grpc:
             enabled: true
-            className: ''
+            className: 'nginx'
             host: zeebe-camunda.example.com
             tls:
                 enabled: true
@@ -160,7 +166,7 @@ orchestration:
                 secret:
                     existingSecret: camunda-credentials
                     existingSecretKey: identity-orchestration-client-token
-                redirectUrl: https://camunda.example.com/
+                redirectUrl: https://camunda.example.com
         initialization:
             defaultRoles:
                 admin:
