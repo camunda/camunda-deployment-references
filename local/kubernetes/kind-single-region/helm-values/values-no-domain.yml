@@ -79,7 +79,7 @@ elasticsearch:
 identity:
     enabled: true
     fullURL: http://localhost:8085
-    
+
     resources:
         requests:
             cpu: 50m
@@ -104,7 +104,7 @@ identityKeycloak:
         - name: KC_HOSTNAME
           value: camunda-keycloak
         - name: KC_HOSTNAME_PORT
-          value: "18080"
+          value: '18080'
     # Internal port 18080, exposed externally via port-forward on 18080 (camunda-keycloak:18080 via /etc/hosts)
     ports:
         http: 18080

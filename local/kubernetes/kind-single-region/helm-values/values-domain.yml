@@ -21,7 +21,7 @@ global:
             method: oidc
 
     identity:
-        enabled: true   
+        enabled: true
         auth:
             enabled: true
             type: KEYCLOAK
@@ -46,13 +46,11 @@ global:
 
     ingress:
         enabled: true
-        className: 'nginx'
+        className: nginx
         host: camunda.example.com
         annotations:
-            nginx.ingress.kubernetes.io/ssl-redirect: "false"
-            nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
-            nginx.ingress.kubernetes.io/proxy-buffering: "on"
-            nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+            # Required for OIDC: Keycloak sends large JWT tokens in headers
+            nginx.ingress.kubernetes.io/proxy-buffer-size: 128k
         tls:
             enabled: true
             secretName: camunda-platform
@@ -155,7 +153,7 @@ orchestration:
     ingress:
         grpc:
             enabled: true
-            className: 'nginx'
+            className: nginx
             host: zeebe-camunda.example.com
             tls:
                 enabled: true
@@ -226,4 +224,3 @@ webModelerPostgresql:
             limits:
                 cpu: 1000m
                 memory: 512Mi
-
