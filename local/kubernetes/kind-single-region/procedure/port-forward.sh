@@ -24,7 +24,7 @@ echo "  - Zeebe gRPC API:    localhost:26500"
 echo "  - Zeebe REST API:    localhost:8080   (Operate, Tasklist, Identity)"
 echo "  - Optimize:          localhost:8083"
 echo "  - Web Modeler:       localhost:8070"
-echo "  - Connectors:        localhost:8085"
+echo "  - Connectors:        localhost:8088"
 echo "  - Console:           localhost:8087"
 echo "  - Identity:          localhost:8085"
 echo "  - Keycloak:          camunda-keycloak:18080/auth (requires /etc/hosts entry)"
@@ -36,7 +36,7 @@ kubectl port-forward svc/camunda-zeebe-gateway 26500:26500 -n camunda &
 kubectl port-forward svc/camunda-zeebe-gateway 8080:8080 -n camunda &
 kubectl port-forward svc/camunda-optimize 8083:80 -n camunda &
 kubectl port-forward svc/camunda-web-modeler-webapp 8070:80 -n camunda &
-kubectl port-forward svc/camunda-connectors 8085:8080 -n camunda &
+kubectl port-forward svc/camunda-connectors 8088:8080 -n camunda &
 kubectl port-forward svc/camunda-console 8087:80 -n camunda &
 kubectl port-forward svc/camunda-identity 8085:80 -n camunda &
 kubectl port-forward svc/camunda-keycloak 18080:18080 -n camunda &  # Access via camunda-keycloak:18080 (/etc/hosts)
