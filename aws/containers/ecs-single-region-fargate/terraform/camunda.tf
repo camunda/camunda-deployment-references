@@ -126,13 +126,9 @@ module "orchestration_cluster" {
   task_desired_count = 3
 
   # Pass additional policies to orchestration cluster task role
-  extra_task_role_attachments = concat(
-    # Registry credentials policy (if configured)
-    var.registry_username != "" ? [aws_iam_policy.registry_secrets_policy[0].arn] : [],
-    # Other policies
-    [aws_iam_policy.rds_db_connect_camunda.arn]
-  )
-
+  extra_task_role_attachments = [
+    aws_iam_policy.rds_db_connect_camunda.arn
+  ]
 }
 
 module "connectors" {
@@ -201,11 +197,6 @@ module "connectors" {
   task_desired_count = 1
 
   # Pass additional policies to connectors task role
-  extra_task_role_attachments = concat(
-    # Registry credentials policy (if configured)
-    var.registry_username != "" ? [aws_iam_policy.registry_secrets_policy[0].arn] : [],
-    # Other policies
-    []
-  )
+  extra_task_role_attachments = []
 
 }
