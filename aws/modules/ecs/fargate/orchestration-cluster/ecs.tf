@@ -74,8 +74,10 @@ resource "aws_ecs_service" "orchestration_cluster" {
   enable_execute_command = var.task_enable_execute_command # true
   force_new_deployment   = var.service_force_new_deployment
 
+  # Don't overprovision as it won't become healthy
+  # Keep 2/3rds of desired count running during deployments to maintain quorum
   deployment_maximum_percent         = 100
-  deployment_minimum_healthy_percent = 33
+  deployment_minimum_healthy_percent = 66
 
   network_configuration {
     subnets          = var.vpc_private_subnets

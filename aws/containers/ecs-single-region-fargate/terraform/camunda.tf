@@ -41,7 +41,7 @@ module "orchestration_cluster" {
       name  = "SPRING_LIFECYCLE_TIMEOUTPERSHUTDOWNPHASE" # TODO: no fucking clue
       value = "5s"
     },
-    # RDBMS Secondary Storage
+    # Secondary Storage - RDBMS (Aurora PostgreSQL with IAM Auth)
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_AUTOCONFIGURECAMUNDAEXPORTER"
       value = "false"
@@ -75,23 +75,7 @@ module "orchestration_cluster" {
       value = "true"
     },
     # Embedded Identity
-    {
-      name  = "SPRING_PROFILES_ACTIVE"
-      value = "broker,consolidated-auth,identity,tasklist"
-    },
-    {
-      name  = "CAMUNDA_SECURITY_AUTHENTICATION_METHOD"
-      value = "basic"
-    },
-    {
-      name  = "CAMUNDA_SECURITY_AUTHENTICATION_UNPROTECTEDAPI"
-      value = "true"
-    },
-    {
-      name  = "CAMUNDA_SECURITY_AUTHORIZATIONS_ENABLED"
-      value = "false"
-    },
-    # Admin user
+    ## Admin user
     {
       name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_USERNAME"
       value = "admin"
@@ -108,7 +92,7 @@ module "orchestration_cluster" {
       name  = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_USERS_0"
       value = "admin"
     },
-    # Connectors user
+    ## Connectors user
     {
       name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_USERNAME"
       value = "connectors"
