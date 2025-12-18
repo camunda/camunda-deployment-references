@@ -75,7 +75,7 @@ jobs:
             - triage
             - clusters-info
         if: needs.triage.outputs.should_skip == 'false'
-        runs-on: ubuntu-latest
+        runs-on: aws-core-8-default
         timeout-minutes: 45
         strategy:
             fail-fast: false
