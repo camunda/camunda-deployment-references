@@ -16,6 +16,12 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
     has_secrets              = length(var.secrets) > 0
     secrets_json             = jsonencode(var.secrets)
     env_vars_json = jsonencode(concat([
+      # EFS Mount
+      {
+        name  = "ZEEBE_BROKER_DATA_DIRECTORY"
+        value = "/usr/local/camunda/data"
+      },
+      # Zeebe Cluster Configuration
       {
         name  = "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS"
         value = "orchestration-cluster-sc:26502"

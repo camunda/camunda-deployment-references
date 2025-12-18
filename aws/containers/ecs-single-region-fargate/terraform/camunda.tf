@@ -32,13 +32,8 @@ module "orchestration_cluster" {
       name  = "CAMUNDA_CLUSTER_PARTITIONCOUNT"
       value = "5"
     },
-    # Debug for now
     {
-      name  = "ZEEBE_BROKER_DATA_DIRECTORY" # TODO: no fucking clue
-      value = "/usr/local/camunda/data"
-    },
-    {
-      name  = "SPRING_LIFECYCLE_TIMEOUTPERSHUTDOWNPHASE" # TODO: no fucking clue
+      name  = "SPRING_LIFECYCLE_TIMEOUTPERSHUTDOWNPHASE" # TODO: TBD when Deepthi is back
       value = "5s"
     },
     # Secondary Storage - RDBMS (Aurora PostgreSQL with IAM Auth)
@@ -164,10 +159,12 @@ module "connectors" {
   ]
 
   environment_variables = [
+    # Setting the context path to allow ALB routing
     {
       name  = "SERVER_SERVLET_CONTEXT_PATH"
       value = "/connectors"
     },
+    # Self-managed connection to orchestration cluster (basic auth)
     {
       name  = "CAMUNDA_CLIENT_MODE",
       value = "self-managed"
@@ -187,15 +184,6 @@ module "connectors" {
     {
       name  = "CAMUNDA_CLIENT_AUTH_USERNAME"
       value = "connectors"
-    },
-    # Debug
-    {
-      name  = "SERVER_PORT"
-      value = "8080"
-    },
-    {
-      name  = "MANAGEMENT_CONTEXTPATH"
-      value = "/actuator"
     }
   ]
 
