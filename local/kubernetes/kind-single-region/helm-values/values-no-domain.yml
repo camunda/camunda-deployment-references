@@ -23,13 +23,12 @@ global:
             enabled: true
             type: KEYCLOAK
 
-            issuerBackendUrl: http://camunda-keycloak:8080/auth/realms/camunda-platform
-            issuer: http://camunda-keycloak:8080/auth/realms/camunda-platform
-            # using localhost:18080 -> camunda-keycloak:8080 (kubectl port-forward svc/camunda-keycloak 18080:8080)
+            issuerBackendUrl: http://camunda-keycloak:18080/auth/realms/camunda-platform
+            issuer: http://camunda-keycloak:18080/auth/realms/camunda-platform
             publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform
 
             identity:
-                redirectUrl: http://localhost:18081/managementidentity
+                redirectUrl: http://localhost:8085
 
             optimize:
                 redirectUrl: http://localhost:8083
@@ -79,10 +78,8 @@ elasticsearch:
 
 identity:
     enabled: true
-
-    contextPath: /managementidentity
-    fullURL: http://localhost:18081/managementidentity # replace this with a port of your choice when you will do port forwarding
-
+    fullURL: http://localhost:8085
+    
     resources:
         requests:
             cpu: 50m
@@ -106,12 +103,14 @@ identityKeycloak:
     extraEnvVars:
         - name: KC_HOSTNAME
           value: camunda-keycloak
-    # match the internal keycloak port to the external port for JWT Tokens issuer
+        - name: KC_HOSTNAME_PORT
+          value: "18080"
+    # Internal port 18080, exposed externally via port-forward on 18080 (camunda-keycloak:18080 via /etc/hosts)
     ports:
-        http: 8080
+        http: 18080
     service:
         ports:
-            http: 8080
+            http: 18080
     resources:
         requests:
             cpu: 100m
