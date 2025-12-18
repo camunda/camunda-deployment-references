@@ -5,6 +5,14 @@
     "cpu": ${cpu},
     "memory": ${memory},
     "essential": true,
+    %{ if init_container_enabled ~}
+    "dependsOn": [
+      {
+        "containerName": "${init_container_name}",
+        "condition": "SUCCESS"
+      }
+    ],
+    %{ endif ~}
     "healthCheck": {
       "command": [
         "CMD-SHELL",
@@ -34,6 +42,15 @@
     %{ if has_secrets ~}
     "secrets": ${secrets_json},
     %{ endif ~}
+    %{ if init_container_enabled ~}
+    "mountPoints": [
+      {
+        "sourceVolume": "init-config",
+        "containerPath": "/config",
+        "readOnly": true
+      }
+    ],
+    %{ endif ~}
     "portMappings": [
       {
         "containerPort": 8080,
@@ -42,4 +59,8 @@
       }
     ]
   }
+  %{ if init_container_enabled ~}
+  ,
+  ${init_container_json}
+  %{ endif ~}
 ]

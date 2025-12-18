@@ -59,6 +59,12 @@ No modules.
 | <a name="input_environment_variables"></a> [environment\_variables](#input\_environment\_variables) | List of environment variable name-value pairs to set in the ECS task | <pre>list(object({<br/>    name  = string<br/>    value = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_extra_task_role_attachments"></a> [extra\_task\_role\_attachments](#input\_extra\_task\_role\_attachments) | List of additional IAM policy ARNs to attach to the ECS task role | `list(string)` | `[]` | no |
 | <a name="input_image"></a> [image](#input\_image) | The container image to use for the Camunda orchestration cluster | `string` | `"camunda/camunda:SNAPSHOT"` | no |
+| <a name="input_init_container_command"></a> [init\_container\_command](#input\_init\_container\_command) | Command for the init container (Docker CMD). If empty, uses the image default. | `list(string)` | `[]` | no |
+| <a name="input_init_container_enabled"></a> [init\_container\_enabled](#input\_init\_container\_enabled) | Whether to add an init container that must complete successfully before the main container starts. | `bool` | `false` | no |
+| <a name="input_init_container_environment_variables"></a> [init\_container\_environment\_variables](#input\_init\_container\_environment\_variables) | Environment variables for the init container. | <pre>list(object({<br/>    name  = string<br/>    value = string<br/>  }))</pre> | `[]` | no |
+| <a name="input_init_container_image"></a> [init\_container\_image](#input\_init\_container\_image) | Container image for the init container. | `string` | `""` | no |
+| <a name="input_init_container_name"></a> [init\_container\_name](#input\_init\_container\_name) | Name of the init container (referenced by dependsOn). | `string` | `"init"` | no |
+| <a name="input_init_container_secrets"></a> [init\_container\_secrets](#input\_init\_container\_secrets) | ECS task secrets for the init container (rendered as container definition 'secrets'). | <pre>list(object({<br/>    name      = string<br/>    valueFrom = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_nlb_arn"></a> [nlb\_arn](#input\_nlb\_arn) | The ARN of the Network Load Balancer to use | `string` | `""` | no |
 | <a name="input_prefix"></a> [prefix](#input\_prefix) | The prefix to use for naming resources | `string` | n/a | yes |
 | <a name="input_registry_credentials_arn"></a> [registry\_credentials\_arn](#input\_registry\_credentials\_arn) | The ARN of the Secrets Manager secret containing registry credentials | `string` | `""` | no |

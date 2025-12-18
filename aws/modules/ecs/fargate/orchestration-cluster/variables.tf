@@ -188,6 +188,48 @@ variable "secrets" {
   default = []
 }
 
+variable "init_container_enabled" {
+  description = "Whether to add an init container that must complete successfully before the main container starts."
+  type        = bool
+  default     = false
+}
+
+variable "init_container_name" {
+  description = "Name of the init container (referenced by dependsOn)."
+  type        = string
+  default     = "init"
+}
+
+variable "init_container_image" {
+  description = "Container image for the init container."
+  type        = string
+  default     = ""
+}
+
+variable "init_container_command" {
+  description = "Command for the init container (Docker CMD). If empty, uses the image default."
+  type        = list(string)
+  default     = []
+}
+
+variable "init_container_environment_variables" {
+  description = "Environment variables for the init container."
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  default = []
+}
+
+variable "init_container_secrets" {
+  description = "ECS task secrets for the init container (rendered as container definition 'secrets')."
+  type = list(object({
+    name      = string
+    valueFrom = string
+  }))
+  default = []
+}
+
 variable "task_desired_count" {
   description = "The desired count of ECS tasks to run in the ECS service - directly impacts the Zeebe cluster size"
   type        = number

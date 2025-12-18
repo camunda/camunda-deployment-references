@@ -6,6 +6,14 @@ resource "aws_ecs_task_definition" "connectors" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.task_cpu
   memory                   = var.task_memory
+
+  lifecycle {
+    precondition {
+      condition     = !var.init_container_enabled || var.init_container_image != ""
+      error_message = "When init_container_enabled is true, init_container_image must be set."
+    }
+  }
+
   container_definitions = templatefile("${path.module}/templates/connectors.json.tpl", {
     image                    = var.image
     cpu                      = var.task_cpu
@@ -15,12 +23,53 @@ resource "aws_ecs_task_definition" "connectors" {
     log_group_name           = var.log_group_name
     has_secrets              = length(var.secrets) > 0
     secrets_json             = jsonencode(var.secrets)
+
+    init_container_enabled = var.init_container_enabled
+    init_container_name    = var.init_container_name
+    init_container_json = jsonencode(merge(
+      {
+        name      = var.init_container_name
+        image     = var.init_container_image
+        essential = false
+        mountPoints = [
+          {
+            sourceVolume  = "init-config"
+            containerPath = "/config"
+            readOnly      = false
+          }
+        ]
+        logConfiguration = {
+          logDriver = "awslogs"
+          options = {
+            "awslogs-group"         = var.log_group_name
+            "awslogs-region"        = var.aws_region
+            "awslogs-stream-prefix" = "connectors-init"
+          }
+        }
+      },
+      var.registry_credentials_arn != "" ? {
+        repositoryCredentials = {
+          credentialsParameter = var.registry_credentials_arn
+        }
+      } : {},
+      length(var.init_container_command) > 0 ? { command = var.init_container_command } : {},
+      length(var.init_container_environment_variables) > 0 ? { environment = var.init_container_environment_variables } : {},
+      length(var.init_container_secrets) > 0 ? { secrets = var.init_container_secrets } : {}
+    ))
+
     env_vars_json = jsonencode(concat([
 
     ], var.environment_variables))
   })
 
   task_role_arn = aws_iam_role.ecs_task_role.arn
+
+  dynamic "volume" {
+    for_each = var.init_container_enabled ? [1] : []
+    content {
+      name = "init-config"
+    }
+  }
 
 }
 

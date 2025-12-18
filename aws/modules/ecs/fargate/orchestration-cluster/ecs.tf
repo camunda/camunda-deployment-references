@@ -6,6 +6,14 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.task_cpu
   memory                   = var.task_memory
+
+  lifecycle {
+    precondition {
+      condition     = !var.init_container_enabled || var.init_container_image != ""
+      error_message = "When init_container_enabled is true, init_container_image must be set."
+    }
+  }
+
   container_definitions = templatefile("${path.module}/templates/orchestration-cluster.json.tpl", {
     image                    = var.image
     cpu                      = var.task_cpu
@@ -15,6 +23,40 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
     registry_credentials_arn = var.registry_credentials_arn
     has_secrets              = length(var.secrets) > 0
     secrets_json             = jsonencode(var.secrets)
+
+    init_container_enabled = var.init_container_enabled
+    init_container_name    = var.init_container_name
+    init_container_json = jsonencode(merge(
+      {
+        name      = var.init_container_name
+        image     = var.init_container_image
+        essential = false
+        mountPoints = [
+          {
+            sourceVolume  = "init-config"
+            containerPath = "/config"
+            readOnly      = false
+          }
+        ]
+        logConfiguration = {
+          logDriver = "awslogs"
+          options = {
+            "awslogs-group"         = aws_cloudwatch_log_group.orchestration_cluster_log_group.name
+            "awslogs-region"        = var.aws_region
+            "awslogs-stream-prefix" = "orchestration-cluster-init"
+          }
+        }
+      },
+      var.registry_credentials_arn != "" ? {
+        repositoryCredentials = {
+          credentialsParameter = var.registry_credentials_arn
+        }
+      } : {},
+      length(var.init_container_command) > 0 ? { command = var.init_container_command } : {},
+      length(var.init_container_environment_variables) > 0 ? { environment = var.init_container_environment_variables } : {},
+      length(var.init_container_secrets) > 0 ? { secrets = var.init_container_secrets } : {}
+    ))
+
     env_vars_json = jsonencode(concat([
       # EFS Mount
       {
@@ -63,6 +105,13 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
         access_point_id = aws_efs_access_point.camunda_data.id
         iam             = "ENABLED"
       }
+    }
+  }
+
+  dynamic "volume" {
+    for_each = var.init_container_enabled ? [1] : []
+    content {
+      name = "init-config"
     }
   }
 
