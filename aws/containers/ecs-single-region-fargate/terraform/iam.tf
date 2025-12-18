@@ -182,6 +182,14 @@ resource "aws_iam_policy" "ecs_task_secrets_policy" {
           "secretsmanager:GetSecretValue"
         ]
         Resource = local.ecs_task_secret_arns
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey"
+        ]
+        Resource = local.secrets_kms_key_arn_effective
       }
     ]
   })

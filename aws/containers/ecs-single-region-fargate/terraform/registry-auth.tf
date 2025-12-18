@@ -8,6 +8,7 @@ resource "aws_secretsmanager_secret" "registry_credentials" {
   name                    = "${var.prefix}-registry-credentials"
   description             = "Registry credentials for ECS to pull images"
   recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
 }
 
 # You'll need to manually populate this secret with your registry credentials
@@ -36,6 +37,14 @@ resource "aws_iam_policy" "registry_secrets_policy" {
         Resource = [
           aws_secretsmanager_secret.registry_credentials[0].arn
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey"
+        ]
+        Resource = local.secrets_kms_key_arn_effective
       }
     ]
   })

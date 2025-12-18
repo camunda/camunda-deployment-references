@@ -94,3 +94,13 @@ variable "db_seed_iam_usernames" {
   description = "Database users to create and grant rds_iam + privileges for (used for IAM DB auth)"
   default     = ["camunda"]
 }
+
+################################################################
+#                         KMS Options                          #
+################################################################
+
+variable "secrets_kms_key_arn" {
+  description = "Optional existing KMS key ARN to use for encrypting Secrets Manager secrets. If empty, this stack will create and manage a CMK."
+  type        = string
+  default     = ""
+}

@@ -22,6 +22,7 @@ resource "aws_secretsmanager_secret" "orchestration_admin_user_password" {
   name                    = "${var.prefix}-oc1-admin-user-password"
   description             = "Password for CAMUNDA_SECURITY_INITIALIZATION_USERS_0_PASSWORD (admin user)"
   recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
 }
 
 resource "aws_secretsmanager_secret_version" "orchestration_admin_user_password" {
@@ -33,6 +34,7 @@ resource "aws_secretsmanager_secret" "connectors_client_auth_password" {
   name                    = "${var.prefix}-oc1-connectors-client-auth-password"
   description             = "Password for CAMUNDA_CLIENT_AUTH_PASSWORD (connectors basic auth)"
   recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
 }
 
 resource "aws_secretsmanager_secret_version" "connectors_client_auth_password" {
