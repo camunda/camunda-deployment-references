@@ -91,26 +91,51 @@ module "orchestration_cluster" {
       name  = "CAMUNDA_SECURITY_AUTHORIZATIONS_ENABLED"
       value = "false"
     },
-    # Demo user
+    # Admin user
     {
       name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_USERNAME"
-      value = "demo"
-    },
-    {
-      name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_PASSWORD"
-      value = "demo"
+      value = "admin"
     },
     {
       name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_NAME"
-      value = "Demo User"
+      value = "Admin User"
     },
     {
       name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_EMAIL"
-      value = "demo@demo.com"
+      value = "admin@example.com"
     },
     {
       name  = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_USERS_0"
-      value = "demo"
+      value = "admin"
+    },
+    # Connectors user
+    {
+      name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_USERNAME"
+      value = "connectors"
+    },
+    {
+      name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_NAME"
+      value = "Connectors User"
+    },
+    {
+      name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_EMAIL"
+      value = "connectors@example.com"
+    },
+    {
+      name  = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_CONNECTORS_USERS_0"
+      value = "connectors"
+    }
+  ]
+
+  # Prefer ECS task secrets for sensitive values (container definition 'secrets')
+  secrets = [
+    {
+      name      = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_PASSWORD"
+      valueFrom = aws_secretsmanager_secret.orchestration_admin_user_password.arn
+    },
+    {
+      name      = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_PASSWORD"
+      valueFrom = aws_secretsmanager_secret.connectors_client_auth_password.arn
     }
   ]
 
@@ -127,7 +152,7 @@ module "orchestration_cluster" {
 
   # Pass additional policies to orchestration cluster task role
   extra_task_role_attachments = [
-    aws_iam_policy.rds_db_connect_camunda.arn
+    aws_iam_policy.rds_db_connect_camunda.arn,
   ]
 }
 
@@ -177,11 +202,7 @@ module "connectors" {
     },
     {
       name  = "CAMUNDA_CLIENT_AUTH_USERNAME"
-      value = "demo"
-    },
-    {
-      name  = "CAMUNDA_CLIENT_AUTH_PASSWORD"
-      value = "demo"
+      value = "connectors"
     },
     # Debug
     {
@@ -191,6 +212,14 @@ module "connectors" {
     {
       name  = "MANAGEMENT_CONTEXTPATH"
       value = "/actuator"
+    }
+  ]
+
+  # Prefer ECS task secrets for sensitive values (container definition 'secrets')
+  secrets = [
+    {
+      name      = "CAMUNDA_CLIENT_AUTH_PASSWORD"
+      valueFrom = aws_secretsmanager_secret.connectors_client_auth_password.arn
     }
   ]
 

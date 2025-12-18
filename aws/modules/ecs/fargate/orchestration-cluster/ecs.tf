@@ -13,6 +13,8 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
     aws_region               = var.aws_region
     log_group_name           = aws_cloudwatch_log_group.orchestration_cluster_log_group.name
     registry_credentials_arn = var.registry_credentials_arn
+    has_secrets              = length(var.secrets) > 0
+    secrets_json             = jsonencode(var.secrets)
     env_vars_json = jsonencode(concat([
       {
         name  = "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS"

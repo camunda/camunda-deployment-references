@@ -179,6 +179,15 @@ variable "environment_variables" {
   default = []
 }
 
+variable "secrets" {
+  description = "List of ECS task secrets to expose to the container (rendered as container definition 'secrets'). Each item must be { name = string, valueFrom = string } where valueFrom is typically a Secrets Manager secret ARN."
+  type = list(object({
+    name      = string
+    valueFrom = string
+  }))
+  default = []
+}
+
 variable "task_desired_count" {
   description = "The desired count of ECS tasks to run in the ECS service - directly impacts the Zeebe cluster size"
   type        = number

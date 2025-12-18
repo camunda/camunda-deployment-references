@@ -156,6 +156,45 @@ resource "aws_iam_role_policy_attachment" "task_execution_registry" {
 }
 
 ################################################################
+#                    ECS Task Secrets Policy                   #
+################################################################
+
+locals {
+  # Secrets referenced in container definition 'secrets' (valueFrom is typically a Secrets Manager ARN)
+  ecs_task_secret_arns = [
+    aws_secretsmanager_secret.connectors_client_auth_password.arn,
+    aws_secretsmanager_secret.orchestration_admin_user_password.arn,
+  ]
+}
+
+resource "aws_iam_policy" "ecs_task_secrets_policy" {
+  count = length(local.ecs_task_secret_arns) > 0 ? 1 : 0
+
+  name        = "${var.prefix}-ecs-task-secrets-policy"
+  description = "Allow ECS task execution role to read Secrets Manager values used as ECS task secrets"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = local.ecs_task_secret_arns
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "task_execution_task_secrets" {
+  count = length(local.ecs_task_secret_arns) > 0 ? 1 : 0
+
+  role       = aws_iam_role.ecs_task_execution.name
+  policy_arn = aws_iam_policy.ecs_task_secrets_policy[0].arn
+}
+
+################################################################
 #                    RDS IAM Auth Support                      #
 ################################################################
 

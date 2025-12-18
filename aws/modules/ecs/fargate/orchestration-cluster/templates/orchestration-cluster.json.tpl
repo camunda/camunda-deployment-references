@@ -36,6 +36,9 @@
       "export ZEEBE_BROKER_NETWORK_HOST=$(hostname -I | awk '{print $2}'); /usr/local/camunda/bin/camunda"
     ],
     "environment": ${env_vars_json},
+    %{ if has_secrets ~}
+    "secrets": ${secrets_json},
+    %{ endif ~}
     "mountPoints": [
       {
         "sourceVolume": "camunda-volume",

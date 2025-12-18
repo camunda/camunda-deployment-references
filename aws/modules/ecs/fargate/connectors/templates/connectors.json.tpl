@@ -31,6 +31,9 @@
         }
     },
     "environment": ${env_vars_json},
+    %{ if has_secrets ~}
+    "secrets": ${secrets_json},
+    %{ endif ~}
     "portMappings": [
       {
         "containerPort": 8080,

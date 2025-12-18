@@ -13,6 +13,8 @@ resource "aws_ecs_task_definition" "connectors" {
     aws_region               = var.aws_region
     registry_credentials_arn = var.registry_credentials_arn
     log_group_name           = var.log_group_name
+    has_secrets              = length(var.secrets) > 0
+    secrets_json             = jsonencode(var.secrets)
     env_vars_json = jsonencode(concat([
 
     ], var.environment_variables))
