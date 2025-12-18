@@ -156,7 +156,7 @@ orchestration:
         initialization:
             defaultRoles:
                 admin:
-                    clients:
+                    users:
                         - admin
 
 console:

@@ -21,6 +21,7 @@ global:
             method: oidc
 
     identity:
+        enabled: true   
         auth:
             enabled: true
             type: KEYCLOAK
@@ -28,7 +29,7 @@ global:
             issuer: https://camunda.example.com/auth/realms/camunda-platform
 
             console:
-                redirectUrl: https://camunda.example.com
+                redirectUrl: https://camunda.example.com/console
 
             identity:
                 redirectUrl: https://camunda.example.com/managementidentity
@@ -133,7 +134,7 @@ optimize:
 
 # Reduce Zeebe resources for local development
 orchestration:
-    contextPath: /orchestration
+    contextPath: /
     clusterSize: '1'
     partitionCount: '1'
     replicationFactor: '1'
@@ -159,16 +160,16 @@ orchestration:
                 secret:
                     existingSecret: camunda-credentials
                     existingSecretKey: identity-orchestration-client-token
-                redirectUrl: https://camunda.example.com/orchestration
+                redirectUrl: https://camunda.example.com/
         initialization:
             defaultRoles:
                 admin:
-                    clients:
+                    users:
                         - admin
 
 console:
     enabled: true
-    contextPath: /
+    contextPath: /console
     resources:
         requests:
             cpu: 50m
@@ -220,5 +221,3 @@ webModelerPostgresql:
                 cpu: 1000m
                 memory: 512Mi
 
-zeebeGateway:
-    contextPath: /zeebe
