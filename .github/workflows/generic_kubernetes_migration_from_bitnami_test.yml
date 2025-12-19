@@ -388,6 +388,11 @@ jobs:
                       username: webmodeler
                       password: webmodeler-password
                       database: webmodeler
+                      # The secret name follows Bitnami PostgreSQL naming: <release>-<nameOverride>
+                      existingSecret: "camunda-postgresql-web-modeler"
+                      secretKeys:
+                        adminPasswordKey: "postgres-password"
+                        userPasswordKey: "password"
 
                   # Orchestration cluster configuration (replaces zeebe, operate, tasklist in 8.8+)
                   orchestration:
