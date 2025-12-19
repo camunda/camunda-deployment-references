@@ -54,20 +54,12 @@ module "orchestration_cluster" {
       value = "camunda"
     },
     {
-      name  = "SPRING_DATASOURCE_URL"
-      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.db_name}?wrapperPlugins=iam"
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_AUTODDL"
+      value = "true"
     },
     {
       name  = "SPRING_DATASOURCE_DRIVER_CLASS_NAME"
       value = "software.amazon.jdbc.Driver"
-    },
-    {
-      name  = "SPRING_DATASOURCE_USERNAME"
-      value = "camunda"
-    },
-    {
-      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_AUTODDL"
-      value = "true"
     },
     # Embedded Identity
     ## Admin user
