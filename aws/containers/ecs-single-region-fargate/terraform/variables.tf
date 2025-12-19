@@ -72,8 +72,8 @@ variable "db_admin_username" {
 
 variable "db_admin_password" {
   type        = string
-  description = "Admin password for the Aurora PostgreSQL cluster (demo default; use Secrets Manager in production)"
-  default     = "camunda_admin_password"
+  description = "Optional override for the Aurora PostgreSQL admin password. If empty, a random password is generated and stored in Secrets Manager."
+  default     = ""
   sensitive   = true
 }
 

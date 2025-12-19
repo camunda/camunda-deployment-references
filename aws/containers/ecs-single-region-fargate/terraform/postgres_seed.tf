@@ -55,8 +55,14 @@ resource "aws_ecs_task_definition" "db_seed" {
         { name = "AURORA_PORT", value = "5432" },
         { name = "AURORA_DB_NAME", value = var.db_name },
         { name = "AURORA_ADMIN_USERNAME", value = var.db_admin_username },
-        { name = "AURORA_ADMIN_PASSWORD", value = var.db_admin_password },
         { name = "IAM_DB_USERS", value = join(" ", var.db_seed_iam_usernames) }
+      ]
+
+      secrets = [
+        {
+          name      = "AURORA_ADMIN_PASSWORD"
+          valueFrom = aws_secretsmanager_secret.db_admin_password.arn
+        }
       ]
 
       logConfiguration = {

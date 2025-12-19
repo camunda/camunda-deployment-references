@@ -14,7 +14,7 @@ module "postgresql" {
   availability_zones = module.vpc.azs
 
   username = var.db_admin_username
-  password = var.db_admin_password # TODO: use secrets manager or SSM parameter store in production
+  password = local.db_admin_password_effective
 
   vpc_id      = module.vpc.vpc_id
   subnet_ids  = module.vpc.private_subnets

@@ -163,7 +163,6 @@ Both services support ECS Exec (enabled by default - atm for debugging purposes)
 - Terminate TLS at the ALB (HTTPS listener + ACM cert) and restrict HTTP.
 - Do not expose port `9600` publicly; keep it internal-only.
 - Replace the local Terraform backend with a remote backend (e.g., S3 + DynamoDB lock).
-- remove plaintext DB admin credentials from TF vars. <!-- TODO: Reminder for myself to change the DB credentials to secret manager -->
 - Restrict `limit_access_to_cidrs` to trusted networks.
 - Enable ALB/NLB access logs, S3 bucket versioning/logging as required.
 - Review EFS throughput mode and sizing.
