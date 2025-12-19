@@ -75,13 +75,11 @@ webModelerPostgresql:
 webModeler:
   restapi:
     externalDatabase:
-      host: "${TARGET_PG_HOST}"
-      port: ${TARGET_PG_PORT:-5432}
-      database: "${TARGET_PG_DATABASE:-web-modeler}"
+      url: "jdbc:postgresql://${TARGET_PG_HOST}:${TARGET_PG_PORT:-5432}/${TARGET_PG_DATABASE:-web-modeler}"
       user: "${TARGET_PG_USER:-webmodeler}"
-      secret:
-        existingSecret: "${DB_SECRET_NAME}"
-        existingSecretKey: "password"
+      existingSecret:
+        name: "${DB_SECRET_NAME}"
+      existingSecretPasswordKey: "password"
 EOF
 
 echo "Migration values:"
