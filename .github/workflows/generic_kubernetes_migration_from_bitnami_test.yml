@@ -63,7 +63,9 @@ env:
 
     S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION: aws/kubernetes/eks-single-region/
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # TODO : revert this before merge
+    CLEANUP_CLUSTERS: false
+    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     CI_MATRIX_FILE: .github/workflows-config/generic-kubernetes-migration-from-bitnami/test_matrix.yml
 
@@ -369,13 +371,16 @@ jobs:
                         password: keycloak-password
                         database: keycloak
 
-                  # Enable WebModeler with Bitnami PostgreSQL
+                  # WebModeler with SMTP configuration required for Camunda 8.8+
                   webModeler:
                     enabled: true
                     restapi:
                       mail:
-                        fromAddress: noreply@example.com
-                        fromName: Camunda
+                        smtpHost: "smtp.example.com"
+                        smtpPort: 587
+                        smtpUser: "test@example.com"
+                        smtpPassword: "test-password"
+                        fromAddress: "noreply@example.com"
 
                   webModelerPostgresql:
                     enabled: true
