@@ -1,5 +1,10 @@
 # terraform
 
+This directory contains the Terraform implementation for the ECS single-region (Fargate) reference architecture.
+
+- Architecture & design documentation: `../README.md`
+- Auto-generated Terraform inputs/outputs: see below.
+
 <!-- BEGIN_TF_DOCS -->
 ## Modules
 
