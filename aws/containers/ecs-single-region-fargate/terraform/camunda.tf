@@ -151,11 +151,6 @@ module "connectors" {
   ]
 
   environment_variables = [
-    # Setting the context path to allow ALB routing
-    {
-      name  = "SERVER_SERVLET_CONTEXT_PATH"
-      value = "/connectors"
-    },
     # Self-managed connection to orchestration cluster (basic auth)
     {
       name  = "CAMUNDA_CLIENT_MODE",

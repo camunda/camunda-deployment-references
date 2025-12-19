@@ -58,7 +58,11 @@ resource "aws_ecs_task_definition" "connectors" {
     ))
 
     env_vars_json = jsonencode(concat([
-
+      # Setting the context path to allow ALB routing
+      {
+        name  = "SERVER_SERVLET_CONTEXT_PATH"
+        value = "/connectors"
+      },
     ], var.environment_variables))
   })
 

@@ -93,6 +93,27 @@ For the Connectors:
 - LoadBalancer rules for ALB
 - ECS Service + ECS Task definition
 
+Init Container:
+
+For example to use configuration yamls over environment vars. This could be any image or pull it from a S3 bucket by reusing the Task role.
+
+```hcl
+init_container_enabled = true
+init_container_image   = "public.ecr.aws/amazonlinux/amazonlinux:minimal"
+init_container_command = ["sh", "-c", "curl -fsSL https://example.com/additional-properties.yaml -o /config/additional-properties.yaml"]
+```
+
+Add this as part of your module environment usages to let Spring know to load the additional file.
+
+```hcl
+{
+  name  = "SPRING_CONFIG_IMPORT"
+  value = "optional:file:./config/additional-properties.yaml"
+}
+```
+
+`/config` is a shared ephemeral volume between the init container and the running container.
+
 ## Terraform flow
 
 Terraform will first create the base requirements
