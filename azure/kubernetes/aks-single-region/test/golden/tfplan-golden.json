@@ -82,6 +82,7 @@
                 "service_cidrs": []
               }
             ],
+            "node_provisioning_profile": [],
             "oms_agent": [],
             "service_mesh_profile": [],
             "service_principal": [],
