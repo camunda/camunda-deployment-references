@@ -5,7 +5,7 @@ matrix:
         # /!\ Please keep this matrix synced with the official documentation:
         # https://github.com/camunda/camunda-docs/blob/main/docs/self-managed/setup/deploy/openshift/redhat-openshift.md?plain=1#L2
         # According to https://access.redhat.com/support/policy/updates/openshift, this matrix should reference the first and the last of the supported versions of OpenShift
-        - name: OpenShift 4.19
+        - name: OpenShift latest
           schedule_only: false
           # ! Unlike EKS, 'private_vpc' is defined in 'distro' and not in 'scenario'.
           private_vpc: true # latest always use vpn, olders use public
@@ -17,11 +17,12 @@ matrix:
           # Therefore, to ensure compatibility and support, we test the latest and the older.
           # For more details, refer to the official support policy at https://endoflife.date/red-hat-openshift.
 
-        - name: OpenShift 4.16
+        - name: OpenShift 4.17
           schedule_only: true
           private_vpc: false
-          # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.16(\.(?<patch>\d+))?$
-          version: 4.16.52
+          # TODO: EOL this version on 2026-04-01
+          # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.17(\.(?<patch>\d+))?$
+          version: 4.17.44
 
     scenario:
         - name: rosa-hcp-single-region
