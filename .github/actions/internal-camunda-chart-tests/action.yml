@@ -112,6 +112,18 @@ inputs:
     enable-c8sm-zeebe-connectivity-check:
         description: Whether the C8 SM Zeebe connectivity check should be run
         default: 'true'
+    local-domain-mode:
+        description: >
+            Enable local domain mode. When true, /etc/hosts entries will be added
+            to resolve camunda.example.com and zeebe-camunda.example.com to 127.0.0.1.
+            This is required for local Kind clusters with domain-based access where
+            the runner needs to access the ingress via localhost.
+        default: 'false'
+    local-domain-ip:
+        description: >
+            The IP address to use for local domain resolution in /etc/hosts.
+            Defaults to 127.0.0.1 for standard local development.
+        default: 127.0.0.1
 
 runs:
     using: composite
@@ -623,6 +635,39 @@ runs:
                 -n "$NAMESPACE" \
                 -p "$PG_COMPONENTS" \
                 -l "$OS_COMPONENTS"
+
+        - name: 🔧 Configure /etc/hosts for local domain mode
+          if: ${{ inputs.local-domain-mode == 'true' && inputs.camunda-domain != '' }}
+          shell: bash
+          env:
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
+              LOCAL_DOMAIN_IP: ${{ inputs.local-domain-ip }}
+          run: |
+              set -euo pipefail
+
+              echo "🔧 Configuring /etc/hosts for local domain mode..."
+              echo "   Using IP: $LOCAL_DOMAIN_IP"
+
+              # Add main Camunda domain
+              if [[ -n "$CAMUNDA_DOMAIN" ]]; then
+                echo "Adding hosts entry: $LOCAL_DOMAIN_IP $CAMUNDA_DOMAIN"
+                echo "$LOCAL_DOMAIN_IP $CAMUNDA_DOMAIN" | sudo tee -a /etc/hosts
+              fi
+
+              # Add gRPC domain if different from main domain
+              # Extract hostname from port if present (e.g., zeebe-camunda.example.com:443 -> zeebe-camunda.example.com)
+              if [[ -n "$CAMUNDA_DOMAIN_GRPC" ]]; then
+                GRPC_HOST="${CAMUNDA_DOMAIN_GRPC%%:*}"
+                if [[ "$GRPC_HOST" != "$CAMUNDA_DOMAIN" ]]; then
+                  echo "Adding hosts entry: $LOCAL_DOMAIN_IP $GRPC_HOST"
+                  echo "$LOCAL_DOMAIN_IP $GRPC_HOST" | sudo tee -a /etc/hosts
+                fi
+              fi
+
+              echo ""
+              echo "✅ /etc/hosts configured for local domain mode:"
+              grep -E "($CAMUNDA_DOMAIN|${CAMUNDA_DOMAIN_GRPC%%:*})" /etc/hosts || true
 
         - name: 🧪 C8-SM-CHECKS - Run Zeebe Token Generation Check
           if: ${{ inputs.enable-c8sm-zeebe-token-check == 'true' && inputs.zeebe-authenticated == 'true' && inputs.camunda-domain != '' }}

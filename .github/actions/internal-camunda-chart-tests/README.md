@@ -48,6 +48,8 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | `enable-c8sm-irsa-check` | <p>Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)</p> | `false` | `false` |
 | `enable-c8sm-zeebe-token-check` | <p>Whether the C8 SM Zeebe token generation check should be run</p> | `false` | `true` |
 | `enable-c8sm-zeebe-connectivity-check` | <p>Whether the C8 SM Zeebe connectivity check should be run</p> | `false` | `true` |
+| `local-domain-mode` | <p>Enable local domain mode. When true, /etc/hosts entries will be added to resolve camunda.example.com and zeebe-camunda.example.com to 127.0.0.1. This is required for local Kind clusters with domain-based access where the runner needs to access the ingress via localhost.</p> | `false` | `false` |
+| `local-domain-ip` | <p>The IP address to use for local domain resolution in /etc/hosts. Defaults to 127.0.0.1 for standard local development.</p> | `false` | `127.0.0.1` |
 
 
 ## Runs
@@ -250,4 +252,16 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
+
+    local-domain-mode:
+    # Enable local domain mode. When true, /etc/hosts entries will be added to resolve camunda.example.com and zeebe-camunda.example.com to 127.0.0.1. This is required for local Kind clusters with domain-based access where the runner needs to access the ingress via localhost.
+    #
+    # Required: false
+    # Default: false
+
+    local-domain-ip:
+    # The IP address to use for local domain resolution in /etc/hosts. Defaults to 127.0.0.1 for standard local development.
+    #
+    # Required: false
+    # Default: 127.0.0.1
 ```
