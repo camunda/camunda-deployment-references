@@ -55,6 +55,9 @@ global:
             enabled: true
             secretName: camunda-platform
 
+    elasticsearch:
+        enabled: true
+
 connectors:
     enabled: true
     inbound:

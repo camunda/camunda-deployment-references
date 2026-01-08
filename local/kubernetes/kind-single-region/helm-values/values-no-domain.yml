@@ -42,6 +42,9 @@ global:
             webModeler:
                 redirectUrl: http://localhost:8070
 
+    elasticsearch:
+        enabled: true
+
 connectors:
     enabled: true
     inbound:
