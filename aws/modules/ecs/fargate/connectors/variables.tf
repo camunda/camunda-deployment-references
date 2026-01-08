@@ -129,9 +129,12 @@ variable "service_timeouts" {
 ################################################################
 
 variable "image" {
-  description = "The container image to use for the Camunda orchestration cluster"
+  description = "The container image to use for the Camunda Connectors"
   type        = string
-  default     = "camunda/connectors-bundle:SNAPSHOT"
+  # TODO: [release-duty] before the release, update the below versions to the stable release!
+  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
+  # renovate: datasource=docker depName=camunda/connectors-bundle versioning=regex:^8\.9?(\.(?<patch>\d+))?$
+  default = "camunda/connectors-bundle:8.9.0-alpha3"
 }
 
 variable "environment_variables" {

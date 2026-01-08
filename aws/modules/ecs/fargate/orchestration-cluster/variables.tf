@@ -174,7 +174,10 @@ variable "service_timeouts" {
 variable "image" {
   description = "The container image to use for the Camunda orchestration cluster"
   type        = string
-  default     = "camunda/camunda:SNAPSHOT"
+  # TODO: [release-duty] before the release, update the below versions to the stable release!
+  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
+  # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.9?(\.(?<patch>\d+))?$
+  default = "camunda/camunda:8.9.0-alpha3"
 }
 
 variable "environment_variables" {
