@@ -1,15 +1,22 @@
 #!/bin/bash
+# Check if all required environment variables are set (without Keycloak)
 
-# This script is compatible with bash only
+set -euo pipefail
 
-# List of required environment variables
-required_vars=("DB_HOST" "DB_PORT" "DB_KEYCLOAK_NAME" "DB_KEYCLOAK_USERNAME" "DB_KEYCLOAK_PASSWORD" "DB_IDENTITY_NAME" "DB_IDENTITY_USERNAME" "DB_IDENTITY_PASSWORD" "DB_WEBMODELER_NAME" "DB_WEBMODELER_USERNAME" "DB_WEBMODELER_PASSWORD")
+required_vars=("DB_HOST" "DB_PORT" "DB_IDENTITY_NAME" "DB_IDENTITY_USERNAME" "DB_IDENTITY_PASSWORD" "DB_WEBMODELER_NAME" "DB_WEBMODELER_USERNAME" "DB_WEBMODELER_PASSWORD")
 
-# Loop through each variable and check if it is set and not empty
+missing_vars=()
+
 for var in "${required_vars[@]}"; do
-  if [[ -z "${!var}" ]]; then
-    echo "Error: $var is not set or is empty"
-  else
-    echo "$var is set to '${!var}'"
-  fi
+    if [ -z "${!var:-}" ]; then
+        missing_vars+=("$var")
+    fi
 done
+
+if [ ${#missing_vars[@]} -ne 0 ]; then
+    echo "Error: The following required environment variables are not set:"
+    printf '  - %s\n' "${missing_vars[@]}"
+    exit 1
+fi
+
+echo "All required environment variables are set!"
