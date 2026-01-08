@@ -32,10 +32,6 @@ module "orchestration_cluster" {
       name  = "CAMUNDA_CLUSTER_PARTITIONCOUNT"
       value = "5"
     },
-    {
-      name  = "SPRING_LIFECYCLE_TIMEOUTPERSHUTDOWNPHASE" # TODO: TBD when Deepthi is back
-      value = "5s"
-    },
     # Secondary Storage - RDBMS (Aurora PostgreSQL with IAM Auth)
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_AUTOCONFIGURECAMUNDAEXPORTER"

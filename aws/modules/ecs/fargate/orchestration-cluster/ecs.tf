@@ -58,6 +58,13 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
     ))
 
     env_vars_json = jsonencode(concat([
+      # Graceful shutdown
+      # Allow the Orchestration Cluster to shut down gracefully to release S3 leases
+      # AWS Scheduler can sometimes be quicker to kill the task than the default 30s timeout
+      {
+        name  = "SPRING_LIFECYCLE_TIMEOUTPERSHUTDOWNPHASE"
+        value = "5s"
+      },
       # EFS Mount
       {
         name  = "ZEEBE_BROKER_DATA_DIRECTORY"
