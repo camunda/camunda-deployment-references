@@ -131,7 +131,14 @@ variable "alb_listener_http_9600_arn" {
 variable "enable_alb_http_9600_listener_rule" {
   description = "Whether to create the ALB listener rule on port 9600 (must be a known boolean at plan time)"
   type        = bool
-  default     = true
+  default     = false
+}
+
+check "monitoring_port_9600_exposure" {
+  assert {
+    condition     = !var.enable_alb_http_9600_listener_rule
+    error_message = "enable_alb_http_9600_listener_rule is true. The management port (9600) should not be exposed without intent, as it is not secured by default. Consider using a temporary jump host, Lambda, Step Functions or a VPN connected to the VPC to access it securely."
+  }
 }
 
 variable "enable_nlb_grpc_26500_listener" {

@@ -19,8 +19,10 @@ module "orchestration_cluster" {
   alb_listener_http_9600_arn = aws_lb_listener.http_9600.arn
   nlb_arn                    = aws_lb.grpc.arn
 
-  enable_alb_http_80_listener_rule   = true
-  enable_alb_http_9600_listener_rule = true
+  enable_alb_http_80_listener_rule = true
+  # management endpoint is unprotected, only enable if you know what you are doing.
+  # Consider secure access alternatives via temporary jump host / VPN connected to VPC / lambda or step functions.
+  enable_alb_http_9600_listener_rule = false
   enable_nlb_grpc_26500_listener     = true
 
   environment_variables = [
