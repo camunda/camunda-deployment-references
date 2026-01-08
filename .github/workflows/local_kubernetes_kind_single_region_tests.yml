@@ -152,12 +152,28 @@ jobs:
 
                   ./procedure/certs-create-ca-configmap.sh
 
+            - name: Create Docker Hub pull secret
+              run: |
+                  set -euo pipefail
+
+                  # Create the pull secret to avoid Docker Hub rate limit
+                  kubectl create secret docker-registry index-docker-io \
+                      --docker-server=index.docker.io \
+                      --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                      --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                      --namespace="${{ env.CAMUNDA_NAMESPACE }}"
+
             # Deploy Camunda
             - name: Deploy Camunda (domain mode)
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: |
                   set -euo pipefail
+
+                  # Apply registry configuration to avoid Docker Hub rate limit
+                  yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/registry.yml\")" \
+                    helm-values/values-domain.yml > helm-values/values-domain.yml.tmp
+                  mv helm-values/values-domain.yml.tmp helm-values/values-domain.yml
 
                   ./procedure/camunda-deploy-domain.sh
 
@@ -166,6 +182,11 @@ jobs:
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: |
                   set -euo pipefail
+
+                  # Apply registry configuration to avoid Docker Hub rate limit
+                  yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/registry.yml\")" \
+                    helm-values/values-no-domain.yml > helm-values/values-no-domain.yml.tmp
+                  mv helm-values/values-no-domain.yml.tmp helm-values/values-no-domain.yml
 
                   ./procedure/camunda-deploy-no-domain.sh
 
