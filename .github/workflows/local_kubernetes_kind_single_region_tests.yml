@@ -266,8 +266,6 @@ jobs:
                       || 'false' }}
                   # Enable local domain mode for Kind - configures /etc/hosts for domain resolution
                   local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
-                  # Skip TLS verification for self-signed certificates (mkcert) in local domain mode
-                  # skip-tls-verification: ${{ matrix.declination.use_tls && 'true' || 'false' }}
 
             - name: 🔬🚨 Debug - Show pod details on failure
               if: failure()

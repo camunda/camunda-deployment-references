@@ -124,11 +124,6 @@ inputs:
             The IP address to use for local domain resolution in /etc/hosts.
             Defaults to 127.0.0.1 for standard local development.
         default: 127.0.0.1
-    skip-tls-verification:
-        description: >
-            Skip TLS certificate verification for Zeebe token and connectivity checks.
-            Enable this when using self-signed certificates (e.g., mkcert for local development).
-        default: 'false'
 
 runs:
     using: composite
@@ -687,7 +682,6 @@ runs:
               ZEEBE_CLIENT_ID: ${{ inputs.test-client-id }}
               ZEEBE_CLIENT_SECRET: ${{ inputs.test-client-secret }}
               ZEEBE_TOKEN_AUDIENCE: orchestration-api
-              SKIP_TLS_VERIFICATION: ${{ inputs.skip-tls-verification }}
           run: |
               set -euo pipefail
 
@@ -696,19 +690,11 @@ runs:
               C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/zeebe/token.sh"
 
-              # Build command with optional TLS skip flag
-              EXTRA_FLAGS=""
-              if [[ "$SKIP_TLS_VERIFICATION" == "true" ]]; then
-                echo "ℹ️ Skipping TLS verification (self-signed certificates)"
-                EXTRA_FLAGS="-k"
-              fi
-
               "$C8_SM_CHECKS_PATH/checks/zeebe/token.sh" \
                 -a "$ZEEBE_AUTHORIZATION_SERVER_URL" \
                 -i "$ZEEBE_CLIENT_ID" \
                 -s "$ZEEBE_CLIENT_SECRET" \
-                -u "$ZEEBE_TOKEN_AUDIENCE" \
-                $EXTRA_FLAGS
+                -u "$ZEEBE_TOKEN_AUDIENCE"
 
         - name: 🧪 C8-SM-CHECKS - Run Zeebe Connectivity Check
           if: ${{ inputs.enable-c8sm-zeebe-connectivity-check == 'true' && inputs.enable-zeebe-client-tests == 'true' && inputs.camunda-domain != '' }}
@@ -721,7 +707,6 @@ runs:
               ZEEBE_CLIENT_SECRET: ${{ inputs.test-client-secret }}
               ZEEBE_TOKEN_AUDIENCE: orchestration-api
               ZEEBE_DEFAULT_VERSION: ${{ inputs.camunda-version }}
-              SKIP_TLS_VERIFICATION: ${{ inputs.skip-tls-verification }}
           run: |
               set -euo pipefail
 
@@ -730,13 +715,6 @@ runs:
               C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh"
 
-              # Build command with optional TLS skip flag
-              EXTRA_FLAGS=""
-              if [[ "$SKIP_TLS_VERIFICATION" == "true" ]]; then
-                echo "ℹ️ Skipping TLS verification (self-signed certificates)"
-                EXTRA_FLAGS="-k"
-              fi
-
               "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh" \
                 -H "$ZEEBE_ADDRESS" \
                 -p "$ZEEBE_DEFAULT_VERSION" \
@@ -744,5 +722,4 @@ runs:
                 -i "$ZEEBE_CLIENT_ID" \
                 -s "$ZEEBE_CLIENT_SECRET" \
                 -u "$ZEEBE_TOKEN_AUDIENCE" \
-                -q grpc \
-                $EXTRA_FLAGS
+                -q grpc

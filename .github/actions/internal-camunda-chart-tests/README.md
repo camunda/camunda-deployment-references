@@ -50,7 +50,6 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | `enable-c8sm-zeebe-connectivity-check` | <p>Whether the C8 SM Zeebe connectivity check should be run</p> | `false` | `true` |
 | `local-domain-mode` | <p>Enable local domain mode. When true, /etc/hosts entries will be added to resolve camunda.example.com and zeebe-camunda.example.com to 127.0.0.1. This is required for local Kind clusters with domain-based access where the runner needs to access the ingress via localhost.</p> | `false` | `false` |
 | `local-domain-ip` | <p>The IP address to use for local domain resolution in /etc/hosts. Defaults to 127.0.0.1 for standard local development.</p> | `false` | `127.0.0.1` |
-| `skip-tls-verification` | <p>Skip TLS certificate verification for Zeebe token and connectivity checks. Enable this when using self-signed certificates (e.g., mkcert for local development).</p> | `false` | `false` |
 
 
 ## Runs
@@ -265,10 +264,4 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 127.0.0.1
-
-    skip-tls-verification:
-    # Skip TLS certificate verification for Zeebe token and connectivity checks. Enable this when using self-signed certificates (e.g., mkcert for local development).
-    #
-    # Required: false
-    # Default: false
 ```
