@@ -236,6 +236,8 @@ jobs:
                   enable-c8sm-irsa-check: 'false'  # Not applicable for Kind
                   enable-c8sm-zeebe-token-check: 'true'
                   enable-c8sm-zeebe-connectivity-check: 'true'
+                  # Enable local domain mode for Kind - configures /etc/hosts for domain resolution
+                  local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
 
             - name: 🔬🚨 Debug - Show pod details on failure
               if: failure()
