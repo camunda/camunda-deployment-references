@@ -1012,6 +1012,7 @@
               },
               "type": "aws_iam_policy",
               "values": {
+                "delay_after_policy_creation_in_ms": null,
                 "description": "Cluster encryption policy to allow cluster role to utilize CMK provided",
                 "name_prefix": "cluster-name-std-eks-iam-role-ClusterEncryption",
                 "path": "/",
@@ -2697,6 +2698,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-std-cert-manager-policy",
             "path": "/",
@@ -2718,6 +2720,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-std-ebs-sc-access",
             "path": "/",
@@ -2738,6 +2741,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-std-ebs-sc-access-2",
             "path": "/",
@@ -2759,6 +2763,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-std-eks-admin-policy",
             "path": "/",
@@ -2780,6 +2785,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-std-external-dns-policy",
             "path": "/",
