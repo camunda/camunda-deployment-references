@@ -65,6 +65,7 @@ connectors:
 
 # Configure ElasticSearch for local development
 elasticsearch:
+    enabled: true
     master:
         replicaCount: 1
         persistence:
