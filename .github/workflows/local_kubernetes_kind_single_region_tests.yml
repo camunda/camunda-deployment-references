@@ -60,6 +60,23 @@ jobs:
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
 
+            - name: 🔬🚨 Debug - Show python-build logs on failure
+              if: failure()
+              run: |
+                  echo "=== Python Build Logs ==="
+                  for log in /tmp/python-build.*.log; do
+                      if [[ -f "$log" ]]; then
+                          echo "--- $log ---"
+                          cat "$log"
+                      fi
+                  done
+                  for dir in /tmp/python-build.*/; do
+                      if [[ -d "$dir" ]]; then
+                          echo "--- Contents of $dir ---"
+                          find "$dir" -type f -exec echo "=== {} ===" \; -exec cat {} \;
+                      fi
+                  done
+
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
               id: matrix
@@ -94,6 +111,23 @@ jobs:
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+
+            - name: 🔬🚨 Debug - Show python-build logs on failure
+              if: failure()
+              run: |
+                  echo "=== Python Build Logs ==="
+                  for log in /tmp/python-build.*.log; do
+                      if [[ -f "$log" ]]; then
+                          echo "--- $log ---"
+                          cat "$log"
+                      fi
+                  done
+                  for dir in /tmp/python-build.*/; do
+                      if [[ -d "$dir" ]]; then
+                          echo "--- Contents of $dir ---"
+                          find "$dir" -type f -exec echo "=== {} ===" \; -exec cat {} \;
+                      fi
+                  done
 
             - name: Import Secrets
               id: secrets
