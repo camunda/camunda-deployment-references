@@ -1012,6 +1012,7 @@
               },
               "type": "aws_iam_policy",
               "values": {
+                "delay_after_policy_creation_in_ms": null,
                 "description": "Cluster encryption policy to allow cluster role to utilize CMK provided",
                 "name_prefix": "cluster-name-irsa-eks-iam-role-ClusterEncryption",
                 "path": "/",
@@ -2675,6 +2676,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-irsa-cert-manager-policy",
             "path": "/",
@@ -2696,6 +2698,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-irsa-ebs-sc-access",
             "path": "/",
@@ -2716,6 +2719,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-irsa-ebs-sc-access-2",
             "path": "/",
@@ -2737,6 +2741,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-irsa-eks-admin-policy",
             "path": "/",
@@ -2758,6 +2763,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-irsa-external-dns-policy",
             "path": "/",
@@ -2852,6 +2858,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": "Access policy for OpenSearchRole-domain-name-os-irsa",
             "name": "OpenSearchRole-domain-name-os-irsa-access-policy",
             "path": "/",
@@ -3253,6 +3260,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": "Access policy for AuroraRole-Identity-cluster-name-pg-irsa",
             "name": "AuroraRole-Identity-cluster-name-pg-irsa-access-policy",
             "path": "/",
@@ -3275,6 +3283,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": "Access policy for AuroraRole-Keycloak-cluster-name-pg-irsa",
             "name": "AuroraRole-Keycloak-cluster-name-pg-irsa-access-policy",
             "path": "/",
@@ -3297,6 +3306,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": "Access policy for AuroraRole-Webmodeler-cluster-name-pg-irsa",
             "name": "AuroraRole-Webmodeler-cluster-name-pg-irsa-access-policy",
             "path": "/",
