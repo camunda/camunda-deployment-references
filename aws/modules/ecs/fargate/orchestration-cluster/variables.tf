@@ -122,33 +122,33 @@ variable "efs_performance_mode" {
   default     = "generalPurpose"
 }
 
-variable "alb_listener_http_80_arn" {
-  description = "The ARN of the ALB listener for HTTP on port 80"
+variable "alb_listener_http_webapp_arn" {
+  description = "The ARN of the ALB listener for the web application port HTTP(s) traffic"
   type        = string
   default     = ""
 }
 
-variable "enable_alb_http_80_listener_rule" {
-  description = "Whether to create the ALB listener rule on port 80 (must be a known boolean at plan time)"
+variable "enable_alb_http_webapp_listener_rule" {
+  description = "Whether to create the ALB listener rule for the WebApp (must be a known boolean at plan time)"
   type        = bool
   default     = true
 }
 
-variable "alb_listener_http_9600_arn" {
-  description = "The ARN of the ALB listener for HTTP on port 9600"
+variable "alb_listener_http_management_arn" {
+  description = "The ARN of the ALB listener for the management port HTTP(s) traffic"
   type        = string
   default     = ""
 }
 
-variable "enable_alb_http_9600_listener_rule" {
-  description = "Whether to create the ALB listener rule on port 9600 (must be a known boolean at plan time)"
+variable "enable_alb_http_management_listener_rule" {
+  description = "Whether to create the ALB listener rule for the management port (must be a known boolean at plan time)"
   type        = bool
   default     = false
 }
 
 check "monitoring_port_9600_exposure" {
   assert {
-    condition     = !var.enable_alb_http_9600_listener_rule
+    condition     = !var.enable_alb_http_management_listener_rule
     error_message = "enable_alb_http_9600_listener_rule is true. The management port (9600) should not be exposed without intent, as it is not secured by default. Consider using a temporary jump host, Lambda, Step Functions or a VPN connected to the VPC to access it securely."
   }
 }

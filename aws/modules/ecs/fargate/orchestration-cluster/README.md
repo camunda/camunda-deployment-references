@@ -28,8 +28,8 @@ No modules.
 | [aws_kms_alias.s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias) | resource |
 | [aws_kms_key.s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
 | [aws_lb_listener.grpc_26500](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
-| [aws_lb_listener_rule.http_80](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
-| [aws_lb_listener_rule.http_9600](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
+| [aws_lb_listener_rule.http_management](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
+| [aws_lb_listener_rule.http_webapp](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_lb_target_group.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group) | resource |
 | [aws_lb_target_group.main_26500](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group) | resource |
 | [aws_lb_target_group.main_9600](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group) | resource |
@@ -43,8 +43,8 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_alb_listener_http_80_arn"></a> [alb\_listener\_http\_80\_arn](#input\_alb\_listener\_http\_80\_arn) | The ARN of the ALB listener for HTTP on port 80 | `string` | `""` | no |
-| <a name="input_alb_listener_http_9600_arn"></a> [alb\_listener\_http\_9600\_arn](#input\_alb\_listener\_http\_9600\_arn) | The ARN of the ALB listener for HTTP on port 9600 | `string` | `""` | no |
+| <a name="input_alb_listener_http_management_arn"></a> [alb\_listener\_http\_management\_arn](#input\_alb\_listener\_http\_management\_arn) | The ARN of the ALB listener for the management port HTTP(s) traffic | `string` | `""` | no |
+| <a name="input_alb_listener_http_webapp_arn"></a> [alb\_listener\_http\_webapp\_arn](#input\_alb\_listener\_http\_webapp\_arn) | The ARN of the ALB listener for the web application port HTTP(s) traffic | `string` | `""` | no |
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | The AWS region to deploy resources in | `string` | n/a | yes |
 | <a name="input_cloudwatch_retention_days"></a> [cloudwatch\_retention\_days](#input\_cloudwatch\_retention\_days) | The number of days to retain CloudWatch logs | `number` | `30` | no |
 | <a name="input_ecs_cluster_id"></a> [ecs\_cluster\_id](#input\_ecs\_cluster\_id) | The cluster id of the ECS cluster to spawn the ECS service in | `string` | n/a | yes |
@@ -53,8 +53,8 @@ No modules.
 | <a name="input_efs_provisioned_throughput_in_mibps"></a> [efs\_provisioned\_throughput\_in\_mibps](#input\_efs\_provisioned\_throughput\_in\_mibps) | The provisioned throughput in MiB/s for the EFS file system if using provisioned mode | `number` | `125` | no |
 | <a name="input_efs_security_group_ids"></a> [efs\_security\_group\_ids](#input\_efs\_security\_group\_ids) | List of security group IDs to associate with the EFS file system | `list(string)` | `[]` | no |
 | <a name="input_efs_throughput_mode"></a> [efs\_throughput\_mode](#input\_efs\_throughput\_mode) | The throughput mode for the EFS file system | `string` | `"provisioned"` | no |
-| <a name="input_enable_alb_http_80_listener_rule"></a> [enable\_alb\_http\_80\_listener\_rule](#input\_enable\_alb\_http\_80\_listener\_rule) | Whether to create the ALB listener rule on port 80 (must be a known boolean at plan time) | `bool` | `true` | no |
-| <a name="input_enable_alb_http_9600_listener_rule"></a> [enable\_alb\_http\_9600\_listener\_rule](#input\_enable\_alb\_http\_9600\_listener\_rule) | Whether to create the ALB listener rule on port 9600 (must be a known boolean at plan time) | `bool` | `false` | no |
+| <a name="input_enable_alb_http_management_listener_rule"></a> [enable\_alb\_http\_management\_listener\_rule](#input\_enable\_alb\_http\_management\_listener\_rule) | Whether to create the ALB listener rule for the management port (must be a known boolean at plan time) | `bool` | `false` | no |
+| <a name="input_enable_alb_http_webapp_listener_rule"></a> [enable\_alb\_http\_webapp\_listener\_rule](#input\_enable\_alb\_http\_webapp\_listener\_rule) | Whether to create the ALB listener rule for the WebApp (must be a known boolean at plan time) | `bool` | `true` | no |
 | <a name="input_enable_nlb_grpc_26500_listener"></a> [enable\_nlb\_grpc\_26500\_listener](#input\_enable\_nlb\_grpc\_26500\_listener) | Whether to create the NLB listener on port 26500 (must be a known boolean at plan time) | `bool` | `true` | no |
 | <a name="input_environment_variables"></a> [environment\_variables](#input\_environment\_variables) | List of environment variable name-value pairs to set in the ECS task | <pre>list(object({<br/>    name  = string<br/>    value = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_extra_task_role_attachments"></a> [extra\_task\_role\_attachments](#input\_extra\_task\_role\_attachments) | List of additional IAM policy ARNs to attach to the ECS task role | `list(string)` | `[]` | no |

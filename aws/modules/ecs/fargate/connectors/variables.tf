@@ -98,14 +98,14 @@ variable "s2s_cloudmap_namespace" {
   default     = ""
 }
 
-variable "alb_listener_http_80_arn" {
-  description = "The ARN of the ALB listener for HTTP on port 80"
+variable "alb_listener_http_webapp_arn" {
+  description = "The ARN of the ALB listener for the web application port HTTP(s) traffic"
   type        = string
   default     = ""
 }
 
-variable "enable_alb_http_80_listener_rule" {
-  description = "Whether to create the ALB listener rule on port 80 (must be a known boolean at plan time)"
+variable "enable_alb_http_webapp_listener_rule" {
+  description = "Whether to create the ALB listener rule for the WebApp (must be a known boolean at plan time)"
   type        = bool
   default     = true
 }

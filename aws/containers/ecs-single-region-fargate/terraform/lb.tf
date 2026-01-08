@@ -10,12 +10,11 @@ resource "aws_lb" "main" {
   subnets = module.vpc.public_subnets
 }
 
-resource "aws_lb_listener" "http_80" {
+resource "aws_lb_listener" "http_webapp" {
   load_balancer_arn = aws_lb.main.arn
-  port              = "80"
+  port              = "80" # We use port 80 as example, feel free to change to 443 with proper SSL certs and domain
   protocol          = "HTTP"
 
-  # TODO: Maybe change default action
   default_action {
     type = "fixed-response"
 
@@ -27,12 +26,11 @@ resource "aws_lb_listener" "http_80" {
   }
 }
 
-resource "aws_lb_listener" "http_9600" {
+resource "aws_lb_listener" "http_management" {
   load_balancer_arn = aws_lb.main.arn
   port              = "9600"
   protocol          = "HTTP"
 
-  # TODO: Maybe change default action
   default_action {
     type = "fixed-response"
 

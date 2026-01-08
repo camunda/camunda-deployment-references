@@ -16,18 +16,18 @@ No modules.
 | [aws_iam_role_policy_attachment.connectors_logs_policy_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.ecs_exec_policy_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.task_role_policy_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_lb_listener_rule.http_80](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
+| [aws_lb_listener_rule.http_webapp](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_lb_target_group.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group) | resource |
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_alb_arn"></a> [alb\_arn](#input\_alb\_arn) | The ARN of the Application Load Balancer to use | `string` | `""` | no |
-| <a name="input_alb_listener_http_80_arn"></a> [alb\_listener\_http\_80\_arn](#input\_alb\_listener\_http\_80\_arn) | The ARN of the ALB listener for HTTP on port 80 | `string` | `""` | no |
+| <a name="input_alb_listener_http_webapp_arn"></a> [alb\_listener\_http\_webapp\_arn](#input\_alb\_listener\_http\_webapp\_arn) | The ARN of the ALB listener for the web application port HTTP(s) traffic | `string` | `""` | no |
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | The AWS region to deploy resources in | `string` | n/a | yes |
 | <a name="input_ecs_cluster_id"></a> [ecs\_cluster\_id](#input\_ecs\_cluster\_id) | The cluster id of the ECS cluster to spawn the ECS service in | `string` | n/a | yes |
 | <a name="input_ecs_task_execution_role_arn"></a> [ecs\_task\_execution\_role\_arn](#input\_ecs\_task\_execution\_role\_arn) | ARN of the ECS task execution role (centrally managed) | `string` | n/a | yes |
-| <a name="input_enable_alb_http_80_listener_rule"></a> [enable\_alb\_http\_80\_listener\_rule](#input\_enable\_alb\_http\_80\_listener\_rule) | Whether to create the ALB listener rule on port 80 (must be a known boolean at plan time) | `bool` | `true` | no |
+| <a name="input_enable_alb_http_webapp_listener_rule"></a> [enable\_alb\_http\_webapp\_listener\_rule](#input\_enable\_alb\_http\_webapp\_listener\_rule) | Whether to create the ALB listener rule for the WebApp (must be a known boolean at plan time) | `bool` | `true` | no |
 | <a name="input_environment_variables"></a> [environment\_variables](#input\_environment\_variables) | List of environment variable name-value pairs to set in the ECS task | <pre>list(object({<br/>    name  = string<br/>    value = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_extra_task_role_attachments"></a> [extra\_task\_role\_attachments](#input\_extra\_task\_role\_attachments) | List of additional IAM policy ARNs to attach to the ECS task role | `list(string)` | `[]` | no |
 | <a name="input_image"></a> [image](#input\_image) | The container image to use for the Camunda Connectors | `string` | `"camunda/connectors-bundle:8.9.0-alpha3"` | no |

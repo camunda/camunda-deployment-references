@@ -30,7 +30,6 @@ resource "aws_lb_target_group" "main" {
   }
 }
 
-# TODO: disable, purely for testing purposes
 resource "aws_lb_target_group" "main_9600" {
   name        = "${var.prefix}-tg-9600"
   port        = 9600
@@ -54,10 +53,10 @@ resource "aws_lb_target_group" "main_9600" {
 
 # core webapp + rest api
 # We create a listener rule to reuse the same Load Balancer Listener Port 80 to expose the applications via a path-based routing
-resource "aws_lb_listener_rule" "http_80" {
-  count = var.enable_alb_http_80_listener_rule ? 1 : 0
+resource "aws_lb_listener_rule" "http_webapp" {
+  count = var.enable_alb_http_webapp_listener_rule ? 1 : 0
 
-  listener_arn = var.alb_listener_http_80_arn
+  listener_arn = var.alb_listener_http_webapp_arn
   priority     = 100
 
   action {
@@ -74,10 +73,10 @@ resource "aws_lb_listener_rule" "http_80" {
 }
 
 # management port - not recommended to be exposed publicly
-resource "aws_lb_listener_rule" "http_9600" {
-  count = var.enable_alb_http_9600_listener_rule ? 1 : 0
+resource "aws_lb_listener_rule" "http_management" {
+  count = var.enable_alb_http_management_listener_rule ? 1 : 0
 
-  listener_arn = var.alb_listener_http_9600_arn
+  listener_arn = var.alb_listener_http_management_arn
   priority     = 100
 
   action {

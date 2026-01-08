@@ -15,15 +15,15 @@ module "orchestration_cluster" {
   ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
 
   # Load Balancer configuration
-  alb_listener_http_80_arn   = aws_lb_listener.http_80.arn
-  alb_listener_http_9600_arn = aws_lb_listener.http_9600.arn
-  nlb_arn                    = aws_lb.grpc.arn
+  alb_listener_http_webapp_arn     = aws_lb_listener.http_webapp.arn
+  alb_listener_http_management_arn = aws_lb_listener.http_management.arn
+  nlb_arn                          = aws_lb.grpc.arn
 
-  enable_alb_http_80_listener_rule = true
+  enable_alb_http_webapp_listener_rule = true
   # management endpoint is unprotected, only enable if you know what you are doing.
   # Consider secure access alternatives via temporary jump host / VPN connected to VPC / lambda or step functions.
-  enable_alb_http_9600_listener_rule = false
-  enable_nlb_grpc_26500_listener     = true
+  enable_alb_http_management_listener_rule = false
+  enable_nlb_grpc_26500_listener           = true
 
   environment_variables = [
     {
@@ -128,15 +128,15 @@ module "orchestration_cluster" {
 module "connectors" {
   source = "../../../modules/ecs/fargate/connectors"
 
-  prefix                           = "${var.prefix}-oc1"
-  ecs_cluster_id                   = aws_ecs_cluster.ecs.id
-  vpc_id                           = module.vpc.vpc_id
-  vpc_private_subnets              = module.vpc.private_subnets
-  aws_region                       = data.aws_region.current.region
-  s2s_cloudmap_namespace           = module.orchestration_cluster.s2s_cloudmap_namespace
-  alb_listener_http_80_arn         = aws_lb_listener.http_80.arn
-  enable_alb_http_80_listener_rule = true
-  log_group_name                   = module.orchestration_cluster.log_group_name
+  prefix                               = "${var.prefix}-oc1"
+  ecs_cluster_id                       = aws_ecs_cluster.ecs.id
+  vpc_id                               = module.vpc.vpc_id
+  vpc_private_subnets                  = module.vpc.private_subnets
+  aws_region                           = data.aws_region.current.region
+  s2s_cloudmap_namespace               = module.orchestration_cluster.s2s_cloudmap_namespace
+  alb_listener_http_webapp_arn         = aws_lb_listener.http_webapp.arn
+  enable_alb_http_webapp_listener_rule = true
+  log_group_name                       = module.orchestration_cluster.log_group_name
 
   # IAM Roles (execution role centrally managed, task role module-specific)
   ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
