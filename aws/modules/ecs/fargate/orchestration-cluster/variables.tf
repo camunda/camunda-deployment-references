@@ -49,7 +49,19 @@ variable "task_memory" {
 variable "task_enable_execute_command" {
   description = "Whether to enable execute command for the ECS service"
   type        = bool
-  default     = true
+  default     = false
+}
+
+variable "task_operating_system_family" {
+  description = "The operating system family to use for the ECS task"
+  type        = string
+  default     = "LINUX"
+}
+
+variable "task_cpu_architecture" {
+  description = "The CPU architecture to use for the ECS task"
+  type        = string
+  default     = "X86_64"
 }
 
 variable "prefix" {

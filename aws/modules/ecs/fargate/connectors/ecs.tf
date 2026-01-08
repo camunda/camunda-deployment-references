@@ -7,6 +7,11 @@ resource "aws_ecs_task_definition" "connectors" {
   cpu                      = var.task_cpu
   memory                   = var.task_memory
 
+  runtime_platform {
+    operating_system_family = var.task_operating_system_family
+    cpu_architecture        = var.task_cpu_architecture
+  }
+
   lifecycle {
     precondition {
       condition     = !var.init_container_enabled || var.init_container_image != ""
