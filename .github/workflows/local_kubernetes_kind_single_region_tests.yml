@@ -210,6 +210,30 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
+            - name: Extract auto-generated credentials from Helm deployment
+              id: local-credentials
+              run: |
+                  set -euo pipefail
+
+                  echo "📦 Extracting auto-generated credentials from camunda-credentials secret..."
+
+                  # The Helm chart auto-generates an 'orchestration' client that can be used for M2M authentication
+                  # Client ID is 'orchestration' and secret is stored in identity-orchestration-client-token
+                  LOCAL_CLIENT_ID="orchestration"
+                  LOCAL_CLIENT_SECRET=$(kubectl get secret camunda-credentials -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                    -o jsonpath='{.data.identity-orchestration-client-token}' | base64 -d)
+
+                  if [[ -z "$LOCAL_CLIENT_SECRET" ]]; then
+                    echo "⚠️ Could not extract orchestration client secret, tests requiring auth will be skipped"
+                    echo "LOCAL_CLIENT_ID=" | tee -a "$GITHUB_OUTPUT"
+                    echo "LOCAL_CLIENT_SECRET=" | tee -a "$GITHUB_OUTPUT"
+                  else
+                    echo "✅ Successfully extracted orchestration client credentials"
+                    echo "LOCAL_CLIENT_ID=$LOCAL_CLIENT_ID" | tee -a "$GITHUB_OUTPUT"
+                    # Don't print secret to logs
+                    echo "LOCAL_CLIENT_SECRET=$LOCAL_CLIENT_SECRET" >> "$GITHUB_OUTPUT"
+                  fi
+
             - name: 🧪 Run C8-SM-CHECKS deployment and connectivity tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 15
@@ -224,8 +248,9 @@ jobs:
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
-                  test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
-                  test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
+                  # Use auto-generated local credentials instead of CI credentials from Vault
+                  test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
+                  test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
                   # Disable Venom/Helm chart tests, only run C8-SM-CHECKS
                   enable-helm-chart-tests: 'false'
                   enable-zeebe-client-tests: 'false'
@@ -234,10 +259,15 @@ jobs:
                   enable-c8sm-connectivity-check: 'true'
                   skip-c8sm-connectivity-ingress-class-check: 'false'
                   enable-c8sm-irsa-check: 'false'  # Not applicable for Kind
-                  enable-c8sm-zeebe-token-check: 'true'
-                  enable-c8sm-zeebe-connectivity-check: 'true'
+                  # Enable Zeebe token/connectivity checks using auto-generated credentials
+                  enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
+                      'false' }}
+                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
+                      || 'false' }}
                   # Enable local domain mode for Kind - configures /etc/hosts for domain resolution
                   local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+                  # Skip TLS verification for self-signed certificates (mkcert) in local domain mode
+                  skip-tls-verification: ${{ matrix.declination.use_tls && 'true' || 'false' }}
 
             - name: 🔬🚨 Debug - Show pod details on failure
               if: failure()
