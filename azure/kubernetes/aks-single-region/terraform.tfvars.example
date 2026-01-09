@@ -1,0 +1,34 @@
+# Azure Subscription Configuration
+subscription_id     = "00000000-0000-0000-0000-000000000000" # Replace with your subscription ID
+terraform_sp_app_id = "00000000-0000-0000-0000-000000000000" # Replace with your service principal app ID
+
+# Optional: Domain Configuration
+# Leave empty ("") for localhost/port-forwarding setup
+# Set to your domain for production deployment with ingress
+domain_name = "" # Example: "camunda.yourdomain.com"
+
+# Optional: Initial Admin User
+# This email must match the preferred_username claim in your EntraID tokens
+identity_initial_user_email = "admin@yourdomain.com" # Replace with your admin user email
+
+# Optional: Enable WebModeler
+enable_webmodeler = false # Set to true if you want to enable WebModeler component
+
+# Optional: Custom Resource Prefix
+# resource_prefix_placeholder = "mycompany-camunda"
+
+# Optional: Network Configuration Overrides
+# vnet_address_space = ["10.2.0.0/16"]
+# aks_subnet_address_prefix = ["10.2.0.0/24"]
+# db_subnet_address_prefix = ["10.2.1.0/24"]
+# pe_subnet_address_prefix = ["10.2.2.0/24"]
+
+# Optional: AKS Configuration Overrides
+# cluster_name = "my-camunda-cluster"
+# user_node_pool_count = 3
+# user_node_pool_vm_size = "Standard_D8s_v3"
+
+# Optional: PostgreSQL Configuration Overrides
+# postgres_sku_tier = "GP_Standard_D4s_v3"
+# postgres_storage_mb = 65536
+# postgres_backup_retention_days = 14
