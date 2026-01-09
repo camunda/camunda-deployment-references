@@ -27,6 +27,9 @@ Supports conditional deployment of Aurora PostgreSQL and OpenSearch.
 | `private-vpc` | <p>The VPC within which the cluster resides will only have private subnets, meaning that it cannot be accessed at all from the public Internet (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `deploy-aurora` | <p>Deploy Aurora PostgreSQL database</p> | `false` | `true` |
 | `deploy-opensearch` | <p>Deploy OpenSearch domain</p> | `false` | `true` |
+| `deploy-cognito` | <p>Deploy Amazon Cognito for authentication (replaces Keycloak)</p> | `false` | `false` |
+| `domain-name` | <p>Domain name for Cognito callbacks and identity URLs (required when deploy-cognito is true)</p> | `false` | `""` |
+| `admin-email` | <p>Email for the initial admin user in Cognito</p> | `false` | `admin@camunda.local` |
 
 
 ## Outputs
@@ -144,4 +147,22 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
+
+    deploy-cognito:
+    # Deploy Amazon Cognito for authentication (replaces Keycloak)
+    #
+    # Required: false
+    # Default: false
+
+    domain-name:
+    # Domain name for Cognito callbacks and identity URLs (required when deploy-cognito is true)
+    #
+    # Required: false
+    # Default: ""
+
+    admin-email:
+    # Email for the initial admin user in Cognito
+    #
+    # Required: false
+    # Default: admin@camunda.local
 ```
