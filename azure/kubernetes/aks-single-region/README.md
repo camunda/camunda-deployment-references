@@ -13,18 +13,7 @@
 
 | Name | Type |
 |------|------|
-| [azuread_application.console](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application) | resource |
-| [azuread_application.identity](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application) | resource |
-| [azuread_application.optimize](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application) | resource |
-| [azuread_application.orchestration](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application) | resource |
-| [azuread_application.webmodeler_api](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application) | resource |
-| [azuread_application.webmodeler_ui](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application) | resource |
-| [azuread_application_password.identity](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application_password) | resource |
-| [azuread_application_password.optimize](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application_password) | resource |
-| [azuread_application_password.orchestration](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application_password) | resource |
-| [azuread_application_password.webmodeler_api](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application_password) | resource |
 | [azurerm_resource_group.app_rg](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
-| [azuread_client_config.current](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/data-sources/client_config) | data source |
 ## Inputs
 
 | Name | Description | Type | Default | Required |
@@ -64,7 +53,6 @@
 | <a name="output_aks_cluster_id"></a> [aks\_cluster\_id](#output\_aks\_cluster\_id) | ID of the deployed AKS cluster |
 | <a name="output_aks_cluster_name"></a> [aks\_cluster\_name](#output\_aks\_cluster\_name) | Name of the AKS cluster |
 | <a name="output_aks_fqdn"></a> [aks\_fqdn](#output\_aks\_fqdn) | FQDN of the AKS cluster |
-| <a name="output_azure_tenant_id"></a> [azure\_tenant\_id](#output\_azure\_tenant\_id) | Azure AD Tenant ID |
 | <a name="output_camunda_database_identity"></a> [camunda\_database\_identity](#output\_camunda\_database\_identity) | n/a |
 | <a name="output_camunda_database_keycloak"></a> [camunda\_database\_keycloak](#output\_camunda\_database\_keycloak) | n/a |
 | <a name="output_camunda_database_webmodeler"></a> [camunda\_database\_webmodeler](#output\_camunda\_database\_webmodeler) | n/a |
@@ -74,26 +62,8 @@
 | <a name="output_camunda_keycloak_db_username"></a> [camunda\_keycloak\_db\_username](#output\_camunda\_keycloak\_db\_username) | n/a |
 | <a name="output_camunda_webmodeler_db_password"></a> [camunda\_webmodeler\_db\_password](#output\_camunda\_webmodeler\_db\_password) | n/a |
 | <a name="output_camunda_webmodeler_db_username"></a> [camunda\_webmodeler\_db\_username](#output\_camunda\_webmodeler\_db\_username) | n/a |
-| <a name="output_console_audience"></a> [console\_audience](#output\_console\_audience) | Console Application ID URI |
-| <a name="output_console_client_id"></a> [console\_client\_id](#output\_console\_client\_id) | Console Application (client) ID |
-| <a name="output_domain_name"></a> [domain\_name](#output\_domain\_name) | Domain name for Camunda deployment |
-| <a name="output_identity_audience"></a> [identity\_audience](#output\_identity\_audience) | Identity Application ID URI |
-| <a name="output_identity_client_id"></a> [identity\_client\_id](#output\_identity\_client\_id) | Identity Application (client) ID |
-| <a name="output_identity_client_secret"></a> [identity\_client\_secret](#output\_identity\_client\_secret) | Identity Client Secret |
-| <a name="output_identity_initial_user_email"></a> [identity\_initial\_user\_email](#output\_identity\_initial\_user\_email) | Email of the initial admin user for Identity |
-| <a name="output_optimize_audience"></a> [optimize\_audience](#output\_optimize\_audience) | Optimize Application ID URI |
-| <a name="output_optimize_client_id"></a> [optimize\_client\_id](#output\_optimize\_client\_id) | Optimize Application (client) ID |
-| <a name="output_optimize_client_secret"></a> [optimize\_client\_secret](#output\_optimize\_client\_secret) | Optimize Client Secret |
-| <a name="output_orchestration_audience"></a> [orchestration\_audience](#output\_orchestration\_audience) | Orchestration Cluster Application ID URI |
-| <a name="output_orchestration_client_id"></a> [orchestration\_client\_id](#output\_orchestration\_client\_id) | Orchestration Cluster Application (client) ID |
-| <a name="output_orchestration_client_secret"></a> [orchestration\_client\_secret](#output\_orchestration\_client\_secret) | Orchestration Cluster Client Secret |
 | <a name="output_postgres_admin_password"></a> [postgres\_admin\_password](#output\_postgres\_admin\_password) | PostgreSQL admin password |
 | <a name="output_postgres_admin_username"></a> [postgres\_admin\_username](#output\_postgres\_admin\_username) | PostgreSQL admin user |
 | <a name="output_postgres_fqdn"></a> [postgres\_fqdn](#output\_postgres\_fqdn) | The fully qualified domain name of the PostgreSQL Flexible Server |
 | <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name) | Name of the resource group |
-| <a name="output_webmodeler_api_audience"></a> [webmodeler\_api\_audience](#output\_webmodeler\_api\_audience) | WebModeler API Application ID URI |
-| <a name="output_webmodeler_api_client_id"></a> [webmodeler\_api\_client\_id](#output\_webmodeler\_api\_client\_id) | WebModeler API Application (client) ID |
-| <a name="output_webmodeler_api_client_secret"></a> [webmodeler\_api\_client\_secret](#output\_webmodeler\_api\_client\_secret) | WebModeler API Client Secret |
-| <a name="output_webmodeler_ui_audience"></a> [webmodeler\_ui\_audience](#output\_webmodeler\_ui\_audience) | WebModeler UI Application ID URI |
-| <a name="output_webmodeler_ui_client_id"></a> [webmodeler\_ui\_client\_id](#output\_webmodeler\_ui\_client\_id) | WebModeler UI Application (client) ID |
 <!-- END_TF_DOCS -->
