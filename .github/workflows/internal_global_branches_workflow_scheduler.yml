@@ -163,6 +163,9 @@ jobs:
 
                     # remove all comments in the file as yamlfmt may conflict with yamllint
                     yq -i '... comments=""' "$workflow_file"
+
+                    # Add a comment with the schedule trigger timestamp to ensure the PR is triggered
+                    echo -e "\n# Scheduled trigger: $(date -u +%Y-%m-%dT%H:%M:%SZ) - ${{ matrix.schedule.name }}" >> "$workflow_file"
                   done
 
             - name: Reformat yaml after yq files using pre-commit
