@@ -187,6 +187,19 @@ jobs:
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
+            - name: Set Cognito deployment flag
+              id: cognito-config
+              run: |
+                  # Cognito is deployed when the scenario enables it
+                  DEPLOY_COGNITO="${{ matrix.scenario.cognito_enabled || 'false' }}"
+                  echo "deploy-cognito=$DEPLOY_COGNITO" | tee -a "$GITHUB_OUTPUT"
+
+                  # Generate domain name for Cognito callbacks
+                  if [[ "$DEPLOY_COGNITO" == "true" ]]; then
+                      COGNITO_DOMAIN="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
+                      echo "domain-name=$COGNITO_DOMAIN" | tee -a "$GITHUB_OUTPUT"
+                  fi
+
             - name: Create K8S cluster and login
               uses: ./.github/actions/aws-kubernetes-eks-single-region-create
               id: create_cluster
@@ -203,6 +216,9 @@ jobs:
                   ref-arch: ${{ matrix.scenario.name }}
                   private-vpc: ${{ matrix.scenario.private_vpc }}
                   vpn-enabled: ${{ matrix.scenario.private_vpc }}
+                  deploy-cognito: ${{ steps.cognito-config.outputs.deploy-cognito }}
+                  domain-name: ${{ steps.cognito-config.outputs.domain-name }}
+                  admin-email: ${{ env.MAIL_OVERWRITE }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -252,6 +268,12 @@ jobs:
 
                   if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
                       export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh ${{ runner.temp }}/outputs_raw
+                  fi
+
+                  # Export Cognito variables if enabled
+                  if [[ "${{ matrix.scenario.cognito_enabled }}" == "true" ]]; then
+                      echo "Exporting Cognito configuration..."
+                      export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-cognito.sh ${{ runner.temp }}/outputs_raw
                   fi
 
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
@@ -541,7 +563,7 @@ jobs:
                   base-ref: ${{ github.base_ref }}
 
             - name: 🏗️ Ingress Setup prerequisites
-              if: ${{ matrix.declination.name == 'domain' }}
+              if: ${{ matrix.declination.name == 'domain' || matrix.declination.name == 'cognito' }}
               timeout-minutes: 15
               uses: ./.github/actions/aws-kubernetes-ingress-setup
               with:
@@ -580,6 +602,19 @@ jobs:
                     echo "DOMAIN_NAME_GRPC=$DOMAIN_NAME_GRPC" | tee -a "$GITHUB_ENV"
                   fi
 
+                  # Cognito declination requires a domain
+                  if [[ "${{ matrix.declination.name }}" == "cognito" ]]; then
+                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
+                    echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+
+                    export DOMAIN_NAME_GRPC="zeebe-$DOMAIN_NAME:443"
+                    echo "DOMAIN_NAME_GRPC=$DOMAIN_NAME_GRPC" | tee -a "$GITHUB_ENV"
+
+                    # Export WebModeler and Console enabled flags for envsubst
+                    echo "WEBMODELER_ENABLED=$WEBMODELER_ENABLED" >> "$GITHUB_ENV"
+                    echo "CONSOLE_ENABLED=$CONSOLE_ENABLED" >> "$GITHUB_ENV"
+                  fi
+
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
                     echo "Enabling WebModeler"
                     yq -i '.webModeler.enabled = true' values.yml
@@ -590,16 +625,24 @@ jobs:
                     yq -i '.console.enabled = true' values.yml
                   fi
 
-                  # Add integration tests values
-                  if [ "$TESTS_ENABLED" == "true" ]; then
+                  # Add integration tests values (skip for Cognito as it doesn't use Keycloak)
+                  if [ "$TESTS_ENABLED" == "true" ] && [[ "${{ matrix.declination.name }}" != "cognito" ]]; then
                     for file in registry.yml identity.yml; do
                       yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                     done
                   fi
 
+                  # Add registry values for Cognito (without identity.yml which is Keycloak-specific)
+                  if [ "$TESTS_ENABLED" == "true" ] && [[ "${{ matrix.declination.name }}" == "cognito" ]]; then
+                    yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/registry.yml\")" values.yml > values-result.yml
+                    cat values-result.yml && mv values-result.yml values.yml
+                  fi
+
                   # If using wildcard certificate, remove cert-manager annotations from values
-                  if [[ "${{ steps.cert-config.outputs.use-wildcard-cert }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
+                  USE_WILDCARD="${{ steps.cert-config.outputs.use-wildcard-cert }}"
+                  DECL_NAME="${{ matrix.declination.name }}"
+                  if [[ "$USE_WILDCARD" == "true" && ("$DECL_NAME" == "domain" || "$DECL_NAME" == "cognito") ]]; then
                       echo "Removing cert-manager annotations from Helm values (using wildcard certificate)"
                       echo "Using wildcard TLS secret: ${{ env.WILDCARD_TLS_SECRET_NAME }}"
                       yq eval '
@@ -652,7 +695,15 @@ jobs:
                   set -euo pipefail
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
 
-            - name: 🛠️ Configure OpenSearch fine grained access control
+            - name: � Create Cognito secrets
+              if: ${{ matrix.declination.name == 'cognito' }}
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+                  echo "Creating Cognito secrets from AWS Secrets Manager..."
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-cognito-secrets.sh
+
+            - name: �🛠️ Configure OpenSearch fine grained access control
               if: contains(matrix.scenario.name, 'irsa')
               timeout-minutes: 10
               run: |
@@ -688,7 +739,10 @@ jobs:
 
                   source generic/kubernetes/single-region/procedure/generate-passwords.sh
 
-                  ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
+                  # Skip identity secret creation for Cognito (uses different secrets)
+                  if [[ "${{ matrix.declination.name }}" != "cognito" ]]; then
+                    ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
+                  fi
 
                   # Generate tests objects
                   if [ "$TESTS_ENABLED" == "true" ]; then
@@ -699,10 +753,13 @@ jobs:
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                         --namespace="$CAMUNDA_NAMESPACE"
 
-                    kubectl create secret generic identity-secret-for-components-integration \
-                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
-                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-                        --namespace="$CAMUNDA_NAMESPACE"
+                    # Skip Keycloak-based identity secrets for Cognito
+                    if [[ "${{ matrix.declination.name }}" != "cognito" ]]; then
+                      kubectl create secret generic identity-secret-for-components-integration \
+                          --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                          --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+                          --namespace="$CAMUNDA_NAMESPACE"
+                    fi
                   fi
 
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
@@ -749,7 +806,7 @@ jobs:
                   enable-c8sm-irsa-check: ${{ contains(matrix.scenario.name, 'irsa') }}
 
             - name: 🔬🚨 Get failed certificate info
-              if: failure() && matrix.declination.name == 'domain'
+              if: failure() && (matrix.declination.name == 'domain' || matrix.declination.name == 'cognito')
               run: |
                   set -euo pipefail
 
@@ -778,7 +835,7 @@ jobs:
                   kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
 
             - name: 🧹 Cleanup domain specific resources
-              if: always() && matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'true'
+              if: always() && (matrix.declination.name == 'domain' || matrix.declination.name == 'cognito') && env.CLEANUP_CLUSTERS == 'true'
               uses: ./.github/actions/kubernetes-ingress-cleanup
               timeout-minutes: 10
               with:
