@@ -1,0 +1,52 @@
+---
+# Helm values for Keycloak Operator with Domain
+# Based on: operator-based/keycloak/camunda-keycloak-domain-values.yml
+# Required env vars:
+#   CAMUNDA_DOMAIN
+# Usage: envsubst < helm-values-keycloak-domain.yml > values-keycloak.yaml
+#        helm upgrade camunda camunda/camunda-platform --reuse-values -f values-keycloak.yaml
+
+global:
+    security:
+        authentication:
+            method: oidc
+
+    # Identity configuration for authentication
+    identity:
+        auth:
+            enabled: true
+            type: KEYCLOAK
+            issuerBackendUrl: http://keycloak-service:8080/auth/realms/camunda-platform
+            issuer: https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform
+            publicIssuerUrl: https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform
+
+        # Keycloak configuration for external instance
+        keycloak:
+            # For external Keycloak managed by operator
+            internal: false
+            url:
+                protocol: http
+                host: keycloak-service
+                port: '8080'
+            contextPath: /auth
+            realm: /realms/camunda-platform
+            auth:
+                # For operator-managed Keycloak, use the generated admin secret
+                existingSecret: keycloak-initial-admin
+                existingSecretKey: password
+                adminUser: temp-admin
+
+orchestration:
+    security:
+        authentication:
+            oidc:
+                redirectUrl: https://${CAMUNDA_DOMAIN}
+
+# Disable Bitnami Keycloak
+identityKeycloak:
+    enabled: false
+
+identity:
+    enabled: true
+    contextPath: /managementidentity
+    fullURL: https://${CAMUNDA_DOMAIN}/managementidentity

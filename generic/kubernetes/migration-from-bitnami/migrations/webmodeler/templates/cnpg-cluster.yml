@@ -1,0 +1,32 @@
+---
+# CloudNativePG Cluster for WebModeler
+# Based on: operator-based/postgresql/postgresql-clusters.yml
+# Required env vars:
+#   NAMESPACE, CNPG_CLUSTER_NAME, PG_IMAGE
+#   PG_DATABASE, PG_USERNAME, PG_REPLICAS, PG_STORAGE_SIZE
+# Usage: envsubst < cnpg-cluster.yml | kubectl apply -f -
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+    name: ${CNPG_CLUSTER_NAME}
+    namespace: ${NAMESPACE}
+    labels:
+        app: webmodeler-migration
+        migration.camunda.io/component: postgresql
+spec:
+    instances: ${PG_REPLICAS}
+    description: PostgreSQL cluster for Webmodeler (migrated)
+    imageName: ${PG_IMAGE}
+    superuserSecret:
+        name: ${CNPG_CLUSTER_NAME}-superuser-secret
+    # OpenShift Security Context - let SCC manage the security context
+    seccompProfile:
+        type: RuntimeDefault
+    bootstrap:
+        initdb:
+            database: ${PG_DATABASE}
+            owner: ${PG_USERNAME}
+            secret:
+                name: ${CNPG_CLUSTER_NAME}-secret
+    storage:
+        size: ${PG_STORAGE_SIZE}
