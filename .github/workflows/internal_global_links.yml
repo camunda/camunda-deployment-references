@@ -20,6 +20,21 @@ jobs:
         steps:
             - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
+            - name: Debug variables
+              env:
+                  HEAD_REF: ${{ github.head_ref }}
+                  EVENT_NAME: ${{ github.event_name }}
+                  CONTAINS_SCHEDULES: ${{ contains(github.head_ref, 'schedules/') }}
+                  IS_SCHEDULE_EVENT: ${{ github.event_name == 'schedule' }}
+              run: |
+                  echo "=== DEBUG INFO ==="
+                  echo "github.head_ref: $HEAD_REF"
+                  echo "github.event_name: $EVENT_NAME"
+                  echo "IS_SCHEDULE (env): ${{ env.IS_SCHEDULE }}"
+                  echo "contains(github.head_ref, 'schedules/'): $CONTAINS_SCHEDULES"
+                  echo "github.event_name == 'schedule': $IS_SCHEDULE_EVENT"
+                  echo "==================="
+
             - name: Get Current Date
               id: dateofday
               run: echo "DATEOFDAY=$(date +%Y-%m-%d)" >> "$GITHUB_ENV"
