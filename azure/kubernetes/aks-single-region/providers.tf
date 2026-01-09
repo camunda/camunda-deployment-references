@@ -6,10 +6,6 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.19"
     }
-    azuread = {
-      source  = "hashicorp/azuread"
-      version = "~> 3.0"
-    }
   }
 }
 
@@ -18,8 +14,4 @@ provider "azurerm" {
   resource_provider_registrations = "none"
   subscription_id                 = var.subscription_id
 
-}
-
-provider "azuread" {
-  # Configuration will use environment variables or Azure CLI authentication
 }

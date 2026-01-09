@@ -1,19 +1,19 @@
 #!/bin/bash
-# Create secrets for external database credentials (PostgreSQL only, no Keycloak)
 
-set -euo pipefail
-
-CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
+# create a secret to reference external database credentials if you use it
+kubectl create secret generic identity-keycloak-secret \
+  --namespace camunda \
+  --from-literal=host="$DB_HOST" \
+  --from-literal=user="$DB_KEYCLOAK_USERNAME" \
+  --from-literal=password="$DB_KEYCLOAK_PASSWORD" \
+  --from-literal=database="$DB_KEYCLOAK_NAME" \
+  --from-literal=port="$DB_PORT"
 
 # create a secret to reference external Postgres for each component of Camunda 8
 kubectl create secret generic identity-postgres-secret \
-  --namespace "$CAMUNDA_NAMESPACE" \
-  --from-literal=password="$DB_IDENTITY_PASSWORD" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --namespace camunda \
+  --from-literal=password="$DB_IDENTITY_PASSWORD"
 
 kubectl create secret generic webmodeler-postgres-secret \
-  --namespace "$CAMUNDA_NAMESPACE" \
-  --from-literal=password="$DB_WEBMODELER_PASSWORD" \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-echo "Database secrets created successfully!"
+  --namespace camunda \
+  --from-literal=password="$DB_WEBMODELER_PASSWORD"

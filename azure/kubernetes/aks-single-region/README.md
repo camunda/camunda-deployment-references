@@ -1,128 +1,5 @@
 # aks
 
-> **Note**: This reference architecture uses:
-> - **EntraID** for authentication (instead of Keycloak) - **automatically configured via Terraform**
-> - **ECK Operator** for Elasticsearch management
-> - **External PostgreSQL** for Identity and WebModeler databases
-
-## Prerequisites
-
-### Azure Credentials
-
-You need Azure credentials with permissions to:
-- Create resource groups, networks, AKS clusters, and PostgreSQL databases
-- Create Azure AD / EntraID application registrations
-
-Set these environment variables:
-```bash
-export ARM_CLIENT_ID="your-client-id"
-export ARM_CLIENT_SECRET="your-client-secret"
-export ARM_SUBSCRIPTION_ID="your-subscription-id"
-export ARM_TENANT_ID="your-tenant-id"
-```
-
-## Deployment Steps
-
-### 1. Deploy Infrastructure with EntraID Configuration
-
-Terraform will automatically create:
-- AKS cluster and networking
-- PostgreSQL database
-- **EntraID application registrations** for all Camunda components
-
-```bash
-# Initialize Terraform
-terraform init
-
-# Optional: Set domain name for production deployment
-# Leave empty for localhost/port-forwarding setup
-cat > terraform.tfvars <<EOF
-subscription_id = "your-subscription-id"
-terraform_sp_app_id = "your-terraform-sp-app-id"
-domain_name = "camunda.yourdomain.com"  # or leave as "" for localhost
-enable_webmodeler = false  # set to true if you want WebModeler
-EOF
-
-# Deploy infrastructure
-terraform apply
-```
-
-### 2. Export Database Variables
-
-```bash
-cd procedure
-source ./vars-create-db.sh
-```
-
-### 3. Create Database
-
-```bash
-./create-setup-db-secret.sh
-kubectl apply -f ../manifests/setup-postgres-create-db.yml -n camunda
-```
-
-### 4. Deploy Elasticsearch (ECK Operator)
-
-```bash
-./deploy-elasticsearch.sh
-```
-
-### 5. Export EntraID Variables and Create Secrets
-
-```bash
-# Export EntraID credentials from Terraform
-source ./export-entraid-vars.sh
-
-# Create database secrets
-./create-external-db-secrets.sh
-
-# Create EntraID secrets (optional, values are used directly in helm via env vars)
-./create-entraid-secrets.sh
-```
-
-### 6. Deploy Camunda
-
-```bash
-# Get domain name from terraform (if configured)
-export DOMAIN_NAME=$(terraform output -raw domain_name 2>/dev/null || echo "")
-
-# Substitute environment variables in helm values
-if [ -n "$DOMAIN_NAME" ]; then
-    # For domain setup
-    envsubst < ../helm-values/values-domain.yml | helm install camunda camunda/camunda-platform \
-      -f - \
-      --namespace camunda
-else
-    # For no-domain setup
-    envsubst < ../helm-values/values-no-domain.yml | helm install camunda camunda/camunda-platform \
-      -f - \
-      --namespace camunda
-fi
-```
-
-## Architecture Notes
-
-### EntraID Integration
-
-Terraform automatically creates the following Azure AD application registrations:
-- **Identity** (`camunda-identity`) - Identity management and admin console
-- **Optimize** (`camunda-optimize`) - Process optimization and analytics
-- **Operate** (`camunda-operate`) - Process instance management
-- **Tasklist** (`camunda-tasklist`) - User task management
-- **Console** (`camunda-console`) - Management console
-- **WebModeler** (`camunda-webmodeler`) - Optional, if `enable_webmodeler = true`
-
-Each application is configured with:
-- Proper redirect URIs (domain-based or localhost)
-- Client secrets stored in Terraform state
-- Microsoft Graph API permissions (User.Read)
-
-### Security Considerations
-
-- **Client Secrets**: Stored in Terraform state - ensure state is encrypted and access-controlled
-- **Outputs**: Sensitive values are marked as sensitive in Terraform
-- **Kubernetes Secrets**: EntraID credentials can be stored in k8s secrets or passed via environment variables
-
 <!-- BEGIN_TF_DOCS -->
 ## Modules
 
@@ -161,9 +38,6 @@ Each application is configured with:
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Optional override for the AKS cluster name | `string` | `""` | no |
 | <a name="input_db_subnet_address_prefix"></a> [db\_subnet\_address\_prefix](#input\_db\_subnet\_address\_prefix) | Address prefix for the database subnet | `list(string)` | <pre>[<br/>  "10.1.1.0/24"<br/>]</pre> | no |
 | <a name="input_dns_zone_id"></a> [dns\_zone\_id](#input\_dns\_zone\_id) | Azure Resource ID of the shared DNS zone | `string` | `null` | no |
-| <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | Domain name for Camunda deployment (leave empty for localhost/port-forwarding setup) | `string` | `""` | no |
-| <a name="input_enable_webmodeler"></a> [enable\_webmodeler](#input\_enable\_webmodeler) | Enable WebModeler component and create EntraID app registration | `bool` | `false` | no |
-| <a name="input_identity_initial_user_email"></a> [identity\_initial\_user\_email](#input\_identity\_initial\_user\_email) | Email address of the initial admin user for Identity (must match preferred\_username claim in EntraID) | `string` | `"admin@example.com"` | no |
 | <a name="input_pe_subnet_address_prefix"></a> [pe\_subnet\_address\_prefix](#input\_pe\_subnet\_address\_prefix) | Address prefix for the private endpoint subnet | `list(string)` | <pre>[<br/>  "10.1.2.0/24"<br/>]</pre> | no |
 | <a name="input_postgres_backup_retention_days"></a> [postgres\_backup\_retention\_days](#input\_postgres\_backup\_retention\_days) | Backup retention days for PostgreSQL | `number` | `7` | no |
 | <a name="input_postgres_enable_geo_redundant_backup"></a> [postgres\_enable\_geo\_redundant\_backup](#input\_postgres\_enable\_geo\_redundant\_backup) | Enable geo-redundant backup for PostgreSQL | `bool` | `true` | no |
@@ -192,9 +66,12 @@ Each application is configured with:
 | <a name="output_aks_fqdn"></a> [aks\_fqdn](#output\_aks\_fqdn) | FQDN of the AKS cluster |
 | <a name="output_azure_tenant_id"></a> [azure\_tenant\_id](#output\_azure\_tenant\_id) | Azure AD Tenant ID |
 | <a name="output_camunda_database_identity"></a> [camunda\_database\_identity](#output\_camunda\_database\_identity) | n/a |
+| <a name="output_camunda_database_keycloak"></a> [camunda\_database\_keycloak](#output\_camunda\_database\_keycloak) | n/a |
 | <a name="output_camunda_database_webmodeler"></a> [camunda\_database\_webmodeler](#output\_camunda\_database\_webmodeler) | n/a |
 | <a name="output_camunda_identity_db_password"></a> [camunda\_identity\_db\_password](#output\_camunda\_identity\_db\_password) | n/a |
 | <a name="output_camunda_identity_db_username"></a> [camunda\_identity\_db\_username](#output\_camunda\_identity\_db\_username) | n/a |
+| <a name="output_camunda_keycloak_db_password"></a> [camunda\_keycloak\_db\_password](#output\_camunda\_keycloak\_db\_password) | n/a |
+| <a name="output_camunda_keycloak_db_username"></a> [camunda\_keycloak\_db\_username](#output\_camunda\_keycloak\_db\_username) | n/a |
 | <a name="output_camunda_webmodeler_db_password"></a> [camunda\_webmodeler\_db\_password](#output\_camunda\_webmodeler\_db\_password) | n/a |
 | <a name="output_camunda_webmodeler_db_username"></a> [camunda\_webmodeler\_db\_username](#output\_camunda\_webmodeler\_db\_username) | n/a |
 | <a name="output_console_audience"></a> [console\_audience](#output\_console\_audience) | Console Application ID URI |

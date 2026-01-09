@@ -2,56 +2,6 @@
 global:
     elasticsearch:
         enabled: true
-        external: true
-        # URL configuration for ECK operator
-        url:
-            protocol: http
-            host: elasticsearch-es-http
-            port: 9200
-        # Authentication using ECK-generated secret
-        auth:
-            username: elastic
-            secret:
-                existingSecret: elasticsearch-es-elastic-user
-                existingSecretKey: elastic
-
-    identity:
-        auth:
-            enabled: true
-            issuer: https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0
-            issuerBackendUrl: https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0
-            authUrl: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/authorize
-            tokenUrl: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token
-            jwksUrl: https://login.microsoftonline.com/${AZURE_TENANT_ID}/discovery/v2.0/keys
-            type: MICROSOFT
-
-            identity:
-                clientId: ${IDENTITY_CLIENT_ID}
-                audience: ${IDENTITY_AUDIENCE}
-                initialClaimName: preferred_username
-                initialClaimValue: ${IDENTITY_INITIAL_USER_EMAIL}
-                secret:
-                    existingSecret: entra-credentials
-                    existingSecretKey: identity-client-secret
-
-            optimize:
-                clientId: ${OPTIMIZE_CLIENT_ID}
-                audience: ${OPTIMIZE_AUDIENCE}
-                redirectUrl: https://${DOMAIN_NAME}
-                secret:
-                    existingSecret: entra-credentials
-                    existingSecretKey: optimize-client-secret
-
-            webModeler:
-                clientId: ${WEBMODELER_UI_CLIENT_ID}
-                clientApiAudience: ${WEBMODELER_UI_AUDIENCE}
-                publicApiAudience: ${WEBMODELER_API_AUDIENCE}
-                redirectUrl: https://${DOMAIN_NAME}
-
-            console:
-                clientId: ${CONSOLE_CLIENT_ID}
-                audience: ${CONSOLE_AUDIENCE}
-                redirectUrl: https://${DOMAIN_NAME}/
 
     ingress:
         enabled: true
@@ -66,63 +16,67 @@ global:
         authentication:
             method: oidc
 
-orchestration:
-    contextPath: /
-
-    security:
-        authentication:
-            oidc:
-                clientId: ${ORCHESTRATION_CLIENT_ID}
-                audience: ${ORCHESTRATION_AUDIENCE}
-                usernameClaim: preferred_username
-                clientIdClaim: azp
-                preferUsernameClaim: true
-                redirectUrl: https://${DOMAIN_NAME}
-                scope:
-                    - openid
-                    - profile
-                    - offline_access
-                    - ${ORCHESTRATION_AUDIENCE}/.default
-                secret:
-                    existingSecret: entra-credentials
-                    existingSecretKey: orchestration-cluster-client-secret
-
-    initialization:
-        defaultRoles:
-            admin:
-                users:
-                    - ${IDENTITY_INITIAL_USER_EMAIL}
-            connectors:
-                clients:
-                    - ${ORCHESTRATION_CLIENT_ID}
-
-    ingress:
-        grpc:
+    identity:
+        auth:
             enabled: true
-            host: zeebe-${DOMAIN_NAME}
-            tls:
-                enabled: true
-                secretName: zeebe-c8-tls-grpc
-            annotations:
-                kubernetes.io/tls-acme: 'true'
+            type: KEYCLOAK
+            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
 
-connectors:
-    contextPath: /connectors
-
-    security:
-        authentication:
-            oidc:
-                clientId: ${ORCHESTRATION_CLIENT_ID}
-                audience: ${ORCHESTRATION_AUDIENCE}
-                tokenScope: ${ORCHESTRATION_AUDIENCE}/.default
+            admin:
                 secret:
-                    existingSecret: entra-credentials
-                    existingSecretKey: orchestration-cluster-client-secret
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-admin-client-token
+
+            identity:
+                redirectUrl: https://${DOMAIN_NAME}/managementidentity
+
+            optimize:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-optimize-client-token
+                redirectUrl: https://${DOMAIN_NAME}/optimize
+
+            webModeler:
+                redirectUrl: https://${DOMAIN_NAME}/modeler
+
+            console:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-console-client-token
+                redirectUrl: https://${DOMAIN_NAME}/console
+
+identityKeycloak:
+    enabled: true
+    postgresql:
+        enabled: false
+    externalDatabase:
+        # see https://artifacthub.io/packages/helm/bitnami/keycloak
+        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
+        existingSecretHostKey: host
+        existingSecretPortKey: port
+        existingSecretUserKey: user
+        existingSecretDatabaseKey: database
+        existingSecretPasswordKey: password
+
+    auth:
+        existingSecret: identity-secret-for-components
+        passwordSecretKey: identity-admin-client-token
+
 
 identity:
     enabled: true
     contextPath: /managementidentity
     fullURL: https://${DOMAIN_NAME}/managementidentity
+
+    firstUser:
+        enabled: true
+        username: admin
+        email: admin@camunda.local
+        firstName: Admin
+        lastName: User
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: identity-first-user-password
 
     externalDatabase:
         enabled: true
@@ -134,15 +88,16 @@ identity:
             existingSecret: identity-postgres-secret
             existingSecretPasswordKey: password
 
-identityKeycloak:
-    enabled: false
+connectors:
+    contextPath: /connectors
 
-identityPostgresql:
-    enabled: false
-
-optimize:
-    enabled: true
-    contextPath: /optimize
+    # Configure OIDC for connectors
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-connectors-client-token
 
 webModeler:
     enabled: false
@@ -158,13 +113,44 @@ webModeler:
                 existingSecretKey: password
 
         mail:
-            fromAddress: noreply@example.com
+            secret:
+                existingSecret: identity-secret-for-components
+                existingSecretKey: smtp-password
+            fromAddress: changeme@example.com
+
 
 webModelerPostgresql:
     enabled: false
 
+optimize:
+    enabled: true
+    contextPath: /optimize
+
+orchestration:
+    contextPath: /
+
+    # Configure OIDC for orchestration
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-orchestration-client-token
+                redirectUrl: https://${DOMAIN_NAME}
+
+    ingress:
+        grpc:
+            enabled: true
+            host: zeebe-${DOMAIN_NAME}
+            tls:
+                enabled: true
+                secretName: zeebe-c8-tls-grpc
+            annotations:
+                kubernetes.io/tls-acme: 'true'
+
 console:
-    enabled: false
+    enabled: false # by default, console is not enabled
+    contextPath: /console
 
 elasticsearch:
-    enabled: false
+    enabled: true

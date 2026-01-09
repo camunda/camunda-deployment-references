@@ -171,22 +171,3 @@ variable "dns_zone_id" {
   type        = string
   default     = null
 }
-
-# EntraID Configuration
-variable "domain_name" {
-  description = "Domain name for Camunda deployment (leave empty for localhost/port-forwarding setup)"
-  type        = string
-  default     = ""
-}
-
-variable "enable_webmodeler" {
-  description = "Enable WebModeler component and create EntraID app registration"
-  type        = bool
-  default     = false
-}
-
-variable "identity_initial_user_email" {
-  description = "Email address of the initial admin user for Identity (must match preferred_username claim in EntraID)"
-  type        = string
-  default     = "admin@example.com"
-}

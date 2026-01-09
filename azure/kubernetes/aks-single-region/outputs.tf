@@ -20,6 +20,19 @@ output "aks_cluster_name" {
 
 ## output locals to be able to retriave all at once for DB setup, preventing lock storm
 
+output "camunda_database_keycloak" {
+  value = local.camunda_database_keycloak
+}
+
+output "camunda_keycloak_db_username" {
+  value = local.camunda_keycloak_db_username
+}
+
+output "camunda_keycloak_db_password" {
+  value     = local.camunda_keycloak_db_password
+  sensitive = true
+}
+
 output "camunda_database_identity" {
   value = local.camunda_database_identity
 }

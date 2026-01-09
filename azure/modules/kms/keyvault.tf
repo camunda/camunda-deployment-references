@@ -8,7 +8,7 @@ resource "azurerm_key_vault" "this" {
   enabled_for_template_deployment = true
   tags                            = var.tags
 
-  rbac_authorization_enabled = true
+  enable_rbac_authorization = true
 
   network_acls {
     default_action = "Allow"

@@ -257,6 +257,9 @@ jobs:
                     echo "DB_PORT=$DB_PORT"
                     echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME"
                     echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD"
+                    echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
+                    echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
+                    echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
                     echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME"
                     echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME"
                     echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD"
@@ -588,45 +591,6 @@ jobs:
               run: |
                   set -euo pipefail
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
-
-            - name: 🔐 Export EntraID credentials from Terraform
-              timeout-minutes: 5
-              run: |
-                  set -euo pipefail
-
-                  cd ./azure/kubernetes/${{ matrix.scenario.name }}/terraform
-
-                  # Export EntraID credentials from Terraform outputs
-                  source ../procedure/export-entraid-vars.sh
-
-                  # Make credentials available to subsequent steps
-                  {
-                    echo "AZURE_TENANT_ID=$AZURE_TENANT_ID"
-                    echo "IDENTITY_CLIENT_ID=$IDENTITY_CLIENT_ID"
-                    echo "IDENTITY_CLIENT_SECRET=$IDENTITY_CLIENT_SECRET"
-                    echo "IDENTITY_AUDIENCE=$IDENTITY_AUDIENCE"
-                    echo "ORCHESTRATION_CLUSTER_CLIENT_ID=$ORCHESTRATION_CLUSTER_CLIENT_ID"
-                    echo "ORCHESTRATION_CLUSTER_CLIENT_SECRET=$ORCHESTRATION_CLUSTER_CLIENT_SECRET"
-                    echo "ORCHESTRATION_CLUSTER_AUDIENCE=$ORCHESTRATION_CLUSTER_AUDIENCE"
-                    echo "OPTIMIZE_CLIENT_ID=$OPTIMIZE_CLIENT_ID"
-                    echo "OPTIMIZE_CLIENT_SECRET=$OPTIMIZE_CLIENT_SECRET"
-                    echo "OPTIMIZE_AUDIENCE=$OPTIMIZE_AUDIENCE"
-                    echo "CONSOLE_CLIENT_ID=$CONSOLE_CLIENT_ID"
-                    echo "CONSOLE_AUDIENCE=$CONSOLE_AUDIENCE"
-                    echo "WEBMODELER_UI_CLIENT_ID=$WEBMODELER_UI_CLIENT_ID"
-                    echo "WEBMODELER_UI_AUDIENCE=$WEBMODELER_UI_AUDIENCE"
-                    echo "WEBMODELER_API_CLIENT_ID=$WEBMODELER_API_CLIENT_ID"
-                    echo "WEBMODELER_API_CLIENT_SECRET=$WEBMODELER_API_CLIENT_SECRET"
-                    echo "WEBMODELER_API_AUDIENCE=$WEBMODELER_API_AUDIENCE"
-                  } | tee -a "$GITHUB_ENV"
-
-                  cd "${{ github.workspace }}"
-
-            - name: 🔐 Create EntraID Kubernetes secret
-              timeout-minutes: 5
-              run: |
-                  set -euo pipefail
-                  ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-entraid-secrets.sh
 
             - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
               timeout-minutes: 10
