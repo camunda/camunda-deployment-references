@@ -2,10 +2,9 @@
 name: Internal - Global - Check external links
 
 on:
-    push:
     workflow_dispatch:
     schedule:
-        - cron: 0 3 1 * *
+        - cron: 0 3 * * *
     pull_request:
         paths:
             - .github/workflows/internal_global_links.yml
