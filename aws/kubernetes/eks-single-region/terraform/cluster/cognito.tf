@@ -301,7 +301,7 @@ resource "aws_cognito_user_pool_client" "console" {
   refresh_token_validity = 30
 }
 
-# Connectors App Client
+# Connectors App Client (Machine-to-Machine only)
 resource "aws_cognito_user_pool_client" "connectors" {
   count        = var.enable_cognito ? 1 : 0
   name         = "${local.cognito_resource_prefix}-connectors"
@@ -310,18 +310,15 @@ resource "aws_cognito_user_pool_client" "connectors" {
   generate_secret = true
 
   allowed_oauth_flows_user_pool_client = true
-  allowed_oauth_flows                  = ["code", "client_credentials"]
+  allowed_oauth_flows                  = ["client_credentials"]
   allowed_oauth_scopes = [
-    "email", "openid", "profile",
     "${aws_cognito_resource_server.camunda[0].identifier}/connectors"
   ]
 
   supported_identity_providers = ["COGNITO"]
 
-  explicit_auth_flows = [
-    "ALLOW_REFRESH_TOKEN_AUTH",
-    "ALLOW_USER_SRP_AUTH"
-  ]
+  # No user auth flows needed for M2M client
+  explicit_auth_flows = []
 
   token_validity_units {
     access_token  = "hours"
