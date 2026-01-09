@@ -16,11 +16,11 @@ resource "azuread_application" "identity" {
     redirect_uris = var.domain_name != "" ? [
       "https://${var.domain_name}/auth/login-callback"
     ] : ["http://localhost:8084/auth/login-callback"]
+  }
 
-    implicit_grant {
-      access_token_issuance_enabled = true
-      id_token_issuance_enabled     = true
-    }
+  implicit_grant {
+    access_token_issuance_enabled = true
+    id_token_issuance_enabled     = true
   }
 
   required_resource_access {
@@ -51,11 +51,11 @@ resource "azuread_application" "optimize" {
     redirect_uris = var.domain_name != "" ? [
       "https://${var.domain_name}/api/authentication/callback"
     ] : ["http://localhost:8083/api/authentication/callback"]
+  }
 
-    implicit_grant {
-      access_token_issuance_enabled = true
-      id_token_issuance_enabled     = true
-    }
+  implicit_grant {
+    access_token_issuance_enabled = true
+    id_token_issuance_enabled     = true
   }
 
   required_resource_access {
@@ -86,11 +86,11 @@ resource "azuread_application" "orchestration" {
     redirect_uris = var.domain_name != "" ? [
       "https://${var.domain_name}/sso-callback"
     ] : ["http://localhost:8080/sso-callback"]
+  }
 
-    implicit_grant {
-      access_token_issuance_enabled = true
-      id_token_issuance_enabled     = true
-    }
+  implicit_grant {
+    access_token_issuance_enabled = true
+    id_token_issuance_enabled     = true
   }
 
   required_resource_access {
@@ -117,7 +117,7 @@ resource "azuread_application" "console" {
     requested_access_token_version = 2
   }
 
-  single_page_application {
+  spa {
     redirect_uris = var.domain_name != "" ? [
       "https://${var.domain_name}/"
     ] : ["http://localhost:8087/"]
@@ -145,7 +145,7 @@ resource "azuread_application" "webmodeler_ui" {
     requested_access_token_version = 2
   }
 
-  single_page_application {
+  spa {
     redirect_uris = var.domain_name != "" ? [
       "https://${var.domain_name}/login-callback"
     ] : ["http://localhost:8070/login-callback"]
