@@ -2,7 +2,6 @@
 name: Internal - Global - Check external links
 
 on:
-    push:
     workflow_dispatch:
     schedule:
         - cron: 0 3 * * *
