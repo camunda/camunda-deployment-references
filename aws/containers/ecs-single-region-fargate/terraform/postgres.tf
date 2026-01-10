@@ -3,7 +3,7 @@ module "postgresql" {
   source = "../../../modules/aurora"
 
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
-  engine_version             = "17.5"
+  engine_version             = "17.7"
   auto_minor_version_upgrade = false
   cluster_name               = "${var.prefix}-camunda-db-cluster"
   default_database_name      = var.db_name
