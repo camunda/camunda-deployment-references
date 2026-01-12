@@ -100,7 +100,7 @@ WEBMODELER_API_CLIENT_SECRET=$(echo "$SECRET_JSON" | jq -r '.webmodeler_api_clie
 
 echo "Cognito configuration exported successfully"
 echo "Cognito Issuer URL: $COGNITO_ISSUER_URL"
-echo "Domain Name: $DOMAIN_NAME"
+echo "Domain Name: $COGNITO_DOMAIN_NAME"
 echo "Identity Client ID: $IDENTITY_CLIENT_ID"
 echo "Optimize Client ID: $OPTIMIZE_CLIENT_ID"
 echo "Orchestration Client ID: $ORCHESTRATION_CLIENT_ID"
