@@ -1,0 +1,154 @@
+---
+name: Create Azure EntraID for Testing
+description: Creates a temporary Azure AD app registration for Camunda OIDC testing
+
+inputs:
+    resource-prefix:
+        description: Prefix for EntraID resources
+        required: true
+    domain-name:
+        description: Domain name for Camunda deployment
+        required: true
+    azure-credentials:
+        description: Azure credentials JSON
+        required: true
+    enable-webmodeler:
+        description: Enable Web Modeler component
+        required: false
+        default: 'false'
+    secret-validity-hours:
+        description: Client secret validity in hours
+        required: false
+        default: '168' # 7 days
+    terraform-backend-bucket:
+        description: S3 bucket for Terraform state
+        required: true
+    terraform-backend-region:
+        description: S3 bucket region
+        required: true
+    terraform-backend-key:
+        description: S3 key for Terraform state
+        required: true
+    aws-profile:
+        description: AWS profile to use for S3 backend (must be configured beforehand)
+        required: false
+        default: infex
+
+outputs:
+    tenant-id:
+        description: Azure AD Tenant ID
+        value: ${{ steps.apply.outputs.tenant_id }}
+    client-id:
+        description: Application Client ID
+        value: ${{ steps.apply.outputs.client_id }}
+    issuer-url:
+        description: OIDC Issuer URL
+        value: ${{ steps.apply.outputs.issuer_url }}
+    authorization-url:
+        description: OIDC Authorization URL
+        value: ${{ steps.apply.outputs.authorization_url }}
+    token-url:
+        description: OIDC Token URL
+        value: ${{ steps.apply.outputs.token_url }}
+    jwks-url:
+        description: OIDC JWKS URL
+        value: ${{ steps.apply.outputs.jwks_url }}
+    userinfo-url:
+        description: OIDC UserInfo URL
+        value: ${{ steps.apply.outputs.userinfo_url }}
+    identity-client-secret:
+        description: Identity component client secret
+        value: ${{ steps.apply.outputs.identity_client_secret }}
+    optimize-client-secret:
+        description: Optimize component client secret
+        value: ${{ steps.apply.outputs.optimize_client_secret }}
+    orchestration-client-secret:
+        description: Orchestration component client secret
+        value: ${{ steps.apply.outputs.orchestration_client_secret }}
+    connectors-client-secret:
+        description: Connectors component client secret
+        value: ${{ steps.apply.outputs.connectors_client_secret }}
+    webmodeler-api-client-secret:
+        description: Web Modeler API client secret
+        value: ${{ steps.apply.outputs.webmodeler_api_client_secret }}
+
+runs:
+    using: composite
+    steps:
+        - name: Setup Azure credentials
+          shell: bash
+          run: |
+              echo '${{ inputs.azure-credentials }}' > ${RUNNER_TEMP}/azure-creds.json
+
+              # Extract credentials
+              export ARM_CLIENT_ID=$(jq -r '.clientId' ${RUNNER_TEMP}/azure-creds.json)
+              export ARM_CLIENT_SECRET=$(jq -r '.clientSecret' ${RUNNER_TEMP}/azure-creds.json)
+              export ARM_SUBSCRIPTION_ID=$(jq -r '.subscriptionId' ${RUNNER_TEMP}/azure-creds.json)
+              export ARM_TENANT_ID=$(jq -r '.tenantId' ${RUNNER_TEMP}/azure-creds.json)
+
+              # Export for subsequent steps
+              echo "ARM_CLIENT_ID=${ARM_CLIENT_ID}" >> $GITHUB_ENV
+              echo "ARM_CLIENT_SECRET=${ARM_CLIENT_SECRET}" >> $GITHUB_ENV
+              echo "ARM_SUBSCRIPTION_ID=${ARM_SUBSCRIPTION_ID}" >> $GITHUB_ENV
+              echo "ARM_TENANT_ID=${ARM_TENANT_ID}" >> $GITHUB_ENV
+
+              rm ${RUNNER_TEMP}/azure-creds.json
+
+        - name: Configure Terraform backend
+          shell: bash
+          working-directory: ${{ github.workspace }}/azure/common/entraid-test
+          run: |
+              cat > backend.tf <<EOF
+              terraform {
+                backend "s3" {
+                  bucket  = "${{ inputs.terraform-backend-bucket }}"
+                  key     = "${{ inputs.terraform-backend-key }}"
+                  region  = "${{ inputs.terraform-backend-region }}"
+                  profile = "${{ inputs.aws-profile }}"
+                }
+              }
+              EOF
+
+        - name: Terraform Init
+          shell: bash
+          working-directory: ${{ github.workspace }}/azure/common/entraid-test
+          run: |
+              terraform init -upgrade
+
+        - name: Terraform Plan
+          shell: bash
+          working-directory: ${{ github.workspace }}/azure/common/entraid-test
+          run: |
+              terraform plan \
+                -var="resource_prefix=${{ inputs.resource-prefix }}" \
+                -var="domain_name=${{ inputs.domain-name }}" \
+                -var="enable_webmodeler=${{ inputs.enable-webmodeler }}" \
+                -var="secret_validity_hours=${{ inputs.secret-validity-hours }}" \
+                -var="auto_cleanup_hours=72" \
+                -out=tfplan
+
+        - name: Terraform Apply
+          id: apply
+          shell: bash
+          working-directory: ${{ github.workspace }}/azure/common/entraid-test
+          run: |
+              terraform apply -auto-approve tfplan
+
+              # Export outputs
+              echo "tenant_id=$(terraform output -raw tenant_id)" >> $GITHUB_OUTPUT
+              echo "client_id=$(terraform output -raw client_id)" >> $GITHUB_OUTPUT
+              echo "issuer_url=$(terraform output -raw issuer_url)" >> $GITHUB_OUTPUT
+              echo "authorization_url=$(terraform output -raw authorization_url)" >> $GITHUB_OUTPUT
+              echo "token_url=$(terraform output -raw token_url)" >> $GITHUB_OUTPUT
+              echo "jwks_url=$(terraform output -raw jwks_url)" >> $GITHUB_OUTPUT
+              echo "userinfo_url=$(terraform output -raw userinfo_url)" >> $GITHUB_OUTPUT
+              echo "identity_client_secret=$(terraform output -raw identity_client_secret)" >> $GITHUB_OUTPUT
+              echo "optimize_client_secret=$(terraform output -raw optimize_client_secret)" >> $GITHUB_OUTPUT
+              echo "orchestration_client_secret=$(terraform output -raw orchestration_client_secret)" >> $GITHUB_OUTPUT
+              echo "connectors_client_secret=$(terraform output -raw connectors_client_secret)" >> $GITHUB_OUTPUT
+              echo "webmodeler_api_client_secret=$(terraform output -raw webmodeler_api_client_secret)" >> $GITHUB_OUTPUT
+
+        - name: Save state file location
+          shell: bash
+          run: |
+              echo "EntraID Terraform state: s3://${{ inputs.terraform-backend-bucket }}/${{ inputs.terraform-backend-key }}" >> $GITHUB_STEP_SUMMARY

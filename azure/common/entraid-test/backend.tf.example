@@ -1,0 +1,65 @@
+# Configuration Backend pour EntraID Test Module
+
+Ce fichier sera créé automatiquement par l'action GitHub, mais pour usage local :
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket = "your-terraform-state-bucket"
+    key    = "entraid-test/main/terraform.tfstate"
+    region = "eu-central-1"
+  }
+}
+```
+
+## Usage local (développement)
+
+```bash
+cd azure/common/entraid-test
+
+# Créer le backend
+cat > backend.tf <<EOF
+terraform {
+  backend "s3" {
+    bucket = "tests-ra-aws-rosa-hcp-tf-state-eu-central-1"
+    key    = "entraid-test/dev/terraform.tfstate"
+    region = "eu-central-1"
+  }
+}
+EOF
+
+# Configurer les credentials Azure
+export ARM_CLIENT_ID="your-client-id"
+export ARM_CLIENT_SECRET="your-client-secret"
+export ARM_SUBSCRIPTION_ID="your-subscription-id"
+export ARM_TENANT_ID="your-tenant-id"
+
+# Initialiser
+terraform init
+
+# Planifier
+terraform plan \
+  -var="resource_prefix=camunda-dev-test" \
+  -var="domain_name=camunda-dev.example.com" \
+  -var="enable_webmodeler=true" \
+  -var="secret_validity_hours=24"
+
+# Appliquer
+terraform apply
+
+# Nettoyer après les tests
+terraform destroy
+```
+
+## Outputs utiles
+
+```bash
+# Voir tous les outputs
+terraform output
+
+# Copier la configuration OIDC
+terraform output -json oidc_config | jq
+
+# Récupérer un secret spécifique
+terraform output -raw identity_client_secret
+```

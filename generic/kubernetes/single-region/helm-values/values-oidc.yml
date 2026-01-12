@@ -1,0 +1,73 @@
+---
+# OIDC Overlay Configuration for Camunda Platform
+#
+# This file contains ONLY the OIDC-specific configuration.
+# It should be merged with your base values file using yq:
+#   yq ". *+ load(\"values-oidc.yml\")" values-domain.yml > values.yml
+#
+# Required environment variables (use envsubst before applying):
+#   - OIDC_ISSUER_URL: Your OIDC provider's issuer URL
+#   - OIDC_TOKEN_URL: OAuth2 token endpoint
+#   - OIDC_AUTHORIZATION_URL: OAuth2 authorization endpoint
+#   - OIDC_JWKS_URL: JWKS endpoint for token validation
+#   - OIDC_CLIENT_ID: Client ID for your application
+#   - DOMAIN_NAME: Your domain name for callbacks
+
+global:
+    security:
+        authentication:
+            method: oidc
+
+    identity:
+        auth:
+            enabled: true
+            type: GENERIC
+            issuer: ${OIDC_ISSUER_URL}
+            issuerBackendUrl: ${OIDC_ISSUER_URL}
+            tokenUrl: ${OIDC_TOKEN_URL}
+            jwksUrl: ${OIDC_JWKS_URL}
+            authorizationUrl: ${OIDC_AUTHORIZATION_URL}
+
+            identity:
+                clientId: ${OIDC_CLIENT_ID}
+                audience: ${OIDC_CLIENT_ID}
+                existingSecret: camunda-oidc-identity-secret
+                existingSecretKey: client-secret
+                redirectUrl: https://${DOMAIN_NAME}/auth/login-callback
+
+            optimize:
+                clientId: ${OIDC_CLIENT_ID}
+                audience: ${OIDC_CLIENT_ID}
+                existingSecret: camunda-oidc-optimize-secret
+                existingSecretKey: client-secret
+                redirectUrl: https://${DOMAIN_NAME}/optimize/api/authentication/callback
+
+            orchestration:
+                clientId: ${OIDC_CLIENT_ID}
+                audience: ${OIDC_CLIENT_ID}
+                existingSecret: camunda-oidc-orchestration-secret
+                existingSecretKey: client-secret
+
+            connectors:
+                clientId: ${OIDC_CLIENT_ID}
+                audience: ${OIDC_CLIENT_ID}
+                existingSecret: camunda-oidc-connectors-secret
+                existingSecretKey: client-secret
+
+identity:
+    firstUser:
+        enabled: false
+
+    keycloak:
+        enabled: false
+
+webModeler:
+    restapi:
+        auth:
+            type: GENERIC
+            issuer: ${OIDC_ISSUER_URL}
+            tokenUrl: ${OIDC_TOKEN_URL}
+            jwksUrl: ${OIDC_JWKS_URL}
+            authorizationUrl: ${OIDC_AUTHORIZATION_URL}
+            existingSecret: camunda-oidc-webmodeler-secret
+            existingSecretKey: client-secret

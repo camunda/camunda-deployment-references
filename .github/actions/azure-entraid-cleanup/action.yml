@@ -1,0 +1,78 @@
+---
+name: Cleanup Azure EntraID
+description: Destroys temporary Azure AD app registration created for testing
+
+inputs:
+    azure-credentials:
+        description: Azure credentials JSON
+        required: true
+    terraform-backend-bucket:
+        description: S3 bucket for Terraform state
+        required: true
+    terraform-backend-region:
+        description: S3 bucket region
+        required: true
+    terraform-backend-key:
+        description: S3 key for Terraform state
+        required: true
+    aws-profile:
+        description: AWS profile to use for S3 backend (must be configured beforehand)
+        required: false
+        default: infex
+
+runs:
+    using: composite
+    steps:
+        - name: Setup Azure credentials
+          shell: bash
+          run: |
+              echo '${{ inputs.azure-credentials }}' > ${RUNNER_TEMP}/azure-creds.json
+
+              # Extract credentials
+              export ARM_CLIENT_ID=$(jq -r '.clientId' ${RUNNER_TEMP}/azure-creds.json)
+              export ARM_CLIENT_SECRET=$(jq -r '.clientSecret' ${RUNNER_TEMP}/azure-creds.json)
+              export ARM_SUBSCRIPTION_ID=$(jq -r '.subscriptionId' ${RUNNER_TEMP}/azure-creds.json)
+              export ARM_TENANT_ID=$(jq -r '.tenantId' ${RUNNER_TEMP}/azure-creds.json)
+
+              # Export for subsequent steps
+              echo "ARM_CLIENT_ID=${ARM_CLIENT_ID}" >> $GITHUB_ENV
+              echo "ARM_CLIENT_SECRET=${ARM_CLIENT_SECRET}" >> $GITHUB_ENV
+              echo "ARM_SUBSCRIPTION_ID=${ARM_SUBSCRIPTION_ID}" >> $GITHUB_ENV
+              echo "ARM_TENANT_ID=${ARM_TENANT_ID}" >> $GITHUB_ENV
+
+              rm ${RUNNER_TEMP}/azure-creds.json
+
+        - name: Configure Terraform backend
+          shell: bash
+          working-directory: ${{ github.workspace }}/azure/common/entraid-test
+          run: |
+              cat > backend.tf <<EOF
+              terraform {
+                backend "s3" {
+                  bucket  = "${{ inputs.terraform-backend-bucket }}"
+                  key     = "${{ inputs.terraform-backend-key }}"
+                  region  = "${{ inputs.terraform-backend-region }}"
+                  profile = "${{ inputs.aws-profile }}"
+                }
+              }
+              EOF
+
+        - name: Terraform Init
+          shell: bash
+          working-directory: ${{ github.workspace }}/azure/common/entraid-test
+          run: |
+              terraform init -upgrade
+
+        - name: Terraform Destroy
+          shell: bash
+          working-directory: ${{ github.workspace }}/azure/common/entraid-test
+          run: |
+              terraform destroy -auto-approve
+              echo "✅ EntraID resources destroyed successfully" >> $GITHUB_STEP_SUMMARY
+
+        - name: Cleanup state file
+          shell: bash
+          continue-on-error: true
+          run: |
+              aws s3 rm s3://${{ inputs.terraform-backend-bucket }}/${{ inputs.terraform-backend-key }} --profile ${{ inputs.aws-profile }} || true
+              echo "🗑️ Removed Terraform state file" >> $GITHUB_STEP_SUMMARY

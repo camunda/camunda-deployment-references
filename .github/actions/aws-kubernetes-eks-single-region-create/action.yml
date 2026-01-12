@@ -61,15 +61,6 @@ inputs:
     deploy-opensearch:
         description: Deploy OpenSearch domain
         default: 'true'
-    deploy-cognito:
-        description: Deploy Amazon Cognito for authentication (replaces Keycloak)
-        default: 'false'
-    domain-name:
-        description: Domain name for Cognito callbacks and identity URLs (required when deploy-cognito is true)
-        default: ''
-    admin-email:
-        description: Email for the initial admin user in Cognito
-        default: admin@camunda.local
 
 outputs:
     terraform-state-url-cluster:
@@ -219,24 +210,6 @@ runs:
                       mv opensearch.tf opensearch.tf.disabled
                       echo "OpenSearch resources disabled"
                   fi
-              fi
-
-              # Conditionally configure Cognito
-              if [[ "${{ inputs.deploy-cognito }}" == "true" ]]; then
-                  echo "Configuring Amazon Cognito..."
-                  if [[ -z "${{ inputs.domain-name }}" ]]; then
-                      echo "Error: domain-name is required when deploy-cognito is true"
-                      exit 1
-                  fi
-                  # Enable Cognito in tfvars
-                  cat >> terraform-cluster.tfvars <<EOF
-              enable_cognito = true
-              domain_name = "${{ inputs.domain-name }}"
-              cognito_initial_admin_email = "${{ inputs.admin-email }}"
-              EOF
-                  echo "Cognito enabled with domain: ${{ inputs.domain-name }}"
-              else
-                  echo "Skipping Cognito deployment (using Keycloak)"
               fi
 
               terraform plan -no-color -var-file=terraform-cluster.tfvars -out tf.plan

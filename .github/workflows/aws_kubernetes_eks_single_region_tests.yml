@@ -17,6 +17,8 @@ on:
             - '!aws/kubernetes/eks-single-region/terraform/*/test/golden/**'
             - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
             - .github/actions/aws-kubernetes-eks-single-region-create/**
+            - .github/actions/azure-entraid-create/**
+            - .github/actions/azure-entraid-cleanup/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/aws-generic-terraform-cleanup/**
@@ -132,10 +134,109 @@ jobs:
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
+    prepare-entraid:
+        name: Create EntraID for OIDC tests
+        needs:
+            - clusters-info
+        # Only run for OIDC declination
+        if: contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).declination.*.name), 'oidc')
+        runs-on: ubuntu-latest
+        outputs:
+            tenant-id: ${{ steps.create-entraid.outputs.tenant-id }}
+            client-id: ${{ steps.create-entraid.outputs.client-id }}
+            issuer-url: ${{ steps.create-entraid.outputs.issuer-url }}
+            authorization-url: ${{ steps.create-entraid.outputs.authorization-url }}
+            token-url: ${{ steps.create-entraid.outputs.token-url }}
+            jwks-url: ${{ steps.create-entraid.outputs.jwks-url }}
+            userinfo-url: ${{ steps.create-entraid.outputs.userinfo-url }}
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+                      secret/data/products/infrastructure-experience/ci/azure AZURE_CREDENTIALS;
+
+            - name: Configure AWS credentials for S3 backend
+              run: |
+                  set -euo pipefail
+                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.S3_BUCKET_REGION }} --profile ${{ env.AWS_PROFILE }}
+
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Create Azure EntraID
+              id: create-entraid
+              uses: ./.github/actions/azure-entraid-create
+              with:
+                  resource-prefix: camunda-test-${{ github.run_id }}
+                  domain-name: eks-${{ github.event.pull_request.number || github.run_id }}.${{ env.TLD }}
+                  azure-credentials: ${{ steps.secrets.outputs.AZURE_CREDENTIALS }}
+                  enable-webmodeler: ${{ env.WEBMODELER_ENABLED }}
+                  secret-validity-hours: 168
+                  terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
+                  terraform-backend-key: entraid-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/terraform.tfstate
+
+            - name: Write EntraID secrets to file
+              run: |
+                  cat > ${{ runner.temp }}/entraid_secrets.txt <<EOF
+                  OIDC_TENANT_ID=${{ steps.create-entraid.outputs.tenant-id }}
+                  OIDC_CLIENT_ID=${{ steps.create-entraid.outputs.client-id }}
+                  OIDC_ISSUER_URL=${{ steps.create-entraid.outputs.issuer-url }}
+                  OIDC_AUTHORIZATION_URL=${{ steps.create-entraid.outputs.authorization-url }}
+                  OIDC_TOKEN_URL=${{ steps.create-entraid.outputs.token-url }}
+                  OIDC_JWKS_URL=${{ steps.create-entraid.outputs.jwks-url }}
+                  OIDC_USERINFO_URL=${{ steps.create-entraid.outputs.userinfo-url }}
+                  OIDC_IDENTITY_CLIENT_SECRET=${{ steps.create-entraid.outputs.identity-client-secret }}
+                  OIDC_OPTIMIZE_CLIENT_SECRET=${{ steps.create-entraid.outputs.optimize-client-secret }}
+                  OIDC_ORCHESTRATION_CLIENT_SECRET=${{ steps.create-entraid.outputs.orchestration-client-secret }}
+                  OIDC_CONNECTORS_CLIENT_SECRET=${{ steps.create-entraid.outputs.connectors-client-secret }}
+                  OIDC_WEBMODELER_API_CLIENT_SECRET=${{ steps.create-entraid.outputs.webmodeler-api-client-secret }}
+                  EOF
+
+            - name: Export EntraID secrets and encrypt them
+              id: encrypt_entraid_secrets
+              uses: ./.github/actions/internal-generic-encrypt-export
+              with:
+                  file_path: ${{ runner.temp }}/entraid_secrets.txt
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            # Write for matrix outputs workaround
+            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
+              id: entraid-out
+              with:
+                  matrix-step-name: prepare-entraid
+                  matrix-key: entraid-shared
+                  outputs: |
+                      entraid-secrets-encrypted: ${{ steps.encrypt_entraid_secrets.outputs.encrypted_file_base64 }}
+
     prepare-clusters:
         name: Prepare clusters
         needs:
             - clusters-info
+            - prepare-entraid
+        # Always run, but prepare-entraid may be skipped
+        if: always() && needs.clusters-info.result == 'success'
         strategy:
             fail-fast: false
             matrix:
@@ -187,19 +288,6 @@ jobs:
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
-            - name: Set Cognito deployment flag
-              id: cognito-config
-              run: |
-                  # Cognito is deployed when the scenario enables it
-                  DEPLOY_COGNITO="${{ matrix.scenario.cognito_enabled || 'false' }}"
-                  echo "deploy-cognito=$DEPLOY_COGNITO" | tee -a "$GITHUB_OUTPUT"
-
-                  # Generate domain name for Cognito callbacks
-                  if [[ "$DEPLOY_COGNITO" == "true" ]]; then
-                      COGNITO_DOMAIN="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
-                      echo "domain-name=$COGNITO_DOMAIN" | tee -a "$GITHUB_OUTPUT"
-                  fi
-
             - name: Create K8S cluster and login
               uses: ./.github/actions/aws-kubernetes-eks-single-region-create
               id: create_cluster
@@ -216,9 +304,6 @@ jobs:
                   ref-arch: ${{ matrix.scenario.name }}
                   private-vpc: ${{ matrix.scenario.private_vpc }}
                   vpn-enabled: ${{ matrix.scenario.private_vpc }}
-                  deploy-cognito: ${{ steps.cognito-config.outputs.deploy-cognito }}
-                  domain-name: ${{ steps.cognito-config.outputs.domain-name }}
-                  admin-email: ${{ env.MAIL_OVERWRITE }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -270,12 +355,6 @@ jobs:
                       export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh ${{ runner.temp }}/outputs_raw
                   fi
 
-                  # Export Cognito variables if enabled
-                  if [[ "${{ matrix.scenario.cognito_enabled }}" == "true" ]]; then
-                      echo "Exporting Cognito configuration..."
-                      export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-cognito.sh ${{ runner.temp }}/outputs_raw
-                  fi
-
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
               id: encrypt_outputs
               if: always()
@@ -322,14 +401,41 @@ jobs:
         name: Read outputs from matrix
         runs-on: ubuntu-latest
         if: always()
-        needs: prepare-clusters
+        needs:
+            - prepare-clusters
+            - prepare-entraid
         outputs:
-            config: ${{ steps.read-workflow.outputs.result }}
+            config: ${{ steps.merge-outputs.outputs.result }}
         steps:
             - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
+
+            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+              if: needs.prepare-entraid.result == 'success'
+              id: read-entraid
+              with:
+                  matrix-step-name: prepare-entraid
+
+            - name: Merge cluster and entraid outputs
+              id: merge-outputs
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  CLUSTER_OUTPUTS='${{ steps.read-workflow.outputs.result }}'
+                  ENTRAID_OUTPUTS='${{ steps.read-entraid.outputs.result }}'
+
+                  # If entraid outputs exist, merge them with cluster outputs
+                  if [ -n "$ENTRAID_OUTPUTS" ] && [ "$ENTRAID_OUTPUTS" != "null" ] && [ "$ENTRAID_OUTPUTS" != "{}" ]; then
+                    # Merge the two JSON objects using jq
+                    MERGED=$(echo "$CLUSTER_OUTPUTS" | jq --argjson entraid "$ENTRAID_OUTPUTS" '. * $entraid')
+                    echo "result=$MERGED" >> "$GITHUB_OUTPUT"
+                  else
+                    # Just use cluster outputs
+                    echo "result=$CLUSTER_OUTPUTS" >> "$GITHUB_OUTPUT"
+                  fi
 
     integration-tests:
         name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
@@ -342,6 +448,7 @@ jobs:
             cancel-in-progress: false
         needs:
             - prepare-clusters
+            - prepare-entraid
             - access-info
             - clusters-info
         strategy:
@@ -439,6 +546,29 @@ jobs:
                   while IFS= read -r line; do
                     echo "$line" | tee -a "$GITHUB_ENV"
                   done < "${{ runner.temp }}/outputs_raw"
+
+            - name: 🔐 Retrieve EntraID OIDC credentials (for OIDC declination)
+              if: ${{ matrix.declination.name == 'oidc' && needs.prepare-entraid.result == 'success' }}
+              uses: ./.github/actions/internal-generic-decrypt-import
+              with:
+                  output_path: ${{ runner.temp }}/entraid_secrets
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config)['entraid-secrets-encrypted']['entraid-shared'] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            - name: 🚀 Export EntraID OIDC variables
+              if: ${{ matrix.declination.name == 'oidc' && needs.prepare-entraid.result == 'success' }}
+              timeout-minutes: 1
+              run: |
+                  set -euo pipefail
+
+                  # Export EntraID credentials as environment variables
+                  while IFS= read -r line; do
+                    echo "$line" | tee -a "$GITHUB_ENV"
+                  done < "${{ runner.temp }}/entraid_secrets"
+
+                  # Set domain name for OIDC callbacks
+                  echo "DOMAIN_NAME=eks-${{ github.event.pull_request.number || github.run_id }}.${{ env.TLD }}" | tee -a "$GITHUB_ENV"
 
             - name: 🔐 Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
@@ -563,7 +693,7 @@ jobs:
                   base-ref: ${{ github.base_ref }}
 
             - name: 🏗️ Ingress Setup prerequisites
-              if: ${{ matrix.declination.name == 'domain' || matrix.declination.name == 'cognito' }}
+              if: ${{ matrix.declination.name == 'domain' || matrix.declination.name == 'oidc' }}
               timeout-minutes: 15
               uses: ./.github/actions/aws-kubernetes-ingress-setup
               with:
@@ -592,7 +722,16 @@ jobs:
                   # and apply registry-harbor.yml for all deployments (not just tests).
                   # This should be documented in the procedure for production deployments.
                   # See: azure_kubernetes_aks_single_region_tests.yml for reference implementation.
-                  cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
+
+                  # For OIDC declination, start with domain values and merge OIDC overlay
+                  if [[ "${{ matrix.declination.name }}" == "oidc" ]]; then
+                    cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-domain.yml ./values.yml
+                    # Merge OIDC overlay with yq
+                    yq ". *+ load(\"generic/kubernetes/single-region/helm-values/values-oidc.yml\")" values.yml > values-result.yml
+                    cat values-result.yml && mv values-result.yml values.yml
+                  else
+                    cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
+                  fi
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
                     export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
@@ -602,8 +741,8 @@ jobs:
                     echo "DOMAIN_NAME_GRPC=$DOMAIN_NAME_GRPC" | tee -a "$GITHUB_ENV"
                   fi
 
-                  # Cognito declination requires a domain
-                  if [[ "${{ matrix.declination.name }}" == "cognito" ]]; then
+                  # OIDC declination requires a domain
+                  if [[ "${{ matrix.declination.name }}" == "oidc" ]]; then
                     export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
 
@@ -625,16 +764,16 @@ jobs:
                     yq -i '.console.enabled = true' values.yml
                   fi
 
-                  # Add integration tests values (skip for Cognito as it doesn't use Keycloak)
-                  if [ "$TESTS_ENABLED" == "true" ] && [[ "${{ matrix.declination.name }}" != "cognito" ]]; then
+                  # Add integration tests values (skip for OIDC as it doesn't use Keycloak)
+                  if [ "$TESTS_ENABLED" == "true" ] && [[ "${{ matrix.declination.name }}" != "oidc" ]]; then
                     for file in registry.yml identity.yml; do
                       yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                     done
                   fi
 
-                  # Add registry values for Cognito (without identity.yml which is Keycloak-specific)
-                  if [ "$TESTS_ENABLED" == "true" ] && [[ "${{ matrix.declination.name }}" == "cognito" ]]; then
+                  # Add registry values for OIDC (without identity.yml which is Keycloak-specific)
+                  if [ "$TESTS_ENABLED" == "true" ] && [[ "${{ matrix.declination.name }}" == "oidc" ]]; then
                     yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/registry.yml\")" values.yml > values-result.yml
                     cat values-result.yml && mv values-result.yml values.yml
                   fi
@@ -642,7 +781,7 @@ jobs:
                   # If using wildcard certificate, remove cert-manager annotations from values
                   USE_WILDCARD="${{ steps.cert-config.outputs.use-wildcard-cert }}"
                   DECL_NAME="${{ matrix.declination.name }}"
-                  if [[ "$USE_WILDCARD" == "true" && ("$DECL_NAME" == "domain" || "$DECL_NAME" == "cognito") ]]; then
+                  if [[ "$USE_WILDCARD" == "true" && ("$DECL_NAME" == "domain" || "$DECL_NAME" == "oidc") ]]; then
                       echo "Removing cert-manager annotations from Helm values (using wildcard certificate)"
                       echo "Using wildcard TLS secret: ${{ env.WILDCARD_TLS_SECRET_NAME }}"
                       yq eval '
@@ -695,13 +834,13 @@ jobs:
                   set -euo pipefail
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
 
-            - name: � Create Cognito secrets
-              if: ${{ matrix.declination.name == 'cognito' }}
-              timeout-minutes: 10
+            - name: 🔐 Create OIDC secrets
+              if: ${{ matrix.declination.name == 'oidc' }}
+              timeout-minutes: 2
               run: |
                   set -euo pipefail
-                  echo "Creating Cognito secrets from AWS Secrets Manager..."
-                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-cognito-secrets.sh
+                  echo "Creating OIDC secrets for external identity provider..."
+                  ./generic/kubernetes/single-region/procedure/create-oidc-secrets.sh
 
             - name: �🛠️ Configure OpenSearch fine grained access control
               if: contains(matrix.scenario.name, 'irsa')
@@ -739,8 +878,8 @@ jobs:
 
                   source generic/kubernetes/single-region/procedure/generate-passwords.sh
 
-                  # Skip identity secret creation for Cognito (uses different secrets)
-                  if [[ "${{ matrix.declination.name }}" != "cognito" ]]; then
+                  # Skip identity secret creation for OIDC (uses different secrets)
+                  if [[ "${{ matrix.declination.name }}" != "oidc" ]]; then
                     ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
                   fi
 
@@ -753,8 +892,8 @@ jobs:
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                         --namespace="$CAMUNDA_NAMESPACE"
 
-                    # Skip Keycloak-based identity secrets for Cognito
-                    if [[ "${{ matrix.declination.name }}" != "cognito" ]]; then
+                    # Skip Keycloak-based identity secrets for OIDC
+                    if [[ "${{ matrix.declination.name }}" != "oidc" ]]; then
                       kubectl create secret generic identity-secret-for-components-integration \
                           --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
                           --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
@@ -806,7 +945,7 @@ jobs:
                   enable-c8sm-irsa-check: ${{ contains(matrix.scenario.name, 'irsa') }}
 
             - name: 🔬🚨 Get failed certificate info
-              if: failure() && (matrix.declination.name == 'domain' || matrix.declination.name == 'cognito')
+              if: failure() && (matrix.declination.name == 'domain' || matrix.declination.name == 'oidc')
               run: |
                   set -euo pipefail
 
@@ -835,7 +974,7 @@ jobs:
                   kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
 
             - name: 🧹 Cleanup domain specific resources
-              if: always() && (matrix.declination.name == 'domain' || matrix.declination.name == 'cognito') && env.CLEANUP_CLUSTERS == 'true'
+              if: always() && (matrix.declination.name == 'domain' || matrix.declination.name == 'oidc') && env.CLEANUP_CLUSTERS == 'true'
               uses: ./.github/actions/kubernetes-ingress-cleanup
               timeout-minutes: 10
               with:
@@ -914,12 +1053,70 @@ jobs:
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: vpn,cluster
 
+    cleanup-entraid:
+        name: Cleanup EntraID
+        if: always()
+        runs-on: ubuntu-latest
+        needs:
+            - prepare-entraid
+            - integration-tests
+            - clusters-info
+        # Only run if EntraID was created (OIDC declination exists)
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+              if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
+
+            - name: Install asdf tools with cache
+              if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+                      secret/data/products/infrastructure-experience/ci/azure AZURE_CREDENTIALS;
+
+            - name: Configure AWS credentials for S3 backend
+              if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
+              run: |
+                  set -euo pipefail
+                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+                  aws configure set region ${{ env.S3_BUCKET_REGION }} --profile ${{ env.AWS_PROFILE }}
+
+            - name: Set current target branch
+              if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Cleanup Azure EntraID
+              if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/azure-entraid-cleanup
+              with:
+                  azure-credentials: ${{ steps.secrets.outputs.AZURE_CREDENTIALS }}
+                  terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
+                  terraform-backend-key: entraid-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/terraform.tfstate
+
     report-success:
         name: Report success
         runs-on: ubuntu-latest
         needs:
             - integration-tests
             - cleanup-clusters
+            - cleanup-entraid
         steps:
             - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 

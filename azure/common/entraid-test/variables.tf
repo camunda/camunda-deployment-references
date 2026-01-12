@@ -1,0 +1,65 @@
+variable "resource_prefix" {
+  description = "Prefix for EntraID resources. If empty, uses 'camunda-test'"
+  type        = string
+  default     = ""
+}
+
+variable "domain_name" {
+  description = "Domain name for Camunda deployment (e.g., camunda.example.com)"
+  type        = string
+  default     = ""
+}
+
+variable "tenant_id" {
+  description = "Azure AD Tenant ID (optional, will use current context if not provided)"
+  type        = string
+  default     = ""
+}
+
+variable "create_admin_user" {
+  description = "Create an initial admin user in Azure AD"
+  type        = bool
+  default     = true
+}
+
+variable "admin_user_email" {
+  description = "Email prefix for the initial admin user (will append tenant domain)"
+  type        = string
+  default     = "camunda-admin-test"
+}
+
+variable "admin_temporary_password" {
+  description = "Temporary password for the initial admin user (must be changed on first login)"
+  type        = string
+  default     = "TempP@ssw0rd123!"
+  sensitive   = true
+}
+
+variable "enable_webmodeler" {
+  description = "Enable Web Modeler component (creates additional client secret)"
+  type        = bool
+  default     = false
+}
+
+variable "secret_validity_hours" {
+  description = "Validity period for client secrets in hours (default: 720h = 30 days)"
+  type        = number
+  default     = 720
+
+  validation {
+    condition     = var.secret_validity_hours >= 1 && var.secret_validity_hours <= 17520 # max 2 years
+    error_message = "Secret validity must be between 1 hour and 17520 hours (2 years)."
+  }
+}
+
+variable "auto_cleanup_hours" {
+  description = "Hours after which this EntraID app should be automatically cleaned up (for CI tracking)"
+  type        = number
+  default     = 72 # 3 days
+}
+
+variable "tags" {
+  description = "Additional tags for resources"
+  type        = map(string)
+  default     = {}
+}
