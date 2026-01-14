@@ -178,12 +178,6 @@ jobs:
             - name: Install asdf tools with cache for the project
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
-            - name: Install zbctl
-              run: |
-                  set -euo pipefail
-                  npm i -g zbctl
-                  zbctl version
-
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -247,15 +241,46 @@ jobs:
                   else
                     echo "🔍 Testing NLB endpoint (Zeebe gateway): ${NLB_DNS}:26500"
 
-                    # Test Zeebe gateway connectivity
+                    # Create gRPC health check proto file
+                    cat > health.proto <<'EOF'
+                  syntax = "proto3";
+                  package grpc.health.v1;
+                  service Health {
+                    rpc Check (HealthCheckRequest) returns (HealthCheckResponse);
+                  }
+                  message HealthCheckRequest { string service = 1; }
+                  message HealthCheckResponse {
+                    enum ServingStatus {
+                      UNKNOWN = 0; SERVING = 1; NOT_SERVING = 2; SERVICE_UNKNOWN = 3;
+                    }
+                    ServingStatus status = 1;
+                  }
+                  EOF
+
+                    # Test Zeebe gateway gRPC health
                     for i in {1..30}; do
-                      if zbctl status --address "${NLB_DNS}:26500" --insecure 2>/dev/null; then
-                        echo "✅ Zeebe gateway is healthy"
+                      if grpcurl -plaintext \
+                          -import-path . \
+                          -proto health.proto \
+                          -d '{"service": ""}' \
+                          "${NLB_DNS}:26500" \
+                          grpc.health.v1.Health/Check | grep -q SERVING; then
+                        echo "✅ Zeebe gateway gRPC health check passed"
                         break
                       fi
                       echo "⏳ Waiting for Zeebe gateway to be healthy (attempt $i/30)..."
                       sleep 10
                     done
+
+                    if ! grpcurl -plaintext \
+                        -import-path . \
+                        -proto health.proto \
+                        -d '{"service": ""}' \
+                        "${NLB_DNS}:26500" \
+                        grpc.health.v1.Health/Check | grep -q SERVING; then
+                      echo "❌ Zeebe gateway gRPC health check failed after 30 attempts"
+                      exit 1
+                    fi
                   fi
 
                   echo "✅ Smoke tests completed successfully"
