@@ -110,3 +110,15 @@ variable "secrets_kms_key_arn" {
   type        = string
   default     = ""
 }
+
+################################################################
+#                      CI Testing Options.                     #
+################################################################
+
+# We regularly spin the environment up and down in CI for testing purposes.
+# To facilitate this, we allow force deletion of S3 buckets used by the orchestration cluster
+variable "orchestration_cluster_s3_bucket_force_delete" {
+  description = "Whether to force destroy the S3 bucket used by the orchestration cluster even if it contains objects. Set to true for testing CI environments."
+  type        = bool
+  default     = false
+}
