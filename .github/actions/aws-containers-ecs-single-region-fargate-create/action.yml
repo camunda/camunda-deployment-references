@@ -81,9 +81,7 @@ runs:
           working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
           run: |
               set -euo pipefail
-              if [ -d "./test/fixtures/ci" ]; then
-                cp -r ./test/fixtures/ci/fixture_* . 2>/dev/null || echo "No CI fixtures found"
-              fi
+              cp -r ./test/fixtures/ci/fixture_* .
 
         - name: Terraform Init
           id: init
@@ -96,7 +94,7 @@ runs:
 
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}ecs.tfstate" \
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}${{ inputs.tf-modules-name }}.tfstate" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
 
               terraform validate -no-color
