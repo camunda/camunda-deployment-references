@@ -31,7 +31,7 @@ env:
 
 jobs:
     triage:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-slim
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:

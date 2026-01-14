@@ -40,7 +40,7 @@ env:
 
 jobs:
     triage:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-slim
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
@@ -117,7 +117,7 @@ jobs:
     report-failure:
         name: Report failures
         if: failure()
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-slim
         needs:
             - cleanup-clusters
         steps:
