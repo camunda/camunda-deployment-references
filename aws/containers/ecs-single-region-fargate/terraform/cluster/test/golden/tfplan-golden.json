@@ -1756,7 +1756,7 @@
               }
             ],
             "lambda_multi_value_headers_enabled": false,
-            "name": "camunda-oc1-connectors-tg-8080",
+            "name": "camunda-oc1-con-tg-8080",
             "port": 8080,
             "protocol": "HTTP",
             "proxy_protocol_v2": false,
@@ -2613,7 +2613,7 @@
               }
             ],
             "lambda_multi_value_headers_enabled": false,
-            "name": "camunda-oc1-tg-8080",
+            "name": "camunda-oc1-orc-tg-8080",
             "port": 8080,
             "protocol": "HTTP",
             "proxy_protocol_v2": false,
@@ -2668,7 +2668,7 @@
               }
             ],
             "lambda_multi_value_headers_enabled": false,
-            "name": "camunda-oc1-tg-26500",
+            "name": "camunda-oc1-orc-tg-26500",
             "port": 26500,
             "protocol": "TCP",
             "proxy_protocol_v2": false,
@@ -2715,7 +2715,7 @@
               }
             ],
             "lambda_multi_value_headers_enabled": false,
-            "name": "camunda-oc1-tg-9600",
+            "name": "camunda-oc1-orc-tg-9600",
             "port": 9600,
             "protocol": "HTTP",
             "proxy_protocol_v2": false,
@@ -4126,7 +4126,7 @@
         "min_upper": 0,
         "number": true,
         "numeric": true,
-        "override_special": "!@#$%^&*()-_=+[]{}:?",
+        "override_special": "!#$%^()-_=+[]{}:?",
         "special": true,
         "upper": true
       }
@@ -4151,7 +4151,7 @@
         "min_upper": 0,
         "number": true,
         "numeric": true,
-        "override_special": "!@#$%^&*()-_=+[]{}:?",
+        "override_special": "!#$%^()-_=+[]{}:?",
         "special": true,
         "upper": true
       }
@@ -4177,7 +4177,7 @@
         "min_upper": 0,
         "number": true,
         "numeric": true,
-        "override_special": "!@#$%^&*()-_=+[]{}:?",
+        "override_special": "!#$%^()-_=+[]{}:?",
         "special": true,
         "upper": true
       }
