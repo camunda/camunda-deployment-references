@@ -1,0 +1,12 @@
+---
+matrix:
+    distro:
+        - name: fargate
+          schedule_only: false
+
+    scenario:
+        - name: ecs-single-region-fargate
+
+    declination:
+        - name: no-domain
+          desc: Setup in production-like setup without Ingress and TLS.
