@@ -10,7 +10,6 @@ on:
             - aws/containers/ecs-single-region-fargate/terraform/**
             - aws/modules/ecs/**
             - .github/actions/aws-configure-cli/**
-    push: # TODO: REMOVE - JUST FOR TESTING PURPOSES
 
 # limit to a single execution per actor of this workflow
 concurrency:
