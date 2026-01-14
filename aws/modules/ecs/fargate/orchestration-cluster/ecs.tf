@@ -191,12 +191,13 @@ resource "aws_ecs_service" "orchestration_cluster" {
   }
 
   # Dynamic load balancer configuration
+  # Only include target groups that are attached to a load balancer
   dynamic "load_balancer" {
-    for_each = {
-      8080  = aws_lb_target_group.main.arn
-      9600  = aws_lb_target_group.main_9600.arn
-      26500 = aws_lb_target_group.main_26500.arn
-    }
+    for_each = merge(
+      var.enable_alb_http_webapp_listener_rule ? { 8080 = aws_lb_target_group.main.arn } : {},
+      var.enable_alb_http_management_listener_rule ? { 9600 = aws_lb_target_group.main_9600.arn } : {},
+      var.enable_nlb_grpc_26500_listener ? { 26500 = aws_lb_target_group.main_26500.arn } : {}
+    )
     content {
       target_group_arn = load_balancer.value
       container_name   = "orchestration-cluster"
