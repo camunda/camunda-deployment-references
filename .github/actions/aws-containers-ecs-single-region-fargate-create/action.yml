@@ -81,7 +81,10 @@ runs:
           working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
           run: |
               set -euo pipefail
-              cp -r ./test/fixtures/ci/fixture_* .
+
+              if [ -d "./test/fixtures/ci" ]; then
+                cp -r ./test/fixtures/ci/fixture_* . 2>/dev/null || echo "No CI fixtures found"
+              fi
 
         - name: Terraform Init
           id: init
