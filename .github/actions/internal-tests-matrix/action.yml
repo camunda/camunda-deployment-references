@@ -42,7 +42,7 @@ runs:
 
               for distro_index in ${distro_indexes}; do
                 # limiting factor are OpenSearch domains of maximum 28 characters
-                cluster_name_fallback="${{ inputs.cluster_prefix }}$(uuidgen | head -c 5)"
+                cluster_name_fallback="${{ inputs.cluster_prefix }}$(cat /proc/sys/kernel/random/uuid | head -c 5)"
                 export cluster_name="${{ inputs.cluster_name || '' }}"
                 if [[ -z "$cluster_name" ]]; then
                   cluster_name="$cluster_name_fallback"
