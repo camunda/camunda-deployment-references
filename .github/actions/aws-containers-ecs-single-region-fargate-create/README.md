@@ -17,6 +17,7 @@ This GitHub Action automates the deployment of the aws/containers/ecs-single-reg
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
 | `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `main` |
 | `tf-modules-path` | <p>Path where the tf ecs arch will be cloned</p> | `true` | `./.action-tf-modules/aws-containers-ecs-single-region-fargate-create/` |
+| `tf-modules-name` | <p>Name of the tf modules to use, the folder to refer to - cluster / vpn</p> | `true` | `cluster` |
 | `ref-arch` | <p>Reference architecture to deploy</p> | `false` | `ecs-single-region-fargate` |
 
 
@@ -83,6 +84,12 @@ This action is a `composite` action.
     #
     # Required: true
     # Default: ./.action-tf-modules/aws-containers-ecs-single-region-fargate-create/
+
+    tf-modules-name:
+    # Name of the tf modules to use, the folder to refer to - cluster / vpn
+    #
+    # Required: true
+    # Default: cluster
 
     ref-arch:
     # Reference architecture to deploy

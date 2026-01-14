@@ -1,6 +1,6 @@
 
 module "postgresql" {
-  source = "../../../modules/aurora"
+  source = "../../../../modules/aurora"
 
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
   engine_version             = "17.7"

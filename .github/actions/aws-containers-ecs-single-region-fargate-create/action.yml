@@ -30,6 +30,10 @@ inputs:
         description: Path where the tf ecs arch will be cloned
         default: ./.action-tf-modules/aws-containers-ecs-single-region-fargate-create/
         required: true
+    tf-modules-name:
+        description: Name of the tf modules to use, the folder to refer to - cluster / vpn
+        default: cluster
+        required: true
     ref-arch:
         description: Reference architecture to deploy
         default: ecs-single-region-fargate
@@ -74,7 +78,7 @@ runs:
 
         - name: Copy CI fixtures
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform
+          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
           run: |
               set -euo pipefail
               if [ -d "./test/fixtures/ci" ]; then
@@ -83,7 +87,7 @@ runs:
 
         - name: Terraform Init
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform
+          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
           shell: bash
           run: |
               set -euo pipefail
@@ -106,7 +110,7 @@ runs:
         - name: Generate tfvars file
           id: generate-tfvars
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform
+          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
           run: |
               set -euo pipefail
 
@@ -123,7 +127,7 @@ runs:
 
         - name: Terraform Plan
           id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform
+          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
           shell: bash
           run: |
               set -euo pipefail
@@ -135,7 +139,7 @@ runs:
 
         - name: Terraform Apply
           id: apply
-          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform
+          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
           shell: bash
           run: |
               set -euo pipefail
@@ -145,5 +149,6 @@ runs:
           uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform
-              plan-extra-args: -var-file=terraform.tfvars
+              working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+              plan-extra-args: |
+                  -var-file=terraform.tfvars
