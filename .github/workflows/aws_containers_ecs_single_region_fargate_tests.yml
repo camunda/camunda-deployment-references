@@ -39,6 +39,7 @@ on:
             - .tool-versions
             - aws/containers/ecs-single-region-fargate/**
             - '!aws/containers/ecs-single-region-fargate/terraform/test/golden/**'
+    push: # TODO: REMOVE - JUST FOR TESTING PURPOSES
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -147,6 +148,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
+                  tf-modules-name: cluster
                   cluster-name: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
@@ -221,7 +223,7 @@ jobs:
               uses: ./.github/actions/internal-generic-terraform-outputs
               with:
                   tf-state-suffix: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
-                  tf-modules-name: ecs
+                  tf-modules-name: cluster
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -328,7 +330,7 @@ jobs:
                   max-age-hours: 0
                   target: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-                  modules-order: ecs
+                  modules-order: cluster
 
     report-success:
         name: Report success
