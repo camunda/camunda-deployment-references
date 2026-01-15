@@ -117,9 +117,10 @@ runs:
 
               # cut name as some resources have a character limit that we may run into
               # e.g. target groups have a max length of 32 characters
-              # with 15 characters we're adding in Terraform
-              # therefore cut to 17 characters to be on the safe side
-              PREFIX=$(echo "${{ inputs.cluster-name }}" | cut -c1-17)
+              # with 14 characters we're adding in Terraform
+              # + 4 from suffixes when calling the module
+              # therefore cut to 14 characters to be on the safe side
+              PREFIX=$(echo "${{ inputs.cluster-name }}" | cut -c1-14)
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
