@@ -3,7 +3,7 @@
 ################################################################
 
 resource "aws_lb_target_group" "main" {
-  name        = "${var.prefix}-orc-tg-8080"
+  name        = "${substr(var.prefix, 0, 17)}-orc-tg-8080"
   port        = 8080
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
@@ -31,7 +31,7 @@ resource "aws_lb_target_group" "main" {
 }
 
 resource "aws_lb_target_group" "main_9600" {
-  name        = "${var.prefix}-orc-tg-9600"
+  name        = "${substr(var.prefix, 0, 17)}-orc-tg-9600"
   port        = 9600
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
@@ -97,7 +97,7 @@ resource "aws_lb_listener_rule" "http_management" {
 ################################################################
 
 resource "aws_lb_target_group" "main_26500" {
-  name        = "${var.prefix}-orc-tg-26500"
+  name        = "${substr(var.prefix, 0, 17)}-orc-tg-26500"
   port        = 26500
   protocol    = "TCP"
   vpc_id      = var.vpc_id
