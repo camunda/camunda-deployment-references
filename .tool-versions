@@ -17,7 +17,7 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.10
 
-awscli 2.32.28
+awscli 2.32.32
 
 delta 0.18.2
 
@@ -36,9 +36,15 @@ jq 1.7.1
 
 just 1.46.0
 
+# renovate: datasource=github-tags depName=kubernetes-sigs/kind
+kind 0.31.0
+
 kubectl 1.35.0
 
 kustomize 5.8.0 # used by the tests
+
+# renovate: datasource=github-tags depName=FiloSottile/mkcert
+mkcert 1.4.4
 
 pre-commit 4.5.1
 

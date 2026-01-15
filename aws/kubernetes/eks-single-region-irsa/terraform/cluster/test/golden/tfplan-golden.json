@@ -466,7 +466,6 @@
                   "provider_name": "registry.terraform.io/hashicorp/aws",
                   "schema_version": 0,
                   "sensitive_values": {
-                    "tags": {},
                     "tags_all": {}
                   },
                   "type": "aws_kms_key",
@@ -481,12 +480,7 @@
                     "key_usage": "ENCRYPT_DECRYPT",
                     "multi_region": false,
                     "region": "eu-west-2",
-                    "tags": {
-                      "terraform-aws-modules": "eks"
-                    },
-                    "tags_all": {
-                      "terraform-aws-modules": "eks"
-                    },
+                    "tags": null,
                     "timeouts": null,
                     "xks_key_id": null
                   }
@@ -897,7 +891,6 @@
                 "outpost_config": [],
                 "remote_network_config": [],
                 "storage_config": [],
-                "tags": {},
                 "tags_all": {},
                 "upgrade_policy": [],
                 "vpc_config": [
@@ -946,12 +939,7 @@
                 "outpost_config": [],
                 "region": "eu-west-2",
                 "remote_network_config": [],
-                "tags": {
-                  "terraform-aws-modules": "eks"
-                },
-                "tags_all": {
-                  "terraform-aws-modules": "eks"
-                },
+                "tags": null,
                 "timeouts": null,
                 "version": "1.34",
                 "vpc_config": [
@@ -1012,6 +1000,7 @@
               },
               "type": "aws_iam_policy",
               "values": {
+                "delay_after_policy_creation_in_ms": null,
                 "description": "Cluster encryption policy to allow cluster role to utilize CMK provided",
                 "name_prefix": "cluster-name-irsa-eks-iam-role-ClusterEncryption",
                 "path": "/",
@@ -2697,6 +2686,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-irsa-cert-manager-policy",
             "path": "/",
@@ -2718,6 +2708,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-irsa-ebs-sc-access",
             "path": "/",
@@ -2738,6 +2729,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-irsa-ebs-sc-access-2",
             "path": "/",
@@ -2759,6 +2751,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-irsa-eks-admin-policy",
             "path": "/",
@@ -2780,6 +2773,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": null,
             "name": "cluster-name-irsa-external-dns-policy",
             "path": "/",
@@ -2874,6 +2868,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": "Access policy for OpenSearchRole-domain-name-os-irsa",
             "name": "OpenSearchRole-domain-name-os-irsa-access-policy",
             "path": "/",
@@ -3275,6 +3270,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": "Access policy for AuroraRole-Identity-cluster-name-pg-irsa",
             "name": "AuroraRole-Identity-cluster-name-pg-irsa-access-policy",
             "path": "/",
@@ -3297,6 +3293,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": "Access policy for AuroraRole-Keycloak-cluster-name-pg-irsa",
             "name": "AuroraRole-Keycloak-cluster-name-pg-irsa-access-policy",
             "path": "/",
@@ -3319,6 +3316,7 @@
           },
           "type": "aws_iam_policy",
           "values": {
+            "delay_after_policy_creation_in_ms": null,
             "description": "Access policy for AuroraRole-Webmodeler-cluster-name-pg-irsa",
             "name": "AuroraRole-Webmodeler-cluster-name-pg-irsa-access-policy",
             "path": "/",

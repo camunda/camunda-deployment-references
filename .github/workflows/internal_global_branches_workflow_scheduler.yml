@@ -34,7 +34,7 @@ jobs:
 
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@ade65810588d38e08482a237bf27a9f6cc707f9c # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@a7085589d30d14d6f210ed247153e01d99a19244 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -80,7 +80,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
             - id: matrix
               run: |
@@ -125,7 +125,7 @@ jobs:
         steps:
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@ade65810588d38e08482a237bf27a9f6cc707f9c # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@a7085589d30d14d6f210ed247153e01d99a19244 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -163,6 +163,9 @@ jobs:
 
                     # remove all comments in the file as yamlfmt may conflict with yamllint
                     yq -i '... comments=""' "$workflow_file"
+
+                    # Add a comment with the schedule trigger timestamp to ensure the PR is triggered
+                    echo -e "\n# Scheduled trigger: $(date -u +%Y-%m-%dT%H:%M:%SZ) - ${{ matrix.schedule.name }}" >> "$workflow_file"
                   done
 
             - name: Reformat yaml after yq files using pre-commit
@@ -208,7 +211,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

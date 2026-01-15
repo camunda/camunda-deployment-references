@@ -30,6 +30,7 @@
       },
       "type": "aws_iam_policy",
       "values": {
+        "delay_after_policy_creation_in_ms": null,
         "description": "Policy for accessing KMS key",
         "name": "camunda-elastic-backup-rosa-dual-kms-access-policy",
         "path": "/",
@@ -50,6 +51,7 @@
       },
       "type": "aws_iam_policy",
       "values": {
+        "delay_after_policy_creation_in_ms": null,
         "description": "Policy for accessing S3 bucket",
         "name": "camunda-elastic-backup-rosa-dual-s3-access-policy",
         "path": "/",
