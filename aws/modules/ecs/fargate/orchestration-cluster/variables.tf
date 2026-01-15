@@ -113,7 +113,7 @@ variable "efs_throughput_mode" {
 variable "efs_provisioned_throughput_in_mibps" {
   description = "The provisioned throughput in MiB/s for the EFS file system if using provisioned mode"
   type        = number
-  default     = 125
+  default     = 50
 }
 
 variable "efs_performance_mode" {

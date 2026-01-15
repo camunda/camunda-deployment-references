@@ -3,7 +3,6 @@ resource "aws_efs_file_system" "efs" {
   performance_mode = var.efs_performance_mode
   encrypted        = true
 
-  # TODO: expensive?
   throughput_mode = var.efs_throughput_mode
 
   provisioned_throughput_in_mibps = var.efs_throughput_mode == "provisioned" ? var.efs_provisioned_throughput_in_mibps : null
