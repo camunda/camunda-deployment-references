@@ -121,6 +121,8 @@ runs:
               # + 4 from suffixes when calling the module
               # therefore cut to 14 characters to be on the safe side
               PREFIX=$(echo "${{ inputs.cluster-name }}" | cut -c1-14)
+              # Remove trailing dash if present
+              PREFIX=${PREFIX%-}
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
