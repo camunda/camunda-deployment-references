@@ -124,8 +124,6 @@ module "orchestration_cluster" {
     aws_iam_policy.rds_db_connect_camunda.arn,
   ]
 
-  # CI Testing
-  s3_force_destroy = var.orchestration_cluster_s3_bucket_force_delete
 }
 
 module "connectors" {
