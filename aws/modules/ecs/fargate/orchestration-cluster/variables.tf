@@ -257,3 +257,9 @@ variable "task_desired_count" {
   type        = number
   default     = 3
 }
+
+variable "s3_force_destroy" {
+  description = "Whether to force destroy the S3 bucket even if it contains objects. Set to true for dev/test environments."
+  type        = bool
+  default     = false
+}

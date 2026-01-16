@@ -1,7 +1,7 @@
 data "aws_region" "current" {}
 
 module "orchestration_cluster" {
-  source = "../../../modules/ecs/fargate/orchestration-cluster"
+  source = "../../../../modules/ecs/fargate/orchestration-cluster"
 
   depends_on = [null_resource.run_db_seed_task]
 
@@ -123,10 +123,11 @@ module "orchestration_cluster" {
   extra_task_role_attachments = [
     aws_iam_policy.rds_db_connect_camunda.arn,
   ]
+
 }
 
 module "connectors" {
-  source = "../../../modules/ecs/fargate/connectors"
+  source = "../../../../modules/ecs/fargate/connectors"
 
   prefix                               = "${var.prefix}-oc1"
   ecs_cluster_id                       = aws_ecs_cluster.ecs.id
