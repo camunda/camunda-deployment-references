@@ -44,8 +44,8 @@ github.com/aws/aws-sdk-go-v2/service/ecr v1.36.6 h1:zg+3FGHA0PBs0KM25qE/rOf2o5zs
 github.com/aws/aws-sdk-go-v2/service/ecr v1.36.6/go.mod h1:ZSq54Z9SIsOTf1Efwgw1msilSs4XVEfVQiP9nYVnKpM=
 github.com/aws/aws-sdk-go-v2/service/ecs v1.52.0 h1:7/vgFWplkusJN/m+3QOa+W9FNRqa8ujMPNmdufRaJpg=
 github.com/aws/aws-sdk-go-v2/service/ecs v1.52.0/go.mod h1:dPTOvmjJQ1T7Q+2+Xs2KSPrMvx+p0rpyV+HsQVnUK4o=
-github.com/aws/aws-sdk-go-v2/service/eks v1.76.4 h1:5f9jIMcEd0wvRpEoo925Ltfw/2Yalcf+amFm3e1tRd8=
-github.com/aws/aws-sdk-go-v2/service/eks v1.76.4/go.mod h1:Qg678m+87sCuJhcsZojenz8mblYG+Tq86V4m3hjVz0s=
+github.com/aws/aws-sdk-go-v2/service/eks v1.77.0 h1:Z5mTpmbJKU7jEM7xoXI5tO4Nm0JUZSgVSFkpYuu6Ic0=
+github.com/aws/aws-sdk-go-v2/service/eks v1.77.0/go.mod h1:Qg678m+87sCuJhcsZojenz8mblYG+Tq86V4m3hjVz0s=
 github.com/aws/aws-sdk-go-v2/service/iam v1.53.2 h1:62G6btFUwAa5uR5iPlnlNVAM0zJSLbWgDfKOfUC7oW4=
 github.com/aws/aws-sdk-go-v2/service/iam v1.53.2/go.mod h1:av9clChrbZbJ5E21msSsiT2oghl2BJHfQGhCkXmhyu8=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.4 h1:0ryTNEdJbzUCEWkVXEXoqlXV72J5keC1GvILMOuD00E=
@@ -64,8 +64,8 @@ github.com/aws/aws-sdk-go-v2/service/lambda v1.69.0 h1:BXt75frE/FYtAmEDBJRBa2Hex
 github.com/aws/aws-sdk-go-v2/service/lambda v1.69.0/go.mod h1:guz2K3x4FKSdDaoeB+TPVgJNU9oj2gftbp5cR8ela1A=
 github.com/aws/aws-sdk-go-v2/service/opensearch v1.57.1 h1:OrmXg1h8sBVrjg5wk0HYVMTR7d58WQv+5VSE1ZmrpC4=
 github.com/aws/aws-sdk-go-v2/service/opensearch v1.57.1/go.mod h1:10SvxQZwSf5bsNaG2AiBEbibx2bmNfT8r4q4pF7hXr4=
-github.com/aws/aws-sdk-go-v2/service/rds v1.113.2 h1:KoK0CC7i5Nfl9mdIBSMuqZwQa57mDPlRuhcur0o+Hi0=
-github.com/aws/aws-sdk-go-v2/service/rds v1.113.2/go.mod h1:JBRYWpz5oXQtHgQC+X8LX9lh0FBCwRHJlWEIT+TTLaE=
+github.com/aws/aws-sdk-go-v2/service/rds v1.114.0 h1:p9c6HDzx6sTf7uyc9xsQd693uzArsPrsVr9n0oRk7DU=
+github.com/aws/aws-sdk-go-v2/service/rds v1.114.0/go.mod h1:JBRYWpz5oXQtHgQC+X8LX9lh0FBCwRHJlWEIT+TTLaE=
 github.com/aws/aws-sdk-go-v2/service/route53 v1.46.2 h1:wmt05tPp/CaRZpPV5B4SaJ5TwkHKom07/BzHoLdkY1o=
 github.com/aws/aws-sdk-go-v2/service/route53 v1.46.2/go.mod h1:d+K9HESMpGb1EU9/UmmpInbGIUcAkwmcY6ZO/A3zZsw=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.95.1 h1:C2dUPSnEpy4voWFIq3JNd8gN0Y5vYGDo44eUE58a/p8=
@@ -169,8 +169,8 @@ github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 h1:JeSE6pjso5T
 github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674/go.mod h1:r4w70xmWCQKmi1ONH4KIaBptdivuRPyosB9RmPlGEwA=
 github.com/gruntwork-io/go-commons v0.8.0 h1:k/yypwrPqSeYHevLlEDmvmgQzcyTwrlZGRaxEM6G0ro=
 github.com/gruntwork-io/go-commons v0.8.0/go.mod h1:gtp0yTtIBExIZp7vyIV9I0XQkVwiQZze678hvDXof78=
-github.com/gruntwork-io/terratest v0.54.0 h1:JOVATYDpU0NAPbEkgYUP50BR2m45UGiR4dbs20sKzck=
-github.com/gruntwork-io/terratest v0.54.0/go.mod h1:QvwQWZMTJmJB4E0d1Uc18quQm7+X53liKKp+fJSuaKA=
+github.com/gruntwork-io/terratest v0.55.0 h1:NgG6lm2dArdQ3KcOofw6PTfVRK1Flt7L3NNhFSBo72A=
+github.com/gruntwork-io/terratest v0.55.0/go.mod h1:OE0Jsc8Wn5kw/QySLbBd53g9Gt+xfDyDKChwRHwkKvI=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-cleanhttp v0.5.2 h1:035FKYIWjmULyFRBKPs8TBQoi0x6d9G4xc9neXJWAZQ=

@@ -6,15 +6,15 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.41.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.7
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.279.1
-	github.com/aws/aws-sdk-go-v2/service/eks v1.76.4
+	github.com/aws/aws-sdk-go-v2/service/eks v1.77.0
 	github.com/aws/aws-sdk-go-v2/service/iam v1.53.2
 	github.com/aws/aws-sdk-go-v2/service/kms v1.49.5
 	github.com/aws/aws-sdk-go-v2/service/opensearch v1.57.1
-	github.com/aws/aws-sdk-go-v2/service/rds v1.113.2
+	github.com/aws/aws-sdk-go-v2/service/rds v1.114.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.95.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.6
 	github.com/aws/smithy-go v1.24.0
-	github.com/gruntwork-io/terratest v0.54.0
+	github.com/gruntwork-io/terratest v0.55.0
 	github.com/sethvargo/go-password v0.3.1
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
