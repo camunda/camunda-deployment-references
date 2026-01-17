@@ -1839,9 +1839,6 @@
               },
               {
                 "advanced_configuration": []
-              },
-              {
-                "advanced_configuration": []
               }
             ],
             "network_configuration": [
@@ -1921,12 +1918,6 @@
                 "advanced_configuration": [],
                 "container_name": "orchestration-cluster",
                 "container_port": 8080,
-                "elb_name": ""
-              },
-              {
-                "advanced_configuration": [],
-                "container_name": "orchestration-cluster",
-                "container_port": 9600,
                 "elb_name": ""
               }
             ],
@@ -2152,7 +2143,7 @@
             "encrypted": true,
             "lifecycle_policy": [],
             "performance_mode": "generalPurpose",
-            "provisioned_throughput_in_mibps": 125,
+            "provisioned_throughput_in_mibps": 50,
             "region": "eu-west-2",
             "tags": null,
             "throughput_mode": "provisioned"
