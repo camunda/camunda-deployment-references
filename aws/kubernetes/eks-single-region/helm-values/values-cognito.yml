@@ -1,0 +1,192 @@
+---
+# Helm values for Camunda Platform with Amazon Cognito authentication
+# This replaces Keycloak with Cognito as the identity provider
+global:
+    elasticsearch:
+        enabled: false
+    opensearch:
+        enabled: true
+        aws:
+            enabled: false
+        auth:
+            username:
+            password:
+        url:
+            protocol: https
+            host: ${OPENSEARCH_HOST}
+            port: 443
+
+    security:
+        authentication:
+            method: oidc
+
+    ingress:
+        enabled: true
+        host: ${DOMAIN_NAME}
+        tls:
+            enabled: true
+            secretName: camunda-c8-tls
+        annotations:
+            kubernetes.io/tls-acme: 'true'
+
+    identity:
+        auth:
+            enabled: true
+            type: GENERIC  # Generic OIDC provider (Cognito)
+            issuer: ${COGNITO_ISSUER_URL}
+            issuerBackendUrl: ${COGNITO_ISSUER_URL}
+            tokenUrl: ${COGNITO_TOKEN_URL}
+            jwksUrl: ${COGNITO_JWKS_URL}
+            authorizationUrl: ${COGNITO_AUTHORIZATION_URL}
+
+            identity:
+                clientId: ${IDENTITY_CLIENT_ID}
+                audience: ${IDENTITY_CLIENT_ID}
+                existingSecret: camunda-cognito-identity-secret
+                existingSecretKey: client-secret
+                redirectUrl: https://${DOMAIN_NAME}/auth/login-callback
+
+            optimize:
+                clientId: ${OPTIMIZE_CLIENT_ID}
+                audience: ${OPTIMIZE_CLIENT_ID}
+                existingSecret: camunda-cognito-optimize-secret
+                existingSecretKey: client-secret
+                redirectUrl: https://${DOMAIN_NAME}/optimize/api/authentication/callback
+
+            webModeler:
+                clientId: ${WEBMODELER_UI_CLIENT_ID}
+                redirectUrl: https://${DOMAIN_NAME}/modeler/login-callback
+
+            console:
+                clientId: ${CONSOLE_CLIENT_ID}
+                audience: ${CONSOLE_CLIENT_ID}
+                redirectUrl: https://${DOMAIN_NAME}/console/
+
+# Disable Keycloak - we're using Cognito
+identityKeycloak:
+    enabled: false
+
+identity:
+    enabled: true
+    contextPath: /auth
+
+    fullURL: https://${DOMAIN_NAME}/auth
+
+    env:
+        - name: IDENTITY_AUTH_PROVIDER_BACKEND_URL
+          value: ${COGNITO_ISSUER_URL}
+        - name: IDENTITY_AUTH_PROVIDER_ISSUER_URL
+          value: ${COGNITO_ISSUER_URL}
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+          value: ${COGNITO_ISSUER_URL}
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI
+          value: ${COGNITO_JWKS_URL}
+        - name: IDENTITY_INITIAL_CLAIM_NAME
+          value: email
+        - name: IDENTITY_INITIAL_CLAIM_VALUE
+          value: ${IDENTITY_INITIAL_USER_EMAIL}
+
+    firstUser:
+        enabled: false  # User is created in Cognito
+
+    externalDatabase:
+        enabled: true
+        host: ${DB_HOST}
+        port: 5432
+        username: ${DB_IDENTITY_USERNAME}
+        database: ${DB_IDENTITY_NAME}
+        secret:
+            existingSecret: identity-postgres-secret
+            existingSecretPasswordKey: password
+
+connectors:
+    contextPath: /connectors
+
+    env:
+        - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
+          value: ${COGNITO_ISSUER_URL}
+
+    security:
+        authentication:
+            oidc:
+                clientId: ${CONNECTORS_CLIENT_ID}
+                existingSecret: camunda-cognito-connectors-secret
+                existingSecretKey: client-secret
+
+optimize:
+    enabled: true
+    contextPath: /optimize
+
+    migration:
+        enabled: false
+
+    env:
+        - name: CAMUNDA_OPTIMIZE_SECURITY_AUTH_CCSM_ISSUER_URL
+          value: ${COGNITO_ISSUER_URL}
+        - name: CAMUNDA_OPTIMIZE_SECURITY_AUTH_CCSM_JWKS_URL
+          value: ${COGNITO_JWKS_URL}
+
+orchestration:
+    contextPath: /
+
+    env:
+        - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
+          value: ${COGNITO_ISSUER_URL}
+
+    security:
+        authentication:
+            oidc:
+                clientId: ${ORCHESTRATION_CLIENT_ID}
+                existingSecret: camunda-cognito-orchestration-secret
+                existingSecretKey: client-secret
+                redirectUrl: https://${DOMAIN_NAME}/sso-callback
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - ${IDENTITY_INITIAL_USER_EMAIL}
+
+    ingress:
+        grpc:
+            enabled: true
+            host: zeebe-${DOMAIN_NAME}
+            tls:
+                enabled: true
+                secretName: zeebe-c8-tls-grpc
+            annotations:
+                kubernetes.io/tls-acme: 'true'
+
+console:
+    enabled: ${CONSOLE_ENABLED}
+    contextPath: /console
+
+    env:
+        - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
+          value: ${COGNITO_ISSUER_URL}
+
+webModeler:
+    enabled: ${WEBMODELER_ENABLED}
+    contextPath: /modeler
+
+    restapi:
+        env:
+            - name: CAMUNDA_IDENTITY_BASE_URL
+              value: https://${DOMAIN_NAME}/auth
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+              value: ${COGNITO_ISSUER_URL}
+        externalDatabase:
+            url: jdbc:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}
+            user: ${DB_WEBMODELER_USERNAME}
+            existingSecret: webmodeler-postgres-secret
+            existingSecretPasswordKey: password
+
+    webapp:
+        env:
+            - name: OAUTH2_CLIENT_ID
+              value: ${WEBMODELER_UI_CLIENT_ID}
+            - name: OAUTH2_JWKS_URL
+              value: ${COGNITO_JWKS_URL}
+            - name: OAUTH2_TOKEN_AUDIENCE
+              value: ${WEBMODELER_UI_CLIENT_ID}
+            - name: OAUTH2_TOKEN_ISSUER
+              value: ${COGNITO_ISSUER_URL}

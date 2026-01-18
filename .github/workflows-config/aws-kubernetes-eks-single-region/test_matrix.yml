@@ -8,11 +8,15 @@ matrix:
         - name: eks-single-region
           # ! Unlike ROSA, 'private_vpc' is defined in 'scenario' and not in 'distro'.
           private_vpc: false
+          cognito_enabled: true
 
         - name: eks-single-region-irsa
           private_vpc: true
+          cognito_enabled: false
     declination:
         - name: no-domain
           desc: Setup chart in production-like setup with Ingress and TLS.
         - name: domain
           desc: Setup chart in production-like setup without Ingress and TLS.
+        - name: cognito
+          desc: Setup chart with Amazon Cognito as identity provider instead of Keycloak.
