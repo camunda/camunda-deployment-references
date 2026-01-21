@@ -168,7 +168,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
-                      secret/data/products/infrastructure-experience/ci/azure AZURE_CREDENTIALS;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_CREDENTIALS;
 
             - name: Configure AWS credentials for S3 backend
               run: |
@@ -1083,7 +1083,7 @@ jobs:
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
-                      secret/data/products/infrastructure-experience/ci/azure AZURE_CREDENTIALS;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_CREDENTIALS;
 
             - name: Configure AWS credentials for S3 backend
               if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
