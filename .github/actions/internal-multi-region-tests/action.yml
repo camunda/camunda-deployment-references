@@ -50,6 +50,14 @@ runs:
               repository: camunda/c8-multi-region
               ref: main
               path: multi-region-tests
+
+        - name: Copy .tool-versions to multi-region-tests
+          shell: bash
+          run: |
+              set -euo pipefail
+              # Copy .tool-versions so asdf can find golang when running in multi-region-tests/test
+              cp .tool-versions ./multi-region-tests/test/.tool-versions
+
         - name: Split up Kubeconfig
           shell: bash
           run: |
