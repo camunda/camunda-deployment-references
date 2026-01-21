@@ -174,7 +174,7 @@ runs:
 
               go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
 
-- name: Re-export services after Failback (OpenShift)
+        - name: Re-export services after Failback (OpenShift)
           if: inputs.post-failback-script != ''
           shell: bash
           run: |
