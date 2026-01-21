@@ -156,7 +156,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@5c9b3f4fac23be5a16d0292fe138b8bdbd091625 # main
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@01da5edae4a3509aa3795941ac39198e1a4dccb4 # main
 
             - name: Import Secrets
               id: secrets
