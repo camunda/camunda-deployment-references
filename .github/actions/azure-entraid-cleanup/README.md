@@ -8,7 +8,11 @@ Destroys temporary Azure AD app registration created for testing
 
 | name | description | required | default |
 | --- | --- | --- | --- |
-| `azure-credentials` | <p>Azure credentials JSON</p> | `true` | `""` |
+| `azure-credentials` | <p>Azure credentials JSON (required if use-oidc is false)</p> | `false` | `""` |
+| `use-oidc` | <p>Use OIDC authentication instead of azure-credentials JSON</p> | `false` | `false` |
+| `azure-client-id` | <p>Azure Client ID (required if use-oidc is true)</p> | `false` | `""` |
+| `azure-tenant-id` | <p>Azure Tenant ID (required if use-oidc is true)</p> | `false` | `""` |
+| `azure-subscription-id` | <p>Azure Subscription ID (required if use-oidc is true)</p> | `false` | `""` |
 | `terraform-backend-bucket` | <p>S3 bucket for Terraform state</p> | `true` | `""` |
 | `terraform-backend-region` | <p>S3 bucket region</p> | `true` | `""` |
 | `terraform-backend-key` | <p>S3 key for Terraform state</p> | `true` | `""` |
@@ -25,9 +29,33 @@ This action is a `composite` action.
 - uses: camunda/camunda-deployment-references/.github/actions/azure-entraid-cleanup@main
   with:
     azure-credentials:
-    # Azure credentials JSON
+    # Azure credentials JSON (required if use-oidc is false)
     #
-    # Required: true
+    # Required: false
+    # Default: ""
+
+    use-oidc:
+    # Use OIDC authentication instead of azure-credentials JSON
+    #
+    # Required: false
+    # Default: false
+
+    azure-client-id:
+    # Azure Client ID (required if use-oidc is true)
+    #
+    # Required: false
+    # Default: ""
+
+    azure-tenant-id:
+    # Azure Tenant ID (required if use-oidc is true)
+    #
+    # Required: false
+    # Default: ""
+
+    azure-subscription-id:
+    # Azure Subscription ID (required if use-oidc is true)
+    #
+    # Required: false
     # Default: ""
 
     terraform-backend-bucket:

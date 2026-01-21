@@ -10,7 +10,11 @@ Creates a temporary Azure AD app registration for Camunda OIDC testing
 | --- | --- | --- | --- |
 | `resource-prefix` | <p>Prefix for EntraID resources</p> | `true` | `""` |
 | `domain-name` | <p>Domain name for Camunda deployment</p> | `true` | `""` |
-| `azure-credentials` | <p>Azure credentials JSON</p> | `true` | `""` |
+| `azure-credentials` | <p>Azure credentials JSON (required if use-oidc is false)</p> | `false` | `""` |
+| `use-oidc` | <p>Use OIDC authentication instead of azure-credentials JSON</p> | `false` | `false` |
+| `azure-client-id` | <p>Azure Client ID (required if use-oidc is true)</p> | `false` | `""` |
+| `azure-tenant-id` | <p>Azure Tenant ID (required if use-oidc is true)</p> | `false` | `""` |
+| `azure-subscription-id` | <p>Azure Subscription ID (required if use-oidc is true)</p> | `false` | `""` |
 | `enable-webmodeler` | <p>Enable Web Modeler component</p> | `false` | `false` |
 | `secret-validity-hours` | <p>Client secret validity in hours</p> | `false` | `168` |
 | `terraform-backend-bucket` | <p>S3 bucket for Terraform state</p> | `true` | `""` |
@@ -59,9 +63,33 @@ This action is a `composite` action.
     # Default: ""
 
     azure-credentials:
-    # Azure credentials JSON
+    # Azure credentials JSON (required if use-oidc is false)
     #
-    # Required: true
+    # Required: false
+    # Default: ""
+
+    use-oidc:
+    # Use OIDC authentication instead of azure-credentials JSON
+    #
+    # Required: false
+    # Default: false
+
+    azure-client-id:
+    # Azure Client ID (required if use-oidc is true)
+    #
+    # Required: false
+    # Default: ""
+
+    azure-tenant-id:
+    # Azure Tenant ID (required if use-oidc is true)
+    #
+    # Required: false
+    # Default: ""
+
+    azure-subscription-id:
+    # Azure Subscription ID (required if use-oidc is true)
+    #
+    # Required: false
     # Default: ""
 
     enable-webmodeler:

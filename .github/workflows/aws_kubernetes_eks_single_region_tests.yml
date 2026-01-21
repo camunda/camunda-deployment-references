@@ -2,6 +2,7 @@
 name: Tests - Integration - AWS Kubernetes EKS Single Region (IRSA)
 
 permissions:
+    id-token: write # required for Azure OIDC login
     contents: read # don't allow commits
     pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
@@ -76,7 +77,8 @@ env:
     TLD: camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # TODO: revert before merge
+    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
@@ -128,115 +130,17 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  cluster_name: entraid
+                  # cluster_name: ${{ inputs.cluster_name }}
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
-    prepare-entraid:
-        name: Create EntraID for OIDC tests
-        needs:
-            - clusters-info
-        # Only run for OIDC declination
-        if: contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).declination.*.name), 'oidc')
-        runs-on: ubuntu-latest
-        outputs:
-            tenant-id: ${{ steps.create-entraid.outputs.tenant-id }}
-            client-id: ${{ steps.create-entraid.outputs.client-id }}
-            issuer-url: ${{ steps.create-entraid.outputs.issuer-url }}
-            authorization-url: ${{ steps.create-entraid.outputs.authorization-url }}
-            token-url: ${{ steps.create-entraid.outputs.token-url }}
-            jwks-url: ${{ steps.create-entraid.outputs.jwks-url }}
-            userinfo-url: ${{ steps.create-entraid.outputs.userinfo-url }}
-        steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-
-            - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
-
-            - name: Import Secrets
-              id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
-              with:
-                  url: ${{ secrets.VAULT_ADDR }}
-                  method: approle
-                  roleId: ${{ secrets.VAULT_ROLE_ID }}
-                  secretId: ${{ secrets.VAULT_SECRET_ID }}
-                  exportEnv: false
-                  secrets: |
-                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AZURE_CREDENTIALS;
-
-            - name: Configure AWS credentials for S3 backend
-              run: |
-                  set -euo pipefail
-                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set region ${{ env.S3_BUCKET_REGION }} --profile ${{ env.AWS_PROFILE }}
-
-            - name: Set current target branch
-              id: target-branch
-              run: |
-                  set -euo pipefail
-                  TARGET_BRANCH=$(cat .target-branch)
-                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
-            - name: Create Azure EntraID
-              id: create-entraid
-              uses: ./.github/actions/azure-entraid-create
-              with:
-                  resource-prefix: camunda-test-${{ github.run_id }}
-                  domain-name: eks-${{ github.event.pull_request.number || github.run_id }}.${{ env.TLD }}
-                  azure-credentials: ${{ steps.secrets.outputs.AZURE_CREDENTIALS }}
-                  enable-webmodeler: ${{ env.WEBMODELER_ENABLED }}
-                  secret-validity-hours: 168
-                  terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
-                  terraform-backend-key: entraid-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/terraform.tfstate
-
-            - name: Write EntraID secrets to file
-              run: |
-                  cat > ${{ runner.temp }}/entraid_secrets.txt <<EOF
-                  OIDC_TENANT_ID=${{ steps.create-entraid.outputs.tenant-id }}
-                  OIDC_CLIENT_ID=${{ steps.create-entraid.outputs.client-id }}
-                  OIDC_ISSUER_URL=${{ steps.create-entraid.outputs.issuer-url }}
-                  OIDC_AUTHORIZATION_URL=${{ steps.create-entraid.outputs.authorization-url }}
-                  OIDC_TOKEN_URL=${{ steps.create-entraid.outputs.token-url }}
-                  OIDC_JWKS_URL=${{ steps.create-entraid.outputs.jwks-url }}
-                  OIDC_USERINFO_URL=${{ steps.create-entraid.outputs.userinfo-url }}
-                  OIDC_IDENTITY_CLIENT_SECRET=${{ steps.create-entraid.outputs.identity-client-secret }}
-                  OIDC_OPTIMIZE_CLIENT_SECRET=${{ steps.create-entraid.outputs.optimize-client-secret }}
-                  OIDC_ORCHESTRATION_CLIENT_SECRET=${{ steps.create-entraid.outputs.orchestration-client-secret }}
-                  OIDC_CONNECTORS_CLIENT_SECRET=${{ steps.create-entraid.outputs.connectors-client-secret }}
-                  OIDC_WEBMODELER_API_CLIENT_SECRET=${{ steps.create-entraid.outputs.webmodeler-api-client-secret }}
-                  EOF
-
-            - name: Export EntraID secrets and encrypt them
-              id: encrypt_entraid_secrets
-              uses: ./.github/actions/internal-generic-encrypt-export
-              with:
-                  file_path: ${{ runner.temp }}/entraid_secrets.txt
-                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
-
-            # Write for matrix outputs workaround
-            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
-              id: entraid-out
-              with:
-                  matrix-step-name: prepare-entraid
-                  matrix-key: entraid-shared
-                  outputs: |
-                      entraid-secrets-encrypted: ${{ steps.encrypt_entraid_secrets.outputs.encrypted_file_base64 }}
-
     prepare-clusters:
         name: Prepare clusters
         needs:
             - clusters-info
-            - prepare-entraid
-        # Always run, but prepare-entraid may be skipped
-        if: always() && needs.clusters-info.result == 'success'
         strategy:
             fail-fast: false
             matrix:
@@ -245,6 +149,8 @@ jobs:
         runs-on: ubuntu-latest
         env:
             TF_MODULES_PATH: ./.action-tf-modules/aws-kubernetes-eks-single-region-create/
+            # Check if OIDC declination exists in the matrix
+            HAS_OIDC_DECLINATION: ${{ contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).declination.*.name), 'oidc') }}
         steps:
             - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
               with:
@@ -265,6 +171,18 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
+
+            - name: Azure Login with OIDC
+              if: env.HAS_OIDC_DECLINATION == 'true'
+              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              timeout-minutes: 10
+              with:
+                  client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -363,6 +281,51 @@ jobs:
                   file_path: ${{ runner.temp }}/outputs_raw
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
+            # Create EntraID for this specific cluster (1 EntraID per cluster)
+            - name: Create Azure EntraID for OIDC
+              if: env.HAS_OIDC_DECLINATION == 'true'
+              id: create-entraid
+              uses: ./.github/actions/azure-entraid-create
+              with:
+                  resource-prefix: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
+                  domain-name: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}
+                  use-oidc: 'true'
+                  azure-client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  azure-tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+                  enable-webmodeler: ${{ env.WEBMODELER_ENABLED }}
+                  secret-validity-hours: 168
+                  terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
+                  terraform-backend-key: entraid-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName
+                      }}/terraform.tfstate
+
+            - name: Write EntraID secrets to file
+              if: env.HAS_OIDC_DECLINATION == 'true'
+              run: |
+                  cat > ${{ runner.temp }}/entraid_secrets.txt <<EOF
+                  OIDC_TENANT_ID=${{ steps.create-entraid.outputs.tenant-id }}
+                  OIDC_CLIENT_ID=${{ steps.create-entraid.outputs.client-id }}
+                  OIDC_ISSUER_URL=${{ steps.create-entraid.outputs.issuer-url }}
+                  OIDC_AUTHORIZATION_URL=${{ steps.create-entraid.outputs.authorization-url }}
+                  OIDC_TOKEN_URL=${{ steps.create-entraid.outputs.token-url }}
+                  OIDC_JWKS_URL=${{ steps.create-entraid.outputs.jwks-url }}
+                  OIDC_USERINFO_URL=${{ steps.create-entraid.outputs.userinfo-url }}
+                  OIDC_IDENTITY_CLIENT_SECRET=${{ steps.create-entraid.outputs.identity-client-secret }}
+                  OIDC_OPTIMIZE_CLIENT_SECRET=${{ steps.create-entraid.outputs.optimize-client-secret }}
+                  OIDC_ORCHESTRATION_CLIENT_SECRET=${{ steps.create-entraid.outputs.orchestration-client-secret }}
+                  OIDC_CONNECTORS_CLIENT_SECRET=${{ steps.create-entraid.outputs.connectors-client-secret }}
+                  OIDC_WEBMODELER_API_CLIENT_SECRET=${{ steps.create-entraid.outputs.webmodeler-api-client-secret }}
+                  EOF
+
+            - name: Export EntraID secrets and encrypt them
+              if: env.HAS_OIDC_DECLINATION == 'true'
+              id: encrypt_entraid_secrets
+              uses: ./.github/actions/internal-generic-encrypt-export
+              with:
+                  file_path: ${{ runner.temp }}/entraid_secrets.txt
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
             # Write for matrix outputs workaround
             - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
               if: always()
@@ -374,6 +337,7 @@ jobs:
                       outputs_raw: ${{ steps.encrypt_outputs.outputs.encrypted_file_base64 }}
                       kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
                       vpnconfig_encrypted: ${{ steps.export_configs.outputs.encrypted_file_base64 }}
+                      entraid_secrets_encrypted: ${{ steps.encrypt_entraid_secrets.outputs.encrypted_file_base64 }}
 
             - name: 🌐 Post-creation steps
               timeout-minutes: 20
@@ -403,39 +367,13 @@ jobs:
         if: always()
         needs:
             - prepare-clusters
-            - prepare-entraid
         outputs:
-            config: ${{ steps.merge-outputs.outputs.result }}
+            config: ${{ steps.read-workflow.outputs.result }}
         steps:
             - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
-
-            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
-              if: needs.prepare-entraid.result == 'success'
-              id: read-entraid
-              with:
-                  matrix-step-name: prepare-entraid
-
-            - name: Merge cluster and entraid outputs
-              id: merge-outputs
-              shell: bash
-              run: |
-                  set -euo pipefail
-
-                  CLUSTER_OUTPUTS='${{ steps.read-workflow.outputs.result }}'
-                  ENTRAID_OUTPUTS='${{ steps.read-entraid.outputs.result }}'
-
-                  # If entraid outputs exist, merge them with cluster outputs
-                  if [ -n "$ENTRAID_OUTPUTS" ] && [ "$ENTRAID_OUTPUTS" != "null" ] && [ "$ENTRAID_OUTPUTS" != "{}" ]; then
-                    # Merge the two JSON objects using jq
-                    MERGED=$(echo "$CLUSTER_OUTPUTS" | jq --argjson entraid "$ENTRAID_OUTPUTS" '. * $entraid')
-                    echo "result=$MERGED" >> "$GITHUB_OUTPUT"
-                  else
-                    # Just use cluster outputs
-                    echo "result=$CLUSTER_OUTPUTS" >> "$GITHUB_OUTPUT"
-                  fi
 
     integration-tests:
         name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
@@ -448,7 +386,6 @@ jobs:
             cancel-in-progress: false
         needs:
             - prepare-clusters
-            - prepare-entraid
             - access-info
             - clusters-info
         strategy:
@@ -548,16 +485,22 @@ jobs:
                   done < "${{ runner.temp }}/outputs_raw"
 
             - name: 🔐 Retrieve EntraID OIDC credentials (for OIDC declination)
-              if: ${{ matrix.declination.name == 'oidc' && needs.prepare-entraid.result == 'success' }}
+              if: ${{ matrix.declination.name == 'oidc' }}
               uses: ./.github/actions/internal-generic-decrypt-import
               with:
                   output_path: ${{ runner.temp }}/entraid_secrets
                   encrypted_file_base64: >
-                      ${{ fromJson(needs.access-info.outputs.config)['entraid-secrets-encrypted']['entraid-shared'] }}
+                      ${{ fromJson(needs.access-info.outputs.config).entraid_secrets_encrypted[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             - name: 🚀 Export EntraID OIDC variables
-              if: ${{ matrix.declination.name == 'oidc' && needs.prepare-entraid.result == 'success' }}
+              if: ${{ matrix.declination.name == 'oidc' }}
               timeout-minutes: 1
               run: |
                   set -euo pipefail
@@ -567,8 +510,8 @@ jobs:
                     echo "$line" | tee -a "$GITHUB_ENV"
                   done < "${{ runner.temp }}/entraid_secrets"
 
-                  # Set domain name for OIDC callbacks
-                  echo "DOMAIN_NAME=eks-${{ github.event.pull_request.number || github.run_id }}.${{ env.TLD }}" | tee -a "$GITHUB_ENV"
+                  # Set domain name for OIDC callbacks (using cluster-specific domain)
+                  echo "DOMAIN_NAME=${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}" | tee -a "$GITHUB_ENV"
 
             - name: 🔐 Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
@@ -1015,6 +958,9 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
 
             - name: Configure AWS CLI
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -1053,62 +999,28 @@ jobs:
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: vpn,cluster
 
-    cleanup-entraid:
-        name: Cleanup EntraID
-        if: always()
-        runs-on: ubuntu-latest
-        needs:
-            - prepare-entraid
-            - integration-tests
-            - clusters-info
-        # Only run if EntraID was created (OIDC declination exists)
-        steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-              if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
-
-            - name: Install asdf tools with cache
-              if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
-
-            - name: Import Secrets
-              id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
-              if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
+            # Cleanup EntraID if OIDC declination was used
+            - name: Azure Login with OIDC for EntraID cleanup
+              if: env.CLEANUP_CLUSTERS == 'true' && contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).declination.*.name), 'oidc')
+              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              timeout-minutes: 10
               with:
-                  url: ${{ secrets.VAULT_ADDR }}
-                  method: approle
-                  roleId: ${{ secrets.VAULT_ROLE_ID }}
-                  secretId: ${{ secrets.VAULT_SECRET_ID }}
-                  exportEnv: false
-                  secrets: |
-                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AZURE_CREDENTIALS;
+                  client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
 
-            - name: Configure AWS credentials for S3 backend
-              if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
-              run: |
-                  set -euo pipefail
-                  aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-                  aws configure set region ${{ env.S3_BUCKET_REGION }} --profile ${{ env.AWS_PROFILE }}
-
-            - name: Set current target branch
-              if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
-              id: target-branch
-              run: |
-                  set -euo pipefail
-                  TARGET_BRANCH=$(cat .target-branch)
-                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
-            - name: Cleanup Azure EntraID
-              if: needs.prepare-entraid.result == 'success' && env.CLEANUP_CLUSTERS == 'true'
+            - name: Cleanup Azure EntraID for cluster
+              if: env.CLEANUP_CLUSTERS == 'true' && contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).declination.*.name), 'oidc')
               uses: ./.github/actions/azure-entraid-cleanup
               with:
-                  azure-credentials: ${{ steps.secrets.outputs.AZURE_CREDENTIALS }}
+                  use-oidc: 'true'
+                  azure-client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  azure-tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
                   terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
-                  terraform-backend-key: entraid-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/terraform.tfstate
+                  terraform-backend-key: entraid-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName
+                      }}/terraform.tfstate
 
     report-success:
         name: Report success
@@ -1116,7 +1028,6 @@ jobs:
         needs:
             - integration-tests
             - cleanup-clusters
-            - cleanup-entraid
         steps:
             - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 

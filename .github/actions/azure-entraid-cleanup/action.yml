@@ -4,8 +4,25 @@ description: Destroys temporary Azure AD app registration created for testing
 
 inputs:
     azure-credentials:
-        description: Azure credentials JSON
-        required: true
+        description: Azure credentials JSON (required if use-oidc is false)
+        required: false
+        default: ''
+    use-oidc:
+        description: Use OIDC authentication instead of azure-credentials JSON
+        required: false
+        default: 'false'
+    azure-client-id:
+        description: Azure Client ID (required if use-oidc is true)
+        required: false
+        default: ''
+    azure-tenant-id:
+        description: Azure Tenant ID (required if use-oidc is true)
+        required: false
+        default: ''
+    azure-subscription-id:
+        description: Azure Subscription ID (required if use-oidc is true)
+        required: false
+        default: ''
     terraform-backend-bucket:
         description: S3 bucket for Terraform state
         required: true
@@ -23,7 +40,8 @@ inputs:
 runs:
     using: composite
     steps:
-        - name: Setup Azure credentials
+        - name: Setup Azure credentials (JSON mode)
+          if: inputs.use-oidc != 'true' && inputs.azure-credentials != ''
           shell: bash
           run: |
               echo '${{ inputs.azure-credentials }}' > ${RUNNER_TEMP}/azure-creds.json
@@ -41,6 +59,16 @@ runs:
               echo "ARM_TENANT_ID=${ARM_TENANT_ID}" >> $GITHUB_ENV
 
               rm ${RUNNER_TEMP}/azure-creds.json
+
+        - name: Setup Azure credentials (OIDC mode)
+          if: inputs.use-oidc == 'true'
+          shell: bash
+          run: |
+              # Use OIDC - no client secret needed, uses federated token
+              echo "ARM_CLIENT_ID=${{ inputs.azure-client-id }}" >> $GITHUB_ENV
+              echo "ARM_SUBSCRIPTION_ID=${{ inputs.azure-subscription-id }}" >> $GITHUB_ENV
+              echo "ARM_TENANT_ID=${{ inputs.azure-tenant-id }}" >> $GITHUB_ENV
+              echo "ARM_USE_OIDC=true" >> $GITHUB_ENV
 
         - name: Configure Terraform backend
           shell: bash
