@@ -83,6 +83,7 @@ runs:
 
               mv "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./multi-region-tests/test/kubeconfig-london"
               mv "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./multi-region-tests/test/kubeconfig-paris"
+
         - name: Set Up Environment Variables
           shell: bash
           run: |
@@ -110,6 +111,7 @@ runs:
                 echo "REGION1_VALUES_YAML=${{ inputs.region-1-values-yaml }}"
                 echo "EXTRA_VALUES_YAML=${{ inputs.extra-values-yaml }}"
               } >> "$GITHUB_ENV"
+
         - name: Clean Environment
           if: inputs.skip-deploy != 'true'
           shell: bash
@@ -118,6 +120,7 @@ runs:
               set -euo pipefail
 
               go test --count=1 -v -timeout 15m -run TestAWSDualRegCleanup
+
         - name: Deploy multi-region setup - ${{ inputs.helm-version }}
           if: inputs.skip-deploy != 'true'
           shell: bash
@@ -126,6 +129,7 @@ runs:
               set -euo pipefail
 
               go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
+
         - name: Set start timestamp for Failover
           shell: bash
           id: failover-start
@@ -133,6 +137,7 @@ runs:
               set -euo pipefail
 
               printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+
         - name: Failover ${{ inputs.helm-version }}
           shell: bash
           working-directory: ./multi-region-tests/test
@@ -140,6 +145,7 @@ runs:
               set -euo pipefail
 
               go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
+
         - name: Calculate Failover duration
           shell: bash
           run: |
@@ -151,6 +157,7 @@ runs:
               if [ "$duration" -gt 900 ]; then
               echo "::error::Failover of ${{ inputs.helm-version }} is taking longer than 15 minutes"
               fi
+
         - name: Set start timestamp for Failback
           shell: bash
           id: failback-start
@@ -158,6 +165,7 @@ runs:
               set -euo pipefail
 
               printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+
         - name: Failback - ${{ inputs.helm-version }}
           shell: bash
           working-directory: ./multi-region-tests/test
@@ -165,7 +173,8 @@ runs:
               set -euo pipefail
 
               go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
-        - name: Re-export services after Failback (OpenShift)
+
+- name: Re-export services after Failback (OpenShift)
           if: inputs.post-failback-script != ''
           shell: bash
           run: |
@@ -173,6 +182,7 @@ runs:
 
               echo "Running post-failback script to re-export services..."
               ${{ inputs.post-failback-script }}
+
         - name: Calculate Failback duration
           shell: bash
           run: |
@@ -184,6 +194,7 @@ runs:
               if [ "$duration" -gt 1500 ]; then
                 echo "::error::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
               fi
+
         - name: Debug Step
           shell: bash
           working-directory: ./multi-region-tests/test
@@ -192,6 +203,7 @@ runs:
               set -euo pipefail
 
               go test --count=1 -v -timeout 4m -run TestDebugStep
+
         - name: Upload Pod Logs
           if: failure()
           uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
