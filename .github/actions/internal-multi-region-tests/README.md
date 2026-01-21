@@ -19,6 +19,8 @@ Run tests across multiple regions
 | `region-0-values-yaml` | <p>Path to region 0 values yaml file</p> | `false` | `./multi-region-tests/test/values-region-0.yaml` |
 | `region-1-values-yaml` | <p>Path to region 1 values yaml file</p> | `false` | `./multi-region-tests/test/values-region-1.yaml` |
 | `extra-values-yaml` | <p>Comma separated string of extra values yaml files to be applied</p> | `false` | `""` |
+| `skip-deploy` | <p>Skip cleanup and deploy steps (useful when deployment is already done with platform-specific configuration like OpenShift ServiceExports)</p> | `false` | `false` |
+| `post-failback-script` | <p>Script to run after Failback to re-export services (e.g., for OpenShift Submariner ServiceExports)</p> | `false` | `""` |
 
 
 ## Runs
@@ -92,6 +94,18 @@ This action is a `composite` action.
 
     extra-values-yaml:
     # Comma separated string of extra values yaml files to be applied
+    #
+    # Required: false
+    # Default: ""
+
+    skip-deploy:
+    # Skip cleanup and deploy steps (useful when deployment is already done with platform-specific configuration like OpenShift ServiceExports)
+    #
+    # Required: false
+    # Default: false
+
+    post-failback-script:
+    # Script to run after Failback to re-export services (e.g., for OpenShift Submariner ServiceExports)
     #
     # Required: false
     # Default: ""
