@@ -213,6 +213,7 @@ jobs:
                   ref-arch: ${{ matrix.scenario.name }}
                   private-vpc: ${{ matrix.scenario.private_vpc }}
                   vpn-enabled: ${{ matrix.scenario.private_vpc }}
+                  auth-provider: ${{ matrix.scenario.auth_provider }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -257,8 +258,17 @@ jobs:
 
                   source ${{ github.workspace }}/.github/scripts/gha-functions.sh
 
+                  # Export base helm values (OIDC mode)
                   export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/export-helm-values.sh ${{ runner.temp }}/outputs_raw
                   export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh ${{ runner.temp }}/outputs_raw
+
+                  # Add Keycloak-specific exports for embedded Keycloak auth
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "keycloak" ]]; then
+                      echo "Exporting Keycloak configuration..."
+                      KEYCLOAK_SCRIPT="${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}"
+                      KEYCLOAK_SCRIPT+="/terraform/cluster/test/export-keycloak-helm-values.sh"
+                      export_new_env_vars_to_file "$KEYCLOAK_SCRIPT" ${{ runner.temp }}/outputs_raw
+                  fi
 
                   if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
                       export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh ${{ runner.temp }}/outputs_raw
@@ -770,9 +780,18 @@ jobs:
               run: |
                   set -euo pipefail
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/check-env-variables.sh
+
+                  # Create base setup-db-secret (OIDC mode)
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
 
-                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/setup-postgres-create-db.yml --namespace "$CAMUNDA_NAMESPACE"
+                  # Patch secret with Keycloak credentials for embedded Keycloak auth
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "keycloak" ]]; then
+                      ./aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/test/patch-setup-db-secret-keycloak.sh
+                      SETUP_DB_MANIFEST="./aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/test/setup-postgres-create-db-with-keycloak.yml"
+                  else
+                      SETUP_DB_MANIFEST="./aws/kubernetes/${{ matrix.scenario.name }}/setup-postgres-create-db.yml"
+                  fi
+                  kubectl apply -f "$SETUP_DB_MANIFEST" --namespace "$CAMUNDA_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
