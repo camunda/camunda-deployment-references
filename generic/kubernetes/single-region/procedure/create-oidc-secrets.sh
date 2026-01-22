@@ -63,6 +63,15 @@ if [ -n "${OIDC_IDENTITY_CLIENT_SECRET:-}" ]; then
         echo "✅ Created Web Modeler secret"
     fi
 
+    # Create identity-secret-for-components with required keys
+    # This secret is referenced by values-domain.yml for webModeler mail config
+    # In OIDC mode, we only need the smtp-password key (can be empty for testing)
+    kubectl create secret generic identity-secret-for-components \
+        --namespace "$CAMUNDA_NAMESPACE" \
+        --from-literal=smtp-password="${SMTP_PASSWORD:-}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+    echo "✅ Created identity-secret-for-components secret"
+
 else
     echo "⚠️  No OIDC credentials found in environment variables"
     echo ""

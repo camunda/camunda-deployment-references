@@ -159,7 +159,7 @@ runs:
           run: |
               terraform apply -auto-approve tfplan
 
-              # Export outputs
+              # Export outputs - non-sensitive values
               echo "user_pool_id=$(terraform output -raw user_pool_id)" >> $GITHUB_OUTPUT
               echo "issuer_url=$(terraform output -raw issuer_url)" >> $GITHUB_OUTPUT
               echo "authorization_url=$(terraform output -raw authorization_url)" >> $GITHUB_OUTPUT
@@ -167,20 +167,40 @@ runs:
               echo "jwks_url=$(terraform output -raw jwks_url)" >> $GITHUB_OUTPUT
               echo "userinfo_url=$(terraform output -raw userinfo_url)" >> $GITHUB_OUTPUT
 
+              # Client IDs (non-sensitive)
               echo "identity_client_id=$(terraform output -raw identity_client_id)" >> $GITHUB_OUTPUT
-              echo "identity_client_secret=$(terraform output -raw identity_client_secret)" >> $GITHUB_OUTPUT
               echo "optimize_client_id=$(terraform output -raw optimize_client_id)" >> $GITHUB_OUTPUT
-              echo "optimize_client_secret=$(terraform output -raw optimize_client_secret)" >> $GITHUB_OUTPUT
               echo "orchestration_client_id=$(terraform output -raw orchestration_client_id)" >> $GITHUB_OUTPUT
-              echo "orchestration_client_secret=$(terraform output -raw orchestration_client_secret)" >> $GITHUB_OUTPUT
               echo "connectors_client_id=$(terraform output -raw connectors_client_id)" >> $GITHUB_OUTPUT
-              echo "connectors_client_secret=$(terraform output -raw connectors_client_secret)" >> $GITHUB_OUTPUT
               echo "console_client_id=$(terraform output -raw console_client_id)" >> $GITHUB_OUTPUT
               echo "webmodeler_ui_client_id=$(terraform output -raw webmodeler_ui_client_id)" >> $GITHUB_OUTPUT
               echo "webmodeler_api_client_id=$(terraform output -raw webmodeler_api_client_id)" >> $GITHUB_OUTPUT
-              echo "webmodeler_api_client_secret=$(terraform output -raw webmodeler_api_client_secret)" >> $GITHUB_OUTPUT
               echo "test_user_name=$(terraform output -raw test_user_name)" >> $GITHUB_OUTPUT
-              echo "test_user_password=$(terraform output -raw test_user_password)" >> $GITHUB_OUTPUT
+
+              # Client secrets and passwords (sensitive - mask them)
+              IDENTITY_CLIENT_SECRET=$(terraform output -raw identity_client_secret)
+              echo "::add-mask::$IDENTITY_CLIENT_SECRET"
+              echo "identity_client_secret=$IDENTITY_CLIENT_SECRET" >> $GITHUB_OUTPUT
+
+              OPTIMIZE_CLIENT_SECRET=$(terraform output -raw optimize_client_secret)
+              echo "::add-mask::$OPTIMIZE_CLIENT_SECRET"
+              echo "optimize_client_secret=$OPTIMIZE_CLIENT_SECRET" >> $GITHUB_OUTPUT
+
+              ORCHESTRATION_CLIENT_SECRET=$(terraform output -raw orchestration_client_secret)
+              echo "::add-mask::$ORCHESTRATION_CLIENT_SECRET"
+              echo "orchestration_client_secret=$ORCHESTRATION_CLIENT_SECRET" >> $GITHUB_OUTPUT
+
+              CONNECTORS_CLIENT_SECRET=$(terraform output -raw connectors_client_secret)
+              echo "::add-mask::$CONNECTORS_CLIENT_SECRET"
+              echo "connectors_client_secret=$CONNECTORS_CLIENT_SECRET" >> $GITHUB_OUTPUT
+
+              WEBMODELER_API_CLIENT_SECRET=$(terraform output -raw webmodeler_api_client_secret)
+              echo "::add-mask::$WEBMODELER_API_CLIENT_SECRET"
+              echo "webmodeler_api_client_secret=$WEBMODELER_API_CLIENT_SECRET" >> $GITHUB_OUTPUT
+
+              TEST_USER_PASSWORD=$(terraform output -raw test_user_password)
+              echo "::add-mask::$TEST_USER_PASSWORD"
+              echo "test_user_password=$TEST_USER_PASSWORD" >> $GITHUB_OUTPUT
 
         - name: Save state file location
           shell: bash

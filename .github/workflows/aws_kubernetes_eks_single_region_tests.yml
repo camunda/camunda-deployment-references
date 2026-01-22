@@ -213,7 +213,6 @@ jobs:
                   ref-arch: ${{ matrix.scenario.name }}
                   private-vpc: ${{ matrix.scenario.private_vpc }}
                   vpn-enabled: ${{ matrix.scenario.private_vpc }}
-                  admin-email: ${{ env.MAIL_OVERWRITE }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -486,7 +485,16 @@ jobs:
                   set -euo pipefail
 
                   # Export the decrypted outputs as environment variables
+                  # Mask secrets to prevent them from appearing in logs
                   while IFS= read -r line; do
+                    var_name="${line%%=*}"
+                    var_value="${line#*=}"
+
+                    # Mask sensitive values (secrets and passwords)
+                    if [[ "$var_name" == *SECRET* ]] || [[ "$var_name" == *PASSWORD* ]]; then
+                      echo "::add-mask::$var_value"
+                    fi
+
                     echo "$line" >> "$GITHUB_ENV"
                   done < "${{ runner.temp }}/outputs_raw"
 
@@ -512,7 +520,16 @@ jobs:
                   set -euo pipefail
 
                   # Export Cognito credentials as environment variables
+                  # Mask secrets to prevent them from appearing in logs
                   while IFS= read -r line; do
+                    var_name="${line%%=*}"
+                    var_value="${line#*=}"
+
+                    # Mask sensitive values (secrets and passwords)
+                    if [[ "$var_name" == *SECRET* ]] || [[ "$var_name" == *PASSWORD* ]]; then
+                      echo "::add-mask::$var_value"
+                    fi
+
                     echo "$line" >> "$GITHUB_ENV"
                   done < "${{ runner.temp }}/cognito_secrets"
 

@@ -136,6 +136,8 @@ webModeler:
               value: https://${DOMAIN_NAME}/auth
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
               value: ${OIDC_ISSUER_URL}
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI
+              value: ${OIDC_JWKS_URL}
 
     webapp:
         env:
