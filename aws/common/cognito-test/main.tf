@@ -54,9 +54,9 @@ resource "aws_cognito_user_pool" "camunda" {
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
 
-  # Allow users to sign themselves up
+  # Disable self-service sign-up - only admins can create users
   admin_create_user_config {
-    allow_admin_create_user_only = false
+    allow_admin_create_user_only = true
   }
 
   # Password policy
@@ -439,6 +439,10 @@ resource "aws_cognito_user" "test" {
 
   # Set permanent password (no forced change on first login)
   password = var.test_user_password
+
+  # SUPPRESS = don't send welcome email, user is created in CONFIRMED status
+  # This avoids FORCE_CHANGE_PASSWORD status
+  message_action = "SUPPRESS"
 
   lifecycle {
     ignore_changes = [password]
