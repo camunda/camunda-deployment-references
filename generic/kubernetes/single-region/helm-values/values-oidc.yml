@@ -56,6 +56,8 @@ global:
             admin:
 
 identity:
+    enabled: true
+
     firstUser:
         enabled: false
 
