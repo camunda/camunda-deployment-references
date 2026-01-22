@@ -60,16 +60,12 @@ resource "azuread_application" "camunda" {
   # Web platform configuration
   web {
     redirect_uris = local.callback_urls
+    logout_url    = local.logout_urls[0]
 
     implicit_grant {
       access_token_issuance_enabled = true
       id_token_issuance_enabled     = true
     }
-  }
-
-  # Logout URLs
-  web {
-    logout_url = local.logout_urls[0]
   }
 
   # Required resource access (Microsoft Graph)
