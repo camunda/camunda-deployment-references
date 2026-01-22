@@ -16,7 +16,7 @@ Destroys temporary Azure AD app registration created for testing
 | `terraform-backend-bucket` | <p>S3 bucket for Terraform state</p> | `true` | `""` |
 | `terraform-backend-region` | <p>S3 bucket region</p> | `true` | `""` |
 | `terraform-backend-key` | <p>S3 key for Terraform state</p> | `true` | `""` |
-| `aws-profile` | <p>AWS profile to use for S3 backend (must be configured beforehand)</p> | `false` | `infex` |
+| `aws-profile` | <p>AWS profile to use for S3 backend (must be configured beforehand)</p> | `false` | `infraex` |
 
 
 ## Runs
@@ -80,5 +80,5 @@ This action is a `composite` action.
     # AWS profile to use for S3 backend (must be configured beforehand)
     #
     # Required: false
-    # Default: infex
+    # Default: infraex
 ```

@@ -49,7 +49,7 @@ inputs:
     aws-profile:
         description: AWS profile to use for S3 backend (must be configured beforehand)
         required: false
-        default: infex
+        default: infraex
 
 outputs:
     tenant-id:
