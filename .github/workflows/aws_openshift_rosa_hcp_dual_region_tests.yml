@@ -759,7 +759,7 @@ jobs:
                   echo "=========================================="
                   # Test DNS resolution for cross-cluster services
                   kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" \
-                    run dns-test --image=busybox:1.28 --rm -it --restart=Never --command -- \
+                    run dns-test --image=busybox:1.28 --rm --restart=Never --command -- \
                     nslookup "${CAMUNDA_RELEASE_NAME:-camunda}-zeebe.${CAMUNDA_NAMESPACE_1}.svc.clusterset.local" \
                     2>/dev/null || echo "DNS test failed or timed out"
 
