@@ -487,7 +487,7 @@ jobs:
 
                   # Export the decrypted outputs as environment variables
                   while IFS= read -r line; do
-                    echo "$line" | tee -a "$GITHUB_ENV"
+                    echo "$line" >> "$GITHUB_ENV"
                   done < "${{ runner.temp }}/outputs_raw"
 
             - name: 🔐 Retrieve Cognito OIDC credentials
@@ -513,11 +513,11 @@ jobs:
 
                   # Export Cognito credentials as environment variables
                   while IFS= read -r line; do
-                    echo "$line" | tee -a "$GITHUB_ENV"
+                    echo "$line" >> "$GITHUB_ENV"
                   done < "${{ runner.temp }}/cognito_secrets"
 
                   # Set domain name for OIDC callbacks (using cluster-specific domain)
-                  echo "DOMAIN_NAME=${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}" | tee -a "$GITHUB_ENV"
+                  echo "DOMAIN_NAME=${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}" >> "$GITHUB_ENV"
 
             - name: 🔐 Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
