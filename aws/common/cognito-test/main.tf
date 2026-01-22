@@ -393,7 +393,7 @@ resource "aws_cognito_user_pool_client" "webmodeler_ui" {
   refresh_token_validity = 30
 }
 
-# WebModeler API App Client (confidential)
+# WebModeler API App Client (confidential - M2M only)
 resource "aws_cognito_user_pool_client" "webmodeler_api" {
   count = var.enable_webmodeler ? 1 : 0
 
@@ -402,20 +402,17 @@ resource "aws_cognito_user_pool_client" "webmodeler_api" {
 
   generate_secret = true
 
+  # M2M client - only client_credentials flow (cannot be combined with code/implicit)
   allowed_oauth_flows_user_pool_client = true
-  allowed_oauth_flows                  = ["code", "client_credentials"]
+  allowed_oauth_flows                  = ["client_credentials"]
   allowed_oauth_scopes = [
-    "email", "openid", "profile",
     "${aws_cognito_resource_server.camunda.identifier}/webmodeler"
   ]
 
   supported_identity_providers = ["COGNITO"]
 
-  explicit_auth_flows = [
-    "ALLOW_REFRESH_TOKEN_AUTH",
-    "ALLOW_USER_SRP_AUTH",
-    "ALLOW_USER_PASSWORD_AUTH"
-  ]
+  # No user auth flows needed for M2M client
+  explicit_auth_flows = []
 
   token_validity_units {
     access_token  = "hours"

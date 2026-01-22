@@ -175,7 +175,7 @@ jobs:
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_EMAIL;
-                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_PASSWORD;
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -293,7 +293,7 @@ jobs:
                   enable-console: ${{ env.CONSOLE_ENABLED }}
                   create-test-user: 'true'
                   test-user-name: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_EMAIL }}
-                  test-user-password: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
+                  test-user-password: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_PASSWORD }}
                   auto-cleanup-hours: '168'
                   terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
