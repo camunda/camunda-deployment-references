@@ -77,15 +77,16 @@ output "webmodeler_api_client_secret" {
   sensitive   = true
 }
 
-# Admin user info
-output "admin_user_principal_name" {
-  description = "User Principal Name of the created admin user"
-  value       = var.create_admin_user ? azuread_user.admin[0].user_principal_name : ""
+# Test user
+output "test_user_name" {
+  description = "Username (UPN) of the test user for simulated login"
+  value       = var.create_test_user ? azuread_user.test[0].user_principal_name : ""
 }
 
-output "admin_user_id" {
-  description = "Object ID of the created admin user"
-  value       = var.create_admin_user ? azuread_user.admin[0].id : ""
+output "test_user_password" {
+  description = "Password of the test user"
+  value       = var.create_test_user ? var.test_user_password : ""
+  sensitive   = true
 }
 
 # Cleanup tracking

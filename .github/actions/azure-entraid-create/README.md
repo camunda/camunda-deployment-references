@@ -16,6 +16,9 @@ Creates a temporary Azure AD app registration for Camunda OIDC testing
 | `azure-tenant-id` | <p>Azure Tenant ID (required if use-oidc is true)</p> | `false` | `""` |
 | `azure-subscription-id` | <p>Azure Subscription ID (required if use-oidc is true)</p> | `false` | `""` |
 | `enable-webmodeler` | <p>Enable Web Modeler component</p> | `false` | `false` |
+| `create-test-user` | <p>Create a test user for simulating human login</p> | `false` | `false` |
+| `test-user-name` | <p>Username for the test user</p> | `false` | `camunda-test` |
+| `test-user-password` | <p>Password for the test user</p> | `false` | `CamundaTest123!` |
 | `secret-validity-hours` | <p>Client secret validity in hours</p> | `false` | `168` |
 | `terraform-backend-bucket` | <p>S3 bucket for Terraform state</p> | `true` | `""` |
 | `terraform-backend-region` | <p>S3 bucket region</p> | `true` | `""` |
@@ -39,6 +42,8 @@ Creates a temporary Azure AD app registration for Camunda OIDC testing
 | `orchestration-client-secret` | <p>Orchestration component client secret</p> |
 | `connectors-client-secret` | <p>Connectors component client secret</p> |
 | `webmodeler-api-client-secret` | <p>Web Modeler API client secret</p> |
+| `test-user-name` | <p>Test user UPN (email)</p> |
+| `test-user-password` | <p>Test user password</p> |
 
 
 ## Runs
@@ -97,6 +102,24 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: false
+
+    create-test-user:
+    # Create a test user for simulating human login
+    #
+    # Required: false
+    # Default: false
+
+    test-user-name:
+    # Username for the test user
+    #
+    # Required: false
+    # Default: camunda-test
+
+    test-user-password:
+    # Password for the test user
+    #
+    # Required: false
+    # Default: CamundaTest123!
 
     secret-validity-hours:
     # Client secret validity in hours

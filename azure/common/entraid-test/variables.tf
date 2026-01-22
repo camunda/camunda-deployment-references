@@ -16,29 +16,29 @@ variable "tenant_id" {
   default     = ""
 }
 
-variable "create_admin_user" {
-  description = "Create an initial admin user in Azure AD"
-  type        = bool
-  default     = true
-}
-
-variable "admin_user_email" {
-  description = "Email prefix for the initial admin user (will append tenant domain)"
-  type        = string
-  default     = "camunda-admin-test"
-}
-
-variable "admin_temporary_password" {
-  description = "Temporary password for the initial admin user (must be changed on first login)"
-  type        = string
-  default     = "TempP@ssw0rd123!"
-  sensitive   = true
-}
-
 variable "enable_webmodeler" {
   description = "Enable Web Modeler component (creates additional client secret)"
   type        = bool
   default     = false
+}
+
+variable "create_test_user" {
+  description = "Create a test user for simulating human login (requires User.ReadWrite.All permission)"
+  type        = bool
+  default     = false
+}
+
+variable "test_user_name" {
+  description = "Username for the test user (will be used as email prefix)"
+  type        = string
+  default     = "camunda-test"
+}
+
+variable "test_user_password" {
+  description = "Password for the test user"
+  type        = string
+  default     = "CamundaTest123!"
+  sensitive   = true
 }
 
 variable "secret_validity_hours" {

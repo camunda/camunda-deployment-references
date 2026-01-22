@@ -174,6 +174,8 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_CLIENT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
 
             - name: Azure Login with OIDC
               if: env.HAS_OIDC_DECLINATION == 'true'
@@ -294,6 +296,9 @@ jobs:
                   azure-tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
                   azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
                   enable-webmodeler: ${{ env.WEBMODELER_ENABLED }}
+                  create-test-user: 'true'
+                  test-user-name: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
+                  test-user-password: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                   secret-validity-hours: 168
                   terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
@@ -316,6 +321,8 @@ jobs:
                   OIDC_ORCHESTRATION_CLIENT_SECRET=${{ steps.create-entraid.outputs.orchestration-client-secret }}
                   OIDC_CONNECTORS_CLIENT_SECRET=${{ steps.create-entraid.outputs.connectors-client-secret }}
                   OIDC_WEBMODELER_API_CLIENT_SECRET=${{ steps.create-entraid.outputs.webmodeler-api-client-secret }}
+                  OIDC_TEST_USER_NAME=${{ steps.create-entraid.outputs.test-user-name }}
+                  OIDC_TEST_USER_PASSWORD=${{ steps.create-entraid.outputs.test-user-password }}
                   EOF
 
             - name: Export EntraID secrets and encrypt them

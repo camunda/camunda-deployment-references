@@ -118,32 +118,30 @@ No modules.
 | [azuread_application_password.orchestration](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application_password) | resource |
 | [azuread_application_password.webmodeler_api](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application_password) | resource |
 | [azuread_service_principal.camunda](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/service_principal) | resource |
-| [azuread_user.admin](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/user) | resource |
+| [azuread_user.test](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/user) | resource |
 | [null_resource.cleanup_marker](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [random_string.suffix](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) | resource |
 | [time_static.creation](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/static) | resource |
 | [azuread_client_config.current](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/data-sources/client_config) | data source |
-| [azuread_domains.aad_domains](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/data-sources/domains) | data source |
+| [azuread_domains.tenant](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/data-sources/domains) | data source |
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_admin_temporary_password"></a> [admin\_temporary\_password](#input\_admin\_temporary\_password) | Temporary password for the initial admin user (must be changed on first login) | `string` | `"TempP@ssw0rd123!"` | no |
-| <a name="input_admin_user_email"></a> [admin\_user\_email](#input\_admin\_user\_email) | Email prefix for the initial admin user (will append tenant domain) | `string` | `"camunda-admin-test"` | no |
 | <a name="input_auto_cleanup_hours"></a> [auto\_cleanup\_hours](#input\_auto\_cleanup\_hours) | Hours after which this EntraID app should be automatically cleaned up (for CI tracking) | `number` | `72` | no |
-| <a name="input_create_admin_user"></a> [create\_admin\_user](#input\_create\_admin\_user) | Create an initial admin user in Azure AD | `bool` | `true` | no |
+| <a name="input_create_test_user"></a> [create\_test\_user](#input\_create\_test\_user) | Create a test user for simulating human login (requires User.ReadWrite.All permission) | `bool` | `false` | no |
 | <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | Domain name for Camunda deployment (e.g., camunda.example.com) | `string` | `""` | no |
 | <a name="input_enable_webmodeler"></a> [enable\_webmodeler](#input\_enable\_webmodeler) | Enable Web Modeler component (creates additional client secret) | `bool` | `false` | no |
 | <a name="input_resource_prefix"></a> [resource\_prefix](#input\_resource\_prefix) | Prefix for EntraID resources. If empty, uses 'camunda-test' | `string` | `""` | no |
 | <a name="input_secret_validity_hours"></a> [secret\_validity\_hours](#input\_secret\_validity\_hours) | Validity period for client secrets in hours (default: 720h = 30 days) | `number` | `720` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for resources | `map(string)` | `{}` | no |
 | <a name="input_tenant_id"></a> [tenant\_id](#input\_tenant\_id) | Azure AD Tenant ID (optional, will use current context if not provided) | `string` | `""` | no |
+| <a name="input_test_user_name"></a> [test\_user\_name](#input\_test\_user\_name) | Username for the test user (will be used as email prefix) | `string` | `"camunda-test"` | no |
+| <a name="input_test_user_password"></a> [test\_user\_password](#input\_test\_user\_password) | Password for the test user | `string` | `"CamundaTest123!"` | no |
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| <a name="output_admin_user_id"></a> [admin\_user\_id](#output\_admin\_user\_id) | Object ID of the created admin user |
-| <a name="output_admin_user_principal_name"></a> [admin\_user\_principal\_name](#output\_admin\_user\_principal\_name) | User Principal Name of the created admin user |
 | <a name="output_application_id"></a> [application\_id](#output\_application\_id) | Application object ID |
 | <a name="output_authorization_url"></a> [authorization\_url](#output\_authorization\_url) | OIDC Authorization endpoint |
 | <a name="output_client_id"></a> [client\_id](#output\_client\_id) | Application (client) ID for all Camunda components (shared) |
@@ -158,6 +156,8 @@ No modules.
 | <a name="output_orchestration_client_secret"></a> [orchestration\_client\_secret](#output\_orchestration\_client\_secret) | Client secret for Orchestration |
 | <a name="output_service_principal_id"></a> [service\_principal\_id](#output\_service\_principal\_id) | Service Principal object ID |
 | <a name="output_tenant_id"></a> [tenant\_id](#output\_tenant\_id) | Azure AD Tenant ID |
+| <a name="output_test_user_name"></a> [test\_user\_name](#output\_test\_user\_name) | Username (UPN) of the test user for simulated login |
+| <a name="output_test_user_password"></a> [test\_user\_password](#output\_test\_user\_password) | Password of the test user |
 | <a name="output_token_url"></a> [token\_url](#output\_token\_url) | OIDC Token endpoint |
 | <a name="output_userinfo_url"></a> [userinfo\_url](#output\_userinfo\_url) | OIDC UserInfo endpoint |
 | <a name="output_webmodeler_api_client_secret"></a> [webmodeler\_api\_client\_secret](#output\_webmodeler\_api\_client\_secret) | Client secret for Web Modeler API |

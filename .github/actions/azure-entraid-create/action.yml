@@ -33,6 +33,18 @@ inputs:
         description: Enable Web Modeler component
         required: false
         default: 'false'
+    create-test-user:
+        description: Create a test user for simulating human login
+        required: false
+        default: 'false'
+    test-user-name:
+        description: Username for the test user
+        required: false
+        default: camunda-test
+    test-user-password:
+        description: Password for the test user
+        required: false
+        default: CamundaTest123!
     secret-validity-hours:
         description: Client secret validity in hours
         required: false
@@ -88,6 +100,12 @@ outputs:
     webmodeler-api-client-secret:
         description: Web Modeler API client secret
         value: ${{ steps.apply.outputs.webmodeler_api_client_secret }}
+    test-user-name:
+        description: Test user UPN (email)
+        value: ${{ steps.apply.outputs.test_user_name }}
+    test-user-password:
+        description: Test user password
+        value: ${{ steps.apply.outputs.test_user_password }}
 
 runs:
     using: composite
@@ -151,6 +169,9 @@ runs:
                 -var="resource_prefix=${{ inputs.resource-prefix }}" \
                 -var="domain_name=${{ inputs.domain-name }}" \
                 -var="enable_webmodeler=${{ inputs.enable-webmodeler }}" \
+                -var="create_test_user=${{ inputs.create-test-user }}" \
+                -var="test_user_name=${{ inputs.test-user-name }}" \
+                -var="test_user_password=${{ inputs.test-user-password }}" \
                 -var="secret_validity_hours=${{ inputs.secret-validity-hours }}" \
                 -var="auto_cleanup_hours=72" \
                 -out=tfplan
@@ -175,6 +196,8 @@ runs:
               echo "orchestration_client_secret=$(terraform output -raw orchestration_client_secret)" >> $GITHUB_OUTPUT
               echo "connectors_client_secret=$(terraform output -raw connectors_client_secret)" >> $GITHUB_OUTPUT
               echo "webmodeler_api_client_secret=$(terraform output -raw webmodeler_api_client_secret)" >> $GITHUB_OUTPUT
+              echo "test_user_name=$(terraform output -raw test_user_name)" >> $GITHUB_OUTPUT
+              echo "test_user_password=$(terraform output -raw test_user_password)" >> $GITHUB_OUTPUT
 
         - name: Save state file location
           shell: bash

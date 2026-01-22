@@ -178,22 +178,24 @@ resource "azuread_application_password" "webmodeler_api" {
   end_date_relative = var.secret_validity_hours != null ? "${var.secret_validity_hours}h" : "720h"
 }
 
-# Create a test user if requested
-resource "azuread_user" "admin" {
-  count = var.create_admin_user ? 1 : 0
+# Test user for simulating human login (optional)
+data "azuread_domains" "tenant" {
+  count = var.create_test_user ? 1 : 0
+}
 
-  user_principal_name   = "${var.admin_user_email}@${data.azuread_domains.aad_domains.domains[0].domain_name}"
-  display_name          = "Camunda Admin (Test)"
-  password              = var.admin_temporary_password
-  force_password_change = true
-  mail_nickname         = "camunda-admin-test"
+resource "azuread_user" "test" {
+  count = var.create_test_user ? 1 : 0
+
+  user_principal_name   = "${var.test_user_name}@${data.azuread_domains.tenant[0].domains[0].domain_name}"
+  display_name          = "Camunda Test User"
+  password              = var.test_user_password
+  force_password_change = false
+  mail_nickname         = var.test_user_name
 
   lifecycle {
     ignore_changes = [password]
   }
 }
-
-data "azuread_domains" "aad_domains" {}
 
 # Add marker for automatic cleanup
 resource "time_static" "creation" {}
