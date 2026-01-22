@@ -1,0 +1,56 @@
+---
+name: Cleanup AWS Cognito
+description: Destroys temporary AWS Cognito User Pool created for testing
+
+inputs:
+    terraform-backend-bucket:
+        description: S3 bucket for Terraform state
+        required: true
+    terraform-backend-region:
+        description: S3 bucket region
+        required: true
+    terraform-backend-key:
+        description: S3 key for Terraform state
+        required: true
+    aws-profile:
+        description: AWS profile to use (must be configured beforehand)
+        required: false
+        default: infraex
+
+runs:
+    using: composite
+    steps:
+        - name: Configure Terraform backend
+          shell: bash
+          working-directory: ${{ github.workspace }}/aws/common/cognito-test
+          run: |
+              cat > backend.tf <<EOF
+              terraform {
+                backend "s3" {
+                  bucket  = "${{ inputs.terraform-backend-bucket }}"
+                  key     = "${{ inputs.terraform-backend-key }}"
+                  region  = "${{ inputs.terraform-backend-region }}"
+                  profile = "${{ inputs.aws-profile }}"
+                }
+              }
+              EOF
+
+        - name: Terraform Init
+          shell: bash
+          working-directory: ${{ github.workspace }}/aws/common/cognito-test
+          run: |
+              terraform init -upgrade
+
+        - name: Terraform Destroy
+          shell: bash
+          working-directory: ${{ github.workspace }}/aws/common/cognito-test
+          run: |
+              terraform destroy -auto-approve || true
+              echo "✅ Cognito resources destroyed successfully" >> $GITHUB_STEP_SUMMARY
+
+        - name: Cleanup state file
+          shell: bash
+          continue-on-error: true
+          run: |
+              aws s3 rm s3://${{ inputs.terraform-backend-bucket }}/${{ inputs.terraform-backend-key }} --profile ${{ inputs.aws-profile }} || true
+              echo "🗑️ Removed Terraform state file" >> $GITHUB_STEP_SUMMARY

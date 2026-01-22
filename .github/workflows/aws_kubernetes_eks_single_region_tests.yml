@@ -2,6 +2,7 @@
 name: Tests - Integration - AWS Kubernetes EKS Single Region (IRSA)
 
 permissions:
+    id-token: write # required for OIDC
     contents: read # don't allow commits
     pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
@@ -17,6 +18,9 @@ on:
             - '!aws/kubernetes/eks-single-region/terraform/*/test/golden/**'
             - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
             - .github/actions/aws-kubernetes-eks-single-region-create/**
+            - .github/actions/aws-cognito-create/**
+            - .github/actions/aws-cognito-cleanup/**
+            - aws/common/cognito-test/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/aws-generic-terraform-cleanup/**
@@ -144,6 +148,8 @@ jobs:
         runs-on: ubuntu-latest
         env:
             TF_MODULES_PATH: ./.action-tf-modules/aws-kubernetes-eks-single-region-create/
+            # Check if Cognito declination exists in the matrix
+            HAS_COGNITO_DECLINATION: ${{ contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).declination.*.name), 'cognito') }}
         steps:
             - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
               with:
@@ -187,19 +193,6 @@ jobs:
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
-            - name: Set Cognito deployment flag
-              id: cognito-config
-              run: |
-                  # Cognito is deployed when the scenario enables it
-                  DEPLOY_COGNITO="${{ matrix.scenario.cognito_enabled || 'false' }}"
-                  echo "deploy-cognito=$DEPLOY_COGNITO" | tee -a "$GITHUB_OUTPUT"
-
-                  # Generate domain name for Cognito callbacks
-                  if [[ "$DEPLOY_COGNITO" == "true" ]]; then
-                      COGNITO_DOMAIN="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
-                      echo "domain-name=$COGNITO_DOMAIN" | tee -a "$GITHUB_OUTPUT"
-                  fi
-
             - name: Create K8S cluster and login
               uses: ./.github/actions/aws-kubernetes-eks-single-region-create
               id: create_cluster
@@ -216,8 +209,6 @@ jobs:
                   ref-arch: ${{ matrix.scenario.name }}
                   private-vpc: ${{ matrix.scenario.private_vpc }}
                   vpn-enabled: ${{ matrix.scenario.private_vpc }}
-                  deploy-cognito: ${{ steps.cognito-config.outputs.deploy-cognito }}
-                  domain-name: ${{ steps.cognito-config.outputs.domain-name }}
                   admin-email: ${{ env.MAIL_OVERWRITE }}
                   tags: >
                       {
@@ -284,6 +275,60 @@ jobs:
                   file_path: ${{ runner.temp }}/outputs_raw
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
+            # Create Cognito for this specific cluster (1 Cognito User Pool per cluster)
+            - name: Create AWS Cognito for OIDC
+              if: env.HAS_COGNITO_DECLINATION == 'true'
+              id: create-cognito
+              uses: ./.github/actions/aws-cognito-create
+              with:
+                  resource-prefix: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
+                  domain-name: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}
+                  enable-webmodeler: ${{ env.WEBMODELER_ENABLED }}
+                  enable-console: ${{ env.CONSOLE_ENABLED }}
+                  create-test-user: 'true'
+                  test-user-name: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
+                  test-user-password: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
+                  auto-cleanup-hours: '168'
+                  terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
+                  terraform-backend-key: cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName
+                      }}/terraform.tfstate
+
+            - name: Write Cognito secrets to file
+              if: env.HAS_COGNITO_DECLINATION == 'true'
+              run: |
+                  cat > ${{ runner.temp }}/cognito_secrets.txt <<EOF
+                  COGNITO_USER_POOL_ID=${{ steps.create-cognito.outputs.user-pool-id }}
+                  COGNITO_ISSUER_URL=${{ steps.create-cognito.outputs.issuer-url }}
+                  COGNITO_AUTHORIZATION_URL=${{ steps.create-cognito.outputs.authorization-url }}
+                  COGNITO_TOKEN_URL=${{ steps.create-cognito.outputs.token-url }}
+                  COGNITO_JWKS_URL=${{ steps.create-cognito.outputs.jwks-url }}
+                  COGNITO_USERINFO_URL=${{ steps.create-cognito.outputs.userinfo-url }}
+                  IDENTITY_CLIENT_ID=${{ steps.create-cognito.outputs.identity-client-id }}
+                  COGNITO_IDENTITY_CLIENT_SECRET=${{ steps.create-cognito.outputs.identity-client-secret }}
+                  OPTIMIZE_CLIENT_ID=${{ steps.create-cognito.outputs.optimize-client-id }}
+                  COGNITO_OPTIMIZE_CLIENT_SECRET=${{ steps.create-cognito.outputs.optimize-client-secret }}
+                  ORCHESTRATION_CLIENT_ID=${{ steps.create-cognito.outputs.orchestration-client-id }}
+                  COGNITO_ORCHESTRATION_CLIENT_SECRET=${{ steps.create-cognito.outputs.orchestration-client-secret }}
+                  CONNECTORS_CLIENT_ID=${{ steps.create-cognito.outputs.connectors-client-id }}
+                  COGNITO_CONNECTORS_CLIENT_SECRET=${{ steps.create-cognito.outputs.connectors-client-secret }}
+                  CONSOLE_CLIENT_ID=${{ steps.create-cognito.outputs.console-client-id }}
+                  WEBMODELER_UI_CLIENT_ID=${{ steps.create-cognito.outputs.webmodeler-ui-client-id }}
+                  WEBMODELER_API_CLIENT_ID=${{ steps.create-cognito.outputs.webmodeler-api-client-id }}
+                  COGNITO_WEBMODELER_API_CLIENT_SECRET=${{ steps.create-cognito.outputs.webmodeler-api-client-secret }}
+                  COGNITO_TEST_USER_NAME=${{ steps.create-cognito.outputs.test-user-name }}
+                  COGNITO_TEST_USER_PASSWORD=${{ steps.create-cognito.outputs.test-user-password }}
+                  IDENTITY_INITIAL_USER_EMAIL=${{ steps.create-cognito.outputs.test-user-name }}
+                  EOF
+
+            - name: Export Cognito secrets and encrypt them
+              if: env.HAS_COGNITO_DECLINATION == 'true'
+              id: encrypt_cognito_secrets
+              uses: ./.github/actions/internal-generic-encrypt-export
+              with:
+                  file_path: ${{ runner.temp }}/cognito_secrets.txt
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
             # Write for matrix outputs workaround
             - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
               if: always()
@@ -295,6 +340,7 @@ jobs:
                       outputs_raw: ${{ steps.encrypt_outputs.outputs.encrypted_file_base64 }}
                       kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
                       vpnconfig_encrypted: ${{ steps.export_configs.outputs.encrypted_file_base64 }}
+                      cognito_secrets_encrypted: ${{ steps.encrypt_cognito_secrets.outputs.encrypted_file_base64 }}
 
             - name: 🌐 Post-creation steps
               timeout-minutes: 20
@@ -439,6 +485,35 @@ jobs:
                   while IFS= read -r line; do
                     echo "$line" | tee -a "$GITHUB_ENV"
                   done < "${{ runner.temp }}/outputs_raw"
+
+            - name: 🔐 Retrieve Cognito OIDC credentials (for Cognito declination)
+              if: ${{ matrix.declination.name == 'cognito' }}
+              uses: ./.github/actions/internal-generic-decrypt-import
+              with:
+                  output_path: ${{ runner.temp }}/cognito_secrets
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).cognito_secrets_encrypted[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            - name: 🚀 Export Cognito OIDC variables
+              if: ${{ matrix.declination.name == 'cognito' }}
+              timeout-minutes: 1
+              run: |
+                  set -euo pipefail
+
+                  # Export Cognito credentials as environment variables
+                  while IFS= read -r line; do
+                    echo "$line" | tee -a "$GITHUB_ENV"
+                  done < "${{ runner.temp }}/cognito_secrets"
+
+                  # Set domain name for OIDC callbacks (using cluster-specific domain)
+                  echo "DOMAIN_NAME=${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}" | tee -a "$GITHUB_ENV"
 
             - name: 🔐 Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
@@ -697,11 +772,11 @@ jobs:
 
             - name: � Create Cognito secrets
               if: ${{ matrix.declination.name == 'cognito' }}
-              timeout-minutes: 10
+              timeout-minutes: 2
               run: |
                   set -euo pipefail
-                  echo "Creating Cognito secrets from AWS Secrets Manager..."
-                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-cognito-secrets.sh
+                  echo "Creating Cognito secrets for external identity provider..."
+                  ./generic/kubernetes/single-region/procedure/create-cognito-secrets.sh
 
             - name: �🛠️ Configure OpenSearch fine grained access control
               if: contains(matrix.scenario.name, 'irsa')
@@ -913,6 +988,16 @@ jobs:
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: vpn,cluster
+
+            # Cleanup Cognito if Cognito declination was used
+            - name: Cleanup AWS Cognito for cluster
+              if: env.CLEANUP_CLUSTERS == 'true' && contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).declination.*.name), 'cognito')
+              uses: ./.github/actions/aws-cognito-cleanup
+              with:
+                  terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
+                  terraform-backend-key: cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName
+                      }}/terraform.tfstate
 
     report-success:
         name: Report success

@@ -1,0 +1,151 @@
+---
+# Cognito OIDC Overlay Configuration for Camunda Platform
+#
+# This file contains ONLY the Cognito-specific OIDC configuration.
+# It should be merged with your base values file using yq:
+#   yq ". *+ load(\"values-cognito.yml\")" values-domain.yml > values.yml
+#
+# Required environment variables (use envsubst before applying):
+#   - COGNITO_ISSUER_URL: Cognito OIDC issuer URL
+#   - COGNITO_TOKEN_URL: OAuth2 token endpoint
+#   - COGNITO_AUTHORIZATION_URL: OAuth2 authorization endpoint
+#   - COGNITO_JWKS_URL: JWKS endpoint for token validation
+#   - IDENTITY_CLIENT_ID: Identity client ID
+#   - OPTIMIZE_CLIENT_ID: Optimize client ID
+#   - ORCHESTRATION_CLIENT_ID: Orchestration client ID
+#   - CONNECTORS_CLIENT_ID: Connectors client ID
+#   - DOMAIN_NAME: Your domain name for callbacks
+
+global:
+    security:
+        authentication:
+            method: oidc
+
+    identity:
+        auth:
+            enabled: true
+            type: GENERIC
+            issuer: ${COGNITO_ISSUER_URL}
+            issuerBackendUrl: ${COGNITO_ISSUER_URL}
+            tokenUrl: ${COGNITO_TOKEN_URL}
+            jwksUrl: ${COGNITO_JWKS_URL}
+            authorizationUrl: ${COGNITO_AUTHORIZATION_URL}
+
+            identity:
+                clientId: ${IDENTITY_CLIENT_ID}
+                audience: ${IDENTITY_CLIENT_ID}
+                existingSecret: camunda-cognito-identity-secret
+                existingSecretKey: client-secret
+                redirectUrl: https://${DOMAIN_NAME}/auth/login-callback
+
+            optimize:
+                clientId: ${OPTIMIZE_CLIENT_ID}
+                audience: ${OPTIMIZE_CLIENT_ID}
+                existingSecret: camunda-cognito-optimize-secret
+                existingSecretKey: client-secret
+                redirectUrl: https://${DOMAIN_NAME}/optimize/api/authentication/callback
+
+            orchestration:
+                clientId: ${ORCHESTRATION_CLIENT_ID}
+                audience: ${ORCHESTRATION_CLIENT_ID}
+                existingSecret: camunda-cognito-orchestration-secret
+                existingSecretKey: client-secret
+
+            connectors:
+                clientId: ${CONNECTORS_CLIENT_ID}
+                audience: ${CONNECTORS_CLIENT_ID}
+                existingSecret: camunda-cognito-connectors-secret
+                existingSecretKey: client-secret
+
+identity:
+    firstUser:
+        enabled: false
+
+    keycloak:
+        enabled: false
+
+    env:
+        - name: IDENTITY_AUTH_PROVIDER_BACKEND_URL
+          value: ${COGNITO_ISSUER_URL}
+        - name: IDENTITY_AUTH_PROVIDER_ISSUER_URL
+          value: ${COGNITO_ISSUER_URL}
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+          value: ${COGNITO_ISSUER_URL}
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI
+          value: ${COGNITO_JWKS_URL}
+        - name: IDENTITY_INITIAL_CLAIM_NAME
+          value: email
+        - name: IDENTITY_INITIAL_CLAIM_VALUE
+          value: ${IDENTITY_INITIAL_USER_EMAIL}
+
+identityKeycloak:
+    enabled: false
+
+connectors:
+    env:
+        - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
+          value: ${COGNITO_ISSUER_URL}
+
+    security:
+        authentication:
+            oidc:
+                clientId: ${CONNECTORS_CLIENT_ID}
+                existingSecret: camunda-cognito-connectors-secret
+                existingSecretKey: client-secret
+
+optimize:
+    env:
+        - name: CAMUNDA_OPTIMIZE_SECURITY_AUTH_CCSM_ISSUER_URL
+          value: ${COGNITO_ISSUER_URL}
+        - name: CAMUNDA_OPTIMIZE_SECURITY_AUTH_CCSM_JWKS_URL
+          value: ${COGNITO_JWKS_URL}
+
+orchestration:
+    env:
+        - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
+          value: ${COGNITO_ISSUER_URL}
+
+    security:
+        authentication:
+            oidc:
+                clientId: ${ORCHESTRATION_CLIENT_ID}
+                existingSecret: camunda-cognito-orchestration-secret
+                existingSecretKey: client-secret
+                redirectUrl: https://${DOMAIN_NAME}/sso-callback
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - ${IDENTITY_INITIAL_USER_EMAIL}
+
+console:
+    env:
+        - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
+          value: ${COGNITO_ISSUER_URL}
+
+webModeler:
+    restapi:
+        auth:
+            type: GENERIC
+            issuer: ${COGNITO_ISSUER_URL}
+            tokenUrl: ${COGNITO_TOKEN_URL}
+            jwksUrl: ${COGNITO_JWKS_URL}
+            authorizationUrl: ${COGNITO_AUTHORIZATION_URL}
+            existingSecret: camunda-cognito-webmodeler-secret
+            existingSecretKey: client-secret
+        env:
+            - name: CAMUNDA_IDENTITY_BASE_URL
+              value: https://${DOMAIN_NAME}/auth
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+              value: ${COGNITO_ISSUER_URL}
+
+    webapp:
+        env:
+            - name: OAUTH2_CLIENT_ID
+              value: ${WEBMODELER_UI_CLIENT_ID}
+            - name: OAUTH2_JWKS_URL
+              value: ${COGNITO_JWKS_URL}
+            - name: OAUTH2_TOKEN_AUDIENCE
+              value: ${WEBMODELER_UI_CLIENT_ID}
+            - name: OAUTH2_TOKEN_ISSUER
+              value: ${COGNITO_ISSUER_URL}
