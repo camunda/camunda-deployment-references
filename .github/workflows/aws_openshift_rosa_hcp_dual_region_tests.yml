@@ -689,9 +689,9 @@ jobs:
                   default-values-yaml: ${{ github.workspace }}/openshift.yml
                   region-0-values-yaml: ${{ github.workspace }}/generated-values-region-1.yml
                   region-1-values-yaml: ${{ github.workspace }}/generated-values-region-2.yml
-                  # Skip cleanup/deploy since OpenShift deployment is already done with Submariner ServiceExports
-                  # The c8-multi-region tests don't know how to create ServiceExports for OpenShift
-                  skip-deploy: 'true'
+                  # Skip cleanup since OpenShift deployment is already done with Submariner ServiceExports
+                  # Deploy will use helm upgrade --install which preserves existing resources
+                  skip-cleanup: 'true'
                   # Re-export services after Failback since the test recreates the Helm release without ServiceExports
                   post-failback-script: ./generic/openshift/dual-region/procedure/export-services-submariner.sh
 
