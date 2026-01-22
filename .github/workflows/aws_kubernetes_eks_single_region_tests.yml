@@ -296,9 +296,10 @@ jobs:
                   azure-tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
                   azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
                   enable-webmodeler: ${{ env.WEBMODELER_ENABLED }}
-                  create-test-user: 'true'
-                  test-user-name: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
-                  test-user-password: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
+                  # TODO: Enable test user creation once admin consent is granted for Domain.Read.All and User.ReadWrite.All
+                  # create-test-user: 'true'
+                  # test-user-name: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
+                  # test-user-password: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                   secret-validity-hours: 168
                   terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
