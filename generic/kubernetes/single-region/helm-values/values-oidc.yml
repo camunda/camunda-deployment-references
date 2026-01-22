@@ -86,6 +86,8 @@ connectors:
     env:
         - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
           value: ${OIDC_ISSUER_URL}
+        - name: CAMUNDA_CLIENT_AUTH_TOKEN_URL
+          value: ${OIDC_TOKEN_URL}
 
     security:
         authentication:
@@ -107,6 +109,8 @@ orchestration:
     env:
         - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
           value: ${OIDC_ISSUER_URL}
+        - name: CAMUNDA_CLIENT_AUTH_TOKEN_URL
+          value: ${OIDC_TOKEN_URL}
 
     security:
         authentication:

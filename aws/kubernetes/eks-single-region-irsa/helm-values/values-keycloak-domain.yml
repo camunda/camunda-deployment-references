@@ -1,0 +1,40 @@
+---
+# Keycloak Domain-specific Overlay for IRSA (AWS IAM Roles for Service Accounts)
+#
+# This file contains domain-specific Keycloak configuration for IRSA deployments.
+# It should be merged after values-keycloak.yml.
+#
+# Required environment variables:
+#   - DOMAIN_NAME: Your domain name
+
+global:
+    identity:
+        auth:
+            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
+
+            identity:
+                redirectUrl: https://${DOMAIN_NAME}/managementidentity
+
+            optimize:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-optimize-client-token
+                redirectUrl: https://${DOMAIN_NAME}/optimize
+
+            webModeler:
+                redirectUrl: https://${DOMAIN_NAME}/modeler
+
+            console:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-console-client-token
+                redirectUrl: https://${DOMAIN_NAME}/console
+
+identity:
+    fullURL: https://${DOMAIN_NAME}/managementidentity
+
+orchestration:
+    security:
+        authentication:
+            oidc:
+                redirectUrl: https://${DOMAIN_NAME}

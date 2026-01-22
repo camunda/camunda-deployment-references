@@ -692,15 +692,22 @@ jobs:
                   # Start with base values for the declination (domain or no-domain)
                   cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
 
-                  # Apply auth provider overlay (keycloak or oidc) from generic
+                  # Apply auth provider overlay (keycloak or oidc)
                   if [[ "${{ matrix.scenario.auth_provider }}" == "oidc" ]]; then
                     echo "Merging values-oidc.yml overlay for external OIDC authentication"
                     yq ". *+ load(\"generic/kubernetes/single-region/helm-values/values-oidc.yml\")" values.yml > values-merged.yml
                     mv values-merged.yml values.yml
                   else
                     echo "Merging values-keycloak.yml overlays for embedded Keycloak authentication"
-                    yq ". *+ load(\"generic/kubernetes/single-region/helm-values/values-keycloak.yml\")" values.yml > values-merged.yml
-                    yq ". *+ load(\"generic/kubernetes/single-region/helm-values/values-keycloak-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
+                    # Use IRSA-specific Keycloak overlays for IRSA scenarios, otherwise use generic overlays
+                    # shellcheck disable=SC2193
+                    if [[ "${{ matrix.scenario.name }}" == *irsa* ]]; then
+                      KEYCLOAK_VALUES_PATH="aws/kubernetes/${{ matrix.scenario.name }}/helm-values"
+                    else
+                      KEYCLOAK_VALUES_PATH="generic/kubernetes/single-region/helm-values"
+                    fi
+                    yq ". *+ load(\"${KEYCLOAK_VALUES_PATH}/values-keycloak.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"${KEYCLOAK_VALUES_PATH}/values-keycloak-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
                     mv values-merged2.yml values.yml
                     rm -f values-merged.yml
                   fi
@@ -791,6 +798,14 @@ jobs:
               run: |
                   set -euo pipefail
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
+
+            - name: 🔐 Create Keycloak DB secret
+              if: ${{ matrix.scenario.auth_provider != 'oidc' }}
+              timeout-minutes: 2
+              run: |
+                  set -euo pipefail
+                  echo "Creating Keycloak database secret..."
+                  ./generic/kubernetes/single-region/procedure/create-keycloak-db-secret.sh
 
             - name: 🔐 Create OIDC secrets
               if: ${{ matrix.scenario.auth_provider == 'oidc' }}
