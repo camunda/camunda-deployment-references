@@ -33,7 +33,7 @@ jobs:
         steps:
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@ade65810588d38e08482a237bf27a9f6cc707f9c # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@fff0b1f11fd8caf3e2a866fd2ecf113c671fab01 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -50,7 +50,7 @@ jobs:
                   token: ${{ steps.generate-github-token.outputs.token }}
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
             - name: Import Secrets
               id: secrets

@@ -107,3 +107,6 @@ webModelerPostgresql:
         secretKeys:
             adminPasswordKey: identity-webmodeler-pg-admin-password
             userPasswordKey: identity-webmodeler-pg-user-password
+
+elasticsearch:
+    enabled: true # use the embbeded elasticsearch

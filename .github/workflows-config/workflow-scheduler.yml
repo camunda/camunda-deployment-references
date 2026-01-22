@@ -13,6 +13,7 @@ schedules:
       cron_every_day:
       cron_every_hours: '1'
       workflow_files:
+          - .github/workflows/internal_global_links.yml
           - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
 
     - name: Tuesday schedules 8.7
@@ -36,6 +37,7 @@ schedules:
       cron_every_day:
       cron_every_hours: '1'
       workflow_files:
+          - .github/workflows/internal_global_links.yml
           - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
           - .github/workflows/aws_openshift_rosa_hcp_dual_region_daily_cleanup.yml
           - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
@@ -60,12 +62,17 @@ schedules:
           - .github/workflows/aws_compute_ec2_single_region_tests.yml
           # Azure AKS Single Region
           - .github/workflows/azure_kubernetes_aks_single_region_tests.yml
+          # Generic Kubernetes Operator Based
+          - .github/workflows/generic_kubernetes_operator_based_test.yml
+          # Local Kubernetes Kind Single Region
+          - .github/workflows/local_kubernetes_kind_single_region_tests.yml
 
     - name: Everyday schedules 8.8
       branch: stable/8.8
       cron_every_day:
       cron_every_hours: '1'
       workflow_files:
+          - .github/workflows/internal_global_links.yml
           - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
           - .github/workflows/aws_openshift_rosa_hcp_dual_region_daily_cleanup.yml
           - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml

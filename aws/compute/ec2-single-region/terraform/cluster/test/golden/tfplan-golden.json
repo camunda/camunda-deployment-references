@@ -120,6 +120,7 @@
       },
       "type": "aws_iam_policy",
       "values": {
+        "delay_after_policy_creation_in_ms": null,
         "description": "Policy for CloudWatch to allow monitoring of the EC2 instances",
         "name": "camunda-cloudwatch-policy",
         "path": "/",
@@ -891,6 +892,7 @@
       "values": {
         "availability_zone": null,
         "port": 9090,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -905,6 +907,7 @@
       "values": {
         "availability_zone": null,
         "port": 9090,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -919,6 +922,7 @@
       "values": {
         "availability_zone": null,
         "port": 9090,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -933,6 +937,7 @@
       "values": {
         "availability_zone": null,
         "port": 26500,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -947,6 +952,7 @@
       "values": {
         "availability_zone": null,
         "port": 26500,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -961,6 +967,7 @@
       "values": {
         "availability_zone": null,
         "port": 26500,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -975,6 +982,7 @@
       "values": {
         "availability_zone": null,
         "port": 8080,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -989,6 +997,7 @@
       "values": {
         "availability_zone": null,
         "port": 8080,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -1003,6 +1012,7 @@
       "values": {
         "availability_zone": null,
         "port": 8080,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
