@@ -35,13 +35,3 @@ global:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-console-client-token
                 redirectUrl: https://${DOMAIN_NAME}/console
-
-identity:
-    contextPath: /managementidentity
-    fullURL: https://${DOMAIN_NAME}/managementidentity
-
-orchestration:
-    security:
-        authentication:
-            oidc:
-                redirectUrl: https://${DOMAIN_NAME}

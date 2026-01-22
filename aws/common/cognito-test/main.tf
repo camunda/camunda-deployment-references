@@ -28,11 +28,12 @@ locals {
   ] : ["http://localhost:8080/"]
 
   common_tags = merge(var.tags, {
-    "environment"   = "test"
-    "purpose"       = "camunda-integration-test"
-    "managed-by"    = "terraform"
-    "expires-at"    = time_static.creation.rfc3339
-    "cleanup-after" = "${var.auto_cleanup_hours}h"
+    "environment"        = "test"
+    "purpose"            = "camunda-integration-test"
+    "managed-by"         = "terraform"
+    "expires-at"         = time_static.creation.rfc3339
+    "cleanup-after"      = "${var.auto_cleanup_hours}h"
+    "auto_cleanup_hours" = tostring(var.auto_cleanup_hours)
   })
 }
 

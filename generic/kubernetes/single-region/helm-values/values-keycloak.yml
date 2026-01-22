@@ -38,7 +38,6 @@ identityKeycloak:
         passwordSecretKey: identity-admin-client-token
 
 identity:
-    enabled: true
 
     firstUser:
         enabled: true
@@ -49,16 +48,6 @@ identity:
         secret:
             existingSecret: identity-secret-for-components
             existingSecretKey: identity-first-user-password
-
-    externalDatabase:
-        enabled: true
-        host: ${DB_HOST}
-        port: 5432
-        username: ${DB_IDENTITY_USERNAME}
-        database: ${DB_IDENTITY_NAME}
-        secret:
-            existingSecret: identity-postgres-secret
-            existingSecretPasswordKey: password
 
 connectors:
     # Configure OIDC for connectors with Keycloak
