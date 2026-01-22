@@ -80,7 +80,7 @@ env:
 
     # TODO: revert before merge
     # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-    CLEANUP_CLUSTERS: 'false'
+    CLEANUP_CLUSTERS: 'true'
 
     # TEST VARIABLES
 
@@ -787,11 +787,10 @@ jobs:
                   # Patch secret with Keycloak credentials for embedded Keycloak auth
                   if [[ "${{ matrix.scenario.auth_provider }}" == "keycloak" ]]; then
                       ./aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/test/patch-setup-db-secret-keycloak.sh
-                      SETUP_DB_MANIFEST="./aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/test/setup-postgres-create-db-with-keycloak.yml"
-                  else
-                      SETUP_DB_MANIFEST="./aws/kubernetes/${{ matrix.scenario.name }}/setup-postgres-create-db.yml"
                   fi
-                  kubectl apply -f "$SETUP_DB_MANIFEST" --namespace "$CAMUNDA_NAMESPACE"
+
+                  # Create Identity and WebModeler databases
+                  kubectl apply -f "./aws/kubernetes/${{ matrix.scenario.name }}/setup-postgres-create-db.yml" --namespace "$CAMUNDA_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
@@ -808,8 +807,30 @@ jobs:
 
                   echo "[DEBUG] Job log:"
                   kubectl logs job/create-setup-user-db --namespace "$CAMUNDA_NAMESPACE"
-
                   kubectl delete job create-setup-user-db --namespace "$CAMUNDA_NAMESPACE"
+
+                  # Create Keycloak database for embedded Keycloak auth
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "keycloak" ]]; then
+                      echo "Creating Keycloak database..."
+                      KEYCLOAK_DB_MANIFEST="./aws/kubernetes/${{ matrix.scenario.name }}"
+                      KEYCLOAK_DB_MANIFEST+="/terraform/cluster/test/setup-postgres-create-keycloak-db.yml"
+                      kubectl apply -f "$KEYCLOAK_DB_MANIFEST" --namespace "$CAMUNDA_NAMESPACE"
+
+                      while true; do
+                          STATUS=$(kubectl get job create-keycloak-db --namespace "$CAMUNDA_NAMESPACE" -o jsonpath='{.status.succeeded}')
+                          if [[ "$STATUS" == "1" ]]; then
+                              echo "Keycloak DB job completed successfully."
+                              break
+                          fi
+                          echo "Waiting for Keycloak DB job to complete..."
+                          sleep 5
+                      done
+
+                      echo "[DEBUG] Keycloak DB job log:"
+                      kubectl logs job/create-keycloak-db --namespace "$CAMUNDA_NAMESPACE"
+                      kubectl delete job create-keycloak-db --namespace "$CAMUNDA_NAMESPACE"
+                  fi
+
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
             - name: 💪 Execute DB secret creation scripts
