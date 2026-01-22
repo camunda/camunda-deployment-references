@@ -274,12 +274,6 @@ jobs:
                       export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh ${{ runner.temp }}/outputs_raw
                   fi
 
-                  # Export Cognito variables if using OIDC auth provider
-                  if [[ "${{ matrix.scenario.auth_provider }}" == "oidc" ]]; then
-                      echo "Exporting Cognito configuration..."
-                      export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-cognito.sh ${{ runner.temp }}/outputs_raw
-                  fi
-
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
               id: encrypt_outputs
               if: always()
