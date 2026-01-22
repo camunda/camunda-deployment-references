@@ -7,6 +7,9 @@ data "aws_caller_identity" "current" {}
 locals {
   resource_prefix = var.resource_prefix != "" ? var.resource_prefix : "camunda-test"
 
+  # Domain prefix - cannot contain "cognito" (reserved word)
+  domain_prefix = replace(local.resource_prefix, "cognito", "cgnto")
+
   # Callback URLs for Camunda components
   callback_urls = var.domain_name != "" ? [
     "https://${var.domain_name}/auth/login-callback",
@@ -126,7 +129,7 @@ resource "aws_cognito_user_pool" "camunda" {
 
 # Cognito User Pool Domain (for hosted UI and OIDC endpoints)
 resource "aws_cognito_user_pool_domain" "camunda" {
-  domain       = "${local.resource_prefix}-${random_string.suffix.result}"
+  domain       = "${local.domain_prefix}-${random_string.suffix.result}"
   user_pool_id = aws_cognito_user_pool.camunda.id
 }
 
