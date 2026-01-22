@@ -2,7 +2,6 @@
 name: Tests - Integration - AWS Kubernetes EKS Single Region (IRSA)
 
 permissions:
-    id-token: write # required for OIDC
     contents: read # don't allow commits
     pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
@@ -487,20 +486,8 @@ jobs:
               timeout-minutes: 3
               run: |
                   set -euo pipefail
-
-                  # Export the decrypted outputs as environment variables
-                  # Mask secrets to prevent them from appearing in logs
-                  while IFS= read -r line; do
-                    var_name="${line%%=*}"
-                    var_value="${line#*=}"
-
-                    # Mask sensitive values (secrets and passwords)
-                    if [[ "$var_name" == *SECRET* ]] || [[ "$var_name" == *PASSWORD* ]]; then
-                      echo "::add-mask::$var_value"
-                    fi
-
-                    echo "$line" >> "$GITHUB_ENV"
-                  done < "${{ runner.temp }}/outputs_raw"
+                  source .github/scripts/gha-functions.sh
+                  export_file_to_github_env "${{ runner.temp }}/outputs_raw"
 
             - name: 🔐 Retrieve Cognito OIDC credentials
               if: ${{ matrix.scenario.auth_provider == 'oidc' }}
@@ -517,25 +504,13 @@ jobs:
                       ] }}
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
-            - name: 🚀 Export Cognito OIDC variables
+            - name: 🚀 Export OIDC variables
               if: ${{ matrix.scenario.auth_provider == 'oidc' }}
               timeout-minutes: 1
               run: |
                   set -euo pipefail
-
-                  # Export Cognito credentials as environment variables
-                  # Mask secrets to prevent them from appearing in logs
-                  while IFS= read -r line; do
-                    var_name="${line%%=*}"
-                    var_value="${line#*=}"
-
-                    # Mask sensitive values (secrets and passwords)
-                    if [[ "$var_name" == *SECRET* ]] || [[ "$var_name" == *PASSWORD* ]]; then
-                      echo "::add-mask::$var_value"
-                    fi
-
-                    echo "$line" >> "$GITHUB_ENV"
-                  done < "${{ runner.temp }}/cognito_secrets"
+                  source .github/scripts/gha-functions.sh
+                  export_file_to_github_env "${{ runner.temp }}/cognito_secrets"
 
                   # Set domain name for OIDC callbacks (using cluster-specific domain)
                   echo "DOMAIN_NAME=${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}" >> "$GITHUB_ENV"
@@ -886,9 +861,8 @@ jobs:
 
                   source generic/kubernetes/single-region/procedure/generate-passwords.sh
 
-                  # Skip identity secret creation for external OIDC (uses different secrets)
                   if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
-                    ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
+                    ./generic/kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh
                   fi
 
                   # Generate tests objects

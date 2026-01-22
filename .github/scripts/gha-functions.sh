@@ -66,3 +66,34 @@ export_new_env_vars_to_file() {
     echo "$var_name=$var_value" >> "$output_file"
   done < /tmp/env_diff
 }
+
+# ------------------------------------------------------------------------------
+# Function: export_file_to_github_env
+#
+# Description:
+#   Reads a file containing KEY=VALUE pairs and exports them to GITHUB_ENV.
+#   Automatically masks sensitive values (containing SECRET or PASSWORD in the name)
+#   to prevent them from appearing in logs.
+#
+# Parameters:
+#   $1 - Path to the file containing KEY=VALUE pairs
+#
+# Usage:
+#   source .github/scripts/gha-functions.sh
+#   export_file_to_github_env "$RUNNER_TEMP/secrets_file"
+# ------------------------------------------------------------------------------
+export_file_to_github_env() {
+  local file_path="$1"
+
+  while IFS= read -r line; do
+    var_name="${line%%=*}"
+    var_value="${line#*=}"
+
+    # Mask sensitive values (secrets and passwords)
+    if [[ "$var_name" == *SECRET* ]] || [[ "$var_name" == *PASSWORD* ]]; then
+      echo "::add-mask::$var_value"
+    fi
+
+    echo "$line" >> "$GITHUB_ENV"
+  done < "$file_path"
+}

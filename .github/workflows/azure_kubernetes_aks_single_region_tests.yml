@@ -370,11 +370,8 @@ jobs:
               timeout-minutes: 3
               run: |
                   set -euo pipefail
-
-                  # Export the decrypted outputs as environment variables
-                  while IFS= read -r line; do
-                    echo "$line" | tee -a "$GITHUB_ENV"
-                  done < "${{ runner.temp }}/outputs_raw"
+                  source .github/scripts/gha-functions.sh
+                  export_file_to_github_env "${{ runner.temp }}/outputs_raw"
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -600,7 +597,7 @@ jobs:
                   source generic/kubernetes/single-region/procedure/chart-env.sh
                   source generic/kubernetes/single-region/procedure/generate-passwords.sh
 
-                  ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
+                  ./generic/kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh
 
                   # Generate tests objects
                   if [ "$TESTS_ENABLED" == "true" ]; then
