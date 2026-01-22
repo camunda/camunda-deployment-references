@@ -1,4 +1,15 @@
 ---
+# Base Domain Configuration for Camunda Platform
+#
+# This file contains infrastructure configuration with ingress/domain enabled.
+# Combine with an auth overlay:
+#   - Keycloak: yq ". *+ load(\"values-keycloak.yml\") *+ load(\"values-keycloak-domain.yml\")" values-domain.yml > values.yml
+#   - OIDC:     yq ". *+ load(\"values-oidc.yml\")" values-domain.yml > values.yml
+#
+# Required environment variables:
+#   - DOMAIN_NAME: Your domain name
+#   - OPENSEARCH_HOST: OpenSearch endpoint
+
 global:
     elasticsearch:
         enabled: false
@@ -27,88 +38,13 @@ global:
             secretName: camunda-c8-tls
         annotations:
             kubernetes.io/tls-acme: 'true'
+
     identity:
         auth:
             enabled: true
-            type: KEYCLOAK
-            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
-
-            admin:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-admin-client-token
-
-            identity:
-                redirectUrl: https://${DOMAIN_NAME}/managementidentity
-
-            optimize:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-optimize-client-token
-                redirectUrl: https://${DOMAIN_NAME}/optimize
-
-            webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
-
-            console:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-console-client-token
-                redirectUrl: https://${DOMAIN_NAME}/console
-
-identityKeycloak:
-    enabled: true
-    postgresql:
-        enabled: false
-    externalDatabase:
-        # see https://artifacthub.io/packages/helm/bitnami/keycloak
-        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
-        existingSecretHostKey: host
-        existingSecretPortKey: port
-        existingSecretUserKey: user
-        existingSecretDatabaseKey: database
-        existingSecretPasswordKey: password
-    auth:
-        existingSecret: identity-secret-for-components
-        passwordSecretKey: identity-admin-client-token
-
-identity:
-    enabled: true
-    contextPath: /managementidentity
-
-    fullURL: https://${DOMAIN_NAME}/managementidentity
-
-    firstUser:
-        enabled: true
-        username: admin
-        email: admin@camunda.local
-        firstName: Admin
-        lastName: User
-        secret:
-            existingSecret: identity-secret-for-components
-            existingSecretKey: identity-first-user-password
-
-    externalDatabase:
-        enabled: true
-        host: ${DB_HOST}
-        port: 5432
-        username: ${DB_IDENTITY_USERNAME}
-        database: ${DB_IDENTITY_NAME}
-        secret:
-            existingSecret: identity-postgres-secret
-            existingSecretPasswordKey: password
 
 connectors:
-
     contextPath: /connectors
-
-    # Configure OIDC for connectors
-    security:
-        authentication:
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-connectors-client-token
 
 optimize:
     enabled: true
@@ -120,20 +56,6 @@ optimize:
 
 orchestration:
     contextPath: /
-
-    # Configure OIDC for orchestration
-    security:
-        authentication:
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-                redirectUrl: https://${DOMAIN_NAME}
-        initialization:
-            defaultRoles:
-                admin:
-                    users:
-                        - admin
 
     ingress:
         grpc:

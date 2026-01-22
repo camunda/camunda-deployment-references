@@ -1,0 +1,47 @@
+---
+# Keycloak Domain Overlay - Auth URLs for Domain mode
+#
+# This file extends values-keycloak.yml with domain-specific URLs.
+# Merge order: values-domain.yml + values-keycloak.yml + values-keycloak-domain.yml
+#   yq ". *+ load(\"values-keycloak.yml\") *+ load(\"values-keycloak-domain.yml\")" values-domain.yml > values.yml
+#
+# Required environment variables:
+#   - DOMAIN_NAME: Your domain name
+
+global:
+    identity:
+        auth:
+            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
+
+            admin:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-admin-client-token
+
+            identity:
+                redirectUrl: https://${DOMAIN_NAME}/managementidentity
+
+            optimize:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-optimize-client-token
+                redirectUrl: https://${DOMAIN_NAME}/optimize
+
+            webModeler:
+                redirectUrl: https://${DOMAIN_NAME}/modeler
+
+            console:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-console-client-token
+                redirectUrl: https://${DOMAIN_NAME}/console
+
+identity:
+    contextPath: /managementidentity
+    fullURL: https://${DOMAIN_NAME}/managementidentity
+
+orchestration:
+    security:
+        authentication:
+            oidc:
+                redirectUrl: https://${DOMAIN_NAME}

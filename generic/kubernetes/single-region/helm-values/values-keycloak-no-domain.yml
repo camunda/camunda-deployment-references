@@ -1,0 +1,63 @@
+---
+# Keycloak No-Domain Overlay - Auth URLs for localhost/port-forward mode
+#
+# This file extends values-keycloak.yml with localhost-specific URLs.
+# Merge order: values-no-domain.yml + values-keycloak.yml + values-keycloak-no-domain.yml
+#   yq ". *+ load(\"values-keycloak.yml\") *+ load(\"values-keycloak-no-domain.yml\")" values-no-domain.yml > values.yml
+#
+# Required environment variables:
+#   - CAMUNDA_RELEASE_NAME: Helm release name
+
+global:
+    identity:
+        auth:
+            issuerBackendUrl: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
+            issuer: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
+            # using localhost:18080 -> camunda-keycloak:8080
+            publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
+
+            admin:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-admin-client-token
+
+            identity:
+                redirectUrl: http://localhost:8085  # replace this with a port of your choice when you will do port forwarding
+
+            optimize:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-optimize-client-token
+                redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
+
+            webModeler:
+                redirectUrl: http://localhost:8070
+
+            console:
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-console-client-token
+                redirectUrl: http://localhost:8087
+
+identityKeycloak:
+    extraEnvVars:
+        # This is required to ensure proper issuer of JWT tokens
+        - name: KC_HOSTNAME
+          value: ${CAMUNDA_RELEASE_NAME}-keycloak
+
+    # match the internal keycloak port to the external port for JWT Tokens issuer
+    ports:
+        http: 8080
+    service:
+        ports:
+            http: 8080
+
+identity:
+    contextPath: /managementidentity
+    fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
+
+orchestration:
+    security:
+        authentication:
+            oidc:
+                redirectUrl: http://localhost:8080

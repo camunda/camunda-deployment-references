@@ -152,8 +152,6 @@ jobs:
         runs-on: ubuntu-latest
         env:
             TF_MODULES_PATH: ./.action-tf-modules/aws-kubernetes-eks-single-region-create/
-            # Check if Cognito declination exists in the matrix
-            HAS_COGNITO_DECLINATION: ${{ contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).declination.*.name), 'cognito') }}
         steps:
             - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
               with:
@@ -267,8 +265,8 @@ jobs:
                       export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh ${{ runner.temp }}/outputs_raw
                   fi
 
-                  # Export Cognito variables if enabled
-                  if [[ "${{ matrix.scenario.cognito_enabled }}" == "true" ]]; then
+                  # Export Cognito variables if using OIDC auth provider
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "oidc" ]]; then
                       echo "Exporting Cognito configuration..."
                       export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-cognito.sh ${{ runner.temp }}/outputs_raw
                   fi
@@ -281,9 +279,9 @@ jobs:
                   file_path: ${{ runner.temp }}/outputs_raw
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
-            # Create Cognito for this specific cluster (1 Cognito User Pool per cluster)
+            # Create Cognito for this specific cluster if using OIDC auth provider (1 Cognito User Pool per cluster)
             - name: Create AWS Cognito for OIDC
-              if: env.HAS_COGNITO_DECLINATION == 'true'
+              if: ${{ matrix.scenario.auth_provider == 'oidc' }}
               id: create-cognito
               uses: ./.github/actions/aws-cognito-create
               with:
@@ -300,35 +298,35 @@ jobs:
                   terraform-backend-key: cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName
                       }}/terraform.tfstate
 
-            - name: Write Cognito secrets to file
-              if: env.HAS_COGNITO_DECLINATION == 'true'
+            - name: Write OIDC secrets to file
+              if: ${{ matrix.scenario.auth_provider == 'oidc' }}
               run: |
                   cat > ${{ runner.temp }}/cognito_secrets.txt <<EOF
-                  COGNITO_USER_POOL_ID=${{ steps.create-cognito.outputs.user-pool-id }}
-                  COGNITO_ISSUER_URL=${{ steps.create-cognito.outputs.issuer-url }}
-                  COGNITO_AUTHORIZATION_URL=${{ steps.create-cognito.outputs.authorization-url }}
-                  COGNITO_TOKEN_URL=${{ steps.create-cognito.outputs.token-url }}
-                  COGNITO_JWKS_URL=${{ steps.create-cognito.outputs.jwks-url }}
-                  COGNITO_USERINFO_URL=${{ steps.create-cognito.outputs.userinfo-url }}
+                  OIDC_USER_POOL_ID=${{ steps.create-cognito.outputs.user-pool-id }}
+                  OIDC_ISSUER_URL=${{ steps.create-cognito.outputs.issuer-url }}
+                  OIDC_AUTHORIZATION_URL=${{ steps.create-cognito.outputs.authorization-url }}
+                  OIDC_TOKEN_URL=${{ steps.create-cognito.outputs.token-url }}
+                  OIDC_JWKS_URL=${{ steps.create-cognito.outputs.jwks-url }}
+                  OIDC_USERINFO_URL=${{ steps.create-cognito.outputs.userinfo-url }}
                   IDENTITY_CLIENT_ID=${{ steps.create-cognito.outputs.identity-client-id }}
-                  COGNITO_IDENTITY_CLIENT_SECRET=${{ steps.create-cognito.outputs.identity-client-secret }}
+                  OIDC_IDENTITY_CLIENT_SECRET=${{ steps.create-cognito.outputs.identity-client-secret }}
                   OPTIMIZE_CLIENT_ID=${{ steps.create-cognito.outputs.optimize-client-id }}
-                  COGNITO_OPTIMIZE_CLIENT_SECRET=${{ steps.create-cognito.outputs.optimize-client-secret }}
+                  OIDC_OPTIMIZE_CLIENT_SECRET=${{ steps.create-cognito.outputs.optimize-client-secret }}
                   ORCHESTRATION_CLIENT_ID=${{ steps.create-cognito.outputs.orchestration-client-id }}
-                  COGNITO_ORCHESTRATION_CLIENT_SECRET=${{ steps.create-cognito.outputs.orchestration-client-secret }}
+                  OIDC_ORCHESTRATION_CLIENT_SECRET=${{ steps.create-cognito.outputs.orchestration-client-secret }}
                   CONNECTORS_CLIENT_ID=${{ steps.create-cognito.outputs.connectors-client-id }}
-                  COGNITO_CONNECTORS_CLIENT_SECRET=${{ steps.create-cognito.outputs.connectors-client-secret }}
+                  OIDC_CONNECTORS_CLIENT_SECRET=${{ steps.create-cognito.outputs.connectors-client-secret }}
                   CONSOLE_CLIENT_ID=${{ steps.create-cognito.outputs.console-client-id }}
                   WEBMODELER_UI_CLIENT_ID=${{ steps.create-cognito.outputs.webmodeler-ui-client-id }}
                   WEBMODELER_API_CLIENT_ID=${{ steps.create-cognito.outputs.webmodeler-api-client-id }}
-                  COGNITO_WEBMODELER_API_CLIENT_SECRET=${{ steps.create-cognito.outputs.webmodeler-api-client-secret }}
-                  COGNITO_TEST_USER_NAME=${{ steps.create-cognito.outputs.test-user-name }}
-                  COGNITO_TEST_USER_PASSWORD=${{ steps.create-cognito.outputs.test-user-password }}
+                  OIDC_WEBMODELER_API_CLIENT_SECRET=${{ steps.create-cognito.outputs.webmodeler-api-client-secret }}
+                  OIDC_TEST_USER_NAME=${{ steps.create-cognito.outputs.test-user-name }}
+                  OIDC_TEST_USER_PASSWORD=${{ steps.create-cognito.outputs.test-user-password }}
                   IDENTITY_INITIAL_USER_EMAIL=${{ steps.create-cognito.outputs.test-user-name }}
                   EOF
 
             - name: Export Cognito secrets and encrypt them
-              if: env.HAS_COGNITO_DECLINATION == 'true'
+              if: ${{ matrix.scenario.auth_provider == 'oidc' }}
               id: encrypt_cognito_secrets
               uses: ./.github/actions/internal-generic-encrypt-export
               with:
@@ -492,8 +490,8 @@ jobs:
                     echo "$line" | tee -a "$GITHUB_ENV"
                   done < "${{ runner.temp }}/outputs_raw"
 
-            - name: 🔐 Retrieve Cognito OIDC credentials (for Cognito declination)
-              if: ${{ matrix.declination.name == 'cognito' }}
+            - name: 🔐 Retrieve Cognito OIDC credentials
+              if: ${{ matrix.scenario.auth_provider == 'oidc' }}
               uses: ./.github/actions/internal-generic-decrypt-import
               with:
                   output_path: ${{ runner.temp }}/cognito_secrets
@@ -508,7 +506,7 @@ jobs:
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             - name: 🚀 Export Cognito OIDC variables
-              if: ${{ matrix.declination.name == 'cognito' }}
+              if: ${{ matrix.scenario.auth_provider == 'oidc' }}
               timeout-minutes: 1
               run: |
                   set -euo pipefail
@@ -644,7 +642,7 @@ jobs:
                   base-ref: ${{ github.base_ref }}
 
             - name: 🏗️ Ingress Setup prerequisites
-              if: ${{ matrix.declination.name == 'domain' || matrix.declination.name == 'cognito' }}
+              if: ${{ matrix.declination.name == 'domain' }}
               timeout-minutes: 15
               uses: ./.github/actions/aws-kubernetes-ingress-setup
               with:
@@ -673,7 +671,22 @@ jobs:
                   # and apply registry-harbor.yml for all deployments (not just tests).
                   # This should be documented in the procedure for production deployments.
                   # See: azure_kubernetes_aks_single_region_tests.yml for reference implementation.
+
+                  # Start with base values for the declination (domain or no-domain)
                   cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
+
+                  # Apply auth provider overlay (keycloak or oidc) from generic
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "oidc" ]]; then
+                    echo "Merging values-oidc.yml overlay for external OIDC authentication"
+                    yq ". *+ load(\"generic/kubernetes/single-region/helm-values/values-oidc.yml\")" values.yml > values-merged.yml
+                    mv values-merged.yml values.yml
+                  else
+                    echo "Merging values-keycloak.yml overlays for embedded Keycloak authentication"
+                    yq ". *+ load(\"generic/kubernetes/single-region/helm-values/values-keycloak.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"generic/kubernetes/single-region/helm-values/values-keycloak-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
+                    mv values-merged2.yml values.yml
+                    rm -f values-merged.yml
+                  fi
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
                     export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
@@ -681,19 +694,6 @@ jobs:
 
                     export DOMAIN_NAME_GRPC="zeebe-$DOMAIN_NAME:443"
                     echo "DOMAIN_NAME_GRPC=$DOMAIN_NAME_GRPC" | tee -a "$GITHUB_ENV"
-                  fi
-
-                  # Cognito declination requires a domain
-                  if [[ "${{ matrix.declination.name }}" == "cognito" ]]; then
-                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
-                    echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
-
-                    export DOMAIN_NAME_GRPC="zeebe-$DOMAIN_NAME:443"
-                    echo "DOMAIN_NAME_GRPC=$DOMAIN_NAME_GRPC" | tee -a "$GITHUB_ENV"
-
-                    # Export WebModeler and Console enabled flags for envsubst
-                    echo "WEBMODELER_ENABLED=$WEBMODELER_ENABLED" >> "$GITHUB_ENV"
-                    echo "CONSOLE_ENABLED=$CONSOLE_ENABLED" >> "$GITHUB_ENV"
                   fi
 
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
@@ -706,24 +706,23 @@ jobs:
                     yq -i '.console.enabled = true' values.yml
                   fi
 
-                  # Add integration tests values (skip for Cognito as it doesn't use Keycloak)
-                  if [ "$TESTS_ENABLED" == "true" ] && [[ "${{ matrix.declination.name }}" != "cognito" ]]; then
-                    for file in registry.yml identity.yml; do
-                      yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
-                    done
-                  fi
-
-                  # Add registry values for Cognito (without identity.yml which is Keycloak-specific)
-                  if [ "$TESTS_ENABLED" == "true" ] && [[ "${{ matrix.declination.name }}" == "cognito" ]]; then
+                  # Add integration tests values
+                  if [ "$TESTS_ENABLED" == "true" ]; then
+                    # Always add registry.yml
                     yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/registry.yml\")" values.yml > values-result.yml
-                    cat values-result.yml && mv values-result.yml values.yml
+                    mv values-result.yml values.yml
+
+                    # Add identity.yml only if using Keycloak (not for external OIDC)
+                    if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                      yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/identity.yml\")" values.yml > values-result.yml
+                      mv values-result.yml values.yml
+                    fi
                   fi
 
                   # If using wildcard certificate, remove cert-manager annotations from values
                   USE_WILDCARD="${{ steps.cert-config.outputs.use-wildcard-cert }}"
                   DECL_NAME="${{ matrix.declination.name }}"
-                  if [[ "$USE_WILDCARD" == "true" && ("$DECL_NAME" == "domain" || "$DECL_NAME" == "cognito") ]]; then
+                  if [[ "$USE_WILDCARD" == "true" && "$DECL_NAME" == "domain" ]]; then
                       echo "Removing cert-manager annotations from Helm values (using wildcard certificate)"
                       echo "Using wildcard TLS secret: ${{ env.WILDCARD_TLS_SECRET_NAME }}"
                       yq eval '
@@ -776,15 +775,15 @@ jobs:
                   set -euo pipefail
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
 
-            - name: � Create Cognito secrets
-              if: ${{ matrix.declination.name == 'cognito' }}
+            - name: 🔐 Create OIDC secrets
+              if: ${{ matrix.scenario.auth_provider == 'oidc' }}
               timeout-minutes: 2
               run: |
                   set -euo pipefail
-                  echo "Creating Cognito secrets for external identity provider..."
-                  ./generic/kubernetes/single-region/procedure/create-cognito-secrets.sh
+                  echo "Creating OIDC secrets for external identity provider..."
+                  ./generic/kubernetes/single-region/procedure/create-oidc-secrets.sh
 
-            - name: �🛠️ Configure OpenSearch fine grained access control
+            - name: 🛠️ Configure OpenSearch fine grained access control
               if: contains(matrix.scenario.name, 'irsa')
               timeout-minutes: 10
               run: |
@@ -820,8 +819,8 @@ jobs:
 
                   source generic/kubernetes/single-region/procedure/generate-passwords.sh
 
-                  # Skip identity secret creation for Cognito (uses different secrets)
-                  if [[ "${{ matrix.declination.name }}" != "cognito" ]]; then
+                  # Skip identity secret creation for external OIDC (uses different secrets)
+                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
                     ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
                   fi
 
@@ -834,8 +833,8 @@ jobs:
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                         --namespace="$CAMUNDA_NAMESPACE"
 
-                    # Skip Keycloak-based identity secrets for Cognito
-                    if [[ "${{ matrix.declination.name }}" != "cognito" ]]; then
+                    # Skip Keycloak-based identity secrets when using external OIDC
+                    if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
                       kubectl create secret generic identity-secret-for-components-integration \
                           --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
                           --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
@@ -887,7 +886,7 @@ jobs:
                   enable-c8sm-irsa-check: ${{ contains(matrix.scenario.name, 'irsa') }}
 
             - name: 🔬🚨 Get failed certificate info
-              if: failure() && (matrix.declination.name == 'domain' || matrix.declination.name == 'cognito')
+              if: failure() && matrix.declination.name == 'domain'
               run: |
                   set -euo pipefail
 
@@ -916,7 +915,7 @@ jobs:
                   kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait
 
             - name: 🧹 Cleanup domain specific resources
-              if: always() && (matrix.declination.name == 'domain' || matrix.declination.name == 'cognito') && env.CLEANUP_CLUSTERS == 'true'
+              if: always() && matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'true'
               uses: ./.github/actions/kubernetes-ingress-cleanup
               timeout-minutes: 10
               with:
@@ -995,9 +994,9 @@ jobs:
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: vpn,cluster
 
-            # Cleanup Cognito if Cognito declination was used
+            # Cleanup Cognito if any scenario uses OIDC auth provider
             - name: Cleanup AWS Cognito for cluster
-              if: env.CLEANUP_CLUSTERS == 'true' && contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).declination.*.name), 'cognito')
+              if: env.CLEANUP_CLUSTERS == 'true' && contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).scenario.*.auth_provider), 'oidc')
               uses: ./.github/actions/aws-cognito-cleanup
               with:
                   terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
