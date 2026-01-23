@@ -506,6 +506,11 @@ jobs:
                     ./generic/openshift/single-region/tests/procedure/create-keycloak-identity-secret.sh
                   fi
 
+                  # Create WebModeler secrets
+                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                    ./generic/openshift/single-region/procedure/create-webmodeler-secret.sh
+                  fi
+
                   # Generate tests objects
                   if [ "$TESTS_ENABLED" == "true" ]; then
                     # Create the pull secrets described in generic/kubernetes/single-region/tests/helm-values/registry.yml
