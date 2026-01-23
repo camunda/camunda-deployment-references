@@ -808,8 +808,8 @@ runs:
               path: |
                   ~/.npm
                   ${{ env.HELM_PLAYWRIGHT_TEST_SUITE_PATH }}/node_modules
-              key: npm-playwright-${{ inputs.camunda-version }}-${{ hashFiles(format('{0}/charts/camunda-platform-{1}/test/e2e/package-lock.json', inputs.tests-camunda-helm-chart-repo-path,
-                  inputs.camunda-version)) }}
+              key: npm-playwright-${{ inputs.camunda-version }}-${{ hashFiles(format('{0}/charts/camunda-platform-{1}/test/e2e/package-lock.json',
+                  inputs.tests-camunda-helm-chart-repo-path, inputs.camunda-version)) }}
               restore-keys: |
                   npm-playwright-${{ inputs.camunda-version }}-
 
