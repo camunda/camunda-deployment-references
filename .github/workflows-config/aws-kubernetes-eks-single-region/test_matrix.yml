@@ -9,7 +9,11 @@ matrix:
           # ! Unlike ROSA, 'private_vpc' is defined in 'scenario' and not in 'distro'.
           private_vpc: false
           # Auth provider: 'keycloak' (embedded) or 'oidc' (external like Cognito, EntraID)
-          auth_provider: oidc
+          # TODO: Re-enable 'oidc' (AWS Cognito) once https://github.com/camunda/camunda/issues/44650 is fixed
+          #       Currently, Cognito M2M tokens lack 'aud' claim and Camunda's AudienceValidator rejects them.
+          #       The workaround (CAMUNDA_SECURITY_AUTHENTICATION_OIDC_AUDIENCES="") also fails due to a bug
+          #       in TokenValidatorFactory that doesn't handle empty audience lists.
+          auth_provider: keycloak
 
         - name: eks-single-region-irsa
           private_vpc: true

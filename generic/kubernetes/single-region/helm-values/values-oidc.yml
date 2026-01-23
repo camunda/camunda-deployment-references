@@ -143,18 +143,6 @@ orchestration:
           value: ${OIDC_ISSUER_URL}
         - name: CAMUNDA_CLIENT_AUTH_TOKEN_URL
           value: ${OIDC_TOKEN_URL}
-        # ⚠️ WORKAROUND: Disable audience validation for AWS Cognito M2M tokens
-        # AWS Cognito M2M tokens don't include 'aud' claim, causing AudienceValidator to fail.
-        # Setting this to empty disables audience validation entirely.
-        # In TokenValidatorFactory.java: "if (validAudiences != null) { validators.add(new AudienceValidator(...)) }"
-        # When audiences is null/empty, the AudienceValidator is NOT added, bypassing validation.
-        # See: docs/known-issues/aws-cognito-m2m-audience-claim.md
-        # TODO: Remove this workaround once Camunda supports Cognito M2M tokens
-        #       (by checking 'client_id' claim as fallback for 'aud')
-        # SECURITY NOTE: This disables audience validation for ALL tokens on orchestration.
-        #                Use with caution and only as a temporary workaround.
-        - name: CAMUNDA_SECURITY_AUTHENTICATION_OIDC_AUDIENCES
-          value: ''
 
     security:
         authentication:
@@ -162,14 +150,8 @@ orchestration:
                 clientId: ${ORCHESTRATION_CLIENT_ID}
                 # Note: The Helm chart appends '/sso-callback' to this URL
                 redirectUrl: https://${DOMAIN_NAME}
-                # Audience is set but overridden by CAMUNDA_SECURITY_AUTHENTICATION_OIDC_AUDIENCES env var above
                 audience: ${RESOURCE_SERVER_IDENTIFIER}
-                # backwardsCompatibleAudiences allows additional audience values to be accepted.
-                # ⚠️ AWS Cognito Issue: This does NOT fix the M2M token issue because:
-                # - Cognito M2M tokens use 'client_id' claim, not 'aud'
-                # - AudienceValidator only checks 'aud' claim, not 'client_id'
-                # - These audiences are checked against 'aud', which is empty in Cognito M2M tokens
-                # See: docs/known-issues/aws-cognito-m2m-audience-claim.md
+                # backwardsCompatibleAudiences allows additional audience values to be accepted
                 backwardsCompatibleAudiences:
                     - ${CONNECTORS_CLIENT_ID}
 
