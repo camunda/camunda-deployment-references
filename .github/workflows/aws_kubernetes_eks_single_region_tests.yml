@@ -862,9 +862,8 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  source generic/kubernetes/single-region/procedure/generate-passwords.sh
-
                   if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                    source generic/kubernetes/single-region/tests/procedure/generate-passwords.sh
                     ./generic/kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh
                   fi
 

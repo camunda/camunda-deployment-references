@@ -693,7 +693,7 @@ jobs:
                   set -euo pipefail
                   echo "Creating Camunda Identity credentials..."
                   source .github/scripts/gha-functions.sh
-                  export_new_env_vars ./generic/kubernetes/single-region/procedure/generate-passwords.sh
+                  export_new_env_vars ./generic/kubernetes/single-region/tests/procedure/generate-passwords.sh
                   ./generic/kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh
 
             - name: Create test secrets (Docker registry & identity integration)
