@@ -85,6 +85,11 @@ export_new_env_vars_to_file() {
 export_file_to_github_env() {
   local file_path="$1"
 
+  if [[ ! -f "$file_path" ]]; then
+    echo "::error::File not found: $file_path"
+    return 1
+  fi
+
   while IFS= read -r line; do
     var_name="${line%%=*}"
     var_value="${line#*=}"

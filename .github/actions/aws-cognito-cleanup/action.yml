@@ -45,7 +45,7 @@ runs:
           shell: bash
           working-directory: ${{ github.workspace }}/aws/common/cognito-test
           run: |
-              terraform destroy -auto-approve || true
+              terraform destroy -auto-approve
               echo "✅ Cognito resources destroyed successfully" >> $GITHUB_STEP_SUMMARY
 
         - name: Cleanup state file

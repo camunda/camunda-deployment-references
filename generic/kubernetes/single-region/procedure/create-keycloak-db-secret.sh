@@ -9,4 +9,4 @@ kubectl create secret generic identity-keycloak-secret \
   --from-literal=user="$DB_KEYCLOAK_USERNAME" \
   --from-literal=password="$DB_KEYCLOAK_PASSWORD" \
   --from-literal=database="$DB_KEYCLOAK_NAME" \
-  --from-literal=port=5432
+  --from-literal=port="${DB_PORT:-5432}"

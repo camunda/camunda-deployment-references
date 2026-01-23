@@ -38,7 +38,6 @@
 # AWS Cognito M2M access tokens use 'client_id' claim instead of the standard 'aud' claim.
 # This causes Camunda's AudienceValidator to reject Connectors tokens with:
 #   "Token audiences are [], expected at least one of [...]"
-# See: docs/known-issues/aws-cognito-m2m-audience-claim.md
 # TODO: Remove this workaround once Camunda fixes audience validation for Cognito
 #       GitHub : https://github.com/camunda/camunda/issues/44650
 
@@ -112,7 +111,6 @@ connectors:
     # Connectors uses M2M (Client Credentials) authentication to connect to Zeebe.
     # AWS Cognito M2M tokens do NOT include the 'aud' claim, causing authentication failures.
     # The tokens contain 'client_id' claim instead, but Camunda's AudienceValidator only checks 'aud'.
-    # See: docs/known-issues/aws-cognito-m2m-audience-claim.md
     env:
         - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
           value: ${OIDC_ISSUER_URL}

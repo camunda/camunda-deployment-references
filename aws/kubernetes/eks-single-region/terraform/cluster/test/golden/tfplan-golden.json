@@ -3253,7 +3253,7 @@
             "backtrack_window": null,
             "cluster_identifier": "cluster-name-pg-std",
             "copy_tags_to_snapshot": true,
-            "database_name": "camunda_keycloak",
+            "database_name": "camunda_identity",
             "db_cluster_instance_class": null,
             "db_instance_parameter_group_name": null,
             "db_subnet_group_name": "cluster-name-pg-std",
