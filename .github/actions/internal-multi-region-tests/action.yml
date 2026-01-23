@@ -42,6 +42,15 @@ inputs:
         description: Comma separated string of extra values yaml files to be applied
         required: false
         default: ''
+    skip-cleanup:
+        description: Skip cleanup step only (keep deploy to ensure test process is created). Use this when deployment already exists with platform-specific
+            config like OpenShift ServiceExports.
+        required: false
+        default: 'false'
+    post-failback-script:
+        description: Script to run after Failback to re-export services (e.g., for OpenShift Submariner ServiceExports)
+        required: false
+        default: ''
 runs:
     using: composite
     steps:
@@ -50,6 +59,13 @@ runs:
               repository: camunda/c8-multi-region
               ref: main
               path: multi-region-tests
+
+        - name: Copy .tool-versions to multi-region-tests
+          shell: bash
+          run: |
+              set -euo pipefail
+              # Copy .tool-versions so asdf can find golang when running in multi-region-tests/test
+              cp .tool-versions ./multi-region-tests/test/.tool-versions
 
         - name: Split up Kubeconfig
           shell: bash
@@ -98,6 +114,7 @@ runs:
               } >> "$GITHUB_ENV"
 
         - name: Clean Environment
+          if: inputs.skip-cleanup != 'true'
           shell: bash
           working-directory: ./multi-region-tests/test
           run: |
@@ -156,6 +173,15 @@ runs:
               set -euo pipefail
 
               go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
+
+        - name: Re-export services after Failback (OpenShift)
+          if: inputs.post-failback-script != ''
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "Running post-failback script to re-export services..."
+              ${{ inputs.post-failback-script }}
 
         - name: Calculate Failback duration
           shell: bash
