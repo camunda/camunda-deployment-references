@@ -326,6 +326,7 @@ resource "aws_cognito_user_pool_client" "console" {
 }
 
 # Connectors App Client (M2M with client credentials)
+# Needs orchestration scope to communicate with Zeebe/Orchestration API
 resource "aws_cognito_user_pool_client" "connectors" {
   name         = "${local.resource_prefix}-connectors"
   user_pool_id = aws_cognito_user_pool.camunda.id
@@ -335,7 +336,8 @@ resource "aws_cognito_user_pool_client" "connectors" {
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["client_credentials"]
   allowed_oauth_scopes = [
-    "${aws_cognito_resource_server.camunda.identifier}/connectors"
+    "${aws_cognito_resource_server.camunda.identifier}/connectors",
+    "${aws_cognito_resource_server.camunda.identifier}/orchestration"
   ]
 
   supported_identity_providers = ["COGNITO"]

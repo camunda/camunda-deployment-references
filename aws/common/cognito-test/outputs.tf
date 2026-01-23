@@ -52,6 +52,12 @@ output "logout_url" {
   value       = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/logout"
 }
 
+# Resource Server
+output "resource_server_identifier" {
+  description = "Resource Server identifier (used as scope prefix)"
+  value       = aws_cognito_resource_server.camunda.identifier
+}
+
 # Client IDs
 output "identity_client_id" {
   description = "Identity App Client ID"

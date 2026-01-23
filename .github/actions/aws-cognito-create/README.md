@@ -33,6 +33,7 @@ Creates a temporary AWS Cognito User Pool for Camunda OIDC testing
 | `token-url` | <p>OIDC Token URL</p> |
 | `jwks-url` | <p>OIDC JWKS URL</p> |
 | `userinfo-url` | <p>OIDC UserInfo URL</p> |
+| `resource-server-identifier` | <p>Resource Server identifier (used as scope prefix, e.g., 'camunda')</p> |
 | `identity-client-id` | <p>Identity component client ID</p> |
 | `identity-client-secret` | <p>Identity component client secret</p> |
 | `optimize-client-id` | <p>Optimize component client ID</p> |

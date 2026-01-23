@@ -310,6 +310,7 @@ jobs:
                   OIDC_TOKEN_URL=${{ steps.create-cognito.outputs.token-url }}
                   OIDC_JWKS_URL=${{ steps.create-cognito.outputs.jwks-url }}
                   OIDC_USERINFO_URL=${{ steps.create-cognito.outputs.userinfo-url }}
+                  OIDC_RESOURCE_SERVER_ID=${{ steps.create-cognito.outputs.resource-server-identifier }}
                   IDENTITY_CLIENT_ID=${{ steps.create-cognito.outputs.identity-client-id }}
                   OIDC_IDENTITY_CLIENT_SECRET=${{ steps.create-cognito.outputs.identity-client-secret }}
                   OPTIMIZE_CLIENT_ID=${{ steps.create-cognito.outputs.optimize-client-id }}
@@ -318,6 +319,7 @@ jobs:
                   OIDC_ORCHESTRATION_CLIENT_SECRET=${{ steps.create-cognito.outputs.orchestration-client-secret }}
                   CONNECTORS_CLIENT_ID=${{ steps.create-cognito.outputs.connectors-client-id }}
                   OIDC_CONNECTORS_CLIENT_SECRET=${{ steps.create-cognito.outputs.connectors-client-secret }}
+                  CONNECTORS_TOKEN_SCOPE=${{ steps.create-cognito.outputs.resource-server-identifier }}/orchestration
                   CONSOLE_CLIENT_ID=${{ steps.create-cognito.outputs.console-client-id }}
                   WEBMODELER_UI_CLIENT_ID=${{ steps.create-cognito.outputs.webmodeler-ui-client-id }}
                   WEBMODELER_API_CLIENT_ID=${{ steps.create-cognito.outputs.webmodeler-api-client-id }}

@@ -70,6 +70,9 @@ outputs:
     userinfo-url:
         description: OIDC UserInfo URL
         value: ${{ steps.apply.outputs.userinfo_url }}
+    resource-server-identifier:
+        description: Resource Server identifier (used as scope prefix, e.g., 'camunda')
+        value: ${{ steps.apply.outputs.resource_server_identifier }}
     identity-client-id:
         description: Identity component client ID
         value: ${{ steps.apply.outputs.identity_client_id }}
@@ -166,6 +169,7 @@ runs:
               echo "token_url=$(terraform output -raw token_url)" >> $GITHUB_OUTPUT
               echo "jwks_url=$(terraform output -raw jwks_url)" >> $GITHUB_OUTPUT
               echo "userinfo_url=$(terraform output -raw userinfo_url)" >> $GITHUB_OUTPUT
+              echo "resource_server_identifier=$(terraform output -raw resource_server_identifier)" >> $GITHUB_OUTPUT
 
               # Client IDs (non-sensitive)
               echo "identity_client_id=$(terraform output -raw identity_client_id)" >> $GITHUB_OUTPUT

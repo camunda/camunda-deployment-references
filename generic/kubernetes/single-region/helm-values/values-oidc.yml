@@ -5,6 +5,18 @@
 # It should be merged with your base values file using yq:
 #   yq ". *+ load("values-oidc.yml")" values-domain.yml > values.yml
 #
+# Prerequisites:
+#   Create the consolidated OIDC secret before deploying:
+#   ./procedure/create-oidc-secrets.sh
+#
+#   This creates a single 'camunda-oidc-secrets' secret with all client credentials:
+#     - identity-client-secret
+#     - optimize-client-secret
+#     - orchestration-client-secret
+#     - connectors-client-secret
+#     - webmodeler-api-client-secret
+#     - smtp-password
+#
 # Required environment variables (use envsubst before applying):
 #   - OIDC_ISSUER_URL: OIDC issuer URL
 #   - OIDC_TOKEN_URL: OAuth2 token endpoint
@@ -14,6 +26,7 @@
 #   - OPTIMIZE_CLIENT_ID: Optimize client ID
 #   - ORCHESTRATION_CLIENT_ID: Orchestration client ID
 #   - CONNECTORS_CLIENT_ID: Connectors client ID
+#   - CONNECTORS_TOKEN_SCOPE: Token scope for Connectors M2M auth (e.g., 'camunda/orchestration')
 #   - CONSOLE_CLIENT_ID: Console client ID
 #   - WEBMODELER_UI_CLIENT_ID: WebModeler UI client ID
 #   - IDENTITY_INITIAL_USER_EMAIL: Initial admin user email
@@ -32,15 +45,15 @@ global:
             identity:
                 clientId: ${IDENTITY_CLIENT_ID}
                 audience: ${IDENTITY_CLIENT_ID}
-                existingSecret: camunda-oidc-identity-secret
-                existingSecretKey: client-secret
+                existingSecret: camunda-oidc-secrets
+                existingSecretKey: identity-client-secret
                 redirectUrl: https://${DOMAIN_NAME}/auth/login-callback
 
             optimize:
                 clientId: ${OPTIMIZE_CLIENT_ID}
                 audience: ${OPTIMIZE_CLIENT_ID}
-                existingSecret: camunda-oidc-optimize-secret
-                existingSecretKey: client-secret
+                existingSecret: camunda-oidc-secrets
+                existingSecretKey: optimize-client-secret
                 redirectUrl: https://${DOMAIN_NAME}/optimize/api/authentication/callback
 
             webModeler:
@@ -93,10 +106,11 @@ connectors:
         authentication:
             oidc:
                 clientId: ${CONNECTORS_CLIENT_ID}
+                tokenScope: ${CONNECTORS_TOKEN_SCOPE}
 
                 secret:
-                    existingSecret: camunda-oidc-connectors-secret
-                    existingSecretKey: client-secret
+                    existingSecret: camunda-oidc-secrets
+                    existingSecretKey: connectors-client-secret
 
 optimize:
     env:
@@ -119,8 +133,8 @@ orchestration:
                 redirectUrl: https://${DOMAIN_NAME}/sso-callback
 
                 secret:
-                    existingSecret: camunda-oidc-orchestration-secret
-                    existingSecretKey: client-secret
+                    existingSecret: camunda-oidc-secrets
+                    existingSecretKey: orchestration-client-secret
 
         initialization:
             defaultRoles:

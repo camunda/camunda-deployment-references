@@ -155,6 +155,7 @@ No modules.
 | <a name="output_optimize_client_secret"></a> [optimize\_client\_secret](#output\_optimize\_client\_secret) | Optimize App Client Secret |
 | <a name="output_orchestration_client_id"></a> [orchestration\_client\_id](#output\_orchestration\_client\_id) | Orchestration App Client ID |
 | <a name="output_orchestration_client_secret"></a> [orchestration\_client\_secret](#output\_orchestration\_client\_secret) | Orchestration App Client Secret |
+| <a name="output_resource_server_identifier"></a> [resource\_server\_identifier](#output\_resource\_server\_identifier) | Resource Server identifier (used as scope prefix) |
 | <a name="output_test_user_name"></a> [test\_user\_name](#output\_test\_user\_name) | Username (email) of the test user |
 | <a name="output_test_user_password"></a> [test\_user\_password](#output\_test\_user\_password) | Password of the test user |
 | <a name="output_token_url"></a> [token\_url](#output\_token\_url) | OIDC Token endpoint |
