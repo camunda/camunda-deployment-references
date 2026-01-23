@@ -135,8 +135,12 @@ orchestration:
         authentication:
             oidc:
                 clientId: ${ORCHESTRATION_CLIENT_ID}
-                redirectUrl: https://${DOMAIN_NAME}/sso-callback
+                # Note: The Helm chart appends '/sso-callback' to this URL
+                redirectUrl: https://${DOMAIN_NAME}
                 audience: ${RESOURCE_SERVER_IDENTIFIER}
+                # Add all M2M client IDs that need to access Orchestration/Zeebe
+                backwardsCompatibleAudiences:
+                    - ${CONNECTORS_CLIENT_ID}
 
                 secret:
                     existingSecret: identity-secret-for-components
@@ -147,6 +151,10 @@ orchestration:
                 admin:
                     users:
                         - ${IDENTITY_INITIAL_USER_EMAIL}
+                # Grant Connectors role to the Connectors M2M client
+                connectors:
+                    clients:
+                        - ${CONNECTORS_CLIENT_ID}
 
 console:
     env:
