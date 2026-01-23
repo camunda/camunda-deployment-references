@@ -57,7 +57,7 @@ identity:
         database: ${DB_IDENTITY_NAME}
         secret:
             existingSecret: identity-postgres-secret
-            existingSecretPasswordKey: password
+            existingSecretKey: password
 
 
 connectors:
@@ -73,6 +73,10 @@ optimize:
 
 orchestration:
     contextPath: /
+
+    data:
+        secondaryStorage:
+            type: opensearch
 
     ingress:
         grpc:

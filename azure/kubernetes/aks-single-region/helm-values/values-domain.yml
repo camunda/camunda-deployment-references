@@ -86,7 +86,7 @@ identity:
         database: ${DB_IDENTITY_NAME}
         secret:
             existingSecret: identity-postgres-secret
-            existingSecretPasswordKey: password
+            existingSecretKey: password
 
 connectors:
     contextPath: /connectors
@@ -128,6 +128,10 @@ optimize:
 
 orchestration:
     contextPath: /
+
+    data:
+        secondaryStorage:
+            type: elasticsearch
 
     # Configure OIDC for orchestration
     security:

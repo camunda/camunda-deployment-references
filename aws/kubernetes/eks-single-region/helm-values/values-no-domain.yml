@@ -44,8 +44,9 @@ identity:
         port: 5432
         username: ${DB_IDENTITY_USERNAME}
         database: ${DB_IDENTITY_NAME}
-        existingSecret: identity-postgres-secret
-        existingSecretPasswordKey: password
+        secret:
+            existingSecret: identity-postgres-secret
+            existingSecretKey: password
 
 optimize:
     enabled: true
@@ -77,6 +78,10 @@ webModeler:
             fromAddress: changeme@example.com   # change this required value
 
 orchestration:
+    data:
+        secondaryStorage:
+            type: opensearch
+
     security:
         authentication:
             oidc:

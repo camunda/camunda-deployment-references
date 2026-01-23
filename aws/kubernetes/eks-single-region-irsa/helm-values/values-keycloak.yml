@@ -76,6 +76,10 @@ connectors:
                     existingSecretKey: identity-connectors-client-token
 
 orchestration:
+    data:
+        secondaryStorage:
+            type: opensearch
+
     # Configure OIDC for orchestration with Keycloak
     security:
         authentication:

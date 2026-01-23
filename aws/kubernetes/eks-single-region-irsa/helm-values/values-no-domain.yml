@@ -148,6 +148,10 @@ orchestration:
         annotations:
             eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
 
+    data:
+        secondaryStorage:
+            type: opensearch
+
     # Configure OIDC for orchestration
     security:
         authentication:
@@ -179,7 +183,7 @@ webModeler:
             user: ${DB_WEBMODELER_USERNAME}
             secret:
                 existingSecret: identity-secret-for-components # this fake password reference is needed to let the chart deploy webmodeler
-                existingSecretPasswordKey: password
+                existingSecretKey: password
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
