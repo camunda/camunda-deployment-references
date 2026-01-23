@@ -519,6 +519,9 @@ jobs:
 
                   # Merge auth provider specific overlays (Keycloak or OIDC)
                   # These overlays contain the auth-specific configuration
+                  # TODO: Add Cognito/external OIDC support (auth_provider: oidc)
+                  # Currently blocked by a bug in the Camunda Helm chart with audience validation.
+                  # When resolved, import the same logic as aws_eks_single_region_tests.yml
                   KEYCLOAK_BASE_PATH="generic/kubernetes/single-region/helm-values"
                   if [[ "${{ matrix.scenario.auth_provider }}" == "oidc" ]]; then
                     echo "Applying OIDC auth overlays"

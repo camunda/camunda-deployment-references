@@ -40,7 +40,7 @@
 #   "Token audiences are [], expected at least one of [...]"
 # See: docs/known-issues/aws-cognito-m2m-audience-claim.md
 # TODO: Remove this workaround once Camunda fixes audience validation for Cognito
-#       GitHub Issue: https://github.com/camunda/camunda/issues/XXXXX
+#       GitHub : https://github.com/camunda/camunda/issues/44650
 
 global:
     identity:

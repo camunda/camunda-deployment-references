@@ -1,0 +1,33 @@
+---
+# OpenShift Keycloak Overlay - Use embedded PostgreSQL for Keycloak
+#
+# OpenShift uses embedded PostgreSQL for Keycloak (via Helm chart),
+# unlike EKS/AKS which use external Aurora/PostgreSQL.
+#
+# This overlay should be merged AFTER values-keycloak.yml to override
+# the external database configuration with embedded PostgreSQL.
+#
+# Merge order: base.yml + ... + values-keycloak.yml + values-keycloak-openshift.yml + values-keycloak-*.yml
+#   yq ". *+ load(\"values-keycloak.yml\") *+ load(\"values-keycloak-openshift.yml\")" values.yml > values.yml
+#
+# Required: Create the secret identity-keycloak-postgresql-secret with the keys:
+#   - identity-keycloak-postgresql-admin-password
+#   - identity-keycloak-postgresql-user-password
+# See: generic/openshift/single-region/tests/procedure/create-keycloak-postgresql-secret.sh
+
+identityKeycloak:
+    postgresql:
+        enabled: true # use the embedded database instead of external
+        auth:
+            existingSecret: identity-keycloak-postgresql-secret
+            secretKeys:
+                adminPasswordKey: identity-keycloak-postgresql-admin-password
+                userPasswordKey: identity-keycloak-postgresql-user-password
+    externalDatabase:
+        # Disable external database - we use embedded PostgreSQL
+        existingSecret: ''
+        existingSecretHostKey: ''
+        existingSecretPortKey: ''
+        existingSecretUserKey: ''
+        existingSecretDatabaseKey: ''
+        existingSecretPasswordKey: ''

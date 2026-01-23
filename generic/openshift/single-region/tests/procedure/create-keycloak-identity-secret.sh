@@ -1,0 +1,1 @@
+../../../../kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh

@@ -474,6 +474,26 @@ jobs:
                   yq '. *+ load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
+                  # Merge auth provider specific overlays (Keycloak or OIDC)
+                  # These overlays contain the auth-specific configuration
+                  # TODO: Add Cognito/external OIDC support (auth_provider: oidc)
+                  # Currently blocked by a bug in the Camunda Helm chart with audience validation.
+                  # When resolved, import the same logic as aws_eks_single_region_tests.yml
+                  KEYCLOAK_BASE_PATH="generic/kubernetes/single-region/helm-values"
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "oidc" ]]; then
+                    echo "Applying OIDC auth overlays"
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-oidc.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-oidc-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
+                    cat values-merged2.yml && mv values-merged2.yml values.yml && rm values-merged.yml
+                  else
+                    echo "Applying Keycloak auth overlays"
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak.yml\")" values.yml > values-merged.yml
+                    # OpenShift uses embedded PostgreSQL for Keycloak (not external)
+                    yq ". *+ load(\"generic/openshift/single-region/helm-values/values-keycloak-openshift.yml\")" values-merged.yml > values-merged2.yml
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak-${{ matrix.declination.name }}.yml\")" values-merged2.yml > values-merged3.yml
+                    cat values-merged3.yml && mv values-merged3.yml values.yml && rm values-merged.yml values-merged2.yml
+                  fi
+
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
                     echo "Enabling WebModeler"
                     yq -i '.webModeler.enabled = true' values.yml
@@ -503,7 +523,9 @@ jobs:
 
                   if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
                     source generic/openshift/single-region/tests/procedure/generate-passwords.sh
+                    source generic/openshift/single-region/tests/procedure/generate-keycloak-passwords.sh
                     ./generic/openshift/single-region/tests/procedure/create-keycloak-identity-secret.sh
+                    ./generic/openshift/single-region/tests/procedure/create-keycloak-postgresql-secret.sh
                   fi
 
                   # Create WebModeler secrets
