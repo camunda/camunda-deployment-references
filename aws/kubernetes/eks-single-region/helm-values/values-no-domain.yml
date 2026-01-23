@@ -82,11 +82,6 @@ orchestration:
         secondaryStorage:
             type: opensearch
 
-    security:
-        authentication:
-            oidc:
-                redirectUrl: http://localhost:8080
-
 
 webModelerPostgresql:
     # Will deploy a postgresql datbase for webModeler.

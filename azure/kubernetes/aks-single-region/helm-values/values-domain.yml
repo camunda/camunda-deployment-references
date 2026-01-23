@@ -1,4 +1,10 @@
 ---
+# Azure AKS Domain Configuration for Camunda Platform
+#
+# This is the base values file. Auth provider configs are applied via overlays:
+# - Keycloak: merge with generic/kubernetes/single-region/helm-values/values-keycloak.yml + values-keycloak-domain.yml
+# - OIDC: merge with generic/kubernetes/single-region/helm-values/values-oidc.yml + values-oidc-domain.yml
+
 global:
     elasticsearch:
         enabled: true
@@ -19,64 +25,11 @@ global:
     identity:
         auth:
             enabled: true
-            type: KEYCLOAK
-            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
-
-            admin:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-admin-client-token
-
-            identity:
-                redirectUrl: https://${DOMAIN_NAME}/managementidentity
-
-            optimize:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-optimize-client-token
-                redirectUrl: https://${DOMAIN_NAME}/optimize
-
-            webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
-
-            console:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-console-client-token
-                redirectUrl: https://${DOMAIN_NAME}/console
-
-identityKeycloak:
-    enabled: true
-    postgresql:
-        enabled: false
-    externalDatabase:
-        # see https://artifacthub.io/packages/helm/bitnami/keycloak
-        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
-        existingSecretHostKey: host
-        existingSecretPortKey: port
-        existingSecretUserKey: user
-        existingSecretDatabaseKey: database
-        existingSecretPasswordKey: password
-
-    auth:
-        existingSecret: identity-secret-for-components
-        passwordSecretKey: identity-admin-client-token
-
 
 identity:
     enabled: true
     contextPath: /managementidentity
     fullURL: https://${DOMAIN_NAME}/managementidentity
-
-    firstUser:
-        enabled: true
-        username: admin
-        email: admin@camunda.local
-        firstName: Admin
-        lastName: User
-        secret:
-            existingSecret: identity-secret-for-components
-            existingSecretKey: identity-first-user-password
 
     externalDatabase:
         enabled: true
@@ -90,14 +43,6 @@ identity:
 
 connectors:
     contextPath: /connectors
-
-    # Configure OIDC for connectors
-    security:
-        authentication:
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-connectors-client-token
 
 webModeler:
     enabled: false
@@ -132,15 +77,6 @@ orchestration:
     data:
         secondaryStorage:
             type: elasticsearch
-
-    # Configure OIDC for orchestration
-    security:
-        authentication:
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-                redirectUrl: https://${DOMAIN_NAME}
 
     ingress:
         grpc:

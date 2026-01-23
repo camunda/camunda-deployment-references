@@ -1,0 +1,73 @@
+---
+# This manifest creates the Keycloak database (CI/Test only)
+# Run AFTER the base manifests/setup-postgres-create-db.yml job completes
+# Requires setup-db-secret with Keycloak variables (patched by patch-setup-db-secret-keycloak.sh)
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: create-keycloak-db
+    labels:
+        app: create-keycloak-db
+spec:
+    backoffLimit: 0
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: create-keycloak-db
+                  image: alpine/psql:15.5
+                  command:
+                      - sh
+                      - -c
+                      - |
+                        /bin/sh <<'EOF'
+                        set -o pipefail
+                        set -e  # Exit on error
+
+                        echo "Creating Keycloak database and user..."
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "dbname=postgres user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "CREATE DATABASE \"${DB_KEYCLOAK_NAME}\";"
+
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "dbname=$DB_KEYCLOAK_NAME user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "CREATE USER \"${DB_KEYCLOAK_USERNAME}\" WITH PASSWORD '${DB_KEYCLOAK_PASSWORD}' NOSUPERUSER CREATEDB CREATEROLE INHERIT;" \
+                          -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_KEYCLOAK_NAME}\" TO \"${DB_KEYCLOAK_USERNAME}\";" \
+                          -c "GRANT ALL ON SCHEMA public TO \"${DB_KEYCLOAK_USERNAME}\";"
+
+                        echo "Keycloak database setup completed successfully!"
+                        EOF
+                  env:
+                      - name: DB_HOST
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_HOST
+                      - name: DB_PORT
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_PORT
+                      - name: POSTGRES_ADMIN_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: POSTGRES_ADMIN_USERNAME
+                      - name: POSTGRES_ADMIN_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: POSTGRES_ADMIN_PASSWORD
+                      - name: DB_KEYCLOAK_NAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_KEYCLOAK_NAME
+                      - name: DB_KEYCLOAK_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_KEYCLOAK_USERNAME
+                      - name: DB_KEYCLOAK_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_KEYCLOAK_PASSWORD

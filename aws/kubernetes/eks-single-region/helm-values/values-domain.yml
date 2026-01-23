@@ -88,11 +88,6 @@ orchestration:
             annotations:
                 kubernetes.io/tls-acme: 'true'
 
-    security:
-        authentication:
-            oidc:
-                redirectUrl: https://${DOMAIN_NAME}
-
 
 console:
     enabled: false # by default, console is not enabled

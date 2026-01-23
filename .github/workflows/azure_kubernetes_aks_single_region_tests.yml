@@ -229,6 +229,7 @@ jobs:
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
                   tfvars: ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/terraform.tfvars
                   ref-arch: ${{ matrix.scenario.name }}
+                  auth-provider: ${{ matrix.scenario.auth_provider }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -252,20 +253,28 @@ jobs:
                   # shellcheck disable=SC2086
                   source ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
 
+                  # Source Keycloak variables only when using embedded Keycloak
+                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                    source ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/test/vars-create-keycloak-db.sh
+                  fi
+
                   {
                     echo "DB_HOST=$DB_HOST"
                     echo "DB_PORT=$DB_PORT"
                     echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME"
                     echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD"
-                    echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
-                    echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
-                    echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
                     echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME"
                     echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME"
                     echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD"
                     echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME"
                     echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME"
                     echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
+                    # Keycloak variables (only when using embedded Keycloak)
+                    if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                      echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
+                      echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
+                      echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
+                    fi
                   } > "${{ runner.temp }}/outputs_raw"
 
             - name: Export other secrets from the action
@@ -508,6 +517,21 @@ jobs:
                   yq ". *+ load(\"azure/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml\")" values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
+                  # Merge auth provider specific overlays (Keycloak or OIDC)
+                  # These overlays contain the auth-specific configuration
+                  KEYCLOAK_BASE_PATH="generic/kubernetes/single-region/helm-values"
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "oidc" ]]; then
+                    echo "Applying OIDC auth overlays"
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-oidc.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-oidc-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
+                    cat values-merged2.yml && mv values-merged2.yml values.yml && rm values-merged.yml
+                  else
+                    echo "Applying Keycloak auth overlays"
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
+                    cat values-merged2.yml && mv values-merged2.yml values.yml && rm values-merged.yml
+                  fi
+
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
                     export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
                     echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
@@ -562,6 +586,11 @@ jobs:
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/check-env-variables.sh
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
 
+                  # Patch secret with Keycloak credentials when using embedded Keycloak
+                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                    ./azure/kubernetes/${{ matrix.scenario.name }}/test/patch-setup-db-secret-keycloak.sh
+                  fi
+
                   kubectl apply -f ./azure/kubernetes/${{ matrix.scenario.name }}/manifests/setup-postgres-create-db.yml --namespace "$CAMUNDA_NAMESPACE"
 
                   # Wait for the job to complete
@@ -581,6 +610,30 @@ jobs:
                   kubectl logs job/create-setup-user-db --namespace "$CAMUNDA_NAMESPACE"
 
                   kubectl delete job create-setup-user-db --namespace "$CAMUNDA_NAMESPACE"
+
+                  # Create Keycloak database when using embedded Keycloak
+                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                    kubectl apply -f ./azure/kubernetes/${{ matrix.scenario.name }}/test/setup-postgres-create-keycloak-db.yml --namespace "$CAMUNDA_NAMESPACE"
+
+                    # Wait for the Keycloak DB job to complete
+                    while true; do
+                        STATUS=$(kubectl get job create-keycloak-db --namespace "$CAMUNDA_NAMESPACE" -o jsonpath='{.status.succeeded}')
+
+                        if [[ "$STATUS" == "1" ]]; then
+                            echo "Keycloak DB job completed successfully."
+                            break
+                        fi
+
+                        echo "Waiting for Keycloak DB job to complete..."
+                        sleep 5
+                    done
+
+                    echo "[DEBUG] Keycloak DB job log:"
+                    kubectl logs job/create-keycloak-db --namespace "$CAMUNDA_NAMESPACE"
+
+                    kubectl delete job create-keycloak-db --namespace "$CAMUNDA_NAMESPACE"
+                  fi
+
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
             - name: 💪 Execute DB secret creation scripts
@@ -588,6 +641,11 @@ jobs:
               run: |
                   set -euo pipefail
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
+
+                  # Create Keycloak DB secret when using embedded Keycloak
+                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                    ./azure/kubernetes/${{ matrix.scenario.name }}/test/create-keycloak-db-secret.sh
+                  fi
 
             - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
               timeout-minutes: 10

@@ -52,6 +52,10 @@ inputs:
     location:
         description: Azure region where the AKS cluster will be deployed
         required: true
+    auth-provider:
+        description: Authentication provider to use (keycloak or oidc)
+        default: keycloak
+        required: false
     tags:
         description: Tags to apply to the cluster and related resources, in JSON format
         default: '{}'
@@ -101,6 +105,17 @@ runs:
           run: |
               cp -r ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/test/fixtures/ci/fixture_* \
               ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+
+              # Add Keycloak database configuration for embedded Keycloak auth
+              if [[ "${{ inputs.auth-provider }}" == "keycloak" ]]; then
+                  echo "Adding Keycloak database configuration..."
+                  cp ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/test/db-keycloak.tf \
+                     ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/db-keycloak.tf
+                  cp ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/test/outputs-keycloak.tf \
+                     ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/outputs-keycloak.tf
+                  echo "Displaying db-keycloak.tf file:"
+                  cat ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/db-keycloak.tf
+              fi
 
         - name: Terraform Init
           id: init
