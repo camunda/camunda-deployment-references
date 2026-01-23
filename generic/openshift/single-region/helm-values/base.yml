@@ -94,7 +94,7 @@ webModeler:
     restapi:
         mail:
             secret:
-                existingSecret: identity-secret-for-components # reference the smtp password
+                existingSecret: webmodeler-secret
                 existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
 

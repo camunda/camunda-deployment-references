@@ -13,5 +13,4 @@ oc create secret generic identity-secret-for-components \
   --from-literal=identity-keycloak-pg-user-password-key="$KEYCLOAK_PSQL_USER_PASSWORD"  \
   --from-literal=identity-webmodeler-client-token="$WEB_MODELER_SECRET" \
   --from-literal=identity-webmodeler-pg-admin-password="$WEB_MODELER_PSQL_ADMIN_PASSWORD"  \
-  --from-literal=identity-webmodeler-pg-user-password="$WEB_MODELER_PSQL_USER_PASSWORD"  \
-  --from-literal=smtp-password=""
+  --from-literal=identity-webmodeler-pg-user-password="$WEB_MODELER_PSQL_USER_PASSWORD"

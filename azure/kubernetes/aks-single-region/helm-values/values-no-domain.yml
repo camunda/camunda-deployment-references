@@ -135,7 +135,7 @@ webModeler:
 
         mail:
             secret:
-                existingSecret: identity-secret-for-components
+                existingSecret: webmodeler-secret
                 existingSecretKey: smtp-password
             fromAddress: changeme@example.com
 

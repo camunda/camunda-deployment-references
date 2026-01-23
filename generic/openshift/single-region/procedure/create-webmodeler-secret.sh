@@ -7,7 +7,7 @@ set -euo pipefail
 # Modify this value to set your SMTP password
 SMTP_PASSWORD="${SMTP_PASSWORD:-}"
 
-kubectl create secret generic webmodeler-secret \
+oc create secret generic webmodeler-secret \
   --namespace "$CAMUNDA_NAMESPACE" \
   --from-literal=smtp-password="$SMTP_PASSWORD" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --dry-run=client -o yaml | oc apply -f -
