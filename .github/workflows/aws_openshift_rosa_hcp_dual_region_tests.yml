@@ -685,6 +685,11 @@ jobs:
                   default-values-yaml: ${{ github.workspace }}/openshift.yml
                   region-0-values-yaml: ${{ github.workspace }}/generated-values-region-1.yml
                   region-1-values-yaml: ${{ github.workspace }}/generated-values-region-2.yml
+                  # Skip cleanup since OpenShift deployment is already done with Submariner ServiceExports
+                  # Deploy will use helm upgrade --install which preserves existing resources
+                  skip-cleanup: 'true'
+                  # Re-export services after Failback since the test recreates the Helm release without ServiceExports
+                  post-failback-script: ./generic/openshift/dual-region/procedure/export-services-submariner.sh
 
 
             - name: 🔬🚨 Get failed Pods info - Cluster 1
@@ -692,28 +697,181 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  echo "Debug MCH installation issues"
-                  # https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.13/html/release_notes/acm-release-notes#upgrade-stuck
-                  oc --context="$CLUSTER_1_NAME" get multiclusterhubs -n open-cluster-management -o yaml
+                  echo "=========================================="
+                  echo "🔍 DEBUG: Cluster 1 - $CLUSTER_1_NAME"
+                  echo "=========================================="
 
-                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po
+                  echo "📋 Debug MCH installation issues"
+                  # https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.13/html/release_notes/acm-release-notes#upgrade-stuck
+                  oc --context="$CLUSTER_1_NAME" get multiclusterhubs -n open-cluster-management -o yaml || true
+
+                  echo ""
+                  echo "=========================================="
+                  echo "📊 All pods status in namespace $CAMUNDA_NAMESPACE_1"
+                  echo "=========================================="
+                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po -o wide
+
+                  echo ""
+                  echo "=========================================="
+                  echo "🔧 Zeebe Broker Pods Details"
+                  echo "=========================================="
+                  for i in 0 1 2 3; do
+                    pod_name="${CAMUNDA_RELEASE_NAME:-camunda}-zeebe-$i"
+                    echo ""
+                    echo "--- Zeebe Broker $i: $pod_name ---"
+                    kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po "$pod_name" -o wide 2>/dev/null || echo "Pod $pod_name not found"
+                    kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" describe po "$pod_name" 2>/dev/null | grep -A 20 "Conditions:" || true
+                    echo ""
+                    echo "📝 Last 200 lines of logs for $pod_name:"
+                    kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" logs "$pod_name" --tail=200 2>/dev/null || echo "Could not get logs for $pod_name"
+                  done
+
+                  echo ""
+                  echo "=========================================="
+                  echo "🌐 Zeebe Gateway Pods Details"
+                  echo "=========================================="
+                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po -l app.kubernetes.io/component=zeebe-gateway -o wide || true
+                  for pod_name in $(kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po -l app.kubernetes.io/component=zeebe-gateway -o name 2>/dev/null); do
+                    echo ""
+                    echo "--- Gateway: $pod_name ---"
+                    kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" logs "$pod_name" --tail=100 2>/dev/null || true
+                  done
+
+                  echo ""
+                  echo "=========================================="
+                  echo "🔗 Services and Endpoints"
+                  echo "=========================================="
+                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get svc
+                  echo ""
+                  echo "Zeebe service endpoints:"
+                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get endpoints | grep -i zeebe || true
+
+                  echo ""
+                  echo "=========================================="
+                  echo "🚢 Submariner ServiceExports"
+                  echo "=========================================="
+                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get serviceexports -o wide 2>/dev/null || echo "No ServiceExports found"
+                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get serviceimports -o wide 2>/dev/null || echo "No ServiceImports found"
+
+                  echo ""
+                  echo "=========================================="
+                  echo "🌍 DNS Resolution Tests"
+                  echo "=========================================="
+                  # Test DNS resolution for cross-cluster services
+                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" \
+                    run dns-test --image=busybox:1.28 --rm --restart=Never --command -- \
+                    nslookup "${CAMUNDA_RELEASE_NAME:-camunda}-zeebe.${CAMUNDA_NAMESPACE_1}.svc.clusterset.local" \
+                    2>/dev/null || echo "DNS test failed or timed out"
+
+                  echo ""
+                  echo "=========================================="
+                  echo "❌ Failed Pods Details"
+                  echo "=========================================="
                   kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
                     echo -e "\n### Failed Pod: ${pod_name} ###\n"
                     kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" describe po "$pod_name"
-                    kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" logs "$pod_name"
+                    kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" logs "$pod_name" --tail=500
                   done
+
+                  echo ""
+                  echo "=========================================="
+                  echo "📡 Network Policies"
+                  echo "=========================================="
+                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get networkpolicies -o wide 2>/dev/null || echo "No NetworkPolicies found"
 
             - name: 🔬🚨 Get failed Pods info - Cluster 2
               if: failure()
               run: |
                   set -euo pipefail
 
-                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get po
-                  kubectl -n "$CAMUNDA_NAMESPACE_2" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                  echo "=========================================="
+                  echo "🔍 DEBUG: Cluster 2 - $CLUSTER_2_NAME"
+                  echo "=========================================="
+
+                  echo ""
+                  echo "📊 All pods status in namespace $CAMUNDA_NAMESPACE_2"
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get po -o wide
+
+                  echo ""
+                  echo "=========================================="
+                  echo "🔧 Zeebe Broker Pods Details"
+                  echo "=========================================="
+                  for i in 0 1 2 3; do
+                    pod_name="${CAMUNDA_RELEASE_NAME:-camunda}-zeebe-$i"
+                    echo ""
+                    echo "--- Zeebe Broker $i: $pod_name ---"
+                    kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get po "$pod_name" -o wide 2>/dev/null || echo "Pod $pod_name not found"
+                    kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" describe po "$pod_name" 2>/dev/null | grep -A 20 "Conditions:" || true
+                    echo ""
+                    echo "📝 Last 200 lines of logs for $pod_name:"
+                    kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name" --tail=200 2>/dev/null || echo "Could not get logs for $pod_name"
+                  done
+
+                  echo ""
+                  echo "=========================================="
+                  echo "🌐 Zeebe Gateway Pods Details"
+                  echo "=========================================="
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get po -l app.kubernetes.io/component=zeebe-gateway -o wide || true
+                  for pod_name in $(kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get po -l app.kubernetes.io/component=zeebe-gateway -o name 2>/dev/null); do
+                    echo ""
+                    echo "--- Gateway: $pod_name ---"
+                    kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name" --tail=100 2>/dev/null || true
+                  done
+
+                  echo ""
+                  echo "=========================================="
+                  echo "🔗 Services and Endpoints"
+                  echo "=========================================="
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get svc
+                  echo ""
+                  echo "Zeebe service endpoints:"
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get endpoints | grep -i zeebe || true
+
+                  echo ""
+                  echo "=========================================="
+                  echo "🚢 Submariner ServiceExports"
+                  echo "=========================================="
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get serviceexports -o wide 2>/dev/null || echo "No ServiceExports found"
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get serviceimports -o wide 2>/dev/null || echo "No ServiceImports found"
+
+                  echo ""
+                  echo "=========================================="
+                  echo "🌍 DNS Resolution Tests"
+                  echo "=========================================="
+                  # Test DNS resolution for cross-cluster services
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" \
+                    run dns-test --image=busybox:1.28 --rm --restart=Never --command -- \
+                    nslookup "${CAMUNDA_RELEASE_NAME:-camunda}-zeebe.${CAMUNDA_NAMESPACE_2}.svc.clusterset.local" \
+                    2>/dev/null || echo "DNS test failed or timed out"
+
+                  echo ""
+                  echo "=========================================="
+                  echo "❌ Failed Pods Details"
+                  echo "=========================================="
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
                     echo -e "\n### Failed Pod: ${pod_name} ###\n"
                     kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" describe po "$pod_name"
-                    kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name"
+                    kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name" --tail=500
                   done
+
+                  echo ""
+                  echo "=========================================="
+                  echo "📡 Network Policies"
+                  echo "=========================================="
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get networkpolicies -o wide 2>/dev/null || echo "No NetworkPolicies found"
+
+                  echo ""
+                  echo "=========================================="
+                  echo "🔄 Cross-Cluster Connectivity Test"
+                  echo "=========================================="
+                  echo "Testing connectivity from Cluster 2 to Cluster 1 Zeebe services..."
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" run connectivity-test --image=busybox:1.28 --rm -it --restart=Never --command -- sh -c "
+                    echo 'Testing DNS for cluster 1 zeebe...'
+                    nslookup local-cluster.${CAMUNDA_RELEASE_NAME:-camunda}-zeebe.${CAMUNDA_NAMESPACE_1}.svc.clusterset.local || echo 'DNS resolution failed'
+                    echo ''
+                    echo 'Testing TCP connectivity to cluster 1 zeebe on port 26502...'
+                    nc -zv local-cluster.${CAMUNDA_RELEASE_NAME:-camunda}-zeebe.${CAMUNDA_NAMESPACE_1}.svc.clusterset.local 26502 2>&1 || echo 'TCP connection failed'
+                  " 2>/dev/null || echo "Connectivity test failed or timed out"
 
     integration-tests-retry:
         name: Retry Tests in case of failure
