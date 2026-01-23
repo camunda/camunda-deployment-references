@@ -501,9 +501,10 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  source generic/openshift/single-region/procedure/generate-passwords.sh
-
-                  ./generic/openshift/single-region/procedure/create-identity-secret.sh
+                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                    source generic/openshift/single-region/tests/procedure/generate-passwords.sh
+                    ./generic/openshift/single-region/tests/procedure/create-keycloak-identity-secret.sh
+                  fi
 
                   # Generate tests objects
                   if [ "$TESTS_ENABLED" == "true" ]; then
@@ -514,10 +515,13 @@ jobs:
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                         --namespace="$CAMUNDA_NAMESPACE"
 
-                    kubectl create secret generic identity-secret-for-components-integration \
-                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
-                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-                        --namespace="$CAMUNDA_NAMESPACE"
+                    # Skip Keycloak-based identity secrets when using external OIDC
+                    if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                      kubectl create secret generic identity-secret-for-components-integration \
+                          --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                          --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+                          --namespace="$CAMUNDA_NAMESPACE"
+                    fi
                   fi
 
                   ./generic/openshift/single-region/procedure/install-chart.sh

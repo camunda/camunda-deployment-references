@@ -595,9 +595,11 @@ jobs:
                   set -euo pipefail
 
                   source generic/kubernetes/single-region/procedure/chart-env.sh
-                  source generic/kubernetes/single-region/tests/procedure/generate-passwords.sh
 
-                  ./generic/kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh
+                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                    source generic/kubernetes/single-region/tests/procedure/generate-passwords.sh
+                    ./generic/kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh
+                  fi
 
                   # Generate tests objects
                   if [ "$TESTS_ENABLED" == "true" ]; then
@@ -618,10 +620,13 @@ jobs:
                         --docker-password="${{ steps.secrets.outputs.MACHINE_PWD }}" \
                         --namespace="$CAMUNDA_NAMESPACE"
 
-                    kubectl create secret generic identity-secret-for-components-integration \
-                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
-                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-                        --namespace="$CAMUNDA_NAMESPACE"
+                    # Skip Keycloak-based identity secrets when using external OIDC
+                    if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                      kubectl create secret generic identity-secret-for-components-integration \
+                          --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                          --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+                          --namespace="$CAMUNDA_NAMESPACE"
+                    fi
                   fi
 
                   ./generic/kubernetes/single-region/procedure/install-chart.sh

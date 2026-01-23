@@ -26,6 +26,9 @@ matrix:
 
     scenario:
         - name: rosa-hcp-single-region
+          # Auth provider: 'keycloak' (embedded) or 'oidc' (external like Cognito, EntraID)
+          # TODO: Add 'oidc' support with AWS Cognito
+          auth_provider: keycloak
 
     declination:
         - name: no-domain

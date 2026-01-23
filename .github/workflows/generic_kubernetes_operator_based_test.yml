@@ -693,8 +693,11 @@ jobs:
                   set -euo pipefail
                   echo "Creating Camunda Identity credentials..."
                   source .github/scripts/gha-functions.sh
-                  export_new_env_vars ./generic/kubernetes/single-region/tests/procedure/generate-passwords.sh
-                  ./generic/kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh
+
+                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                    export_new_env_vars ./generic/kubernetes/single-region/tests/procedure/generate-passwords.sh
+                    ./generic/kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh
+                  fi
 
             - name: Create test secrets (Docker registry & identity integration)
               if: env.TESTS_ENABLED == 'true'
@@ -710,10 +713,13 @@ jobs:
                       --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                       --namespace="$CAMUNDA_NAMESPACE" || true
 
+                  # Skip Keycloak-based identity secrets when using external OIDC
+                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
                     kubectl create secret generic identity-secret-for-components-integration \
                         --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
                         --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
                         --namespace="$CAMUNDA_NAMESPACE" ||true
+                  fi
 
             - name: 🏗️ Deploy Camunda Platform
               timeout-minutes: 15

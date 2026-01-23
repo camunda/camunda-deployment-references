@@ -6,6 +6,9 @@ matrix:
 
     scenario:
         - name: aks-single-region
+          # Auth provider: 'keycloak' (embedded) or 'oidc' (external like EntraID, Cognito)
+          # TODO: Add 'oidc' support with Azure EntraID
+          auth_provider: keycloak
 
     declination:
         - name: no-domain
