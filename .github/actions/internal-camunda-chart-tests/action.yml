@@ -788,6 +788,15 @@ runs:
 
               echo "test-suite-exists=true" >> "$GITHUB_OUTPUT"
 
+              # Output package.json path for cache key
+              PACKAGE_JSON_PATH="${TEST_SUITE_PATH}/package.json"
+              if [[ -f "$PACKAGE_JSON_PATH" ]]; then
+                PACKAGE_HASH=$(sha256sum "$PACKAGE_JSON_PATH" | cut -d' ' -f1)
+                echo "package-hash=$PACKAGE_HASH" >> "$GITHUB_OUTPUT"
+              else
+                echo "package-hash=no-package-json" >> "$GITHUB_OUTPUT"
+              fi
+
               # Verify required tools are available
               echo "Checking required tools..."
               for tool in node npm kubectl; do
@@ -808,11 +817,9 @@ runs:
               path: |
                   ~/.npm
                   ${{ env.HELM_PLAYWRIGHT_TEST_SUITE_PATH }}/node_modules
-              key: npm-playwright-${{ inputs.camunda-version }}-${{ hashFiles(format('{0}/charts/camunda-platform-{1}/test/e2e/package-lock.json',
-                  inputs.tests-camunda-helm-chart-repo-path, inputs.camunda-version)) }}
+              key: npm-pw-${{ inputs.camunda-version }}-${{ steps.playwright-prereqs.outputs.package-hash }}
               restore-keys: |
-                  npm-playwright-${{ inputs.camunda-version }}-
-
+                  npm-pw-${{ inputs.camunda-version }}-
         - name: 🎭 HELM PLAYWRIGHT - Install Node.js dependencies
           if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
           shell: bash
