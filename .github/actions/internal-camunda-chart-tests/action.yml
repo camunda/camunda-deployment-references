@@ -772,7 +772,7 @@ runs:
 
               echo "🔍 Verifying Helm Playwright test prerequisites..."
 
-              TEST_SUITE_PATH="${TESTS_CAMUNDA_HELM_CHART_REPO_PATH}/charts/camunda-platform-${CAMUNDA_VERSION}/test/integration/testsuites"
+              TEST_SUITE_PATH="${TESTS_CAMUNDA_HELM_CHART_REPO_PATH}/charts/camunda-platform-${CAMUNDA_VERSION}/test/e2e"
 
               # Export paths to GITHUB_ENV for subsequent steps
               echo "HELM_PLAYWRIGHT_TEST_SUITE_PATH=$TEST_SUITE_PATH" >> "$GITHUB_ENV"
@@ -808,8 +808,8 @@ runs:
               path: |
                   ~/.npm
                   ${{ env.HELM_PLAYWRIGHT_TEST_SUITE_PATH }}/node_modules
-              key: npm-playwright-${{ inputs.camunda-version }}-${{ hashFiles(format('{0}/charts/camunda-platform-{1}/test/integration/testsuites/package-lock.json',
-                  inputs.tests-camunda-helm-chart-repo-path, inputs.camunda-version)) }}
+              key: npm-playwright-${{ inputs.camunda-version }}-${{ hashFiles(format('{0}/charts/camunda-platform-{1}/test/e2e/package-lock.json', inputs.tests-camunda-helm-chart-repo-path,
+                  inputs.camunda-version)) }}
               restore-keys: |
                   npm-playwright-${{ inputs.camunda-version }}-
 
@@ -912,8 +912,6 @@ runs:
               cat >> "$ENV_FILE" << EOF
               CI=true
               VERBOSE=true
-              TEST_BASE_PATH=${TEST_SUITE_PATH}/files
-              FIXTURES_DIR=${TEST_SUITE_PATH}/files
               EOF
 
               echo "✅ Environment file created at $ENV_FILE"
