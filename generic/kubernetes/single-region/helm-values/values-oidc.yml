@@ -9,7 +9,7 @@
 #   Create the consolidated OIDC secret before deploying:
 #   ./procedure/create-oidc-secrets.sh
 #
-#   This creates a single 'camunda-oidc-secrets' secret with all client credentials:
+#   This creates a single 'identity-secret-for-components' secret with all client credentials:
 #     - identity-client-secret
 #     - optimize-client-secret
 #     - orchestration-client-secret
@@ -45,14 +45,14 @@ global:
             identity:
                 clientId: ${IDENTITY_CLIENT_ID}
                 audience: ${IDENTITY_CLIENT_ID}
-                existingSecret: camunda-oidc-secrets
+                existingSecret: identity-secret-for-components
                 existingSecretKey: identity-client-secret
                 redirectUrl: https://${DOMAIN_NAME}/auth/login-callback
 
             optimize:
                 clientId: ${OPTIMIZE_CLIENT_ID}
                 audience: ${OPTIMIZE_CLIENT_ID}
-                existingSecret: camunda-oidc-secrets
+                existingSecret: identity-secret-for-components
                 existingSecretKey: optimize-client-secret
                 redirectUrl: https://${DOMAIN_NAME}/optimize/api/authentication/callback
 
@@ -109,7 +109,7 @@ connectors:
                 tokenScope: ${CONNECTORS_TOKEN_SCOPE}
 
                 secret:
-                    existingSecret: camunda-oidc-secrets
+                    existingSecret: identity-secret-for-components
                     existingSecretKey: connectors-client-secret
 
 optimize:
@@ -133,7 +133,7 @@ orchestration:
                 redirectUrl: https://${DOMAIN_NAME}/sso-callback
 
                 secret:
-                    existingSecret: camunda-oidc-secrets
+                    existingSecret: identity-secret-for-components
                     existingSecretKey: orchestration-client-secret
 
         initialization:

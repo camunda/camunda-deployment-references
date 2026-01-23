@@ -17,7 +17,8 @@ fi
 
 echo "📝 Creating OIDC secret..."
 
-kubectl create secret generic camunda-oidc-secrets \
+
+kubectl create secret generic identity-secret-for-components \
     --namespace "$CAMUNDA_NAMESPACE" \
     --from-literal=identity-client-secret="${OIDC_IDENTITY_CLIENT_SECRET}" \
     --from-literal=optimize-client-secret="${OIDC_OPTIMIZE_CLIENT_SECRET:-}" \
@@ -27,7 +28,7 @@ kubectl create secret generic camunda-oidc-secrets \
     --from-literal=smtp-password="${SMTP_PASSWORD:-}" \
     --dry-run=client -o yaml | kubectl apply -f -
 
-echo "✅ Created camunda-oidc-secrets with all OIDC client credentials"
+echo "✅ Created identity-secret-for-components with OIDC client credentials"
 echo ""
 echo "To verify:"
-echo "  kubectl get secret camunda-oidc-secrets -n ${CAMUNDA_NAMESPACE} -o yaml"
+echo "  kubectl get secret identity-secret-for-components -n ${CAMUNDA_NAMESPACE} -o yaml"

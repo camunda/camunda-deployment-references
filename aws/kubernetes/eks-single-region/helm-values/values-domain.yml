@@ -115,7 +115,8 @@ webModeler:
               value: software.amazon.jdbc.Driver
         mail:
             secret:
-                existingSecret: identity-secret-for-components # reference the smtp password
+                # IMPORTANT: This secret must exist before deployment or it will fail.
+                existingSecret: identity-secret-for-components
                 existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
 
