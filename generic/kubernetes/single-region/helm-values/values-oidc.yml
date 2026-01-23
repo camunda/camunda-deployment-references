@@ -148,8 +148,6 @@ orchestration:
         authentication:
             oidc:
                 clientId: ${ORCHESTRATION_CLIENT_ID}
-                # Note: The Helm chart appends '/sso-callback' to this URL
-                redirectUrl: https://${DOMAIN_NAME}
                 audience: ${RESOURCE_SERVER_IDENTIFIER}
                 # backwardsCompatibleAudiences allows additional audience values to be accepted
                 backwardsCompatibleAudiences:

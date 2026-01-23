@@ -25,7 +25,6 @@ kubectl create secret generic identity-secret-for-components \
     --from-literal=orchestration-client-secret="${OIDC_ORCHESTRATION_CLIENT_SECRET:-}" \
     --from-literal=connectors-client-secret="${OIDC_CONNECTORS_CLIENT_SECRET:-}" \
     --from-literal=webmodeler-api-client-secret="${OIDC_WEBMODELER_API_CLIENT_SECRET:-}" \
-    --from-literal=smtp-password="${SMTP_PASSWORD:-}" \
     --dry-run=client -o yaml | kubectl apply -f -
 
 echo "✅ Created identity-secret-for-components with OIDC client credentials"

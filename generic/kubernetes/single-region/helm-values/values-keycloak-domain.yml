@@ -35,3 +35,9 @@ global:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-console-client-token
                 redirectUrl: https://${DOMAIN_NAME}/console
+
+orchestration:
+    security:
+        authentication:
+            oidc:
+                redirectUrl: https://${DOMAIN_NAME}
