@@ -311,6 +311,7 @@ jobs:
                   OIDC_JWKS_URL=${{ steps.create-cognito.outputs.jwks-url }}
                   OIDC_USERINFO_URL=${{ steps.create-cognito.outputs.userinfo-url }}
                   OIDC_RESOURCE_SERVER_ID=${{ steps.create-cognito.outputs.resource-server-identifier }}
+                  RESOURCE_SERVER_IDENTIFIER=${{ steps.create-cognito.outputs.resource-server-identifier }}
                   IDENTITY_CLIENT_ID=${{ steps.create-cognito.outputs.identity-client-id }}
                   OIDC_IDENTITY_CLIENT_SECRET=${{ steps.create-cognito.outputs.identity-client-secret }}
                   OPTIMIZE_CLIENT_ID=${{ steps.create-cognito.outputs.optimize-client-id }}
