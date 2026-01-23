@@ -806,7 +806,6 @@ jobs:
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
             - name: 💪 Execute DB secret creation scripts
-              if: ${{ !contains(matrix.scenario.name, 'irsa') }}
               timeout-minutes: 10
               run: |
                   set -euo pipefail
