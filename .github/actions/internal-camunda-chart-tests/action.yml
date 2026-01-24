@@ -760,6 +760,27 @@ runs:
                 -u "$ZEEBE_TOKEN_AUDIENCE" \
                 -q grpc
 
+        - name: �️ Install asdf tools with cache
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+
+        - name: Install if required common software tooling
+          uses: camunda/infra-global-github-actions/common-tooling@main
+          with:
+              overwrite: 'false'
+              build-essential-enabled: 'true'
+              node-enabled: 'true'
+              yarn-enabled: 'false'
+              buildx-enabled: 'false'
+              java-enabled: 'false'
+              python-enabled: 'false'
+
+        - name: 🎭 HELM PLAYWRIGHT - Setup Node.js
+          if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
+          uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+          with:
+              node-version: '20'
+              cache: npm
+
         - name: 🎭 HELM PLAYWRIGHT - Verify prerequisites
           id: playwright-prereqs
           if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
@@ -788,15 +809,6 @@ runs:
 
               echo "test-suite-exists=true" >> "$GITHUB_OUTPUT"
 
-              # Output package.json path for cache key
-              PACKAGE_JSON_PATH="${TEST_SUITE_PATH}/package.json"
-              if [[ -f "$PACKAGE_JSON_PATH" ]]; then
-                PACKAGE_HASH=$(sha256sum "$PACKAGE_JSON_PATH" | cut -d' ' -f1)
-                echo "package-hash=$PACKAGE_HASH" >> "$GITHUB_OUTPUT"
-              else
-                echo "package-hash=no-package-json" >> "$GITHUB_OUTPUT"
-              fi
-
               # Verify required tools are available
               echo "Checking required tools..."
               for tool in node npm kubectl; do
@@ -810,16 +822,6 @@ runs:
               echo "✅ All prerequisites verified"
               echo "   Test suite path: $TEST_SUITE_PATH"
 
-        - name: 🎭 HELM PLAYWRIGHT - Cache npm dependencies
-          if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
-          uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
-          with:
-              path: |
-                  ~/.npm
-                  ${{ env.HELM_PLAYWRIGHT_TEST_SUITE_PATH }}/node_modules
-              key: npm-pw-${{ inputs.camunda-version }}-${{ steps.playwright-prereqs.outputs.package-hash }}
-              restore-keys: |
-                  npm-pw-${{ inputs.camunda-version }}-
         - name: 🎭 HELM PLAYWRIGHT - Install Node.js dependencies
           if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
           shell: bash
