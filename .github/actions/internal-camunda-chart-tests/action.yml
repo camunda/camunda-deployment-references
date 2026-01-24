@@ -763,17 +763,6 @@ runs:
         - name: �️ Install asdf tools with cache
           uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
-        - name: Install if required common software tooling
-          uses: camunda/infra-global-github-actions/common-tooling@main
-          with:
-              overwrite: 'false'
-              build-essential-enabled: 'true'
-              node-enabled: 'true'
-              yarn-enabled: 'false'
-              buildx-enabled: 'false'
-              java-enabled: 'false'
-              python-enabled: 'false'
-
         - name: 🎭 HELM PLAYWRIGHT - Setup Node.js
           if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
           uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -830,7 +819,7 @@ runs:
               set -euo pipefail
 
               echo "📦 Installing Node.js dependencies for Playwright tests..."
-              npm ci
+              npm install
 
               echo "🎭 Installing Playwright browsers..."
               npx playwright install --with-deps chromium
