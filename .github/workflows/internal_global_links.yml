@@ -1,62 +1,53 @@
 ---
 name: Internal - Global - Check external links
-
 on:
     push:
     workflow_dispatch:
     schedule:
         - cron: 0 3 1 * *
-    pull_request:
-        paths:
-            - .github/workflows/internal_global_links.yml
-
+    pull_request: {}
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
-
 jobs:
     lint:
         name: links-check
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
             - name: Get Current Date
               id: dateofday
               run: echo "DATEOFDAY=$(date +%Y-%m-%d)" >> "$GITHUB_ENV"
-
             - name: Restore lychee cache
-              uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
               with:
                   path: .lycheecache
                   key: cache-lychee-${{ env.DATEOFDAY }}
-
             - name: Link Checker
-              uses: lycheeverse/lychee-action@f613c4a64e50d792e0b31ec34bbcbba12263c6a6 # v2.3.0
+              uses: lycheeverse/lychee-action@f613c4a64e50d792e0b31ec34bbcbba12263c6a6
               with:
                   fail: true
                   args: -c ./lychee-links.toml --base . --cache --max-cache-age 1d . --verbose --no-progress '*.md' './**/*.md'
                   token: ${{ secrets.GITHUB_TOKEN }}
-
             - name: Cache links
-              uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
               with:
                   path: .lycheecache
                   key: cache-lychee-${{ env.DATEOFDAY }}
-
             - name: Create Issue From File
               if: failure() && env.IS_SCHEDULE == 'true'
-              uses: peter-evans/create-issue-from-file@e8ef132d6df98ed982188e460ebb3b5d4ef3a9cd # v5
+              uses: peter-evans/create-issue-from-file@e8ef132d6df98ed982188e460ebb3b5d4ef3a9cd
               with:
                   title: Link Checker Report
                   content-filepath: ./lychee/out.md
                   labels: report, automated issue
                   assignees: '@camunda/infraex-medic'
-
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure() && env.IS_SCHEDULE == 'true'
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+
+# Scheduled trigger: 2026-01-25T01:37:11Z - Everyday schedules 8.6
