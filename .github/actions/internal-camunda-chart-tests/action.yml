@@ -913,7 +913,7 @@ runs:
 
               echo "✅ Environment file created at $ENV_FILE"
 
-        - name: 🎭 HELM PLAYWRIGHT - Run integration tests
+        - name: 🎭 HELM PLAYWRIGHT - Run e2e tests
           id: helm-playwright-tests
           if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
           shell: bash
@@ -948,7 +948,7 @@ runs:
               fi
 
         - name: 🎭 HELM PLAYWRIGHT - Upload test artifacts
-          if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.helm-playwright-upload-artifacts == 'true' }}
+          if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.helm-playwright-upload-artifacts == 'true' || failure() }}
           uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4
           with:
               name: helm-playwright-report-${{ github.run_id }}-${{ github.run_attempt }}
