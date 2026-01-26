@@ -127,7 +127,6 @@ runs:
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
               prefix       = "${PREFIX}"
-              orchestration_cluster_s3_bucket_force_delete = true
               EOF
 
         - name: Terraform Plan

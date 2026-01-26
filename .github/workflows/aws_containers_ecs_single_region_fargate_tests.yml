@@ -204,6 +204,7 @@ jobs:
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
 
             - name: Run smoke tests against ECS deployment
+              if: env.TESTS_ENABLED == 'true'
               id: smoke-tests
               timeout-minutes: 30
               run: |
