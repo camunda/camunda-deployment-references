@@ -1,8 +1,5 @@
 # AWS EC2 Reference Implementation
 
-> [!CAUTION]
-> This project is heavily under construction and targeted for the 8.7 release to utilize the new single jar architecture.
-
 > [!WARNING]
 > This project is not intended for production use but rather for demonstration purposes only. There are no guarantees or warranties provided.
 
