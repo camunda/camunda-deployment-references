@@ -6,14 +6,18 @@ description: >
     Already requires the Helm chart to be deployed and cluster access granted.
 
     This action integrates multiple testing layers:
-    1. Helm chart integration tests (from camunda-platform-helm)
+    1. Helm chart integration tests (Venom-based, from camunda-platform-helm)
     2. C8 Self-Managed checks (from c8-sm-checks repository):
        - Deployment verification (checks pods and containers status)
        - Kubernetes connectivity checks (services and ingress resolution)
        - AWS IRSA configuration checks (for EKS clusters with IRSA)
        - Zeebe token generation and connectivity checks
+    3. Helm Playwright integration tests (optional, from camunda-platform-helm):
+       - Service connectivity tests (Identity, Console, Operate, etc.)
+       - Authentication flow tests (Keycloak, Basic, Hybrid)
+       - API and gRPC connectivity tests
 
-    All C8 SM checks can be individually enabled/disabled via inputs.
+    All checks can be individually enabled/disabled via inputs.
 
 inputs:
     tests-camunda-helm-chart-repo-ref:
@@ -124,13 +128,45 @@ inputs:
             The IP address to use for local domain resolution in /etc/hosts.
             Defaults to 127.0.0.1 for standard local development.
         default: 127.0.0.1
+    enable-helm-playwright-tests:
+        description: >
+            Whether to run the Helm chart Playwright integration tests.
+            These tests run against the deployed Camunda platform and test
+            service connectivity, authentication, and basic functionality.
+        default: 'false'
+    helm-playwright-test-auth-type:
+        description: >
+            Authentication type for Helm Playwright tests.
+            Options: keycloak, basic, hybrid
+            - keycloak: Use Keycloak/OIDC authentication for all tests
+            - basic: Use basic auth (demo:demo) for all tests
+            - hybrid: Run OIDC tests (identity, console) with keycloak, then basic auth tests (connectors, core-rest, core-grpc)
+        default: keycloak
+    helm-playwright-test-project:
+        description: >
+            Playwright test project to run.
+            Options: full-suite, smoke-tests
+            - full-suite: Run all integration tests
+            - smoke-tests: Run only smoke tests (faster, for quick validation)
+        default: smoke-tests
+    helm-playwright-test-exclude:
+        description: >
+            Test suites to exclude from Helm Playwright tests.
+            Example: 'identity.spec.ts' or 'console.spec.ts|identity.spec.ts'
+        default: ''
+    helm-playwright-upload-artifacts:
+        description: Whether to upload Playwright test artifacts on failure
+        default: 'true'
+    helm-playwright-artifact-retention-days:
+        description: Number of days to retain Playwright test artifacts
+        default: '10'
 
 runs:
     using: composite
     steps:
         - name: Import Secrets
           id: secrets
-          if: ${{ inputs.enable-helm-chart-tests == 'true' || inputs.zeebe-authenticated == 'true' }}
+          if: ${{ inputs.enable-helm-chart-tests == 'true' || inputs.zeebe-authenticated == 'true' || inputs.enable-helm-playwright-tests == 'true' }}
           uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
           with:
               url: ${{ fromJSON(inputs.secrets).VAULT_ADDR }}
@@ -144,7 +180,7 @@ runs:
 
         - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
           uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-          if: ${{ inputs.enable-helm-chart-tests == 'true' }}
+          if: ${{ inputs.enable-helm-chart-tests == 'true' || inputs.enable-helm-playwright-tests == 'true' }}
           with:
               repository: camunda/camunda-platform-helm
               ref: ${{ inputs.tests-camunda-helm-chart-repo-ref }}
@@ -723,3 +759,200 @@ runs:
                 -s "$ZEEBE_CLIENT_SECRET" \
                 -u "$ZEEBE_TOKEN_AUDIENCE" \
                 -q grpc
+
+        - name: �️ Install asdf tools with cache
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+
+        - name: 🎭 HELM PLAYWRIGHT - Setup Node.js
+          if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
+          uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+          with:
+              node-version: '20'
+
+        - name: 🎭 HELM PLAYWRIGHT - Verify prerequisites
+          id: playwright-prereqs
+          if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
+          shell: bash
+          env:
+              CAMUNDA_VERSION: ${{ inputs.camunda-version }}
+              TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ${{ inputs.tests-camunda-helm-chart-repo-path }}
+          run: |
+              set -euo pipefail
+
+              echo "🔍 Verifying Helm Playwright test prerequisites..."
+
+              TEST_SUITE_PATH="${TESTS_CAMUNDA_HELM_CHART_REPO_PATH}/charts/camunda-platform-${CAMUNDA_VERSION}/test/e2e"
+
+              # Export paths to GITHUB_ENV for subsequent steps
+              echo "HELM_PLAYWRIGHT_TEST_SUITE_PATH=$TEST_SUITE_PATH" >> "$GITHUB_ENV"
+              echo "test-suite-path=$TEST_SUITE_PATH" >> "$GITHUB_OUTPUT"
+
+              # Verify test suite exists
+              if [[ ! -d "$TEST_SUITE_PATH" ]]; then
+                echo "⚠️ Test suite path not found: $TEST_SUITE_PATH"
+                echo "   Helm Playwright tests will be skipped."
+                echo "test-suite-exists=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              echo "test-suite-exists=true" >> "$GITHUB_OUTPUT"
+
+              # Verify required tools are available
+              echo "Checking required tools..."
+              for tool in node npm kubectl; do
+                if ! command -v "$tool" &> /dev/null; then
+                  echo "❌ Required tool not found: $tool"
+                  exit 1
+                fi
+                echo "  ✅ $tool: $(command -v $tool)"
+              done
+
+              echo "✅ All prerequisites verified"
+              echo "   Test suite path: $TEST_SUITE_PATH"
+
+        - name: 🎭 HELM PLAYWRIGHT - Install Node.js dependencies
+          if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
+          shell: bash
+          working-directory: ${{ env.HELM_PLAYWRIGHT_TEST_SUITE_PATH }}
+          run: |
+              set -euo pipefail
+
+              echo "📦 Installing Node.js dependencies for Playwright tests..."
+              npm install
+
+              echo "🎭 Installing Playwright browsers..."
+              npx playwright install --with-deps chromium
+
+        - name: 🎭 HELM PLAYWRIGHT - Setup environment file
+          id: playwright-env
+          if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
+          shell: bash
+          env:
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
+              TEST_NAMESPACE: ${{ inputs.test-namespace }}
+              CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name }}
+              TEST_AUTH_TYPE: ${{ inputs.helm-playwright-test-auth-type }}
+              TEST_CLIENT_ID: ${{ inputs.test-client-id }}
+              TEST_CLIENT_SECRET: ${{ inputs.test-client-secret }}
+          run: |
+              set -euo pipefail
+
+              TEST_SUITE_PATH="$HELM_PLAYWRIGHT_TEST_SUITE_PATH"
+              ENV_FILE="${TEST_SUITE_PATH}/.env"
+
+              echo "📝 Setting up Playwright environment file..."
+
+              # Base URLs
+              cat > "$ENV_FILE" << EOF
+              # Camunda Platform URLs
+              AUTH_URL=https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform/protocol/openid-connect/token
+              CONSOLE_BASE_URL=https://${CAMUNDA_DOMAIN}/console
+              KEYCLOAK_BASE_URL=https://${CAMUNDA_DOMAIN}/auth
+              IDENTITY_BASE_URL=https://${CAMUNDA_DOMAIN}/identity
+              OPERATE_BASE_URL=https://${CAMUNDA_DOMAIN}/operate
+              OPTIMIZE_BASE_URL=https://${CAMUNDA_DOMAIN}/optimize
+              TASKLIST_BASE_URL=https://${CAMUNDA_DOMAIN}/tasklist
+              CONNECTORS_BASE_URL=https://${CAMUNDA_DOMAIN}/connectors
+              ZEEBE_GATEWAY_GRPC=${CAMUNDA_DOMAIN_GRPC:-${CAMUNDA_DOMAIN}:443}
+              ZEEBE_GATEWAY_REST=https://${CAMUNDA_DOMAIN}/zeebe
+
+              # Login paths
+              CONSOLE_LOGIN_PATH=/login
+              IDENTITY_LOGIN_PATH=/login
+              OPERATE_LOGIN_PATH=/login
+              OPTIMIZE_LOGIN_PATH=/api/authentication/callback
+              TASKLIST_LOGIN_PATH=/login
+              CONNECTORS_LOGIN_PATH=/login
+
+              # Authentication
+              TEST_AUTH_TYPE=${TEST_AUTH_TYPE}
+              TEST_CLIENT_ID=${TEST_CLIENT_ID}
+              EOF
+
+              # Fetch service client secrets from the cluster
+              echo "🔑 Fetching service client secrets..."
+
+              for svc in CONNECTORS TASKLIST OPTIMIZE OPERATE ZEEBE ORCHESTRATION; do
+                secret=$(kubectl -n "$TEST_NAMESPACE" \
+                  get secret integration-test-credentials \
+                  -o jsonpath="{.data.identity-${svc,,}-client-token}" 2>/dev/null | base64 -d 2>/dev/null || \
+                  kubectl -n "$TEST_NAMESPACE" \
+                  get secret "${CAMUNDA_RELEASE_NAME}-credentials" \
+                  -o jsonpath="{.data.identity-${svc,,}-client-token}" 2>/dev/null | base64 -d 2>/dev/null || \
+                  echo "")
+
+                if [[ -n "$secret" ]]; then
+                  echo "::add-mask::$secret"
+                  echo "PLAYWRIGHT_VAR_${svc}_CLIENT_SECRET=${secret}" >> "$ENV_FILE"
+                else
+                  echo "⚠️ Could not fetch secret for $svc, using test-client-secret"
+                  echo "PLAYWRIGHT_VAR_${svc}_CLIENT_SECRET=${TEST_CLIENT_SECRET}" >> "$ENV_FILE"
+                fi
+              done
+
+              # Fetch admin client secret
+              admin_secret=$(kubectl -n "$TEST_NAMESPACE" \
+                get secret integration-test-credentials \
+                -o jsonpath="{.data.identity-admin-client-password}" 2>/dev/null | base64 -d 2>/dev/null || \
+                kubectl -n "$TEST_NAMESPACE" \
+                get secret "${CAMUNDA_RELEASE_NAME}-credentials" \
+                -o jsonpath="{.data.identity-admin-client-password}" 2>/dev/null | base64 -d 2>/dev/null || \
+                echo "$TEST_CLIENT_SECRET")
+
+              if [[ -n "$admin_secret" ]]; then
+                echo "::add-mask::$admin_secret"
+              fi
+              echo "PLAYWRIGHT_VAR_ADMIN_CLIENT_SECRET=${admin_secret}" >> "$ENV_FILE"
+
+              # Additional settings
+              cat >> "$ENV_FILE" << EOF
+              CI=true
+              VERBOSE=true
+              EOF
+
+              echo "✅ Environment file created at $ENV_FILE"
+
+        - name: 🎭 HELM PLAYWRIGHT - Run e2e tests
+          id: helm-playwright-tests
+          if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
+          shell: bash
+          working-directory: ${{ env.HELM_PLAYWRIGHT_TEST_SUITE_PATH }}
+          env:
+              TEST_AUTH_TYPE: ${{ inputs.helm-playwright-test-auth-type }}
+              TEST_PROJECT: ${{ inputs.helm-playwright-test-project }}
+              TEST_EXCLUDE: ${{ inputs.helm-playwright-test-exclude }}
+          run: |
+              set -euo pipefail
+
+              echo "🎭 Running Helm Playwright integration tests..."
+              echo "   Project: $TEST_PROJECT"
+              echo "   Auth type: $TEST_AUTH_TYPE"
+              echo "   Exclude: ${TEST_EXCLUDE:-none}"
+
+              # Build playwright arguments
+              PLAYWRIGHT_ARGS="--project=$TEST_PROJECT --reporter=html,list"
+
+              if [[ -n "$TEST_EXCLUDE" ]]; then
+                PLAYWRIGHT_ARGS="$PLAYWRIGHT_ARGS --grep-invert=\"$TEST_EXCLUDE\""
+              fi
+
+              # Run all tests with the specified auth type
+              if npx playwright test $PLAYWRIGHT_ARGS; then
+                echo "result=success" >> "$GITHUB_OUTPUT"
+                echo "✅ All Playwright tests passed!"
+              else
+                echo "result=failure" >> "$GITHUB_OUTPUT"
+                echo "❌ Some Playwright tests failed"
+                exit 1
+              fi
+
+        - name: 🎭 HELM PLAYWRIGHT - Upload test artifacts
+          if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.helm-playwright-upload-artifacts == 'true' || failure() }}
+          uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4
+          with:
+              name: helm-playwright-report-${{ github.run_id }}-${{ github.run_attempt }}
+              path: |
+                  ${{ steps.playwright-prereqs.outputs.test-suite-path }}/playwright-report
+                  ${{ steps.playwright-prereqs.outputs.test-suite-path }}/test-results
+              retention-days: ${{ inputs.helm-playwright-artifact-retention-days }}

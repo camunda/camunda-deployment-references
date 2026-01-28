@@ -3,13 +3,17 @@
 ## Description
 
 Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed and cluster access granted.
-This action integrates multiple testing layers: 1. Helm chart integration tests (from camunda-platform-helm) 2. C8 Self-Managed checks (from c8-sm-checks repository):
+This action integrates multiple testing layers: 1. Helm chart integration tests (Venom-based, from camunda-platform-helm) 2. C8 Self-Managed checks (from c8-sm-checks repository):
    - Deployment verification (checks pods and containers status)
    - Kubernetes connectivity checks (services and ingress resolution)
    - AWS IRSA configuration checks (for EKS clusters with IRSA)
    - Zeebe token generation and connectivity checks
+3. Helm Playwright integration tests (optional, from camunda-platform-helm):
+   - Service connectivity tests (Identity, Console, Operate, etc.)
+   - Authentication flow tests (Keycloak, Basic, Hybrid)
+   - API and gRPC connectivity tests
 
-All C8 SM checks can be individually enabled/disabled via inputs.
+All checks can be individually enabled/disabled via inputs.
 
 
 ## Inputs
@@ -50,6 +54,12 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | `enable-c8sm-zeebe-connectivity-check` | <p>Whether the C8 SM Zeebe connectivity check should be run</p> | `false` | `true` |
 | `local-domain-mode` | <p>Enable local domain mode. When true, /etc/hosts entries will be added to resolve camunda.example.com and zeebe-camunda.example.com to 127.0.0.1. This is required for local Kind clusters with domain-based access where the runner needs to access the ingress via localhost.</p> | `false` | `false` |
 | `local-domain-ip` | <p>The IP address to use for local domain resolution in /etc/hosts. Defaults to 127.0.0.1 for standard local development.</p> | `false` | `127.0.0.1` |
+| `enable-helm-playwright-tests` | <p>Whether to run the Helm chart Playwright integration tests. These tests run against the deployed Camunda platform and test service connectivity, authentication, and basic functionality.</p> | `false` | `false` |
+| `helm-playwright-test-auth-type` | <p>Authentication type for Helm Playwright tests. Options: keycloak, basic, hybrid - keycloak: Use Keycloak/OIDC authentication for all tests - basic: Use basic auth (demo:demo) for all tests - hybrid: Run OIDC tests (identity, console) with keycloak, then basic auth tests (connectors, core-rest, core-grpc)</p> | `false` | `keycloak` |
+| `helm-playwright-test-project` | <p>Playwright test project to run. Options: full-suite, smoke-tests - full-suite: Run all integration tests - smoke-tests: Run only smoke tests (faster, for quick validation)</p> | `false` | `smoke-tests` |
+| `helm-playwright-test-exclude` | <p>Test suites to exclude from Helm Playwright tests. Example: 'identity.spec.ts' or 'console.spec.ts|identity.spec.ts'</p> | `false` | `""` |
+| `helm-playwright-upload-artifacts` | <p>Whether to upload Playwright test artifacts on failure</p> | `false` | `true` |
+| `helm-playwright-artifact-retention-days` | <p>Number of days to retain Playwright test artifacts</p> | `false` | `10` |
 
 
 ## Runs
@@ -264,4 +274,40 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 127.0.0.1
+
+    enable-helm-playwright-tests:
+    # Whether to run the Helm chart Playwright integration tests. These tests run against the deployed Camunda platform and test service connectivity, authentication, and basic functionality.
+    #
+    # Required: false
+    # Default: false
+
+    helm-playwright-test-auth-type:
+    # Authentication type for Helm Playwright tests. Options: keycloak, basic, hybrid - keycloak: Use Keycloak/OIDC authentication for all tests - basic: Use basic auth (demo:demo) for all tests - hybrid: Run OIDC tests (identity, console) with keycloak, then basic auth tests (connectors, core-rest, core-grpc)
+    #
+    # Required: false
+    # Default: keycloak
+
+    helm-playwright-test-project:
+    # Playwright test project to run. Options: full-suite, smoke-tests - full-suite: Run all integration tests - smoke-tests: Run only smoke tests (faster, for quick validation)
+    #
+    # Required: false
+    # Default: smoke-tests
+
+    helm-playwright-test-exclude:
+    # Test suites to exclude from Helm Playwright tests. Example: 'identity.spec.ts' or 'console.spec.ts|identity.spec.ts'
+    #
+    # Required: false
+    # Default: ""
+
+    helm-playwright-upload-artifacts:
+    # Whether to upload Playwright test artifacts on failure
+    #
+    # Required: false
+    # Default: true
+
+    helm-playwright-artifact-retention-days:
+    # Number of days to retain Playwright test artifacts
+    #
+    # Required: false
+    # Default: 10
 ```
