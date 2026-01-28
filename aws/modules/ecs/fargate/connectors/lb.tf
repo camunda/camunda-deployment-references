@@ -1,5 +1,6 @@
 resource "aws_lb_target_group" "main" {
-  name        = "${var.prefix}-connectors-tg-8080"
+  # target groups are limited to 32 characters, truncating to less to not clash
+  name        = "${substr(var.prefix, 0, 17)}-con-tg-8080"
   port        = 8080
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
