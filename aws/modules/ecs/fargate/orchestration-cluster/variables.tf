@@ -268,13 +268,13 @@ variable "restore_container_image" {
   default     = "langleu/camunda:ecs-restore-v2"
 }
 
-variable "restore_container_command" {
-  description = "Command for the restore init container (Docker CMD). If empty, uses the image default."
+variable "restore_container_entrypoint" {
+  description = "Entrypoint for the restore init container (Docker ENTRYPOINT). If empty, uses the image default."
   type        = list(string)
   default = [
     "bash",
     "-c",
-    "export ZEEBE_BROKER_NETWORK_HOST=$(hostname -I | awk '{print $2}'); /usr/local/camunda/bin/camunda"
+    "export ZEEBE_BROKER_NETWORK_HOST=$(hostname -i | awk '{print $2}'); /usr/local/camunda/bin/restore --backupId=$BACKUP_ID"
   ]
 }
 
