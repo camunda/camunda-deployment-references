@@ -2,88 +2,108 @@
 global:
     elasticsearch:
         enabled: true
+        external: true
+        # URL configuration for ECK operator
+        url:
+            protocol: http
+            host: elasticsearch-es-http
+            port: 9200
+        # Authentication using ECK-generated secret
+        auth:
+            username: elastic
+            secret:
+                existingSecret: elasticsearch-es-elastic-user
+                existingSecretKey: elastic
+
+    identity:
+        auth:
+            enabled: true
+            issuer: https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0
+            issuerBackendUrl: https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0
+            authUrl: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/authorize
+            tokenUrl: https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token
+            jwksUrl: https://login.microsoftonline.com/${AZURE_TENANT_ID}/discovery/v2.0/keys
+            type: MICROSOFT
+
+            identity:
+                clientId: ${IDENTITY_CLIENT_ID}
+                audience: ${IDENTITY_AUDIENCE}
+                initialClaimName: preferred_username
+                initialClaimValue: ${IDENTITY_INITIAL_USER_EMAIL}
+                secret:
+                    existingSecret: entra-credentials
+                    existingSecretKey: identity-client-secret
+
+            optimize:
+                clientId: ${OPTIMIZE_CLIENT_ID}
+                audience: ${OPTIMIZE_AUDIENCE}
+                redirectUrl: http://localhost:8083
+                secret:
+                    existingSecret: entra-credentials
+                    existingSecretKey: optimize-client-secret
+
+            webModeler:
+                clientId: ${WEBMODELER_UI_CLIENT_ID}
+                clientApiAudience: ${WEBMODELER_UI_AUDIENCE}
+                publicApiAudience: ${WEBMODELER_API_AUDIENCE}
+                redirectUrl: http://localhost:8070
+
+            console:
+                clientId: ${CONSOLE_CLIENT_ID}
+                audience: ${CONSOLE_AUDIENCE}
+                redirectUrl: http://localhost:8087/
 
     security:
         authentication:
             method: oidc
 
-    identity:
-
-        auth:
-            enabled: true
-            type: KEYCLOAK
-
-            issuerBackendUrl: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
-            issuer: http://${CAMUNDA_RELEASE_NAME}-keycloak:8080/auth/realms/camunda-platform
-            # using localhost:18080 -> camunda-keycloak:8080
-            publicIssuerUrl: http://localhost:18080/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
-
-            admin:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-admin-client-token
-
-            identity:
-                redirectUrl: http://localhost:8085  # replace this with a port of your choice when you will do port forwarding
-
-            optimize:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-optimize-client-token
-                redirectUrl: http://localhost:8083  # replace this with a port of your choice when you will do port forwarding
-
-            webModeler:
-                redirectUrl: http://localhost:8070
-
-            console:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-console-client-token
-                redirectUrl: http://localhost:8087
-
-identityKeycloak:
+orchestration:
     enabled: true
-    postgresql:
-        enabled: false
-    externalDatabase:
-        # see https://artifacthub.io/packages/helm/bitnami/keycloak
-        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
-        existingSecretHostKey: host
-        existingSecretPortKey: port
-        existingSecretUserKey: user
-        existingSecretDatabaseKey: database
-        existingSecretPasswordKey: password
 
-    auth:
-        existingSecret: identity-secret-for-components
-        passwordSecretKey: identity-admin-client-token
+    security:
+        authentication:
+            oidc:
+                clientId: ${ORCHESTRATION_CLIENT_ID}
+                audience: ${ORCHESTRATION_AUDIENCE}
+                usernameClaim: preferred_username
+                clientIdClaim: azp
+                preferUsernameClaim: true
+                redirectUrl: http://localhost:8080
+                scope:
+                    - openid
+                    - profile
+                    - offline_access
+                    - ${ORCHESTRATION_AUDIENCE}/.default
+                secret:
+                    existingSecret: entra-credentials
+                    existingSecretKey: orchestration-cluster-client-secret
 
-    extraEnvVars:
-        # This is required to ensure proper issuer of JWT tokens
-        - name: KC_HOSTNAME
-          value: ${CAMUNDA_RELEASE_NAME}-keycloak
+    initialization:
+        defaultRoles:
+            admin:
+                users:
+                    - ${IDENTITY_INITIAL_USER_EMAIL}
+            connectors:
+                clients:
+                    - ${ORCHESTRATION_CLIENT_ID}
 
-    # match the internal keycloak port to the external port for JWT Tokens issuer
-    ports:
-        http: 8080
-    service:
-        ports:
-            http: 8080
+connectors:
+    enabled: true
+
+    security:
+        authentication:
+            oidc:
+                clientId: ${ORCHESTRATION_CLIENT_ID}
+                audience: ${ORCHESTRATION_AUDIENCE}
+                tokenScope: ${ORCHESTRATION_AUDIENCE}/.default
+                secret:
+                    existingSecret: entra-credentials
+                    existingSecretKey: orchestration-cluster-client-secret
 
 identity:
     enabled: true
     contextPath: /managementidentity
-    fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
-
-    firstUser:
-        enabled: true
-        username: admin
-        email: admin@camunda.local
-        firstName: Admin
-        lastName: User
-        secret:
-            existingSecret: identity-secret-for-components
-            existingSecretKey: identity-first-user-password
+    fullURL: http://localhost:8084/managementidentity
 
     externalDatabase:
         enabled: true
@@ -95,30 +115,17 @@ identity:
             existingSecret: identity-postgres-secret
             existingSecretPasswordKey: password
 
-connectors:
-    # Configure OIDC for connectors
-    security:
-        authentication:
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-connectors-client-token
+identityKeycloak:
+    enabled: false
+
+identityPostgresql:
+    enabled: false
 
 optimize:
     enabled: true
 
-orchestration:
-    # Configure OIDC for orchestration
-    security:
-        authentication:
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-                redirectUrl: http://localhost:8080
-
 webModeler:
-    enabled: false # by default, webModeler is not enabled
+    enabled: false
 
     restapi:
         externalDatabase:
@@ -130,16 +137,13 @@ webModeler:
                 existingSecretKey: password
 
         mail:
-            secret:
-                existingSecret: identity-secret-for-components
-                existingSecretKey: smtp-password
-            fromAddress: changeme@example.com
+            fromAddress: noreply@example.com
 
 webModelerPostgresql:
     enabled: false
 
 console:
-    enabled: false # by default, console is not enabled
+    enabled: false
 
 elasticsearch:
-    enabled: true
+    enabled: false
