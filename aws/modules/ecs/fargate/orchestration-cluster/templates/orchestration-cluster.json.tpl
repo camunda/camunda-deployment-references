@@ -38,11 +38,6 @@
           "awslogs-multiline-pattern": "^\\[\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\]"
         }
     },
-    "command": [
-      "bash",
-      "-c",
-      "export ZEEBE_BROKER_NETWORK_HOST=$(hostname -I | awk '{print $2}'); /usr/local/camunda/bin/camunda"
-    ],
     "environment": ${env_vars_json},
     %{ if has_secrets ~}
     "secrets": ${secrets_json},
