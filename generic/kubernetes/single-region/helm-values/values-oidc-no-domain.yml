@@ -1,0 +1,46 @@
+---
+# OIDC No-Domain Overlay - Redirect URLs for localhost/port-forward mode
+#
+# ⚠️  WARNING: External OIDC providers (AWS Cognito, Azure AD, Okta, etc.)
+# typically do NOT support localhost redirect URLs for production use.
+# This configuration is provided for development/testing purposes only.
+#
+# Merge order: values-no-domain.yml + values-oidc.yml + values-oidc-no-domain.yml
+#   yq ". *+ load(\"values-oidc.yml\") *+ load(\"values-oidc-no-domain.yml\")" values-no-domain.yml > values.yml
+#
+# Note: Most external OIDC providers require publicly accessible redirect URLs.
+# For local development with external OIDC, consider:
+# - Using a tunneling service (ngrok, cloudflared) to expose localhost
+# - Using a development/sandbox OIDC provider that allows localhost
+# - Using Keycloak for local development instead
+
+# This file intentionally has minimal overrides.
+# The no-domain mode with external OIDC is an edge case.
+
+# Override redirect URLs for localhost access
+global:
+    identity:
+        auth:
+            identity:
+                redirectUrl: http://localhost:8085/auth/login-callback
+            optimize:
+                redirectUrl: http://localhost:8083/api/authentication/callback
+            webModeler:
+                redirectUrl: http://localhost:8070/login-callback
+            console:
+                redirectUrl: http://localhost:8087/
+
+orchestration:
+    security:
+        authentication:
+            oidc:
+                redirectUrl: http://localhost:8080
+
+identity:
+    fullURL: http://localhost:8085
+
+webModeler:
+    restapi:
+        env:
+            - name: CAMUNDA_IDENTITY_BASE_URL
+              value: http://localhost:8085

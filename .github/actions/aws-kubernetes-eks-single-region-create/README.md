@@ -27,6 +27,7 @@ Supports conditional deployment of Aurora PostgreSQL and OpenSearch.
 | `private-vpc` | <p>The VPC within which the cluster resides will only have private subnets, meaning that it cannot be accessed at all from the public Internet (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `deploy-aurora` | <p>Deploy Aurora PostgreSQL database</p> | `false` | `true` |
 | `deploy-opensearch` | <p>Deploy OpenSearch domain</p> | `false` | `true` |
+| `auth-provider` | <p>Authentication provider to use. 'oidc' for external OIDC (default), 'keycloak' for embedded Keycloak (adds Keycloak DB config)</p> | `false` | `oidc` |
 
 
 ## Outputs
@@ -144,4 +145,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
+
+    auth-provider:
+    # Authentication provider to use. 'oidc' for external OIDC (default), 'keycloak' for embedded Keycloak (adds Keycloak DB config)
+    #
+    # Required: false
+    # Default: oidc
 ```

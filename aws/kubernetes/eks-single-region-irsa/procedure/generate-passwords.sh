@@ -1,1 +1,0 @@
-../../../../generic/kubernetes/single-region/procedure/generate-passwords.sh

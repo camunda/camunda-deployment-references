@@ -17,6 +17,9 @@ on:
             - '!aws/kubernetes/eks-single-region/terraform/*/test/golden/**'
             - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
             - .github/actions/aws-kubernetes-eks-single-region-create/**
+            - .github/actions/aws-cognito-create/**
+            - .github/actions/aws-cognito-cleanup/**
+            - aws/common/cognito-test/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/aws-generic-terraform-cleanup/**
@@ -74,7 +77,9 @@ env:
     TLD: camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # TODO: revert before merge
+    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    CLEANUP_CLUSTERS: 'false'
 
     # TEST VARIABLES
 
@@ -126,7 +131,9 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  # TODO: revert before merge
+                  cluster_name: cognito
+                  # cluster_name: ${{ inputs.cluster_name }}
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
@@ -164,6 +171,8 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_EMAIL;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_PASSWORD;
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -203,6 +212,7 @@ jobs:
                   ref-arch: ${{ matrix.scenario.name }}
                   private-vpc: ${{ matrix.scenario.private_vpc }}
                   vpn-enabled: ${{ matrix.scenario.private_vpc }}
+                  auth-provider: ${{ matrix.scenario.auth_provider }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -247,8 +257,17 @@ jobs:
 
                   source ${{ github.workspace }}/.github/scripts/gha-functions.sh
 
+                  # Export base helm values (OIDC mode)
                   export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/export-helm-values.sh ${{ runner.temp }}/outputs_raw
                   export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh ${{ runner.temp }}/outputs_raw
+
+                  # Add Keycloak-specific exports for embedded Keycloak auth
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "keycloak" ]]; then
+                      echo "Exporting Keycloak configuration..."
+                      KEYCLOAK_SCRIPT="${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}"
+                      KEYCLOAK_SCRIPT+="/terraform/cluster/test/export-keycloak-helm-values.sh"
+                      export_new_env_vars_to_file "$KEYCLOAK_SCRIPT" ${{ runner.temp }}/outputs_raw
+                  fi
 
                   if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
                       export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh ${{ runner.temp }}/outputs_raw
@@ -262,6 +281,63 @@ jobs:
                   file_path: ${{ runner.temp }}/outputs_raw
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
+            # Create Cognito for this specific cluster if using OIDC auth provider (1 Cognito User Pool per cluster)
+            - name: Create AWS Cognito for OIDC
+              if: ${{ matrix.scenario.auth_provider == 'oidc' }}
+              id: create-cognito
+              uses: ./.github/actions/aws-cognito-create
+              with:
+                  resource-prefix: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
+                  domain-name: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}
+                  enable-webmodeler: ${{ env.WEBMODELER_ENABLED }}
+                  enable-console: ${{ env.CONSOLE_ENABLED }}
+                  create-test-user: 'true'
+                  test-user-name: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_EMAIL }}
+                  test-user-password: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_PASSWORD }}
+                  auto-cleanup-hours: '12'
+                  terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
+                  terraform-backend-key: cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName
+                      }}/terraform.tfstate
+
+            - name: Write OIDC secrets to file
+              if: ${{ matrix.scenario.auth_provider == 'oidc' }}
+              run: |
+                  cat > ${{ runner.temp }}/cognito_secrets.txt <<EOF
+                  OIDC_USER_POOL_ID=${{ steps.create-cognito.outputs.user-pool-id }}
+                  OIDC_ISSUER_URL=${{ steps.create-cognito.outputs.issuer-url }}
+                  OIDC_AUTHORIZATION_URL=${{ steps.create-cognito.outputs.authorization-url }}
+                  OIDC_TOKEN_URL=${{ steps.create-cognito.outputs.token-url }}
+                  OIDC_JWKS_URL=${{ steps.create-cognito.outputs.jwks-url }}
+                  OIDC_USERINFO_URL=${{ steps.create-cognito.outputs.userinfo-url }}
+                  OIDC_RESOURCE_SERVER_ID=${{ steps.create-cognito.outputs.resource-server-identifier }}
+                  RESOURCE_SERVER_IDENTIFIER=${{ steps.create-cognito.outputs.resource-server-identifier }}
+                  IDENTITY_CLIENT_ID=${{ steps.create-cognito.outputs.identity-client-id }}
+                  OIDC_IDENTITY_CLIENT_SECRET=${{ steps.create-cognito.outputs.identity-client-secret }}
+                  OPTIMIZE_CLIENT_ID=${{ steps.create-cognito.outputs.optimize-client-id }}
+                  OIDC_OPTIMIZE_CLIENT_SECRET=${{ steps.create-cognito.outputs.optimize-client-secret }}
+                  ORCHESTRATION_CLIENT_ID=${{ steps.create-cognito.outputs.orchestration-client-id }}
+                  OIDC_ORCHESTRATION_CLIENT_SECRET=${{ steps.create-cognito.outputs.orchestration-client-secret }}
+                  CONNECTORS_CLIENT_ID=${{ steps.create-cognito.outputs.connectors-client-id }}
+                  OIDC_CONNECTORS_CLIENT_SECRET=${{ steps.create-cognito.outputs.connectors-client-secret }}
+                  CONNECTORS_TOKEN_SCOPE=${{ steps.create-cognito.outputs.resource-server-identifier }}/orchestration
+                  CONSOLE_CLIENT_ID=${{ steps.create-cognito.outputs.console-client-id }}
+                  WEBMODELER_UI_CLIENT_ID=${{ steps.create-cognito.outputs.webmodeler-ui-client-id }}
+                  WEBMODELER_API_CLIENT_ID=${{ steps.create-cognito.outputs.webmodeler-api-client-id }}
+                  OIDC_WEBMODELER_API_CLIENT_SECRET=${{ steps.create-cognito.outputs.webmodeler-api-client-secret }}
+                  OIDC_TEST_USER_NAME=${{ steps.create-cognito.outputs.test-user-name }}
+                  OIDC_TEST_USER_PASSWORD=${{ steps.create-cognito.outputs.test-user-password }}
+                  IDENTITY_INITIAL_USER_EMAIL=${{ steps.create-cognito.outputs.test-user-name }}
+                  EOF
+
+            - name: Export Cognito secrets and encrypt them
+              if: ${{ matrix.scenario.auth_provider == 'oidc' }}
+              id: encrypt_cognito_secrets
+              uses: ./.github/actions/internal-generic-encrypt-export
+              with:
+                  file_path: ${{ runner.temp }}/cognito_secrets.txt
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
             # Write for matrix outputs workaround
             - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
               if: always()
@@ -273,6 +349,7 @@ jobs:
                       outputs_raw: ${{ steps.encrypt_outputs.outputs.encrypted_file_base64 }}
                       kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
                       vpnconfig_encrypted: ${{ steps.export_configs.outputs.encrypted_file_base64 }}
+                      cognito_secrets_encrypted: ${{ steps.encrypt_cognito_secrets.outputs.encrypted_file_base64 }}
 
             - name: 🌐 Post-creation steps
               timeout-minutes: 20
@@ -412,11 +489,34 @@ jobs:
               timeout-minutes: 3
               run: |
                   set -euo pipefail
+                  source .github/scripts/gha-functions.sh
+                  export_file_to_github_env "${{ runner.temp }}/outputs_raw"
 
-                  # Export the decrypted outputs as environment variables
-                  while IFS= read -r line; do
-                    echo "$line" | tee -a "$GITHUB_ENV"
-                  done < "${{ runner.temp }}/outputs_raw"
+            - name: 🔐 Retrieve Cognito OIDC credentials
+              if: ${{ matrix.scenario.auth_provider == 'oidc' }}
+              uses: ./.github/actions/internal-generic-decrypt-import
+              with:
+                  output_path: ${{ runner.temp }}/cognito_secrets
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).cognito_secrets_encrypted[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            - name: 🚀 Export OIDC variables
+              if: ${{ matrix.scenario.auth_provider == 'oidc' }}
+              timeout-minutes: 1
+              run: |
+                  set -euo pipefail
+                  source .github/scripts/gha-functions.sh
+                  export_file_to_github_env "${{ runner.temp }}/cognito_secrets"
+
+                  # Set domain name for OIDC callbacks (using cluster-specific domain)
+                  echo "DOMAIN_NAME=${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}" >> "$GITHUB_ENV"
 
             - name: 🔐 Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
@@ -570,7 +670,30 @@ jobs:
                   # and apply registry-harbor.yml for all deployments (not just tests).
                   # This should be documented in the procedure for production deployments.
                   # See: azure_kubernetes_aks_single_region_tests.yml for reference implementation.
+
+                  # Start with base values for the declination (domain or no-domain)
                   cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
+
+                  # Apply auth provider overlay (keycloak or oidc)
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "oidc" ]]; then
+                    echo "Merging values-oidc.yml overlay for external OIDC authentication"
+                    yq ". *+ load(\"generic/kubernetes/single-region/helm-values/values-oidc.yml\")" values.yml > values-merged.yml
+                    mv values-merged.yml values.yml
+                  else
+                    echo "Merging values-keycloak.yml overlays for embedded Keycloak authentication"
+                    # Use IRSA-specific Keycloak base config for IRSA scenarios (uses serviceAccount instead of DB secrets)
+                    # Domain/no-domain overlays are generic and shared across all scenarios
+                    # shellcheck disable=SC2193
+                    if [[ "${{ matrix.scenario.name }}" == *irsa* ]]; then
+                      KEYCLOAK_BASE_PATH="aws/kubernetes/${{ matrix.scenario.name }}/helm-values"
+                    else
+                      KEYCLOAK_BASE_PATH="generic/kubernetes/single-region/helm-values"
+                    fi
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"generic/kubernetes/single-region/helm-values/values-keycloak-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
+                    mv values-merged2.yml values.yml
+                    rm -f values-merged.yml
+                  fi
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
                     export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
@@ -592,14 +715,21 @@ jobs:
 
                   # Add integration tests values
                   if [ "$TESTS_ENABLED" == "true" ]; then
-                    for file in registry.yml identity.yml; do
-                      yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
-                      cat values-result.yml && mv values-result.yml values.yml
-                    done
+                    # Always add registry.yml
+                    yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/registry.yml\")" values.yml > values-result.yml
+                    mv values-result.yml values.yml
+
+                    # Add identity.yml only if using Keycloak (not for external OIDC)
+                    if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                      yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/identity.yml\")" values.yml > values-result.yml
+                      mv values-result.yml values.yml
+                    fi
                   fi
 
                   # If using wildcard certificate, remove cert-manager annotations from values
-                  if [[ "${{ steps.cert-config.outputs.use-wildcard-cert }}" == "true" && "${{ matrix.declination.name }}" == "domain" ]]; then
+                  USE_WILDCARD="${{ steps.cert-config.outputs.use-wildcard-cert }}"
+                  DECL_NAME="${{ matrix.declination.name }}"
+                  if [[ "$USE_WILDCARD" == "true" && "$DECL_NAME" == "domain" ]]; then
                       echo "Removing cert-manager annotations from Helm values (using wildcard certificate)"
                       echo "Using wildcard TLS secret: ${{ env.WILDCARD_TLS_SECRET_NAME }}"
                       yq eval '
@@ -622,9 +752,17 @@ jobs:
               run: |
                   set -euo pipefail
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/check-env-variables.sh
+
+                  # Create base setup-db-secret (OIDC mode)
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
 
-                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/setup-postgres-create-db.yml --namespace "$CAMUNDA_NAMESPACE"
+                  # Patch secret with Keycloak credentials for embedded Keycloak auth
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "keycloak" ]]; then
+                      ./aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/test/patch-setup-db-secret-keycloak.sh
+                  fi
+
+                  # Create Identity and WebModeler databases
+                  kubectl apply -f "./aws/kubernetes/${{ matrix.scenario.name }}/setup-postgres-create-db.yml" --namespace "$CAMUNDA_NAMESPACE"
 
                   # Wait for the job to complete
                   while true; do
@@ -641,16 +779,53 @@ jobs:
 
                   echo "[DEBUG] Job log:"
                   kubectl logs job/create-setup-user-db --namespace "$CAMUNDA_NAMESPACE"
-
                   kubectl delete job create-setup-user-db --namespace "$CAMUNDA_NAMESPACE"
+
+                  # Create Keycloak database for embedded Keycloak auth
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "keycloak" ]]; then
+                      echo "Creating Keycloak database..."
+                      KEYCLOAK_DB_MANIFEST="./aws/kubernetes/${{ matrix.scenario.name }}"
+                      KEYCLOAK_DB_MANIFEST+="/terraform/cluster/test/setup-postgres-create-keycloak-db.yml"
+                      kubectl apply -f "$KEYCLOAK_DB_MANIFEST" --namespace "$CAMUNDA_NAMESPACE"
+
+                      while true; do
+                          STATUS=$(kubectl get job create-keycloak-db --namespace "$CAMUNDA_NAMESPACE" -o jsonpath='{.status.succeeded}')
+                          if [[ "$STATUS" == "1" ]]; then
+                              echo "Keycloak DB job completed successfully."
+                              break
+                          fi
+                          echo "Waiting for Keycloak DB job to complete..."
+                          sleep 5
+                      done
+
+                      echo "[DEBUG] Keycloak DB job log:"
+                      kubectl logs job/create-keycloak-db --namespace "$CAMUNDA_NAMESPACE"
+                      kubectl delete job create-keycloak-db --namespace "$CAMUNDA_NAMESPACE"
+                  fi
+
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
             - name: 💪 Execute DB secret creation scripts
-              if: ${{ !contains(matrix.scenario.name, 'irsa') }}
               timeout-minutes: 10
               run: |
                   set -euo pipefail
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
+
+            - name: 🔐 Create Keycloak DB secret
+              if: ${{ matrix.scenario.auth_provider != 'oidc' }}
+              timeout-minutes: 2
+              run: |
+                  set -euo pipefail
+                  echo "Creating Keycloak database secret..."
+                  ./generic/kubernetes/single-region/procedure/create-keycloak-db-secret.sh
+
+            - name: 🔐 Create OIDC secrets
+              if: ${{ matrix.scenario.auth_provider == 'oidc' }}
+              timeout-minutes: 2
+              run: |
+                  set -euo pipefail
+                  echo "Creating OIDC secrets for external identity provider..."
+                  ./generic/kubernetes/single-region/procedure/create-oidc-secrets.sh
 
             - name: 🛠️ Configure OpenSearch fine grained access control
               if: contains(matrix.scenario.name, 'irsa')
@@ -686,9 +861,15 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  source generic/kubernetes/single-region/procedure/generate-passwords.sh
+                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                    source generic/kubernetes/single-region/tests/procedure/generate-passwords.sh
+                    ./generic/kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh
+                  fi
 
-                  ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
+                  # Create WebModeler secrets
+                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                    ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-webmodeler-secret.sh
+                  fi
 
                   # Generate tests objects
                   if [ "$TESTS_ENABLED" == "true" ]; then
@@ -699,10 +880,13 @@ jobs:
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                         --namespace="$CAMUNDA_NAMESPACE"
 
-                    kubectl create secret generic identity-secret-for-components-integration \
-                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
-                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-                        --namespace="$CAMUNDA_NAMESPACE"
+                    # Skip Keycloak-based identity secrets when using external OIDC
+                    if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                      kubectl create secret generic identity-secret-for-components-integration \
+                          --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                          --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+                          --namespace="$CAMUNDA_NAMESPACE"
+                    fi
                   fi
 
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
@@ -856,6 +1040,16 @@ jobs:
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: vpn,cluster
+
+            # Cleanup Cognito if any scenario uses OIDC auth provider
+            - name: Cleanup AWS Cognito for cluster
+              if: env.CLEANUP_CLUSTERS == 'true' && contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).scenario.*.auth_provider), 'oidc')
+              uses: ./.github/actions/aws-cognito-cleanup
+              with:
+                  terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
+                  terraform-backend-key: cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName
+                      }}/terraform.tfstate
 
     report-success:
         name: Report success
