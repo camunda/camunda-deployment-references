@@ -138,13 +138,12 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
           credentialsParameter = var.registry_credentials_arn
         }
       } : {},
-      length(var.restore_container_command) > 0 ? { command = var.restore_container_command } : {},
+      length(var.restore_container_entrypoint) > 0 ? { entryPoint = var.restore_container_entrypoint } : {},
       # Include same environment variables as main container plus BACKUP_ID
       {
         environment = concat(
           [
             { name = "BACKUP_ID", value = var.restore_backup_id },
-            { name = "SPRING_PROFILES_ACTIVE", value = "broker,restore" },
           ],
           local.base_environment_variables,
           var.environment_variables
