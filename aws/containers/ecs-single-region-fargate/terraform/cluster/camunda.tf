@@ -22,7 +22,7 @@ module "orchestration_cluster" {
   enable_alb_http_webapp_listener_rule = true
   # management endpoint is unprotected, only enable if you know what you are doing.
   # Consider secure access alternatives via temporary jump host / VPN connected to VPC / lambda or step functions.
-  enable_alb_http_management_listener_rule = false
+  enable_alb_http_management_listener_rule = true
   enable_nlb_grpc_26500_listener           = true
 
   environment_variables = [
@@ -93,8 +93,23 @@ module "orchestration_cluster" {
     {
       name  = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_CONNECTORS_USERS_0"
       value = "connectors"
-    }
+    },
+    # Backup / Restore configuration
+    {
+      name  = "CAMUNDA_DATA_BACKUP_STORE"
+      value = "S3"
+    },
+    {
+      name  = "CAMUNDA_DATA_BACKUP_S3_BUCKETNAME"
+      value = aws_s3_bucket.s3_backup.bucket
+    },
+    {
+      name  = "CAMUNDA_DATA_BACKUP_REPOSITORYNAME"
+      value = aws_s3_bucket.s3_backup.bucket
+    },
   ]
+
+  restore_backup_id = 111
 
   # Prefer ECS task secrets for sensitive values (container definition 'secrets')
   secrets = [
@@ -122,6 +137,7 @@ module "orchestration_cluster" {
   # Pass additional policies to orchestration cluster task role
   extra_task_role_attachments = [
     aws_iam_policy.rds_db_connect_camunda.arn,
+    aws_iam_policy.s3_backup_access_policy.arn,
   ]
 
 }

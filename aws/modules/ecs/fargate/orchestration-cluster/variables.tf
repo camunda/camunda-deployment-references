@@ -252,6 +252,41 @@ variable "init_container_secrets" {
   default = []
 }
 
+################################################################
+#                 Restore Init Container                       #
+################################################################
+
+variable "restore_backup_id" {
+  description = "The backup ID to restore from. When set, enables the restore init container that runs before the main container."
+  type        = string
+  default     = ""
+}
+
+variable "restore_container_image" {
+  description = "Container image for the restore init container. Required when restore_backup_id is set."
+  type        = string
+  default     = "langleu/camunda:ecs-restore-v2"
+}
+
+variable "restore_container_command" {
+  description = "Command for the restore init container (Docker CMD). If empty, uses the image default."
+  type        = list(string)
+  default = [
+    "bash",
+    "-c",
+    "export ZEEBE_BROKER_NETWORK_HOST=$(hostname -I | awk '{print $2}'); /usr/local/camunda/bin/camunda"
+  ]
+}
+
+variable "restore_container_secrets" {
+  description = "ECS task secrets for the restore init container (rendered as container definition 'secrets')."
+  type = list(object({
+    name      = string
+    valueFrom = string
+  }))
+  default = []
+}
+
 variable "task_desired_count" {
   description = "The desired count of ECS tasks to run in the ECS service - directly impacts the Zeebe cluster size"
   type        = number
