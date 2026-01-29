@@ -870,10 +870,10 @@ runs:
               TEST_AUTH_TYPE=${TEST_AUTH_TYPE}
               TEST_CLIENT_ID=${TEST_CLIENT_ID}
               DISTRO_QA_E2E_TESTS_KEYCLOAK_CLIENTS_SECRET=${TEST_CLIENT_SECRET}
-              DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_PASSWORD=${TEST_CLIENT_ID}
               TASKLIST_VERSION=v2
               PLAYWRIGHT_BASE_URL=https://${CAMUNDA_DOMAIN}
               CLUSTER_VERSION=${CAMUNDA_VERSION}
+              C8_USERNAME=admin
               EOF
 
               # Fetch service client secrets from the cluster
@@ -897,19 +897,15 @@ runs:
                 fi
               done
 
-              # Fetch admin client secret
-              admin_secret=$(kubectl -n "$TEST_NAMESPACE" \
-                get secret integration-test-credentials \
-                -o jsonpath="{.data.identity-admin-client-password}" 2>/dev/null | base64 -d 2>/dev/null || \
-                kubectl -n "$TEST_NAMESPACE" \
-                get secret "${CAMUNDA_RELEASE_NAME}-credentials" \
-                -o jsonpath="{.data.identity-admin-client-password}" 2>/dev/null | base64 -d 2>/dev/null || \
-                echo "$TEST_CLIENT_SECRET")
+              # Fisrt user credentials
+              firstuser_password=$(kubectl -n "$TEST_NAMESPACE" \
+                get secret camunda-credentials \
+                -o jsonpath="{.data.identity-firstuser-password}" 2>/dev/null | base64 -d 2>/dev/null)
 
-              if [[ -n "$admin_secret" ]]; then
-                echo "::add-mask::$admin_secret"
+              if [[ -n "$firstuser_password" ]]; then
+                echo "::add-mask::$firstuser_password"
               fi
-              echo "PLAYWRIGHT_VAR_ADMIN_CLIENT_SECRET=${admin_secret}" >> "$ENV_FILE"
+              echo "DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_PASSWORD=${firstuser_password}" >> "$ENV_FILE"
 
               # Additional settings
               cat >> "$ENV_FILE" << EOF
