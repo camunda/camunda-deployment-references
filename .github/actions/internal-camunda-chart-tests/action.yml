@@ -906,7 +906,16 @@ runs:
                 echo "::add-mask::$firstuser_password"
               fi
               echo "DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_PASSWORD=${firstuser_password}" >> "$ENV_FILE"
-              echo "DISTRO_QA_E2E_TESTS_KEYCLOAK_PASSWORD=${firstuser_password}" >> "$ENV_FILE"
+
+              # keycloak pass
+              keycloak_password=$(kubectl -n "$TEST_NAMESPACE" \
+                get secret camunda-credentials \
+                -o jsonpath="{.data.identity-keycloak-admin-password}" 2>/dev/null | base64 -d 2>/dev/null)
+
+              if [[ -n "$keycloak_password" ]]; then
+                echo "::add-mask::$keycloak_password"
+              fi
+              echo "DISTRO_QA_E2E_TESTS_KEYCLOAK_PASSWORD=${keycloak_password}" >> "$ENV_FILE"
 
               # Additional settings
               cat >> "$ENV_FILE" << EOF
