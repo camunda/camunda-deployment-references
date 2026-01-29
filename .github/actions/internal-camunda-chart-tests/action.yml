@@ -932,6 +932,9 @@ runs:
               echo "   Auth type: $TEST_AUTH_TYPE"
               echo "   Exclude: ${TEST_EXCLUDE:-none}"
 
+              # Get the mkcert CA path
+              export NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem"
+
               # Build playwright arguments
               PLAYWRIGHT_ARGS="--project=$TEST_PROJECT --reporter=html,list"
 
