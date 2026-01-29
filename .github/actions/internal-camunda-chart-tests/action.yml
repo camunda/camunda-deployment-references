@@ -906,6 +906,7 @@ runs:
                 echo "::add-mask::$firstuser_password"
               fi
               echo "DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_PASSWORD=${firstuser_password}" >> "$ENV_FILE"
+              echo "DISTRO_QA_E2E_TESTS_KEYCLOAK_PASSWORD=${firstuser_password}" >> "$ENV_FILE"
 
               # Additional settings
               cat >> "$ENV_FILE" << EOF
