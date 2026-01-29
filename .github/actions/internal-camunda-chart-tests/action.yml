@@ -932,8 +932,16 @@ runs:
               echo "   Auth type: $TEST_AUTH_TYPE"
               echo "   Exclude: ${TEST_EXCLUDE:-none}"
 
+              # Patch Playwright config to ignore HTTPS errors
+              node -e "
+                const fs = require('fs');
+                let config = fs.readFileSync('playwright.config.ts', 'utf8');
+                config = config.replace(/use:\s*{/, 'use: {\n    ignoreHTTPSErrors: true,');
+                fs.writeFileSync('playwright.config.ts', config);
+              "
+
               # Build playwright arguments
-              PLAYWRIGHT_ARGS="--project=$TEST_PROJECT --reporter=html,list --ignore-https-errors"
+              PLAYWRIGHT_ARGS="--project=$TEST_PROJECT --reporter=html,list"
 
               if [[ -n "$TEST_EXCLUDE" ]]; then
                 PLAYWRIGHT_ARGS="$PLAYWRIGHT_ARGS --grep-invert=\"$TEST_EXCLUDE\""
