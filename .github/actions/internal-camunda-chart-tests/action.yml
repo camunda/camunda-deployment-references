@@ -838,8 +838,7 @@ runs:
           run: |
               set -euo pipefail
 
-              TEST_SUITE_PATH="$HELM_PLAYWRIGHT_TEST_SUITE_PATH"
-              ENV_FILE="${TEST_SUITE_PATH}/.env"
+              ENV_FILE="${HELM_PLAYWRIGHT_TEST_SUITE_PATH}/.env"
 
               echo "📝 Setting up Playwright environment file..."
 
@@ -847,12 +846,13 @@ runs:
               cat > "$ENV_FILE" << EOF
               # Camunda Platform URLs
               AUTH_URL=https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform/protocol/openid-connect/token
+              OAUTH_URL=https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform/protocol/openid-connect/token
               CONSOLE_BASE_URL=https://${CAMUNDA_DOMAIN}/console
               KEYCLOAK_BASE_URL=https://${CAMUNDA_DOMAIN}/auth
               IDENTITY_BASE_URL=https://${CAMUNDA_DOMAIN}/identity
               OPERATE_BASE_URL=https://${CAMUNDA_DOMAIN}/operate
               OPTIMIZE_BASE_URL=https://${CAMUNDA_DOMAIN}/optimize
-              TASKLIST_BASE_URL=https://${CAMUNDA_DOMAIN}/tasklist
+              TASKLIST_BASE_URL=https://${CAMUNDA_DOMAIN}/orchestration/tasklist
               CONNECTORS_BASE_URL=https://${CAMUNDA_DOMAIN}/connectors
               ZEEBE_GATEWAY_GRPC=${CAMUNDA_DOMAIN_GRPC:-${CAMUNDA_DOMAIN}:443}
               ZEEBE_GATEWAY_REST=https://${CAMUNDA_DOMAIN}/zeebe
@@ -868,6 +868,11 @@ runs:
               # Authentication
               TEST_AUTH_TYPE=${TEST_AUTH_TYPE}
               TEST_CLIENT_ID=${TEST_CLIENT_ID}
+              DISTRO_QA_E2E_TESTS_KEYCLOAK_CLIENTS_SECRET=${TEST_CLIENT_SECRET}
+              DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_PASSWORD=${TEST_CLIENT_ID}
+              TASKLIST_VERSION=v2
+              PLAYWRIGHT_BASE_URL=https://${CAMUNDA_DOMAIN}
+              CLUSTER_VERSION=${CAMUNDA_VERSION}
               EOF
 
               # Fetch service client secrets from the cluster
