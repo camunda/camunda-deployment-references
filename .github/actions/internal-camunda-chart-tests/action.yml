@@ -879,7 +879,7 @@ runs:
               # Fetch service client secrets from the cluster
               echo "🔑 Fetching service client secrets..."
 
-              for svc in CONNECTORS TASKLIST OPTIMIZE OPERATE ZEEBE ORCHESTRATION; do
+              for svc in CONNECTORS OPTIMIZE ORCHESTRATION; do
                 secret=$(kubectl -n "$TEST_NAMESPACE" \
                   get secret integration-test-credentials \
                   -o jsonpath="{.data.identity-${svc,,}-client-token}" 2>/dev/null | base64 -d 2>/dev/null || \
