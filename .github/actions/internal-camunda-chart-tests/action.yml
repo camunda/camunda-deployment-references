@@ -828,6 +828,7 @@ runs:
           if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
           shell: bash
           env:
+              CAMUNDA_VERSION: ${{ inputs.camunda-version }}
               CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
               CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
               TEST_NAMESPACE: ${{ inputs.test-namespace }}
