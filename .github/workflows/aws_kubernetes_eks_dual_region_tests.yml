@@ -40,7 +40,7 @@ on:
             - aws/dual-region/terraform/**
             - test/**
             - .tools-versions
-
+    push:
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -98,7 +98,7 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  cluster_name: lars-test # ${{ inputs.cluster_name }}
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_prefix: eks-dual-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
