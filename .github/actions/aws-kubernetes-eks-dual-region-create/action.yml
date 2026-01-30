@@ -148,7 +148,7 @@ runs:
                   -var-file=terraform-cluster.tfvars
 
         - name: Get S3 credentials
-          id: get-s3-credentials
+          id: s3-credentials
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
           shell: bash
           run: |
