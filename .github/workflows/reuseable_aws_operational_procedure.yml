@@ -11,12 +11,18 @@ on:
             helm-version:
                 description: The Helm version to use
                 type: string
-                required: true
+                required: false
+                default: SNAPSHOT
             aws-profile:
                 description: The AWS profile to use
                 type: string
                 required: false
                 default: infraex
+            aws-region:
+                description: The AWS region to use
+                type: string
+                required: false
+                default: eu-west-2
     workflow_call:
         inputs:
             cluster-name:
@@ -26,57 +32,44 @@ on:
             helm-version:
                 description: The Helm version to use
                 type: string
-                required: true
+                required: false
+                default: SNAPSHOT
             aws-profile:
                 description: The AWS profile to use
                 type: string
                 required: false
                 default: infraex
+            aws-region:
+                description: The AWS region to use
+                type: string
+                required: false
+                default: eu-west-2
 
 jobs:
     deploy:
         runs-on: ubuntu-latest
 
         steps:
-            - name: Map Helm version to branch
-              id: helm-version
-              run: |
-                  version=${{ inputs.helm-version }}
-
-                  if [[ $version =~ "OLD" ]]; then
-                    version="$(echo $version | cut -d'.' -f2-)"
-                  fi
-
-                  if [[ $version == "SNAPSHOT" ]]; then
-                    if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-                      echo "branch=$GITHUB_HEAD_REF" >> "$GITHUB_ENV"
-                    else
-                      echo "branch=main" >> "$GITHUB_ENV"
-                    fi
-                  else
-                    c8_version=$(curl -X 'GET' -s \
-                    "https://artifacthub.io/api/v1/packages/helm/camunda/camunda-platform/${version}" \
-                    -H "accept: application/json" | jq -r .app_version)
-                    minor_version=$(echo "$c8_version" | cut -d '.' -f 2)
-                    echo "branch=stable/8.$(( minor_version ))" >> "$GITHUB_ENV"
-                  fi
-
-                  echo "AWS_PROFILE=${{ inputs.aws-profile }}" >> "$GITHUB_ENV"
             - name: Checkout repository
               uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-              with:
-                  ref: ${{ env.branch }}
             ############# Tool Installation ##############
-            - name: Setup AWS and Tools
-              uses: ./.github/actions/setup-aws
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
               with:
-                  secrets: ${{ toJSON(secrets) }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ inputs.aws-profile }}
+                  aws-region: ${{ inputs.aws-region }}
+
             ########### KubeConfig Generation ############
             - name: Export Cluster Name
               run: |
                   echo "CLUSTER_NAME=${{ inputs.cluster-name }}" >> "$GITHUB_ENV"
             - name: KubeConfig generation
-              working-directory: ./test
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
               timeout-minutes: 5
               run: |
                   go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
@@ -87,61 +80,27 @@ jobs:
                   version=$(echo "$version" | tr '[:upper:]' '[:lower:]') # lowercasing the version
                   version_with_hyphens="${version//./-}" # replacing dots with hyphens
 
-                  # Cutting old out to get the helm chat version
-                  if [[ "$version" =~ "old" ]]; then
-                  version=$(echo "$version" | cut -d'.' -f2-)
-                  fi
-
                   # SNAPSHOT image = future minor version
                   # SNAPSHOT chart = current minor version
                   # ALPHA chart = future minor version
                   if [ "$version" == "snapshot" ]; then
-                  {
-                  echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
-                  echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
-                  } >> "$GITHUB_ENV"
+                    {
+                      echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
+                      echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
+                    } >> "$GITHUB_ENV"
                   else
-                  echo "HELM_CHART_VERSION=${version}" >> "$GITHUB_ENV"
+                    echo "HELM_CHART_VERSION=${version}" >> "$GITHUB_ENV"
                   fi
 
                   {
-                  echo "CLUSTER_0_NAMESPACE=${version_with_hyphens}-cluster-0"
-                  echo "CLUSTER_0_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-0-failover"
-                  echo "CLUSTER_1_NAMESPACE=${version_with_hyphens}-cluster-1"
-                  echo "CLUSTER_1_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-1-failover"
-                  echo "BACKUP_NAME=nightly-${version_with_hyphens}"
+                    echo "CLUSTER_0_NAMESPACE=${version_with_hyphens}-cluster-0"
+                    echo "CLUSTER_1_NAMESPACE=${version_with_hyphens}-cluster-1"
+                    echo "BACKUP_NAME=nightly-${version_with_hyphens}"
                   } >> "$GITHUB_ENV"
-            - name: Determine old or new operational procedure
-              run: |
-                  version=${{ inputs.helm-version }}
-
-                  major_version=$(echo "$version" | cut -d '.' -f 1)
-
-                  # > 10 - new procedure
-                  # < 11 - old procedure
-                  # OLD - old procedure
-                  # SNAPSHOT - new procedure
-
-                  # export major version for test purposes to target specific versions
-                  echo "MAJOR_VERSION=$major_version" >> "$GITHUB_ENV"
-
-                  if (( major_version > 10 )); then
-                    echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
-                  elif [[ $version == "OLD" ]]; then
-                    echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
-                    echo "MAJOR_VERSION=0" >> "$GITHUB_ENV"
-                  elif [[ $version == "SNAPSHOT" ]]; then
-                    echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
-                    echo "MAJOR_VERSION=99" >> "$GITHUB_ENV"
-                  elif (( major_version < 11 )); then
-                    echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
-                  else
-                    echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
-                  fi
     ########### Operational Procedure ############
     # Needs to cater old and new procedure as this workflow is used for all versions
             - name: Deploy - ${{ inputs.helm-version }}
-              working-directory: ./test
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
               timeout-minutes: 21
               run: |
                   go test --count=1 -v -timeout 20m -run TestAWSDeployDualRegCamunda
@@ -149,15 +108,8 @@ jobs:
               id: failover-start
               run: |
                   printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
-            - name: Failover Old - ${{ inputs.helm-version }}
-              if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
-              working-directory: ./test
-              timeout-minutes: 21
-              run: |
-                  go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_below
-            - name: Failover New - ${{ inputs.helm-version }}
-              if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
-              working-directory: ./test
+            - name: Failover - ${{ inputs.helm-version }}
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
               timeout-minutes: 21
               run: |
                   go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
@@ -173,15 +125,8 @@ jobs:
               id: failback-start
               run: |
                   printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
-            - name: Failback Old - ${{ inputs.helm-version }}
-              if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
-              working-directory: ./test
-              timeout-minutes: 46
-              run: |
-                  go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_below
             - name: Failback New - ${{ inputs.helm-version }}
-              if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
-              working-directory: ./test
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
               timeout-minutes: 46
               run: |
                   go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
@@ -194,35 +139,34 @@ jobs:
                   echo "::error ::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
                   fi
             - name: Test multi-tenancy - ${{ inputs.helm-version }}
-              if: ${{ env.OPERATIONAL_PROCEDURE == 'new' && fromJSON(env.MAJOR_VERSION) >= 13 }}
-              working-directory: ./test
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
               timeout-minutes: 21
               run: |
                   go test --count=1 -v -timeout 20m -run TestMultiTenancyDualReg
 
             - name: Test scaling zeebe brokers in multi-region setup
-              working-directory: ./test
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
               timeout-minutes: 21
               run: |
                   set -euxo pipefail
                   go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBrokers
 
             - name: Test scaling zeebe partitions in multi-region setup
-              working-directory: ./test
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
               timeout-minutes: 21
               run: |
                   set -euxo pipefail
                   go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpPartitions
 
             - name: Test scaling zeebe brokers and partitions in multi-region setup
-              working-directory: ./test
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
               timeout-minutes: 21
               run: |
                   set -euxo pipefail
                   go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBothBrokersAndPartitions
 
             - name: Debug Step
-              working-directory: ./test
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
               if: failure()
               run: |
                   go test --count=1 -v -timeout 4m -run TestDebugStep
@@ -232,15 +176,15 @@ jobs:
               with:
                   name: pod-logs-${{ inputs.helm-version }}
                   retention-days: 7
-                  path: ./test/*.log
+                  path: ./aws/kubernetes/eks-dual-region/test/*.log
             - name: Cleanup - ${{ inputs.helm-version }}
-              working-directory: ./test
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
               if: always()
               timeout-minutes: 16
               run: |
                   go test --count=1 -v -timeout 15m -run TestAWSDualRegCleanup
             - name: KubeConfig Removal
-              working-directory: ./test
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
               if: always()
               timeout-minutes: 5
               run: |
