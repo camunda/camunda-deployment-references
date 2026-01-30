@@ -16,10 +16,8 @@ import (
 // Used for creating the global core dns configmap for all versions
 // each is a comma separated string "namespace1,namespace2" value originates from "c8_namespace_parser.sh"
 var (
-	primaryNamespaceArr           = helpers.GetEnv("CLUSTER_0_NAMESPACE_ARR", "")
-	primaryNamespaceFailoverArr   = helpers.GetEnv("CLUSTER_0_NAMESPACE_FAILOVER_ARR", "")
-	secondaryNamespaceArr         = helpers.GetEnv("CLUSTER_1_NAMESPACE_ARR", "")
-	secondaryNamespaceFailoverArr = helpers.GetEnv("CLUSTER_1_NAMESPACE_FAILOVER_ARR", "")
+	primaryNamespaceArr   = helpers.GetEnv("CLUSTER_0_NAMESPACE_ARR", "")
+	secondaryNamespaceArr = helpers.GetEnv("CLUSTER_1_NAMESPACE_ARR", "")
 )
 
 func TestAWSDNSChaining(t *testing.T) {
@@ -56,15 +54,9 @@ func TestClusterPrerequisites(t *testing.T) {
 	t.Run("TestCreateAllNamespacesAndSecrets", func(t *testing.T) {
 		t.Log("[K8S] Creating all namespaces and secrets 🚀")
 
-		// Combine primary and failover namespaces.
-		allPrimaryNamespaces := append(
-			strings.Split(primaryNamespaceArr, ","),
-			strings.Split(primaryNamespaceFailoverArr, ",")...,
-		)
-		allSecondaryNamespaces := append(
-			strings.Split(secondaryNamespaceArr, ","),
-			strings.Split(secondaryNamespaceFailoverArr, ",")...,
-		)
+		// Split the namespace arrays into slices.
+		allPrimaryNamespaces := strings.Split(primaryNamespaceArr, ",")
+		allSecondaryNamespaces := strings.Split(secondaryNamespaceArr, ",")
 
 		// Ensure both arrays have the same length.
 		if len(allPrimaryNamespaces) != len(allSecondaryNamespaces) {
@@ -144,8 +136,8 @@ func applyDnsChaining(t *testing.T) {
 	t.Log("[DNS CHAINING] Applying DNS chaining 📡")
 	awsHelpers.CreateLoadBalancers(t, primary, k8sManifests)
 	awsHelpers.CreateLoadBalancers(t, secondary, k8sManifests)
-	allPrimaryNamespaces := primaryNamespaceArr + "," + primaryNamespaceFailoverArr
-	allSecondaryNamespaces := secondaryNamespaceArr + "," + secondaryNamespaceFailoverArr
+	allPrimaryNamespaces := primaryNamespaceArr
+	allSecondaryNamespaces := secondaryNamespaceArr
 	awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, allPrimaryNamespaces, allSecondaryNamespaces)
 }
 
