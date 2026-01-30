@@ -18,7 +18,7 @@ const (
 	remoteChartSource = "https://helm.camunda.io"
 
 	resourceDir         = "." // only used for the process deployment file
-	terraformDir        = "../terraform/cluster"
+	terraformDir        = "../terraform/clusters"
 	kubeConfigPrimary   = "./kubeconfig-london"
 	kubeConfigSecondary = "./kubeconfig-paris"
 	k8sManifests        = "../procedure/manifests"
