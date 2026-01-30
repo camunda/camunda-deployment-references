@@ -18,8 +18,6 @@ It creates two EKS clusters in different regions (eu-west-2/London and eu-west-3
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
-| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `main` |
-| `tf-modules-path` | <p>Path where the tf eks modules will be cloned</p> | `true` | `./.action-tf-modules/aws-kubernetes-eks-dual-region-create/` |
 | `ref-arch` | <p>Reference architecture to deploy</p> | `false` | `eks-dual-region` |
 
 
@@ -89,18 +87,6 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ""
-
-    tf-modules-revision:
-    # Git revision of the tf modules to use
-    #
-    # Required: true
-    # Default: main
-
-    tf-modules-path:
-    # Path where the tf eks modules will be cloned
-    #
-    # Required: true
-    # Default: ./.action-tf-modules/aws-kubernetes-eks-dual-region-create/
 
     ref-arch:
     # Reference architecture to deploy

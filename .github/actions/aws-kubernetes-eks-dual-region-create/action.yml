@@ -32,14 +32,6 @@ inputs:
     s3-bucket-key-prefix:
         description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
         default: ''
-    tf-modules-revision:
-        description: Git revision of the tf modules to use
-        default: main
-        required: true
-    tf-modules-path:
-        description: Path where the tf eks modules will be cloned
-        default: ./.action-tf-modules/aws-kubernetes-eks-dual-region-create/
-        required: true
     ref-arch:
         description: Reference architecture to deploy
         default: eks-dual-region
@@ -62,16 +54,6 @@ outputs:
 runs:
     using: composite
     steps:
-        - name: Checkout Repository
-          uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-          with:
-              repository: camunda/camunda-deployment-references
-              ref: ${{ inputs.tf-modules-revision }}
-              path: ${{ inputs.tf-modules-path }}
-              fetch-depth: 0
-
-        - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
         - name: Set Terraform variables
           id: set-terraform-variables
@@ -99,7 +81,7 @@ runs:
 
         - name: Terraform Init - Cluster
           id: init-cluster
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
           shell: bash
           run: |
               set -euo pipefail
@@ -120,7 +102,7 @@ runs:
         - name: Generate tfvars file - Cluster
           id: generate-tfvars-cluster
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
           run: |
               set -euo pipefail
 
@@ -129,6 +111,7 @@ runs:
               kubernetes_version = "${{ inputs.kubernetes-version }}"
               single_nat_gateway = ${{ inputs.single-nat-gateway }}
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              aws_profile = "infraex"
               EOF
 
               echo "Generated tfvars file:"
@@ -136,7 +119,7 @@ runs:
 
         - name: Terraform Plan - Cluster
           id: plan-cluster
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
           shell: bash
           run: |
               set -euo pipefail
@@ -146,7 +129,7 @@ runs:
 
         - name: Terraform Apply - Cluster
           id: apply-cluster
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
           shell: bash
           run: |
               set -euo pipefail
@@ -156,13 +139,13 @@ runs:
           uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect-cluster
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
+              working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
               plan-extra-args: |
                   -var-file=terraform-cluster.tfvars
 
         - name: Get S3 credentials
           id: get-s3-credentials
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/
           shell: bash
           run: |
               set -euo pipefail
@@ -178,7 +161,7 @@ runs:
               echo "AWS_SECRET_ACCESS_KEY_ES=${s3_secret_key}" >> "$GITHUB_OUTPUT"
 
         - name: KubeConfig generation
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/test/
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/test/
           shell: bash
           run: |
               go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
@@ -189,7 +172,7 @@ runs:
               echo "CLUSTER_0_NAMESPACE_ARR=c8-snap-cluster-0" >> "$GITHUB_ENV"
         - name: Create all required namespaces and secrets
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/test/
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/test/
           env:
               AWS_ACCESS_KEY_ES: ${{ steps.s3-credentials.outputs.AWS_ACCESS_KEY_ES }}
               AWS_SECRET_ACCESS_KEY_ES: ${{ steps.s3-credentials.outputs.AWS_SECRET_ACCESS_KEY_ES }}
@@ -197,7 +180,7 @@ runs:
               go test --count=1 -v -timeout 9m -run TestClusterPrerequisites
         ########### Namespace and DNS setup #########
         - name: Do the DNS chaining for all required namespaces
-          working-directory: ${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/test/
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/test/
           shell: bash
           env:
               # Pick a known namespace for cross cluster testing
