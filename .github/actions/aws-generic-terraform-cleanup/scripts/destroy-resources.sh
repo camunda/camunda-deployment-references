@@ -128,6 +128,15 @@ destroy_module() {
 
   echo "[$group_id][$module_name] Initializing Terraform"
   if [[ "$tf_config_file" == *"config-dual-region" ]]; then
+
+    # For non-OpenShift (EKS) dual-region, adjust provider aliases to match the terraform config
+    # EKS uses "accepter" alias instead of "cluster_2", and doesn't need "cluster_1" alias
+    if [[ "${OPENSHIFT:-false}" == "false" ]]; then
+      echo "[$group_id][$module_name] Adjusting provider aliases for EKS dual-region"
+      sed -i 's/alias  = "cluster_2"/alias  = "accepter"/' "$temp_dir/config.tf"
+      sed -i '/alias  = "cluster_1"/d' "$temp_dir/config.tf"
+    fi
+
     terraform init \
       -backend-config="bucket=$BUCKET" \
       -backend-config="key=$key" \
