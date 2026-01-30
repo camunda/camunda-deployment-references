@@ -104,69 +104,69 @@ jobs:
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
-    prepare-clusters:
-        name: Prepare clusters
-        needs:
-            - clusters-info
-        strategy:
-            fail-fast: false
-            matrix:
-                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
-                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-        runs-on: ubuntu-latest
-        timeout-minutes: 90
-        steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+    # prepare-clusters:
+    #     name: Prepare clusters
+    #     needs:
+    #         - clusters-info
+    #     strategy:
+    #         fail-fast: false
+    #         matrix:
+    #             distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+    #             scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+    #     runs-on: ubuntu-latest
+    #     timeout-minutes: 90
+    #     steps:
+    #         - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
-            - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+    #         - name: Install asdf tools with cache
+    #           uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
-            - name: Configure AWS CLI
-              uses: ./.github/actions/aws-configure-cli
-              with:
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-                  aws-profile: ${{ env.AWS_PROFILE }}
-                  aws-region: ${{ env.AWS_REGION }}
+    #         - name: Configure AWS CLI
+    #           uses: ./.github/actions/aws-configure-cli
+    #           with:
+    #               vault-addr: ${{ secrets.VAULT_ADDR }}
+    #               vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+    #               vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+    #               aws-profile: ${{ env.AWS_PROFILE }}
+    #               aws-region: ${{ env.AWS_REGION }}
 
-            - name: Set current target branch
-              id: target-branch
-              run: |
-                  set -euo pipefail
-                  TARGET_BRANCH=$(cat .target-branch)
-                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+    #         - name: Set current target branch
+    #           id: target-branch
+    #           run: |
+    #               set -euo pipefail
+    #               TARGET_BRANCH=$(cat .target-branch)
+    #               echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
-            - name: Export S3_BACKEND_BUCKET based on matrix
-              id: s3_prefix
-              run: |
-                  set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
+    #         - name: Export S3_BACKEND_BUCKET based on matrix
+    #           id: s3_prefix
+    #           run: |
+    #               set -euo pipefail
+    #               echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
-            - name: Create K8S dual-region clusters and login
-              uses: ./.github/actions/aws-kubernetes-eks-dual-region-create
-              id: create_cluster
-              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
-              if: always() && success()
-              with:
-                  cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
-                  aws-region: ${{ env.AWS_REGION }}
-                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-                  ref-arch: ${{ matrix.scenario.name }}
-                  tags: >
-                      {
-                        "ci-run-id": "${{ github.run_id }}",
-                        "ci-run-number": "${{ github.run_number }}",
-                        "ci-workflow": "${{ github.workflow }}",
-                        "ci-actor": "${{ github.actor }}",
-                        "ci-ref": "${{ github.ref }}",
-                        "ci-commit": "${{ github.sha }}",
-                        "ci-repo": "${{ github.repository }}",
-                        "ci-event": "${{ github.event_name }}",
-                        "map-migrated": "migARUADZHVWZ"
-                      }
+    #         - name: Create K8S dual-region clusters and login
+    #           uses: ./.github/actions/aws-kubernetes-eks-dual-region-create
+    #           id: create_cluster
+    #           # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+    #           if: always() && success()
+    #           with:
+    #               cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+    #               aws-region: ${{ env.AWS_REGION }}
+    #               s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+    #               s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+    #               s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+    #               ref-arch: ${{ matrix.scenario.name }}
+    #               tags: >
+    #                   {
+    #                     "ci-run-id": "${{ github.run_id }}",
+    #                     "ci-run-number": "${{ github.run_number }}",
+    #                     "ci-workflow": "${{ github.workflow }}",
+    #                     "ci-actor": "${{ github.actor }}",
+    #                     "ci-ref": "${{ github.ref }}",
+    #                     "ci-commit": "${{ github.sha }}",
+    #                     "ci-repo": "${{ github.repository }}",
+    #                     "ci-event": "${{ github.event_name }}",
+    #                     "map-migrated": "migARUADZHVWZ"
+    #                   }
 
     integration-tests:
         needs:
