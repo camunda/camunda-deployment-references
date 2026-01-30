@@ -104,132 +104,72 @@ jobs:
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
-    # prepare-clusters:
-    #     name: Prepare clusters
-    #     needs:
-    #         - clusters-info
-    #     strategy:
-    #         fail-fast: false
-    #         matrix:
-    #             distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
-    #             scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-    #     runs-on: ubuntu-latest
-    #     timeout-minutes: 90
-    #     steps:
-    #         - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-
-    #         - name: Install asdf tools with cache
-    #           uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
-
-    #         - name: Configure AWS CLI
-    #           uses: ./.github/actions/aws-configure-cli
-    #           with:
-    #               vault-addr: ${{ secrets.VAULT_ADDR }}
-    #               vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-    #               vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-    #               aws-profile: ${{ env.AWS_PROFILE }}
-    #               aws-region: ${{ env.AWS_REGION }}
-
-    #         - name: Set current target branch
-    #           id: target-branch
-    #           run: |
-    #               set -euo pipefail
-    #               TARGET_BRANCH=$(cat .target-branch)
-    #               echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
-    #         - name: Export S3_BACKEND_BUCKET based on matrix
-    #           id: s3_prefix
-    #           run: |
-    #               set -euo pipefail
-    #               echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
-
-    #         - name: Create K8S dual-region clusters and login
-    #           uses: ./.github/actions/aws-kubernetes-eks-dual-region-create
-    #           id: create_cluster
-    #           # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
-    #           if: always() && success()
-    #           with:
-    #               cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
-    #               aws-region: ${{ env.AWS_REGION }}
-    #               s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
-    #               s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-    #               s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-    #               ref-arch: ${{ matrix.scenario.name }}
-    #               tags: >
-    #                   {
-    #                     "ci-run-id": "${{ github.run_id }}",
-    #                     "ci-run-number": "${{ github.run_number }}",
-    #                     "ci-workflow": "${{ github.workflow }}",
-    #                     "ci-actor": "${{ github.actor }}",
-    #                     "ci-ref": "${{ github.ref }}",
-    #                     "ci-commit": "${{ github.sha }}",
-    #                     "ci-repo": "${{ github.repository }}",
-    #                     "ci-event": "${{ github.event_name }}",
-    #                     "map-migrated": "migARUADZHVWZ"
-    #                   }
-
-    # integration-tests:
-    #     needs:
-    #         # - prepare-clusters
-    #         - clusters-info
-    #     strategy:
-    #         fail-fast: false
-    #         matrix:
-    #             distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
-    #             scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-    #     runs-on: ubuntu-latest
-    #     timeout-minutes: 120
-    #     env:
-    #         CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
-    #         CAMUNDA_NAMESPACE_1: c8-snap-cluster-0
-    #         CAMUNDA_NAMESPACE_2: c8-snap-cluster-1
-    #         CAMUNDA_RELEASE_NAME: camunda
-    #     steps:
-    #         ################## Checkout ##################
-    #         - name: Checkout repository
-    #           uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-    #         ############# Tool Installation ##############
-    #         - name: Install asdf tools with cache
-    #           uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
-    #         - name: Configure AWS CLI
-    #           uses: ./.github/actions/aws-configure-cli
-    #           with:
-    #               vault-addr: ${{ secrets.VAULT_ADDR }}
-    #               vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-    #               vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-    #               aws-profile: ${{ env.AWS_PROFILE }}
-    #               aws-region: ${{ env.AWS_REGION }}
-    #         - name: KubeConfig generation
-    #           timeout-minutes: 10
-    #           run: |
-    #               set -euo pipefail
-    #               # Create kubeconfig entries for both clusters in single file
-    #               # Simplify the requirement for the multi-region tests action
-    #               aws eks update-kubeconfig --region eu-west-2 --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
-    #               aws eks update-kubeconfig --region eu-west-3 --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
-    #         - name: Run Multi-region tests
-    #           if: env.TESTS_ENABLED == 'true'
-    #           timeout-minutes: 60
-    #           uses: ./.github/actions/internal-multi-region-tests
-    #           with:
-    #               cluster-0-name: ${{ env.CLUSTER_NAME }}-london
-    #               cluster-1-name: ${{ env.CLUSTER_NAME }}-paris
-    #               cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
-    #               cluster-1-namespace: ${{ env.CAMUNDA_NAMESPACE_2 }}
-    #               helm-version: 0.0.0-snapshot-alpha
-    #               backup-name: ${{ env.CAMUNDA_RELEASE_NAME }}-backup-${{ github.run_attempt }}
-    #               backup-bucket: ${{ env.CLUSTER_NAME }}-elastic-backup
-    #               default-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/camunda-values.yml
-    #               region-0-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
-    #               region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
-    #               skip-cleanup: 'true'
-
-    cleanup-clusters:
-        runs-on: ubuntu-latest
-        timeout-minutes: 60
-        if: always()
+    prepare-clusters:
+        name: Prepare clusters
         needs:
-            # - integration-tests
+            - clusters-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 90
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Export S3_BACKEND_BUCKET based on matrix
+              id: s3_prefix
+              run: |
+                  set -euo pipefail
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Create K8S dual-region clusters and login
+              uses: ./.github/actions/aws-kubernetes-eks-dual-region-create
+              id: create_cluster
+              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+              if: always() && success()
+              with:
+                  cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  ref-arch: ${{ matrix.scenario.name }}
+                  tags: >
+                      {
+                        "ci-run-id": "${{ github.run_id }}",
+                        "ci-run-number": "${{ github.run_number }}",
+                        "ci-workflow": "${{ github.workflow }}",
+                        "ci-actor": "${{ github.actor }}",
+                        "ci-ref": "${{ github.ref }}",
+                        "ci-commit": "${{ github.sha }}",
+                        "ci-repo": "${{ github.repository }}",
+                        "ci-event": "${{ github.event_name }}",
+                        "map-migrated": "migARUADZHVWZ"
+                      }
+
+    integration-tests:
+        needs:
             # - prepare-clusters
             - clusters-info
         strategy:
@@ -237,6 +177,13 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 120
+        env:
+            CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+            CAMUNDA_NAMESPACE_1: c8-snap-cluster-0
+            CAMUNDA_NAMESPACE_2: c8-snap-cluster-1
+            CAMUNDA_RELEASE_NAME: camunda
         steps:
             ################## Checkout ##################
             - name: Checkout repository
@@ -252,50 +199,103 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-            ################ Env Helper ###################
-            - name: Set current target branch
-              id: target-branch
-              run: |
-                  set -euo pipefail
-                  TARGET_BRANCH=$(cat .target-branch)
-                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-            - name: Export S3_BACKEND_BUCKET based on matrix
-              id: s3_prefix
-              run: |
-                  set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
-            ########### KubeConfig Generation ############
-            - name: Export Cluster Name
-              run: |
-                  echo "CLUSTER_NAME=${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}" >> "$GITHUB_ENV"
             - name: KubeConfig generation
-              if: env.CLEANUP_CLUSTERS == 'true'
-              working-directory: ./aws/kubernetes/eks-dual-region/test/
-              timeout-minutes: 5
+              timeout-minutes: 10
               run: |
-                  go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
-    ########### Load Balancer Removal ############
-            - name: Delete LBs to unblock teardown
-              if: env.CLEANUP_CLUSTERS == 'true'
-              working-directory: ./aws/kubernetes/eks-dual-region/test/
-              timeout-minutes: 5
-              run: |
-                  go test --count=1 -v -timeout 4m -run TestClusterCleanup
-    ############# Terratest Teardown #############
-            - name: Delete on-demand EKS Cluster
-              uses: ./.github/actions/aws-generic-terraform-cleanup
-              if: always() && env.CLEANUP_CLUSTERS == 'true'
-              timeout-minutes: 125
+                  set -euo pipefail
+                  # Create kubeconfig entries for both clusters in single file
+                  # Simplify the requirement for the multi-region tests action
+                  aws eks update-kubeconfig --region eu-west-2 --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
+                  aws eks update-kubeconfig --region eu-west-3 --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
+            - name: Run Multi-region tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 60
+              uses: ./.github/actions/internal-multi-region-tests
               with:
-                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours: 0
-                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
-                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-                  modules-order: clusters
-              env:
-                CLUSTER_1_AWS_REGION: eu-west-2
-                CLUSTER_2_AWS_REGION: eu-west-3
+                  cluster-0-name: ${{ env.CLUSTER_NAME }}-london
+                  cluster-1-name: ${{ env.CLUSTER_NAME }}-paris
+                  cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  cluster-1-namespace: ${{ env.CAMUNDA_NAMESPACE_2 }}
+                  helm-version: 0.0.0-snapshot-alpha
+                  backup-name: ${{ env.CAMUNDA_RELEASE_NAME }}-backup-${{ github.run_attempt }}
+                  backup-bucket: ${{ env.CLUSTER_NAME }}-elastic-backup
+                  default-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/camunda-values.yml
+                  region-0-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
+                  region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
+                  skip-cleanup: 'true'
+
+    # cleanup-clusters:
+    #     runs-on: ubuntu-latest
+    #     timeout-minutes: 60
+    #     if: always()
+    #     needs:
+    #         # - integration-tests
+    #         # - prepare-clusters
+    #         - clusters-info
+    #     strategy:
+    #         fail-fast: false
+    #         matrix:
+    #             distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+    #             scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+    #     steps:
+    #         ################## Checkout ##################
+    #         - name: Checkout repository
+    #           uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+    #         ############# Tool Installation ##############
+    #         - name: Install asdf tools with cache
+    #           uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+    #         - name: Configure AWS CLI
+    #           uses: ./.github/actions/aws-configure-cli
+    #           with:
+    #               vault-addr: ${{ secrets.VAULT_ADDR }}
+    #               vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+    #               vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+    #               aws-profile: ${{ env.AWS_PROFILE }}
+    #               aws-region: ${{ env.AWS_REGION }}
+    #         ################ Env Helper ###################
+    #         - name: Set current target branch
+    #           id: target-branch
+    #           run: |
+    #               set -euo pipefail
+    #               TARGET_BRANCH=$(cat .target-branch)
+    #               echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+    #         - name: Export S3_BACKEND_BUCKET based on matrix
+    #           id: s3_prefix
+    #           run: |
+    #               set -euo pipefail
+    #               echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
+    #         ########### KubeConfig Generation ############
+    #         - name: Export Cluster Name
+    #           run: |
+    #               echo "CLUSTER_NAME=${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}" >> "$GITHUB_ENV"
+    #         - name: KubeConfig generation
+    #           if: env.CLEANUP_CLUSTERS == 'true'
+    #           working-directory: ./aws/kubernetes/eks-dual-region/test/
+    #           timeout-minutes: 5
+    #           run: |
+    #               go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
+    # ########### Load Balancer Removal ############
+    #         - name: Delete LBs to unblock teardown
+    #           if: env.CLEANUP_CLUSTERS == 'true'
+    #           working-directory: ./aws/kubernetes/eks-dual-region/test/
+    #           timeout-minutes: 5
+    #           run: |
+    #               go test --count=1 -v -timeout 4m -run TestClusterCleanup
+    # ############# Terratest Teardown #############
+    #         - name: Delete on-demand EKS Cluster
+    #           uses: ./.github/actions/aws-generic-terraform-cleanup
+    #           if: always() && env.CLEANUP_CLUSTERS == 'true'
+    #           timeout-minutes: 125
+    #           with:
+    #               tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+    #               tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+    #               max-age-hours: 0
+    #               target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+    #               tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+    #               modules-order: clusters
+    #           env:
+    #             CLUSTER_1_AWS_REGION: eu-west-2
+    #             CLUSTER_2_AWS_REGION: eu-west-3
 
     # report-success:
     #     name: Report success
