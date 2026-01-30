@@ -78,6 +78,10 @@ runs:
           uses: ./.github/actions/internal-sanitize-tags
           with:
               raw-tags: ${{ inputs.tags }}
+        - name: Export Cluster Name
+          shell: bash
+          run: |
+              echo "CLUSTER_NAME=${{ inputs.cluster-name }}" >> "$GITHUB_ENV"
 
         - name: Terraform Init - Cluster
           id: init-cluster
