@@ -90,7 +90,7 @@ runs:
           run: |
               set -euo pipefail
 
-              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}cluster.tfstate"
+              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}clusters.tfstate"
               terraform_state_url_cluster="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
               echo "terraform-state-url-cluster=${terraform_state_url_cluster}" | tee -a "$GITHUB_OUTPUT"
 
