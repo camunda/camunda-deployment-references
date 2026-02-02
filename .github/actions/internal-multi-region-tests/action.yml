@@ -67,6 +67,12 @@ runs:
               # Copy .tool-versions so asdf can find golang when running in multi-region-tests/test
               cp .tool-versions ./multi-region-tests/test/.tool-versions
 
+        # Explicitly set up Go for caching of packages
+        - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
+          with:
+              go-version-file: ./multi-region-tests/test/go.mod
+              cache-dependency-path: ./multi-region-tests/test/go.sum
+
         - name: Split up Kubeconfig
           shell: bash
           run: |
@@ -194,6 +200,38 @@ runs:
               if [ "$duration" -gt 1500 ]; then
                 echo "::error::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
               fi
+
+        - name: Test multi-tenancy
+          shell: bash
+          working-directory: ./multi-region-tests/test
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -run TestMultiTenancyDualReg
+
+        - name: Test scaling zeebe brokers in multi-region setup
+          shell: bash
+          working-directory: ./multi-region-tests/test
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBrokers
+
+        - name: Test scaling zeebe partitions in multi-region setup
+          shell: bash
+          working-directory: ./multi-region-tests/test
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpPartitions
+
+        - name: Test scaling zeebe brokers and partitions in multi-region setup
+          shell: bash
+          working-directory: ./multi-region-tests/test
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBothBrokersAndPartitions
 
         - name: Debug Step
           shell: bash
