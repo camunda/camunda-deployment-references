@@ -27,7 +27,7 @@ on:
             - aws/kubernetes/eks-dual-region/procedure/**
             - aws/kubernetes/eks-dual-region/test/**
             - .tools-versions
-    push:
+
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -124,7 +124,6 @@ jobs:
                     echo "CAMUNDA_NAMESPACE_0=${CLUSTER_0_NAMESPACE}"
                     echo "CAMUNDA_NAMESPACE_1=${CLUSTER_1_NAMESPACE}"
                   } | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
-
 
             - name: Import Secrets
               id: secrets
