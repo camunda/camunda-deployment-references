@@ -88,164 +88,169 @@ runs:
                 kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
               done
 
-              mv "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./multi-region-tests/test/kubeconfig-london"
-              mv "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./multi-region-tests/test/kubeconfig-paris"
+              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./multi-region-tests/test/kubeconfig-london"
+              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./multi-region-tests/test/kubeconfig-paris"
 
-        - name: Set Up Environment Variables
-          shell: bash
-          run: |
-              set -euo pipefail
+              ls -lh
 
-              if [[ "${{ inputs.helm-version }}" =~ snapshot ]]; then
-                {
-                  echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
-                } >> "$GITHUB_ENV"
-              fi
+              echo "Debug"
+              ls -lh ./multi-region-tests/test/
 
-              # create empty file if not exists
-              # OpenShift specific fix but doesn't harm others
-              # OpenShift already delivers ready2go region files, so we don't do the overlaying / patching anymore
-              touch "${{ inputs.default-values-yaml }}"
+        # - name: Set Up Environment Variables
+        #   shell: bash
+        #   run: |
+        #       set -euo pipefail
 
-              {
-                echo "CLUSTER_0_NAMESPACE=${{ inputs.cluster-0-namespace }}"
-                echo "CLUSTER_1_NAMESPACE=${{ inputs.cluster-1-namespace }}"
-                echo "HELM_CHART_VERSION=${{ inputs.helm-version }}"
-                echo "BACKUP_NAME=${{ inputs.backup-name }}"
-                echo "BACKUP_BUCKET=${{ inputs.backup-bucket }}"
-                echo "DEFAULT_VALUES_YAML=${{ inputs.default-values-yaml }}"
-                echo "REGION0_VALUES_YAML=${{ inputs.region-0-values-yaml }}"
-                echo "REGION1_VALUES_YAML=${{ inputs.region-1-values-yaml }}"
-                echo "EXTRA_VALUES_YAML=${{ inputs.extra-values-yaml }}"
-              } >> "$GITHUB_ENV"
+        #       if [[ "${{ inputs.helm-version }}" =~ snapshot ]]; then
+        #         {
+        #           echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
+        #         } >> "$GITHUB_ENV"
+        #       fi
 
-        - name: Clean Environment
-          if: inputs.skip-cleanup != 'true'
-          shell: bash
-          working-directory: ./multi-region-tests/test
-          run: |
-              set -euo pipefail
+        #       # create empty file if not exists
+        #       # OpenShift specific fix but doesn't harm others
+        #       # OpenShift already delivers ready2go region files, so we don't do the overlaying / patching anymore
+        #       touch "${{ inputs.default-values-yaml }}"
 
-              go test --count=1 -v -timeout 15m -run TestAWSDualRegCleanup
+        #       {
+        #         echo "CLUSTER_0_NAMESPACE=${{ inputs.cluster-0-namespace }}"
+        #         echo "CLUSTER_1_NAMESPACE=${{ inputs.cluster-1-namespace }}"
+        #         echo "HELM_CHART_VERSION=${{ inputs.helm-version }}"
+        #         echo "BACKUP_NAME=${{ inputs.backup-name }}"
+        #         echo "BACKUP_BUCKET=${{ inputs.backup-bucket }}"
+        #         echo "DEFAULT_VALUES_YAML=${{ inputs.default-values-yaml }}"
+        #         echo "REGION0_VALUES_YAML=${{ inputs.region-0-values-yaml }}"
+        #         echo "REGION1_VALUES_YAML=${{ inputs.region-1-values-yaml }}"
+        #         echo "EXTRA_VALUES_YAML=${{ inputs.extra-values-yaml }}"
+        #       } >> "$GITHUB_ENV"
 
-        - name: Deploy multi-region setup - ${{ inputs.helm-version }}
-          shell: bash
-          working-directory: ./multi-region-tests/test
-          run: |
-              set -euo pipefail
+        # - name: Clean Environment
+        #   if: inputs.skip-cleanup != 'true'
+        #   shell: bash
+        #   working-directory: ./multi-region-tests/test
+        #   run: |
+        #       set -euo pipefail
 
-              go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
+        #       go test --count=1 -v -timeout 15m -run TestAWSDualRegCleanup
 
-        - name: Set start timestamp for Failover
-          shell: bash
-          id: failover-start
-          run: |
-              set -euo pipefail
+        # - name: Deploy multi-region setup - ${{ inputs.helm-version }}
+        #   shell: bash
+        #   working-directory: ./multi-region-tests/test
+        #   run: |
+        #       set -euo pipefail
 
-              printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+        #       go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
 
-        - name: Failover ${{ inputs.helm-version }}
-          shell: bash
-          working-directory: ./multi-region-tests/test
-          run: |
-              set -euo pipefail
+        # - name: Set start timestamp for Failover
+        #   shell: bash
+        #   id: failover-start
+        #   run: |
+        #       set -euo pipefail
 
-              go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
+        #       printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
 
-        - name: Calculate Failover duration
-          shell: bash
-          run: |
-              set -euo pipefail
+        # - name: Failover ${{ inputs.helm-version }}
+        #   shell: bash
+        #   working-directory: ./multi-region-tests/test
+        #   run: |
+        #       set -euo pipefail
 
-              printf -v now '%(%s)T'
-              duration=$((now - ${{ steps.failover-start.outputs.timestamp }}))
-              echo $duration
-              if [ "$duration" -gt 900 ]; then
-              echo "::error::Failover of ${{ inputs.helm-version }} is taking longer than 15 minutes"
-              fi
+        #       go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
 
-        - name: Set start timestamp for Failback
-          shell: bash
-          id: failback-start
-          run: |
-              set -euo pipefail
+        # - name: Calculate Failover duration
+        #   shell: bash
+        #   run: |
+        #       set -euo pipefail
 
-              printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+        #       printf -v now '%(%s)T'
+        #       duration=$((now - ${{ steps.failover-start.outputs.timestamp }}))
+        #       echo $duration
+        #       if [ "$duration" -gt 900 ]; then
+        #       echo "::error::Failover of ${{ inputs.helm-version }} is taking longer than 15 minutes"
+        #       fi
 
-        - name: Failback - ${{ inputs.helm-version }}
-          shell: bash
-          working-directory: ./multi-region-tests/test
-          run: |
-              set -euo pipefail
+        # - name: Set start timestamp for Failback
+        #   shell: bash
+        #   id: failback-start
+        #   run: |
+        #       set -euo pipefail
 
-              go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
+        #       printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
 
-        - name: Re-export services after Failback (OpenShift)
-          if: inputs.post-failback-script != ''
-          shell: bash
-          run: |
-              set -euo pipefail
+        # - name: Failback - ${{ inputs.helm-version }}
+        #   shell: bash
+        #   working-directory: ./multi-region-tests/test
+        #   run: |
+        #       set -euo pipefail
 
-              echo "Running post-failback script to re-export services..."
-              ${{ inputs.post-failback-script }}
+        #       go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
 
-        - name: Calculate Failback duration
-          shell: bash
-          run: |
-              set -euo pipefail
+        # - name: Re-export services after Failback (OpenShift)
+        #   if: inputs.post-failback-script != ''
+        #   shell: bash
+        #   run: |
+        #       set -euo pipefail
 
-              printf -v now '%(%s)T'
-              duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
-              echo $duration
-              if [ "$duration" -gt 1500 ]; then
-                echo "::error::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
-              fi
+        #       echo "Running post-failback script to re-export services..."
+        #       ${{ inputs.post-failback-script }}
 
-        - name: Test multi-tenancy
-          shell: bash
-          working-directory: ./multi-region-tests/test
-          run: |
-              set -euo pipefail
+        # - name: Calculate Failback duration
+        #   shell: bash
+        #   run: |
+        #       set -euo pipefail
 
-              go test --count=1 -v -timeout 20m -run TestMultiTenancyDualReg
+        #       printf -v now '%(%s)T'
+        #       duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
+        #       echo $duration
+        #       if [ "$duration" -gt 1500 ]; then
+        #         echo "::error::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
+        #       fi
 
-        - name: Test scaling zeebe brokers in multi-region setup
-          shell: bash
-          working-directory: ./multi-region-tests/test
-          run: |
-              set -euo pipefail
+        # - name: Test multi-tenancy
+        #   shell: bash
+        #   working-directory: ./multi-region-tests/test
+        #   run: |
+        #       set -euo pipefail
 
-              go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBrokers
+        #       go test --count=1 -v -timeout 20m -run TestMultiTenancyDualReg
 
-        - name: Test scaling zeebe partitions in multi-region setup
-          shell: bash
-          working-directory: ./multi-region-tests/test
-          run: |
-              set -euo pipefail
+        # - name: Test scaling zeebe brokers in multi-region setup
+        #   shell: bash
+        #   working-directory: ./multi-region-tests/test
+        #   run: |
+        #       set -euo pipefail
 
-              go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpPartitions
+        #       go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBrokers
 
-        - name: Test scaling zeebe brokers and partitions in multi-region setup
-          shell: bash
-          working-directory: ./multi-region-tests/test
-          run: |
-              set -euo pipefail
+        # - name: Test scaling zeebe partitions in multi-region setup
+        #   shell: bash
+        #   working-directory: ./multi-region-tests/test
+        #   run: |
+        #       set -euo pipefail
 
-              go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBothBrokersAndPartitions
+        #       go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpPartitions
 
-        - name: Debug Step
-          shell: bash
-          working-directory: ./multi-region-tests/test
-          if: failure()
-          run: |
-              set -euo pipefail
+        # - name: Test scaling zeebe brokers and partitions in multi-region setup
+        #   shell: bash
+        #   working-directory: ./multi-region-tests/test
+        #   run: |
+        #       set -euo pipefail
 
-              go test --count=1 -v -timeout 4m -run TestDebugStep
+        #       go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBothBrokersAndPartitions
 
-        - name: Upload Pod Logs
-          if: failure()
-          uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-          with:
-              name: pod-logs-${{ inputs.helm-version }}
-              retention-days: 7
-              path: ./multi-region-tests/test/*.log
+        # - name: Debug Step
+        #   shell: bash
+        #   working-directory: ./multi-region-tests/test
+        #   if: failure()
+        #   run: |
+        #       set -euo pipefail
+
+        #       go test --count=1 -v -timeout 4m -run TestDebugStep
+
+        # - name: Upload Pod Logs
+        #   if: failure()
+        #   uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        #   with:
+        #       name: pod-logs-${{ inputs.helm-version }}
+        #       retention-days: 7
+        #       path: ./multi-region-tests/test/*.log

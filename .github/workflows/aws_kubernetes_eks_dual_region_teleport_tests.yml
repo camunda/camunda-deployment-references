@@ -12,22 +12,13 @@ on:
     workflow_dispatch:
         inputs:
             delete_clusters:
-                description: Whether to delete the clusters.
+                description: Whether to delete the Zeebe clusters.
                 type: boolean
                 default: true
             enable_tests:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
-            ref-arch:
-                description: |
-                    Reference architecture to use, can only deploy one at a time.
-                    Use a different trigger with unique names for each ref-arch.
-                    Valid values are `eks-dual-region`.
-                    Only for workflow_dispatch.
-                required: false
-                type: string
-                default: eks-dual-region
     pull_request:
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
@@ -199,22 +190,22 @@ jobs:
                   for namespace in "${ALL_NAMESPACES[@]}"; do
                     apply_labels_and_annotations "$namespace"
                   done
-            # - name: Run Multi-region tests
-            #   if: env.TESTS_ENABLED == 'true'
-            #   timeout-minutes: 60
-            #   uses: ./.github/actions/internal-multi-region-tests
-            #   with:
-            #       cluster-0-name: ${{ env.CLUSTER_NAME }}
-            #       cluster-1-name: ${{ env.CLUSTER_NAME }}
-            #       cluster-0-namespace: ${{ env.CLUSTER_0_NAMESPACE }}
-            #       cluster-1-namespace: ${{ env.CLUSTER_1_NAMESPACE }}
-            #       helm-version: 0.0.0-snapshot-alpha
-            #       backup-name: ${{ env.BACKUP_NAME }}
-            #       backup-bucket: ${{ env.BACKUP_BUCKET }}
-            #       default-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/camunda-values.yml
-            #       region-0-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
-            #       region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
-            #       skip-cleanup: 'true'
+            - name: Run Multi-region tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 60
+              uses: ./.github/actions/internal-multi-region-tests
+              with:
+                  cluster-0-name: ${{ env.CLUSTER_NAME }}
+                  cluster-1-name: ${{ env.CLUSTER_NAME }}
+                  cluster-0-namespace: ${{ env.CLUSTER_0_NAMESPACE }}
+                  cluster-1-namespace: ${{ env.CLUSTER_1_NAMESPACE }}
+                  helm-version: 0.0.0-snapshot-alpha
+                  backup-name: ${{ env.BACKUP_NAME }}
+                  backup-bucket: ${{ env.BACKUP_BUCKET }}
+                  default-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/camunda-values.yml
+                  region-0-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
+                  region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
+                  skip-cleanup: 'true'
 
             - name: Delete namespaces
               if: always() && env.CLEANUP_CLUSTERS == 'true'
