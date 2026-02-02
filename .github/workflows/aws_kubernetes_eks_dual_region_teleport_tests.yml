@@ -59,6 +59,11 @@ env:
     NAMESPACE_PREFIX: infraex-
     TELEPORT: true
 
+    # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+    CAMUNDA_HELM_CHART_VERSION: 0.0.0-snapshot-alpha
+    # TODO: [release-duty] before the release, update this!
+    # TODO: [release-duty] adjust renovate comment to bump the major version
+
 jobs:
     triage:
         runs-on: ubuntu-latest
@@ -200,7 +205,7 @@ jobs:
                   cluster-1-name: ${{ env.CLUSTER_1_NAME }}
                   cluster-0-namespace: ${{ env.CLUSTER_0_NAMESPACE }}
                   cluster-1-namespace: ${{ env.CLUSTER_1_NAMESPACE }}
-                  helm-version: 0.0.0-snapshot-alpha
+                  helm-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
                   backup-name: ${{ env.BACKUP_NAME }}
                   backup-bucket: ${{ env.BACKUP_BUCKET }}
                   default-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/camunda-values.yml

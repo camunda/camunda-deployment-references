@@ -64,6 +64,11 @@ env:
     TF_VAR_default_tags: '{"map-migrated": "migARUADZHVWZ"}'
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
+    # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+    CAMUNDA_HELM_CHART_VERSION: 0.0.0-snapshot-alpha
+    # TODO: [release-duty] before the release, update this!
+    # TODO: [release-duty] adjust renovate comment to bump the major version
+
 jobs:
     triage:
         runs-on: ubuntu-latest
@@ -214,7 +219,7 @@ jobs:
                   cluster-1-name: ${{ env.CLUSTER_NAME }}-paris
                   cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   cluster-1-namespace: ${{ env.CAMUNDA_NAMESPACE_2 }}
-                  helm-version: 0.0.0-snapshot-alpha
+                  helm-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
                   backup-name: ${{ env.CAMUNDA_RELEASE_NAME }}-backup-${{ github.run_attempt }}
                   backup-bucket: ${{ env.CLUSTER_NAME }}-elastic-backup
                   default-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/camunda-values.yml
