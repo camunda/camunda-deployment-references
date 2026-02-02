@@ -35,10 +35,9 @@ on:
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
             - .github/actions/setup-aws/action.yml
-            - .github/workflows/nightly_aws_operational_procedure_snapshot.yml
-            - .github/workflows/reuseable_aws_operational_procedure.yml
-            - aws/dual-region/terraform/**
-            - test/**
+            - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
+            - aws/kubernetes/eks-dual-region/terraform/**
+            - aws/kubernetes/eks-dual-region/test/**
             - .tools-versions
 # limit to a single execution per actor of this workflow
 concurrency:
