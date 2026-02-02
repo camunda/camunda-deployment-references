@@ -39,6 +39,7 @@ on:
             - aws/kubernetes/eks-dual-region/terraform/**
             - aws/kubernetes/eks-dual-region/test/**
             - .tools-versions
+    push:
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
