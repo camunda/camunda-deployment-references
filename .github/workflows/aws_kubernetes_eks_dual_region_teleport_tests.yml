@@ -52,6 +52,8 @@ env:
     ZEEBE_CLUSTER_SIZE: 8 # default size of Zeebe cluster for tests - used by scripts
     CAMUNDA_RELEASE_NAME: camunda
     CLUSTER_NAME: camunda-ci-eks
+    CLUSTER_0_NAME: camunda.teleport.sh-camunda-ci-eks
+    CLUSTER_1_NAME: camunda.teleport.sh-camunda-ci-eks
     CLUSTER_1_NAMESPACE: c8-multiregion-test-cluster-1
     CLUSTER_0_NAMESPACE: c8-multiregion-test-cluster-0
     NAMESPACE_PREFIX: infraex-
@@ -195,8 +197,8 @@ jobs:
               timeout-minutes: 60
               uses: ./.github/actions/internal-multi-region-tests
               with:
-                  cluster-0-name: ${{ env.CLUSTER_NAME }}
-                  cluster-1-name: ${{ env.CLUSTER_NAME }}
+                  cluster-0-name: ${{ env.CLUSTER_0_NAME }}
+                  cluster-1-name: ${{ env.CLUSTER_1_NAME }}
                   cluster-0-namespace: ${{ env.CLUSTER_0_NAMESPACE }}
                   cluster-1-namespace: ${{ env.CLUSTER_1_NAMESPACE }}
                   helm-version: 0.0.0-snapshot-alpha
