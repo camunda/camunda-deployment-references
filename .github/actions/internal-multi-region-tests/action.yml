@@ -91,6 +91,10 @@ runs:
               cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./multi-region-tests/test/kubeconfig-london"
               cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./multi-region-tests/test/kubeconfig-paris"
 
+              if [[ "${{ inputs.cluster-0-name }}" == "${{ inputs.cluster-1-name }}" ]]; then
+                cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./multi-region-tests/test/kubeconfig"
+              fi
+
         - name: Set Up Environment Variables
           shell: bash
           run: |
