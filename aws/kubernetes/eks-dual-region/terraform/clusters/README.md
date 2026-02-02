@@ -1,4 +1,7 @@
-# cluster
+# Terraform Setup for EKS dual-region
+
+This folder describes the IaC of Camunda on AWS EKS in a dual-region setup.
+Instructions can be found on the official documentation: https://docs.camunda.io/docs/self-managed/deployment/helm/cloud-providers/amazon/amazon-eks/dual-region/
 
 <!-- BEGIN_TF_DOCS -->
 ## Modules
