@@ -3,6 +3,7 @@ name: Tests - Integration - Teleport - AWS Kubernetes EKS Dual Region
 
 permissions:
     contents: read # don't allow commits
+    id-token: write # for Teleport authentication
     pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
 on:
