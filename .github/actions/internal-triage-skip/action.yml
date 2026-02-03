@@ -1,8 +1,10 @@
 ---
 name: Skip Workflow if Labeled
 description: >
-    Skips the workflow if a label matches its filename
-    (e.g.  skip_aws_openshift_rosa_hcp_single_region_tests without the yml extension)
+    Skips the workflow if a label matches its filename,
+    or if the skip directive is found in the PR description, comments, or checklist
+    (e.g.  skip_aws_openshift_rosa_hcp_single_region_tests without the yml extension).
+    Also posts/updates a checklist comment with all available skip options.
 
 outputs:
     should_skip:
@@ -48,6 +50,64 @@ runs:
                 echo "[debug] Not a pull_request event; skipping PR-specific debug data."
               fi
 
+        - name: Post or update skip checklist comment
+          id: post_checklist
+          if: github.event_name == 'pull_request'
+          shell: bash
+          env:
+              GH_TOKEN: ${{ github.token }}
+          run: |
+              set -euo pipefail
+
+              pr_number="${{ github.event.pull_request.number }}"
+              repo="${{ github.repository }}"
+              checklist_marker="<!-- skip-workflow-checklist -->"
+
+              # Fetch all skip_* labels from the repository
+              echo "[debug] Fetching all skip_* labels from repository..."
+              all_skip_labels=$(gh label list --repo "$repo" --limit 500 --json name --jq '.[] | select(.name | startswith("skip_")) | .name' | sort)
+
+              if [[ -z "$all_skip_labels" ]]; then
+                echo "[debug] No skip_* labels found in the repository, skipping checklist creation"
+                exit 0
+              fi
+
+              echo "[debug] Found skip labels:"
+              echo "$all_skip_labels"
+
+              # Check if a checklist comment already exists
+              existing_comment_id=$(gh pr view "$pr_number" --repo "$repo" --json comments \
+                --jq ".comments[] | select(.body | contains(\"$checklist_marker\")) | .id" | head -1)
+
+              # Build the checklist content
+              checklist_body="$checklist_marker
+              ## 🔀 Skip Workflow Checklist
+
+              Check the boxes below to skip specific workflows for this PR.
+              You can also add \`testing-ci-not-necessary\` to skip all tests.
+
+              "
+
+              while IFS= read -r label; do
+                if [[ -n "$label" ]]; then
+                  checklist_body+="- [ ] \`$label\`
+              "
+                fi
+              done <<< "$all_skip_labels"
+
+              checklist_body+="
+              ---
+              *This checklist is automatically managed. Checked items will skip the corresponding workflow.*"
+
+              if [[ -n "$existing_comment_id" ]]; then
+                echo "[debug] Checklist comment already exists (ID: $existing_comment_id), preserving user selections"
+                # Don't update - we want to preserve user's checkbox selections
+              else
+                echo "[debug] Creating new checklist comment..."
+                gh pr comment "$pr_number" --repo "$repo" --body "$checklist_body"
+                echo "[debug] Checklist comment created"
+              fi
+
         - name: Get the current workflow filename and check for skip labels
           id: check_labels
           shell: bash
@@ -75,10 +135,49 @@ runs:
               echo "[debug] Fresh labels from API:"
               echo "$labels"
 
-              workflow_labels="skip_$workflow_file_name"
+              skip_pattern="skip_$workflow_file_name"
 
-              if echo "$labels" | grep -qE "$workflow_labels|testing-ci-not-necessary"; then
+              # Check labels
+              if echo "$labels" | grep -qE "$skip_pattern|testing-ci-not-necessary"; then
+                echo "[debug] Skip directive found in labels"
                 echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
-              else
-                echo "workflow_should_skip=false" | tee -a "$GITHUB_OUTPUT"
+                exit 0
               fi
+
+              # Check PR description/body
+              echo "[debug] Checking PR description for skip directive..."
+              pr_body=$(gh pr view "$pr_number" --repo "$repo" --json body --jq '.body // ""')
+              if echo "$pr_body" | grep -qiE "$skip_pattern|testing-ci-not-necessary"; then
+                echo "[debug] Skip directive found in PR description"
+                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              # Check PR comments for skip directive (including checklist with checked boxes)
+              echo "[debug] Checking PR comments for skip directive..."
+              pr_comments=$(gh pr view "$pr_number" --repo "$repo" --json comments --jq '.comments[].body // ""')
+
+              # Check for explicit skip mention in comments
+              if echo "$pr_comments" | grep -qiE "$skip_pattern|testing-ci-not-necessary"; then
+                echo "[debug] Skip directive found in PR comments"
+                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              # Check for checked checkbox in the checklist comment
+              # Pattern: - [x] `skip_workflow_name` or - [X] `skip_workflow_name`
+              if echo "$pr_comments" | grep -qiE "\- \[[xX]\] \`$skip_pattern\`"; then
+                echo "[debug] Skip directive found in checklist (checkbox checked)"
+                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              # Check for testing-ci-not-necessary checked in checklist
+              if echo "$pr_comments" | grep -qiE "\- \[[xX]\] \`testing-ci-not-necessary\`"; then
+                echo "[debug] testing-ci-not-necessary found checked in checklist"
+                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              echo "[debug] No skip directive found"
+              echo "workflow_should_skip=false" | tee -a "$GITHUB_OUTPUT"
