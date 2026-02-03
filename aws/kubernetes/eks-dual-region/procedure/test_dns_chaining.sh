@@ -15,19 +15,22 @@ ping_instance() {
     local context=$1
     local source_namespace=$2
     local target_namespace=$3
-    for i in {1..5}
+    i=1
+    while [ "$i" -le 5 ]
     do
         echo "Iteration $i - $source_namespace -> $target_namespace"
-        output=$(kubectl --context "$context" exec -n "$source_namespace" sample-nginx -- curl "http://sample-nginx.sample-nginx-peer.$target_namespace.svc.cluster.local")
-        if output=$(echo "$output" | grep "Welcome to nginx!"); then
-            echo "Success: $output"
-            return
-        else
-            echo "Try again in 15 seconds..."
-            sleep 15
+        if output=$(kubectl --context "$context" exec -n "$source_namespace" sample-nginx -- curl -s --max-time 15 "http://sample-nginx.sample-nginx-peer.$target_namespace.svc.cluster.local" 2>&1); then
+            if echo "$output" | grep -q "Welcome to nginx!"; then
+                echo "Success: $output"
+                return 0
+            fi
         fi
+        echo "Try again in 15 seconds..."
+        sleep 15
+        i=$((i + 1))
     done
     echo "Failed to reach the target instance - CoreDNS might not be reloaded yet or wrongly configured"
+    return 1
 }
 
 create_namespace "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0"
