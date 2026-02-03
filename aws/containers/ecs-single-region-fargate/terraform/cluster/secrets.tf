@@ -9,13 +9,13 @@
 resource "random_password" "admin_user_password" {
   length           = 32
   special          = true
-  override_special = "!@#$%^&*()-_=+[]{}:?"
+  override_special = "!#$%^()-_=+[]{}:?"
 }
 
 resource "random_password" "connectors_user_password" {
   length           = 32
   special          = true
-  override_special = "!@#$%^&*()-_=+[]{}:?"
+  override_special = "!#$%^()-_=+[]{}:?"
 }
 
 resource "random_password" "db_admin_password" {
@@ -23,7 +23,7 @@ resource "random_password" "db_admin_password" {
 
   length           = 32
   special          = true
-  override_special = "!@#$%^&*()-_=+[]{}:?"
+  override_special = "!#$%^()-_=+[]{}:?"
 }
 
 locals {

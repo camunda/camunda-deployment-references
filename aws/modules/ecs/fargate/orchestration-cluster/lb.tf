@@ -3,7 +3,8 @@
 ################################################################
 
 resource "aws_lb_target_group" "main" {
-  name        = "${var.prefix}-tg-8080"
+  # target groups are limited to 32 characters, truncating to less to not clash
+  name        = "${substr(var.prefix, 0, 17)}-orc-tg-8080"
   port        = 8080
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
@@ -31,7 +32,8 @@ resource "aws_lb_target_group" "main" {
 }
 
 resource "aws_lb_target_group" "main_9600" {
-  name        = "${var.prefix}-tg-9600"
+  # target groups are limited to 32 characters, truncating to less to not clash
+  name        = "${substr(var.prefix, 0, 17)}-orc-tg-9600"
   port        = 9600
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
@@ -97,7 +99,8 @@ resource "aws_lb_listener_rule" "http_management" {
 ################################################################
 
 resource "aws_lb_target_group" "main_26500" {
-  name        = "${var.prefix}-tg-26500"
+  # target groups are limited to 32 characters, truncating to less to not clash
+  name        = "${substr(var.prefix, 0, 17)}-orc-tg-26500"
   port        = 26500
   protocol    = "TCP"
   vpc_id      = var.vpc_id
