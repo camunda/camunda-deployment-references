@@ -276,14 +276,14 @@ jobs:
               working-directory: ./aws/kubernetes/eks-dual-region/test/
               timeout-minutes: 5
               run: |
-                  go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
+                  go test --count=1 -v -timeout 4m -failfast -run TestAWSKubeConfigCreation
     ########### Load Balancer Removal ############
             - name: Delete LBs to unblock teardown
               if: env.CLEANUP_CLUSTERS == 'true'
               working-directory: ./aws/kubernetes/eks-dual-region/test/
               timeout-minutes: 5
               run: |
-                  go test --count=1 -v -timeout 4m -run TestClusterCleanup
+                  go test --count=1 -v -timeout 4m -failfast -run TestClusterCleanup
     ############# Terratest Teardown #############
             - name: Delete on-demand EKS Cluster
               uses: ./.github/actions/aws-generic-terraform-cleanup

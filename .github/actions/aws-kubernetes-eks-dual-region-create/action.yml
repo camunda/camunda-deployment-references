@@ -168,7 +168,7 @@ runs:
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/test/
           shell: bash
           run: |
-              go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
+              go test --count=1 -v -timeout 4m -failfast -run TestAWSKubeConfigCreation
         - name: Export GHA for namespace setup
           shell: bash
           run: |
@@ -181,7 +181,7 @@ runs:
               AWS_ACCESS_KEY_ES: ${{ steps.s3-credentials.outputs.AWS_ACCESS_KEY_ES }}
               AWS_SECRET_ACCESS_KEY_ES: ${{ steps.s3-credentials.outputs.AWS_SECRET_ACCESS_KEY_ES }}
           run: |
-              go test --count=1 -v -timeout 9m -run TestClusterPrerequisites
+              go test --count=1 -v -timeout 9m -failfast -run TestClusterPrerequisites
         ########### Namespace and DNS setup #########
         - name: Do the DNS chaining for all required namespaces
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/test/
@@ -191,4 +191,4 @@ runs:
               CLUSTER_0_NAMESPACE: c8-snap-cluster-0
               CLUSTER_1_NAMESPACE: c8-snap-cluster-1
           run: |
-              go test --count=1 -v -timeout 44m -run TestAWSDNSChaining
+              go test --count=1 -v -timeout 44m -failfast -run TestAWSDNSChaining

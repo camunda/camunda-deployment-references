@@ -151,7 +151,7 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  go test --count=1 -v -timeout 9m -run TestClusterPrerequisites
+                  go test --count=1 -v -timeout 9m -failfast -run TestClusterPrerequisites
 
             - name: Label and annotate namespaces and secrets
               working-directory: ./aws/kubernetes/eks-dual-region/test
