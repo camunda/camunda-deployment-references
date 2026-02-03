@@ -28,11 +28,11 @@ module "orchestration_cluster" {
   environment_variables = [
     {
       name  = "CAMUNDA_CLUSTER_REPLICATIONFACTOR"
-      value = "1"
+      value = "3"
     },
     {
       name  = "CAMUNDA_CLUSTER_PARTITIONCOUNT"
-      value = "5"
+      value = "3"
     },
     # Secondary Storage - RDBMS (Aurora PostgreSQL with IAM Auth)
     {
