@@ -2,8 +2,8 @@
 
 set -e
 
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get the directory where this script is located (POSIX-compatible)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 create_namespace() {
     local context=$1
