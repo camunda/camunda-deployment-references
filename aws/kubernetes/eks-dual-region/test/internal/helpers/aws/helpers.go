@@ -25,7 +25,7 @@ import (
 
 // AWS Helpers
 func WaitForNodeGroup(region, clusterName, nodegroupName string) string {
-	awsProfile := helpers.GetEnv("AWS_PROFILE", "infex")
+	awsProfile := helpers.GetEnv("AWS_PROFILE", "infraex")
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
@@ -61,7 +61,7 @@ func WaitForNodeGroup(region, clusterName, nodegroupName string) string {
 }
 
 func WaitForCluster(region, clusterName string) string {
-	awsProfile := helpers.GetEnv("AWS_PROFILE", "infex")
+	awsProfile := helpers.GetEnv("AWS_PROFILE", "infraex")
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
@@ -69,6 +69,7 @@ func WaitForCluster(region, clusterName string) string {
 	)
 	if err != nil {
 		fmt.Println("[CLUSTER CHECK] Error creating session:", err)
+		return err.Error()
 	}
 
 	client := eks.NewFromConfig(cfg)
@@ -97,7 +98,7 @@ func WaitForCluster(region, clusterName string) string {
 }
 
 func GetPrivateIPsForInternalLB(region, description string) []string {
-	awsProfile := helpers.GetEnv("AWS_PROFILE", "infex")
+	awsProfile := helpers.GetEnv("AWS_PROFILE", "infraex")
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),

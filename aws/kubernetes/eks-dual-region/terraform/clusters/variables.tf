@@ -3,7 +3,7 @@
 ################################
 
 locals {
-  # For demenstration purposes, we will use owner and acceptor as separation. Naming choice will become clearer when seeing the peering setup
+  # For demonstration purposes, we will use owner and acceptor as separation. Naming choice will become clearer when seeing the peering setup
   owner = {
     region             = "eu-west-2"     # London
     vpc_cidr_block     = "10.192.0.0/16" # vpc for the cluster and pod range

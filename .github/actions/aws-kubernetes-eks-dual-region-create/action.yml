@@ -43,13 +43,13 @@ outputs:
         value: ${{ steps.init-cluster.outputs.terraform-state-url-cluster }}
     s3-aws-access-key:
         description: AWS access key for the S3 bucket used by Elasticsearch backup
-        value: ${{ steps.get-s3-credentials.outputs.s3-aws-access-key }}
+        value: ${{ steps.s3-credentials.outputs.s3-aws-access-key }}
     s3-aws-secret-access-key:
         description: AWS secret access key for the S3 bucket used by Elasticsearch backup
-        value: ${{ steps.get-s3-credentials.outputs.s3-aws-secret-access-key }}
+        value: ${{ steps.s3-credentials.outputs.s3-aws-secret-access-key }}
     s3-bucket-name:
         description: Name of the S3 bucket for Elasticsearch backup
-        value: ${{ steps.get-s3-credentials.outputs.s3-bucket-name }}
+        value: ${{ steps.s3-credentials.outputs.s3-bucket-name }}
 
 runs:
     using: composite

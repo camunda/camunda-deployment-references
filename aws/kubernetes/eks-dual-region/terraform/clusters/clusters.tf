@@ -35,7 +35,7 @@ module "eks_cluster_region_1" {
   cluster_service_ipv4_cidr = local.accepter.service_cidr_block
   cluster_node_ipv4_cidr    = local.accepter.vpc_cidr_block
 
-  # Important to reference the correcet provider for the "foreign" region
+  # Important to reference the correct provider for the "foreign" region
   # Otherwise the resources will be created in the default region
   # Also important for all other resources that need to be created in the "foreign" region
   providers = {

@@ -4,7 +4,7 @@
 ################################
 # This is the peering connection between the two VPCs
 # You always have a requester and an accepter. The requester is the one who initiates the connection.
-# That's why were using the owner and accepter naming convention.
+# That's why we are using the owner and accepter naming convention.
 # Auto_accept is only required in the accepter. Otherwise you have to manually accept the connection.
 # Auto_accept only works in the "owner" if the VPCs are in the same region
 

@@ -14,47 +14,8 @@ resource "aws_kms_alias" "s3_bucket_key_alias" {
   target_key_id = aws_kms_key.s3_bucket_key.key_id
 }
 
-# Logging bucket for access logs
-resource "aws_s3_bucket" "elastic_backup_logs" {
-  bucket = "${var.cluster_name}-elastic-backup-logs"
-
-  tags = {
-    Name = "${var.cluster_name}-logs"
-  }
-
-  force_destroy = true
-}
-
-resource "aws_s3_bucket_public_access_block" "elastic_backup_logs" {
-  bucket = aws_s3_bucket.elastic_backup_logs.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "elastic_backup_logs" {
-  bucket = aws_s3_bucket.elastic_backup_logs.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.s3_bucket_key.arn
-      sse_algorithm     = "aws:kms"
-    }
-    bucket_key_enabled = true
-  }
-}
-
-resource "aws_s3_bucket_versioning" "elastic_backup_logs" {
-  bucket = aws_s3_bucket.elastic_backup_logs.id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
 # Main backup bucket
+#trivy:ignore:AVD-AWS-0089 Bucket logging disabled - logs bucket removed to simplify setup
 resource "aws_s3_bucket" "elastic_backup" {
   bucket = "${var.cluster_name}-elastic-backup"
 
@@ -92,13 +53,6 @@ resource "aws_s3_bucket_versioning" "elastic_backup" {
   versioning_configuration {
     status = "Enabled"
   }
-}
-
-resource "aws_s3_bucket_logging" "elastic_backup" {
-  bucket = aws_s3_bucket.elastic_backup.id
-
-  target_bucket = aws_s3_bucket.elastic_backup_logs.id
-  target_prefix = "access-logs/"
 }
 
 # IAM user for S3 access

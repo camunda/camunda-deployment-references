@@ -15,7 +15,7 @@ ping_instance() {
     for i in {1..5}
     do
         echo "Iteration $i - $source_namespace -> $target_namespace"
-        output=$(kubectl --context "$context" exec -n "$source_namespace" -it sample-nginx -- curl "http://sample-nginx.sample-nginx-peer.$target_namespace.svc.cluster.local")
+        output=$(kubectl --context "$context" exec -n "$source_namespace" sample-nginx -- curl "http://sample-nginx.sample-nginx-peer.$target_namespace.svc.cluster.local")
         if output=$(echo "$output" | grep "Welcome to nginx!"); then
             echo "Success: $output"
             return
