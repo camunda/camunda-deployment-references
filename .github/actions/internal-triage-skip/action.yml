@@ -4,7 +4,7 @@ description: >
     Skips the workflow if a label matches its filename,
     or if the skip directive is found in the PR description, comments, or checklist
     (e.g.  skip_aws_openshift_rosa_hcp_single_region_tests without the yml extension).
-    Also posts/updates a checklist comment with all available skip options.
+    Also posts a checklist comment with all available skip options (created once, preserved thereafter).
 
 outputs:
     should_skip:
@@ -50,7 +50,7 @@ runs:
                 echo "[debug] Not a pull_request event; skipping PR-specific debug data."
               fi
 
-        - name: Post or update skip checklist comment
+        - name: Post skip checklist comment (if not exists)
           id: post_checklist
           if: github.event_name == 'pull_request'
           continue-on-error: true
@@ -87,17 +87,13 @@ runs:
                 --jq ".comments[] | select(.body | contains(\"$checklist_marker\")) | .id" | head -1)
 
               # Build the checklist content (no leading spaces to avoid markdown code blocks)
-              read -r -d '' checklist_body << 'CHECKLIST_EOF' || true
+              checklist_body="${checklist_marker}
 ## 🔀 Skip Workflow Checklist
 
 Check the boxes below to skip specific workflows for this PR.
-You can also add `testing-ci-not-necessary` to skip all tests.
+You can also add \`testing-ci-not-necessary\` to skip all tests.
 
-CHECKLIST_EOF
-
-              # Prepend the marker
-              checklist_body="${checklist_marker}
-${checklist_body}"
+"
 
               while IFS= read -r label; do
                 if [[ -n "$label" ]]; then
