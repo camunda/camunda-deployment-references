@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"multiregiontests/internal/helpers"
 	awsHelpers "multiregiontests/internal/helpers/aws"
@@ -145,6 +146,9 @@ func testCoreDNSReload(t *testing.T) {
 	t.Logf("[COREDNS RELOAD] Checking for CoreDNS reload 🔄")
 	kubectlHelpers.CheckCoreDNSReload(t, &primary.KubectlSystem)
 	kubectlHelpers.CheckCoreDNSReload(t, &secondary.KubectlSystem)
+
+	t.Log("[COREDNS RELOAD] Waiting for CoreDNS changes to propagate ⏳")
+	time.Sleep(15 * time.Second)
 }
 
 func testCrossClusterCommunicationWithDNS(t *testing.T) {

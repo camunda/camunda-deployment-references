@@ -169,8 +169,8 @@ func CheckCoreDNSReload(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 
 	for _, pod := range pods {
 		reloaded := false
-		for i := 0; i < 8; i++ {
-			t.Logf("[COREDNS RELOAD] Checking CoreDNS logs for pod %s (attempt %d/8)", pod.Name, i+1)
+		for i := 0; i < 12; i++ {
+			t.Logf("[COREDNS RELOAD] Checking CoreDNS logs for pod %s (attempt %d/12)", pod.Name, i+1)
 			logs := k8s.GetPodLogs(t, kubectlOptions, &pod, "coredns")
 
 			if strings.Contains(logs, "Reloading complete") {
@@ -181,7 +181,7 @@ func CheckCoreDNSReload(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 			t.Log("[COREDNS RELOAD] CoreDNS not reloaded yet. Waiting...")
 			time.Sleep(15 * time.Second)
 		}
-		require.True(t, reloaded, "[COREDNS RELOAD] CoreDNS did not reload after 8 attempts for pod %s", pod.Name)
+		require.True(t, reloaded, "[COREDNS RELOAD] CoreDNS did not reload after 12 attempts for pod %s", pod.Name)
 	}
 }
 

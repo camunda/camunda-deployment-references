@@ -2,6 +2,9 @@
 
 set -e
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 create_namespace() {
     local context=$1
     local namespace=$2
@@ -30,8 +33,8 @@ ping_instance() {
 create_namespace "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0"
 create_namespace "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1"
 
-kubectl --context "$CLUSTER_0" apply -f ./manifests/nginx.yml -n "$CAMUNDA_NAMESPACE_0"
-kubectl --context "$CLUSTER_1" apply -f ./manifests/nginx.yml -n "$CAMUNDA_NAMESPACE_1"
+kubectl --context "$CLUSTER_0" apply -f "$SCRIPT_DIR/manifests/nginx.yml" -n "$CAMUNDA_NAMESPACE_0"
+kubectl --context "$CLUSTER_1" apply -f "$SCRIPT_DIR/manifests/nginx.yml" -n "$CAMUNDA_NAMESPACE_1"
 
 
 kubectl --context "$CLUSTER_0" wait --for=condition=Ready pod/sample-nginx -n "$CAMUNDA_NAMESPACE_0" --timeout=300s
@@ -40,5 +43,5 @@ kubectl --context "$CLUSTER_1" wait --for=condition=Ready pod/sample-nginx -n "$
 ping_instance "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0" "$CAMUNDA_NAMESPACE_1"
 ping_instance "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1" "$CAMUNDA_NAMESPACE_0"
 
-kubectl --context "$CLUSTER_0" delete -f ./manifests/nginx.yml -n "$CAMUNDA_NAMESPACE_0"
-kubectl --context "$CLUSTER_1" delete -f ./manifests/nginx.yml -n "$CAMUNDA_NAMESPACE_1"
+kubectl --context "$CLUSTER_0" delete -f "$SCRIPT_DIR/manifests/nginx.yml" -n "$CAMUNDA_NAMESPACE_0"
+kubectl --context "$CLUSTER_1" delete -f "$SCRIPT_DIR/manifests/nginx.yml" -n "$CAMUNDA_NAMESPACE_1"
