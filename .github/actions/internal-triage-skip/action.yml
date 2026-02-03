@@ -53,11 +53,18 @@ runs:
         - name: Post or update skip checklist comment
           id: post_checklist
           if: github.event_name == 'pull_request'
+          continue-on-error: true
           shell: bash
           env:
               GH_TOKEN: ${{ github.token }}
           run: |
               set -euo pipefail
+
+              # Check if this is a fork PR (limited permissions)
+              if [[ "${{ github.event.pull_request.head.repo.fork }}" == "true" ]]; then
+                echo "[debug] Fork PR detected - skipping checklist comment (insufficient permissions)"
+                exit 0
+              fi
 
               pr_number="${{ github.event.pull_request.number }}"
               repo="${{ github.repository }}"
@@ -79,25 +86,29 @@ runs:
               existing_comment_id=$(gh pr view "$pr_number" --repo "$repo" --json comments \
                 --jq ".comments[] | select(.body | contains(\"$checklist_marker\")) | .id" | head -1)
 
-              # Build the checklist content
-              checklist_body="$checklist_marker
-              ## 🔀 Skip Workflow Checklist
+              # Build the checklist content (no leading spaces to avoid markdown code blocks)
+              read -r -d '' checklist_body << 'CHECKLIST_EOF' || true
+## 🔀 Skip Workflow Checklist
 
-              Check the boxes below to skip specific workflows for this PR.
-              You can also add \`testing-ci-not-necessary\` to skip all tests.
+Check the boxes below to skip specific workflows for this PR.
+You can also add `testing-ci-not-necessary` to skip all tests.
 
-              "
+CHECKLIST_EOF
+
+              # Prepend the marker
+              checklist_body="${checklist_marker}
+${checklist_body}"
 
               while IFS= read -r label; do
                 if [[ -n "$label" ]]; then
                   checklist_body+="- [ ] \`$label\`
-              "
+"
                 fi
               done <<< "$all_skip_labels"
 
               checklist_body+="
-              ---
-              *This checklist is automatically managed. Checked items will skip the corresponding workflow.*"
+---
+*This checklist is automatically managed. Checked items will skip the corresponding workflow.*"
 
               if [[ -n "$existing_comment_id" ]]; then
                 echo "[debug] Checklist comment already exists (ID: $existing_comment_id), preserving user selections"
@@ -106,6 +117,23 @@ runs:
                 echo "[debug] Creating new checklist comment..."
                 gh pr comment "$pr_number" --repo "$repo" --body "$checklist_body"
                 echo "[debug] Checklist comment created"
+
+                # Handle race condition: check for duplicates and clean up
+                sleep 2  # Brief wait for GitHub API consistency
+                all_checklist_comments=$(gh pr view "$pr_number" --repo "$repo" --json comments \
+                  --jq "[.comments[] | select(.body | contains(\"$checklist_marker\")) | {id: .id, createdAt: .createdAt}] | sort_by(.createdAt)")
+
+                comment_count=$(echo "$all_checklist_comments" | jq 'length')
+                if [[ "$comment_count" -gt 1 ]]; then
+                  echo "[debug] Race condition detected: $comment_count checklist comments found, cleaning up duplicates..."
+                  # Keep the oldest (first) comment, delete the rest
+                  comments_to_delete=$(echo "$all_checklist_comments" | jq -r '.[1:][].id')
+                  for comment_id in $comments_to_delete; do
+                    echo "[debug] Deleting duplicate comment: $comment_id"
+                    gh api --method DELETE "/repos/$repo/issues/comments/$comment_id" || true
+                  done
+                  echo "[debug] Cleanup complete, kept oldest checklist comment"
+                fi
               fi
 
         - name: Get the current workflow filename and check for skip labels
@@ -153,27 +181,34 @@ runs:
                 exit 0
               fi
 
-              # Check PR comments for skip directive (including checklist with checked boxes)
+              # Check PR comments for skip directive (excluding the auto-generated checklist comment)
               echo "[debug] Checking PR comments for skip directive..."
-              pr_comments=$(gh pr view "$pr_number" --repo "$repo" --json comments --jq '.comments[].body // ""')
+              checklist_marker="<!-- skip-workflow-checklist -->"
 
-              # Check for explicit skip mention in comments
-              if echo "$pr_comments" | grep -qiE "$skip_pattern|testing-ci-not-necessary"; then
+              # Get comments excluding the managed checklist comment
+              pr_comments_excluding_checklist=$(gh pr view "$pr_number" --repo "$repo" --json comments \
+                --jq "[.comments[] | select(.body | contains(\"$checklist_marker\") | not) | .body] | join(\"\n\")")
+
+              # Check for explicit skip mention in non-checklist comments
+              if echo "$pr_comments_excluding_checklist" | grep -qiE "$skip_pattern|testing-ci-not-necessary"; then
                 echo "[debug] Skip directive found in PR comments"
                 echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
                 exit 0
               fi
 
-              # Check for checked checkbox in the checklist comment
+              # Check for checked checkbox in the checklist comment only
               # Pattern: - [x] `skip_workflow_name` or - [X] `skip_workflow_name`
-              if echo "$pr_comments" | grep -qiE "\- \[[xX]\] \`$skip_pattern\`"; then
+              checklist_comment=$(gh pr view "$pr_number" --repo "$repo" --json comments \
+                --jq "[.comments[] | select(.body | contains(\"$checklist_marker\")) | .body] | first // \"\"")
+
+              if echo "$checklist_comment" | grep -qE "\- \[[xX]\] \`$skip_pattern\`"; then
                 echo "[debug] Skip directive found in checklist (checkbox checked)"
                 echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
                 exit 0
               fi
 
               # Check for testing-ci-not-necessary checked in checklist
-              if echo "$pr_comments" | grep -qiE "\- \[[xX]\] \`testing-ci-not-necessary\`"; then
+              if echo "$checklist_comment" | grep -qE "\- \[[xX]\] \`testing-ci-not-necessary\`"; then
                 echo "[debug] testing-ci-not-necessary found checked in checklist"
                 echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
                 exit 0
