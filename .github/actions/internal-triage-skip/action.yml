@@ -96,8 +96,10 @@ runs:
               # Build the checklist content
               checklist_body="${checklist_marker}"$'\n'
               checklist_body+="## 🔀 Skip Workflow Checklist"$'\n\n'
-              checklist_body+="Check the boxes below to skip specific workflows for this PR."$'\n'
-              checklist_body+="You can also add \`testing-ci-not-necessary\` to skip all tests."$'\n\n'
+              checklist_body+="Check the boxes below to skip specific workflows for this PR."$'\n\n'
+              checklist_body+="### Global options"$'\n'
+              checklist_body+="- [ ] \`skip_all\` - Skip all workflows"$'\n\n'
+              checklist_body+="### Individual workflows"$'\n'
 
               while IFS= read -r label; do
                 if [[ -n "$label" ]]; then
@@ -163,8 +165,8 @@ runs:
 
               skip_pattern="skip_$workflow_file_name"
 
-              # Check labels
-              if echo "$labels" | grep -qE "$skip_pattern|testing-ci-not-necessary"; then
+              # Check labels (skip_all and testing-ci-not-necessary skip everything)
+              if echo "$labels" | grep -qE "$skip_pattern|skip_all|testing-ci-not-necessary"; then
                 echo "[debug] Skip directive found in labels"
                 echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
                 exit 0
@@ -182,9 +184,9 @@ runs:
                 exit 0
               fi
 
-              # Check for testing-ci-not-necessary checked in checklist
-              if echo "$checklist_comment" | grep -qE "\- \[[xX]\] \`testing-ci-not-necessary\`"; then
-                echo "[debug] testing-ci-not-necessary found checked in checklist"
+              # Check for skip_all checked in checklist
+              if echo "$checklist_comment" | grep -qE "\- \[[xX]\] \`skip_all\`"; then
+                echo "[debug] skip_all found checked in checklist"
                 echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
                 exit 0
               fi
