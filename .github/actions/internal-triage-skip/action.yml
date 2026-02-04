@@ -1,0 +1,198 @@
+---
+name: Skip Workflow if Labeled
+description: >
+    Skips the workflow if a label matches its filename (e.g. skip_aws_openshift_rosa_hcp_single_region_tests),
+    or if the corresponding checkbox is checked in the auto-posted checklist comment.
+    Also posts a checklist comment with all available skip options (created once, preserved thereafter).
+
+outputs:
+    should_skip:
+        description: Indicates whether the workflow should be skipped
+        value: ${{ steps.check_labels.outputs.workflow_should_skip }}
+
+runs:
+    using: composite
+    steps:
+        - name: Debug workflow context
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "[debug] github.actor='${{ github.actor }}'"
+              if [[ "${{ github.actor }}" == "renovate[bot]" ]]; then
+                echo "[debug] Actor is Renovate bot"
+              else
+                echo "[debug] Actor is NOT Renovate bot"
+              fi
+              echo "[debug] github.event_name='${{ github.event_name }}'"
+              echo "[debug] github.repository='${{ github.repository }}'"
+              echo "[debug] github.workflow_ref='${{ github.workflow_ref }}'"
+              echo "[debug] github.run_id='${{ github.run_id }}' run_attempt='${{ github.run_attempt }}'"
+
+              if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+                echo "[debug] pull_request.number='${{ github.event.pull_request.number }}'"
+                echo "[debug] pull_request.head.ref='${{ github.event.pull_request.head.ref }}'"
+                echo "[debug] pull_request.base.ref='${{ github.event.pull_request.base.ref }}'"
+                echo "[debug] pull_request.title='${{ github.event.pull_request.title }}'"
+                echo "[debug] Labels on PR:"
+                echo '${{ toJSON(github.event.pull_request.labels.*.name) }}' | jq -r '.[]' || true
+              elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+                echo "[debug] workflow_dispatch inputs (raw JSON):"
+                if [[ -f "$GITHUB_EVENT_PATH" ]]; then
+                  jq '.inputs // {}' "$GITHUB_EVENT_PATH" || true
+                  echo "[debug] Flattened key=value inputs:"
+                  jq -r '.inputs // {} | to_entries[] | "[debug] input." + .key + "=" + (.value|tostring)' "$GITHUB_EVENT_PATH" || true
+                else
+                  echo "[debug] No event payload file found ($GITHUB_EVENT_PATH)"
+                fi
+              else
+                echo "[debug] Not a pull_request event; skipping PR-specific debug data."
+              fi
+
+        - name: Post skip checklist comment (if not exists)
+          id: post_checklist
+          if: github.event_name == 'pull_request'
+          continue-on-error: true
+          shell: bash
+          env:
+              GH_TOKEN: ${{ github.token }}
+          run: |
+              set -euo pipefail
+
+              # Check if this is a fork PR (limited permissions)
+              if [[ "${{ github.event.pull_request.head.repo.fork }}" == "true" ]]; then
+                echo "[debug] Fork PR detected - skipping checklist comment (insufficient permissions)"
+                exit 0
+              fi
+
+              pr_number="${{ github.event.pull_request.number }}"
+              repo="${{ github.repository }}"
+              checklist_marker="<!-- skip-workflow-checklist -->"
+
+              # Generate skip labels dynamically from workflow files that use this action
+              echo "[debug] Generating skip labels from workflow files..."
+              all_skip_labels=""
+              for workflow_file in .github/workflows/*.yml .github/workflows/*.yaml; do
+                if [[ -f "$workflow_file" ]]; then
+                  # Only include workflows that use the internal-triage-skip action
+                  if grep -q "internal-triage-skip" "$workflow_file"; then
+                    workflow_name=$(basename "$workflow_file" | sed 's/\(.*\)\.\(yaml\|yml\)$/\1/')
+                    all_skip_labels+="skip_${workflow_name}"$'\n'
+                  fi
+                fi
+              done
+              # Remove trailing newline and sort
+              all_skip_labels=$(echo "$all_skip_labels" | grep -v '^$' | sort)
+
+              if [[ -z "$all_skip_labels" ]]; then
+                echo "[debug] No workflow files found, skipping checklist creation"
+                exit 0
+              fi
+
+              echo "[debug] Generated skip labels:"
+              echo "$all_skip_labels"
+
+              # Check if a checklist comment already exists
+              existing_comment_id=$(gh pr view "$pr_number" --repo "$repo" --json comments \
+                --jq ".comments[] | select(.body | contains(\"$checklist_marker\")) | .id" | head -1)
+
+              # Build the checklist content
+              checklist_body="${checklist_marker}"$'\n'
+              checklist_body+="## 🔀 Skip Workflow Checklist"$'\n\n'
+              checklist_body+="Check the boxes below to skip specific workflows for this PR."$'\n\n'
+              checklist_body+="### Global options"$'\n'
+              checklist_body+="- [ ] \`skip_all\` - Skip all workflows"$'\n\n'
+              checklist_body+="### Individual workflows"$'\n'
+
+              while IFS= read -r label; do
+                if [[ -n "$label" ]]; then
+                  checklist_body+="- [ ] \`$label\`"$'\n'
+                fi
+              done <<< "$all_skip_labels"
+
+              checklist_body+=$'\n'"---"$'\n'
+              checklist_body+="*This checklist is automatically managed. Checked items will skip the corresponding workflow.*"
+
+              if [[ -n "$existing_comment_id" ]]; then
+                echo "[debug] Checklist comment already exists (ID: $existing_comment_id), preserving user selections"
+                # Don't update - we want to preserve user's checkbox selections
+              else
+                echo "[debug] Creating new checklist comment..."
+                gh pr comment "$pr_number" --repo "$repo" --body "$checklist_body"
+                echo "[debug] Checklist comment created"
+
+                # Handle race condition: check for duplicates and clean up
+                sleep 2  # Brief wait for GitHub API consistency
+                all_checklist_comments=$(gh pr view "$pr_number" --repo "$repo" --json comments \
+                  --jq "[.comments[] | select(.body | contains(\"$checklist_marker\")) | {id: .id, createdAt: .createdAt}] | sort_by(.createdAt)")
+
+                comment_count=$(echo "$all_checklist_comments" | jq 'length')
+                if [[ "$comment_count" -gt 1 ]]; then
+                  echo "[debug] Race condition detected: $comment_count checklist comments found, cleaning up duplicates..."
+                  # Keep the oldest (first) comment, delete the rest
+                  comments_to_delete=$(echo "$all_checklist_comments" | jq -r '.[1:][].id')
+                  for comment_id in $comments_to_delete; do
+                    echo "[debug] Deleting duplicate comment: $comment_id"
+                    gh api --method DELETE "/repos/$repo/issues/comments/$comment_id" || true
+                  done
+                  echo "[debug] Cleanup complete, kept oldest checklist comment"
+                fi
+              fi
+
+        - name: Get the current workflow filename and check for skip labels
+          id: check_labels
+          shell: bash
+          env:
+              GH_TOKEN: ${{ github.token }}
+          run: |
+              set -euo pipefail
+
+              if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+                echo "workflow_should_skip=false" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              workflow_file_name=$(echo "${{ github.workflow_ref }}" | sed 's/@.*//')
+              workflow_file_name=$(basename "$workflow_file_name" | sed 's/\(.*\)\(\.yaml\|\.yml\)$/\1/')
+              echo "workflow_file_name=$workflow_file_name" | tee -a "$GITHUB_ENV"
+
+              # Fetch fresh labels from GitHub API using gh CLI
+              pr_number="${{ github.event.pull_request.number }}"
+              repo="${{ github.repository }}"
+
+              echo "[debug] Fetching fresh labels for PR #$pr_number in $repo"
+              labels=$(gh pr view "$pr_number" --repo "$repo" --json labels --jq '.labels[].name')
+
+              echo "[debug] Fresh labels from API:"
+              echo "$labels"
+
+              skip_pattern="skip_$workflow_file_name"
+
+              # Check labels (skip_all and testing-ci-not-necessary skip everything)
+              if echo "$labels" | grep -qE "$skip_pattern|skip_all|testing-ci-not-necessary"; then
+                echo "[debug] Skip directive found in labels"
+                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              # Check for checked checkbox in the checklist comment
+              # Pattern: - [x] `skip_workflow_name` or - [X] `skip_workflow_name`
+              checklist_marker="<!-- skip-workflow-checklist -->"
+              checklist_comment=$(gh pr view "$pr_number" --repo "$repo" --json comments \
+                --jq "[.comments[] | select(.body | contains(\"$checklist_marker\")) | .body] | first // \"\"")
+
+              if echo "$checklist_comment" | grep -qE "\- \[[xX]\] \`$skip_pattern\`"; then
+                echo "[debug] Skip directive found in checklist (checkbox checked)"
+                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              # Check for skip_all checked in checklist
+              if echo "$checklist_comment" | grep -qE "\- \[[xX]\] \`skip_all\`"; then
+                echo "[debug] skip_all found checked in checklist"
+                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              echo "[debug] No skip directive found"
+              echo "workflow_should_skip=false" | tee -a "$GITHUB_OUTPUT"
