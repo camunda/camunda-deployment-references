@@ -1,9 +1,8 @@
 ---
 name: Skip Workflow if Labeled
 description: >
-    Skips the workflow if a label matches its filename,
-    or if the skip directive is found in the PR description, comments, or checklist
-    (e.g.  skip_aws_openshift_rosa_hcp_single_region_tests without the yml extension).
+    Skips the workflow if a label matches its filename (e.g. skip_aws_openshift_rosa_hcp_single_region_tests),
+    or if the corresponding checkbox is checked in the auto-posted checklist comment.
     Also posts a checklist comment with all available skip options (created once, preserved thereafter).
 
 outputs:
@@ -168,32 +167,9 @@ runs:
                 exit 0
               fi
 
-              # Check PR description/body
-              echo "[debug] Checking PR description for skip directive..."
-              pr_body=$(gh pr view "$pr_number" --repo "$repo" --json body --jq '.body // ""')
-              if echo "$pr_body" | grep -qiE "$skip_pattern|testing-ci-not-necessary"; then
-                echo "[debug] Skip directive found in PR description"
-                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
-                exit 0
-              fi
-
-              # Check PR comments for skip directive (excluding the auto-generated checklist comment)
-              echo "[debug] Checking PR comments for skip directive..."
-              checklist_marker="<!-- skip-workflow-checklist -->"
-
-              # Get comments excluding the managed checklist comment
-              pr_comments_excluding_checklist=$(gh pr view "$pr_number" --repo "$repo" --json comments \
-                --jq "[.comments[] | select(.body | contains(\"$checklist_marker\") | not) | .body] | join(\"\n\")")
-
-              # Check for explicit skip mention in non-checklist comments
-              if echo "$pr_comments_excluding_checklist" | grep -qiE "$skip_pattern|testing-ci-not-necessary"; then
-                echo "[debug] Skip directive found in PR comments"
-                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
-                exit 0
-              fi
-
-              # Check for checked checkbox in the checklist comment only
+              # Check for checked checkbox in the checklist comment
               # Pattern: - [x] `skip_workflow_name` or - [X] `skip_workflow_name`
+              checklist_marker="<!-- skip-workflow-checklist -->"
               checklist_comment=$(gh pr view "$pr_number" --repo "$repo" --json comments \
                 --jq "[.comments[] | select(.body | contains(\"$checklist_marker\")) | .body] | first // \"\"")
 
