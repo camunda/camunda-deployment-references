@@ -69,16 +69,24 @@ runs:
               repo="${{ github.repository }}"
               checklist_marker="<!-- skip-workflow-checklist -->"
 
-              # Fetch all skip_* labels from the repository
-              echo "[debug] Fetching all skip_* labels from repository..."
-              all_skip_labels=$(gh label list --repo "$repo" --limit 500 --json name --jq '.[] | select(.name | startswith("skip_")) | .name' | sort)
+              # Generate skip labels dynamically from workflow files
+              echo "[debug] Generating skip labels from workflow files..."
+              all_skip_labels=""
+              for workflow_file in .github/workflows/*.yml .github/workflows/*.yaml; do
+                if [[ -f "$workflow_file" ]]; then
+                  workflow_name=$(basename "$workflow_file" | sed 's/\(.*\)\.\(yaml\|yml\)$/\1/')
+                  all_skip_labels+="skip_${workflow_name}"$'\n'
+                fi
+              done
+              # Remove trailing newline and sort
+              all_skip_labels=$(echo "$all_skip_labels" | grep -v '^$' | sort)
 
               if [[ -z "$all_skip_labels" ]]; then
-                echo "[debug] No skip_* labels found in the repository, skipping checklist creation"
+                echo "[debug] No workflow files found, skipping checklist creation"
                 exit 0
               fi
 
-              echo "[debug] Found skip labels:"
+              echo "[debug] Generated skip labels:"
               echo "$all_skip_labels"
 
               # Check if a checklist comment already exists
