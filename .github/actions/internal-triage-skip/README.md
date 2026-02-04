@@ -2,7 +2,7 @@
 
 ## Description
 
-Skips the workflow if a label matches its filename, or if the skip directive is found in the PR description, comments, or checklist (e.g.  skip_aws_openshift_rosa_hcp_single_region_tests without the yml extension). Also posts a checklist comment with all available skip options (created once, preserved thereafter).
+Skips the workflow if a label matches its filename (e.g. skip_aws_openshift_rosa_hcp_single_region_tests), or if the corresponding checkbox is checked in the auto-posted checklist comment. Also posts a checklist comment with all available skip options (created once, preserved thereafter).
 
 
 ## Outputs
