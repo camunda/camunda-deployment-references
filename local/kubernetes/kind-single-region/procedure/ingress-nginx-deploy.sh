@@ -4,7 +4,11 @@ set -euo pipefail
 # Deploy Ingress NGINX controller
 
 # renovate: datasource=helm depName=ingress-nginx registryUrl=https://kubernetes.github.io/ingress-nginx
+<<<<<<< HEAD
 INGRESS_HELM_CHART_VERSION="4.12.1"
+=======
+INGRESS_HELM_CHART_VERSION="4.14.3"
+>>>>>>> 3dcad0f (fix(security): patch nginx ingress version to address CVEs (#1770))
 
 echo "Installing Ingress NGINX controller..."
 
