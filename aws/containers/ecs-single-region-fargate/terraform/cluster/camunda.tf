@@ -22,7 +22,7 @@ module "orchestration_cluster" {
   enable_alb_http_webapp_listener_rule = true
   # management endpoint is unprotected, only enable if you know what you are doing.
   # Consider secure access alternatives via temporary jump host / VPN connected to VPC / lambda or step functions.
-  enable_alb_http_management_listener_rule = true
+  enable_alb_http_management_listener_rule = false
   enable_nlb_grpc_26500_listener           = true
 
   environment_variables = [
@@ -108,8 +108,6 @@ module "orchestration_cluster" {
       value = aws_s3_bucket.s3_backup.bucket
     },
   ]
-
-  restore_backup_id = 111
 
   # Prefer ECS task secrets for sensitive values (container definition 'secrets')
   secrets = [

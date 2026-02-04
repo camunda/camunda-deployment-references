@@ -189,7 +189,7 @@ variable "image" {
   # TODO: [release-duty] before the release, update the below versions to the stable release!
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.9?(\.(?<patch>\d+))?$
-  default = "camunda/camunda:8.9.0-alpha3"
+  default = "camunda/camunda:8.9.0-alpha4"
 }
 
 variable "environment_variables" {
@@ -265,7 +265,10 @@ variable "restore_backup_id" {
 variable "restore_container_image" {
   description = "Container image for the restore init container. Required when restore_backup_id is set."
   type        = string
-  default     = "langleu/camunda:ecs-restore-v2"
+  # TODO: [release-duty] before the release, update the below versions to the stable release!
+  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
+  # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.9?(\.(?<patch>\d+))?$
+  default = "camunda/camunda:8.9.0-alpha4"
 }
 
 variable "restore_container_entrypoint" {
@@ -274,7 +277,7 @@ variable "restore_container_entrypoint" {
   default = [
     "bash",
     "-c",
-    "export ZEEBE_BROKER_NETWORK_HOST=$(hostname -i | awk '{print $2}'); /usr/local/camunda/bin/restore --backupId=$BACKUP_ID"
+    "/usr/local/camunda/bin/restore --backupId=$BACKUP_ID"
   ]
 }
 
