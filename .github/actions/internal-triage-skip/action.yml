@@ -104,13 +104,11 @@ runs:
 
               while IFS= read -r label; do
                 if [[ -n "$label" ]]; then
-                  checklist_body+=$(printf '%s\n' "- [ ] \`$label\`")
+                  checklist_body="${checklist_body}- [ ] \`$label\`"$'\n'
                 fi
               done <<< "$all_skip_labels"
 
-              checklist_footer=$(printf '\n%s\n%s' \
-                "---" \
-                "*This checklist is automatically managed. Checked items will skip the corresponding workflow.*")
+              checklist_footer=$'\n'"---"$'\n'"*This checklist is automatically managed. Checked items will skip the corresponding workflow.*"
               checklist_body+="$checklist_footer"
 
               if [[ -n "$existing_comment_id" ]]; then
