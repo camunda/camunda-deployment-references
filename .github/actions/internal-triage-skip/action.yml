@@ -93,23 +93,20 @@ runs:
               existing_comment_id=$(gh pr view "$pr_number" --repo "$repo" --json comments \
                 --jq ".comments[] | select(.body | contains(\"$checklist_marker\")) | .id" | head -1)
 
-              # Build the checklist content using printf to avoid YAML parsing issues
-              checklist_header=$(printf '%s\n%s\n\n%s\n%s\n\n' \
-                "$checklist_marker" \
-                "## 🔀 Skip Workflow Checklist" \
-                "Check the boxes below to skip specific workflows for this PR." \
-                "You can also add \`testing-ci-not-necessary\` to skip all tests.")
-
-              checklist_body="$checklist_header"
+              # Build the checklist content
+              checklist_body="${checklist_marker}"$'\n'
+              checklist_body+="## 🔀 Skip Workflow Checklist"$'\n\n'
+              checklist_body+="Check the boxes below to skip specific workflows for this PR."$'\n'
+              checklist_body+="You can also add \`testing-ci-not-necessary\` to skip all tests."$'\n\n'
 
               while IFS= read -r label; do
                 if [[ -n "$label" ]]; then
-                  checklist_body="${checklist_body}- [ ] \`$label\`"$'\n'
+                  checklist_body+="- [ ] \`$label\`"$'\n'
                 fi
               done <<< "$all_skip_labels"
 
-              checklist_footer=$'\n'"---"$'\n'"*This checklist is automatically managed. Checked items will skip the corresponding workflow.*"
-              checklist_body+="$checklist_footer"
+              checklist_body+=$'\n'"---"$'\n'
+              checklist_body+="*This checklist is automatically managed. Checked items will skip the corresponding workflow.*"
 
               if [[ -n "$existing_comment_id" ]]; then
                 echo "[debug] Checklist comment already exists (ID: $existing_comment_id), preserving user selections"
