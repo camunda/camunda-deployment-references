@@ -977,6 +977,12 @@ jobs:
                     kubectl -n "$CAMUNDA_NAMESPACE" logs "$pod_name";
                   done
 
+            - name: 🧹 Cleanup Keycloak Operator deployment
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.auth_provider == 'keycloak-operator'
+              uses: ./.github/actions/kubernetes-keycloak-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
             - name: 🧹 Cleanup Namespace
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               run: |
@@ -1067,7 +1073,8 @@ jobs:
 
             # Cleanup Cognito if any scenario uses OIDC auth provider
             - name: Cleanup AWS Cognito for cluster
-              if: env.CLEANUP_CLUSTERS == 'true' && contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).scenario.*.auth_provider), 'oidc')
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).scenario.*.auth_provider),
+                  'oidc')
               uses: ./.github/actions/aws-cognito-cleanup
               with:
                   terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}

@@ -628,6 +628,21 @@ jobs:
                     kubectl -n "$CAMUNDA_NAMESPACE" logs "$pod_name";
                   done
 
+            - name: 🧹 Cleanup Keycloak Operator deployment
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.auth_provider == 'keycloak-operator'
+              uses: ./.github/actions/kubernetes-keycloak-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
+            - name: 🧹 Cleanup Namespace
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 20
+              run: |
+                  set -euo pipefail
+
+                  helm uninstall camunda --namespace "$CAMUNDA_NAMESPACE" --wait || true
+                  kubectl delete namespace "$CAMUNDA_NAMESPACE" --wait || true
+
     cleanup-clusters:
         name: Cleanup ROSA clusters
         if: always()
