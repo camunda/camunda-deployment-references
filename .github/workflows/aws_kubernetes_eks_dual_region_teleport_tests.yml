@@ -27,6 +27,7 @@ on:
             - aws/kubernetes/eks-dual-region/procedure/**
             - aws/kubernetes/eks-dual-region/test/**
             - .tools-versions
+            - .github/actions/internal-multi-region-tests/**
 
 # limit to a single execution per actor of this workflow
 concurrency:

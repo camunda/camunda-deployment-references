@@ -26,6 +26,7 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/actions/internal-camunda-chart-tests/**
+            - .github/actions/internal-multi-region-tests/**
 
     workflow_dispatch:
         inputs:
