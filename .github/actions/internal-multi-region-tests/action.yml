@@ -29,15 +29,15 @@ inputs:
     default-values-yaml:
         description: Path to default values yaml file
         required: false
-        default: ./multi-region-tests/test/values.yaml
+        default: ./aws/kubernetes/eks-dual-region/helm-values/camunda-values.yml
     region-0-values-yaml:
         description: Path to region 0 values yaml file
         required: false
-        default: ./multi-region-tests/test/values-region-0.yaml
+        default: ./aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
     region-1-values-yaml:
         description: Path to region 1 values yaml file
         required: false
-        default: ./multi-region-tests/test/values-region-1.yaml
+        default: ./aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
     extra-values-yaml:
         description: Comma separated string of extra values yaml files to be applied
         required: false
@@ -54,24 +54,11 @@ inputs:
 runs:
     using: composite
     steps:
-        - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-          with:
-              repository: camunda/c8-multi-region
-              ref: main
-              path: multi-region-tests
-
-        - name: Copy .tool-versions to multi-region-tests
-          shell: bash
-          run: |
-              set -euo pipefail
-              # Copy .tool-versions so asdf can find golang when running in multi-region-tests/test
-              cp .tool-versions ./multi-region-tests/test/.tool-versions
-
         # Explicitly set up Go for caching of packages
         - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
           with:
-              go-version-file: ./multi-region-tests/test/go.mod
-              cache-dependency-path: ./multi-region-tests/test/go.sum
+              go-version-file: ./aws/kubernetes/eks-dual-region/test/go.mod
+              cache-dependency-path: ./aws/kubernetes/eks-dual-region/test/go.sum
 
         - name: Split up Kubeconfig
           shell: bash
@@ -88,11 +75,11 @@ runs:
                 kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
               done
 
-              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./multi-region-tests/test/kubeconfig-london"
-              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./multi-region-tests/test/kubeconfig-paris"
+              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./aws/kubernetes/eks-dual-region/test/kubeconfig-london"
+              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./aws/kubernetes/eks-dual-region/test/kubeconfig-paris"
 
               if [[ "${{ inputs.cluster-0-name }}" == "${{ inputs.cluster-1-name }}" ]]; then
-                cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./multi-region-tests/test/kubeconfig"
+                cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./aws/kubernetes/eks-dual-region/test/kubeconfig"
               fi
 
         - name: Set Up Environment Variables
@@ -126,7 +113,7 @@ runs:
         - name: Clean Environment
           if: inputs.skip-cleanup != 'true'
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ./aws/kubernetes/eks-dual-region/test
           run: |
               set -euo pipefail
 
@@ -134,7 +121,7 @@ runs:
 
         - name: Deploy multi-region setup - ${{ inputs.helm-version }}
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ./aws/kubernetes/eks-dual-region/test
           run: |
               set -euo pipefail
 
@@ -150,7 +137,7 @@ runs:
 
         - name: Failover ${{ inputs.helm-version }}
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ./aws/kubernetes/eks-dual-region/test
           run: |
               set -euo pipefail
 
@@ -178,7 +165,7 @@ runs:
 
         - name: Failback - ${{ inputs.helm-version }}
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ./aws/kubernetes/eks-dual-region/test
           run: |
               set -euo pipefail
 
@@ -207,7 +194,7 @@ runs:
 
         - name: Test multi-tenancy
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ./aws/kubernetes/eks-dual-region/test
           run: |
               set -euo pipefail
 
@@ -215,7 +202,7 @@ runs:
 
         - name: Test scaling zeebe brokers in multi-region setup
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ./aws/kubernetes/eks-dual-region/test
           run: |
               set -euo pipefail
 
@@ -223,7 +210,7 @@ runs:
 
         - name: Test scaling zeebe partitions in multi-region setup
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ./aws/kubernetes/eks-dual-region/test
           run: |
               set -euo pipefail
 
@@ -231,7 +218,7 @@ runs:
 
         - name: Test scaling zeebe brokers and partitions in multi-region setup
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ./aws/kubernetes/eks-dual-region/test
           run: |
               set -euo pipefail
 
@@ -239,7 +226,7 @@ runs:
 
         - name: Debug Step
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ./aws/kubernetes/eks-dual-region/test
           if: failure()
           run: |
               set -euo pipefail
@@ -252,4 +239,4 @@ runs:
           with:
               name: pod-logs-${{ inputs.helm-version }}
               retention-days: 7
-              path: ./multi-region-tests/test/*.log
+              path: ./aws/kubernetes/eks-dual-region/test/*.log
