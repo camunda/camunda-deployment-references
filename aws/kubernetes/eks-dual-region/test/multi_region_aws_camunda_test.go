@@ -42,10 +42,8 @@ var (
 	secondary helpers.Cluster
 
 	// Allows setting namespaces via GHA
-	primaryNamespace           = helpers.GetEnv("CLUSTER_0_NAMESPACE", "c8-snap-cluster-0")
-	primaryNamespaceFailover   = helpers.GetEnv("CLUSTER_0_NAMESPACE_FAILOVER", "c8-snap-cluster-0-failover")
-	secondaryNamespace         = helpers.GetEnv("CLUSTER_1_NAMESPACE", "c8-snap-cluster-1")
-	secondaryNamespaceFailover = helpers.GetEnv("CLUSTER_1_NAMESPACE_FAILOVER", "c8-snap-cluster-1-failover")
+	primaryNamespace   = helpers.GetEnv("CLUSTER_0_NAMESPACE", "c8-snap-cluster-0")
+	secondaryNamespace = helpers.GetEnv("CLUSTER_1_NAMESPACE", "c8-snap-cluster-1")
 
 	baseHelmVars = map[string]string{}
 	timeout      = "600s"
@@ -223,13 +221,11 @@ func initKubernetesHelpers(t *testing.T) {
 			Region:           "eu-west-2",
 			ClusterName:      teleportCluster,
 			KubectlNamespace: *k8s.NewKubectlOptions("", "kubeconfig", primaryNamespace),
-			KubectlFailover:  *k8s.NewKubectlOptions("", "kubeconfig", primaryNamespaceFailover),
 		}
 		secondary = helpers.Cluster{
 			Region:           "eu-west-3",
 			ClusterName:      teleportCluster,
 			KubectlNamespace: *k8s.NewKubectlOptions("", "kubeconfig", secondaryNamespace),
-			KubectlFailover:  *k8s.NewKubectlOptions("", "kubeconfig", secondaryNamespaceFailover),
 		}
 	} else {
 		t.Log("[K8S INIT] Initializing Kubernetes helpers 🚀")
@@ -238,14 +234,12 @@ func initKubernetesHelpers(t *testing.T) {
 			ClusterName:      fmt.Sprintf("%s-london", clusterName),
 			KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigPrimary, primaryNamespace),
 			KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigPrimary, "kube-system"),
-			KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigPrimary, primaryNamespaceFailover),
 		}
 		secondary = helpers.Cluster{
 			Region:           "eu-west-3",
 			ClusterName:      fmt.Sprintf("%s-paris", clusterName),
 			KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespace),
 			KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigSecondary, "kube-system"),
-			KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespaceFailover),
 		}
 	}
 }
