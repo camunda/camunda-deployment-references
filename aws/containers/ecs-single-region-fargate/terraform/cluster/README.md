@@ -10,9 +10,9 @@ This directory contains the Terraform implementation for the ECS single-region (
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_connectors"></a> [connectors](#module\_connectors) | ../../../modules/ecs/fargate/connectors | n/a |
-| <a name="module_orchestration_cluster"></a> [orchestration\_cluster](#module\_orchestration\_cluster) | ../../../modules/ecs/fargate/orchestration-cluster | n/a |
-| <a name="module_postgresql"></a> [postgresql](#module\_postgresql) | ../../../modules/aurora | n/a |
+| <a name="module_connectors"></a> [connectors](#module\_connectors) | ../../../../modules/ecs/fargate/connectors | n/a |
+| <a name="module_orchestration_cluster"></a> [orchestration\_cluster](#module\_orchestration\_cluster) | ../../../../modules/ecs/fargate/orchestration-cluster | n/a |
+| <a name="module_postgresql"></a> [postgresql](#module\_postgresql) | ../../../../modules/aurora | n/a |
 | <a name="module_vpc"></a> [vpc](#module\_vpc) | terraform-aws-modules/vpc/aws | v6.6.0 |
 ## Resources
 
