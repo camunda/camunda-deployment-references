@@ -95,6 +95,8 @@ runs:
         - name: Delete Resources
           id: delete_resources
           shell: bash
+          env:
+              OPENSHIFT: ${{ inputs.openshift }}   # as an indicator in the script whether EKS vs ROSA
           run: |
               set -euo pipefail
 

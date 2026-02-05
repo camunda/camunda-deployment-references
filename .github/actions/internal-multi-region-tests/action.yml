@@ -67,6 +67,12 @@ runs:
               # Copy .tool-versions so asdf can find golang when running in multi-region-tests/test
               cp .tool-versions ./multi-region-tests/test/.tool-versions
 
+        # Explicitly set up Go for caching of packages
+        - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
+          with:
+              go-version-file: ./multi-region-tests/test/go.mod
+              cache-dependency-path: ./multi-region-tests/test/go.sum
+
         - name: Split up Kubeconfig
           shell: bash
           run: |
@@ -82,8 +88,12 @@ runs:
                 kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
               done
 
-              mv "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./multi-region-tests/test/kubeconfig-london"
-              mv "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./multi-region-tests/test/kubeconfig-paris"
+              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./multi-region-tests/test/kubeconfig-london"
+              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./multi-region-tests/test/kubeconfig-paris"
+
+              if [[ "${{ inputs.cluster-0-name }}" == "${{ inputs.cluster-1-name }}" ]]; then
+                cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./multi-region-tests/test/kubeconfig"
+              fi
 
         - name: Set Up Environment Variables
           shell: bash
@@ -120,7 +130,7 @@ runs:
           run: |
               set -euo pipefail
 
-              go test --count=1 -v -timeout 15m -run TestAWSDualRegCleanup
+              go test --count=1 -v -timeout 15m -failfast -run TestAWSDualRegCleanup
 
         - name: Deploy multi-region setup - ${{ inputs.helm-version }}
           shell: bash
@@ -128,7 +138,7 @@ runs:
           run: |
               set -euo pipefail
 
-              go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
+              go test --count=1 -v -timeout 30m -failfast -run TestAWSDeployDualRegCamunda
 
         - name: Set start timestamp for Failover
           shell: bash
@@ -144,7 +154,7 @@ runs:
           run: |
               set -euo pipefail
 
-              go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
+              go test --count=1 -v -timeout 20m -failfast -run TestAWSDualRegFailover_8_6_plus
 
         - name: Calculate Failover duration
           shell: bash
@@ -172,7 +182,7 @@ runs:
           run: |
               set -euo pipefail
 
-              go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
+              go test --count=1 -v -timeout 45m -failfast -run TestAWSDualRegFailback_8_6_plus
 
         - name: Re-export services after Failback (OpenShift)
           if: inputs.post-failback-script != ''
@@ -195,6 +205,38 @@ runs:
                 echo "::error::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
               fi
 
+        - name: Test multi-tenancy
+          shell: bash
+          working-directory: ./multi-region-tests/test
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestMultiTenancyDualReg
+
+        - name: Test scaling zeebe brokers in multi-region setup
+          shell: bash
+          working-directory: ./multi-region-tests/test
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestZeebeClusterScaleUpBrokers
+
+        - name: Test scaling zeebe partitions in multi-region setup
+          shell: bash
+          working-directory: ./multi-region-tests/test
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestZeebeClusterScaleUpPartitions
+
+        - name: Test scaling zeebe brokers and partitions in multi-region setup
+          shell: bash
+          working-directory: ./multi-region-tests/test
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestZeebeClusterScaleUpBothBrokersAndPartitions
+
         - name: Debug Step
           shell: bash
           working-directory: ./multi-region-tests/test
@@ -202,7 +244,7 @@ runs:
           run: |
               set -euo pipefail
 
-              go test --count=1 -v -timeout 4m -run TestDebugStep
+              go test --count=1 -v -timeout 4m -failfast -run TestDebugStep
 
         - name: Upload Pod Logs
           if: failure()

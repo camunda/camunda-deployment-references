@@ -1,0 +1,95 @@
+---
+orchestration:
+    tolerations:
+        - key: t-core-8-unstable
+          operator: Exists
+          effect: NoSchedule
+        - key: t-core-16-unstable
+          operator: Exists
+          effect: NoSchedule
+    affinity:
+        nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                    - matchExpressions:
+                          - key: nodegroup
+                            operator: In
+                            values:
+                                - t-core-8-unstable
+                                - t-core-16-unstable
+identity:
+    tolerations:
+        - key: t-core-8-unstable
+          operator: Exists
+          effect: NoSchedule
+        - key: t-core-16-unstable
+          operator: Exists
+          effect: NoSchedule
+    affinity:
+        nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                    - matchExpressions:
+                          - key: nodegroup
+                            operator: In
+                            values:
+                                - t-core-8-unstable
+                                - t-core-16-unstable
+
+connectors:
+    tolerations:
+        - key: t-core-8-unstable
+          operator: Exists
+          effect: NoSchedule
+        - key: t-core-16-unstable
+          operator: Exists
+          effect: NoSchedule
+    affinity:
+        nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                    - matchExpressions:
+                          - key: nodegroup
+                            operator: In
+                            values:
+                                - t-core-8-unstable
+                                - t-core-16-unstable
+
+optimize:
+    tolerations:
+        - key: t-core-8-unstable
+          operator: Exists
+          effect: NoSchedule
+        - key: t-core-16-unstable
+          operator: Exists
+          effect: NoSchedule
+    affinity:
+        nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                    - matchExpressions:
+                          - key: nodegroup
+                            operator: In
+                            values:
+                                - t-core-8-unstable
+                                - t-core-16-unstable
+
+elasticsearch:
+    master:
+        tolerations:
+            - key: t-core-8-unstable
+              operator: Exists
+              effect: NoSchedule
+            - key: t-core-16-unstable
+              operator: Exists
+              effect: NoSchedule
+        affinity:
+            nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                        - matchExpressions:
+                              - key: nodegroup
+                                operator: In
+                                values:
+                                    - t-core-8-unstable
+                                    - t-core-16-unstable
