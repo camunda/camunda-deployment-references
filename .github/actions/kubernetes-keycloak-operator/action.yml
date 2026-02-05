@@ -2,8 +2,7 @@
 name: Deploy Keycloak via Operator
 description: |
     Deploys Keycloak using the Keycloak Operator with CloudNativePG PostgreSQL.
-    This action installs CNPG operator, creates a PostgreSQL cluster for Keycloak,
-    and deploys Keycloak via the Keycloak Operator.
+    Uses scripts from generic/kubernetes/operator-based/ for deployment.
 
 inputs:
     namespace:
@@ -62,34 +61,33 @@ runs:
 
         - name: Create PostgreSQL secrets for Keycloak
           shell: bash
+          env:
+              CAMUNDA_NAMESPACE: ${{ inputs.namespace }}
           run: |
               set -euo pipefail
 
-              NAMESPACE="${{ inputs.namespace }}"
-
               echo "🔐 Creating PostgreSQL secrets for Keycloak..."
 
-              # Superuser secret
-              if ! kubectl get secret pg-keycloak-superuser-secret -n "$NAMESPACE" >/dev/null 2>&1; then
-                  kubectl create secret generic pg-keycloak-superuser-secret \
-                      -n "$NAMESPACE" \
-                      --from-literal=username=postgres \
-                      --from-literal=password="$(openssl rand -base64 18)"
-                  echo "✓ Created pg-keycloak-superuser-secret"
-              else
-                  echo "✓ pg-keycloak-superuser-secret already exists"
-              fi
+              # Function to create or get secret (same as in generic script)
+              create_or_get_secret() {
+                  local secret_name=$1
+                  local username=$2
 
-              # Bootstrap secret (keycloak user)
-              if ! kubectl get secret pg-keycloak-secret -n "$NAMESPACE" >/dev/null 2>&1; then
-                  kubectl create secret generic pg-keycloak-secret \
-                      -n "$NAMESPACE" \
-                      --from-literal=username=keycloak \
-                      --from-literal=password="$(openssl rand -base64 18)"
-                  echo "✓ Created pg-keycloak-secret"
-              else
-                  echo "✓ pg-keycloak-secret already exists"
-              fi
+                  if kubectl get secret "$secret_name" -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
+                      echo "✓ Secret $secret_name already exists"
+                  else
+                      echo "Creating new secret $secret_name"
+                      kubectl create secret generic "$secret_name" -n "$CAMUNDA_NAMESPACE" \
+                          --from-literal=username="$username" \
+                          --from-literal=password="$(openssl rand -base64 18)"
+                  fi
+              }
+
+              # Keycloak superuser and bootstrap secrets
+              create_or_get_secret "pg-keycloak-superuser-secret" "root"
+              create_or_get_secret "pg-keycloak-secret" "keycloak"
+
+              echo "✓ PostgreSQL secrets created"
 
         - name: Deploy PostgreSQL cluster for Keycloak
           shell: bash
@@ -100,254 +98,49 @@ runs:
 
               echo "🐘 Deploying PostgreSQL cluster for Keycloak..."
 
-              cat <<EOF | kubectl apply -n "$NAMESPACE" --server-side -f -
-              apiVersion: postgresql.cnpg.io/v1
-              kind: Cluster
-              metadata:
-                  name: pg-keycloak
-              spec:
-                  instances: 1
-                  description: PostgreSQL cluster for Keycloak (Keycloak Operator mode)
-                  # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
-                  imageName: ghcr.io/cloudnative-pg/postgresql:17.5
-                  storage:
-                      size: 15Gi
-                  superuserSecret:
-                      name: pg-keycloak-superuser-secret
-                  seccompProfile:
-                      type: RuntimeDefault
-                  postgresql:
-                      parameters:
-                          lock_timeout: 30s
-                          statement_timeout: '0'
-                  bootstrap:
-                      initdb:
-                          database: keycloak
-                          owner: keycloak
-                          dataChecksums: true
-                          secret:
-                              name: pg-keycloak-secret
-              EOF
+              # Extract only pg-keycloak cluster from the multi-cluster manifest
+              yq 'select(.metadata.name == "pg-keycloak")' \
+                  "generic/kubernetes/operator-based/postgresql/postgresql-clusters.yml" | \
+                  kubectl apply -n "$NAMESPACE" --server-side -f -
 
               echo "⏳ Waiting for PostgreSQL cluster to be ready..."
               kubectl wait --for=condition=Ready --timeout=600s cluster pg-keycloak -n "$NAMESPACE"
               echo "✓ PostgreSQL cluster deployed"
 
-        - name: Install Keycloak Operator
+        - name: Install Keycloak Operator and deploy instance
           shell: bash
           env:
-              # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-              KEYCLOAK_VERSION: 26.3.2
+              CAMUNDA_NAMESPACE: ${{ inputs.namespace }}
+              CAMUNDA_DOMAIN: ${{ inputs.domain-name }}
           run: |
               set -euo pipefail
 
-              NAMESPACE="${{ inputs.namespace }}"
-
-              echo "🔑 Installing Keycloak operator v${KEYCLOAK_VERSION}..."
-
-              # Install CRDs
-              kubectl apply --server-side -f \
-                  "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/keycloaks.k8s.keycloak.org-v1.yml"
-              kubectl apply --server-side -f \
-                  "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml"
-
-              # Install operator in namespace
-              kubectl apply -n "$NAMESPACE" --server-side -f \
-                  "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/kubernetes.yml"
-
-              kubectl wait --for=condition=available --timeout=300s deployment/keycloak-operator -n "$NAMESPACE"
-              echo "✓ Keycloak operator deployed"
-
-        - name: Deploy Keycloak instance
-          shell: bash
-          env:
-              # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-              KEYCLOAK_VERSION: 26.3.2
-          run: |
-              set -euo pipefail
-
-              NAMESPACE="${{ inputs.namespace }}"
               MODE="${{ inputs.keycloak-mode }}"
-              DOMAIN="${{ inputs.domain-name }}"
+              KEYCLOAK_DIR="generic/kubernetes/operator-based/keycloak"
 
-              echo "🔑 Deploying Keycloak instance (mode: $MODE)..."
+              # Select the right config file based on mode
+              case "$MODE" in
+                  "no-domain")
+                      export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-no-domain.yml"
+                      ;;
+                  "domain")
+                      export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-nginx.yml"
+                      ;;
+                  "domain-openshift")
+                      export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-openshift.yml"
+                      ;;
+                  *)
+                      echo "Error: Unknown mode '$MODE'" >&2
+                      exit 1
+                      ;;
+              esac
 
-              # Base Keycloak CR
-              if [[ "$MODE" == "no-domain" ]]; then
-                  # No-domain mode: internal hostname, no ingress
-                  cat <<EOF | kubectl apply -n "$NAMESPACE" -f -
-              apiVersion: k8s.keycloak.org/v2alpha1
-              kind: Keycloak
-              metadata:
-                  name: keycloak
-              spec:
-                  image: docker.io/camunda/keycloak:quay-optimized-${KEYCLOAK_VERSION}
-                  instances: 1
-                  db:
-                      url: jdbc:aws-wrapper:postgresql://pg-keycloak-rw:5432/keycloak
-                      schema: public
-                      usernameSecret:
-                          name: pg-keycloak-secret
-                          key: username
-                      passwordSecret:
-                          name: pg-keycloak-secret
-                          key: password
-                  http:
-                      httpEnabled: true
-                  additionalOptions:
-                      - name: http-relative-path
-                        value: /auth
-                  ingress:
-                      enabled: false
-                  hostname:
-                      hostname: keycloak-service
-                      strict: false
-                  resources:
-                      limits:
-                          cpu: 500m
-                          memory: 1Gi
-                      requests:
-                          cpu: 250m
-                          memory: 512Mi
-              EOF
+              echo "🔑 Deploying Keycloak (mode: $MODE, config: $KEYCLOAK_CONFIG_FILE)..."
 
-              elif [[ "$MODE" == "domain" ]]; then
-                  # Domain mode with nginx ingress
-                  cat <<EOF | kubectl apply -n "$NAMESPACE" -f -
-              apiVersion: k8s.keycloak.org/v2alpha1
-              kind: Keycloak
-              metadata:
-                  name: keycloak
-              spec:
-                  image: docker.io/camunda/keycloak:quay-optimized-${KEYCLOAK_VERSION}
-                  instances: 1
-                  db:
-                      url: jdbc:aws-wrapper:postgresql://pg-keycloak-rw:5432/keycloak
-                      schema: public
-                      usernameSecret:
-                          name: pg-keycloak-secret
-                          key: username
-                      passwordSecret:
-                          name: pg-keycloak-secret
-                          key: password
-                  http:
-                      httpEnabled: true
-                  additionalOptions:
-                      - name: http-relative-path
-                        value: /auth
-                      - name: proxy-headers
-                        value: xforwarded
-                      - name: hostname-strict-https
-                        value: 'true'
-                  ingress:
-                      enabled: false
-                  hostname:
-                      hostname: ${DOMAIN}
-                      backchannelDynamic: false
-                      strict: true
-                  resources:
-                      limits:
-                          cpu: 500m
-                          memory: 1Gi
-                      requests:
-                          cpu: 250m
-                          memory: 512Mi
-              ---
-              apiVersion: networking.k8s.io/v1
-              kind: Ingress
-              metadata:
-                  name: keycloak-ingress
-                  annotations:
-                      kubernetes.io/tls-acme: 'true'
-                      nginx.ingress.kubernetes.io/ssl-redirect: 'true'
-                      nginx.ingress.kubernetes.io/force-ssl-redirect: 'true'
-              spec:
-                  ingressClassName: nginx
-                  tls:
-                      - hosts:
-                            - ${DOMAIN}
-                        secretName: camunda-keycloak-tls
-                  rules:
-                      - host: ${DOMAIN}
-                        http:
-                            paths:
-                                - path: /auth
-                                  pathType: Prefix
-                                  backend:
-                                      service:
-                                          name: keycloak-service
-                                          port:
-                                              number: 8080
-              EOF
+              # Run the deploy script
+              "${KEYCLOAK_DIR}/deploy.sh"
 
-              elif [[ "$MODE" == "domain-openshift" ]]; then
-                  # Domain mode with OpenShift router
-                  cat <<EOF | kubectl apply -n "$NAMESPACE" -f -
-              apiVersion: k8s.keycloak.org/v2alpha1
-              kind: Keycloak
-              metadata:
-                  name: keycloak
-              spec:
-                  image: docker.io/camunda/keycloak:quay-optimized-${KEYCLOAK_VERSION}
-                  instances: 1
-                  db:
-                      url: jdbc:aws-wrapper:postgresql://pg-keycloak-rw:5432/keycloak
-                      schema: public
-                      usernameSecret:
-                          name: pg-keycloak-secret
-                          key: username
-                      passwordSecret:
-                          name: pg-keycloak-secret
-                          key: password
-                  http:
-                      httpEnabled: true
-                  additionalOptions:
-                      - name: http-relative-path
-                        value: /auth
-                      - name: proxy-headers
-                        value: xforwarded
-                      - name: hostname-strict-https
-                        value: 'true'
-                  ingress:
-                      enabled: false
-                  hostname:
-                      hostname: ${DOMAIN}
-                      backchannelDynamic: false
-                      strict: true
-                  resources:
-                      limits:
-                          cpu: 500m
-                          memory: 1Gi
-                      requests:
-                          cpu: 250m
-                          memory: 512Mi
-              ---
-              apiVersion: networking.k8s.io/v1
-              kind: Ingress
-              metadata:
-                  name: keycloak-ingress
-                  annotations:
-                      route.openshift.io/termination: edge
-                      haproxy.router.openshift.io/disable_cookies: 'true'
-              spec:
-                  ingressClassName: openshift-default
-                  tls:
-                      - hosts:
-                  rules:
-                      - host: ${DOMAIN}
-                        http:
-                            paths:
-                                - path: /auth
-                                  pathType: Prefix
-                                  backend:
-                                      service:
-                                          name: keycloak-service
-                                          port:
-                                              number: 8080
-              EOF
-              fi
-
-              echo "⏳ Waiting for Keycloak to be ready..."
+              echo "✓ Keycloak deployed"
               kubectl wait --for=condition=Ready --timeout=600s keycloak --all -n "$NAMESPACE"
               echo "✓ Keycloak instance deployed"
 

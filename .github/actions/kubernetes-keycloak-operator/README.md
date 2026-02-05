@@ -3,8 +3,7 @@
 ## Description
 
 Deploys Keycloak using the Keycloak Operator with CloudNativePG PostgreSQL.
-This action installs CNPG operator, creates a PostgreSQL cluster for Keycloak,
-and deploys Keycloak via the Keycloak Operator.
+Uses scripts from generic/kubernetes/operator-based/ for deployment.
 
 
 ## Inputs
