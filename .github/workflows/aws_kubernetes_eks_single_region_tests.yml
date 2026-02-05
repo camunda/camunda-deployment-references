@@ -674,11 +674,22 @@ jobs:
                   # Start with base values for the declination (domain or no-domain)
                   cp -f aws/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml ./values.yml
 
-                  # Apply auth provider overlay (keycloak or oidc)
-                  if [[ "${{ matrix.scenario.auth_provider }}" == "oidc" ]]; then
+                  # Apply auth provider overlay
+                  AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
+                  KEYCLOAK_BASE_PATH="generic/kubernetes/single-region/helm-values"
+
+                  if [[ "$AUTH_PROVIDER" == "oidc" ]]; then
                     echo "Merging values-oidc.yml overlay for external OIDC authentication"
-                    yq ". *+ load(\"generic/kubernetes/single-region/helm-values/values-oidc.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-oidc.yml\")" values.yml > values-merged.yml
                     mv values-merged.yml values.yml
+
+                  elif [[ "$AUTH_PROVIDER" == "keycloak-operator" ]]; then
+                    echo "Merging values-keycloak-operator.yml overlays for Keycloak Operator"
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak-operator.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak-operator-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
+                    mv values-merged2.yml values.yml
+                    rm -f values-merged.yml
+
                   else
                     echo "Merging values-keycloak.yml overlays for embedded Keycloak authentication"
                     # Use IRSA-specific Keycloak base config for IRSA scenarios (uses serviceAccount instead of DB secrets)
@@ -686,8 +697,6 @@ jobs:
                     # shellcheck disable=SC2193
                     if [[ "${{ matrix.scenario.name }}" == *irsa* ]]; then
                       KEYCLOAK_BASE_PATH="aws/kubernetes/${{ matrix.scenario.name }}/helm-values"
-                    else
-                      KEYCLOAK_BASE_PATH="generic/kubernetes/single-region/helm-values"
                     fi
                     yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak.yml\")" values.yml > values-merged.yml
                     yq ". *+ load(\"generic/kubernetes/single-region/helm-values/values-keycloak-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
@@ -811,13 +820,22 @@ jobs:
                   set -euo pipefail
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
 
-            - name: 🔐 Create Keycloak DB secret
-              if: ${{ matrix.scenario.auth_provider != 'oidc' }}
+            - name: 🔐 Create Keycloak DB secret (embedded Keycloak)
+              if: ${{ matrix.scenario.auth_provider == 'keycloak' }}
               timeout-minutes: 2
               run: |
                   set -euo pipefail
-                  echo "Creating Keycloak database secret..."
+                  echo "Creating Keycloak database secret for embedded Keycloak..."
                   ./generic/kubernetes/single-region/procedure/create-keycloak-db-secret.sh
+
+            - name: 🐘 Deploy Keycloak via Operator (keycloak-operator mode)
+              if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
+              timeout-minutes: 15
+              uses: ./.github/actions/kubernetes-keycloak-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain' || 'no-domain' }}
+                  domain-name: ${{ env.DOMAIN_NAME }}
 
             - name: 🔐 Create OIDC secrets
               if: ${{ matrix.scenario.auth_provider == 'oidc' }}
@@ -861,10 +879,16 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                  AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
+
+                  # Create identity secrets based on auth provider
+                  if [[ "$AUTH_PROVIDER" == "keycloak" ]]; then
+                    # Embedded Keycloak - use standard secrets
                     source generic/kubernetes/single-region/tests/procedure/generate-passwords.sh
                     ./generic/kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh
                   fi
+                  # For 'keycloak-operator', secrets are created by the action
+                  # For 'oidc', secrets are created in the OIDC secrets step
 
                   # Create WebModeler secrets
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
@@ -880,8 +904,8 @@ jobs:
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                         --namespace="$CAMUNDA_NAMESPACE"
 
-                    # Skip Keycloak-based identity secrets when using external OIDC
-                    if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                    # Create identity integration secret for Keycloak-based auth (embedded or operator)
+                    if [[ "$AUTH_PROVIDER" != "oidc" ]]; then
                       kubectl create secret generic identity-secret-for-components-integration \
                           --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
                           --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \

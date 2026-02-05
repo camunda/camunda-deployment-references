@@ -474,22 +474,28 @@ jobs:
                   yq '. *+ load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
-                  # Merge auth provider specific overlays (Keycloak or OIDC)
+                  # Merge auth provider specific overlays (Keycloak, Keycloak Operator, or OIDC)
                   # These overlays contain the auth-specific configuration
-                  # TODO: Add Cognito/external OIDC support (auth_provider: oidc)
-                  # Currently blocked by a bug in the Camunda Helm chart with audience validation.
-                  # When resolved, import the same logic as aws_eks_single_region_tests.yml
+                  AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
                   KEYCLOAK_BASE_PATH="generic/kubernetes/single-region/helm-values"
-                  if [[ "${{ matrix.scenario.auth_provider }}" == "oidc" ]]; then
+                  OPENSHIFT_HELM_PATH="generic/openshift/single-region/helm-values"
+
+                  if [[ "$AUTH_PROVIDER" == "oidc" ]]; then
                     echo "Applying OIDC auth overlays"
                     yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-oidc.yml\")" values.yml > values-merged.yml
                     yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-oidc-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
                     cat values-merged2.yml && mv values-merged2.yml values.yml && rm values-merged.yml
+                  elif [[ "$AUTH_PROVIDER" == "keycloak-operator" ]]; then
+                    echo "Applying Keycloak Operator auth overlays (OIDC Generic mode with external Keycloak)"
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak-operator.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"${OPENSHIFT_HELM_PATH}/values-keycloak-operator-openshift.yml\")" values-merged.yml > values-merged2.yml
+                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak-operator-${{ matrix.declination.name }}.yml\")" values-merged2.yml > values-merged3.yml
+                    cat values-merged3.yml && mv values-merged3.yml values.yml && rm values-merged.yml values-merged2.yml
                   else
-                    echo "Applying Keycloak auth overlays"
+                    echo "Applying embedded Keycloak auth overlays"
                     yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak.yml\")" values.yml > values-merged.yml
                     # OpenShift uses embedded PostgreSQL for Keycloak (not external)
-                    yq ". *+ load(\"generic/openshift/single-region/helm-values/values-keycloak-openshift.yml\")" values-merged.yml > values-merged2.yml
+                    yq ". *+ load(\"${OPENSHIFT_HELM_PATH}/values-keycloak-openshift.yml\")" values-merged.yml > values-merged2.yml
                     yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak-${{ matrix.declination.name }}.yml\")" values-merged2.yml > values-merged3.yml
                     cat values-merged3.yml && mv values-merged3.yml values.yml && rm values-merged.yml values-merged2.yml
                   fi
@@ -515,18 +521,32 @@ jobs:
 
                   ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
 
+            - name: 🐘 Deploy Keycloak via Operator (keycloak-operator mode)
+              if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
+              timeout-minutes: 15
+              uses: ./.github/actions/kubernetes-keycloak-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain-openshift' || 'no-domain' }}
+                  domain-name: ${{ env.DOMAIN_NAME }}
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 10
               run: |
                   set -euo pipefail
 
-                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                  AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
+
+                  # Create identity secrets based on auth provider
+                  if [[ "$AUTH_PROVIDER" == "keycloak" ]]; then
+                    # Embedded Keycloak - use standard secrets
                     source generic/openshift/single-region/tests/procedure/generate-passwords.sh
                     source generic/openshift/single-region/tests/procedure/generate-keycloak-passwords.sh
                     ./generic/openshift/single-region/tests/procedure/create-keycloak-identity-secret.sh
                     ./generic/openshift/single-region/tests/procedure/create-keycloak-postgresql-secret.sh
                   fi
+                  # For 'keycloak-operator', secrets are created by the action
+                  # For 'oidc', secrets are created in a separate step (if added)
 
                   # Create WebModeler secrets
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
@@ -542,8 +562,8 @@ jobs:
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                         --namespace="$CAMUNDA_NAMESPACE"
 
-                    # Skip Keycloak-based identity secrets when using external OIDC
-                    if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                    # Create identity integration secret for Keycloak-based auth (embedded or operator)
+                    if [[ "$AUTH_PROVIDER" != "oidc" ]]; then
                       kubectl create secret generic identity-secret-for-components-integration \
                           --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
                           --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \

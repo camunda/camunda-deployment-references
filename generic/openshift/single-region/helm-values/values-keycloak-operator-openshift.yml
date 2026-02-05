@@ -1,0 +1,176 @@
+---
+# Keycloak Operator Overlay for OpenShift
+#
+# This file configures Camunda on OpenShift to use a Keycloak instance
+# deployed via the Keycloak Operator with CloudNativePG PostgreSQL.
+#
+# Unlike the embedded Keycloak (values-keycloak.yml + values-keycloak-openshift.yml),
+# this uses OIDC GENERIC mode to connect to an externally managed Keycloak instance.
+#
+# Prerequisites:
+#   1. Deploy CloudNativePG operator and PostgreSQL cluster for Keycloak
+#      See: generic/kubernetes/operator-based/postgresql/
+#   2. Deploy Keycloak operator and instance (OpenShift variant)
+#      See: generic/kubernetes/operator-based/keycloak/
+#      Use: keycloak-instance-domain-openshift.yml
+#   3. Create the identity secrets for components
+#      See: generic/kubernetes/single-region/tests/procedure/create-keycloak-operator-identity-secret.sh
+#
+# Merge order (Domain):
+#   yq ". *+ load(\"values-keycloak-operator-openshift.yml\") *+ load(\"values-keycloak-operator-domain.yml\")" values.yml > values.yml
+#
+# Merge order (No-domain):
+#   yq ". *+ load(\"values-keycloak-operator-openshift.yml\") *+ load(\"values-keycloak-operator-no-domain.yml\")" values.yml > values.yml
+#
+# This overlay imports the base keycloak-operator configuration and applies
+# OpenShift-specific settings (if any).
+
+# Import base keycloak-operator configuration
+# All settings from values-keycloak-operator.yml apply here
+# OpenShift-specific adjustments are minimal since Keycloak Operator handles
+# platform-specific configurations
+
+global:
+    identity:
+        auth:
+            # Use GENERIC type for externally managed Keycloak
+            type: GENERIC
+
+            # Keycloak endpoints for OIDC authentication
+            issuerBackendUrl: http://keycloak-service:8080/auth/realms/camunda-platform
+            tokenUrl: http://keycloak-service:8080/auth/realms/camunda-platform/protocol/openid-connect/token
+            jwksUrl: http://keycloak-service:8080/auth/realms/camunda-platform/protocol/openid-connect/certs
+            authorizationUrl: http://keycloak-service:8080/auth/realms/camunda-platform/protocol/openid-connect/auth
+
+            identity:
+                clientId: camunda-identity
+                audience: camunda-identity
+                existingSecret: identity-secret-for-components
+                existingSecretKey: identity-client-secret
+
+            optimize:
+                clientId: optimize
+                audience: optimize
+                existingSecret: identity-secret-for-components
+                existingSecretKey: optimize-client-secret
+
+            webModeler:
+                clientId: web-modeler
+                clientApiAudience: web-modeler-api
+                publicApiAudience: web-modeler-public-api
+
+            console:
+                clientId: console
+                audience: console
+                existingSecret: identity-secret-for-components
+                existingSecretKey: console-client-secret
+
+        # External Keycloak configuration for Identity
+        keycloak:
+            internal: false
+            url:
+                protocol: http
+                host: keycloak-service
+                port: '8080'
+            contextPath: /auth
+            realm: /realms/camunda-platform
+            auth:
+                existingSecret: keycloak-initial-admin
+                existingSecretKey: password
+                adminUser: temp-admin
+
+# Disable embedded Keycloak
+identityKeycloak:
+    enabled: false
+
+identity:
+    enabled: true
+
+    firstUser:
+        enabled: true
+        username: admin
+        email: admin@camunda.local
+        firstName: Admin
+        lastName: User
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: identity-first-user-password
+
+    env:
+        - name: IDENTITY_AUTH_PROVIDER_BACKEND_URL
+          value: http://keycloak-service:8080/auth/realms/camunda-platform
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+          value: http://keycloak-service:8080/auth/realms/camunda-platform
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI
+          value: http://keycloak-service:8080/auth/realms/camunda-platform/protocol/openid-connect/certs
+
+connectors:
+    env:
+        - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
+          value: http://keycloak-service:8080/auth/realms/camunda-platform
+        - name: CAMUNDA_CLIENT_AUTH_TOKEN_URL
+          value: http://keycloak-service:8080/auth/realms/camunda-platform/protocol/openid-connect/token
+
+    security:
+        authentication:
+            oidc:
+                clientId: connectors
+                tokenScope: openid
+                audience: connectors
+
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: connectors-client-secret
+
+optimize:
+    env:
+        - name: CAMUNDA_OPTIMIZE_SECURITY_AUTH_CCSM_ISSUER_URL
+          value: http://keycloak-service:8080/auth/realms/camunda-platform
+        - name: CAMUNDA_OPTIMIZE_SECURITY_AUTH_CCSM_JWKS_URL
+          value: http://keycloak-service:8080/auth/realms/camunda-platform/protocol/openid-connect/certs
+
+orchestration:
+    env:
+        - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
+          value: http://keycloak-service:8080/auth/realms/camunda-platform
+        - name: CAMUNDA_CLIENT_AUTH_TOKEN_URL
+          value: http://keycloak-service:8080/auth/realms/camunda-platform/protocol/openid-connect/token
+
+    security:
+        authentication:
+            oidc:
+                clientId: zeebe
+                audience: zeebe
+                backwardsCompatibleAudiences:
+                    - connectors
+
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: orchestration-client-secret
+
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
+                connectors:
+                    clients:
+                        - connectors
+
+console:
+    env:
+        - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
+          value: http://keycloak-service:8080/auth/realms/camunda-platform
+
+webModeler:
+    restapi:
+        env:
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+              value: http://keycloak-service:8080/auth/realms/camunda-platform
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI
+              value: http://keycloak-service:8080/auth/realms/camunda-platform/protocol/openid-connect/certs
+
+    webapp:
+        env:
+            - name: OAUTH2_JWKS_URL
+              value: http://keycloak-service:8080/auth/realms/camunda-platform/protocol/openid-connect/certs

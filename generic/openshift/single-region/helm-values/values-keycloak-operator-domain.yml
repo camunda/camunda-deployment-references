@@ -1,0 +1,50 @@
+---
+# Keycloak Operator Domain Overlay for OpenShift
+#
+# This file extends values-keycloak-operator-openshift.yml with domain-specific URLs.
+# Merge order: base.yml + domain.yml + values-keycloak-operator-openshift.yml + values-keycloak-operator-domain.yml
+#
+# Required environment variables:
+#   - DOMAIN_NAME: Your domain name
+
+global:
+    identity:
+        auth:
+            # Public issuer URL must match the token issuer for JWT validation
+            issuer: https://${DOMAIN_NAME}/auth/realms/camunda-platform
+            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
+
+            # Public authorization URL (browser redirect)
+            authorizationUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform/protocol/openid-connect/auth
+
+            identity:
+                redirectUrl: https://${DOMAIN_NAME}/auth/login-callback
+
+            optimize:
+                redirectUrl: https://${DOMAIN_NAME}/optimize/api/authentication/callback
+
+            webModeler:
+                redirectUrl: https://${DOMAIN_NAME}/modeler/login-callback
+
+            console:
+                redirectUrl: https://${DOMAIN_NAME}/console/
+
+identity:
+    fullURL: https://${DOMAIN_NAME}/auth
+
+orchestration:
+    security:
+        authentication:
+            oidc:
+                redirectUrl: https://${DOMAIN_NAME}
+
+webModeler:
+    restapi:
+        env:
+            - name: CAMUNDA_IDENTITY_BASE_URL
+              value: https://${DOMAIN_NAME}/auth
+
+    webapp:
+        env:
+            - name: OAUTH2_TOKEN_ISSUER
+              value: https://${DOMAIN_NAME}/auth/realms/camunda-platform
