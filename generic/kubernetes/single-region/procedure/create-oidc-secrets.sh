@@ -3,6 +3,14 @@
 
 set -euo pipefail
 
+if [ -z "${CAMUNDA_NAMESPACE:-}" ]; then
+    echo "⚠️  CAMUNDA_NAMESPACE environment variable is not set"
+    echo ""
+    echo "Please set the namespace where Camunda is deployed:"
+    echo "  export CAMUNDA_NAMESPACE=camunda"
+    exit 1
+fi
+
 if [ -z "${OIDC_IDENTITY_CLIENT_SECRET:-}" ]; then
     echo "⚠️  No OIDC credentials found in environment variables"
     echo ""

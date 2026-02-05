@@ -54,67 +54,67 @@ inputs:
 outputs:
     user-pool-id:
         description: Cognito User Pool ID
-        value: ${{ steps.apply.outputs.user_pool_id }}
+        value: ${{ steps.outputs.outputs.user_pool_id }}
     issuer-url:
         description: OIDC Issuer URL
-        value: ${{ steps.apply.outputs.issuer_url }}
+        value: ${{ steps.outputs.outputs.issuer_url }}
     authorization-url:
         description: OIDC Authorization URL
-        value: ${{ steps.apply.outputs.authorization_url }}
+        value: ${{ steps.outputs.outputs.authorization_url }}
     token-url:
         description: OIDC Token URL
-        value: ${{ steps.apply.outputs.token_url }}
+        value: ${{ steps.outputs.outputs.token_url }}
     jwks-url:
         description: OIDC JWKS URL
-        value: ${{ steps.apply.outputs.jwks_url }}
+        value: ${{ steps.outputs.outputs.jwks_url }}
     userinfo-url:
         description: OIDC UserInfo URL
-        value: ${{ steps.apply.outputs.userinfo_url }}
+        value: ${{ steps.outputs.outputs.userinfo_url }}
     resource-server-identifier:
         description: Resource Server identifier (used as scope prefix, e.g., 'camunda')
-        value: ${{ steps.apply.outputs.resource_server_identifier }}
+        value: ${{ steps.outputs.outputs.resource_server_identifier }}
     identity-client-id:
         description: Identity component client ID
-        value: ${{ steps.apply.outputs.identity_client_id }}
+        value: ${{ steps.outputs.outputs.identity_client_id }}
     identity-client-secret:
         description: Identity component client secret
-        value: ${{ steps.apply.outputs.identity_client_secret }}
+        value: ${{ steps.outputs.outputs.identity_client_secret }}
     optimize-client-id:
         description: Optimize component client ID
-        value: ${{ steps.apply.outputs.optimize_client_id }}
+        value: ${{ steps.outputs.outputs.optimize_client_id }}
     optimize-client-secret:
         description: Optimize component client secret
-        value: ${{ steps.apply.outputs.optimize_client_secret }}
+        value: ${{ steps.outputs.outputs.optimize_client_secret }}
     orchestration-client-id:
         description: Orchestration component client ID
-        value: ${{ steps.apply.outputs.orchestration_client_id }}
+        value: ${{ steps.outputs.outputs.orchestration_client_id }}
     orchestration-client-secret:
         description: Orchestration component client secret
-        value: ${{ steps.apply.outputs.orchestration_client_secret }}
+        value: ${{ steps.outputs.outputs.orchestration_client_secret }}
     connectors-client-id:
         description: Connectors component client ID
-        value: ${{ steps.apply.outputs.connectors_client_id }}
+        value: ${{ steps.outputs.outputs.connectors_client_id }}
     connectors-client-secret:
         description: Connectors component client secret
-        value: ${{ steps.apply.outputs.connectors_client_secret }}
+        value: ${{ steps.outputs.outputs.connectors_client_secret }}
     console-client-id:
         description: Console component client ID
-        value: ${{ steps.apply.outputs.console_client_id }}
+        value: ${{ steps.outputs.outputs.console_client_id }}
     webmodeler-ui-client-id:
         description: WebModeler UI client ID
-        value: ${{ steps.apply.outputs.webmodeler_ui_client_id }}
+        value: ${{ steps.outputs.outputs.webmodeler_ui_client_id }}
     webmodeler-api-client-id:
         description: WebModeler API client ID
-        value: ${{ steps.apply.outputs.webmodeler_api_client_id }}
+        value: ${{ steps.outputs.outputs.webmodeler_api_client_id }}
     webmodeler-api-client-secret:
         description: WebModeler API client secret
-        value: ${{ steps.apply.outputs.webmodeler_api_client_secret }}
+        value: ${{ steps.outputs.outputs.webmodeler_api_client_secret }}
     test-user-name:
         description: Test user email
-        value: ${{ steps.apply.outputs.test_user_name }}
+        value: ${{ steps.outputs.outputs.test_user_name }}
     test-user-password:
         description: Test user password
-        value: ${{ steps.apply.outputs.test_user_password }}
+        value: ${{ steps.outputs.outputs.test_user_password }}
 
 runs:
     using: composite
@@ -140,20 +140,38 @@ runs:
           run: |
               terraform init -upgrade
 
+        - name: Generate tfvars file
+          shell: bash
+          working-directory: ${{ github.workspace }}/aws/common/cognito-test
+          run: |
+              cat > ci.tfvars <<EOF
+              resource_prefix     = "${{ inputs.resource-prefix }}"
+              domain_name         = "${{ inputs.domain-name }}"
+              enable_webmodeler   = ${{ inputs.enable-webmodeler }}
+              enable_console      = ${{ inputs.enable-console }}
+              create_test_user    = ${{ inputs.create-test-user }}
+              test_user_name      = "${{ inputs.test-user-name }}"
+              test_user_password  = "${{ inputs.test-user-password }}"
+              auto_cleanup_hours  = ${{ inputs.auto-cleanup-hours }}
+              EOF
+
         - name: Terraform Plan
           shell: bash
           working-directory: ${{ github.workspace }}/aws/common/cognito-test
           run: |
-              terraform plan \
-                -var="resource_prefix=${{ inputs.resource-prefix }}" \
-                -var="domain_name=${{ inputs.domain-name }}" \
-                -var="enable_webmodeler=${{ inputs.enable-webmodeler }}" \
-                -var="enable_console=${{ inputs.enable-console }}" \
-                -var="create_test_user=${{ inputs.create-test-user }}" \
-                -var="test_user_name=${{ inputs.test-user-name }}" \
-                -var="test_user_password=${{ inputs.test-user-password }}" \
-                -var="auto_cleanup_hours=${{ inputs.auto-cleanup-hours }}" \
-                -out=tfplan
+              terraform plan -var-file=ci.tfvars -out=tfplan
+
+        - name: Check for drift
+          shell: bash
+          working-directory: ${{ github.workspace }}/aws/common/cognito-test
+          run: |
+              # Check if plan has changes (exit code 2 means changes detected)
+              terraform show -json tfplan > tfplan.json
+              CHANGES=$(jq '.resource_changes | map(select(.change.actions | contains(["update"]) or contains(["delete"]))) | length' tfplan.json)
+              if [ "$CHANGES" -gt 0 ]; then
+                echo "⚠️ Drift detected: $CHANGES resources would be modified"
+                jq '.resource_changes[] | select(.change.actions | contains(["update"]) or contains(["delete"])) | {address, actions: .change.actions}' tfplan.json
+              fi
 
         - name: Terraform Apply
           id: apply
@@ -162,53 +180,31 @@ runs:
           run: |
               terraform apply -auto-approve tfplan
 
-              # Export outputs - non-sensitive values
-              echo "user_pool_id=$(terraform output -raw user_pool_id)" >> $GITHUB_OUTPUT
-              echo "issuer_url=$(terraform output -raw issuer_url)" >> $GITHUB_OUTPUT
-              echo "authorization_url=$(terraform output -raw authorization_url)" >> $GITHUB_OUTPUT
-              echo "token_url=$(terraform output -raw token_url)" >> $GITHUB_OUTPUT
-              echo "jwks_url=$(terraform output -raw jwks_url)" >> $GITHUB_OUTPUT
-              echo "userinfo_url=$(terraform output -raw userinfo_url)" >> $GITHUB_OUTPUT
-              echo "resource_server_identifier=$(terraform output -raw resource_server_identifier)" >> $GITHUB_OUTPUT
+        - name: Export Terraform outputs
+          id: outputs
+          shell: bash
+          working-directory: ${{ github.workspace }}/aws/common/cognito-test
+          run: |
+              # Get all outputs as JSON and process them
+              TF_OUTPUT=$(terraform output -json)
 
-              # Client IDs (non-sensitive)
-              echo "identity_client_id=$(terraform output -raw identity_client_id)" >> $GITHUB_OUTPUT
-              echo "optimize_client_id=$(terraform output -raw optimize_client_id)" >> $GITHUB_OUTPUT
-              echo "orchestration_client_id=$(terraform output -raw orchestration_client_id)" >> $GITHUB_OUTPUT
-              echo "connectors_client_id=$(terraform output -raw connectors_client_id)" >> $GITHUB_OUTPUT
-              echo "console_client_id=$(terraform output -raw console_client_id)" >> $GITHUB_OUTPUT
-              echo "webmodeler_ui_client_id=$(terraform output -raw webmodeler_ui_client_id)" >> $GITHUB_OUTPUT
-              echo "webmodeler_api_client_id=$(terraform output -raw webmodeler_api_client_id)" >> $GITHUB_OUTPUT
-              echo "test_user_name=$(terraform output -raw test_user_name)" >> $GITHUB_OUTPUT
+              # Mask sensitive outputs first
+              echo "$TF_OUTPUT" | jq -r '
+                to_entries[]
+                | select(.value.sensitive == true)
+                | .value.value
+              ' | while IFS= read -r secret; do
+                if [ -n "$secret" ]; then
+                  echo "::add-mask::$secret"
+                fi
+              done
 
-              # Client secrets and passwords (sensitive - mask them)
-              IDENTITY_CLIENT_SECRET=$(terraform output -raw identity_client_secret)
-              echo "::add-mask::$IDENTITY_CLIENT_SECRET"
-              echo "identity_client_secret=$IDENTITY_CLIENT_SECRET" >> $GITHUB_OUTPUT
-
-              OPTIMIZE_CLIENT_SECRET=$(terraform output -raw optimize_client_secret)
-              echo "::add-mask::$OPTIMIZE_CLIENT_SECRET"
-              echo "optimize_client_secret=$OPTIMIZE_CLIENT_SECRET" >> $GITHUB_OUTPUT
-
-              ORCHESTRATION_CLIENT_SECRET=$(terraform output -raw orchestration_client_secret)
-              echo "::add-mask::$ORCHESTRATION_CLIENT_SECRET"
-              echo "orchestration_client_secret=$ORCHESTRATION_CLIENT_SECRET" >> $GITHUB_OUTPUT
-
-              CONNECTORS_CLIENT_SECRET=$(terraform output -raw connectors_client_secret)
-              echo "::add-mask::$CONNECTORS_CLIENT_SECRET"
-              echo "connectors_client_secret=$CONNECTORS_CLIENT_SECRET" >> $GITHUB_OUTPUT
-
-              WEBMODELER_API_CLIENT_SECRET=$(terraform output -raw webmodeler_api_client_secret)
-              echo "::add-mask::$WEBMODELER_API_CLIENT_SECRET"
-              echo "webmodeler_api_client_secret=$WEBMODELER_API_CLIENT_SECRET" >> $GITHUB_OUTPUT
-
-              TEST_USER_PASSWORD=$(terraform output -raw test_user_password)
-              echo "::add-mask::$TEST_USER_PASSWORD"
-              echo "test_user_password=$TEST_USER_PASSWORD" >> $GITHUB_OUTPUT
+              # Export all outputs to GITHUB_OUTPUT
+              echo "$TF_OUTPUT" | jq -r 'to_entries[] | "\(.key)=\(.value.value)"' >> $GITHUB_OUTPUT
 
         - name: Save state file location
           shell: bash
           run: |
               echo "Cognito Terraform state: s3://${{ inputs.terraform-backend-bucket }}/${{ inputs.terraform-backend-key }}" >> $GITHUB_STEP_SUMMARY
-              echo "User Pool ID: ${{ steps.apply.outputs.user_pool_id }}" >> $GITHUB_STEP_SUMMARY
-              echo "Issuer URL: ${{ steps.apply.outputs.issuer_url }}" >> $GITHUB_STEP_SUMMARY
+              echo "User Pool ID: ${{ steps.outputs.outputs.user_pool_id }}" >> $GITHUB_STEP_SUMMARY
+              echo "Issuer URL: ${{ steps.outputs.outputs.issuer_url }}" >> $GITHUB_STEP_SUMMARY
