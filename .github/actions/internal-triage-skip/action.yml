@@ -52,7 +52,6 @@ runs:
         - name: Post skip checklist comment (if not exists)
           id: post_checklist
           if: github.event_name == 'pull_request'
-          continue-on-error: true
           shell: bash
           env:
               GH_TOKEN: ${{ github.token }}
@@ -68,6 +67,35 @@ runs:
               pr_number="${{ github.event.pull_request.number }}"
               repo="${{ github.repository }}"
               checklist_marker="<!-- skip-workflow-checklist -->"
+
+              # Helper function to handle GitHub API errors
+              handle_gh_error() {
+                local exit_code=$1
+                local operation=$2
+                local output=$3
+
+                if [[ $exit_code -eq 0 ]]; then
+                  return 0
+                fi
+
+                # Check for specific error types
+                if echo "$output" | grep -qi "rate limit"; then
+                  echo "::warning::GitHub API rate limit hit during $operation"
+                  return 1
+                elif echo "$output" | grep -qi "401\|403\|authentication\|unauthorized"; then
+                  echo "::error::Authentication error during $operation - check token permissions"
+                  return 1
+                elif echo "$output" | grep -qi "404\|not found"; then
+                  echo "[debug] Resource not found during $operation (may be expected)"
+                  return 0  # 404 is often expected (e.g., comment already deleted)
+                elif echo "$output" | grep -qi "network\|connection\|timeout"; then
+                  echo "::warning::Network error during $operation"
+                  return 1
+                else
+                  echo "::warning::Unexpected error during $operation: $output"
+                  return 1
+                fi
+              }
 
               # Generate skip labels dynamically from workflow files that use this action
               echo "[debug] Generating skip labels from workflow files..."
@@ -93,8 +121,11 @@ runs:
               echo "$all_skip_labels"
 
               # Check if a checklist comment already exists
-              existing_comment_id=$(gh pr view "$pr_number" --repo "$repo" --json comments \
-                --jq ".comments[] | select(.body | contains(\"$checklist_marker\")) | .id" | head -1)
+              gh_output=$(gh pr view "$pr_number" --repo "$repo" --json comments 2>&1) || {
+                handle_gh_error $? "fetching PR comments" "$gh_output"
+                exit 0  # Non-critical: continue workflow even if we can't post checklist
+              }
+              existing_comment_id=$(echo "$gh_output" | jq -r ".comments[] | select(.body | contains(\"$checklist_marker\")) | .id" | head -1)
 
               # Build the checklist content
               checklist_body="${checklist_marker}"$'\n'
@@ -117,30 +148,95 @@ runs:
                 echo "[debug] Checklist comment already exists (ID: $existing_comment_id), preserving user selections"
                 # Don't update - we want to preserve user's checkbox selections
               else
-                # Race condition mitigation: add random delay to desynchronize parallel workflows
-                random_delay=$((RANDOM % 15 + 1))
-                echo "[debug] Waiting ${random_delay}s before creating comment (race condition mitigation)..."
+                # Race condition prevention: add random delay to desynchronize parallel workflows
+                # Using /dev/urandom for better entropy than $RANDOM (which can be identical across parallel processes)
+                random_delay=$(od -An -tu1 -N1 /dev/urandom | tr -d ' ')
+                random_delay=$((random_delay % 15 + 1))
+                echo "[debug] Waiting ${random_delay}s before creating comment (race condition prevention)..."
                 sleep "$random_delay"
 
-                echo "[debug] Creating new checklist comment..."
-                gh pr comment "$pr_number" --repo "$repo" --body "$checklist_body"
-                echo "[debug] Checklist comment created"
+                # Re-check if another workflow created the comment during our delay
+                gh_output=$(gh pr view "$pr_number" --repo "$repo" --json comments 2>&1) || {
+                  handle_gh_error $? "re-checking PR comments" "$gh_output"
+                  exit 0
+                }
+                existing_comment_id=$(echo "$gh_output" | jq -r ".comments[] | select(.body | contains(\"$checklist_marker\")) | .id" | head -1)
 
-                # Handle race condition: check for duplicates and clean up
-                sleep 3  # Wait for GitHub API consistency
-                all_checklist_comments=$(gh pr view "$pr_number" --repo "$repo" --json comments \
-                  --jq "[.comments[] | select(.body | contains(\"$checklist_marker\")) | {id: .id, createdAt: .createdAt}] | sort_by(.createdAt)")
+                if [[ -n "$existing_comment_id" ]]; then
+                  echo "[debug] Comment was created by another workflow during delay (ID: $existing_comment_id), skipping creation"
+                else
+                  echo "[debug] Creating new checklist comment..."
+                  gh_output=$(gh pr comment "$pr_number" --repo "$repo" --body "$checklist_body" 2>&1) || {
+                    handle_gh_error $? "creating comment" "$gh_output"
+                    exit 0
+                  }
+                  echo "[debug] Checklist comment created"
 
-                comment_count=$(echo "$all_checklist_comments" | jq 'length')
-                if [[ "$comment_count" -gt 1 ]]; then
-                  echo "[debug] Race condition detected: $comment_count checklist comments found, cleaning up duplicates..."
-                  # Keep the oldest (first) comment, delete the rest
-                  comments_to_delete=$(echo "$all_checklist_comments" | jq -r '.[1:][].id')
-                  for comment_id in $comments_to_delete; do
-                    echo "[debug] Deleting duplicate comment: $comment_id"
-                    gh api --method DELETE "/repos/$repo/issues/comments/$comment_id" || true
+                  # Handle race condition: poll for duplicates with timeout instead of fixed delay
+                  # This is more efficient as it exits early when no duplicates are found
+                  max_attempts=10
+                  poll_interval=1
+                  attempt=0
+                  duplicates_cleaned=false
+
+                  echo "[debug] Polling for duplicate comments (max ${max_attempts}s)..."
+                  while [[ $attempt -lt $max_attempts ]]; do
+                    sleep "$poll_interval"
+                    attempt=$((attempt + 1))
+
+                    gh_output=$(gh pr view "$pr_number" --repo "$repo" --json comments 2>&1) || {
+                      handle_gh_error $? "fetching comments for cleanup (attempt $attempt)" "$gh_output"
+                      break
+                    }
+                    # Sort by createdAt first, then by id (numeric) for deterministic ordering
+                    # This ensures consistent behavior even with identical timestamps
+                    # Lowest ID wins as it was created first by GitHub's sequential ID assignment
+                    jq_filter='[.comments[] | select(.body | contains("'"$checklist_marker"'"))'
+                    jq_filter+=' | {id: .id, createdAt: .createdAt,'
+                    jq_filter+=' hasCheckboxChecked: (.body | test("- \\[[xX]\\]"))}]'
+                    jq_filter+=' | sort_by(.createdAt, .id)'
+                    all_checklist_comments=$(echo "$gh_output" | jq "$jq_filter")
+                    comment_count=$(echo "$all_checklist_comments" | jq 'length')
+
+                    if [[ "$comment_count" -eq 1 ]]; then
+                      echo "[debug] Single comment confirmed after ${attempt}s, no cleanup needed"
+                      break
+                    elif [[ "$comment_count" -gt 1 ]]; then
+                      echo "[debug] Race condition detected: $comment_count checklist comments found after ${attempt}s, cleaning up duplicates..."
+
+                      # Check if any comment has user interactions (checked checkboxes)
+                      # If so, prefer keeping that one instead of just the oldest
+                      interacted_comment_id=$(echo "$all_checklist_comments" | jq -r '[.[] | select(.hasCheckboxChecked == true)] | first | .id // empty')
+
+                      if [[ -n "$interacted_comment_id" ]]; then
+                        echo "[debug] Found comment with user interactions (ID: $interacted_comment_id), preserving it"
+                        comment_to_keep="$interacted_comment_id"
+                      else
+                        # No interactions found, keep the oldest (first by createdAt, then by lowest id)
+                        comment_to_keep=$(echo "$all_checklist_comments" | jq -r '.[0].id')
+                        echo "[debug] No user interactions detected, keeping oldest comment (ID: $comment_to_keep)"
+                      fi
+
+                      # Delete all comments except the one to keep
+                      comments_to_delete=$(echo "$all_checklist_comments" | jq -r --arg keep "$comment_to_keep" '[.[] | select(.id != ($keep | tonumber))] | .[].id')
+                      for comment_id in $comments_to_delete; do
+                        echo "[debug] Deleting duplicate comment: $comment_id"
+                        delete_output=$(gh api --method DELETE "/repos/$repo/issues/comments/$comment_id" 2>&1) || {
+                          handle_gh_error $? "deleting duplicate comment $comment_id" "$delete_output"
+                          # Continue trying to delete other duplicates even if one fails
+                        }
+                      done
+                      duplicates_cleaned=true
+                      echo "[debug] Cleanup complete, kept comment $comment_to_keep"
+                      break
+                    else
+                      echo "[debug] No comments found yet (attempt $attempt/$max_attempts), waiting for API consistency..."
+                    fi
                   done
-                  echo "[debug] Cleanup complete, kept oldest checklist comment"
+
+                  if [[ $attempt -eq $max_attempts && "$duplicates_cleaned" != "true" ]]; then
+                    echo "[debug] Polling timeout reached, assuming no duplicates"
+                  fi
                 fi
               fi
 
