@@ -117,25 +117,38 @@ runs:
                 echo "[debug] Checklist comment already exists (ID: $existing_comment_id), preserving user selections"
                 # Don't update - we want to preserve user's checkbox selections
               else
-                echo "[debug] Creating new checklist comment..."
-                gh pr comment "$pr_number" --repo "$repo" --body "$checklist_body"
-                echo "[debug] Checklist comment created"
+                # Race condition prevention: add random delay to desynchronize parallel workflows
+                random_delay=$((RANDOM % 15 + 1))
+                echo "[debug] Waiting ${random_delay}s before creating comment (race condition prevention)..."
+                sleep "$random_delay"
 
-                # Handle race condition: check for duplicates and clean up
-                sleep 2  # Brief wait for GitHub API consistency
-                all_checklist_comments=$(gh pr view "$pr_number" --repo "$repo" --json comments \
-                  --jq "[.comments[] | select(.body | contains(\"$checklist_marker\")) | {id: .id, createdAt: .createdAt}] | sort_by(.createdAt)")
+                # Re-check if another workflow created the comment during our delay
+                existing_comment_id=$(gh pr view "$pr_number" --repo "$repo" --json comments \
+                  --jq ".comments[] | select(.body | contains(\"$checklist_marker\")) | .id" | head -1)
 
-                comment_count=$(echo "$all_checklist_comments" | jq 'length')
-                if [[ "$comment_count" -gt 1 ]]; then
-                  echo "[debug] Race condition detected: $comment_count checklist comments found, cleaning up duplicates..."
-                  # Keep the oldest (first) comment, delete the rest
-                  comments_to_delete=$(echo "$all_checklist_comments" | jq -r '.[1:][].id')
-                  for comment_id in $comments_to_delete; do
-                    echo "[debug] Deleting duplicate comment: $comment_id"
-                    gh api --method DELETE "/repos/$repo/issues/comments/$comment_id" || true
-                  done
-                  echo "[debug] Cleanup complete, kept oldest checklist comment"
+                if [[ -n "$existing_comment_id" ]]; then
+                  echo "[debug] Comment was created by another workflow during delay (ID: $existing_comment_id), skipping creation"
+                else
+                  echo "[debug] Creating new checklist comment..."
+                  gh pr comment "$pr_number" --repo "$repo" --body "$checklist_body"
+                  echo "[debug] Checklist comment created"
+
+                  # Handle race condition: check for duplicates and clean up
+                  sleep 3  # Wait for GitHub API consistency
+                  all_checklist_comments=$(gh pr view "$pr_number" --repo "$repo" --json comments \
+                    --jq "[.comments[] | select(.body | contains(\"$checklist_marker\")) | {id: .id, createdAt: .createdAt}] | sort_by(.createdAt)")
+
+                  comment_count=$(echo "$all_checklist_comments" | jq 'length')
+                  if [[ "$comment_count" -gt 1 ]]; then
+                    echo "[debug] Race condition detected: $comment_count checklist comments found, cleaning up duplicates..."
+                    # Keep the oldest (first) comment, delete the rest
+                    comments_to_delete=$(echo "$all_checklist_comments" | jq -r '.[1:][].id')
+                    for comment_id in $comments_to_delete; do
+                      echo "[debug] Deleting duplicate comment: $comment_id"
+                      gh api --method DELETE "/repos/$repo/issues/comments/$comment_id" || true
+                    done
+                    echo "[debug] Cleanup complete, kept oldest checklist comment"
+                  fi
                 fi
               fi
 
