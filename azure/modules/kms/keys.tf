@@ -8,8 +8,6 @@ resource "azurerm_key_vault_key" "this" {
 
   depends_on = [
     azurerm_role_assignment.tf_sp_kv_admin,
-    azurerm_role_assignment.tf_sp_kv_crypto_officer,
-    azurerm_key_vault_access_policy.tf_kv,
-    azurerm_key_vault_access_policy.aks_kms
+    azurerm_role_assignment.tf_sp_kv_crypto_officer
   ]
 }
