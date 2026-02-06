@@ -101,11 +101,11 @@ module "orchestration_cluster" {
     },
     {
       name  = "CAMUNDA_DATA_BACKUP_S3_BUCKETNAME"
-      value = aws_s3_bucket.s3_backup.bucket
+      value = aws_s3_bucket.backup.bucket
     },
     {
       name  = "CAMUNDA_DATA_BACKUP_REPOSITORYNAME"
-      value = aws_s3_bucket.s3_backup.bucket
+      value = aws_s3_bucket.backup.bucket
     },
   ]
 
