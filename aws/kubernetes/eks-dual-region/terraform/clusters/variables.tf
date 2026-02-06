@@ -29,7 +29,8 @@ variable "cluster_name" {
 
 variable "aws_profile" {
   type        = string
-  description = "AWS Profile to use"
+  description = "AWS Profile to use (null = use default credential chain)"
+  default     = null
 }
 
 variable "kubernetes_version" {

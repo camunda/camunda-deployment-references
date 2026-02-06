@@ -451,10 +451,9 @@
       "identity": {
         "account_id": null,
         "bucket": null,
-        "expected_bucket_owner": null,
         "region": null
       },
-      "identity_schema_version": 0,
+      "identity_schema_version": 1,
       "mode": "managed",
       "name": "elastic_backup",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -490,10 +489,9 @@
       "identity": {
         "account_id": null,
         "bucket": null,
-        "expected_bucket_owner": null,
         "region": null
       },
-      "identity_schema_version": 0,
+      "identity_schema_version": 1,
       "mode": "managed",
       "name": "elastic_backup",
       "provider_name": "registry.terraform.io/hashicorp/aws",
