@@ -39,7 +39,7 @@ Instructions can be found on the official documentation: https://docs.camunda.io
 | <a name="input_aws_profile"></a> [aws\_profile](#input\_aws\_profile) | AWS Profile to use | `string` | n/a | yes |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the cluster to prefix resources | `string` | n/a | yes |
 | <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default tags to apply to all resources | `map(string)` | `{}` | no |
-| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version to use | `string` | `"1.34"` | no |
+| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version to use | `string` | `"1.35"` | no |
 | <a name="input_np_capacity_type"></a> [np\_capacity\_type](#input\_np\_capacity\_type) | Allows setting the capacity type to ON\_DEMAND or SPOT to determine stable nodes | `string` | `"ON_DEMAND"` | no |
 | <a name="input_np_desired_node_count"></a> [np\_desired\_node\_count](#input\_np\_desired\_node\_count) | Desired number of nodes in the node pool | `number` | `4` | no |
 | <a name="input_np_instance_types"></a> [np\_instance\_types](#input\_np\_instance\_types) | Instance types for the node pool | `list(string)` | <pre>[<br/>  "m6i.xlarge"<br/>]</pre> | no |
