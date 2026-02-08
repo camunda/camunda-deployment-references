@@ -543,6 +543,7 @@
           "sensitive_values": {},
           "type": "azurerm_user_assigned_identity",
           "values": {
+            "isolation_scope": null,
             "location": "swedencentral",
             "name": "camunda-uai",
             "resource_group_name": "camunda-rg",
