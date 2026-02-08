@@ -24,7 +24,7 @@ delta 0.18.2
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
 eksctl 0.215.0
 
-golang 1.25.6
+golang 1.25.7
 
 # renovate: datasource=github-tags depName=fullstorydev/grpcurl
 grpcurl 1.9.3
@@ -48,7 +48,7 @@ mkcert 1.4.4
 
 pre-commit 4.5.1
 
-python 3.14.2
+python 3.14.3
 
 shellcheck 0.11.0
 
