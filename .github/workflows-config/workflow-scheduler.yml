@@ -14,7 +14,7 @@ schedules:
       cron_every_hours: '1'
       workflow_files:
           - .github/workflows/internal_global_links.yml
-          - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
+          - .github/workflows/aws_rosa_hcp_single_region_daily_cleanup.yml
 
     - name: Tuesday schedules 8.7
       branch: stable/8.7
@@ -38,10 +38,10 @@ schedules:
       cron_every_hours: '1'
       workflow_files:
           - .github/workflows/internal_global_links.yml
-          - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
-          - .github/workflows/aws_openshift_rosa_hcp_dual_region_daily_cleanup.yml
+          - .github/workflows/aws_rosa_hcp_single_region_daily_cleanup.yml
+          - .github/workflows/aws_rosa_hcp_dual_region_daily_cleanup.yml
           - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
-          - .github/workflows/aws_kubernetes_eks_single_region_daily_cleanup.yml
+          - .github/workflows/aws_eks_single_region_daily_cleanup.yml
 
     - name: Wednesday schedules 8.8
       branch: stable/8.8
@@ -73,9 +73,9 @@ schedules:
       cron_every_hours: '1'
       workflow_files:
           - .github/workflows/internal_global_links.yml
-          - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
-          - .github/workflows/aws_openshift_rosa_hcp_dual_region_daily_cleanup.yml
+          - .github/workflows/aws_rosa_hcp_single_region_daily_cleanup.yml
+          - .github/workflows/aws_rosa_hcp_dual_region_daily_cleanup.yml
           - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
-          - .github/workflows/aws_kubernetes_eks_single_region_daily_cleanup.yml
+          - .github/workflows/aws_eks_single_region_daily_cleanup.yml
           - .github/workflows/aws_compute_ec2_single_region_daily_cleanup.yml
-          - .github/workflows/azure_kubernetes_aks_single_region_daily_cleanup.yml
+          - .github/workflows/azure_aks_single_region_daily_cleanup.yml
