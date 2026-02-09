@@ -10,7 +10,7 @@ on:
                 default: '12'
     pull_request:
         paths:
-            - .github/workflows/aws_openshift_rosa_hcp_dual_region_daily_cleanup.yml
+            - .github/workflows/aws_rosa_hcp_dual_region_daily_cleanup.yml
             - .tool-versions
             - aws/openshift/rosa-hcp-dual-region/**
             - '!aws/openshift/rosa-hcp-dual-region/terraform/*/test/golden/**'
