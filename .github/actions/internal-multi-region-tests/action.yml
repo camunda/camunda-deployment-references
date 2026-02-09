@@ -226,7 +226,7 @@ runs:
 
         - name: Test connector webhook flow in multi-region setup
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ./aws/kubernetes/eks-dual-region/test
           run: |
               set -euo pipefail
 
