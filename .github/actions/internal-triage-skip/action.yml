@@ -49,6 +49,69 @@ runs:
                 echo "[debug] Not a pull_request event; skipping PR-specific debug data."
               fi
 
+        - name: Ensure skip labels exist
+          if: github.event_name == 'pull_request'
+          shell: bash
+          env:
+              GH_TOKEN: ${{ github.token }}
+          run: |
+              set -euo pipefail
+
+              # Check if this is a fork PR (limited permissions)
+              if [[ "${{ github.event.pull_request.head.repo.fork }}" == "true" ]]; then
+                echo "[debug] Fork PR detected - skipping label creation (insufficient permissions)"
+                exit 0
+              fi
+
+              repo="${{ github.repository }}"
+              label_color="1D76DB"
+              has_error=false
+
+              # Generate skip labels from workflow files that use this action
+              for workflow_file in .github/workflows/*.yml .github/workflows/*.yaml; do
+                if [[ -f "$workflow_file" ]]; then
+                  if grep -q "internal-triage-skip" "$workflow_file"; then
+                    workflow_name=$(basename "$workflow_file" | sed 's/\(.*\)\.\(yaml\|yml\)$/\1/')
+                    label_name="skip_${workflow_name}"
+
+                    # Validate label length (GitHub max is 50 characters)
+                    if [[ ${#label_name} -gt 50 ]]; then
+                      echo "::error::Label '${label_name}' is ${#label_name} chars long." \
+                        "Max is 50 characters. Please rename the workflow" \
+                        "file '$(basename "$workflow_file")' to a shorter name."
+                      has_error=true
+                      continue
+                    fi
+
+                    # Check if label already exists, create if not
+                    if gh label list --repo "$repo" --search "$label_name" --json name --jq '.[].name' | grep -qx "$label_name"; then
+                      echo "[debug] Label '$label_name' already exists"
+                    else
+                      echo "[debug] Creating label '$label_name'..."
+                      gh label create "$label_name" --repo "$repo" --color "$label_color" --description "Skip $workflow_name workflow" || {
+                        echo "::warning::Failed to create label '$label_name'"
+                      }
+                    fi
+                  fi
+                fi
+              done
+
+              # Also ensure the skip_all label exists
+              skip_all_label="skip_all"
+              if gh label list --repo "$repo" --search "$skip_all_label" --json name --jq '.[].name' | grep -qx "$skip_all_label"; then
+                echo "[debug] Label '$skip_all_label' already exists"
+              else
+                echo "[debug] Creating label '$skip_all_label'..."
+                gh label create "$skip_all_label" --repo "$repo" --color "$label_color" --description "Skip all workflows" || {
+                  echo "::warning::Failed to create label '$skip_all_label'"
+                }
+              fi
+
+              if [[ "$has_error" == "true" ]]; then
+                echo "::error::One or more labels exceed the 50-character limit. See above for details."
+                exit 1
+              fi
+
         - name: Post skip checklist comment (if not exists)
           id: post_checklist
           if: github.event_name == 'pull_request'
