@@ -163,6 +163,17 @@ jobs:
                       --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                       --namespace="${{ env.CAMUNDA_NAMESPACE }}"
 
+            # Deploy prerequisite operators (Elasticsearch, PostgreSQL, Keycloak)
+            - name: Deploy operators (Elasticsearch, PostgreSQL, Keycloak)
+              timeout-minutes: 15
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              env:
+                  CAMUNDA_MODE: ${{ matrix.declination.use_tls && 'domain' || 'no-domain' }}
+              run: |
+                  set -euo pipefail
+
+                  ./procedure/operators-deploy.sh
+
             # Deploy Camunda
             - name: Deploy Camunda (domain mode)
               if: matrix.declination.use_tls
