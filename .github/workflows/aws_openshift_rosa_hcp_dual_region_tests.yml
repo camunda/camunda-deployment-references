@@ -95,7 +95,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -109,7 +109,7 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
                   fetch-depth: 0
 
@@ -138,7 +138,7 @@ jobs:
 
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
@@ -304,7 +304,7 @@ jobs:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: openshift
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Install asdf tools with cache for the project
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
@@ -882,7 +882,7 @@ jobs:
             - integration-tests
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@8a60c6ac7a1a041dec275e1ef3635dd6bf2b072c # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@317ad657a9766301b0cae99eadfde9dddcffd286 # main
               with:
                   error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
                   run-id: ${{ github.run_id }}
@@ -906,7 +906,7 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
 
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
@@ -968,7 +968,7 @@ jobs:
             - integration-tests
             - cleanup-clusters
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}

@@ -224,6 +224,14 @@ runs:
 
               go test --count=1 -v -timeout 20m -failfast -run TestZeebeClusterScaleUpBothBrokersAndPartitions
 
+        - name: Test connector webhook flow in multi-region setup
+          shell: bash
+          working-directory: ./multi-region-tests/test
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 10m -failfast -run TestConnectorWebhookFlow
+
         - name: Debug Step
           shell: bash
           working-directory: ./aws/kubernetes/eks-dual-region/test
