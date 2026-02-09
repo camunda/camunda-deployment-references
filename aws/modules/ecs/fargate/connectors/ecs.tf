@@ -88,7 +88,7 @@ resource "aws_ecs_service" "connectors" {
   task_definition                   = aws_ecs_task_definition.connectors.arn
   desired_count                     = var.task_desired_count #3
   launch_type                       = "FARGATE"
-  health_check_grace_period_seconds = 300
+  health_check_grace_period_seconds = var.service_health_check_grace_period_seconds
 
   # Enable execute command for debugging
   enable_execute_command = var.task_enable_execute_command # true
