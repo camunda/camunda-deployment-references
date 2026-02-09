@@ -846,17 +846,7 @@ runs:
               # Base URLs
               cat > "$ENV_FILE" << EOF
               # Camunda Platform URLs
-              AUTH_URL=https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform/protocol/openid-connect/token
               OAUTH_URL=https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform/protocol/openid-connect/token
-              CONSOLE_BASE_URL=https://${CAMUNDA_DOMAIN}/console
-              KEYCLOAK_BASE_URL=https://${CAMUNDA_DOMAIN}/auth
-              IDENTITY_BASE_URL=https://${CAMUNDA_DOMAIN}/identity
-              OPERATE_BASE_URL=https://${CAMUNDA_DOMAIN}/operate
-              OPTIMIZE_BASE_URL=https://${CAMUNDA_DOMAIN}/optimize
-              TASKLIST_BASE_URL=https://${CAMUNDA_DOMAIN}/orchestration/tasklist
-              CONNECTORS_BASE_URL=https://${CAMUNDA_DOMAIN}/connectors
-              ZEEBE_GATEWAY_GRPC=${CAMUNDA_DOMAIN_GRPC:-${CAMUNDA_DOMAIN}:443}
-              ZEEBE_GATEWAY_REST=https://${CAMUNDA_DOMAIN}/zeebe
 
               # Login paths
               CONSOLE_LOGIN_PATH=/login
@@ -869,33 +859,11 @@ runs:
               # Authentication
               TEST_AUTH_TYPE=${TEST_AUTH_TYPE}
               TEST_CLIENT_ID=${TEST_CLIENT_ID}
-              DISTRO_QA_E2E_TESTS_KEYCLOAK_CLIENTS_SECRET=${TEST_CLIENT_SECRET}
               TASKLIST_VERSION=v2
               PLAYWRIGHT_BASE_URL=https://${CAMUNDA_DOMAIN}
               CLUSTER_VERSION=${CAMUNDA_VERSION}
-              C8_USERNAME=admin
+              DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME=admin
               EOF
-
-              # Fetch service client secrets from the cluster
-              echo "🔑 Fetching service client secrets..."
-
-              for svc in CONNECTORS OPTIMIZE ORCHESTRATION; do
-                secret=$(kubectl -n "$TEST_NAMESPACE" \
-                  get secret integration-test-credentials \
-                  -o jsonpath="{.data.identity-${svc,,}-client-token}" 2>/dev/null | base64 -d 2>/dev/null || \
-                  kubectl -n "$TEST_NAMESPACE" \
-                  get secret "${CAMUNDA_RELEASE_NAME}-credentials" \
-                  -o jsonpath="{.data.identity-${svc,,}-client-token}" 2>/dev/null | base64 -d 2>/dev/null || \
-                  echo "")
-
-                if [[ -n "$secret" ]]; then
-                  echo "::add-mask::$secret"
-                  echo "PLAYWRIGHT_VAR_${svc}_CLIENT_SECRET=${secret}" >> "$ENV_FILE"
-                else
-                  echo "⚠️ Could not fetch secret for $svc, using test-client-secret"
-                  echo "PLAYWRIGHT_VAR_${svc}_CLIENT_SECRET=${TEST_CLIENT_SECRET}" >> "$ENV_FILE"
-                fi
-              done
 
               # Fisrt user credentials
               firstuser_password=$(kubectl -n "$TEST_NAMESPACE" \
