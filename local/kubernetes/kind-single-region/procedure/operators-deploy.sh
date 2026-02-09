@@ -15,14 +15,18 @@ CAMUNDA_MODE=${CAMUNDA_MODE:-no-domain}
 export CAMUNDA_NAMESPACE
 
 OPERATOR_BASE="../../../generic/kubernetes/operator-based"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KIND_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 
 echo "Deploying operators for Kind ($CAMUNDA_MODE mode)..."
 
 # 1. Deploy Elasticsearch via ECK operator
+# Uses Kind-specific elasticsearch config (2 replicas, soft anti-affinity)
+# instead of the generic one (3 replicas, hard anti-affinity)
 echo ""
 echo "=== Deploying Elasticsearch (ECK) ==="
 pushd "$OPERATOR_BASE/elasticsearch" > /dev/null
-./deploy.sh
+ELASTICSEARCH_CLUSTER_FILE="$KIND_CONFIGS_DIR/elasticsearch-cluster.yml" ./deploy.sh
 popd > /dev/null
 
 # 2. Deploy PostgreSQL via CloudNativePG operator
