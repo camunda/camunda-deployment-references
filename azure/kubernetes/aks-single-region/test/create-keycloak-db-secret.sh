@@ -5,7 +5,7 @@ set -euo pipefail
 # Run when using embedded Keycloak with external PostgreSQL
 
 kubectl create secret generic identity-keycloak-secret \
-  --namespace camunda \
+  --namespace "$CAMUNDA_NAMESPACE" \
   --from-literal=host="$DB_HOST" \
   --from-literal=user="$DB_KEYCLOAK_USERNAME" \
   --from-literal=password="$DB_KEYCLOAK_PASSWORD" \

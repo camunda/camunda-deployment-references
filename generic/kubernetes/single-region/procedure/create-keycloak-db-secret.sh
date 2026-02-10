@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Create a secret to reference external database credentials for Keycloak
-# This script should only be run when Keycloak is enabled (not when using external OIDC)
+# This script should only be run when using embedded Keycloak (not keycloak-operator or external OIDC)
 
 kubectl create secret generic identity-keycloak-secret \
   --namespace "$CAMUNDA_NAMESPACE" \
