@@ -275,8 +275,7 @@ jobs:
                   source ${{ github.workspace }}/.github/scripts/gha-functions.sh
 
                   export_new_env_vars_to_file \
-                      ${{ github.workspace }}/aws/kubernetes/eks-single-region/procedure/export-helm-values.sh \
-                      ${{ runner.temp }}/outputs_raw
+                      ${{ github.workspace }}/aws/kubernetes/eks-single-region/procedure/export-helm-values.sh
 
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
               id: encrypt_outputs

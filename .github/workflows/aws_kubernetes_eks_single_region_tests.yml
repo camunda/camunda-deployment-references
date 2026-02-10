@@ -257,19 +257,19 @@ jobs:
                   source ${{ github.workspace }}/.github/scripts/gha-functions.sh
 
                   # Export base helm values (OIDC mode)
-                  export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/export-helm-values.sh ${{ runner.temp }}/outputs_raw
-                  export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh ${{ runner.temp }}/outputs_raw
+                  export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/export-helm-values.sh
+                  export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
 
                   # Add Keycloak-specific exports for embedded Keycloak auth
                   if [[ "${{ matrix.scenario.auth_provider }}" == "keycloak" ]]; then
                       echo "Exporting Keycloak configuration..."
                       KEYCLOAK_SCRIPT="${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}"
                       KEYCLOAK_SCRIPT+="/terraform/cluster/test/export-keycloak-helm-values.sh"
-                      export_new_env_vars_to_file "$KEYCLOAK_SCRIPT" ${{ runner.temp }}/outputs_raw
+                      export_new_env_vars_to_file "$KEYCLOAK_SCRIPT"
                   fi
 
                   if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
-                      export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh ${{ runner.temp }}/outputs_raw
+                      export_new_env_vars_to_file ${{ github.workspace }}/aws/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-os.sh
                   fi
 
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
