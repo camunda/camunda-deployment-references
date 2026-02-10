@@ -5,7 +5,7 @@ on:
     workflow_dispatch:
     pull_request:
         paths:
-            - .github/workflows/aws_containers_ecs_single_region_fargate_golden.yml
+            - .github/workflows/aws_ecs_single_region_fargate_golden.yml
             - .tool-versions
             - aws/containers/ecs-single-region-fargate/terraform/**
             - aws/modules/ecs/**

@@ -49,6 +49,119 @@ runs:
                 echo "[debug] Not a pull_request event; skipping PR-specific debug data."
               fi
 
+        - name: Generate skip labels list
+          id: generate_labels
+          if: github.event_name == 'pull_request'
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              has_error=false
+              all_skip_labels=""
+
+              # Generate skip labels from workflow files that use this action
+              for workflow_file in .github/workflows/*.yml .github/workflows/*.yaml; do
+                if [[ -f "$workflow_file" ]]; then
+                  if grep -q "internal-triage-skip" "$workflow_file"; then
+                    workflow_name=$(basename "$workflow_file" \
+                      | sed 's/\(.*\)\.\(yaml\|yml\)$/\1/')
+                    label_name="skip_${workflow_name}"
+
+                    # Validate label length (GitHub max is 50 characters)
+                    if [[ ${#label_name} -gt 50 ]]; then
+                      echo "::error::Label '${label_name}' is ${#label_name} chars long." \
+                        "Max is 50 characters. Please rename the workflow" \
+                        "file '$(basename "$workflow_file")' to a shorter name."
+                      has_error=true
+                      continue
+                    fi
+
+                    all_skip_labels+="${label_name}"$'\n'
+                  fi
+                fi
+              done
+
+              # Remove trailing newline and sort
+              all_skip_labels=$(echo "$all_skip_labels" | grep -v '^$' | sort)
+
+              if [[ "$has_error" == "true" ]]; then
+                echo "::error::One or more labels exceed the 50-character limit. See above for details."
+                exit 1
+              fi
+
+              echo "[debug] Generated skip labels:"
+              echo "$all_skip_labels"
+
+              # Write multiline output using delimiter
+              {
+                echo "all_skip_labels<<LABELS_EOF"
+                echo "$all_skip_labels"
+                echo "LABELS_EOF"
+              } >> "$GITHUB_OUTPUT"
+
+        - name: Ensure skip labels exist
+          if: github.event_name == 'pull_request'
+          shell: bash
+          env:
+              GH_TOKEN: ${{ github.token }}
+          run: |
+              set -euo pipefail
+
+              # Check if this is a fork PR (limited permissions)
+              if [[ "${{ github.event.pull_request.head.repo.fork }}" == "true" ]]; then
+                echo "[debug] Fork PR detected - skipping label creation (insufficient permissions)"
+                exit 0
+              fi
+
+              repo="${{ github.repository }}"
+              label_color="1D76DB"
+              all_skip_labels="${{ steps.generate_labels.outputs.all_skip_labels }}"
+
+              if [[ -z "$all_skip_labels" ]]; then
+                echo "[debug] No skip labels to create"
+                exit 0
+              fi
+
+              # Fetch all existing labels once to minimize API calls
+              echo "[debug] Fetching existing labels from repo..."
+              existing_labels=$(gh label list --repo "$repo" \
+                --json name --jq '.[].name' --limit 1000)
+
+              # Helper: create label if not in existing_labels
+              ensure_label() {
+                local label_name="$1"
+                local description="$2"
+
+                if echo "$existing_labels" | grep -qx "$label_name"; then
+                  echo "[debug] Label '$label_name' already exists"
+                  return 0
+                fi
+
+                echo "[debug] Creating label '$label_name'..."
+                create_output=$(gh label create "$label_name" --repo "$repo" \
+                  --color "$label_color" \
+                  --description "$description" 2>&1) && {
+                  echo "[debug] Label '$label_name' created"
+                } || {
+                  if echo "$create_output" | grep -qi "already exists"; then
+                    echo "[debug] Label '$label_name' already exists (race)"
+                  else
+                    echo "::warning::Failed to create label '$label_name': $create_output"
+                  fi
+                }
+              }
+
+              # Create missing skip labels
+              while IFS= read -r label_name; do
+                if [[ -n "$label_name" ]]; then
+                  workflow_name="${label_name#skip_}"
+                  ensure_label "$label_name" "Skip $workflow_name workflow"
+                fi
+              done <<< "$all_skip_labels"
+
+              # Also ensure the skip_all label exists
+              ensure_label "skip_all" "Skip all workflows"
+
         - name: Post skip checklist comment (if not exists)
           id: post_checklist
           if: github.event_name == 'pull_request'
@@ -97,27 +210,15 @@ runs:
                 fi
               }
 
-              # Generate skip labels dynamically from workflow files that use this action
-              echo "[debug] Generating skip labels from workflow files..."
-              all_skip_labels=""
-              for workflow_file in .github/workflows/*.yml .github/workflows/*.yaml; do
-                if [[ -f "$workflow_file" ]]; then
-                  # Only include workflows that use the internal-triage-skip action
-                  if grep -q "internal-triage-skip" "$workflow_file"; then
-                    workflow_name=$(basename "$workflow_file" | sed 's/\(.*\)\.\(yaml\|yml\)$/\1/')
-                    all_skip_labels+="skip_${workflow_name}"$'\n'
-                  fi
-                fi
-              done
-              # Remove trailing newline and sort
-              all_skip_labels=$(echo "$all_skip_labels" | grep -v '^$' | sort)
+              # Reuse skip labels computed in the generate_labels step
+              all_skip_labels="${{ steps.generate_labels.outputs.all_skip_labels }}"
 
               if [[ -z "$all_skip_labels" ]]; then
-                echo "[debug] No workflow files found, skipping checklist creation"
+                echo "[debug] No skip labels found, skipping checklist creation"
                 exit 0
               fi
 
-              echo "[debug] Generated skip labels:"
+              echo "[debug] Skip labels for checklist:"
               echo "$all_skip_labels"
 
               # Check if a checklist comment already exists

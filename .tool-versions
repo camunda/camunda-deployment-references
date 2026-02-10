@@ -58,7 +58,7 @@ terraform 1.14.4
 
 terraform-docs 0.21.0
 
-tflint 0.60.0
+tflint 0.61.0
 
 trivy 0.60.0
 
