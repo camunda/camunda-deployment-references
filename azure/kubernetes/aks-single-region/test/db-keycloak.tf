@@ -1,7 +1,8 @@
-# Keycloak Database Configuration (CI/Test only)
+# Keycloak Database connection locals (CI/Test only)
 #
-# This file adds Keycloak database configuration to the base db.tf
-# Copy this file to the root when using embedded Keycloak instead of external OIDC
+# Defines the database name, username, and password used by Keycloak.
+# The actual database setup (creation, grants) remains a separate step.
+# Copy this file to the root when using embedded Keycloak instead of external OIDC.
 
 locals {
   # Keycloak-specific database configuration
