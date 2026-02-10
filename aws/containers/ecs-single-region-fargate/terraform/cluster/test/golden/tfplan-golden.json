@@ -2100,7 +2100,7 @@
             "enable_execute_command": false,
             "force_delete": null,
             "force_new_deployment": false,
-            "health_check_grace_period_seconds": 300,
+            "health_check_grace_period_seconds": 900,
             "launch_type": "FARGATE",
             "load_balancer": [
               {
