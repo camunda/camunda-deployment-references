@@ -23,6 +23,24 @@ For a test located in `aws/openshift/rosa-hcp-single-region`, the corresponding 
 aws_openshift_rosa_hcp_single_region_tests.yml
 ```
 
+### Workflow Filename Length Constraint
+
+Workflow filenames must be short enough so that the corresponding skip label (`skip_<workflow_name>`) does not exceed **50 characters** (GitHub's maximum label length).
+
+For example, a workflow named `aws_containers_ecs_single_region_fargate_daily_cleanup.yml` would produce the label `skip_aws_containers_ecs_single_region_fargate_daily_cleanup` (59 chars) — which is too long.
+
+To keep filenames concise, apply these **abbreviation rules** when the service name already implies the category:
+
+| Long prefix | Short prefix | Reason |
+|---|---|---|
+| `aws_containers_ecs_` | `aws_ecs_` | ECS already implies containers |
+| `aws_kubernetes_eks_` | `aws_eks_` | EKS already implies Kubernetes |
+| `azure_kubernetes_aks_` | `azure_aks_` | AKS already implies Kubernetes |
+| `aws_openshift_rosa_hcp_` | `aws_rosa_hcp_` | ROSA already implies OpenShift |
+| `local_kubernetes_kind_` | `local_kind_` | Kind already implies Kubernetes |
+
+The `internal-triage-skip` action validates label lengths at runtime and will **fail the workflow** if any label exceeds 50 characters, printing the offending filename.
+
 ## Standardized Workflow Naming
 Inside each workflow file, the `name` field is also standardized to maintain uniformity.
 
@@ -82,6 +100,6 @@ clusters-info:
 
 A label can be added to a pull request or issue to skip a specific workflow execution. For example, adding the label [`skip_aws_compute_ec2_single_region_tests`](https://github.com/camunda/camunda-deployment-references/labels/skip_aws_compute_ec2_single_region_tests) prevents unnecessary resource usage.
 
-If the required label does not exist, it must be created manually on GitHub at [GitHub Labels](https://github.com/camunda/camunda-deployment-references/issues/labels) with the color `#1D76DB`.
+Skip labels (e.g. `skip_<workflow_name>`) are **created automatically** by the `internal-triage-skip` action if they don't already exist, with the color `#1D76DB`. There is no need to create them manually.
 
-_Note:_ One should create and apply the label during the creation of the PR; otherwise, the first run will trigger all workflows.
+_Note:_ One should apply the label during the creation of the PR; otherwise, the first run will trigger all workflows.

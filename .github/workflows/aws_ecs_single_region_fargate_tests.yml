@@ -35,7 +35,7 @@ on:
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-generic-terraform-outputs/**
             - .github/actions/internal-terraform-drift-detect/**
-            - .github/workflows/aws_containers_ecs_single_region_fargate_tests.yml
+            - .github/workflows/aws_ecs_single_region_fargate_tests.yml
             - .tool-versions
             - aws/containers/ecs-single-region-fargate/**
             - '!aws/containers/ecs-single-region-fargate/terraform/test/golden/**'
