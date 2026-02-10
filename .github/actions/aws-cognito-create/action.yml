@@ -119,26 +119,15 @@ outputs:
 runs:
     using: composite
     steps:
-        - name: Configure Terraform backend
-          shell: bash
-          working-directory: ${{ github.workspace }}/aws/common/cognito-test
-          run: |
-              cat > backend.tf <<EOF
-              terraform {
-                backend "s3" {
-                  bucket  = "${{ inputs.terraform-backend-bucket }}"
-                  key     = "${{ inputs.terraform-backend-key }}"
-                  region  = "${{ inputs.terraform-backend-region }}"
-                  profile = "${{ inputs.aws-profile }}"
-                }
-              }
-              EOF
-
         - name: Terraform Init
           shell: bash
           working-directory: ${{ github.workspace }}/aws/common/cognito-test
           run: |
-              terraform init -upgrade
+              terraform init -upgrade \
+                -backend-config="bucket=${{ inputs.terraform-backend-bucket }}" \
+                -backend-config="key=${{ inputs.terraform-backend-key }}" \
+                -backend-config="region=${{ inputs.terraform-backend-region }}" \
+                -backend-config="profile=${{ inputs.aws-profile }}"
 
         - name: Generate tfvars file
           shell: bash
