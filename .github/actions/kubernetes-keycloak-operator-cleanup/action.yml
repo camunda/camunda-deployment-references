@@ -45,7 +45,7 @@ runs:
               echo "Deleting Keycloak-related secrets..."
 
               # Delete secrets created by the action
-              for secret in pg-keycloak-secret identity-secret-for-components; do
+              for secret in pg-keycloak-superuser-secret pg-keycloak-secret identity-secret-for-components; do
                 if kubectl get secret "$secret" -n "${{ inputs.namespace }}" &>/dev/null; then
                   kubectl delete secret "$secret" -n "${{ inputs.namespace }}" || true
                   echo "Deleted secret: $secret"

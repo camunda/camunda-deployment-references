@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ------------------------------------------------------------------------------
 # Function: export_new_env_vars
@@ -140,8 +141,15 @@ export_terraform_outputs() {
   done
 
   # Export all outputs individually to GITHUB_OUTPUT
-  echo "$TF_OUTPUT" | jq -r 'to_entries[] | "\(.key)=\(.value.value)"' >> "$GITHUB_OUTPUT"
+  # Use heredoc delimiter for values that may contain special characters (maps, lists, multi-line)
+  echo "$TF_OUTPUT" | jq -r '
+    to_entries[] | "\(.key)<<TFEOF\n\(.value.value)\nTFEOF"
+  ' >> "$GITHUB_OUTPUT"
 
   # Also export the full JSON for consumers needing the complete structure
-  echo "all_terraform_outputs=$(echo "$TF_OUTPUT" | jq -c .)" >> "$GITHUB_OUTPUT"
+  {
+    echo "all_terraform_outputs<<TFEOF"
+    echo "$TF_OUTPUT" | jq -c .
+    echo "TFEOF"
+  } >> "$GITHUB_OUTPUT"
 }

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Create a secret to reference external database credentials for Keycloak
 # This script should only be run when Keycloak is enabled (not when using external OIDC)

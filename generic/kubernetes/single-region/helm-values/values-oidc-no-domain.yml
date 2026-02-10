@@ -1,18 +1,17 @@
 ---
 # OIDC No-Domain Overlay - Redirect URLs for localhost/port-forward mode
 #
-# ⚠️  WARNING: External OIDC providers (AWS Cognito, Azure AD, Okta, etc.)
-# typically do NOT support localhost redirect URLs for production use.
-# This configuration is provided for development/testing purposes only.
+# ⚠️  WARNING: It is NOT possible to configure an external OIDC provider
+# (AWS Cognito, Azure AD, Okta, etc.) with localhost redirect URLs.
+# External OIDC providers require publicly accessible redirect URLs for
+# security reasons (OAuth 2.0 specification mandates HTTPS redirect URIs
+# for production, and most providers block localhost entirely).
+#
+# This file is kept as a reference but should NOT be used as-is.
+# For local development, use Keycloak (embedded or operator-based) instead.
 #
 # Merge order: values-no-domain.yml + values-oidc.yml + values-oidc-no-domain.yml
 #   yq ". *+ load(\"values-oidc.yml\") *+ load(\"values-oidc-no-domain.yml\")" values-no-domain.yml > values.yml
-#
-# Note: Most external OIDC providers require publicly accessible redirect URLs.
-# For local development with external OIDC, consider:
-# - Using a tunneling service (ngrok, cloudflared) to expose localhost
-# - Using a development/sandbox OIDC provider that allows localhost
-# - Using Keycloak for local development instead
 
 # This file intentionally has minimal overrides.
 # The no-domain mode with external OIDC is an edge case.

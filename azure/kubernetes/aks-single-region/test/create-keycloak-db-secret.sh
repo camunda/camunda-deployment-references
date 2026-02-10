@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Create Keycloak external database secret (CI/Test only - for embedded Keycloak)
 # Run when using embedded Keycloak with external PostgreSQL

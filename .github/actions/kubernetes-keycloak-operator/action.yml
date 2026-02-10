@@ -141,7 +141,7 @@ runs:
               "${KEYCLOAK_DIR}/deploy.sh"
 
               echo "✓ Keycloak deployed"
-              kubectl wait --for=condition=Ready --timeout=600s keycloak --all -n "$NAMESPACE"
+              kubectl wait --for=condition=Ready --timeout=600s keycloak --all -n "$CAMUNDA_NAMESPACE"
               echo "✓ Keycloak instance deployed"
 
         - name: Verify Keycloak admin secret
