@@ -2,7 +2,7 @@
 # Azure AKS Domain Configuration for Camunda Platform
 #
 # This is the base values file. Auth provider configs are applied via overlays:
-# - Keycloak: merge with generic/kubernetes/single-region/helm-values/values-keycloak.yml + values-keycloak-domain.yml
+# - Keycloak Operator: merge with generic/kubernetes/operator-based/keycloak/camunda-keycloak-domain-values.yml
 # - OIDC: merge with generic/kubernetes/single-region/helm-values/values-oidc.yml + values-oidc-domain.yml
 
 global:
@@ -87,6 +87,13 @@ orchestration:
     data:
         secondaryStorage:
             type: elasticsearch
+
+    security:
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
 
     ingress:
         grpc:

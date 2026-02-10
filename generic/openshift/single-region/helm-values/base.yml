@@ -2,7 +2,7 @@
 # OpenShift Base Configuration for Camunda Platform
 #
 # This is the base values file. Auth provider configs are applied via overlays:
-# - Keycloak: merge with generic/kubernetes/single-region/helm-values/values-keycloak.yml + values-keycloak-*.yml
+# - Keycloak Operator: merge with generic/kubernetes/operator-based/keycloak/camunda-keycloak-*-values.yml
 # - OIDC: merge with generic/kubernetes/single-region/helm-values/values-oidc.yml + values-oidc-*.yml
 
 global:
@@ -20,6 +20,13 @@ global:
 
 orchestration:
     contextPath: /
+
+    security:
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
 
 optimize:
     enabled: true

@@ -2,7 +2,7 @@
 # Azure AKS No-Domain Configuration for Camunda Platform
 #
 # This is the base values file. Auth provider configs are applied via overlays:
-# - Keycloak: merge with generic/kubernetes/single-region/helm-values/values-keycloak.yml + values-keycloak-no-domain.yml
+# - Keycloak Operator: merge with generic/kubernetes/operator-based/keycloak/camunda-keycloak-no-domain-values.yml
 # - OIDC: merge with generic/kubernetes/single-region/helm-values/values-oidc.yml + values-oidc-no-domain.yml
 
 global:
@@ -42,8 +42,6 @@ identity:
             existingSecret: identity-postgres-secret
             existingSecretKey: password
 
-connectors: {}
-
 optimize:
     enabled: true
 
@@ -51,6 +49,13 @@ orchestration:
     data:
         secondaryStorage:
             type: elasticsearch
+
+    security:
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
 
 webModeler:
     enabled: false # by default, webModeler is not enabled

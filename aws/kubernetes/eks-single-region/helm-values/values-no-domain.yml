@@ -3,8 +3,8 @@
 #
 # This file contains infrastructure configuration without ingress (for port-forward access).
 # Combine with an auth overlay:
-#   - Keycloak: yq ". *+ load(\"values-keycloak.yml\") *+ load(\"values-keycloak-no-domain.yml\")" values-no-domain.yml > values.yml
-#   - OIDC:     yq ". *+ load(\"values-oidc.yml\")" values-no-domain.yml > values.yml
+#   - Keycloak Operator: yq ". *+ load(\"generic/kubernetes/operator-based/keycloak/camunda-keycloak-no-domain-values.yml\")" values-no-domain.yml > values.yml
+#   - OIDC:              yq ". *+ load(\"values-oidc.yml\")" values-no-domain.yml > values.yml
 #
 # Required environment variables:
 #   - OPENSEARCH_HOST: OpenSearch endpoint
@@ -91,6 +91,13 @@ orchestration:
     data:
         secondaryStorage:
             type: opensearch
+
+    security:
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
 
 
 webModelerPostgresql:

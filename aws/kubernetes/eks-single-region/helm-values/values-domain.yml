@@ -3,8 +3,8 @@
 #
 # This file contains infrastructure configuration with ingress/domain enabled.
 # Combine with an auth overlay:
-#   - Keycloak: yq ". *+ load(\"values-keycloak.yml\") *+ load(\"values-keycloak-domain.yml\")" values-domain.yml > values.yml
-#   - OIDC:     yq ". *+ load(\"values-oidc.yml\")" values-domain.yml > values.yml
+#   - Keycloak Operator: yq ". *+ load(\"generic/kubernetes/operator-based/keycloak/camunda-keycloak-domain-values.yml\")" values-domain.yml > values.yml
+#   - OIDC:              yq ". *+ load(\"values-oidc.yml\")" values-domain.yml > values.yml
 #
 # Required environment variables:
 #   - DOMAIN_NAME: Your domain name
@@ -87,6 +87,13 @@ orchestration:
     data:
         secondaryStorage:
             type: opensearch
+
+    security:
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
 
     ingress:
         grpc:

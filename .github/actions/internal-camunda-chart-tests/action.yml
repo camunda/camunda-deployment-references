@@ -83,7 +83,7 @@ inputs:
         description: Optional namespace for region 1 (dual-region only)
         required: false
     keycloak-service-name:
-        description: Name of the Keycloak service with optional port (e.g. keycloak-service:18080)
+        description: Name of the Keycloak service with optional port (e.g. keycloak-service:8080)
         default: ''  # Will use ${CAMUNDA_RELEASE_NAME}-keycloak:8080 by default
     elasticsearch-service-name:
         description: Name of the Elasticsearch service with optional port (e.g. elasticsearch-es-http:9200)
@@ -438,7 +438,7 @@ runs:
                   KEYCLOAK_SERVICE_PORT="${KEYCLOAK_TARGET#*:}"
                 else
                   KEYCLOAK_SERVICE_NAME="$KEYCLOAK_TARGET"
-                  KEYCLOAK_SERVICE_PORT="18080"
+                  KEYCLOAK_SERVICE_PORT="8080"
                 fi
 
                 echo "Using Keycloak service: $KEYCLOAK_SERVICE_NAME:$KEYCLOAK_SERVICE_PORT"
