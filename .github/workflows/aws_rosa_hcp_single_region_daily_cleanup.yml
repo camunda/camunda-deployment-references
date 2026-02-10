@@ -10,7 +10,7 @@ on:
                 default: '12'
     pull_request:
         paths:
-            - .github/workflows/aws_openshift_rosa_hcp_single_region_daily_cleanup.yml
+            - .github/workflows/aws_rosa_hcp_single_region_daily_cleanup.yml
             - .tool-versions
             - aws/openshift/rosa-hcp-single-region/**
             - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
@@ -45,7 +45,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -57,7 +57,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
-              uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
