@@ -22,7 +22,7 @@ global:
             issuerBackendUrl: http://keycloak-service:18080/auth/realms/camunda-platform
             issuer: http://keycloak-service:18080/auth/realms/camunda-platform
             # Local testing with port-forwarding
-            # keycloak-service:18080 works both in-cluster (via patched Service) and locally (via port-forward)
+            # keycloak-service:18080 works both in-cluster and locally (via port-forward)
             publicIssuerUrl: http://keycloak-service:18080/auth/realms/camunda-platform
 
         # Keycloak configuration for external instance
@@ -31,7 +31,6 @@ global:
             internal: false # Disable internal Keycloak
             url:
                 # Configuration for external Keycloak service
-                # Port 18080 is exposed in-cluster via a patched Service (18080→8080)
                 protocol: http
                 host: keycloak-service
                 port: '18080'
