@@ -1,0 +1,11 @@
+---
+matrix:
+    distro:
+        - name: EKS
+          schedule_only: false
+
+    scenario:
+        - name: eks-dual-region
+    declination:
+        - name: no-domain
+          desc: Setup chart in production-like setup with Ingress and TLS.

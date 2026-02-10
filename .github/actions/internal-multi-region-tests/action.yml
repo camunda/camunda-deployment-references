@@ -29,15 +29,15 @@ inputs:
     default-values-yaml:
         description: Path to default values yaml file
         required: false
-        default: ./multi-region-tests/test/values.yaml
+        default: ./aws/kubernetes/eks-dual-region/helm-values/camunda-values.yml
     region-0-values-yaml:
         description: Path to region 0 values yaml file
         required: false
-        default: ./multi-region-tests/test/values-region-0.yaml
+        default: ./aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
     region-1-values-yaml:
         description: Path to region 1 values yaml file
         required: false
-        default: ./multi-region-tests/test/values-region-1.yaml
+        default: ./aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
     extra-values-yaml:
         description: Comma separated string of extra values yaml files to be applied
         required: false
@@ -51,21 +51,18 @@ inputs:
         description: Script to run after Failback to re-export services (e.g., for OpenShift Submariner ServiceExports)
         required: false
         default: ''
+    distribution:
+        description: Distribution to test on, e.g., EKS or OpenShift. Mainly for disabling certain tests.
+        required: false
+        default: EKS
 runs:
     using: composite
     steps:
-        - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        # Explicitly set up Go for caching of packages
+        - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
           with:
-              repository: camunda/c8-multi-region
-              ref: main
-              path: multi-region-tests
-
-        - name: Copy .tool-versions to multi-region-tests
-          shell: bash
-          run: |
-              set -euo pipefail
-              # Copy .tool-versions so asdf can find golang when running in multi-region-tests/test
-              cp .tool-versions ./multi-region-tests/test/.tool-versions
+              go-version-file: ./aws/kubernetes/eks-dual-region/test/go.mod
+              cache-dependency-path: ./aws/kubernetes/eks-dual-region/test/go.sum
 
         - name: Split up Kubeconfig
           shell: bash
@@ -82,8 +79,12 @@ runs:
                 kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
               done
 
-              mv "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./multi-region-tests/test/kubeconfig-london"
-              mv "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./multi-region-tests/test/kubeconfig-paris"
+              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./aws/kubernetes/eks-dual-region/test/kubeconfig-london"
+              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./aws/kubernetes/eks-dual-region/test/kubeconfig-paris"
+
+              if [[ "${{ inputs.cluster-0-name }}" == "${{ inputs.cluster-1-name }}" ]]; then
+                cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./aws/kubernetes/eks-dual-region/test/kubeconfig"
+              fi
 
         - name: Set Up Environment Variables
           shell: bash
@@ -113,16 +114,17 @@ runs:
                 echo "EXTRA_VALUES_YAML=${{ inputs.extra-values-yaml }}"
               } >> "$GITHUB_ENV"
 
-              echo "TEST_DIR=./multi-region-tests/test" >> "$GITHUB_ENV"
+              echo "TEST_DIR=./aws/kubernetes/eks-dual-region/test" >> "$GITHUB_ENV"
 
         - name: Clean Environment
           if: inputs.skip-cleanup != 'true'
           shell: bash
           working-directory: ${{ env.TEST_DIR }}
+
           run: |
               set -euo pipefail
 
-              go test --count=1 -v -timeout 15m -run TestAWSDualRegCleanup
+              go test --count=1 -v -timeout 15m -failfast -run TestAWSDualRegCleanup
 
         - name: Deploy multi-region setup - ${{ inputs.helm-version }}
           shell: bash
@@ -130,7 +132,7 @@ runs:
           run: |
               set -euo pipefail
 
-              go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
+              go test --count=1 -v -timeout 30m -failfast -run TestAWSDeployDualRegCamunda
 
         - name: Set start timestamp for Failover
           shell: bash
@@ -146,7 +148,7 @@ runs:
           run: |
               set -euo pipefail
 
-              go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
+              go test --count=1 -v -timeout 20m -failfast -run TestAWSDualRegFailover_8_6_plus
 
         - name: Calculate Failover duration
           shell: bash
@@ -174,7 +176,7 @@ runs:
           run: |
               set -euo pipefail
 
-              go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
+              go test --count=1 -v -timeout 45m -failfast -run TestAWSDualRegFailback_8_6_plus
 
         - name: Re-export services after Failback (OpenShift)
           if: inputs.post-failback-script != ''
@@ -197,6 +199,47 @@ runs:
                 echo "::error::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
               fi
 
+        - name: Test multi-tenancy
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestMultiTenancyDualReg
+
+        - name: Test scaling zeebe brokers in multi-region setup
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestZeebeClusterScaleUpBrokers
+
+        - name: Test scaling zeebe partitions in multi-region setup
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestZeebeClusterScaleUpPartitions
+
+        - name: Test scaling zeebe brokers and partitions in multi-region setup
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestZeebeClusterScaleUpBothBrokersAndPartitions
+
+        - name: Test connector webhook flow in multi-region setup
+          shell: bash
+          if: inputs.distribution == 'EKS'
+          working-directory: ${{ env.TEST_DIR }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 10m -failfast -run TestConnectorWebhookFlow
+
         - name: Debug Step
           shell: bash
           working-directory: ${{ env.TEST_DIR }}
@@ -204,7 +247,7 @@ runs:
           run: |
               set -euo pipefail
 
-              go test --count=1 -v -timeout 4m -run TestDebugStep
+              go test --count=1 -v -timeout 4m -failfast -run TestDebugStep
 
         - name: Upload Pod Logs
           if: failure()
@@ -212,4 +255,4 @@ runs:
           with:
               name: pod-logs-${{ inputs.helm-version }}
               retention-days: 7
-              path: ./multi-region-tests/test/*.log
+              path: ./aws/kubernetes/eks-dual-region/test/*.log

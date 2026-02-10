@@ -1,5 +1,5 @@
 ---
-name: Tests - Daily Cleanup - AWS Kubernetes EKS Single Region (IRSA)
+name: Tests - Daily Cleanup - AWS Containers ECS Single Region Fargate
 
 on:
     workflow_dispatch:
@@ -10,16 +10,15 @@ on:
                 default: '12'
     pull_request:
         paths:
-            - .github/workflows/aws_kubernetes_eks_single_region_daily_cleanup.yml
+            - .github/workflows/aws_ecs_single_region_fargate_daily_cleanup.yml
             - .tool-versions
-            - aws/kubernetes/eks-single-region*/**
-            - '!aws/kubernetes/eks-single-region/terraform/*/test/golden/**'
-            - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
+            - aws/containers/ecs-single-region-fargate/**
+            - '!aws/containers/ecs-single-region-fargate/terraform/test/golden/**'
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
 
     schedule:
-        - cron: 0 4 * * * # At 04:00 everyday.
+        - cron: 0 1 * * * # At 01:00 everyday.
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -32,19 +31,20 @@ env:
 
     MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
 
-    # please keep those variables synced with aws_kubernetes_eks_single_region_tests.yml
-    AWS_PROFILE: infex
+    # please keep those variables synced with aws_ecs_single_region_fargate_tests.yml
+    AWS_PROFILE: infraex
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
+    S3_BACKEND_BUCKET_PREFIX: aws/containers/ecs-single-region-fargate/ # keep it synced with the name of the module for simplicity
     AWS_REGION: eu-west-2
 
 jobs:
     triage:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-slim
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -53,16 +53,10 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        strategy:
-            fail-fast: false
-            matrix:
-                scenario:
-                    - name: eks-single-region
-                    - name: eks-single-region-irsa
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
-              uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
@@ -89,12 +83,6 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            - name: Export S3_BACKEND_BUCKET based on matrix
-              id: s3_prefix
-              run: |
-                  set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
-
             - name: Delete clusters
               id: delete_clusters
               continue-on-error: true
@@ -104,8 +92,8 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
-                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-                  modules-order: vpn,cluster
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  modules-order: cluster
 
             # The previous step has a continue-on-error set to true in case of schedule run.
             # This means that the workflow is not marked as failed, but the step is.
@@ -123,13 +111,13 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0 # the previous step alters the age and resets it to 0
-                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-                  modules-order: vpn,cluster
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  modules-order: cluster
 
     report-failure:
         name: Report failures
         if: failure()
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-slim
         needs:
             - cleanup-clusters
         steps:
