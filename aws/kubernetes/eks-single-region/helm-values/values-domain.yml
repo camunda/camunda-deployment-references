@@ -49,6 +49,16 @@ identity:
 
     fullURL: https://${DOMAIN_NAME}/managementidentity
 
+    firstUser:
+        enabled: true
+        username: admin
+        email: admin@camunda.local
+        firstName: Admin
+        lastName: User
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: identity-first-user-password
+
     externalDatabase:
         enabled: true
         host: ${DB_HOST}

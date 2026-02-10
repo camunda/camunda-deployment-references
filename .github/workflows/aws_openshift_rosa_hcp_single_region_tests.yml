@@ -486,11 +486,10 @@ jobs:
                     yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-oidc-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
                     cat values-merged2.yml && mv values-merged2.yml values.yml && rm values-merged.yml
                   elif [[ "$AUTH_PROVIDER" == "keycloak-operator" ]]; then
-                    echo "Applying Keycloak Operator auth overlays (OIDC Generic mode with external Keycloak)"
-                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak-operator.yml\")" values.yml > values-merged.yml
-                    yq ". *+ load(\"${OPENSHIFT_HELM_PATH}/values-keycloak-operator-openshift.yml\")" values-merged.yml > values-merged2.yml
-                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak-operator-${{ matrix.declination.name }}.yml\")" values-merged2.yml > values-merged3.yml
-                    cat values-merged3.yml && mv values-merged3.yml values.yml && rm values-merged.yml values-merged2.yml
+                    echo "Merging operator-based Keycloak config for Keycloak Operator"
+                    OPERATOR_KEYCLOAK_PATH="generic/kubernetes/operator-based/keycloak"
+                    yq ". *+ load(\"${OPERATOR_KEYCLOAK_PATH}/camunda-keycloak-${{ matrix.declination.name }}-values.yml\")" values.yml > values-merged.yml
+                    cat values-merged.yml && mv values-merged.yml values.yml
                   else
                     echo "Applying embedded Keycloak auth overlays"
                     yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak.yml\")" values.yml > values-merged.yml

@@ -21,6 +21,7 @@ global:
 
             issuerBackendUrl: http://keycloak-service:18080/auth/realms/camunda-platform
             issuer: http://keycloak-service:18080/auth/realms/camunda-platform
+            # Local testing with port-forwarding
             # keycloak-service:18080 works both in-cluster and locally (via port-forward)
             publicIssuerUrl: http://keycloak-service:18080/auth/realms/camunda-platform
 
