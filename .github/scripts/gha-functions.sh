@@ -102,3 +102,46 @@ export_file_to_github_env() {
     echo "$line" >> "$GITHUB_ENV"
   done < "$file_path"
 }
+
+# ------------------------------------------------------------------------------
+# Function: export_terraform_outputs
+#
+# Description:
+#   Exports all Terraform outputs from the current workspace to GITHUB_OUTPUT.
+#   Sensitive outputs are automatically masked using ::add-mask:: to prevent
+#   them from appearing in GitHub Actions logs.
+#   Each output is exported individually as key=value.
+#   Additionally, exports 'all_terraform_outputs' as a compact JSON blob
+#   for consumers that need the full Terraform output structure.
+#
+# Requirements:
+#   - Must be run from within an initialized Terraform workspace
+#   - Requires terraform, jq
+#   - GITHUB_OUTPUT environment variable must be set (GitHub Actions)
+#
+# Usage:
+#   source .github/scripts/gha-functions.sh
+#   cd /path/to/terraform/module
+#   export_terraform_outputs
+# ------------------------------------------------------------------------------
+export_terraform_outputs() {
+  local TF_OUTPUT
+  TF_OUTPUT=$(terraform output -json)
+
+  # Mask sensitive outputs first
+  echo "$TF_OUTPUT" | jq -r '
+    to_entries[]
+    | select(.value.sensitive == true)
+    | .value.value
+  ' | while IFS= read -r secret; do
+    if [ -n "$secret" ]; then
+      echo "::add-mask::$secret"
+    fi
+  done
+
+  # Export all outputs individually to GITHUB_OUTPUT
+  echo "$TF_OUTPUT" | jq -r 'to_entries[] | "\(.key)=\(.value.value)"' >> "$GITHUB_OUTPUT"
+
+  # Also export the full JSON for consumers needing the complete structure
+  echo "all_terraform_outputs=$(echo "$TF_OUTPUT" | jq -c .)" >> "$GITHUB_OUTPUT"
+}

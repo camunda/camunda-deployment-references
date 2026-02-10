@@ -174,22 +174,8 @@ runs:
           shell: bash
           working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
-              # Get all outputs as JSON and process them
-              TF_OUTPUT=$(terraform output -json)
-
-              # Mask sensitive outputs first
-              echo "$TF_OUTPUT" | jq -r '
-                to_entries[]
-                | select(.value.sensitive == true)
-                | .value.value
-              ' | while IFS= read -r secret; do
-                if [ -n "$secret" ]; then
-                  echo "::add-mask::$secret"
-                fi
-              done
-
-              # Export all outputs to GITHUB_OUTPUT
-              echo "$TF_OUTPUT" | jq -r 'to_entries[] | "\(.key)=\(.value.value)"' >> $GITHUB_OUTPUT
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
 
         - name: Save state file location
           shell: bash

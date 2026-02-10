@@ -81,16 +81,15 @@ inputs:
 outputs:
     eks-cluster-endpoint:
         description: The API endpoint of the deployed EKS cluster
-        value: ${{ steps.apply.outputs.cluster_endpoint }}
+        value: ${{ steps.terraform_outputs.outputs.cluster_endpoint }}
 
     terraform-state-url:
         description: URL of the Terraform state file in the S3 bucket
         value: ${{ steps.utility.outputs.terraform-state-url }}
 
-    # Add all terraform outputs dynamically
     all-terraform-outputs:
-        description: All outputs from Terraform
-        value: ${{ steps.fetch_outputs.outputs.all_terraform_outputs }}
+        description: All outputs from Terraform as a JSON blob
+        value: ${{ steps.terraform_outputs.outputs.all_terraform_outputs }}
 
 runs:
     using: composite
@@ -170,18 +169,14 @@ runs:
               set -euo pipefail
 
               terraform apply -no-color eks.plan
-              export cluster_endpoint="$(terraform output -raw cluster_endpoint)"
-              echo "cluster_endpoint=$cluster_endpoint" >> "$GITHUB_OUTPUT"
 
-        - name: Fetch Terraform Outputs
+        - name: Export Terraform Outputs
           shell: bash
-          id: fetch_outputs
+          id: terraform_outputs
           working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
-              set -euo pipefail
-
-              all_outputs=$(terraform output -json | jq -c .)
-              echo "all_terraform_outputs=$all_outputs" | tee -a "$GITHUB_OUTPUT"
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
 
         - name: Configure kubectl
           shell: bash

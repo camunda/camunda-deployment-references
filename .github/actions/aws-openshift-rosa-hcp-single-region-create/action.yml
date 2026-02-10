@@ -82,7 +82,7 @@ outputs:
 
     openshift-cluster-id:
         description: The ID of the deployed ROSA cluster
-        value: ${{ steps.apply-cluster.outputs.cluster_id }}
+        value: ${{ steps.terraform_outputs_cluster.outputs.cluster_id }}
 
     terraform-state-url-cluster:
         description: URL of the module "cluster" Terraform state file in the S3 bucket
@@ -95,13 +95,13 @@ outputs:
 
     vpn-client-configs:
         description: Map of VPN client configs
-        value: ${{ steps.apply-vpn.outputs.vpn_client_configs || '' }}
+        value: ${{ steps.terraform_outputs_vpn.outputs.vpn_client_configs || '' }}
     vpn-client-config-file:
         description: Config file used by the VPN
         value: ${{ steps.vpn.outputs.vpn_client_config_file || '' }}
     vpn-endpoint:
         description: Endpoint of the VPN to access the created cluster
-        value: ${{ steps.apply-vpn.outputs.vpn_endpoint || '' }}
+        value: ${{ steps.terraform_outputs_vpn.outputs.vpn_endpoint || '' }}
 
 
 runs:
@@ -306,11 +306,13 @@ runs:
 
               terraform apply -no-color rosa.plan
 
-              export cluster_id="$(terraform output -raw cluster_id)"
-              echo "cluster_id=$cluster_id" | tee -a "$GITHUB_OUTPUT"
-
-              export vpc_id="$(terraform output -raw vpc_id)"
-              echo "vpc_id=$vpc_id" | tee -a "$GITHUB_OUTPUT"
+        - name: Export Terraform Outputs - Cluster
+          id: terraform_outputs_cluster
+          working-directory: ${{ env.TF_DIR_CLUSTER }}
+          shell: bash
+          run: |
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
 
         - name: Terraform Drift Detection - Cluster
           uses: ./.github/actions/internal-terraform-drift-detect
@@ -353,7 +355,7 @@ runs:
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              vpc_id="${{ steps.apply-cluster.outputs.vpc_id }}"
+              vpc_id="${{ steps.terraform_outputs_cluster.outputs.vpc_id }}"
               EOF
 
         - name: Terraform Plan - VPN
@@ -389,11 +391,14 @@ runs:
 
               terraform apply -no-color vpn.plan
 
-              export vpn_client_configs="$(terraform output -json vpn_client_configs)"
-              echo "vpn_client_configs=$vpn_client_configs" >> "$GITHUB_OUTPUT"
-              echo "::add-mask::$vpn_client_configs"
-
-              echo "vpn_endpoint=$(terraform output -json vpn_endpoint)" | tee -a "$GITHUB_OUTPUT"
+        - name: Export Terraform Outputs - VPN
+          id: terraform_outputs_vpn
+          if: inputs.vpn-enabled == 'true'
+          working-directory: ${{ env.TF_DIR_VPN }}
+          shell: bash
+          run: |
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
 
         - name: Terraform Drift Detection - VPN
           id: drift-detect-vpn
@@ -412,8 +417,8 @@ runs:
           run: |
               set -euo pipefail
 
-              rosa describe cluster --output=json -c "${{ steps.apply-cluster.outputs.cluster_id }}"
-              export cluster_api=$(rosa describe cluster --output=json -c "${{ steps.apply-cluster.outputs.cluster_id }}" | jq -r '.api.url')
+              rosa describe cluster --output=json -c "${{ steps.terraform_outputs_cluster.outputs.cluster_id }}"
+              export cluster_api=$(rosa describe cluster --output=json -c "${{ steps.terraform_outputs_cluster.outputs.cluster_id }}" | jq -r '.api.url')
               echo "cluster_api=$cluster_api"
               echo "cluster_api=$cluster_api" >> "$GITHUB_OUTPUT"
 
@@ -426,7 +431,7 @@ runs:
               sudo apt install -y openvpn openvpn-systemd-resolved
 
               client_name="my-client" # the client name is hard-coded in the reference
-              config=$(echo '${{ steps.apply-vpn.outputs.vpn_client_configs }}' | jq -r --arg client "$client_name" '.[$client]')
+              config=$(echo '${{ steps.terraform_outputs_vpn.outputs.vpn_client_configs }}' | jq -r --arg client "$client_name" '.[$client]')
 
               # Create a secure directory inside the GitHub workspace
               mkdir -p "$GITHUB_WORKSPACE/.vpn"

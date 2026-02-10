@@ -38,7 +38,7 @@ This action will also install Terraform and awscli. It will output the Aurora cl
 | --- | --- |
 | `aurora-endpoint` | <p>The endpoint of the deployed Aurora cluster</p> |
 | `terraform-state-url` | <p>URL of the Terraform state file in the S3 bucket</p> |
-| `all-terraform-outputs` | <p>All outputs from Terraform</p> |
+| `all-terraform-outputs` | <p>All outputs from Terraform as a JSON blob</p> |
 
 
 ## Runs

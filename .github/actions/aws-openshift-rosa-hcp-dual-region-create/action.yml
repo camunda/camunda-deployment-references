@@ -99,27 +99,27 @@ outputs:
 
     openshift-cluster-id-cluster-1:
         description: The ID of the deployed ROSA cluster 1
-        value: ${{ steps.apply-clusters.outputs.cluster_1_cluster_id }}
+        value: ${{ steps.terraform_outputs_clusters.outputs.cluster_1_cluster_id }}
     openshift-cluster-id-cluster-2:
         description: The ID of the deployed ROSA cluster 2
-        value: ${{ steps.apply-clusters.outputs.cluster_2_cluster_id }}
+        value: ${{ steps.terraform_outputs_clusters.outputs.cluster_2_cluster_id }}
 
     openshift-cluster-vpc-id-cluster-1:
         description: The VPC ID of the deployed ROSA cluster 1
-        value: ${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}
+        value: ${{ steps.terraform_outputs_clusters.outputs.cluster_1_vpc_id }}
     openshift-cluster-vpc-id-cluster-2:
         description: The VPC ID of the deployed ROSA cluster 2
-        value: ${{ steps.apply-clusters.outputs.cluster_2_vpc_id }}
+        value: ${{ steps.terraform_outputs_clusters.outputs.cluster_2_vpc_id }}
 
     backup-bucket-s3-aws-access-key:
         description: The AWS Access Key of the S3 Backup bucket used by Camunda
-        value: ${{ steps.apply-backup-bucket.outputs.s3_aws_access_key }}
+        value: ${{ steps.terraform_outputs_backup_bucket.outputs.s3_aws_access_key }}
     backup-bucket-s3-aws-secret-access-key:
         description: The AWS Secret Access Key of the S3 Backup bucket used by Camunda
-        value: ${{ steps.apply-backup-bucket.outputs.s3_aws_secret_access_key }}
+        value: ${{ steps.terraform_outputs_backup_bucket.outputs.s3_aws_secret_access_key }}
     backup-bucket-s3-bucket-name:
         description: The name of the S3 Backup bucket used by Camunda
-        value: ${{ steps.apply-backup-bucket.outputs.s3_bucket_name }}
+        value: ${{ steps.terraform_outputs_backup_bucket.outputs.s3_bucket_name }}
 
     terraform-state-url-clusters:
         description: URL of the module "clusters" Terraform state file in the S3 bucket
@@ -351,20 +351,13 @@ runs:
           run: |
               terraform apply -no-color clusters.plan
 
-              export cluster_1_cluster_id="$(terraform output -raw cluster_1_cluster_id)"
-              echo "cluster_1_cluster_id=$cluster_1_cluster_id" | tee -a "$GITHUB_OUTPUT"
-              export cluster_2_cluster_id="$(terraform output -raw cluster_2_cluster_id)"
-              echo "cluster_2_cluster_id=$cluster_2_cluster_id" | tee -a "$GITHUB_OUTPUT"
-
-              export cluster_1_openshift_api_url="$(terraform output -raw cluster_1_openshift_api_url)"
-              echo "cluster_1_openshift_api_url=$cluster_1_openshift_api_url" | tee -a "$GITHUB_OUTPUT"
-              export cluster_2_openshift_api_url="$(terraform output -raw cluster_2_openshift_api_url)"
-              echo "cluster_2_openshift_api_url=$cluster_2_openshift_api_url" | tee -a "$GITHUB_OUTPUT"
-
-              export cluster_1_vpc_id="$(terraform output -raw cluster_1_vpc_id)"
-              echo "cluster_1_vpc_id=$cluster_1_vpc_id" | tee -a "$GITHUB_OUTPUT"
-              export cluster_2_vpc_id="$(terraform output -raw cluster_2_vpc_id)"
-              echo "cluster_2_vpc_id=$cluster_2_vpc_id" | tee -a "$GITHUB_OUTPUT"
+        - name: Export Terraform Outputs - Clusters
+          id: terraform_outputs_clusters
+          working-directory: ${{ env.TF_DIR_CLUSTERS }}
+          shell: bash
+          run: |
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
 
         - name: Terraform Drift Detection - Clusters
           id: drift-detect-clusters
@@ -568,16 +561,16 @@ runs:
           run: |
               terraform apply -no-color backup_bucket.plan
 
-              export s3_bucket_name="$(terraform output -raw s3_bucket_name)"
-              echo "s3_bucket_name=$s3_bucket_name" | tee -a "$GITHUB_OUTPUT"
-
-              export s3_aws_access_key="$(terraform output -raw s3_aws_access_key)"
-              echo "::add-mask::$s3_aws_access_key"
-              echo "s3_aws_access_key=$s3_aws_access_key" | tee -a "$GITHUB_OUTPUT"
-
-              export s3_aws_secret_access_key="$(terraform output -raw s3_aws_secret_access_key)"
-              echo "::add-mask::$s3_aws_secret_access_key"
-              echo "s3_aws_secret_access_key=$s3_aws_secret_access_key" | tee -a "$GITHUB_OUTPUT"
+        - name: Export Terraform Outputs - Backup Bucket
+          id: terraform_outputs_backup_bucket
+          if: inputs.enable-backup-bucket == 'true'
+          working-directory: ${{ env.TF_DIR_BACKUP_BUCKET }}
+          shell: bash
+          env:
+              AWS_REGION: ${{ inputs.aws-region-cluster-1 }}
+          run: |
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
 
         - name: Terraform Drift Detection - Backup Bucket
           if: inputs.enable-backup-bucket == 'true'

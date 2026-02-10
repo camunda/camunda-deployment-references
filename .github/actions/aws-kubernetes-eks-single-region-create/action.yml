@@ -78,13 +78,13 @@ outputs:
 
     vpn-client-configs:
         description: Map of VPN client configs
-        value: ${{ steps.apply-vpn.outputs.vpn_client_configs || '' }}
+        value: ${{ steps.terraform_outputs_vpn.outputs.vpn_client_configs || '' }}
     vpn-client-config-file:
         description: Config file used by the VPN
         value: ${{ steps.vpn.outputs.vpn_client_config_file || '' }}
     vpn-endpoint:
         description: Endpoint of the VPN to access the created cluster
-        value: ${{ steps.apply-vpn.outputs.vpn_endpoint || '' }}
+        value: ${{ steps.terraform_outputs_vpn.outputs.vpn_endpoint || '' }}
 
 runs:
     using: composite
@@ -245,8 +245,13 @@ runs:
               set -euo pipefail
               terraform apply -no-color tf.plan
 
-              export vpc_id="$(terraform output -raw vpc_id)"
-              echo "vpc_id=$vpc_id" | tee -a "$GITHUB_OUTPUT"
+        - name: Export Terraform Outputs - Cluster
+          id: terraform_outputs_cluster
+          working-directory: ${{ env.TF_DIR_CLUSTER }}
+          shell: bash
+          run: |
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
 
         - name: Terraform Drift Detection - Cluster
           uses: ./.github/actions/internal-terraform-drift-detect
@@ -287,7 +292,7 @@ runs:
 
               cat > terraform-vpn.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              vpc_id = "${{ steps.apply-cluster.outputs.vpc_id }}"
+              vpc_id = "${{ steps.terraform_outputs_cluster.outputs.vpc_id }}"
               EOF
 
         - name: Terraform Plan - VPN
@@ -321,11 +326,14 @@ runs:
 
               terraform apply -no-color vpn.plan
 
-              export vpn_client_configs="$(terraform output -json vpn_client_configs)"
-              echo "vpn_client_configs=$vpn_client_configs" >> "$GITHUB_OUTPUT"
-              echo "::add-mask::$vpn_client_configs"
-
-              echo "vpn_endpoint=$(terraform output -json vpn_endpoint)" | tee -a "$GITHUB_OUTPUT"
+        - name: Export Terraform Outputs - VPN
+          id: terraform_outputs_vpn
+          if: inputs.vpn-enabled == 'true'
+          working-directory: ${{ env.TF_DIR_VPN }}
+          shell: bash
+          run: |
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
 
         - name: Terraform Drift Detection - VPN
           uses: ./.github/actions/internal-terraform-drift-detect
@@ -347,7 +355,7 @@ runs:
               sudo apt install -y openvpn openvpn-systemd-resolved
 
               client_name="my-client" # the client name is hard-coded in the reference
-              config=$(echo '${{ steps.apply-vpn.outputs.vpn_client_configs }}' | jq -r --arg client "$client_name" '.[$client]')
+              config=$(echo '${{ steps.terraform_outputs_vpn.outputs.vpn_client_configs }}' | jq -r --arg client "$client_name" '.[$client]')
 
               # Create a secure directory inside the GitHub workspace
               mkdir -p "$GITHUB_WORKSPACE/.vpn"
