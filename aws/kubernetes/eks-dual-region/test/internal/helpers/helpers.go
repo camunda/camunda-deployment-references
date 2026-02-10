@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/k8s"
@@ -38,6 +39,19 @@ func IsTeleportEnabled() bool {
 		return false // Default to false if invalid value
 	}
 	return boolVal
+}
+
+func IsOpenShiftEnabled() bool {
+	value := GetEnv("DISTRIBUTION", "EKS")
+	return strings.EqualFold(value, "OpenShift")
+}
+
+// ClusterDNSSuffix returns "clusterset.local" for OpenShift and "cluster.local" for EKS.
+func ClusterDNSSuffix() string {
+	if IsOpenShiftEnabled() {
+		return "clusterset.local"
+	}
+	return "cluster.local"
 }
 
 func CutOutString(originalString, searchString string) int {

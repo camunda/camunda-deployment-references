@@ -230,12 +230,20 @@ runs:
 
         - name: Test connector webhook flow in multi-region setup
           shell: bash
-          if: inputs.distribution == 'EKS'
           working-directory: ./aws/kubernetes/eks-dual-region/test
+          env:
+            DISTRIBUTION: ${{ inputs.distribution }}
           run: |
               set -euo pipefail
 
-              go test --count=1 -v -timeout 10m -failfast -run TestConnectorWebhookFlow
+              go test --count=1 -v -timeout 20m -failfast -run TestConnectorWebhookFlowDeploy
+
+              if [ "${{ inputs.post-failback-script }}" != "" ]; then
+                echo "Running post-failback script to re-export services before Connector Webhook Flow test..."
+                ${{ inputs.post-failback-script }}
+              fi
+
+              go test --count=1 -v -timeout 10m -failfast -run TestConnectorWebhookFlowTest
 
         - name: Debug Step
           shell: bash
