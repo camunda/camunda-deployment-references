@@ -58,11 +58,15 @@ inputs:
 runs:
     using: composite
     steps:
+        - name: Set working directory
+          shell: bash
+          run: echo "TEST_DIR=${TEST_DIR:-./aws/kubernetes/eks-dual-region/test}" >> "$GITHUB_ENV"
+
         # Explicitly set up Go for caching of packages
         - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
           with:
-              go-version-file: ./aws/kubernetes/eks-dual-region/test/go.mod
-              cache-dependency-path: ./aws/kubernetes/eks-dual-region/test/go.sum
+              go-version-file: ${{ env.TEST_DIR }}/go.mod
+              cache-dependency-path: ${{ env.TEST_DIR }}/go.sum
 
         - name: Split up Kubeconfig
           shell: bash
@@ -79,11 +83,11 @@ runs:
                 kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
               done
 
-              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./aws/kubernetes/eks-dual-region/test/kubeconfig-london"
-              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./aws/kubernetes/eks-dual-region/test/kubeconfig-paris"
+              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig-london"
+              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig-paris"
 
               if [[ "${{ inputs.cluster-0-name }}" == "${{ inputs.cluster-1-name }}" ]]; then
-                cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./aws/kubernetes/eks-dual-region/test/kubeconfig"
+                cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig"
               fi
 
         - name: Set Up Environment Variables
@@ -114,7 +118,7 @@ runs:
                 echo "EXTRA_VALUES_YAML=${{ inputs.extra-values-yaml }}"
               } >> "$GITHUB_ENV"
 
-              echo "TEST_DIR=./aws/kubernetes/eks-dual-region/test" >> "$GITHUB_ENV"
+              echo "TEST_DIR=${{ env.TEST_DIR }}" >> "$GITHUB_ENV"
 
         - name: Clean Environment
           if: inputs.skip-cleanup != 'true'
@@ -255,4 +259,4 @@ runs:
           with:
               name: pod-logs-${{ inputs.helm-version }}
               retention-days: 7
-              path: ./aws/kubernetes/eks-dual-region/test/*.log
+              path: ${{ env.TEST_DIR }}/*.log
