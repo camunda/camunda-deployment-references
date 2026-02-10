@@ -10,7 +10,8 @@ export CAMUNDA_HELM_CHART_VERSION="0.0.0-snapshot-alpha"
 # Run from: local/kubernetes/kind-single-region/
 # Layers operator-based values from generic/kubernetes/operator-based/
 
-OPERATOR_VALUES_DIR="../../../generic/kubernetes/operator-based"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OPERATOR_VALUES_DIR="$SCRIPT_DIR/../../../../generic/kubernetes/operator-based"
 export CAMUNDA_DOMAIN="camunda.example.com"
 
 echo "Installing Camunda Platform (domain mode)..."

@@ -15,7 +15,7 @@ CAMUNDA_MODE=${CAMUNDA_MODE:-no-domain}
 export CAMUNDA_NAMESPACE
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OPERATOR_BASE="$SCRIPT_DIR/../../../generic/kubernetes/operator-based"
+OPERATOR_BASE="$SCRIPT_DIR/../../../../generic/kubernetes/operator-based"
 KIND_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 
 echo "Deploying operators for Kind ($CAMUNDA_MODE mode)..."

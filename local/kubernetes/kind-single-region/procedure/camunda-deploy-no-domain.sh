@@ -10,7 +10,8 @@ export CAMUNDA_HELM_CHART_VERSION="0.0.0-snapshot-alpha"
 # TODO: [release-duty] before the release, update this!
 # TODO: [release-duty] adjust renovate comment to bump the major version
 
-OPERATOR_VALUES_DIR="../../../generic/kubernetes/operator-based"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OPERATOR_VALUES_DIR="$SCRIPT_DIR/../../../../generic/kubernetes/operator-based"
 
 echo "Installing Camunda Platform (no-domain mode)..."
 
