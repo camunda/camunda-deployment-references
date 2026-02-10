@@ -145,7 +145,7 @@ hosts.add:
 .PHONY: hosts.add-keycloak
 hosts.add-keycloak:
 	@echo "Adding Keycloak host entry (requires sudo)..."
-	@if ! grep -q "keycloak-service" /etc/hosts; then \
+	@if ! grep -q "^127\.0\.0\.1[[:space:]]\{1,\}keycloak-service$$" /etc/hosts; then \
 		echo "127.0.0.1  keycloak-service" | sudo tee -a /etc/hosts > /dev/null; \
 		echo "Added: 127.0.0.1  keycloak-service"; \
 	else \
@@ -166,9 +166,9 @@ hosts.remove:
 hosts.remove-keycloak:
 	@echo "Removing Keycloak host entry (requires sudo)..."
 	@if [[ "$$(uname)" == "Darwin" ]]; then \
-		sudo sed -i '' '/keycloak-service/d' /etc/hosts; \
+		sudo sed -i '' '/^127\.0\.0\.1[[:space:]]\{1,\}keycloak-service$$/d' /etc/hosts; \
 	else \
-		sudo sed -i '/keycloak-service/d' /etc/hosts; \
+		sudo sed -i '/^127\.0\.0\.1[[:space:]]\{1,\}keycloak-service$$/d' /etc/hosts; \
 	fi
 	@echo "Keycloak host entry removed."
 
