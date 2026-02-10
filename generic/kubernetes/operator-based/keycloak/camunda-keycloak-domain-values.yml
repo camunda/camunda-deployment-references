@@ -18,7 +18,7 @@ global:
         auth:
             enabled: true
             type: KEYCLOAK
-            issuerBackendUrl: http://keycloak-service:8080/auth/realms/camunda-platform
+            issuerBackendUrl: http://keycloak-service:18080/auth/realms/camunda-platform
             issuer: https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform
             publicIssuerUrl: https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform
 
@@ -31,7 +31,7 @@ global:
                 # Configuration for external Keycloak service
                 protocol: http
                 host: keycloak-service
-                port: '8080'
+                port: '18080'
             contextPath: /auth
             realm: /realms/camunda-platform
             auth:
