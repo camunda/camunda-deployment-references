@@ -46,12 +46,6 @@ if [[ "$CAMUNDA_MODE" == "domain" ]]; then
     KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-nginx.yml" ./deploy.sh
 else
     KEYCLOAK_CONFIG_FILE="keycloak-instance-no-domain.yml" ./deploy.sh
-
-    # Add port 18080 to keycloak-service so that keycloak-service:18080 works
-    # both in-cluster and via port-forward (avoids conflict with Zeebe Gateway on port 8080)
-    echo "Patching keycloak-service to expose port 18080..."
-    kubectl patch svc keycloak-service -n "$CAMUNDA_NAMESPACE" --type='json' \
-        -p='[{"op": "add", "path": "/spec/ports/-", "value": {"name": "http-local", "port": 18080, "targetPort": 8080, "protocol": "TCP"}}]'
 fi
 
 popd > /dev/null
