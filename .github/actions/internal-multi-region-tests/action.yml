@@ -232,7 +232,7 @@ runs:
           shell: bash
           working-directory: ./aws/kubernetes/eks-dual-region/test
           env:
-            DISTRIBUTION: ${{ inputs.distribution }}
+              DISTRIBUTION: ${{ inputs.distribution }}
           run: |
               set -euo pipefail
 
