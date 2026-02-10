@@ -32,8 +32,7 @@ spec:
         # Use the service name as hostname to sign the tokens correctly.
         # Keycloak advertises this port in its OIDC well-known endpoints
         # so that browser redirects reach the correct port-forward.
-        # Include /auth to match the http-relative-path setting.
-        hostname: http://keycloak-service:18080/auth
+        hostname: keycloak-service
         strict: false
     resources:
         limits:
