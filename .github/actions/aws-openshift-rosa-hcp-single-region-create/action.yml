@@ -192,6 +192,9 @@ runs:
               echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
 
+              echo "TF_DIR_CLUSTER=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/" >> "$GITHUB_ENV"
+              echo "TF_DIR_VPN=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/" >> "$GITHUB_ENV"
+
         - name: Check if S3 bucket exists
           id: create-s3-bucket
           shell: bash
@@ -213,7 +216,7 @@ runs:
 
         - name: Terraform Init - Cluster
           id: init-cluster
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+          working-directory: ${{ env.TF_DIR_CLUSTER }}
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
@@ -242,7 +245,7 @@ runs:
         - name: Generate tfvars file - Cluster
           id: generate-tfvars-cluster
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+          working-directory: ${{ env.TF_DIR_CLUSTER }}
           run: |
               set -euo pipefail
 
@@ -252,7 +255,7 @@ runs:
 
         - name: Terraform Plan - Cluster
           id: plan-cluster
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+          working-directory: ${{ env.TF_DIR_CLUSTER }}
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
@@ -294,7 +297,7 @@ runs:
 
         - name: Terraform Apply - Cluster
           id: apply-cluster
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+          working-directory: ${{ env.TF_DIR_CLUSTER }}
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
@@ -313,7 +316,7 @@ runs:
           uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect-cluster
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+              working-directory: ${{ env.TF_DIR_CLUSTER }}
               plan-extra-args: |
                   -var-file=terraform.tfvars
               fail-on-drift: 'false' # not failing on drift as there may be an expected drift due to hcp module drifting - cluster_console_url
@@ -323,7 +326,7 @@ runs:
         - name: Terraform Init - VPN
           id: init-vpn
           if: inputs.vpn-enabled == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
+          working-directory: ${{ env.TF_DIR_VPN }}
           shell: bash
           run: |
               set -euo pipefail
@@ -344,7 +347,7 @@ runs:
         - name: Generate tfvars file - VPN
           id: generate-tfvars-vpn
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
+          working-directory: ${{ env.TF_DIR_VPN }}
           run: |
               set -euo pipefail
 
@@ -356,7 +359,7 @@ runs:
         - name: Terraform Plan - VPN
           id: plan-vpn
           if: inputs.vpn-enabled == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
+          working-directory: ${{ env.TF_DIR_VPN }}
           shell: bash
           run: |
               set -euo pipefail
@@ -379,7 +382,7 @@ runs:
         - name: Terraform Apply - VPN
           id: apply-vpn
           if: inputs.vpn-enabled == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
+          working-directory: ${{ env.TF_DIR_VPN }}
           shell: bash
           run: |
               set -euo pipefail
@@ -397,7 +400,7 @@ runs:
           if: inputs.vpn-enabled == 'true'
           uses: ./.github/actions/internal-terraform-drift-detect
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
+              working-directory: ${{ env.TF_DIR_VPN }}
               plan-extra-args: |
                   -var-file=terraform.tfvars
 

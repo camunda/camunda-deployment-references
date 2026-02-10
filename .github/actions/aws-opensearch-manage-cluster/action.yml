@@ -137,10 +137,14 @@ runs:
               path: ${{ inputs.tf-modules-path }}
               fetch-depth: 0
 
+        - name: Set working directory
+          shell: bash
+          run: echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/aws/modules/opensearch/" >> "$GITHUB_ENV"
+
         - name: Terraform Init
           shell: bash
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -159,7 +163,7 @@ runs:
         - name: Terraform Plan
           shell: bash
           id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -178,7 +182,7 @@ runs:
         - name: Terraform Apply
           shell: bash
           id: apply
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -187,7 +191,7 @@ runs:
         - name: Fetch Terraform Outputs
           shell: bash
           id: fetch_outputs
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/opensearch/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 

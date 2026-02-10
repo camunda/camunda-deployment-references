@@ -215,6 +215,10 @@ runs:
               echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
 
+              echo "TF_DIR_CLUSTERS=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/" >> "$GITHUB_ENV"
+              echo "TF_DIR_PEERING=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/" >> "$GITHUB_ENV"
+              echo "TF_DIR_BACKUP_BUCKET=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/" >> "$GITHUB_ENV"
+
         - name: Check if S3 bucket exists
           id: create-s3-bucket
           shell: bash
@@ -236,7 +240,7 @@ runs:
 
         - name: Terraform Init - Clusters
           id: init-clusters
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+          working-directory: ${{ env.TF_DIR_CLUSTERS }}
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
@@ -268,7 +272,7 @@ runs:
         - name: Generate tfvars file - Clusters
           id: generate-tfvars-clusters
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+          working-directory: ${{ env.TF_DIR_CLUSTERS }}
           run: |
               set -euo pipefail
 
@@ -280,7 +284,7 @@ runs:
 
         - name: Terraform Plan - Clusters
           id: plan-clusters
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+          working-directory: ${{ env.TF_DIR_CLUSTERS }}
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
@@ -340,7 +344,7 @@ runs:
 
         - name: Terraform Apply - Clusters
           id: apply-clusters
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+          working-directory: ${{ env.TF_DIR_CLUSTERS }}
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
@@ -366,7 +370,7 @@ runs:
           id: drift-detect-clusters
           uses: ./.github/actions/internal-terraform-drift-detect
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+              working-directory: ${{ env.TF_DIR_CLUSTERS }}
               plan-extra-args: |
                   -var-file=terraform.tfvars
               fail-on-drift: 'false' # not failing on drift as there may be an expected drift due to hcp module drifting - cluster_console_url
@@ -439,7 +443,7 @@ runs:
         - name: Terraform Init - Peering
           id: init-peering
           if: inputs.enable-vpc-peering == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
+          working-directory: ${{ env.TF_DIR_PEERING }}
           shell: bash
           run: |
               set -euo pipefail
@@ -462,7 +466,7 @@ runs:
         - name: Generate tfvars file - Peering
           id: generate-tfvars-peering
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
+          working-directory: ${{ env.TF_DIR_PEERING }}
           run: |
               set -euo pipefail
 
@@ -477,7 +481,7 @@ runs:
         - name: Terraform Plan - Peering
           id: plan-peering
           if: inputs.enable-vpc-peering == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
+          working-directory: ${{ env.TF_DIR_PEERING }}
           shell: bash
           run: |
               set -euo pipefail
@@ -488,7 +492,7 @@ runs:
         - name: Terraform Apply - Peering
           id: apply-peering
           if: inputs.enable-vpc-peering == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
+          working-directory: ${{ env.TF_DIR_PEERING }}
           shell: bash
           run: |
               terraform apply -no-color peering.plan
@@ -498,7 +502,7 @@ runs:
           id: drift-detect-peering
           uses: ./.github/actions/internal-terraform-drift-detect
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
+              working-directory: ${{ env.TF_DIR_PEERING }}
               plan-extra-args: |
                   -var-file=terraform.tfvars
 
@@ -507,7 +511,7 @@ runs:
         - name: Terraform Init - Backup bucket
           id: init-backup-bucket
           if: inputs.enable-backup-bucket == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
+          working-directory: ${{ env.TF_DIR_BACKUP_BUCKET }}
           shell: bash
           env:
               AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
@@ -530,7 +534,7 @@ runs:
         - name: Generate tfvars file - Backup bucket
           id: generate-tfvars-backup-bucket
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
+          working-directory: ${{ env.TF_DIR_BACKUP_BUCKET }}
           run: |
               set -euo pipefail
 
@@ -544,7 +548,7 @@ runs:
         - name: Terraform Plan - Backup bucket
           id: plan-backup-bucket
           if: inputs.enable-backup-bucket == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
+          working-directory: ${{ env.TF_DIR_BACKUP_BUCKET }}
           shell: bash
           env:
               AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
@@ -557,7 +561,7 @@ runs:
         - name: Terraform Apply - Backup bucket
           id: apply-backup-bucket
           if: inputs.enable-backup-bucket == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
+          working-directory: ${{ env.TF_DIR_BACKUP_BUCKET }}
           shell: bash
           env:
               AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
@@ -580,7 +584,7 @@ runs:
           id: drift-detect-backup-bucket
           uses: ./.github/actions/internal-terraform-drift-detect
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
+              working-directory: ${{ env.TF_DIR_BACKUP_BUCKET }}
               plan-extra-args: |
                   -var-file=terraform.tfvars
 

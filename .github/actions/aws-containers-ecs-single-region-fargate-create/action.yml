@@ -76,9 +76,11 @@ runs:
               echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" >> "$GITHUB_OUTPUT"
 
+              echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}" >> "$GITHUB_ENV"
+
         - name: Copy CI fixtures
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -88,7 +90,7 @@ runs:
 
         - name: Terraform Init
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+          working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
           run: |
               set -euo pipefail
@@ -111,7 +113,7 @@ runs:
         - name: Generate tfvars file
           id: generate-tfvars
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -131,7 +133,7 @@ runs:
 
         - name: Terraform Plan
           id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+          working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
           run: |
               set -euo pipefail
@@ -143,7 +145,7 @@ runs:
 
         - name: Terraform Apply
           id: apply
-          working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+          working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
           run: |
               set -euo pipefail
@@ -153,6 +155,6 @@ runs:
           uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+              working-directory: ${{ env.TF_MODULE_DIR }}
               plan-extra-args: |
                   -var-file=terraform.tfvars

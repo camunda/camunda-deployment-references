@@ -113,10 +113,12 @@ runs:
                 echo "EXTRA_VALUES_YAML=${{ inputs.extra-values-yaml }}"
               } >> "$GITHUB_ENV"
 
+              echo "TEST_DIR=./multi-region-tests/test" >> "$GITHUB_ENV"
+
         - name: Clean Environment
           if: inputs.skip-cleanup != 'true'
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ${{ env.TEST_DIR }}
           run: |
               set -euo pipefail
 
@@ -124,7 +126,7 @@ runs:
 
         - name: Deploy multi-region setup - ${{ inputs.helm-version }}
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ${{ env.TEST_DIR }}
           run: |
               set -euo pipefail
 
@@ -140,7 +142,7 @@ runs:
 
         - name: Failover ${{ inputs.helm-version }}
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ${{ env.TEST_DIR }}
           run: |
               set -euo pipefail
 
@@ -168,7 +170,7 @@ runs:
 
         - name: Failback - ${{ inputs.helm-version }}
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ${{ env.TEST_DIR }}
           run: |
               set -euo pipefail
 
@@ -197,7 +199,7 @@ runs:
 
         - name: Debug Step
           shell: bash
-          working-directory: ./multi-region-tests/test
+          working-directory: ${{ env.TEST_DIR }}
           if: failure()
           run: |
               set -euo pipefail

@@ -141,10 +141,14 @@ runs:
               path: ${{ inputs.tf-modules-path }}
               fetch-depth: 0
 
+        - name: Set working directory
+          shell: bash
+          run: echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/aws/modules/aurora" >> "$GITHUB_ENV"
+
         - name: Terraform Init
           shell: bash
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -163,7 +167,7 @@ runs:
         - name: Generate tfvars file
           id: generate-tfvars
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -184,7 +188,7 @@ runs:
         - name: Terraform Plan
           shell: bash
           id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -196,7 +200,7 @@ runs:
         - name: Terraform Apply
           shell: bash
           id: apply
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -208,7 +212,7 @@ runs:
           uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+              working-directory: ${{ env.TF_MODULE_DIR }}
               plan-extra-args: |
                   -var-file=/tmp/var.tfvars.json \
                   -var-file=terraform.tfvars
@@ -216,7 +220,7 @@ runs:
         - name: Fetch Terraform Outputs
           shell: bash
           id: fetch_outputs
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
