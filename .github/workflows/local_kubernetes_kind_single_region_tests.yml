@@ -291,6 +291,8 @@ jobs:
                   # Disable Venom/Helm chart tests, only run C8-SM-CHECKS
                   enable-helm-chart-tests: 'false'
                   enable-zeebe-client-tests: 'false'
+                  keycloak-service-name: keycloak-service:18080
+                  elasticsearch-service-name: elasticsearch-es-http:9200
                   # Enable C8-SM-CHECKS
                   enable-c8sm-deployment-check: 'true'
                   enable-c8sm-connectivity-check: 'true'

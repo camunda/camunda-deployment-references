@@ -790,7 +790,7 @@ jobs:
                   skip-c8sm-connectivity-ingress-class-check: ${{ matrix.distro.type == 'openshift' && 'true' || 'false' }}
 
                   # Service name for operator-based deployment
-                  keycloak-service-name: keycloak-service:8080
+                  keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200
 
                   # Authentication tokens (from Vault secrets)
