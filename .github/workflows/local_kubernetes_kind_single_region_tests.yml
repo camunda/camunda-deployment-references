@@ -95,6 +95,11 @@ jobs:
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
+            - name: Install envsubst
+              run: |
+                  sudo apt-get update -qq
+                  sudo apt-get install -y -qq gettext-base
+
             - name: Import Secrets
               id: secrets
               uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
