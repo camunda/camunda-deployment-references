@@ -102,8 +102,13 @@ jobs:
                     POOL_NAME=$(echo "$POOL_INFO" | jq -r '.UserPool.Name')
 
                     # Get creation date and calculate age
+                    # CreationDate is a Unix epoch (possibly float), truncate to integer
                     CREATION_DATE=$(echo "$POOL_INFO" | jq -r '.UserPool.CreationDate')
-                    CREATION_TIME=$(date -d "@$CREATION_DATE" +%s 2>/dev/null || echo "$CREATION_DATE")
+                    CREATION_TIME=$(printf '%.0f' "$CREATION_DATE" 2>/dev/null) || {
+                      echo "⚠️  $POOL_ID - Failed to parse CreationDate '$CREATION_DATE', skipping"
+                      SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+                      continue
+                    }
                     AGE_SECONDS=$((CURRENT_TIME - CREATION_TIME))
                     AGE_HOURS=$((AGE_SECONDS / 3600))
 

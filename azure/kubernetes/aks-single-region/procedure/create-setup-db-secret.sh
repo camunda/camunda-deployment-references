@@ -2,7 +2,7 @@
 
 # Create the secret with database credentials for Camunda 8 components
 # Note: If using embedded Keycloak, also run test/patch-setup-db-secret-keycloak.sh to add Keycloak credentials
-kubectl create secret generic setup-db-secret --namespace camunda \
+kubectl create secret generic setup-db-secret --namespace "$CAMUNDA_NAMESPACE" \
   --from-literal=DB_HOST="$DB_HOST" \
   --from-literal=DB_PORT="$DB_PORT" \
   --from-literal=POSTGRES_ADMIN_USERNAME="$POSTGRES_ADMIN_USERNAME" \

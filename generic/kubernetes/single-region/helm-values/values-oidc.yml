@@ -3,7 +3,7 @@
 #
 # This file contains ONLY the OIDC-specific configuration to replace Keycloak.
 # It should be merged with your base values file using yq:
-#   yq ". *+ load("values-oidc.yml")" values-domain.yml > values.yml
+#   yq '. *+ load("values-oidc.yml")' values-domain.yml > values.yml
 #
 # Prerequisites:
 #   Create the consolidated OIDC secret before deploying:
