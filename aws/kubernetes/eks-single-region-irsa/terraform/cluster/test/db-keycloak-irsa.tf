@@ -1,9 +1,10 @@
-# Keycloak Database Configuration for IRSA (CI/Test only)
+# Keycloak IRSA trust for Aurora access (CI/Test only)
 #
-# This file adds Keycloak database configuration to the base db.tf
-# Copy this file to terraform/cluster/ when using embedded Keycloak instead of external OIDC
+# Adds an IRSA trust relationship between an IAM role with Aurora PostgreSQL
+# access and the Kubernetes ServiceAccount for Keycloak.
+# The actual database setup (user, grants) remains a separate step.
 #
-# Creates Keycloak IAM role for IRSA DB access as separate resources
+# Copy this file to terraform/cluster/ when using embedded Keycloak instead of external OIDC.
 
 locals {
   # Keycloak-specific database configuration for IRSA
