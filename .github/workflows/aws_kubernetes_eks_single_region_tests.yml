@@ -953,6 +953,7 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
+                  keycloak-service-name: ${{ matrix.scenario.auth_provider == 'keycloak-operator' && 'keycloak-service:18080' || '' }}
                   enable-c8sm-irsa-check: ${{ contains(matrix.scenario.name, 'irsa') }}
 
             - name: 🔬🚨 Get failed certificate info
