@@ -155,9 +155,13 @@ func triggerWebhookWorkflow(t *testing.T) {
 
 	// The mock server URL that the connector will call (using Kubernetes internal DNS)
 	// The connector runs inside the cluster, so it needs to use the StatefulSet pod DNS name
-	// Format: <pod-name>.<headless-service>.<namespace>.svc.<cluster-domain>
-	// EKS uses cluster.local, OpenShift uses clusterset.local
-	mockServerInternalUrl := fmt.Sprintf("http://mock-api-server-0.mock-api-server-peer.%s.svc.%s:8080/webhook-callback", primary.KubectlNamespace.Namespace, helpers.ClusterDNSSuffix())
+	// Format EKS: <pod-name>.<headless-service>.<namespace>.svc.<cluster-domain>
+	// Format OpenShift: <pod-name>.<submarine-cluster>.<headless-service>.<namespace>.svc.clusterset.local
+	mockServerInternalUrl := fmt.Sprintf("http://mock-api-server-0.mock-api-server-peer.%s.svc.cluster.local:8080/webhook-callback", primary.KubectlNamespace.Namespace)
+
+	if helpers.IsOpenShiftEnabled() {
+		mockServerInternalUrl = fmt.Sprintf("http://mock-api-server-0.local-cluster.mock-api-server-peer.%s.svc.clusterset.local:8080/webhook-callback", primary.KubectlNamespace.Namespace)
+	}
 
 	for i := 1; i <= webhookTriggerCount; i++ {
 		t.Logf("[WEBHOOK TRIGGER] Triggering workflow %d/%d", i, webhookTriggerCount)

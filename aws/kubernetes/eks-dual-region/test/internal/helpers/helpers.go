@@ -46,14 +46,6 @@ func IsOpenShiftEnabled() bool {
 	return strings.EqualFold(value, "OpenShift")
 }
 
-// ClusterDNSSuffix returns "clusterset.local" for OpenShift and "cluster.local" for EKS.
-func ClusterDNSSuffix() string {
-	if IsOpenShiftEnabled() {
-		return "clusterset.local"
-	}
-	return "cluster.local"
-}
-
 func CutOutString(originalString, searchString string) int {
 	re := regexp.MustCompile(searchString)
 	matches := re.FindStringSubmatch(originalString)
