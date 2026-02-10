@@ -63,7 +63,7 @@ webModeler:
 webModelerPostgresql:
     # Will deploy a postgresql database for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
-    enabled: true
+    enabled: false
 
 elasticsearch:
     enabled: true # use the embedded elasticsearch
