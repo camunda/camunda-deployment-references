@@ -7,7 +7,8 @@ inputs:
         description: Prefix for Cognito resources
         required: true
     domain-name:
-        description: Domain name for Camunda deployment
+        description: Bare hostname for Camunda deployment (e.g., my-cluster.camunda.example.com). No protocol, no trailing slash. Does not need to exist
+            in DNS.
         required: true
     aws-region:
         description: AWS region for Cognito (uses current region if not specified)

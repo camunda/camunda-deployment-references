@@ -296,7 +296,8 @@ jobs:
                   auto-cleanup-hours: '12'
                   terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
-                  terraform-backend-key: cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/tfstate-${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName
+                  terraform-backend-key: >-
+                      cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/tfstate-${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName
                       }}/cognito.tfstate
 
             - name: Write OIDC secrets to file

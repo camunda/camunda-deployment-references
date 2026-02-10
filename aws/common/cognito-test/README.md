@@ -125,7 +125,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_auto_cleanup_hours"></a> [auto\_cleanup\_hours](#input\_auto\_cleanup\_hours) | Hours after which this Cognito pool should be automatically cleaned up (for CI tracking) | `number` | `72` | no |
 | <a name="input_create_test_user"></a> [create\_test\_user](#input\_create\_test\_user) | Create a test user for simulating human login | `bool` | `false` | no |
-| <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | Domain name for Camunda deployment (e.g., camunda.example.com) | `string` | `""` | no |
+| <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | Bare hostname for Camunda deployment (e.g., my-cluster.camunda.example.com). No protocol, no trailing slash. Used to construct OIDC callback URLs. | `string` | `""` | no |
 | <a name="input_enable_console"></a> [enable\_console](#input\_enable\_console) | Enable Console component (creates additional client) | `bool` | `false` | no |
 | <a name="input_enable_webmodeler"></a> [enable\_webmodeler](#input\_enable\_webmodeler) | Enable Web Modeler component (creates additional client) | `bool` | `false` | no |
 | <a name="input_mfa_enabled"></a> [mfa\_enabled](#input\_mfa\_enabled) | Enable MFA for Cognito users (OPTIONAL mode) | `bool` | `false` | no |

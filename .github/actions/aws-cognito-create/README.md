@@ -9,7 +9,7 @@ Creates a temporary AWS Cognito User Pool for Camunda OIDC testing
 | name | description | required | default |
 | --- | --- | --- | --- |
 | `resource-prefix` | <p>Prefix for Cognito resources</p> | `true` | `""` |
-| `domain-name` | <p>Domain name for Camunda deployment</p> | `true` | `""` |
+| `domain-name` | <p>Bare hostname for Camunda deployment (e.g., my-cluster.camunda.example.com). No protocol, no trailing slash. Does not need to exist in DNS.</p> | `true` | `""` |
 | `aws-region` | <p>AWS region for Cognito (uses current region if not specified)</p> | `false` | `""` |
 | `enable-webmodeler` | <p>Enable Web Modeler component</p> | `false` | `false` |
 | `enable-console` | <p>Enable Console component</p> | `false` | `false` |
@@ -66,7 +66,7 @@ This action is a `composite` action.
     # Default: ""
 
     domain-name:
-    # Domain name for Camunda deployment
+    # Bare hostname for Camunda deployment (e.g., my-cluster.camunda.example.com). No protocol, no trailing slash. Does not need to exist in DNS.
     #
     # Required: true
     # Default: ""

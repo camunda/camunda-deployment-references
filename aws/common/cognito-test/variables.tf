@@ -7,7 +7,7 @@ variable "resource_prefix" {
 }
 
 variable "domain_name" {
-  description = "Domain name for Camunda deployment (e.g., camunda.example.com)"
+  description = "Bare hostname for Camunda deployment (e.g., my-cluster.camunda.example.com). No protocol, no trailing slash. Used to construct OIDC callback URLs."
   type        = string
   default     = ""
 }
