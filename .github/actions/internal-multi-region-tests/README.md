@@ -21,6 +21,7 @@ Run tests across multiple regions
 | `extra-values-yaml` | <p>Comma separated string of extra values yaml files to be applied</p> | `false` | `""` |
 | `skip-cleanup` | <p>Skip cleanup step only (keep deploy to ensure test process is created). Use this when deployment already exists with platform-specific config like OpenShift ServiceExports.</p> | `false` | `false` |
 | `post-failback-script` | <p>Script to run after Failback to re-export services (e.g., for OpenShift Submariner ServiceExports)</p> | `false` | `""` |
+| `distribution` | <p>Distribution to test on, e.g., EKS or OpenShift. Mainly for disabling certain tests.</p> | `false` | `EKS` |
 
 
 ## Runs
@@ -109,4 +110,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ""
+
+    distribution:
+    # Distribution to test on, e.g., EKS or OpenShift. Mainly for disabling certain tests.
+    #
+    # Required: false
+    # Default: EKS
 ```

@@ -54,7 +54,7 @@ inputs:
     distribution:
         description: Distribution to test on, e.g., EKS or OpenShift. Mainly for disabling certain tests.
         required: false
-        default: 'EKS'
+        default: EKS
 runs:
     using: composite
     steps:

@@ -691,7 +691,7 @@ jobs:
                   skip-cleanup: 'true'
                   # Re-export services after Failback since the test recreates the Helm release without ServiceExports
                   post-failback-script: ./generic/openshift/dual-region/procedure/export-services-submariner.sh
-                  distribution: "OpenShift"
+                  distribution: OpenShift
 
             - name: 🔬🚨 Get failed Pods info - Cluster 1
               if: failure()
