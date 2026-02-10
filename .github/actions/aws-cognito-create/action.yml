@@ -150,24 +150,19 @@ runs:
           run: |
               terraform plan -var-file=ci.tfvars -out=tfplan
 
-        - name: Check for drift
-          shell: bash
-          working-directory: ${{ github.workspace }}/aws/common/cognito-test
-          run: |
-              # Check if plan has changes (exit code 2 means changes detected)
-              terraform show -json tfplan > tfplan.json
-              CHANGES=$(jq '.resource_changes | map(select(.change.actions | contains(["update"]) or contains(["delete"]))) | length' tfplan.json)
-              if [ "$CHANGES" -gt 0 ]; then
-                echo "⚠️ Drift detected: $CHANGES resources would be modified"
-                jq '.resource_changes[] | select(.change.actions | contains(["update"]) or contains(["delete"])) | {address, actions: .change.actions}' tfplan.json
-              fi
-
         - name: Terraform Apply
           id: apply
           shell: bash
           working-directory: ${{ github.workspace }}/aws/common/cognito-test
           run: |
               terraform apply -auto-approve tfplan
+
+        - name: Terraform Drift Detection
+          uses: ./.github/actions/internal-terraform-drift-detect
+          id: drift-detect
+          with:
+              working-directory: ${{ github.workspace }}/aws/common/cognito-test
+              plan-extra-args: -var-file=ci.tfvars \
 
         - name: Export Terraform outputs
           id: outputs
