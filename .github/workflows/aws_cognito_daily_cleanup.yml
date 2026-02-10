@@ -100,12 +100,6 @@ jobs:
                     POOL_INFO=$(aws cognito-idp describe-user-pool --user-pool-id "$POOL_ID" --profile "$AWS_PROFILE" --output json 2>/dev/null) || continue
 
                     POOL_NAME=$(echo "$POOL_INFO" | jq -r '.UserPool.Name')
-                    PURPOSE=$(echo "$POOL_INFO" | jq -r '.UserPool.UserPoolTags.purpose // empty')
-
-                    # Only process pools created by our terraform module
-                    if [[ "$PURPOSE" != "camunda-integration-test" ]]; then
-                      continue
-                    fi
 
                     # Get creation date and calculate age
                     CREATION_DATE=$(echo "$POOL_INFO" | jq -r '.UserPool.CreationDate')
