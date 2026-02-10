@@ -27,8 +27,12 @@ spec:
     ingress:
         enabled: false
     hostname:
-        # use the service name as hostname to sign the tokens correctly
-        hostname: keycloak-service
+        # Use the service name as hostname to sign the tokens correctly.
+        # Port 18080 is used because port 8080 is already taken by the Zeebe Gateway
+        # port-forward. Keycloak advertises this port in its OIDC well-known endpoints
+        # so that browser redirects reach the correct port-forward.
+        # Include /auth to match the http-relative-path setting.
+        hostname: http://keycloak-service:18080/auth
         strict: false
     resources:
         limits:
