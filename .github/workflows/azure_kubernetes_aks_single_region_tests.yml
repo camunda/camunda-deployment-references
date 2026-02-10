@@ -254,7 +254,7 @@ jobs:
                   source ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
 
                   # Source Keycloak variables only when using embedded Keycloak
-                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "keycloak" ]]; then
                     source ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/test/vars-create-keycloak-db.sh
                   fi
 
@@ -270,7 +270,7 @@ jobs:
                     echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME"
                     echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
                     # Keycloak variables (only when using embedded Keycloak)
-                    if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                    if [[ "${{ matrix.scenario.auth_provider }}" == "keycloak" ]]; then
                       echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
                       echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
                       echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
@@ -596,7 +596,7 @@ jobs:
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
 
                   # Patch secret with Keycloak credentials when using embedded Keycloak
-                  if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
+                  if [[ "${{ matrix.scenario.auth_provider }}" == "keycloak" ]]; then
                     ./azure/kubernetes/${{ matrix.scenario.name }}/test/patch-setup-db-secret-keycloak.sh
                   fi
 
