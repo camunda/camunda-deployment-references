@@ -18,7 +18,6 @@ on:
             - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
             - .github/actions/aws-kubernetes-eks-single-region-create/**
             - .github/actions/aws-cognito-create/**
-            - .github/actions/aws-cognito-cleanup/**
             - aws/common/cognito-test/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
@@ -297,8 +296,8 @@ jobs:
                   auto-cleanup-hours: '12'
                   terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
-                  terraform-backend-key: cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName
-                      }}/terraform.tfstate
+                  terraform-backend-key: cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/tfstate-${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName
+                      }}/cognito.tfstate
 
             - name: Write OIDC secrets to file
               if: ${{ matrix.scenario.auth_provider == 'oidc' }}
@@ -1075,12 +1074,15 @@ jobs:
             - name: Cleanup AWS Cognito for cluster
               if: always() && env.CLEANUP_CLUSTERS == 'true' && contains(toJSON(fromJson(needs.clusters-info.outputs.platform-matrix).scenario.*.auth_provider),
                   'oidc')
-              uses: ./.github/actions/aws-cognito-cleanup
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              timeout-minutes: 15
               with:
-                  terraform-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  terraform-backend-region: ${{ env.S3_BUCKET_REGION }}
-                  terraform-backend-key: cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName
-                      }}/terraform.tfstate
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours: 0
+                  target: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
+                  tf-bucket-key-prefix: cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  modules-order: cognito
 
     report-success:
         name: Report success

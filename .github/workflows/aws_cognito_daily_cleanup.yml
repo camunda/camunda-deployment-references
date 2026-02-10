@@ -13,7 +13,6 @@ on:
             - .github/workflows/aws_cognito_daily_cleanup.yml
             - .tool-versions
             - aws/common/cognito-test/**
-            - .github/actions/aws-cognito-cleanup/**
             - .github/actions/aws-configure-cli/**
 
     schedule:
@@ -161,7 +160,7 @@ jobs:
                   STATES=$(aws s3api list-objects-v2 \
                     --bucket "$S3_BACKEND_BUCKET" \
                     --prefix "$COGNITO_STATE_PREFIX" \
-                    --query "Contents[?ends_with(Key, 'terraform.tfstate')].Key" \
+                    --query "Contents[?ends_with(Key, '.tfstate')].Key" \
                     --output json \
                     --profile "$AWS_PROFILE" 2>/dev/null || echo "[]")
 

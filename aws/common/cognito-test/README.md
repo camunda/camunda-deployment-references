@@ -87,7 +87,7 @@ Each Camunda component has its own client:
 
 This module is used by the GitHub Actions workflow via:
 - `.github/actions/aws-cognito-create/` - Creates Cognito resources
-- `.github/actions/aws-cognito-cleanup/` - Destroys Cognito resources
+- `.github/actions/aws-generic-terraform-cleanup/` - Destroys Cognito resources (generic Terraform cleanup)
 
 ## Notes
 
