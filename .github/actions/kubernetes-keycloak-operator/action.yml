@@ -40,72 +40,16 @@ outputs:
 runs:
     using: composite
     steps:
-        - name: Install CloudNativePG Operator
-          shell: bash
-          env:
-              # renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
-              CNPG_VERSION: 1.28.0
-          run: |
-              set -euo pipefail
-
-              echo "🐘 Installing CloudNativePG operator v${CNPG_VERSION}..."
-
-              kubectl apply -n "${{ inputs.cnpg-operator-namespace }}" --server-side -f \
-                  "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-${CNPG_VERSION%.*}/releases/cnpg-${CNPG_VERSION}.yaml"
-
-              kubectl rollout status deployment \
-                  -n "${{ inputs.cnpg-operator-namespace }}" cnpg-controller-manager \
-                  --timeout=300s
-
-              echo "✓ CloudNativePG operator deployed"
-
-        - name: Create PostgreSQL secrets for Keycloak
+        - name: Deploy PostgreSQL for Keycloak via CloudNativePG
           shell: bash
           env:
               CAMUNDA_NAMESPACE: ${{ inputs.namespace }}
+              CLUSTER_FILTER: pg-keycloak
           run: |
               set -euo pipefail
 
-              echo "🔐 Creating PostgreSQL secrets for Keycloak..."
-
-              # Function to create or get secret (same as in generic script)
-              create_or_get_secret() {
-                  local secret_name=$1
-                  local username=$2
-
-                  if kubectl get secret "$secret_name" -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
-                      echo "✓ Secret $secret_name already exists"
-                  else
-                      echo "Creating new secret $secret_name"
-                      kubectl create secret generic "$secret_name" -n "$CAMUNDA_NAMESPACE" \
-                          --from-literal=username="$username" \
-                          --from-literal=password="$(openssl rand -base64 18)"
-                  fi
-              }
-
-              # Keycloak superuser and bootstrap secrets
-              create_or_get_secret "pg-keycloak-superuser-secret" "root"
-              create_or_get_secret "pg-keycloak-secret" "keycloak"
-
-              echo "✓ PostgreSQL secrets created"
-
-        - name: Deploy PostgreSQL cluster for Keycloak
-          shell: bash
-          run: |
-              set -euo pipefail
-
-              NAMESPACE="${{ inputs.namespace }}"
-
-              echo "🐘 Deploying PostgreSQL cluster for Keycloak..."
-
-              # Extract only pg-keycloak cluster from the multi-cluster manifest
-              yq 'select(.metadata.name == "pg-keycloak")' \
-                  "generic/kubernetes/operator-based/postgresql/postgresql-clusters.yml" | \
-                  kubectl apply -n "$NAMESPACE" --server-side -f -
-
-              echo "⏳ Waiting for PostgreSQL cluster to be ready..."
-              kubectl wait --for=condition=Ready --timeout=600s cluster pg-keycloak -n "$NAMESPACE"
-              echo "✓ PostgreSQL cluster deployed"
+              cd generic/kubernetes/operator-based/postgresql
+              ./deploy.sh "${{ inputs.cnpg-operator-namespace }}"
 
         - name: Install Keycloak Operator and deploy instance
           shell: bash
