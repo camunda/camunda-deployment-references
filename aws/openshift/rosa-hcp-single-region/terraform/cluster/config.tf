@@ -9,7 +9,7 @@ terraform {
     rhcs = {
       # TODO: revert to "~> 1.6" once terraform-redhat/rhcs 1.7.3 is republished
       # (v1.7.3 was unpublished: authentication checksums return 404 from github.com)
-      version = "~> 1.6, != 1.7.3"
+      version = "1.7.2"
       source  = "terraform-redhat/rhcs"
     }
   }

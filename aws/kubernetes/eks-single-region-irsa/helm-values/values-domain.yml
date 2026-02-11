@@ -1,4 +1,18 @@
 ---
+# Base Domain Configuration for Camunda Platform (IRSA)
+#
+# This file contains infrastructure configuration with ingress/domain enabled.
+# IRSA-specific: service accounts with IAM role annotations, AWS JDBC wrapper for DB access.
+# Combine with an auth overlay:
+#   - Keycloak Operator: yq ". *+ load(\"generic/kubernetes/operator-based/keycloak/camunda-keycloak-domain-values.yml\")" values-domain.yml > values.yml
+#   - OIDC:              yq ". *+ load(\"values-oidc.yml\")" values-domain.yml > values.yml
+#
+# Required environment variables:
+#   - DOMAIN_NAME: Your domain name
+#   - OPENSEARCH_HOST: OpenSearch endpoint
+#   - DB_HOST, DB_IDENTITY_USERNAME, DB_IDENTITY_NAME: Database connection
+#   - Various IRSA role ARNs and service account names (from Terraform outputs)
+
 global:
     elasticsearch:
         enabled: false
@@ -24,62 +38,10 @@ global:
             secretName: camunda-c8-tls
         annotations:
             kubernetes.io/tls-acme: 'true'
+
     identity:
         auth:
             enabled: true
-            type: KEYCLOAK
-            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
-
-            admin:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-admin-client-token
-
-            identity:
-                redirectUrl: https://${DOMAIN_NAME}/managementidentity
-
-            optimize:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-optimize-client-token
-                redirectUrl: https://${DOMAIN_NAME}/optimize
-
-            webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
-
-            console:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-console-client-token
-                redirectUrl: https://${DOMAIN_NAME}/console
-
-identityKeycloak:
-    enabled: true
-    serviceAccount:
-        name: ${CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${DB_ROLE_KEYCLOAK_ARN}
-
-    postgresql:
-        enabled: false
-    externalDatabase:
-        host: ${DB_HOST}
-        user: ${DB_KEYCLOAK_USERNAME}
-        port: 5432
-        database: ${DB_KEYCLOAK_NAME}
-
-    extraEnvVars:
-        - name: KEYCLOAK_EXTRA_ARGS
-          value: --db-driver=software.amazon.jdbc.Driver --transaction-xa-enabled=false --log-level=INFO,software.amazon.jdbc:INFO
-        - name: KEYCLOAK_JDBC_PARAMS
-          value: wrapperPlugins=iam&ssl=true&sslmode=require
-        - name: KEYCLOAK_JDBC_DRIVER
-          value: aws-wrapper:postgresql
-
-    auth:
-        existingSecret: identity-secret-for-components
-        passwordSecretKey: identity-admin-client-token
-
 
 identity:
     enabled: true
@@ -119,13 +81,6 @@ identity:
 connectors:
     contextPath: /connectors
 
-    # Configure OIDC for connectors
-    security:
-        authentication:
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-connectors-client-token
 optimize:
     enabled: true
     contextPath: /optimize
@@ -150,14 +105,7 @@ orchestration:
         secondaryStorage:
             type: opensearch
 
-    # Configure OIDC for orchestration
     security:
-        authentication:
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-                redirectUrl: https://${DOMAIN_NAME}
         initialization:
             defaultRoles:
                 admin:
