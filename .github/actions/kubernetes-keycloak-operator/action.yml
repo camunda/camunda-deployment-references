@@ -168,22 +168,23 @@ runs:
               echo "🔐 Creating identity-secret-for-components..."
 
               # Generate random secrets for all components
-              IDENTITY_CLIENT_SECRET="$(openssl rand -hex 16)"
-              OPTIMIZE_CLIENT_SECRET="$(openssl rand -hex 16)"
-              ORCHESTRATION_CLIENT_SECRET="$(openssl rand -hex 16)"
-              CONNECTORS_CLIENT_SECRET="$(openssl rand -hex 16)"
-              CONSOLE_CLIENT_SECRET="$(openssl rand -hex 16)"
-              WEBMODELER_CLIENT_SECRET="$(openssl rand -hex 16)"
+              CONNECTORS_SECRET="$(openssl rand -hex 16)"
+              CONSOLE_SECRET="$(openssl rand -hex 16)"
+              WEB_MODELER_SECRET="$(openssl rand -hex 16)"
+              ORCHESTRATION_SECRET="$(openssl rand -hex 16)"
+              OPTIMIZE_SECRET="$(openssl rand -hex 16)"
+              ADMIN_PASSWORD="$(openssl rand -hex 16)"
               FIRST_USER_PASSWORD="$(openssl rand -hex 16)"
 
+              # Key names must match generic/kubernetes/operator-based/tests/utils/camunda-values-identity-secrets.yml
               kubectl create secret generic identity-secret-for-components \
                   --namespace "$NAMESPACE" \
-                  --from-literal=identity-client-secret="$IDENTITY_CLIENT_SECRET" \
-                  --from-literal=optimize-client-secret="$OPTIMIZE_CLIENT_SECRET" \
-                  --from-literal=orchestration-client-secret="$ORCHESTRATION_CLIENT_SECRET" \
-                  --from-literal=connectors-client-secret="$CONNECTORS_CLIENT_SECRET" \
-                  --from-literal=console-client-secret="$CONSOLE_CLIENT_SECRET" \
-                  --from-literal=webmodeler-client-secret="$WEBMODELER_CLIENT_SECRET" \
+                  --from-literal=identity-connectors-client-token="$CONNECTORS_SECRET" \
+                  --from-literal=identity-console-client-token="$CONSOLE_SECRET" \
+                  --from-literal=identity-webmodeler-client-token="$WEB_MODELER_SECRET" \
+                  --from-literal=identity-orchestration-client-token="$ORCHESTRATION_SECRET" \
+                  --from-literal=identity-optimize-client-token="$OPTIMIZE_SECRET" \
+                  --from-literal=identity-admin-client-token="$ADMIN_PASSWORD" \
                   --from-literal=identity-first-user-password="$FIRST_USER_PASSWORD" \
                   --dry-run=client -o yaml | kubectl apply -f -
 
