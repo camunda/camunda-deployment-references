@@ -52,10 +52,6 @@ inputs:
     location:
         description: Azure region where the AKS cluster will be deployed
         required: true
-    auth-provider:
-        description: Authentication provider to use (keycloak-operator or oidc)
-        default: keycloak-operator
-        required: false
     tags:
         description: Tags to apply to the cluster and related resources, in JSON format
         default: '{}'

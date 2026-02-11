@@ -61,9 +61,6 @@ inputs:
     deploy-opensearch:
         description: Deploy OpenSearch domain
         default: 'true'
-    auth-provider:
-        description: Authentication provider to use. 'oidc' for external OIDC (default), 'keycloak-operator' for Keycloak via operator
-        default: oidc
 
 outputs:
     terraform-state-url-cluster:

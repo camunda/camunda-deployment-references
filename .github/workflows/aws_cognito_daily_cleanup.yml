@@ -102,9 +102,9 @@ jobs:
                     POOL_NAME=$(echo "$POOL_INFO" | jq -r '.UserPool.Name')
 
                     # Get creation date and calculate age
-                    # CreationDate is a Unix epoch (possibly float), truncate to integer
+                    # CreationDate is an ISO-8601 timestamp (e.g. "2026-02-10T14:30:00Z"), convert to epoch
                     CREATION_DATE=$(echo "$POOL_INFO" | jq -r '.UserPool.CreationDate')
-                    CREATION_TIME=$(printf '%.0f' "$CREATION_DATE" 2>/dev/null) || {
+                    CREATION_TIME=$(date -d "$CREATION_DATE" +%s 2>/dev/null) || {
                       echo "⚠️  $POOL_ID - Failed to parse CreationDate '$CREATION_DATE', skipping"
                       SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
                       continue

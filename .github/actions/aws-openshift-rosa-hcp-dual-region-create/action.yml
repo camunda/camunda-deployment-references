@@ -92,10 +92,10 @@ inputs:
 outputs:
     openshift-server-api-cluster-1:
         description: The server API URL of the deployed ROSA cluster 1
-        value: ${{ steps.cluster_info.outputs.cluster_1_openshift_api_url }}
+        value: ${{ steps.terraform_outputs_clusters.outputs.cluster_1_openshift_api_url }}
     openshift-server-api-cluster-2:
         description: The server API URL of the deployed ROSA cluster 2
-        value: ${{ steps.cluster_info.outputs.cluster_2_openshift_api_url }}
+        value: ${{ steps.terraform_outputs_clusters.outputs.cluster_2_openshift_api_url }}
 
     openshift-cluster-id-cluster-1:
         description: The ID of the deployed ROSA cluster 1
@@ -394,7 +394,7 @@ runs:
 
                   echo "Logging in to Cluster 1: ${{ inputs.cluster-name-1 }}"
                   oc login --username "${{ inputs.admin-username-cluster-1 }}" --password "${{ inputs.admin-password-cluster-1 }}" \
-                    "${{ steps.apply-clusters.outputs.cluster_1_openshift_api_url }}"
+                    "${{ steps.terraform_outputs_clusters.outputs.cluster_1_openshift_api_url }}"
 
 
                   oc whoami
@@ -418,7 +418,7 @@ runs:
 
                   echo "Logging in to Cluster 2: ${{ inputs.cluster-name-2 }}"
                   oc login --username "${{ inputs.admin-username-cluster-2 }}" --password "${{ inputs.admin-password-cluster-2 }}" \
-                    "${{ steps.apply-clusters.outputs.cluster_2_openshift_api_url }}"
+                    "${{ steps.terraform_outputs_clusters.outputs.cluster_2_openshift_api_url }}"
 
                   oc whoami
                   echo "Show existing contexts"
