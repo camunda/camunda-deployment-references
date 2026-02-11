@@ -668,11 +668,11 @@ jobs:
 
                   # Apply auth provider overlay
                   AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
-                  KEYCLOAK_BASE_PATH="generic/kubernetes/single-region/helm-values"
+                  HELM_VALUES_PATH="generic/kubernetes/single-region/helm-values"
 
                   if [[ "$AUTH_PROVIDER" == "oidc" ]]; then
                     echo "Merging values-oidc.yml overlay for external OIDC authentication"
-                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-oidc.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"${HELM_VALUES_PATH}/values-oidc.yml\")" values.yml > values-merged.yml
                     mv values-merged.yml values.yml
 
                   elif [[ "$AUTH_PROVIDER" == "keycloak-operator" ]]; then
@@ -846,7 +846,7 @@ jobs:
                         --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                         --namespace="$CAMUNDA_NAMESPACE"
 
-                    # Create identity integration secret for Keycloak-based auth (embedded or operator)
+                    # Create identity integration secret for keycloak-operator auth
                     if [[ "$AUTH_PROVIDER" != "oidc" ]]; then
                       kubectl create secret generic identity-secret-for-components-integration \
                           --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \

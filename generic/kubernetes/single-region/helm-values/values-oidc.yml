@@ -15,7 +15,8 @@
 #     - orchestration-client-secret
 #     - connectors-client-secret
 #     - webmodeler-api-client-secret
-#     - smtp-password
+#
+#   SMTP password is managed separately via the 'webmodeler-secret' (see create-webmodeler-secret.sh)
 #
 # Required environment variables (use envsubst before applying):
 #   - OIDC_ISSUER_URL: OIDC issuer URL
