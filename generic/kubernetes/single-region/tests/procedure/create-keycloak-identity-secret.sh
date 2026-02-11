@@ -11,4 +11,5 @@ kubectl create secret generic identity-secret-for-components \
   --from-literal=identity-orchestration-client-token="$ORCHESTRATION_SECRET" \
   --from-literal=identity-optimize-client-token="$OPTIMIZE_SECRET" \
   --from-literal=identity-admin-client-token="$ADMIN_PASSWORD" \
-  --from-literal=identity-first-user-password="$FIRST_USER_PASSWORD"
+  --from-literal=identity-first-user-password="$FIRST_USER_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -
