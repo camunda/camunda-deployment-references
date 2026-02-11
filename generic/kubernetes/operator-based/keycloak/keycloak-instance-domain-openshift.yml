@@ -21,6 +21,7 @@ spec:
             key: password
     http:
         httpEnabled: true
+        httpPort: 18080
     additionalOptions:
         - name: http-relative-path
           value: /auth
@@ -77,4 +78,4 @@ spec:
                         service:
                             name: keycloak-service
                             port:
-                                number: 8080
+                                number: 18080
