@@ -9,7 +9,6 @@ matrix:
           # ! Unlike ROSA, 'private_vpc' is defined in 'scenario' and not in 'distro'.
           private_vpc: false
           # Auth provider options:
-          #   - 'keycloak': Embedded Keycloak (Bitnami subchart)
           #   - 'keycloak-operator': Keycloak deployed via Keycloak Operator with CNPG PostgreSQL
           #   - 'oidc': External OIDC provider (Cognito, EntraID)
           # TODO: Re-enable 'oidc' (AWS Cognito) once https://github.com/camunda/camunda/issues/44650 is fixed

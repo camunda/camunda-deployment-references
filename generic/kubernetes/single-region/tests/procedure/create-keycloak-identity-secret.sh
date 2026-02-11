@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Create Keycloak identity secret for Camunda components
+# Used by the operator-based test workflow
+
 kubectl create secret generic identity-secret-for-components \
   --namespace "$CAMUNDA_NAMESPACE" \
   --from-literal=identity-connectors-client-token="$CONNECTORS_SECRET" \

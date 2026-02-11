@@ -23,7 +23,7 @@ The kube context will be set on the created cluster.
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `true` | `true` |
 | `ref-arch` | <p>Reference architecture to deploy</p> | `false` | `aks-single-region` |
 | `location` | <p>Azure region where the AKS cluster will be deployed</p> | `true` | `""` |
-| `auth-provider` | <p>Authentication provider to use (keycloak or oidc)</p> | `false` | `keycloak` |
+| `auth-provider` | <p>Authentication provider to use (keycloak-operator or oidc)</p> | `false` | `keycloak-operator` |
 | `tags` | <p>Tags to apply to the cluster and related resources, in JSON format</p> | `false` | `{}` |
 
 
@@ -122,10 +122,10 @@ This action is a `composite` action.
     # Default: ""
 
     auth-provider:
-    # Authentication provider to use (keycloak or oidc)
+    # Authentication provider to use (keycloak-operator or oidc)
     #
     # Required: false
-    # Default: keycloak
+    # Default: keycloak-operator
 
     tags:
     # Tags to apply to the cluster and related resources, in JSON format

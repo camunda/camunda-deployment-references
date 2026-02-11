@@ -478,7 +478,6 @@ jobs:
                   # These overlays contain the auth-specific configuration
                   AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
                   KEYCLOAK_BASE_PATH="generic/kubernetes/single-region/helm-values"
-                  OPENSHIFT_HELM_PATH="generic/openshift/single-region/helm-values"
 
                   if [[ "$AUTH_PROVIDER" == "oidc" ]]; then
                     echo "Applying OIDC auth overlays"
@@ -491,12 +490,8 @@ jobs:
                     yq ". *+ load(\"${OPERATOR_KEYCLOAK_PATH}/camunda-keycloak-${{ matrix.declination.name }}-values.yml\")" values.yml > values-merged.yml
                     cat values-merged.yml && mv values-merged.yml values.yml
                   else
-                    echo "Applying embedded Keycloak auth overlays"
-                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak.yml\")" values.yml > values-merged.yml
-                    # OpenShift uses embedded PostgreSQL for Keycloak (not external)
-                    yq ". *+ load(\"${OPENSHIFT_HELM_PATH}/values-keycloak-openshift.yml\")" values-merged.yml > values-merged2.yml
-                    yq ". *+ load(\"${KEYCLOAK_BASE_PATH}/values-keycloak-${{ matrix.declination.name }}.yml\")" values-merged2.yml > values-merged3.yml
-                    cat values-merged3.yml && mv values-merged3.yml values.yml && rm values-merged.yml values-merged2.yml
+                    echo "Error: unsupported auth_provider '$AUTH_PROVIDER'. Supported: oidc, keycloak-operator" >&2
+                    exit 1
                   fi
 
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
@@ -537,14 +532,8 @@ jobs:
                   AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
 
                   # Create identity secrets based on auth provider
-                  if [[ "$AUTH_PROVIDER" == "keycloak" ]]; then
-                    # Embedded Keycloak - use standard secrets
-                    source generic/openshift/single-region/tests/procedure/generate-passwords.sh
-                    source generic/openshift/single-region/tests/procedure/generate-keycloak-passwords.sh
-                    ./generic/openshift/single-region/tests/procedure/create-keycloak-identity-secret.sh
-                    ./generic/openshift/single-region/tests/procedure/create-keycloak-postgresql-secret.sh
-                  fi
-                  # For 'keycloak-operator', secrets are created by the action
+                  # Identity secrets:
+                  # For 'keycloak-operator', secrets are created by the operator action
                   # For 'oidc', secrets are created in a separate step (if added)
 
                   # Create WebModeler secrets

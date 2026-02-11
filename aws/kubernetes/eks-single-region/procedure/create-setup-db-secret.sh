@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# Create secret for database setup (OIDC mode - no Keycloak DB)
-# For Keycloak mode, also run terraform/cluster/test/patch-setup-db-secret-keycloak.sh
+# Create secret for database setup
 
 kubectl create secret generic setup-db-secret --namespace "$CAMUNDA_NAMESPACE" \
   --from-literal=AURORA_ENDPOINT="$AURORA_ENDPOINT" \

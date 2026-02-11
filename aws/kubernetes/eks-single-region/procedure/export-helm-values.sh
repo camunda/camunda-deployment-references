@@ -4,8 +4,7 @@
 export CERT_MANAGER_IRSA_ARN="$(terraform output -raw cert_manager_arn)"
 export EXTERNAL_DNS_IRSA_ARN="$(terraform output -raw external_dns_arn)"
 
-# PostgreSQL (no Keycloak - using external OIDC provider)
-# For Keycloak, additionally source terraform/cluster/test/export-keycloak-helm-values.sh
+# PostgreSQL
 export DB_IDENTITY_NAME="$(terraform console <<<local.camunda_database_identity | tail -n 1 | jq -r)"
 export DB_IDENTITY_USERNAME="$(terraform console <<<local.camunda_identity_db_username | tail -n 1 | jq -r)"
 export DB_IDENTITY_PASSWORD="$(terraform console <<<local.camunda_identity_db_password | tail -n 1 | jq -r)"

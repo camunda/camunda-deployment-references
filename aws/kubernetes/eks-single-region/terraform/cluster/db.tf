@@ -4,8 +4,7 @@ locals {
   aurora_master_username = "secret_user"    # Replace with your Aurora username
   aurora_master_password = "secretvalue%23" # Replace with your Aurora password, password must contain at least one letter, one number, and one special character.
 
-  # Database names for Camunda components (no Keycloak - using external OIDC provider)
-  # For embedded Keycloak, also load test/db-keycloak.tf (non-IRSA version)
+  # Database names for Camunda components
   camunda_database_identity   = "camunda_identity"   # Name of your camunda database for Identity
   camunda_database_webmodeler = "camunda_webmodeler" # Name of your camunda database for WebModeler
 

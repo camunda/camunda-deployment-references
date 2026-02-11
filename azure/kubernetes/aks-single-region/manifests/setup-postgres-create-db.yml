@@ -1,6 +1,5 @@
 ---
 # This manifest creates the databases for Camunda 8 components
-# Note: If using embedded Keycloak instead of external OIDC, also run test/setup-postgres-create-keycloak-db.yml
 apiVersion: batch/v1
 kind: Job
 metadata:

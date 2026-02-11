@@ -4,8 +4,7 @@ locals {
   aurora_master_username = "secret_user"    # Replace with your Aurora username
   aurora_master_password = "secretvalue%23" # Replace with your Aurora password, password must contain at least one letter, one number, and one special character.
 
-  # Database names for Camunda components (no Keycloak - using external OIDC provider)
-  # For embedded Keycloak, also load test/db-keycloak-irsa.tf
+  # Database names for Camunda components
   camunda_database_identity   = "camunda_identity"   # Name of your camunda database for Identity
   camunda_database_webmodeler = "camunda_webmodeler" # Name of your camunda database for WebModeler
 
@@ -42,8 +41,7 @@ module "postgresql" {
   num_instances  = "1" # only one instance, you can add add other read-only instances if you want
   instance_class = "db.t3.medium"
 
-  # IAM IRSA - Only Identity and WebModeler (no Keycloak when using external OIDC)
-  # For embedded Keycloak, db-keycloak.tf creates additional IAM roles as separate resources
+  # IAM IRSA - Identity and WebModeler
   iam_auth_enabled = true
   iam_roles_with_policies = [
     {

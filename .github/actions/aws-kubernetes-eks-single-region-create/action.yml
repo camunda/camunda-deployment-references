@@ -62,7 +62,7 @@ inputs:
         description: Deploy OpenSearch domain
         default: 'true'
     auth-provider:
-        description: Authentication provider to use. 'oidc' for external OIDC (default), 'keycloak' for embedded Keycloak (adds Keycloak DB config)
+        description: Authentication provider to use. 'oidc' for external OIDC (default), 'keycloak-operator' for Keycloak via operator
         default: oidc
 
 outputs:
@@ -192,21 +192,6 @@ runs:
                   echo "Configuring Aurora PostgreSQL database..."
                   sed -i -e 's/\(aurora_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-pg\2/' \
                          db.tf
-
-                  # Add Keycloak database configuration for embedded Keycloak auth
-                  if [[ "${{ inputs.auth-provider }}" == "keycloak" ]]; then
-                      echo "Adding Keycloak database configuration..."
-                      # IRSA uses db-keycloak-irsa.tf, non-IRSA uses db-keycloak.tf
-                      if [[ "${{ inputs.ref-arch }}" == *"irsa"* ]]; then
-                          cp test/db-keycloak-irsa.tf db-keycloak-irsa.tf
-                          echo "Displaying db-keycloak-irsa.tf file:"
-                          cat db-keycloak-irsa.tf
-                      else
-                          cp test/db-keycloak.tf db-keycloak.tf
-                          echo "Displaying db-keycloak.tf file:"
-                          cat db-keycloak.tf
-                      fi
-                  fi
 
                   echo "Displaying templated db.tf file:"
                   cat db.tf
