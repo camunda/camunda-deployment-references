@@ -498,6 +498,7 @@ jobs:
                     echo "Enabling WebModeler"
                     yq -i '.webModeler.enabled = true' values.yml
                     yq -i '.webModelerPostgresql.enabled = true' values.yml
+                    yq -i '.webModeler.restapi.externalDatabase.enabled = false' values.yml
                   fi
 
                   if [ "$CONSOLE_ENABLED" == "true" ]; then
