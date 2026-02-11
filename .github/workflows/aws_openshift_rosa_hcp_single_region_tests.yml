@@ -541,7 +541,7 @@ jobs:
                   # For 'keycloak-operator', secrets are created by the operator action
                   # For 'oidc', secrets are created in a separate step (if added)
 
-                  # Create WebModeler secrets
+                  # Create WebModeler secrets (SMTP + PostgreSQL)
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
                     ./generic/openshift/single-region/procedure/create-webmodeler-secret.sh
                   fi
