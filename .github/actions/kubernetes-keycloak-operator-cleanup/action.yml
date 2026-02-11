@@ -21,8 +21,8 @@ runs:
           run: |
               set -euo pipefail
               echo "Deleting Keycloak CR..."
-              if kubectl get keycloak keycloak-service -n "${{ inputs.namespace }}" &>/dev/null; then
-                kubectl delete keycloak keycloak-service -n "${{ inputs.namespace }}" --timeout=120s || true
+              if kubectl get keycloak keycloak -n "${{ inputs.namespace }}" &>/dev/null; then
+                kubectl delete keycloak keycloak -n "${{ inputs.namespace }}" --timeout=120s || true
               else
                 echo "Keycloak CR not found, skipping..."
               fi
