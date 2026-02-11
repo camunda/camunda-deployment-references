@@ -20,7 +20,6 @@ type Cluster struct {
 	ClusterName      string
 	KubectlNamespace k8s.KubectlOptions
 	KubectlSystem    k8s.KubectlOptions
-	KubectlFailover  k8s.KubectlOptions
 }
 
 // Go Helpers

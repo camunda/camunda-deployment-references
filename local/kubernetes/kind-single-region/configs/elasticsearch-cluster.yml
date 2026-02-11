@@ -1,4 +1,17 @@
 ---
+# Kind-specific Elasticsearch cluster configuration
+# Source: generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.yml
+#
+# Differences from the generic version:
+#   - count: 2 (instead of 3) — the Kind cluster has 2 worker nodes by default,
+#     and hard anti-affinity requires each ES pod on a separate node, so 3 replicas
+#     would leave the 3rd pod in FailedScheduling.
+#   - preferredDuringSchedulingIgnoredDuringExecution (instead of required) —
+#     soft anti-affinity allows pods to colocate if needed, avoiding scheduling
+#     failures in constrained local environments.
+#   - Reduced resource requests/limits for local development.
+#   - Reduced storage size for local development.
+
 apiVersion: elasticsearch.k8s.elastic.co/v1
 kind: Elasticsearch
 metadata:
@@ -12,7 +25,7 @@ spec:
                 disabled: true
     nodeSets:
         - name: masters
-          count: 3
+          count: 2
           config:
               # Disable mmap for compatibility with containers that lack the required vm.max_map_count sysctl
               # yamllint disable-line
@@ -24,14 +37,16 @@ spec:
               spec:
                   affinity:
                       podAntiAffinity:
-                          requiredDuringSchedulingIgnoredDuringExecution:
-                              - labelSelector:
-                                    matchExpressions:
-                                        - key: elasticsearch.k8s.elastic.co/cluster-name
-                                          operator: In
-                                          values:
-                                              - elasticsearch
-                                topologyKey: kubernetes.io/hostname
+                          preferredDuringSchedulingIgnoredDuringExecution:
+                              - weight: 100
+                                podAffinityTerm:
+                                    labelSelector:
+                                        matchExpressions:
+                                            - key: elasticsearch.k8s.elastic.co/cluster-name
+                                              operator: In
+                                              values:
+                                                  - elasticsearch
+                                    topologyKey: kubernetes.io/hostname
                   containers:
                       - name: elasticsearch
                         securityContext:
@@ -43,11 +58,11 @@ spec:
                               value: '300'
                         resources:
                             requests:
-                                cpu: 1
-                                memory: 2Gi
+                                cpu: 500m
+                                memory: 1Gi
                             limits:
-                                cpu: 2
-                                memory: 2Gi
+                                cpu: 1
+                                memory: 1Gi
           volumeClaimTemplates:
               - metadata:
                     name: elasticsearch-data
@@ -55,4 +70,4 @@ spec:
                     accessModes: [ReadWriteOnce]
                     resources:
                         requests:
-                            storage: 64Gi
+                            storage: 16Gi

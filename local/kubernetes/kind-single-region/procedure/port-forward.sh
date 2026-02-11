@@ -27,7 +27,7 @@ echo "  - Web Modeler:       localhost:8070"
 echo "  - Connectors:        localhost:8088"
 echo "  - Console:           localhost:8087"
 echo "  - Identity:          localhost:8085"
-echo "  - Keycloak:          camunda-keycloak:18080/auth (requires /etc/hosts entry)"
+echo "  - Keycloak:          keycloak-service:18080/auth (requires /etc/hosts entry)"
 echo ""
 echo "Login: admin / $(kubectl get secret camunda-credentials -n camunda -o jsonpath='{.data.identity-firstuser-password}' | base64 -d)"
 echo ""
@@ -39,5 +39,5 @@ kubectl port-forward svc/camunda-web-modeler-webapp 8070:80 -n camunda &
 kubectl port-forward svc/camunda-connectors 8088:8080 -n camunda &
 kubectl port-forward svc/camunda-console 8087:80 -n camunda &
 kubectl port-forward svc/camunda-identity 8085:80 -n camunda &
-kubectl port-forward svc/camunda-keycloak 18080:18080 -n camunda &  # Access via camunda-keycloak:18080 (/etc/hosts)
+kubectl port-forward svc/keycloak-service 18080:18080 -n camunda &
 wait
