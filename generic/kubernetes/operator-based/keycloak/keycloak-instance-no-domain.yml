@@ -30,8 +30,6 @@ spec:
         enabled: false
     hostname:
         # Use the service name as hostname to sign the tokens correctly.
-        # Keycloak advertises this port in its OIDC well-known endpoints
-        # so that browser redirects reach the correct port-forward.
         hostname: keycloak-service
         strict: false
     resources:
