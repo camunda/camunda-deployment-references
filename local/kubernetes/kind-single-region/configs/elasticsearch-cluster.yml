@@ -3,10 +3,12 @@
 # Source: generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.yml
 #
 # Differences from the generic version:
-#   - count: 2 (instead of 3) — Kind cluster only has 2 worker nodes,
-#     the hard pod anti-affinity requires each ES pod on a different node.
+#   - count: 2 (instead of 3) — the Kind cluster has 2 worker nodes by default,
+#     and hard anti-affinity requires each ES pod on a separate node, so 3 replicas
+#     would leave the 3rd pod in FailedScheduling.
 #   - preferredDuringSchedulingIgnoredDuringExecution (instead of required) —
-#     softer anti-affinity for local development environments.
+#     soft anti-affinity allows pods to colocate if needed, avoiding scheduling
+#     failures in constrained local environments.
 #   - Reduced resource requests/limits for local development.
 #   - Reduced storage size for local development.
 
