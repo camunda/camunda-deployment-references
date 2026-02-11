@@ -25,6 +25,7 @@ spec:
         - name: masters
           count: 2
           config:
+              # Disable mmap for compatibility with containers that lack the required vm.max_map_count sysctl
               # yamllint disable-line
               node.store.allow_mmap: 'false'
               # Disable deprecation warnings - https://github.com/camunda/camunda/issues/26285
