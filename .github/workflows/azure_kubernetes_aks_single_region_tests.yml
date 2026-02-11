@@ -229,7 +229,6 @@ jobs:
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
                   tfvars: ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/terraform.tfvars
                   ref-arch: ${{ matrix.scenario.name }}
-                  auth-provider: ${{ matrix.scenario.auth_provider }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -520,6 +519,10 @@ jobs:
                     echo "Merging operator-based Keycloak config for Keycloak Operator"
                     OPERATOR_KEYCLOAK_PATH="generic/kubernetes/operator-based/keycloak"
                     yq ". *+ load(\"${OPERATOR_KEYCLOAK_PATH}/camunda-keycloak-${{ matrix.declination.name }}-values.yml\")" values.yml > values-merged.yml
+                    cat values-merged.yml && mv values-merged.yml values.yml
+
+                    # Merge identity secrets configuration for keycloak-operator auth
+                    yq ". *+ load(\"generic/kubernetes/operator-based/tests/utils/camunda-values-identity-secrets.yml\")" values.yml > values-merged.yml
                     cat values-merged.yml && mv values-merged.yml values.yml
 
                   else

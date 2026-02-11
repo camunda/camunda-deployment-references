@@ -489,6 +489,10 @@ jobs:
                     OPERATOR_KEYCLOAK_PATH="generic/kubernetes/operator-based/keycloak"
                     yq ". *+ load(\"${OPERATOR_KEYCLOAK_PATH}/camunda-keycloak-${{ matrix.declination.name }}-values.yml\")" values.yml > values-merged.yml
                     cat values-merged.yml && mv values-merged.yml values.yml
+
+                    # Merge identity secrets configuration for keycloak-operator auth
+                    yq ". *+ load(\"generic/kubernetes/operator-based/tests/utils/camunda-values-identity-secrets.yml\")" values.yml > values-merged.yml
+                    cat values-merged.yml && mv values-merged.yml values.yml
                   else
                     echo "Error: unsupported auth_provider '$AUTH_PROVIDER'. Supported: oidc, keycloak-operator" >&2
                     exit 1
