@@ -27,17 +27,17 @@ is_openshift() {
 CNPG_MANIFEST_URL="https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-${CNPG_VERSION%.*}/releases/cnpg-${CNPG_VERSION}.yaml"
 
 # Install CloudNativePG operator
+echo "Installing CloudNativePG operator v${CNPG_VERSION}..."
+
 if is_openshift; then
-    echo "OpenShift detected - downloading and patching CloudNativePG manifest for SCC compatibility..."
+    # On OpenShift, the upstream manifest has hardcoded runAsUser/runAsGroup
+    # that are rejected by the restricted-v2 SCC — download and patch them out
+    echo "OpenShift detected - patching manifest for SCC compatibility..."
     curl -sL "${CNPG_MANIFEST_URL}" > /tmp/cnpg-manifest.yaml
-
-    # Remove fixed UIDs/GIDs rejected by OpenShift restricted-v2 SCC
     yq -i '(select(.kind == "Deployment" and .metadata.name == "cnpg-controller-manager") | .spec.template.spec.containers[].securityContext) |= del(.runAsUser, .runAsGroup)' /tmp/cnpg-manifest.yaml
-
     kubectl apply -n "$OPERATOR_NAMESPACE" --server-side -f /tmp/cnpg-manifest.yaml
     rm -f /tmp/cnpg-manifest.yaml
 else
-    echo "Installing CloudNativePG operator v${CNPG_VERSION}..."
     kubectl apply -n "$OPERATOR_NAMESPACE" --server-side -f "${CNPG_MANIFEST_URL}"
 fi
 
@@ -51,13 +51,14 @@ echo "CloudNativePG operator deployed in namespace: $OPERATOR_NAMESPACE"
 CAMUNDA_NAMESPACE="$CAMUNDA_NAMESPACE" "./set-secrets.sh"
 
 # Deploy PostgreSQL clusters
+echo "Deploying PostgreSQL clusters..."
+
 if [[ -n "$CLUSTER_FILTER" ]]; then
-    echo "Deploying PostgreSQL cluster: $CLUSTER_FILTER..."
+    echo "Filtered deployment: $CLUSTER_FILTER only"
     yq "select(.metadata.name == \"$CLUSTER_FILTER\")" postgresql-clusters.yml | \
         kubectl apply -n "$CAMUNDA_NAMESPACE" --server-side -f -
     kubectl wait --for=condition=Ready --timeout=600s cluster "$CLUSTER_FILTER" -n "$CAMUNDA_NAMESPACE"
 else
-    echo "Deploying all PostgreSQL clusters..."
     kubectl apply --server-side -f postgresql-clusters.yml -n "$CAMUNDA_NAMESPACE"
     kubectl wait --for=condition=Ready --timeout=600s cluster --all -n "$CAMUNDA_NAMESPACE"
 fi
