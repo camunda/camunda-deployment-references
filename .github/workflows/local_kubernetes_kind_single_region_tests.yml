@@ -26,7 +26,7 @@ concurrency:
 
 env:
     REF_ARCH_PATH: local/kubernetes/kind-single-region
-    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
     CI_MATRIX_FILE: .github/workflows-config/local-kubernetes-kind-single-region/test_matrix.yml
 

@@ -23,7 +23,7 @@ concurrency:
     cancel-in-progress: false
 
 env:
-    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
 
     # Override max age (empty = use each pool's auto_cleanup_hours tag)
     MAX_AGE_OVERRIDE: ${{ github.event.inputs.max_age_hours || '' }}
