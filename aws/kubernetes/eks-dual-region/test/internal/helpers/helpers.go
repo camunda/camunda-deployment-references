@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/k8s"
@@ -38,6 +39,11 @@ func IsTeleportEnabled() bool {
 		return false // Default to false if invalid value
 	}
 	return boolVal
+}
+
+func IsOpenShiftEnabled() bool {
+	value := GetEnv("DISTRIBUTION", "EKS")
+	return strings.EqualFold(value, "OpenShift")
 }
 
 func CutOutString(originalString, searchString string) int {
