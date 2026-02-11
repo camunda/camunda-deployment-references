@@ -278,7 +278,7 @@ variable "restore_container_image" {
 }
 
 variable "restore_container_entrypoint" {
-  description = "Entrypoint for the restore init container (Docker ENTRYPOINT). If empty, uses the image default."
+  description = "Entrypoint for the restore init container (Docker ENTRYPOINT). Defaults to the restore application."
   type        = list(string)
   default = [
     "bash",

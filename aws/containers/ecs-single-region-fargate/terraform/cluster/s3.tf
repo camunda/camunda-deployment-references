@@ -74,11 +74,18 @@ resource "aws_iam_policy" "s3_backup_access_policy" {
         Effect = "Allow",
         Action = [
           "kms:Decrypt",
-          "kms:GenerateDataKey"
+          "kms:Encrypt",
+          "kms:GenerateDataKey",
+          "kms:DescribeKey"
         ],
         Resource = [
           aws_kms_key.s3_bucket_key.arn
-        ]
+        ],
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com"
+          }
+        }
       }
     ]
   })
