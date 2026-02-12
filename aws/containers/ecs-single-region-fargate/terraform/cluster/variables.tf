@@ -32,7 +32,7 @@ variable "default_tags" {
 
 variable "cidr_blocks" {
   type        = string
-  default     = "10.200.0.0/16"
+  default     = "10.190.0.0/16"
   description = "The CIDR block to use for the VPC"
 }
 
