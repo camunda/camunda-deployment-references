@@ -542,13 +542,7 @@ jobs:
                       echo "Processing and merging OpenShift route configurations (orchestration + connectors)..."
 
                       # Process both orchestration-route.yml and connectors-route.yml with envsubst
-                      CAMUNDA_RELEASE_NAME="$CAMUNDA_RELEASE_NAME" \
-                      CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}" \
-                      DOMAIN_NAME="$CAMUNDA_DOMAIN" \
                       envsubst < "../../../generic/openshift/single-region/helm-values/orchestration-route.yml" > orchestration-route-processed.yml
-
-                      CAMUNDA_RELEASE_NAME="$CAMUNDA_RELEASE_NAME" \
-                      CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}" \
                       envsubst < "../../../generic/openshift/single-region/helm-values/connectors-route.yml" > connectors-route-processed.yml
 
                       # Merge processed routes with assembled values and apply TLS adjustments

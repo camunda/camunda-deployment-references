@@ -8,7 +8,7 @@
 #   - OIDC:              yq ". *+ load(\"values-oidc.yml\")" values-domain.yml > values.yml
 #
 # Required environment variables:
-#   - DOMAIN_NAME: Your domain name
+#   - CAMUNDA_DOMAIN: Your domain name
 #   - OPENSEARCH_HOST: OpenSearch endpoint
 #   - DB_HOST, DB_IDENTITY_USERNAME, DB_IDENTITY_NAME: Database connection
 #   - Various IRSA role ARNs and service account names (from Terraform outputs)
@@ -32,7 +32,7 @@ global:
 
     ingress:
         enabled: true
-        host: ${DOMAIN_NAME}
+        host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
             secretName: camunda-c8-tls
@@ -43,18 +43,18 @@ global:
         auth:
             enabled: true
             identity:
-                redirectUrl: https://${DOMAIN_NAME}/managementidentity
+                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
             console:
-                redirectUrl: https://${DOMAIN_NAME}/console
+                redirectUrl: https://${CAMUNDA_DOMAIN}/console
             webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
+                redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
             optimize:
-                redirectUrl: https://${DOMAIN_NAME}/optimize
+                redirectUrl: https://${CAMUNDA_DOMAIN}/optimize
 
 identity:
     enabled: true
     contextPath: /managementidentity
-    fullURL: https://${DOMAIN_NAME}/managementidentity
+    fullURL: https://${CAMUNDA_DOMAIN}/managementidentity
 
     firstUser:
         enabled: true
@@ -123,7 +123,7 @@ orchestration:
     ingress:
         grpc:
             enabled: true
-            host: zeebe-${DOMAIN_NAME}
+            host: zeebe-${CAMUNDA_DOMAIN}
             tls:
                 enabled: true
                 secretName: zeebe-c8-tls-grpc

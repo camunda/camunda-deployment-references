@@ -503,7 +503,7 @@ jobs:
                   export_file_to_github_env "${{ runner.temp }}/cognito_secrets"
 
                   # Set domain name for OIDC callbacks (using cluster-specific domain)
-                  echo "DOMAIN_NAME=${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}" >> "$GITHUB_ENV"
+                  echo "CAMUNDA_DOMAIN=${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}" >> "$GITHUB_ENV"
 
             - name: 🔐 Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
@@ -686,14 +686,11 @@ jobs:
                   fi
 
                   if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
-                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
-                    echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
-
-                    export CAMUNDA_DOMAIN="$DOMAIN_NAME"
+                    export CAMUNDA_DOMAIN="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
                     echo "CAMUNDA_DOMAIN=$CAMUNDA_DOMAIN" | tee -a "$GITHUB_ENV"
 
-                    export DOMAIN_NAME_GRPC="zeebe-$DOMAIN_NAME:443"
-                    echo "DOMAIN_NAME_GRPC=$DOMAIN_NAME_GRPC" | tee -a "$GITHUB_ENV"
+                    export CAMUNDA_DOMAIN_GRPC="zeebe-$CAMUNDA_DOMAIN:443"
+                    echo "CAMUNDA_DOMAIN_GRPC=$CAMUNDA_DOMAIN_GRPC" | tee -a "$GITHUB_ENV"
                   fi
 
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
@@ -784,7 +781,7 @@ jobs:
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain' || 'no-domain' }}
-                  domain-name: ${{ env.DOMAIN_NAME }}
+                  domain-name: ${{ env.CAMUNDA_DOMAIN }}
 
             - name: 🔐 Create OIDC secrets
               if: ${{ matrix.scenario.auth_provider == 'oidc' }}
@@ -886,8 +883,8 @@ jobs:
               with:
                   secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
-                  camunda-domain: ${{ env.DOMAIN_NAME }}
-                  camunda-domain-grpc: ${{ env.DOMAIN_NAME_GRPC }}
+                  camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
+                  camunda-domain-grpc: ${{ env.CAMUNDA_DOMAIN_GRPC }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
                   elasticsearch-enabled: 'false'

@@ -7,19 +7,19 @@ global:
     identity:
         auth:
             identity:
-                redirectUrl: https://${DOMAIN_NAME}/managementidentity
+                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
             console:
-                redirectUrl: https://${DOMAIN_NAME}/console
+                redirectUrl: https://${CAMUNDA_DOMAIN}/console
             webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
+                redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
             optimize:
-                redirectUrl: https://${DOMAIN_NAME}/optimize
+                redirectUrl: https://${CAMUNDA_DOMAIN}/optimize
 
     # the ingress is managed directly by the Route manifests
     ingress:
         enabled: true
         className: openshift-default
-        host: ${DOMAIN_NAME}
+        host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
             # explicitly '-' as secret name as we rely on the IngressOperator to handle the TLS secret
@@ -32,7 +32,7 @@ global:
 
 identity:
     contextPath: /managementidentity
-    fullURL: https://${DOMAIN_NAME}/managementidentity
+    fullURL: https://${CAMUNDA_DOMAIN}/managementidentity
 
 webModeler:
     contextPath: /modeler

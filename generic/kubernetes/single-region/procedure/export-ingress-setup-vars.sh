@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # The domain name you intend to use
-export DOMAIN_NAME=camunda.example.com
+export CAMUNDA_DOMAIN=camunda.example.com
 # The email address for Let's Encrypt registration
 export MAIL=admin@camunda.example.com
 # Helm chart versions for Ingress components

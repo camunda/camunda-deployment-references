@@ -6,11 +6,11 @@
 #   yq ". *+ load(\"values-oidc.yml\") *+ load(\"values-oidc-domain.yml\")" values-domain.yml > values.yml
 #
 # Required environment variables:
-#   - DOMAIN_NAME: Your domain name
+#   - CAMUNDA_DOMAIN: Your domain name
 
 orchestration:
     security:
         authentication:
             oidc:
                 # Note: The Helm chart appends '/sso-callback' to this URL
-                redirectUrl: https://${DOMAIN_NAME}
+                redirectUrl: https://${CAMUNDA_DOMAIN}

@@ -446,8 +446,8 @@ jobs:
                   if [[ ${{ matrix.declination.name }} == "domain" ]]; then
 
                     source ./generic/openshift/single-region/procedure/setup-application-domain.sh
-                    echo "CAMUNDA_DOMAIN=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
-                    echo "CAMUNDA_GRPC_DOMAIN=zeebe-$DOMAIN_NAME:443" | tee -a "$GITHUB_ENV"
+                    echo "CAMUNDA_DOMAIN=$CAMUNDA_DOMAIN" | tee -a "$GITHUB_ENV"
+                    echo "CAMUNDA_GRPC_DOMAIN=zeebe-$CAMUNDA_DOMAIN:443" | tee -a "$GITHUB_ENV"
 
                     source ./generic/openshift/single-region/procedure/get-ingress-http2-status.sh
 
@@ -527,7 +527,7 @@ jobs:
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain-openshift' || 'no-domain' }}
-                  domain-name: ${{ env.DOMAIN_NAME }}
+                  domain-name: ${{ env.CAMUNDA_DOMAIN }}
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 10

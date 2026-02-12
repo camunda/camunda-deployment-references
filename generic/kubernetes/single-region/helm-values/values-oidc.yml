@@ -33,7 +33,7 @@
 #   - WEBMODELER_UI_CLIENT_ID: WebModeler UI client ID
 #   - WEBMODELER_API_CLIENT_ID: WebModeler API client ID
 #   - IDENTITY_INITIAL_USER_EMAIL: Initial admin user email
-#   - DOMAIN_NAME: Your domain name for callbacks
+#   - CAMUNDA_DOMAIN: Your domain name for callbacks
 #
 # ⚠️ KNOWN ISSUE: AWS Cognito M2M Token Audience Claim
 # AWS Cognito M2M access tokens use 'client_id' claim instead of the standard 'aud' claim.
@@ -57,25 +57,25 @@ global:
                 audience: ${IDENTITY_CLIENT_ID}
                 existingSecret: identity-secret-for-components
                 existingSecretKey: identity-client-secret
-                redirectUrl: https://${DOMAIN_NAME}/auth/login-callback
+                redirectUrl: https://${CAMUNDA_DOMAIN}/auth/login-callback
 
             optimize:
                 clientId: ${OPTIMIZE_CLIENT_ID}
                 audience: ${OPTIMIZE_CLIENT_ID}
                 existingSecret: identity-secret-for-components
                 existingSecretKey: optimize-client-secret
-                redirectUrl: https://${DOMAIN_NAME}/optimize/api/authentication/callback
+                redirectUrl: https://${CAMUNDA_DOMAIN}/optimize/api/authentication/callback
 
             webModeler:
                 clientId: ${WEBMODELER_UI_CLIENT_ID}
-                redirectUrl: https://${DOMAIN_NAME}/modeler/login-callback
+                redirectUrl: https://${CAMUNDA_DOMAIN}/modeler/login-callback
                 clientApiAudience: ${WEBMODELER_API_CLIENT_ID}
                 publicApiAudience: ${WEBMODELER_API_CLIENT_ID}
 
             console:
                 clientId: ${CONSOLE_CLIENT_ID}
                 audience: ${CONSOLE_CLIENT_ID}
-                redirectUrl: https://${DOMAIN_NAME}/console/
+                redirectUrl: https://${CAMUNDA_DOMAIN}/console/
 
             # Remove Keycloak-specific configurations
             admin:
@@ -88,7 +88,7 @@ identity:
 
     contextPath: /auth
 
-    fullURL: https://${DOMAIN_NAME}/auth
+    fullURL: https://${CAMUNDA_DOMAIN}/auth
 
     env:
         - name: IDENTITY_AUTH_PROVIDER_BACKEND_URL
@@ -175,7 +175,7 @@ webModeler:
     restapi:
         env:
             - name: CAMUNDA_IDENTITY_BASE_URL
-              value: https://${DOMAIN_NAME}/auth
+              value: https://${CAMUNDA_DOMAIN}/auth
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
               value: ${OIDC_ISSUER_URL}
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI
