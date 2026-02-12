@@ -2,7 +2,7 @@
 # OpenShift No-Domain Configuration
 #
 # This file contains configuration for localhost/port-forward mode.
-# Auth-related redirectURLs are provided by the auth overlays.
+# RedirectURLs use chart defaults (http://localhost:<port>) for port-forward access.
 
 identity:
     contextPath: /managementidentity

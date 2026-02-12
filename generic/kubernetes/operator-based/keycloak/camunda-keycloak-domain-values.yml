@@ -22,7 +22,6 @@ global:
             issuer: https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform
             publicIssuerUrl: https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform
 
-
         # Keycloak configuration for external instance
         keycloak:
             # For external Keycloak managed by operator

@@ -42,6 +42,14 @@ global:
     identity:
         auth:
             enabled: true
+            identity:
+                redirectUrl: https://${DOMAIN_NAME}/managementidentity
+            console:
+                redirectUrl: https://${DOMAIN_NAME}/console
+            webModeler:
+                redirectUrl: https://${DOMAIN_NAME}/modeler
+            optimize:
+                redirectUrl: https://${DOMAIN_NAME}/optimize
 
 identity:
     enabled: true

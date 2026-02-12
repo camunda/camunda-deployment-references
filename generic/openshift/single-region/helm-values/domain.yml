@@ -2,9 +2,19 @@
 # OpenShift Domain Configuration
 #
 # This file contains OpenShift-specific ingress configuration.
-# Auth-related redirectURLs are provided by the auth overlays.
 
 global:
+    identity:
+        auth:
+            identity:
+                redirectUrl: https://${DOMAIN_NAME}/managementidentity
+            console:
+                redirectUrl: https://${DOMAIN_NAME}/console
+            webModeler:
+                redirectUrl: https://${DOMAIN_NAME}/modeler
+            optimize:
+                redirectUrl: https://${DOMAIN_NAME}/optimize
+
     # the ingress is managed directly by the Route manifests
     ingress:
         enabled: true
