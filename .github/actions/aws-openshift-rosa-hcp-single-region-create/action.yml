@@ -335,7 +335,7 @@ runs:
 
               terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}vpn.tfstate"
               terraform_state_url_vpn="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
-              echo "terraform-state-url-cluster=${terraform_state_url_vpn}" | tee -a "$GITHUB_OUTPUT"
+              echo "terraform-state-url-vpn=${terraform_state_url_vpn}" | tee -a "$GITHUB_OUTPUT"
 
               terraform version
 

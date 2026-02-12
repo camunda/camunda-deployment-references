@@ -237,7 +237,7 @@ runs:
 
               # setup docker registry secret for tests
               echo "TEST_CREATE_DOCKER_LOGIN_SECRET=true" | tee -a "$GITHUB_ENV"
-              echo "TEST_DOCKER_USERNAME_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_USERNAME }}" | tee -a "$GITHUB_ENV"
+              echo "TEST_DOCKER_USERNAME_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_USER }}" | tee -a "$GITHUB_ENV"
               echo "TEST_DOCKER_PASSWORD_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" | tee -a "$GITHUB_ENV"
 
               CI_TASKS_BASE_DIR="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/test/integration/scenarios/"

@@ -75,6 +75,9 @@ runs:
               echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" >> "$GITHUB_OUTPUT"
 
+              terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_BASE_KEY}${{ inputs.tf-modules-name }}.tfstate"
+              echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
+
               echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}" >> "$GITHUB_ENV"
 
         - name: Copy CI fixtures
