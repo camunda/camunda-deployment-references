@@ -981,7 +981,7 @@
         "egress": [
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outbound traffic on port 26500",
             "from_port": 26500,
@@ -994,7 +994,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outbound traffic on port 26501",
             "from_port": 26501,
@@ -1007,7 +1007,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outbound traffic on port 26502",
             "from_port": 26502,
@@ -1020,7 +1020,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outbound traffic on port 5432",
             "from_port": 5432,
@@ -1033,7 +1033,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outbound traffic on port 8080",
             "from_port": 8080,
@@ -1046,7 +1046,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outbound traffic on port 9600",
             "from_port": 9600,
@@ -1071,7 +1071,7 @@
         "ingress": [
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow inbound traffic on port 26500",
             "from_port": 26500,
@@ -1084,7 +1084,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow inbound traffic on port 26501",
             "from_port": 26501,
@@ -1097,7 +1097,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow inbound traffic on port 26502",
             "from_port": 26502,
@@ -1110,7 +1110,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow inbound traffic on port 5432",
             "from_port": 5432,
@@ -1123,7 +1123,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow inbound traffic on port 8080",
             "from_port": 8080,
@@ -1136,7 +1136,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow inbound traffic on port 9600",
             "from_port": 9600,
@@ -1536,7 +1536,7 @@
         "egress": [
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "nfs outbound",
             "from_port": 2049,
@@ -1551,7 +1551,7 @@
         "ingress": [
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "nfs from ECS tasks",
             "from_port": 2049,
@@ -3297,7 +3297,7 @@
           "type": "aws_security_group_rule",
           "values": {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outgoing traffic for the aurora db",
             "from_port": 0,
@@ -3324,7 +3324,7 @@
           "type": "aws_security_group_rule",
           "values": {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow incoming traffic for the aurora db for port 5432",
             "from_port": 5432,
@@ -4036,7 +4036,7 @@
           "values": {
             "assign_ipv6_address_on_creation": false,
             "availability_zone": "eu-west-2a",
-            "cidr_block": "10.200.0.0/28",
+            "cidr_block": "10.190.0.0/19",
             "customer_owned_ipv4_pool": null,
             "enable_dns64": false,
             "enable_lni_at_device_index": null,
@@ -4080,7 +4080,7 @@
           "values": {
             "assign_ipv6_address_on_creation": false,
             "availability_zone": "eu-west-2b",
-            "cidr_block": "10.200.0.16/28",
+            "cidr_block": "10.190.32.0/19",
             "customer_owned_ipv4_pool": null,
             "enable_dns64": false,
             "enable_lni_at_device_index": null,
@@ -4124,7 +4124,7 @@
           "values": {
             "assign_ipv6_address_on_creation": false,
             "availability_zone": "eu-west-2c",
-            "cidr_block": "10.200.0.32/28",
+            "cidr_block": "10.190.64.0/19",
             "customer_owned_ipv4_pool": null,
             "enable_dns64": false,
             "enable_lni_at_device_index": null,
@@ -4168,7 +4168,7 @@
           "values": {
             "assign_ipv6_address_on_creation": false,
             "availability_zone": "eu-west-2a",
-            "cidr_block": "10.200.0.64/28",
+            "cidr_block": "10.190.96.0/19",
             "customer_owned_ipv4_pool": null,
             "enable_dns64": false,
             "enable_lni_at_device_index": null,
@@ -4212,7 +4212,7 @@
           "values": {
             "assign_ipv6_address_on_creation": false,
             "availability_zone": "eu-west-2b",
-            "cidr_block": "10.200.0.80/28",
+            "cidr_block": "10.190.128.0/19",
             "customer_owned_ipv4_pool": null,
             "enable_dns64": false,
             "enable_lni_at_device_index": null,
@@ -4256,7 +4256,7 @@
           "values": {
             "assign_ipv6_address_on_creation": false,
             "availability_zone": "eu-west-2c",
-            "cidr_block": "10.200.0.96/28",
+            "cidr_block": "10.190.160.0/19",
             "customer_owned_ipv4_pool": null,
             "enable_dns64": false,
             "enable_lni_at_device_index": null,
@@ -4299,7 +4299,7 @@
           "type": "aws_vpc",
           "values": {
             "assign_generated_ipv6_cidr_block": null,
-            "cidr_block": "10.200.0.0/24",
+            "cidr_block": "10.190.0.0/16",
             "enable_dns_hostnames": true,
             "enable_dns_support": true,
             "instance_tenancy": "default",
