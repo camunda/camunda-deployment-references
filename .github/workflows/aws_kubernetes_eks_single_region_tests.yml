@@ -18,7 +18,7 @@ on:
             - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
             - .github/actions/aws-kubernetes-eks-single-region-create/**
             - .github/actions/aws-cognito-create/**
-            - aws/common/cognito-test/**
+            - aws/common/cognito/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/aws-generic-terraform-cleanup/**

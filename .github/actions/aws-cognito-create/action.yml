@@ -122,7 +122,7 @@ runs:
     steps:
         - name: Set working directory
           shell: bash
-          run: echo "TF_MODULE_DIR=${{ github.workspace }}/aws/common/cognito-test" >> "$GITHUB_ENV"
+          run: echo "TF_MODULE_DIR=${{ github.workspace }}/aws/common/cognito" >> "$GITHUB_ENV"
 
         - name: Terraform Init
           shell: bash

@@ -22,7 +22,7 @@ This module is designed for:
 
 ```hcl
 module "cognito_test" {
-  source = "./aws/common/cognito-test"
+  source = "./aws/common/cognito"
 
   resource_prefix    = "my-test-cluster"
   domain_name        = "camunda.example.com"

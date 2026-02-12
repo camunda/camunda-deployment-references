@@ -12,7 +12,7 @@ on:
         paths:
             - .github/workflows/aws_cognito_daily_cleanup.yml
             - .tool-versions
-            - aws/common/cognito-test/**
+            - aws/common/cognito/**
             - .github/actions/aws-configure-cli/**
 
     schedule:

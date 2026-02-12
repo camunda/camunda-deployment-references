@@ -4,7 +4,7 @@
 # Example:
 #   terraform init \
 #     -backend-config="bucket=your-state-bucket" \
-#     -backend-config="key=cognito-test/your-cluster/terraform.tfstate" \
+#     -backend-config="key=cognito-test/your-cluster/terraform.tfstate" \  # NOTE: S3 key prefix kept as cognito-test/ for backward compatibility
 #     -backend-config="region=eu-central-1"
 
 terraform {
