@@ -98,6 +98,12 @@ variable "service_force_new_deployment" {
   default     = false
 }
 
+variable "service_health_check_grace_period_seconds" {
+  description = "Seconds to ignore failing load balancer health checks on newly instantiated tasks to prevent premature shutdown"
+  type        = number
+  default     = 900
+}
+
 variable "cloudwatch_retention_days" {
   description = "The number of days to retain CloudWatch logs"
   type        = number
@@ -189,7 +195,7 @@ variable "image" {
   # TODO: [release-duty] before the release, update the below versions to the stable release!
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.9?(\.(?<patch>\d+))?$
-  default = "camunda/camunda:8.9.0-alpha3"
+  default = "camunda/camunda:8.9.0-alpha4"
 }
 
 variable "environment_variables" {
@@ -245,6 +251,44 @@ variable "init_container_environment_variables" {
 
 variable "init_container_secrets" {
   description = "ECS task secrets for the init container (rendered as container definition 'secrets')."
+  type = list(object({
+    name      = string
+    valueFrom = string
+  }))
+  default = []
+}
+
+################################################################
+#                 Restore Init Container                       #
+################################################################
+
+variable "restore_backup_id" {
+  description = "The backup ID to restore from. When set, enables the restore init container that runs before the main container."
+  type        = string
+  default     = ""
+}
+
+variable "restore_container_image" {
+  description = "Container image for the restore init container. Required when restore_backup_id is set."
+  type        = string
+  # TODO: [release-duty] before the release, update the below versions to the stable release!
+  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
+  # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.9?(\.(?<patch>\d+))?$
+  default = "camunda/camunda:8.9.0-alpha4"
+}
+
+variable "restore_container_entrypoint" {
+  description = "Entrypoint for the restore init container (Docker ENTRYPOINT). Defaults to the restore application."
+  type        = list(string)
+  default = [
+    "bash",
+    "-c",
+    "/usr/local/camunda/bin/restore --backupId=$BACKUP_ID"
+  ]
+}
+
+variable "restore_container_secrets" {
+  description = "ECS task secrets for the restore init container (rendered as container definition 'secrets')."
   type = list(object({
     name      = string
     valueFrom = string
