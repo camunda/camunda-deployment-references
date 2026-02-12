@@ -258,8 +258,15 @@ destroy_module() {
     }
 
     local cluster_1_name cluster_2_name
-    cluster_1_name=$(echo "$group_id" | awk -F"-oOo-" '{print $1}')
-    cluster_2_name=$(echo "$group_id" | awk -F"-oOo-" '{print $2}')
+    if [[ "$group_id" == *"-oOo-"* ]]; then
+      # ROSA-style: two distinct cluster names separated by -oOo-
+      cluster_1_name=$(echo "$group_id" | awk -F"-oOo-" '{print $1}')
+      cluster_2_name=$(echo "$group_id" | awk -F"-oOo-" '{print $2}')
+    else
+      # EKS-style: single prefix used for both clusters (suffixed with region names)
+      cluster_1_name="$group_id"
+      cluster_2_name="$group_id"
+    fi
 
     # Validate that both cluster names are non-empty to avoid overly broad regex patterns
     if [[ -z "$cluster_1_name" || -z "$cluster_2_name" ]]; then
