@@ -118,8 +118,6 @@ runs:
                 echo "EXTRA_VALUES_YAML=${{ inputs.extra-values-yaml }}"
               } >> "$GITHUB_ENV"
 
-              echo "TEST_DIR=${{ env.TEST_DIR }}" >> "$GITHUB_ENV"
-
         - name: Clean Environment
           if: inputs.skip-cleanup != 'true'
           shell: bash

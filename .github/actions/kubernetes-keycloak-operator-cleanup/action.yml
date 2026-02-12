@@ -54,29 +54,30 @@ runs:
                 fi
               done
 
-        - name: 🗑️ Uninstall Keycloak Operator
+        - name: 🗑️ Uninstall Keycloak Operator and CRDs
           if: inputs.skip-operator-uninstall != 'true'
           shell: bash
           run: |
               set -euo pipefail
               echo "Uninstalling Keycloak Operator..."
 
-              # Check if the operator is installed
-              if helm list -n keycloak-system 2>/dev/null | grep -q keycloak-operator; then
-                helm uninstall keycloak-operator -n keycloak-system --wait --timeout 120s || true
+              # Delete the operator deployment
+              if kubectl get namespace keycloak-system &>/dev/null; then
+                kubectl delete namespace keycloak-system --timeout=60s || true
               else
-                echo "Keycloak Operator not installed via Helm, checking for OLM..."
+                echo "Namespace keycloak-system not found, skipping..."
               fi
 
-              # Delete namespace if empty
-              if kubectl get namespace keycloak-system &>/dev/null; then
-                # Check if namespace has any resources
-                if [ "$(kubectl get all -n keycloak-system -o name 2>/dev/null | wc -l)" -eq 0 ]; then
-                  kubectl delete namespace keycloak-system --timeout=60s || true
+              # Delete Keycloak CRDs
+              echo "Deleting Keycloak CRDs..."
+              for crd in keycloaks.k8s.keycloak.org keycloakrealmimports.k8s.keycloak.org; do
+                if kubectl get crd "$crd" &>/dev/null; then
+                  kubectl delete crd "$crd" --timeout=60s || true
+                  echo "Deleted CRD: $crd"
                 else
-                  echo "Namespace keycloak-system still has resources, not deleting"
+                  echo "CRD $crd not found, skipping..."
                 fi
-              fi
+              done
 
         - name: 🗑️ Uninstall CloudNativePG Operator
           if: inputs.skip-operator-uninstall != 'true'
