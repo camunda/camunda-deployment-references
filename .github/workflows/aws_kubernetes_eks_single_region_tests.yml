@@ -912,15 +912,10 @@ jobs:
             - name: 🔬🚨 Get failed Pods info
               timeout-minutes: 10
               if: failure()
-              run: |
-                  set -euo pipefail
-
-                  kubectl -n "$CAMUNDA_NAMESPACE" get po
-                  kubectl -n "$CAMUNDA_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
-                    echo -e "\n###Failed Pod: ${pod_name}###\n";
-                    kubectl -n "$CAMUNDA_NAMESPACE" describe po "$pod_name";
-                    kubectl -n "$CAMUNDA_NAMESPACE" logs "$pod_name";
-                  done
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  artifact-suffix: ${{ matrix.scenario.name }}-${{ matrix.declination.name }}
 
             - name: 🧹 Cleanup Keycloak Operator deployment
               if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.auth_provider == 'keycloak-operator'
