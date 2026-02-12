@@ -184,17 +184,19 @@ runs:
                     sleep "$poll_interval"
                     attempt=$((attempt + 1))
 
-                    gh_output=$(gh pr view "$pr_number" --repo "$repo" --json comments 2>&1) || {
+                    # Use REST API to get numeric comment IDs (gh pr view returns GraphQL node IDs which break tonumber and REST DELETE)
+                    # Use per_page=100 instead of --paginate to avoid multi-document JSON output (--paginate emits one array per page)
+                    gh_output=$(gh api "/repos/$repo/issues/$pr_number/comments?per_page=100" 2>&1) || {
                       handle_gh_error $? "fetching comments for cleanup (attempt $attempt)" "$gh_output"
                       break
                     }
-                    # Sort by createdAt first, then by id (numeric) for deterministic ordering
+                    # Sort by created_at first, then by id (numeric) for deterministic ordering
                     # This ensures consistent behavior even with identical timestamps
                     # Lowest ID wins as it was created first by GitHub's sequential ID assignment
-                    jq_filter='[.comments[] | select(.body | contains("'"$checklist_marker"'"))'
-                    jq_filter+=' | {id: .id, createdAt: .createdAt,'
+                    jq_filter='[.[] | select(.body | contains("'"$checklist_marker"'"))'
+                    jq_filter+=' | {id: .id, createdAt: .created_at,'
                     jq_filter+=' hasCheckboxChecked: (.body | test("- \\[[xX]\\]"))}]'
-                    jq_filter+=' | sort_by(.createdAt, .id)'
+                    jq_filter+=' | sort_by([.createdAt, .id])'
                     all_checklist_comments=$(echo "$gh_output" | jq "$jq_filter")
                     comment_count=$(echo "$all_checklist_comments" | jq 'length')
 
