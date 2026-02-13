@@ -873,8 +873,8 @@ runs:
 
               # keycloak pass
               keycloak_password=$(kubectl -n "$TEST_NAMESPACE" \
-                get secret camunda-credentials \
-                -o jsonpath="{.data.identity-keycloak-admin-password}" 2>/dev/null | base64 -d 2>/dev/null)
+                get secret keycloak-initial-admin \
+                -o jsonpath="{.data.password}" 2>/dev/null | base64 -d 2>/dev/null)
 
               if [[ -n "$keycloak_password" ]]; then
                 echo "::add-mask::$keycloak_password"
