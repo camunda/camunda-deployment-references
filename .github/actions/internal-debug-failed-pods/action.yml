@@ -5,6 +5,10 @@ inputs:
     namespace:
         description: The Kubernetes namespace to inspect
         required: true
+    context:
+        description: The kubectl context to use (for multi-cluster setups). If empty, the current context is used.
+        required: false
+        default: ''
     log-tail-lines:
         description: Number of log tail lines to display in the CI output (full logs are always uploaded as artifact)
         required: false
@@ -23,36 +27,40 @@ runs:
 
               NAMESPACE="${{ inputs.namespace }}"
               LOG_TAIL="${{ inputs.log-tail-lines }}"
+              CTX_ARGS=()
+              if [[ -n "${{ inputs.context }}" ]]; then
+                CTX_ARGS=(--context="${{ inputs.context }}")
+              fi
 
               echo "::group::All pods in namespace ${NAMESPACE}"
-              kubectl -n "$NAMESPACE" get po -o wide
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po -o wide
               echo "::endgroup::"
 
               echo "::group::Helm releases"
-              helm list -n "$NAMESPACE" -a || true
+              helm list -n "$NAMESPACE" -a "${CTX_ARGS[@]/#--context=/--kube-context=}" || true
               echo "::endgroup::"
 
               echo "::group::Namespace events (last 50)"
-              kubectl -n "$NAMESPACE" get events --sort-by='.lastTimestamp' | tail -50 || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get events --sort-by='.lastTimestamp' | tail -50 || true
               echo "::endgroup::"
 
               echo "::group::PVCs"
-              kubectl -n "$NAMESPACE" get pvc || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get pvc || true
               echo "::endgroup::"
 
               echo "::group::Services & Endpoints"
-              kubectl -n "$NAMESPACE" get svc,endpoints || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get svc,endpoints || true
               echo "::endgroup::"
 
               echo "::group::ConfigMaps & Secrets (names only)"
-              kubectl -n "$NAMESPACE" get configmaps,secrets || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get configmaps,secrets || true
               echo "::endgroup::"
 
               # Prioritize CrashLoopBackOff/Error pods first, then other non-ready pods
               # Use --tail to prevent verbose logs (e.g., connectors gRPC retries) from truncating CI output
               {
-                kubectl -n "$NAMESPACE" get po --no-headers | grep -E "CrashLoopBackOff|Error" | awk '{print $1}'
-                kubectl -n "$NAMESPACE" get po --no-headers | grep -v "Completed" | grep -v "CrashLoopBackOff" | grep -v "Error" | awk '/0\//{print $1}'
+                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers | grep -E "CrashLoopBackOff|Error" | awk '{print $1}'
+                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers | grep -v "Completed" | grep -v "CrashLoopBackOff" | grep -v "Error" | awk '/0\//{print $1}'
               } | while read -r pod_name; do
                 echo ""
                 echo "============================================"
@@ -60,50 +68,51 @@ runs:
                 echo "============================================"
 
                 echo "::group::${pod_name} - describe"
-                kubectl -n "$NAMESPACE" describe po "$pod_name"
+                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" describe po "$pod_name"
                 echo "::endgroup::"
 
                 # Show init container logs if any init container failed
-                init_containers=$(kubectl -n "$NAMESPACE" get po "$pod_name" -o jsonpath='{.status.initContainerStatuses[?(@.ready==false)].name}' 2>/dev/null || true)
+                init_containers=$(kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po "$pod_name" \
+                  -o jsonpath='{.status.initContainerStatuses[?(@.ready==false)].name}' 2>/dev/null || true)
                 if [[ -n "$init_containers" ]]; then
                   for ic in $init_containers; do
                     echo "::group::${pod_name} - init container logs: ${ic}"
-                    kubectl -n "$NAMESPACE" logs "$pod_name" -c "$ic" --tail="$LOG_TAIL" || true
+                    kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$ic" --tail="$LOG_TAIL" || true
                     echo "::endgroup::"
                   done
                 fi
 
                 # Show main container logs (all containers)
-                containers=$(kubectl -n "$NAMESPACE" get po "$pod_name" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null || true)
+                containers=$(kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po "$pod_name" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null || true)
                 for container in $containers; do
                   echo "::group::${pod_name} - logs: ${container}"
-                  kubectl -n "$NAMESPACE" logs "$pod_name" -c "$container" --tail="$LOG_TAIL" || true
+                  kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --tail="$LOG_TAIL" || true
                   echo "::endgroup::"
 
                   # Also show previous logs if the container restarted
                   jp=".status.containerStatuses"
                   jp="${jp}[?(@.name==\"${container}\")].restartCount"
-                  restart_count=$(kubectl -n "$NAMESPACE" get po "$pod_name" \
+                  restart_count=$(kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po "$pod_name" \
                     -o jsonpath="{$jp}" 2>/dev/null || echo "0")
                   if [[ "$restart_count" -gt 0 ]]; then
                     echo "::group::${pod_name} - previous logs: ${container} (restarts: ${restart_count})"
-                    kubectl -n "$NAMESPACE" logs "$pod_name" -c "$container" --previous --tail="$LOG_TAIL" || true
+                    kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --previous --tail="$LOG_TAIL" || true
                     echo "::endgroup::"
                   fi
                 done
               done
 
               # Show tail logs for healthy running pods (collapsed)
-              kubectl -n "$NAMESPACE" get po --no-headers \
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers \
                 | grep -v "Completed" \
                 | grep -v -E "CrashLoopBackOff|Error" \
                 | grep -v -E '0\/' \
                 | awk '{print $1}' | while read -r pod_name; do
-                containers=$(kubectl -n "$NAMESPACE" get po "$pod_name" \
+                containers=$(kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po "$pod_name" \
                   -o jsonpath='{.spec.containers[*].name}' 2>/dev/null || true)
                 for container in $containers; do
                   echo "::group::${pod_name} - logs: ${container} (healthy)"
-                  kubectl -n "$NAMESPACE" logs "$pod_name" -c "$container" \
+                  kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" \
                     --tail="$LOG_TAIL" || true
                   echo "::endgroup::"
                 done
@@ -117,27 +126,32 @@ runs:
               NAMESPACE="${{ inputs.namespace }}"
               DUMP_DIR="/tmp/pod-debug-dump-${NAMESPACE}"
               mkdir -p "$DUMP_DIR"
+              CTX_ARGS=()
+              if [[ -n "${{ inputs.context }}" ]]; then
+                CTX_ARGS=(--context="${{ inputs.context }}")
+              fi
 
               # Dump cluster-level context
-              kubectl -n "$NAMESPACE" get po -o wide > "${DUMP_DIR}/pods-overview.txt" 2>&1 || true
-              kubectl -n "$NAMESPACE" get events --sort-by='.lastTimestamp' > "${DUMP_DIR}/namespace-events.txt" 2>&1 || true
-              kubectl -n "$NAMESPACE" get svc,endpoints > "${DUMP_DIR}/services-endpoints.txt" 2>&1 || true
-              kubectl -n "$NAMESPACE" get pvc > "${DUMP_DIR}/pvcs.txt" 2>&1 || true
-              kubectl -n "$NAMESPACE" get configmaps,secrets > "${DUMP_DIR}/configmaps-secrets.txt" 2>&1 || true
-              helm list -n "$NAMESPACE" -a -o yaml > "${DUMP_DIR}/helm-releases.yaml" 2>&1 || true
-              helm get values camunda -n "$NAMESPACE" -o yaml > "${DUMP_DIR}/helm-values-camunda.yaml" 2>&1 || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po -o wide > "${DUMP_DIR}/pods-overview.txt" 2>&1 || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get events --sort-by='.lastTimestamp' > "${DUMP_DIR}/namespace-events.txt" 2>&1 || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get svc,endpoints > "${DUMP_DIR}/services-endpoints.txt" 2>&1 || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get pvc > "${DUMP_DIR}/pvcs.txt" 2>&1 || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get configmaps,secrets > "${DUMP_DIR}/configmaps-secrets.txt" 2>&1 || true
+              helm list -n "$NAMESPACE" -a -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-releases.yaml" 2>&1 || true
+              helm get values camunda -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-values-camunda.yaml" 2>&1 || true
 
               # Dump info for all non-Completed pods (per container)
-              kubectl -n "$NAMESPACE" get po --no-headers | grep -v "Completed" | awk '{print $1}' | while read -r pod_name; do
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers | grep -v "Completed" | awk '{print $1}' | while read -r pod_name; do
                 echo "Dumping info for pod: ${pod_name}"
-                kubectl -n "$NAMESPACE" describe po "$pod_name" > "${DUMP_DIR}/${pod_name}-describe.txt" 2>&1 || true
-                kubectl -n "$NAMESPACE" get po "$pod_name" -o yaml > "${DUMP_DIR}/${pod_name}-manifest.yaml" 2>&1 || true
+                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" describe po "$pod_name" > "${DUMP_DIR}/${pod_name}-describe.txt" 2>&1 || true
+                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po "$pod_name" -o yaml > "${DUMP_DIR}/${pod_name}-manifest.yaml" 2>&1 || true
 
                 # Dump logs per container (init + main)
-                all_containers=$(kubectl -n "$NAMESPACE" get po "$pod_name" -o jsonpath='{.spec.initContainers[*].name} {.spec.containers[*].name}' 2>/dev/null || true)
+                all_containers=$(kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po "$pod_name" \
+                  -o jsonpath='{.spec.initContainers[*].name} {.spec.containers[*].name}' 2>/dev/null || true)
                 for container in $all_containers; do
-                  kubectl -n "$NAMESPACE" logs "$pod_name" -c "$container" > "${DUMP_DIR}/${pod_name}-${container}-logs.txt" 2>&1 || true
-                  kubectl -n "$NAMESPACE" logs "$pod_name" -c "$container" --previous > "${DUMP_DIR}/${pod_name}-${container}-logs-previous.txt" 2>&1 || true
+                  kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" > "${DUMP_DIR}/${pod_name}-${container}-logs.txt" 2>&1 || true
+                  kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --previous > "${DUMP_DIR}/${pod_name}-${container}-logs-previous.txt" 2>&1 || true
                 done
               done
 
