@@ -97,7 +97,7 @@ runs:
               export EXTERNAL_DNS_OWNER_ID="external-dns-${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
               ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-external-dns.sh
 
-              source azure/kubernetes/${{ matrix.scenario.name }}/procedure/export-domain-setup-vars.sh
+              source azure/kubernetes/${{ inputs.scenario-name }}/procedure/export-domain-setup-vars.sh
 
               # Configure external-dns with Azure credentials
               echo "Configuring external-dns with Azure credentials..."

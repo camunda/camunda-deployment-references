@@ -1,0 +1,1 @@
+../../../../generic/kubernetes/single-region/procedure/create-webmodeler-secret.sh

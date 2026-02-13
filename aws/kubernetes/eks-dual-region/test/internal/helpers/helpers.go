@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/k8s"
@@ -20,7 +21,6 @@ type Cluster struct {
 	ClusterName      string
 	KubectlNamespace k8s.KubectlOptions
 	KubectlSystem    k8s.KubectlOptions
-	KubectlFailover  k8s.KubectlOptions
 }
 
 // Go Helpers
@@ -39,6 +39,11 @@ func IsTeleportEnabled() bool {
 		return false // Default to false if invalid value
 	}
 	return boolVal
+}
+
+func IsOpenShiftEnabled() bool {
+	value := GetEnv("DISTRIBUTION", "EKS")
+	return strings.EqualFold(value, "OpenShift")
 }
 
 func CutOutString(originalString, searchString string) int {

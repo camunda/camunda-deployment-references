@@ -1,39 +1,38 @@
 ---
-global:
+# OpenShift Domain Configuration
+#
+# This file contains OpenShift-specific ingress configuration.
 
-    # the ingress is manages directly by the Route manifests ../manifest/routes.yml
+global:
+    identity:
+        auth:
+            identity:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
+            console:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/console
+            webModeler:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
+            optimize:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/optimize
+
+    # the ingress is managed directly by the Route manifests
     ingress:
         enabled: true
         className: openshift-default
-        host: ${DOMAIN_NAME}
+        host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
-            # explicitely '-' as secret name as we rely on the IngressOperator to handle the TLS secret, if you use a custom certificate, you might want to fill this value
+            # explicitly '-' as secret name as we rely on the IngressOperator to handle the TLS secret
+            # if you use a custom certificate, you might want to fill this value
             secretName: '-'
         annotations:
             route.openshift.io/termination: edge
             # enforce HSTS
             haproxy.router.openshift.io/hsts_header: max-age=31536000; includeSubDomains;preload
 
-    identity:
-        auth:
-            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform  # replace this with a port of your choice when you will do port forwarding
-
-            identity:
-                redirectUrl: https://${DOMAIN_NAME}/managementidentity
-
-            optimize:
-                redirectUrl: https://${DOMAIN_NAME}/optimize
-
-            webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
-
-            console:
-                redirectUrl: https://${DOMAIN_NAME}/console
-
 identity:
     contextPath: /managementidentity
-    fullURL: https://${DOMAIN_NAME}/managementidentity
+    fullURL: https://${CAMUNDA_DOMAIN}/managementidentity
 
 webModeler:
     contextPath: /modeler
@@ -43,10 +42,6 @@ optimize:
 
 orchestration:
     contextPath: /
-    security:
-        authentication:
-            oidc:
-                redirectUrl: https://${DOMAIN_NAME}
 
 console:
     contextPath: /console

@@ -103,3 +103,20 @@ A label can be added to a pull request or issue to skip a specific workflow exec
 Skip labels (e.g. `skip_<workflow_name>`) are **created automatically** by the `internal-triage-skip` action if they don't already exist, with the color `#1D76DB`. There is no need to create them manually.
 
 _Note:_ One should apply the label during the creation of the PR; otherwise, the first run will trigger all workflows.
+
+## Idempotent Kubernetes Resource Creation
+
+When creating Kubernetes resources (secrets, namespaces, configmaps, etc.) in scripts and CI, use the **dry-run + apply** pattern to make commands idempotent:
+
+```bash
+kubectl create secret generic my-secret \
+  --from-literal=password="$PASSWORD" \
+  --namespace camunda \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+**Why:** `kubectl create` fails if the resource already exists. This pattern generates the resource manifest client-side without sending it to the API server (`--dry-run=client -o yaml`), then pipes it to `kubectl apply` which creates or updates as needed.
+
+Prefer this over:
+- `kubectl create ... || true` — silently ignores all errors, not just "already exists"
+- `kubectl create ... --ignore-existing` — only available for some resource types (e.g. `namespace`)

@@ -1,4 +1,18 @@
 ---
+# Base Domain Configuration for Camunda Platform (IRSA)
+#
+# This file contains infrastructure configuration with ingress/domain enabled.
+# IRSA-specific: service accounts with IAM role annotations, AWS JDBC wrapper for DB access.
+# Combine with an auth overlay:
+#   - Keycloak Operator: yq ". *+ load(\"generic/kubernetes/operator-based/keycloak/camunda-keycloak-domain-values.yml\")" values-domain.yml > values.yml
+#   - OIDC:              yq ". *+ load(\"values-oidc.yml\")" values-domain.yml > values.yml
+#
+# Required environment variables:
+#   - CAMUNDA_DOMAIN: Your domain name
+#   - OPENSEARCH_HOST: OpenSearch endpoint
+#   - DB_HOST, DB_IDENTITY_USERNAME, DB_IDENTITY_NAME: Database connection
+#   - Various IRSA role ARNs and service account names (from Terraform outputs)
+
 global:
     elasticsearch:
         enabled: false
@@ -18,73 +32,29 @@ global:
 
     ingress:
         enabled: true
-        host: ${DOMAIN_NAME}
+        host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
             secretName: camunda-c8-tls
         annotations:
             kubernetes.io/tls-acme: 'true'
+
     identity:
         auth:
             enabled: true
-            type: KEYCLOAK
-            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
-
-            admin:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-admin-client-token
-
             identity:
-                redirectUrl: https://${DOMAIN_NAME}/managementidentity
-
-            optimize:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-optimize-client-token
-                redirectUrl: https://${DOMAIN_NAME}/optimize
-
-            webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
-
+                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
             console:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-console-client-token
-                redirectUrl: https://${DOMAIN_NAME}/console
-
-identityKeycloak:
-    enabled: true
-    serviceAccount:
-        name: ${CAMUNDA_KEYCLOAK_SERVICE_ACCOUNT_NAME}
-        annotations:
-            eks.amazonaws.com/role-arn: ${DB_ROLE_KEYCLOAK_ARN}
-
-    postgresql:
-        enabled: false
-    externalDatabase:
-        host: ${DB_HOST}
-        user: ${DB_KEYCLOAK_USERNAME}
-        port: 5432
-        database: ${DB_KEYCLOAK_NAME}
-
-    extraEnvVars:
-        - name: KEYCLOAK_EXTRA_ARGS
-          value: --db-driver=software.amazon.jdbc.Driver --transaction-xa-enabled=false --log-level=INFO,software.amazon.jdbc:INFO
-        - name: KEYCLOAK_JDBC_PARAMS
-          value: wrapperPlugins=iam&ssl=true&sslmode=require
-        - name: KEYCLOAK_JDBC_DRIVER
-          value: aws-wrapper:postgresql
-
-    auth:
-        existingSecret: identity-secret-for-components
-        passwordSecretKey: identity-admin-client-token
-
+                redirectUrl: https://${CAMUNDA_DOMAIN}/console
+            webModeler:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
+            optimize:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/optimize
 
 identity:
     enabled: true
     contextPath: /managementidentity
-    fullURL: https://${DOMAIN_NAME}/managementidentity
+    fullURL: https://${CAMUNDA_DOMAIN}/managementidentity
 
     firstUser:
         enabled: true
@@ -119,13 +89,6 @@ identity:
 connectors:
     contextPath: /connectors
 
-    # Configure OIDC for connectors
-    security:
-        authentication:
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-connectors-client-token
 optimize:
     enabled: true
     contextPath: /optimize
@@ -146,14 +109,11 @@ orchestration:
         annotations:
             eks.amazonaws.com/role-arn: ${OPENSEARCH_ROLE_ARN}
 
-    # Configure OIDC for orchestration
+    data:
+        secondaryStorage:
+            type: opensearch
+
     security:
-        authentication:
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-                redirectUrl: https://${DOMAIN_NAME}
         initialization:
             defaultRoles:
                 admin:
@@ -163,7 +123,7 @@ orchestration:
     ingress:
         grpc:
             enabled: true
-            host: zeebe-${DOMAIN_NAME}
+            host: zeebe-${CAMUNDA_DOMAIN}
             tls:
                 enabled: true
                 secretName: zeebe-c8-tls-grpc
@@ -189,14 +149,14 @@ webModeler:
             url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?wrapperPlugins=iam
             user: ${DB_WEBMODELER_USERNAME}
             secret:
-                existingSecret: identity-secret-for-components # this fake password reference is needed to let the chart deploy webmodeler
-                existingSecretPasswordKey: password
+                existingSecret: webmodeler-postgres-secret # fake password needed for chart (IRSA uses IAM auth)
+                existingSecretKey: password
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
         mail:
             secret:
-                existingSecret: identity-secret-for-components # reference the smtp password
+                existingSecret: webmodeler-secret
                 existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
 

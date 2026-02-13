@@ -96,15 +96,17 @@ runs:
               terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_KEY}"
               echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
 
+              echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}" >> "$GITHUB_ENV"
+
         - name: Copy config_override.tf to module root
           shell: bash
           run: |
-              cp -r ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/test/fixtures/ci/fixture_* \
-              ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+              cp -r "$TF_MODULE_DIR"/test/fixtures/ci/fixture_* \
+              "$TF_MODULE_DIR/"
 
         - name: Terraform Init
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
           run: |
               set -euo pipefail
@@ -121,7 +123,7 @@ runs:
 
         - name: Terraform Prepare
           id: prepare
-          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
           run: |
               set -euo pipefail
@@ -170,7 +172,7 @@ runs:
         - name: Generate tfvars file
           id: generate-tfvars
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -181,7 +183,7 @@ runs:
 
         - name: Terraform Plan
           id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
           run: |
               set -euo pipefail
@@ -194,7 +196,7 @@ runs:
 
         - name: Terraform Apply
           id: apply
-          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
           run: |
               set -euo pipefail
@@ -204,7 +206,7 @@ runs:
           uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+              working-directory: ${{ env.TF_MODULE_DIR }}
               plan-extra-args: |
                   -var-file=terraform.tfvars \
                   -var-file="${{ inputs.tfvars }}"
@@ -221,7 +223,7 @@ runs:
 
         - name: Apply and verify storage class
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
               ./procedure/storageclass-configure.sh

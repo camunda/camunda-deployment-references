@@ -5,10 +5,6 @@ export CERT_MANAGER_IRSA_ARN="$(terraform output -raw cert_manager_arn)"
 export EXTERNAL_DNS_IRSA_ARN="$(terraform output -raw external_dns_arn)"
 
 # PostgreSQL
-export DB_KEYCLOAK_NAME="$(terraform console <<<local.camunda_database_keycloak | tail -n 1 | jq -r)"
-export DB_KEYCLOAK_USERNAME="$(terraform console <<<local.camunda_keycloak_db_username | tail -n 1 | jq -r)"
-export DB_KEYCLOAK_PASSWORD="$(terraform console <<<local.camunda_keycloak_db_password | tail -n 1 | jq -r)"
-
 export DB_IDENTITY_NAME="$(terraform console <<<local.camunda_database_identity | tail -n 1 | jq -r)"
 export DB_IDENTITY_USERNAME="$(terraform console <<<local.camunda_identity_db_username | tail -n 1 | jq -r)"
 export DB_IDENTITY_PASSWORD="$(terraform console <<<local.camunda_identity_db_password | tail -n 1 | jq -r)"

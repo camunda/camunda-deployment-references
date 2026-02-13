@@ -6,6 +6,7 @@ set -euo pipefail
 # Variables
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 OPERATOR_NAMESPACE=${1:-elastic-system}
+ELASTICSEARCH_CLUSTER_FILE=${ELASTICSEARCH_CLUSTER_FILE:-elasticsearch-cluster.yml}
 
 # renovate: datasource=github-releases depName=elastic/cloud-on-k8s
 ECK_VERSION="3.3.0"
@@ -26,7 +27,7 @@ echo "ECK operator deployed in namespace: $OPERATOR_NAMESPACE"
 kubectl wait --for=jsonpath='{.status.readyReplicas}'=1 --timeout=300s statefulset/elastic-operator -n "$OPERATOR_NAMESPACE"
 
 # Deploy Elasticsearch cluster
-kubectl apply -f "elasticsearch-cluster.yml" -n "$CAMUNDA_NAMESPACE"
+kubectl apply -f "$ELASTICSEARCH_CLUSTER_FILE" -n "$CAMUNDA_NAMESPACE"
 
 # Wait for Elasticsearch cluster to be ready
 kubectl wait --for=jsonpath='{.status.phase}'=Ready --timeout=600s elasticsearch --all -n "$CAMUNDA_NAMESPACE"

@@ -93,7 +93,20 @@ module "orchestration_cluster" {
     {
       name  = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_CONNECTORS_USERS_0"
       value = "connectors"
-    }
+    },
+    # Backup / Restore configuration
+    {
+      name  = "CAMUNDA_DATA_BACKUP_STORE"
+      value = "S3"
+    },
+    {
+      name  = "CAMUNDA_DATA_BACKUP_S3_BUCKETNAME"
+      value = aws_s3_bucket.backup.bucket
+    },
+    {
+      name  = "CAMUNDA_DATA_BACKUP_REPOSITORYNAME"
+      value = aws_s3_bucket.backup.bucket
+    },
   ]
 
   # Prefer ECS task secrets for sensitive values (container definition 'secrets')
@@ -122,6 +135,7 @@ module "orchestration_cluster" {
   # Pass additional policies to orchestration cluster task role
   extra_task_role_attachments = [
     aws_iam_policy.rds_db_connect_camunda.arn,
+    aws_iam_policy.s3_backup_access_policy.arn,
   ]
 
 }

@@ -137,6 +137,27 @@
         "tags": null
       }
     },
+    "aws_iam_policy.s3_backup_access_policy": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "s3_backup_access_policy",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_iam_policy",
+      "values": {
+        "delay_after_policy_creation_in_ms": null,
+        "description": "Policy for accessing S3 bucket",
+        "name": "camunda-s3-access-policy",
+        "path": "/",
+        "tags": null
+      }
+    },
     "aws_iam_role.ecs_service": {
       "identity": {
         "account_id": null,
@@ -257,6 +278,24 @@
         "role": "camunda-ecs-task-execution-role"
       }
     },
+    "aws_kms_alias.s3_bucket_key_alias": {
+      "identity": {
+        "account_id": null,
+        "name": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "s3_bucket_key_alias",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_kms_alias",
+      "values": {
+        "name": "alias/camunda-s3-backup-bucket-key",
+        "region": "eu-west-2"
+      }
+    },
     "aws_kms_alias.secrets[0]": {
       "identity": {
         "account_id": null,
@@ -274,6 +313,42 @@
       "values": {
         "name": "alias/camunda-secrets",
         "region": "eu-west-2"
+      }
+    },
+    "aws_kms_key.s3_bucket_key": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "s3_bucket_key",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_kms_key",
+      "values": {
+        "bypass_policy_lockout_safety_check": false,
+        "custom_key_store_id": null,
+        "customer_master_key_spec": "SYMMETRIC_DEFAULT",
+        "deletion_window_in_days": 7,
+        "description": "KMS key for camunda ECS S3 bucket encryption",
+        "enable_key_rotation": true,
+        "is_enabled": true,
+        "key_usage": "ENCRYPT_DECRYPT",
+        "region": "eu-west-2",
+        "tags": {
+          "Name": "camunda-s3-kms-key"
+        },
+        "tags_all": {
+          "Name": "camunda-s3-kms-key"
+        },
+        "timeouts": null,
+        "xks_key_id": null
       }
     },
     "aws_kms_key.secrets[0]": {
@@ -510,6 +585,126 @@
         "region": "eu-west-2",
         "tags": null,
         "timeouts": null
+      }
+    },
+    "aws_s3_bucket.backup": {
+      "identity": {
+        "account_id": null,
+        "bucket": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "backup",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "cors_rule": [],
+        "grant": [],
+        "lifecycle_rule": [],
+        "logging": [],
+        "object_lock_configuration": [],
+        "replication_configuration": [],
+        "server_side_encryption_configuration": [],
+        "tags_all": {},
+        "versioning": [],
+        "website": []
+      },
+      "type": "aws_s3_bucket",
+      "values": {
+        "bucket": "camunda-backup-bucket",
+        "force_destroy": false,
+        "region": "eu-west-2",
+        "tags": null,
+        "timeouts": null
+      }
+    },
+    "aws_s3_bucket_public_access_block.backup": {
+      "identity": {
+        "account_id": null,
+        "bucket": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "backup",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_s3_bucket_public_access_block",
+      "values": {
+        "block_public_acls": true,
+        "block_public_policy": true,
+        "ignore_public_acls": true,
+        "region": "eu-west-2",
+        "restrict_public_buckets": true,
+        "skip_destroy": null
+      }
+    },
+    "aws_s3_bucket_server_side_encryption_configuration.backup": {
+      "identity": {
+        "account_id": null,
+        "bucket": null,
+        "region": null
+      },
+      "identity_schema_version": 1,
+      "mode": "managed",
+      "name": "backup",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "rule": [
+          {
+            "apply_server_side_encryption_by_default": [
+              {}
+            ],
+            "blocked_encryption_types": []
+          }
+        ]
+      },
+      "type": "aws_s3_bucket_server_side_encryption_configuration",
+      "values": {
+        "expected_bucket_owner": null,
+        "region": "eu-west-2",
+        "rule": [
+          {
+            "apply_server_side_encryption_by_default": [
+              {
+                "sse_algorithm": "aws:kms"
+              }
+            ],
+            "blocked_encryption_types": [],
+            "bucket_key_enabled": true
+          }
+        ]
+      }
+    },
+    "aws_s3_bucket_versioning.backup": {
+      "identity": {
+        "account_id": null,
+        "bucket": null,
+        "region": null
+      },
+      "identity_schema_version": 1,
+      "mode": "managed",
+      "name": "backup",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "versioning_configuration": [
+          {}
+        ]
+      },
+      "type": "aws_s3_bucket_versioning",
+      "values": {
+        "expected_bucket_owner": null,
+        "mfa": null,
+        "region": "eu-west-2",
+        "versioning_configuration": [
+          {
+            "status": "Enabled"
+          }
+        ]
       }
     },
     "aws_secretsmanager_secret.connectors_client_auth_password": {
@@ -786,7 +981,7 @@
         "egress": [
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outbound traffic on port 26500",
             "from_port": 26500,
@@ -799,7 +994,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outbound traffic on port 26501",
             "from_port": 26501,
@@ -812,7 +1007,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outbound traffic on port 26502",
             "from_port": 26502,
@@ -825,7 +1020,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outbound traffic on port 5432",
             "from_port": 5432,
@@ -838,7 +1033,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outbound traffic on port 8080",
             "from_port": 8080,
@@ -851,7 +1046,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outbound traffic on port 9600",
             "from_port": 9600,
@@ -876,7 +1071,7 @@
         "ingress": [
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow inbound traffic on port 26500",
             "from_port": 26500,
@@ -889,7 +1084,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow inbound traffic on port 26501",
             "from_port": 26501,
@@ -902,7 +1097,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow inbound traffic on port 26502",
             "from_port": 26502,
@@ -915,7 +1110,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow inbound traffic on port 5432",
             "from_port": 5432,
@@ -928,7 +1123,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow inbound traffic on port 8080",
             "from_port": 8080,
@@ -941,7 +1136,7 @@
           },
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow inbound traffic on port 9600",
             "from_port": 9600,
@@ -1341,7 +1536,7 @@
         "egress": [
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "nfs outbound",
             "from_port": 2049,
@@ -1356,7 +1551,7 @@
         "ingress": [
           {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "nfs from ECS tasks",
             "from_port": 2049,
@@ -1905,7 +2100,7 @@
             "enable_execute_command": false,
             "force_delete": null,
             "force_new_deployment": false,
-            "health_check_grace_period_seconds": 300,
+            "health_check_grace_period_seconds": 900,
             "launch_type": "FARGATE",
             "load_balancer": [
               {
@@ -2394,6 +2589,24 @@
           },
           "identity_schema_version": 0,
           "index": 0,
+          "mode": "managed",
+          "name": "task_role_policy_attachment",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_iam_role_policy_attachment",
+          "values": {
+            "role": "camunda-oc1-orchestration-task-role"
+          }
+        },
+        "module.orchestration_cluster.aws_iam_role_policy_attachment.task_role_policy_attachment[1]": {
+          "identity": {
+            "account_id": null,
+            "policy_arn": null,
+            "role": null
+          },
+          "identity_schema_version": 0,
+          "index": 1,
           "mode": "managed",
           "name": "task_role_policy_attachment",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3084,7 +3297,7 @@
           "type": "aws_security_group_rule",
           "values": {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow outgoing traffic for the aurora db",
             "from_port": 0,
@@ -3111,7 +3324,7 @@
           "type": "aws_security_group_rule",
           "values": {
             "cidr_blocks": [
-              "10.200.0.0/24"
+              "10.190.0.0/16"
             ],
             "description": "Allow incoming traffic for the aurora db for port 5432",
             "from_port": 5432,
@@ -3823,7 +4036,7 @@
           "values": {
             "assign_ipv6_address_on_creation": false,
             "availability_zone": "eu-west-2a",
-            "cidr_block": "10.200.0.0/28",
+            "cidr_block": "10.190.0.0/19",
             "customer_owned_ipv4_pool": null,
             "enable_dns64": false,
             "enable_lni_at_device_index": null,
@@ -3867,7 +4080,7 @@
           "values": {
             "assign_ipv6_address_on_creation": false,
             "availability_zone": "eu-west-2b",
-            "cidr_block": "10.200.0.16/28",
+            "cidr_block": "10.190.32.0/19",
             "customer_owned_ipv4_pool": null,
             "enable_dns64": false,
             "enable_lni_at_device_index": null,
@@ -3911,7 +4124,7 @@
           "values": {
             "assign_ipv6_address_on_creation": false,
             "availability_zone": "eu-west-2c",
-            "cidr_block": "10.200.0.32/28",
+            "cidr_block": "10.190.64.0/19",
             "customer_owned_ipv4_pool": null,
             "enable_dns64": false,
             "enable_lni_at_device_index": null,
@@ -3955,7 +4168,7 @@
           "values": {
             "assign_ipv6_address_on_creation": false,
             "availability_zone": "eu-west-2a",
-            "cidr_block": "10.200.0.64/28",
+            "cidr_block": "10.190.96.0/19",
             "customer_owned_ipv4_pool": null,
             "enable_dns64": false,
             "enable_lni_at_device_index": null,
@@ -3999,7 +4212,7 @@
           "values": {
             "assign_ipv6_address_on_creation": false,
             "availability_zone": "eu-west-2b",
-            "cidr_block": "10.200.0.80/28",
+            "cidr_block": "10.190.128.0/19",
             "customer_owned_ipv4_pool": null,
             "enable_dns64": false,
             "enable_lni_at_device_index": null,
@@ -4043,7 +4256,7 @@
           "values": {
             "assign_ipv6_address_on_creation": false,
             "availability_zone": "eu-west-2c",
-            "cidr_block": "10.200.0.96/28",
+            "cidr_block": "10.190.160.0/19",
             "customer_owned_ipv4_pool": null,
             "enable_dns64": false,
             "enable_lni_at_device_index": null,
@@ -4086,7 +4299,7 @@
           "type": "aws_vpc",
           "values": {
             "assign_generated_ipv6_cidr_block": null,
-            "cidr_block": "10.200.0.0/24",
+            "cidr_block": "10.190.0.0/16",
             "enable_dns_hostnames": true,
             "enable_dns_support": true,
             "instance_tenancy": "default",

@@ -27,7 +27,7 @@ concurrency:
     cancel-in-progress: false
 
 env:
-    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
 
     MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
 
@@ -36,6 +36,8 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     AWS_REGION: eu-west-2
+    CLUSTER_1_AWS_REGION: eu-west-2
+    CLUSTER_2_AWS_REGION: eu-west-3
 
 jobs:
     triage:

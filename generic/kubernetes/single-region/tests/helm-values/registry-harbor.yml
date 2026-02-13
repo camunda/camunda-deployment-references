@@ -7,3 +7,9 @@ global:
         registry: registry.camunda.cloud
         pullSecrets:
             - name: registry-camunda-cloud
+            - name: index-docker-io
+
+elasticsearch:
+    global:
+        imagePullSecrets:
+            - name: index-docker-io

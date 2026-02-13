@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Create Keycloak identity secret for Camunda components
+# Used by the operator-based test workflow
+
 kubectl create secret generic identity-secret-for-components \
   --namespace "$CAMUNDA_NAMESPACE" \
   --from-literal=identity-connectors-client-token="$CONNECTORS_SECRET" \
@@ -9,4 +12,4 @@ kubectl create secret generic identity-secret-for-components \
   --from-literal=identity-optimize-client-token="$OPTIMIZE_SECRET" \
   --from-literal=identity-admin-client-token="$ADMIN_PASSWORD" \
   --from-literal=identity-first-user-password="$FIRST_USER_PASSWORD" \
-  --from-literal=smtp-password=""
+  --dry-run=client -o yaml | kubectl apply -f -

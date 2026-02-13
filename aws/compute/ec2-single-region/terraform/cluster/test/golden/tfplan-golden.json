@@ -200,6 +200,7 @@
         "primary_network_interface": [],
         "private_dns_name_options": [],
         "root_block_device": [],
+        "secondary_network_interface": [],
         "secondary_private_ips": [],
         "security_groups": [],
         "tags": {},
@@ -263,6 +264,7 @@
             "tags_all": {}
           }
         ],
+        "secondary_network_interface": [],
         "secondary_private_ips": [],
         "security_groups": [],
         "tags": {},
@@ -336,6 +338,7 @@
             "tags_all": {}
           }
         ],
+        "secondary_network_interface": [],
         "secondary_private_ips": [],
         "security_groups": [],
         "tags": {},
@@ -409,6 +412,7 @@
             "tags_all": {}
           }
         ],
+        "secondary_network_interface": [],
         "secondary_private_ips": [],
         "security_groups": [],
         "tags": {},

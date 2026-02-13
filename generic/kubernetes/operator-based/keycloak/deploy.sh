@@ -26,9 +26,11 @@ kubectl apply -n "$CAMUNDA_NAMESPACE" --server-side -f \
 kubectl wait --for=condition=available --timeout=300s deployment/keycloak-operator -n "$CAMUNDA_NAMESPACE"
 echo "Keycloak operator deployed in namespace: $CAMUNDA_NAMESPACE"
 
-# Deploy Keycloak
-
-# Deploy Keycloak with variable substitution via envsubst
+# Deploy Keycloak with variable substitution via envsubst (requires gettext)
+if ! command -v envsubst >/dev/null 2>&1; then
+  echo "Error: 'envsubst' command not found. Please install 'gettext' (which provides envsubst) and ensure it is on your PATH." >&2
+  exit 1
+fi
 envsubst < "$KEYCLOAK_CONFIG_FILE" | kubectl apply -f - -n "$CAMUNDA_NAMESPACE"
 
 # Wait for Keycloak instance to be ready

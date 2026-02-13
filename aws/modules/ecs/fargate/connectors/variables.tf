@@ -92,6 +92,12 @@ variable "service_force_new_deployment" {
   default     = false
 }
 
+variable "service_health_check_grace_period_seconds" {
+  description = "Seconds to ignore failing load balancer health checks on newly instantiated tasks to prevent premature shutdown"
+  type        = number
+  default     = 300
+}
+
 variable "s2s_cloudmap_namespace" {
   description = "The ARN of the Service Connect namespace for service-to-service communication"
   type        = string

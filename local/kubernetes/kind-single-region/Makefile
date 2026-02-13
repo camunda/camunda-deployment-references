@@ -47,10 +47,12 @@ help:
 	@echo "  make cluster.create     Create Kind cluster"
 	@echo "  make cluster.delete     Delete Kind cluster"
 	@echo "  make ingress.deploy     Deploy Ingress NGINX"
-	@echo "  make hosts.add          Add /etc/hosts entries (domain mode)"
-	@echo "  make hosts.add-keycloak Add Keycloak host entry (no-domain mode)"
-	@echo "  make hosts.remove       Remove /etc/hosts entries (domain mode)"
-	@echo "  make hosts.remove-keycloak Remove Keycloak host entry"
+	@echo "  make operators.deploy-domain   Deploy operators (domain)"
+	@echo "  make operators.deploy-no-domain Deploy operators (no-domain)"
+	@echo "  make hosts.add               Add /etc/hosts entries (domain mode)"
+	@echo "  make hosts.add-keycloak       Add Keycloak host entry (no-domain mode)"
+	@echo "  make hosts.remove             Remove /etc/hosts entries (domain mode)"
+	@echo "  make hosts.remove-keycloak    Remove Keycloak host entry"
 	@echo "  make certs.generate     Generate TLS certificates"
 	@echo "  make camunda.deploy-domain     Deploy Camunda (domain)"
 	@echo "  make camunda.deploy-no-domain  Deploy Camunda (no-domain)"
@@ -67,7 +69,7 @@ help:
 # =============================================================================
 
 .PHONY: domain.init
-domain.init: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap camunda.deploy-domain camunda.wait
+domain.init: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap operators.deploy-domain camunda.deploy-domain camunda.wait
 	@( \
 		PASSWORD=$$($(PROCEDURE_DIR)/get-password.sh); \
 		echo ""; \
@@ -82,7 +84,7 @@ domain.clean: camunda.uninstall cluster.delete hosts.remove certs.clean
 	@echo "✓ Domain cleanup complete!"
 
 .PHONY: no-domain.init
-no-domain.init: cluster.create hosts.add-keycloak camunda.deploy-no-domain camunda.wait
+no-domain.init: cluster.create hosts.add-keycloak operators.deploy-no-domain camunda.deploy-no-domain camunda.wait
 	@( \
 		PASSWORD=$$($(PROCEDURE_DIR)/get-password.sh); \
 		echo ""; \
@@ -109,6 +111,18 @@ cluster.delete:
 	@kind delete cluster --name $(CLUSTER_NAME)
 
 # =============================================================================
+# Operators (Elasticsearch, PostgreSQL, Keycloak)
+# =============================================================================
+
+.PHONY: operators.deploy-domain
+operators.deploy-domain:
+	@CAMUNDA_MODE=domain $(PROCEDURE_DIR)/operators-deploy.sh
+
+.PHONY: operators.deploy-no-domain
+operators.deploy-no-domain:
+	@CAMUNDA_MODE=no-domain $(PROCEDURE_DIR)/operators-deploy.sh
+
+# =============================================================================
 # Infrastructure
 # =============================================================================
 
@@ -131,9 +145,9 @@ hosts.add:
 .PHONY: hosts.add-keycloak
 hosts.add-keycloak:
 	@echo "Adding Keycloak host entry (requires sudo)..."
-	@if ! grep -q "$(CAMUNDA_RELEASE_NAME)-keycloak" /etc/hosts; then \
-		echo "127.0.0.1  $(CAMUNDA_RELEASE_NAME)-keycloak" | sudo tee -a /etc/hosts > /dev/null; \
-		echo "Added: 127.0.0.1  $(CAMUNDA_RELEASE_NAME)-keycloak"; \
+	@if ! grep -q "^127\.0\.0\.1[[:space:]]\{1,\}keycloak-service$$" /etc/hosts; then \
+		echo "127.0.0.1  keycloak-service" | sudo tee -a /etc/hosts > /dev/null; \
+		echo "Added: 127.0.0.1  keycloak-service"; \
 	else \
 		echo "Host entry already exists."; \
 	fi
@@ -152,9 +166,9 @@ hosts.remove:
 hosts.remove-keycloak:
 	@echo "Removing Keycloak host entry (requires sudo)..."
 	@if [[ "$$(uname)" == "Darwin" ]]; then \
-		sudo sed -i '' '/$(CAMUNDA_RELEASE_NAME)-keycloak/d' /etc/hosts; \
+		sudo sed -i '' '/^127\.0\.0\.1[[:space:]]\{1,\}keycloak-service$$/d' /etc/hosts; \
 	else \
-		sudo sed -i '/$(CAMUNDA_RELEASE_NAME)-keycloak/d' /etc/hosts; \
+		sudo sed -i '/^127\.0\.0\.1[[:space:]]\{1,\}keycloak-service$$/d' /etc/hosts; \
 	fi
 	@echo "Keycloak host entry removed."
 

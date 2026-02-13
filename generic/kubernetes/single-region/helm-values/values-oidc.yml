@@ -1,0 +1,193 @@
+---
+# OIDC Overlay Configuration for Camunda Platform
+#
+# This file contains ONLY the OIDC-specific configuration to replace Keycloak.
+# It should be merged with your base values file using yq:
+#   yq '. *+ load("values-oidc.yml")' values-domain.yml > values.yml
+#
+# Prerequisites:
+#   Create the consolidated OIDC secret before deploying:
+#   ./procedure/create-oidc-secrets.sh
+#
+#   This creates a single 'identity-secret-for-components' secret with all client credentials:
+#     - identity-client-secret
+#     - optimize-client-secret
+#     - orchestration-client-secret
+#     - connectors-client-secret
+#     - webmodeler-api-client-secret
+#
+#   SMTP password is managed separately via the 'webmodeler-secret' (see create-webmodeler-secret.sh)
+#
+# Required environment variables (use envsubst before applying):
+#   - OIDC_ISSUER_URL: OIDC issuer URL
+#   - OIDC_TOKEN_URL: OAuth2 token endpoint
+#   - OIDC_AUTHORIZATION_URL: OAuth2 authorization endpoint
+#   - OIDC_JWKS_URL: JWKS endpoint for token validation
+#   - IDENTITY_CLIENT_ID: Identity client ID
+#   - OPTIMIZE_CLIENT_ID: Optimize client ID
+#   - ORCHESTRATION_CLIENT_ID: Orchestration client ID
+#   - CONNECTORS_CLIENT_ID: Connectors client ID
+#   - CONNECTORS_TOKEN_SCOPE: Token scope for Connectors M2M auth (e.g., 'camunda/orchestration')
+#   - RESOURCE_SERVER_IDENTIFIER: Resource Server identifier (e.g., 'camunda')
+#   - CONSOLE_CLIENT_ID: Console client ID
+#   - WEBMODELER_UI_CLIENT_ID: WebModeler UI client ID
+#   - WEBMODELER_API_CLIENT_ID: WebModeler API client ID
+#   - IDENTITY_INITIAL_USER_EMAIL: Initial admin user email
+#   - CAMUNDA_DOMAIN: Your domain name for callbacks
+#
+# ⚠️ KNOWN ISSUE: AWS Cognito M2M Token Audience Claim
+# AWS Cognito M2M access tokens use 'client_id' claim instead of the standard 'aud' claim.
+# This causes Camunda's AudienceValidator to reject Connectors tokens with:
+#   "Token audiences are [], expected at least one of [...]"
+# TODO: Remove this workaround once Camunda fixes audience validation for Cognito
+#       GitHub : https://github.com/camunda/camunda/issues/44650
+
+global:
+    identity:
+        auth:
+            type: GENERIC
+            issuer: ${OIDC_ISSUER_URL}
+            issuerBackendUrl: ${OIDC_ISSUER_URL}
+            tokenUrl: ${OIDC_TOKEN_URL}
+            jwksUrl: ${OIDC_JWKS_URL}
+            authorizationUrl: ${OIDC_AUTHORIZATION_URL}
+
+            identity:
+                clientId: ${IDENTITY_CLIENT_ID}
+                audience: ${IDENTITY_CLIENT_ID}
+                existingSecret: identity-secret-for-components
+                existingSecretKey: identity-client-secret
+                redirectUrl: https://${CAMUNDA_DOMAIN}/auth/login-callback
+
+            optimize:
+                clientId: ${OPTIMIZE_CLIENT_ID}
+                audience: ${OPTIMIZE_CLIENT_ID}
+                existingSecret: identity-secret-for-components
+                existingSecretKey: optimize-client-secret
+                redirectUrl: https://${CAMUNDA_DOMAIN}/optimize/api/authentication/callback
+
+            webModeler:
+                clientId: ${WEBMODELER_UI_CLIENT_ID}
+                redirectUrl: https://${CAMUNDA_DOMAIN}/modeler/login-callback
+                clientApiAudience: ${WEBMODELER_API_CLIENT_ID}
+                publicApiAudience: ${WEBMODELER_API_CLIENT_ID}
+
+            console:
+                clientId: ${CONSOLE_CLIENT_ID}
+                audience: ${CONSOLE_CLIENT_ID}
+                redirectUrl: https://${CAMUNDA_DOMAIN}/console/
+
+            # Remove Keycloak-specific configurations
+            admin:
+
+identity:
+    enabled: true
+
+    firstUser:
+        enabled: false
+
+    contextPath: /auth
+
+    fullURL: https://${CAMUNDA_DOMAIN}/auth
+
+    env:
+        - name: IDENTITY_AUTH_PROVIDER_BACKEND_URL
+          value: ${OIDC_ISSUER_URL}
+        - name: IDENTITY_AUTH_PROVIDER_ISSUER_URL
+          value: ${OIDC_ISSUER_URL}
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+          value: ${OIDC_ISSUER_URL}
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI
+          value: ${OIDC_JWKS_URL}
+        - name: IDENTITY_INITIAL_CLAIM_NAME
+          value: email
+        - name: IDENTITY_INITIAL_CLAIM_VALUE
+          value: ${IDENTITY_INITIAL_USER_EMAIL}
+
+identityKeycloak:
+    enabled: false
+
+connectors:
+    # ⚠️ AWS Cognito M2M Authentication Issue
+    # Connectors uses M2M (Client Credentials) authentication to connect to Zeebe.
+    # AWS Cognito M2M tokens do NOT include the 'aud' claim, causing authentication failures.
+    # The tokens contain 'client_id' claim instead, but Camunda's AudienceValidator only checks 'aud'.
+    env:
+        - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
+          value: ${OIDC_ISSUER_URL}
+        - name: CAMUNDA_CLIENT_AUTH_TOKEN_URL
+          value: ${OIDC_TOKEN_URL}
+
+    security:
+        authentication:
+            oidc:
+                clientId: ${CONNECTORS_CLIENT_ID}
+                tokenScope: ${CONNECTORS_TOKEN_SCOPE}
+                audience: ${RESOURCE_SERVER_IDENTIFIER}
+
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: connectors-client-secret
+
+optimize:
+    env:
+        - name: CAMUNDA_OPTIMIZE_SECURITY_AUTH_CCSM_ISSUER_URL
+          value: ${OIDC_ISSUER_URL}
+        - name: CAMUNDA_OPTIMIZE_SECURITY_AUTH_CCSM_JWKS_URL
+          value: ${OIDC_JWKS_URL}
+
+orchestration:
+    env:
+        - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
+          value: ${OIDC_ISSUER_URL}
+        - name: CAMUNDA_CLIENT_AUTH_TOKEN_URL
+          value: ${OIDC_TOKEN_URL}
+
+    security:
+        authentication:
+            oidc:
+                clientId: ${ORCHESTRATION_CLIENT_ID}
+                audience: ${RESOURCE_SERVER_IDENTIFIER}
+                # backwardsCompatibleAudiences allows additional audience values to be accepted
+                backwardsCompatibleAudiences:
+                    - ${CONNECTORS_CLIENT_ID}
+
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: orchestration-client-secret
+
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - ${IDENTITY_INITIAL_USER_EMAIL}
+                # Grant Connectors role to the Connectors M2M client
+                connectors:
+                    clients:
+                        - ${CONNECTORS_CLIENT_ID}
+
+console:
+    env:
+        - name: CAMUNDA_IDENTITY_ISSUER_BACKEND_URL
+          value: ${OIDC_ISSUER_URL}
+
+webModeler:
+    restapi:
+        env:
+            - name: CAMUNDA_IDENTITY_BASE_URL
+              value: https://${CAMUNDA_DOMAIN}/auth
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+              value: ${OIDC_ISSUER_URL}
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI
+              value: ${OIDC_JWKS_URL}
+
+    webapp:
+        env:
+            - name: OAUTH2_CLIENT_ID
+              value: ${WEBMODELER_UI_CLIENT_ID}
+            - name: OAUTH2_JWKS_URL
+              value: ${OIDC_JWKS_URL}
+            - name: OAUTH2_TOKEN_AUDIENCE
+              value: ${WEBMODELER_UI_CLIENT_ID}
+            - name: OAUTH2_TOKEN_ISSUER
+              value: ${OIDC_ISSUER_URL}

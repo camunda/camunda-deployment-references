@@ -164,6 +164,11 @@ runs:
               echo "AWS_ACCESS_KEY_ES=${s3_access_key}" >> "$GITHUB_OUTPUT"
               echo "AWS_SECRET_ACCESS_KEY_ES=${s3_secret_key}" >> "$GITHUB_OUTPUT"
 
+              s3_bucket_name=$(terraform output -raw s3_bucket_name)
+              echo "s3-aws-access-key=${s3_access_key}" >> "$GITHUB_OUTPUT"
+              echo "s3-aws-secret-access-key=${s3_secret_key}" >> "$GITHUB_OUTPUT"
+              echo "s3-bucket-name=${s3_bucket_name}" >> "$GITHUB_OUTPUT"
+
         - name: KubeConfig generation
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/test/
           shell: bash

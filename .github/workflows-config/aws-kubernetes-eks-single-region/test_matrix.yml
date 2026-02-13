@@ -8,11 +8,19 @@ matrix:
         - name: eks-single-region
           # ! Unlike ROSA, 'private_vpc' is defined in 'scenario' and not in 'distro'.
           private_vpc: false
+          # Auth provider options:
+          #   - 'keycloak-operator': Keycloak deployed via Keycloak Operator with CNPG PostgreSQL
+          #   - 'oidc': External OIDC provider (Cognito, EntraID)
+          # TODO: Re-enable 'oidc' (AWS Cognito) once https://github.com/camunda/camunda/issues/44650 is fixed
+          #       Currently, Cognito M2M tokens lack 'aud' claim and Camunda's AudienceValidator rejects them.
+          auth_provider: keycloak-operator
 
         - name: eks-single-region-irsa
           private_vpc: true
+          auth_provider: keycloak-operator
+
     declination:
         - name: no-domain
-          desc: Setup chart in production-like setup with Ingress and TLS.
+          desc: Setup chart without Ingress and TLS (access via port-forward).
         - name: domain
-          desc: Setup chart in production-like setup without Ingress and TLS.
+          desc: Setup chart in production-like setup with Ingress and TLS.

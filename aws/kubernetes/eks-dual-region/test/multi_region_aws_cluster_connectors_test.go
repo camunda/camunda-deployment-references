@@ -24,20 +24,19 @@ const (
 	webhookTriggerCount        = 10
 )
 
-// TestConnectorWebhookFlow tests the end-to-end connector flow:
+// TestConnectorWebhookFlowDeploy deploys the resources needed for the connector webhook flow:
 // 1. Deploys a mock API server to receive POST requests
 // 2. Deploys a BPMN process with webhook inbound and REST outbound connector
-// 3. Triggers the workflow via webhook 10 times
-// 4. Verifies the mock server received exactly 10 requests
-func TestConnectorWebhookFlow(t *testing.T) {
-	t.Log("[CONNECTOR TEST] Testing Connector Webhook Flow in multi-region mode 🚀")
+// 3. Waits for the mock API server to be ready
+func TestConnectorWebhookFlowDeploy(t *testing.T) {
+	t.Log("[CONNECTOR DEPLOY] Deploying Connector Webhook Flow resources in multi-region mode 🚀")
 
 	if globalImageTag != "" {
 		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
 		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
 	}
 
-	// Runs the tests sequentially
+	// Runs the steps sequentially
 	for _, testFuncs := range []struct {
 		name  string
 		tfunc func(*testing.T)
@@ -46,6 +45,30 @@ func TestConnectorWebhookFlow(t *testing.T) {
 		{"TestDeployMockApiServer", deployMockApiServer},
 		{"TestDeployConnectorBpmnProcess", deployConnectorBpmnProcess},
 		{"TestWaitForMockApiServerReady", waitForMockApiServerReady},
+	} {
+		t.Run(testFuncs.name, testFuncs.tfunc)
+	}
+}
+
+// TestConnectorWebhookFlowTest tests the connector webhook flow:
+// 1. Triggers the workflow via webhook 10 times
+// 2. Verifies the mock server received exactly 10 requests
+// 3. Verifies both connector deployments processed jobs
+// 4. Cleans up the mock API server
+func TestConnectorWebhookFlowTest(t *testing.T) {
+	t.Log("[CONNECTOR TEST] Testing Connector Webhook Flow in multi-region mode 🚀")
+
+	if globalImageTag != "" {
+		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
+		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
+	}
+
+	// Runs the steps sequentially
+	for _, testFuncs := range []struct {
+		name  string
+		tfunc func(*testing.T)
+	}{
+		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestTriggerWebhookWorkflow", triggerWebhookWorkflow},
 		{"TestVerifyMockServerReceivedRequests", verifyMockServerReceivedRequests},
 		{"TestVerifyConnectorsProcessedJobs", verifyConnectorsProcessedJobs},
@@ -132,8 +155,13 @@ func triggerWebhookWorkflow(t *testing.T) {
 
 	// The mock server URL that the connector will call (using Kubernetes internal DNS)
 	// The connector runs inside the cluster, so it needs to use the StatefulSet pod DNS name
-	// Format: <pod-name>.<headless-service>.<namespace>.svc.cluster.local
+	// Format EKS: <pod-name>.<headless-service>.<namespace>.svc.cluster.local
+	// Format OpenShift: <pod-name>.<submariner-cluster>.<headless-service>.<namespace>.svc.clusterset.local
 	mockServerInternalUrl := fmt.Sprintf("http://mock-api-server-0.mock-api-server-peer.%s.svc.cluster.local:8080/webhook-callback", primary.KubectlNamespace.Namespace)
+
+	if helpers.IsOpenShiftEnabled() {
+		mockServerInternalUrl = fmt.Sprintf("http://mock-api-server-0.local-cluster.mock-api-server-peer.%s.svc.clusterset.local:8080/webhook-callback", primary.KubectlNamespace.Namespace)
+	}
 
 	for i := 1; i <= webhookTriggerCount; i++ {
 		t.Logf("[WEBHOOK TRIGGER] Triggering workflow %d/%d", i, webhookTriggerCount)

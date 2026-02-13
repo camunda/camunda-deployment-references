@@ -1,4 +1,48 @@
 
+locals {
+  # Base environment variables shared between main container and restore init container
+  base_environment_variables = [
+    # Graceful shutdown
+    # Allow the Orchestration Cluster to shut down gracefully to release S3 leases
+    # AWS Scheduler can sometimes be quicker to kill the task than the default 30s timeout
+    {
+      name  = "SPRING_LIFECYCLE_TIMEOUTPERSHUTDOWNPHASE"
+      value = "5s"
+    },
+    # EFS Mount
+    {
+      name  = "ZEEBE_BROKER_DATA_DIRECTORY"
+      value = "/usr/local/camunda/data"
+    },
+    # Zeebe Cluster Configuration
+    {
+      name  = "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS"
+      value = "orchestration-cluster-sc:26502"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_SIZE"
+      value = tostring(var.task_desired_count)
+    },
+    # Node Id Provider - ECS specific
+    {
+      name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_TYPE"
+      value = "s3"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_BUCKETNAME"
+      value = aws_s3_bucket.main.id
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_LEASEDURATION"
+      value = "PT15S"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_REGION"
+      value = var.aws_region
+    }
+  ]
+}
+
 resource "aws_ecs_task_definition" "orchestration_cluster" {
   family                   = "${var.prefix}-orchestration-cluster"
   execution_role_arn       = var.ecs_task_execution_role_arn
@@ -16,6 +60,10 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
     precondition {
       condition     = !var.init_container_enabled || var.init_container_image != ""
       error_message = "When init_container_enabled is true, init_container_image must be set."
+    }
+    precondition {
+      condition     = var.restore_backup_id == "" || var.restore_container_image != ""
+      error_message = "When restore_backup_id is set, restore_container_image must be provided."
     }
   }
 
@@ -62,46 +110,49 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
       length(var.init_container_secrets) > 0 ? { secrets = var.init_container_secrets } : {}
     ))
 
-    env_vars_json = jsonencode(concat([
-      # Graceful shutdown
-      # Allow the Orchestration Cluster to shut down gracefully to release S3 leases
-      # AWS Scheduler can sometimes be quicker to kill the task than the default 30s timeout
+    restore_container_enabled = var.restore_backup_id != ""
+    restore_container_name    = "restore"
+    restore_container_json = jsonencode(merge(
       {
-        name  = "SPRING_LIFECYCLE_TIMEOUTPERSHUTDOWNPHASE"
-        value = "5s"
+        name      = "restore"
+        image     = var.restore_container_image
+        essential = false
+        mountPoints = [
+          {
+            sourceVolume  = "camunda-volume"
+            containerPath = "/usr/local/camunda/data"
+            readOnly      = false
+          }
+        ]
+        logConfiguration = {
+          logDriver = "awslogs"
+          options = {
+            "awslogs-group"         = aws_cloudwatch_log_group.orchestration_cluster_log_group.name
+            "awslogs-region"        = var.aws_region
+            "awslogs-stream-prefix" = "orchestration-cluster-restore"
+          }
+        }
       },
-      # EFS Mount
+      var.registry_credentials_arn != "" ? {
+        repositoryCredentials = {
+          credentialsParameter = var.registry_credentials_arn
+        }
+      } : {},
+      length(var.restore_container_entrypoint) > 0 ? { entryPoint = var.restore_container_entrypoint } : {},
+      # Include same environment variables as main container plus BACKUP_ID
       {
-        name  = "ZEEBE_BROKER_DATA_DIRECTORY"
-        value = "/usr/local/camunda/data"
+        environment = concat(
+          [
+            { name = "BACKUP_ID", value = var.restore_backup_id },
+          ],
+          local.base_environment_variables,
+          var.environment_variables
+        )
       },
-      # Zeebe Cluster Configuration
-      {
-        name  = "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS"
-        value = "orchestration-cluster-sc:26502"
-      },
-      {
-        name  = "CAMUNDA_CLUSTER_SIZE"
-        value = tostring(var.task_desired_count)
-      },
-      # Node Id Provider - ECS specific
-      {
-        name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_TYPE"
-        value = "s3"
-      },
-      {
-        name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_BUCKETNAME"
-        value = aws_s3_bucket.main.id
-      },
-      {
-        name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_LEASEDURATION"
-        value = "PT15S"
-      },
-      {
-        name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_REGION"
-        value = var.aws_region
-      }
-    ], var.environment_variables))
+      length(concat(var.secrets, var.restore_container_secrets)) > 0 ? { secrets = concat(var.secrets, var.restore_container_secrets) } : {}
+    ))
+
+    env_vars_json = jsonencode(concat(local.base_environment_variables, var.environment_variables))
   })
 
   task_role_arn = aws_iam_role.ecs_task_role.arn
@@ -135,7 +186,7 @@ resource "aws_ecs_service" "orchestration_cluster" {
   task_definition                   = aws_ecs_task_definition.orchestration_cluster.arn
   desired_count                     = var.task_desired_count #3
   launch_type                       = "FARGATE"
-  health_check_grace_period_seconds = 300
+  health_check_grace_period_seconds = var.service_health_check_grace_period_seconds
 
   # Enable execute command for debugging
   enable_execute_command = var.task_enable_execute_command # true

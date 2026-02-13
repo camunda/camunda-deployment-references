@@ -82,7 +82,7 @@ outputs:
 
     openshift-cluster-id:
         description: The ID of the deployed ROSA cluster
-        value: ${{ steps.apply-cluster.outputs.cluster_id }}
+        value: ${{ steps.terraform_outputs_cluster.outputs.cluster_id }}
 
     terraform-state-url-cluster:
         description: URL of the module "cluster" Terraform state file in the S3 bucket
@@ -95,13 +95,13 @@ outputs:
 
     vpn-client-configs:
         description: Map of VPN client configs
-        value: ${{ steps.apply-vpn.outputs.vpn_client_configs || '' }}
+        value: ${{ steps.terraform_outputs_vpn.outputs.vpn_client_configs || '' }}
     vpn-client-config-file:
         description: Config file used by the VPN
         value: ${{ steps.vpn.outputs.vpn_client_config_file || '' }}
     vpn-endpoint:
         description: Endpoint of the VPN to access the created cluster
-        value: ${{ steps.apply-vpn.outputs.vpn_endpoint || '' }}
+        value: ${{ steps.terraform_outputs_vpn.outputs.vpn_endpoint || '' }}
 
 
 runs:
@@ -192,6 +192,9 @@ runs:
               echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
 
+              echo "TF_DIR_CLUSTER=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/" >> "$GITHUB_ENV"
+              echo "TF_DIR_VPN=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/" >> "$GITHUB_ENV"
+
         - name: Check if S3 bucket exists
           id: create-s3-bucket
           shell: bash
@@ -213,7 +216,7 @@ runs:
 
         - name: Terraform Init - Cluster
           id: init-cluster
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+          working-directory: ${{ env.TF_DIR_CLUSTER }}
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
@@ -242,7 +245,7 @@ runs:
         - name: Generate tfvars file - Cluster
           id: generate-tfvars-cluster
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+          working-directory: ${{ env.TF_DIR_CLUSTER }}
           run: |
               set -euo pipefail
 
@@ -252,7 +255,7 @@ runs:
 
         - name: Terraform Plan - Cluster
           id: plan-cluster
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+          working-directory: ${{ env.TF_DIR_CLUSTER }}
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
@@ -294,7 +297,7 @@ runs:
 
         - name: Terraform Apply - Cluster
           id: apply-cluster
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+          working-directory: ${{ env.TF_DIR_CLUSTER }}
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
@@ -303,17 +306,19 @@ runs:
 
               terraform apply -no-color rosa.plan
 
-              export cluster_id="$(terraform output -raw cluster_id)"
-              echo "cluster_id=$cluster_id" | tee -a "$GITHUB_OUTPUT"
-
-              export vpc_id="$(terraform output -raw vpc_id)"
-              echo "vpc_id=$vpc_id" | tee -a "$GITHUB_OUTPUT"
+        - name: Export Terraform Outputs - Cluster
+          id: terraform_outputs_cluster
+          working-directory: ${{ env.TF_DIR_CLUSTER }}
+          shell: bash
+          run: |
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
 
         - name: Terraform Drift Detection - Cluster
           uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect-cluster
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+              working-directory: ${{ env.TF_DIR_CLUSTER }}
               plan-extra-args: |
                   -var-file=terraform.tfvars
               fail-on-drift: 'false' # not failing on drift as there may be an expected drift due to hcp module drifting - cluster_console_url
@@ -323,14 +328,14 @@ runs:
         - name: Terraform Init - VPN
           id: init-vpn
           if: inputs.vpn-enabled == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
+          working-directory: ${{ env.TF_DIR_VPN }}
           shell: bash
           run: |
               set -euo pipefail
 
               terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}vpn.tfstate"
               terraform_state_url_vpn="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
-              echo "terraform-state-url-cluster=${terraform_state_url_vpn}" | tee -a "$GITHUB_OUTPUT"
+              echo "terraform-state-url-vpn=${terraform_state_url_vpn}" | tee -a "$GITHUB_OUTPUT"
 
               terraform version
 
@@ -344,19 +349,19 @@ runs:
         - name: Generate tfvars file - VPN
           id: generate-tfvars-vpn
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
+          working-directory: ${{ env.TF_DIR_VPN }}
           run: |
               set -euo pipefail
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              vpc_id="${{ steps.apply-cluster.outputs.vpc_id }}"
+              vpc_id="${{ steps.terraform_outputs_cluster.outputs.vpc_id }}"
               EOF
 
         - name: Terraform Plan - VPN
           id: plan-vpn
           if: inputs.vpn-enabled == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
+          working-directory: ${{ env.TF_DIR_VPN }}
           shell: bash
           run: |
               set -euo pipefail
@@ -379,25 +384,28 @@ runs:
         - name: Terraform Apply - VPN
           id: apply-vpn
           if: inputs.vpn-enabled == 'true'
-          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
+          working-directory: ${{ env.TF_DIR_VPN }}
           shell: bash
           run: |
               set -euo pipefail
 
               terraform apply -no-color vpn.plan
 
-              export vpn_client_configs="$(terraform output -json vpn_client_configs)"
-              echo "vpn_client_configs=$vpn_client_configs" >> "$GITHUB_OUTPUT"
-              echo "::add-mask::$vpn_client_configs"
-
-              echo "vpn_endpoint=$(terraform output -json vpn_endpoint)" | tee -a "$GITHUB_OUTPUT"
+        - name: Export Terraform Outputs - VPN
+          id: terraform_outputs_vpn
+          if: inputs.vpn-enabled == 'true'
+          working-directory: ${{ env.TF_DIR_VPN }}
+          shell: bash
+          run: |
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
 
         - name: Terraform Drift Detection - VPN
           id: drift-detect-vpn
           if: inputs.vpn-enabled == 'true'
           uses: ./.github/actions/internal-terraform-drift-detect
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
+              working-directory: ${{ env.TF_DIR_VPN }}
               plan-extra-args: |
                   -var-file=terraform.tfvars
 
@@ -409,8 +417,8 @@ runs:
           run: |
               set -euo pipefail
 
-              rosa describe cluster --output=json -c "${{ steps.apply-cluster.outputs.cluster_id }}"
-              export cluster_api=$(rosa describe cluster --output=json -c "${{ steps.apply-cluster.outputs.cluster_id }}" | jq -r '.api.url')
+              rosa describe cluster --output=json -c "${{ steps.terraform_outputs_cluster.outputs.cluster_id }}"
+              export cluster_api=$(rosa describe cluster --output=json -c "${{ steps.terraform_outputs_cluster.outputs.cluster_id }}" | jq -r '.api.url')
               echo "cluster_api=$cluster_api"
               echo "cluster_api=$cluster_api" >> "$GITHUB_OUTPUT"
 
@@ -423,7 +431,7 @@ runs:
               sudo apt install -y openvpn openvpn-systemd-resolved
 
               client_name="my-client" # the client name is hard-coded in the reference
-              config=$(echo '${{ steps.apply-vpn.outputs.vpn_client_configs }}' | jq -r --arg client "$client_name" '.[$client]')
+              config=$(echo '${{ steps.terraform_outputs_vpn.outputs.vpn_client_configs }}' | jq -r --arg client "$client_name" '.[$client]')
 
               # Create a secure directory inside the GitHub workspace
               mkdir -p "$GITHUB_WORKSPACE/.vpn"

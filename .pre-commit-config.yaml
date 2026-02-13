@@ -88,4 +88,4 @@ repos:
       rev: 0.2.3
       hooks:
           - id: yamlfmt
-            exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.yml)
+            exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.yml|local/kubernetes/kind-single-region/configs/elasticsearch-cluster.yml)

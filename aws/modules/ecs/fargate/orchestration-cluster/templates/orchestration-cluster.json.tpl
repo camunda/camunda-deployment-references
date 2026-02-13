@@ -5,12 +5,20 @@
     "cpu": ${cpu},
     "memory": ${memory},
     "essential": true,
-    %{ if init_container_enabled ~}
+    %{ if init_container_enabled || restore_container_enabled ~}
     "dependsOn": [
+      %{ if restore_container_enabled ~}
+      {
+        "containerName": "${restore_container_name}",
+        "condition": "SUCCESS"
+      }%{ if init_container_enabled ~},%{ endif ~}
+      %{ endif ~}
+      %{ if init_container_enabled ~}
       {
         "containerName": "${init_container_name}",
         "condition": "SUCCESS"
       }
+      %{ endif ~}
     ],
     %{ endif ~}
     "healthCheck": {
@@ -88,6 +96,10 @@
       }
     ]
   }
+  %{ if restore_container_enabled ~}
+  ,
+  ${restore_container_json}
+  %{ endif ~}
   %{ if init_container_enabled ~}
   ,
   ${init_container_json}

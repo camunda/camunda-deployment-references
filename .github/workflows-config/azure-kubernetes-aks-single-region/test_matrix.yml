@@ -6,6 +6,11 @@ matrix:
 
     scenario:
         - name: aks-single-region
+          # Auth provider options:
+          #   - 'keycloak-operator': Keycloak deployed via Keycloak Operator with CNPG PostgreSQL
+          #   - 'oidc': External OIDC provider (EntraID, Cognito)
+          # TODO: Add 'oidc' support with Azure EntraID
+          auth_provider: keycloak-operator
 
     declination:
         - name: no-domain

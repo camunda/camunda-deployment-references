@@ -17,4 +17,13 @@ kubectl create secret tls camunda-platform \
     --namespace=camunda \
     --dry-run=client -o yaml | kubectl apply -f -
 
-echo "TLS secret created"
+# Also create a TLS secret for the Keycloak operator Ingress (same certificate)
+echo "Creating TLS secret 'camunda-keycloak-tls' in namespace 'camunda'..."
+
+kubectl create secret tls camunda-keycloak-tls \
+    --cert=".certs/tls.crt" \
+    --key=".certs/tls.key" \
+    --namespace=camunda \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+echo "TLS secrets created"

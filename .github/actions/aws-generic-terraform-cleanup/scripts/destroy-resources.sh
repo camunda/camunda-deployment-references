@@ -59,6 +59,147 @@ else
     date_command="date"
 fi
 
+# Remove cloud-provider-managed resources (Load Balancers, Security Groups, ENIs, etc.) inside a VPC.
+# These are created outside of Terraform by ROSA operators, EKS ingress controllers, etc.
+# The VPC itself is left intact for Terraform to manage.
+# This is a best-effort cleanup: resources still in use will fail to delete and be silently skipped.
+cleanup_vpc_dependencies() {
+  local vpc_id=$1
+  local region=$2
+
+  echo "  Cleaning up VPC dependencies for $vpc_id in $region..."
+
+  # 1. Delete Load Balancers (ELBv2: ALB/NLB — primary cause of DependencyViolation)
+  local lb_arns
+  lb_arns=$(aws elbv2 describe-load-balancers \
+    --query "LoadBalancers[?VpcId=='${vpc_id}'].LoadBalancerArn" \
+    --output text --region "$region" 2>/dev/null)
+  if [[ -n "$lb_arns" && "$lb_arns" != "None" ]]; then
+    for lb_arn in $lb_arns; do
+      echo "  Deleting Load Balancer (v2): $lb_arn"
+      aws elbv2 delete-load-balancer --load-balancer-arn "$lb_arn" --region "$region" || true
+    done
+    echo "  Waiting for Load Balancers to deprovision..."
+    sleep 30
+  fi
+
+  # 2. Delete Classic Load Balancers
+  local clb_names
+  clb_names=$(aws elb describe-load-balancers \
+    --query "LoadBalancerDescriptions[?VPCId=='${vpc_id}'].LoadBalancerName" \
+    --output text --region "$region" 2>/dev/null)
+  if [[ -n "$clb_names" && "$clb_names" != "None" ]]; then
+    for clb_name in $clb_names; do
+      echo "  Deleting Classic Load Balancer: $clb_name"
+      aws elb delete-load-balancer --load-balancer-name "$clb_name" --region "$region" || true
+    done
+    sleep 10
+  fi
+
+  # 3. Delete NAT Gateways (can block subnet/EIP deletion)
+  local nat_gw_ids
+  nat_gw_ids=$(aws ec2 describe-nat-gateways \
+    --filter "Name=vpc-id,Values=${vpc_id}" "Name=state,Values=available" \
+    --query "NatGateways[*].NatGatewayId" \
+    --output text --region "$region" 2>/dev/null)
+  if [[ -n "$nat_gw_ids" && "$nat_gw_ids" != "None" ]]; then
+    for nat_id in $nat_gw_ids; do
+      echo "  Deleting NAT Gateway: $nat_id"
+      aws ec2 delete-nat-gateway --nat-gateway-id "$nat_id" --region "$region" || true
+    done
+    echo "  Waiting for NAT Gateways to delete..."
+    sleep 30
+  fi
+
+  # 4. Delete VPC Endpoints
+  local vpce_ids
+  vpce_ids=$(aws ec2 describe-vpc-endpoints \
+    --filters "Name=vpc-id,Values=${vpc_id}" \
+    --query "VpcEndpoints[?State!='deleted'].VpcEndpointId" \
+    --output text --region "$region" 2>/dev/null)
+  if [[ -n "$vpce_ids" && "$vpce_ids" != "None" ]]; then
+    echo "  Deleting VPC Endpoints: $vpce_ids"
+    # shellcheck disable=SC2086
+    aws ec2 delete-vpc-endpoints --vpc-endpoint-ids $vpce_ids --region "$region" || true
+  fi
+
+  # 5. Delete non-default Security Groups
+  local sg_ids
+  sg_ids=$(aws ec2 describe-security-groups \
+    --filters "Name=vpc-id,Values=${vpc_id}" \
+    --query "SecurityGroups[?GroupName!='default'].GroupId" \
+    --output text --region "$region" 2>/dev/null)
+  if [[ -n "$sg_ids" && "$sg_ids" != "None" ]]; then
+    for sg_id in $sg_ids; do
+      echo "  Deleting Security Group: $sg_id"
+      aws ec2 delete-security-group --group-id "$sg_id" --region "$region" 2>/dev/null || true
+    done
+  fi
+
+  # 6. Delete detached (available) Network Interfaces
+  local eni_ids
+  eni_ids=$(aws ec2 describe-network-interfaces \
+    --filters "Name=vpc-id,Values=${vpc_id}" "Name=status,Values=available" \
+    --query "NetworkInterfaces[*].NetworkInterfaceId" \
+    --output text --region "$region" 2>/dev/null)
+  if [[ -n "$eni_ids" && "$eni_ids" != "None" ]]; then
+    for eni_id in $eni_ids; do
+      echo "  Deleting Network Interface: $eni_id"
+      aws ec2 delete-network-interface --network-interface-id "$eni_id" --region "$region" 2>/dev/null || true
+    done
+  fi
+
+  # 7. Delete non-main Route Table associations and Route Tables
+  local rtb_ids
+  rtb_ids=$(aws ec2 describe-route-tables \
+    --filters "Name=vpc-id,Values=${vpc_id}" \
+    --query "RouteTables[?Associations[?Main!=\`true\`]].RouteTableId" \
+    --output text --region "$region" 2>/dev/null)
+  if [[ -n "$rtb_ids" && "$rtb_ids" != "None" ]]; then
+    for rtb_id in $rtb_ids; do
+      # Remove non-main associations first
+      local assoc_ids
+      assoc_ids=$(aws ec2 describe-route-tables --route-table-ids "$rtb_id" \
+        --query "RouteTables[0].Associations[?Main!=\`true\`].RouteTableAssociationId" \
+        --output text --region "$region" 2>/dev/null)
+      for assoc_id in $assoc_ids; do
+        aws ec2 disassociate-route-table --association-id "$assoc_id" --region "$region" 2>/dev/null || true
+      done
+      echo "  Deleting Route Table: $rtb_id"
+      aws ec2 delete-route-table --route-table-id "$rtb_id" --region "$region" 2>/dev/null || true
+    done
+  fi
+
+  # 8. Detach and delete Internet Gateways
+  local igw_ids
+  igw_ids=$(aws ec2 describe-internet-gateways \
+    --filters "Name=attachment.vpc-id,Values=${vpc_id}" \
+    --query "InternetGateways[*].InternetGatewayId" \
+    --output text --region "$region" 2>/dev/null)
+  if [[ -n "$igw_ids" && "$igw_ids" != "None" ]]; then
+    for igw_id in $igw_ids; do
+      echo "  Detaching and deleting Internet Gateway: $igw_id"
+      aws ec2 detach-internet-gateway --internet-gateway-id "$igw_id" --vpc-id "$vpc_id" --region "$region" 2>/dev/null || true
+      aws ec2 delete-internet-gateway --internet-gateway-id "$igw_id" --region "$region" 2>/dev/null || true
+    done
+  fi
+
+  # 9. Delete Subnets
+  local subnet_ids
+  subnet_ids=$(aws ec2 describe-subnets \
+    --filters "Name=vpc-id,Values=${vpc_id}" \
+    --query "Subnets[*].SubnetId" \
+    --output text --region "$region" 2>/dev/null)
+  if [[ -n "$subnet_ids" && "$subnet_ids" != "None" ]]; then
+    for subnet_id in $subnet_ids; do
+      echo "  Deleting Subnet: $subnet_id"
+      aws ec2 delete-subnet --subnet-id "$subnet_id" --region "$region" 2>/dev/null || true
+    done
+  fi
+
+  echo "  VPC dependency cleanup completed for $vpc_id"
+}
+
 destroy_module() {
   local group_id=$1
   local module_name=$2
@@ -77,11 +218,35 @@ destroy_module() {
     return 0
   fi
 
-  # Special handling for single-cluster destroy with retries
-  if [[ "$module_name" == "cluster" && "$RETRY_DESTROY" == "true" ]]; then
-    echo "Retry destroy: nuking VPC for $group_id..."
-    yq eval ".VPC.include.names_regex = [\"^$group_id.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
-    cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$AWS_REGION" --force
+  # Pre-cleanup: remove cloud-provider-managed resources inside the VPC before terraform destroy.
+  # Cloud providers (ROSA HCP, EKS via ingress controllers, etc.) create AWS resources
+  # (Load Balancers, Security Groups, ENIs) outside of Terraform state.
+  # When terraform destroys the cluster, the cleanup on the provider side is asynchronous
+  # and may not complete before Terraform attempts to delete the VPC, causing
+  # DependencyViolation errors and ~20min timeouts.
+  # We proactively remove these orphan resources while keeping the VPC intact for
+  # Terraform to delete cleanly.
+  if [[ "$module_name" == "cluster" ]]; then
+    local vpc_check
+    vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
+                --query "Vpcs[0].VpcId" --output text --region "$AWS_REGION" 2>/dev/null)
+    if [[ -n "$vpc_check" && "$vpc_check" != "None" ]]; then
+      echo "[$group_id][$module_name] Pre-cleanup: removing orphan resources in VPC $vpc_check..."
+      cleanup_vpc_dependencies "$vpc_check" "$AWS_REGION"
+
+      # On retry (2nd attempt), use cloud-nuke as a last resort to nuke the entire VPC.
+      # This is more aggressive (deletes the VPC itself) but ensures no resources are left behind.
+      if [[ "$RETRY_DESTROY" == "true" ]]; then
+        echo "[$group_id][$module_name] Retry: running cloud-nuke on VPC as fallback..."
+        local nuke_config="${temp_dir}/matching-vpc.yml"
+        mkdir -p "$temp_dir"
+        cp "$SCRIPT_DIR/matching-vpc.yml" "$nuke_config"
+        local safe_id
+        safe_id=$(printf '%s' "$group_id" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
+        NAME_REGEX="^${safe_id}.*" yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX)]' -i "$nuke_config"
+        cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$AWS_REGION" --force
+      fi
+    fi
   fi
 
   # Handle dual-region (we may need a better way to abstract this)
@@ -93,16 +258,56 @@ destroy_module() {
     }
 
     local cluster_1_name cluster_2_name
-    cluster_1_name=$(echo "$group_id" | awk -F"-oOo-" '{print $1}')
-    cluster_2_name=$(echo "$group_id" | awk -F"-oOo-" '{print $2}')
+    if [[ "$group_id" == *"-oOo-"* ]]; then
+      # ROSA-style: two distinct cluster names separated by -oOo-
+      cluster_1_name=$(echo "$group_id" | awk -F"-oOo-" '{print $1}')
+      cluster_2_name=$(echo "$group_id" | awk -F"-oOo-" '{print $2}')
+    else
+      # EKS-style: single prefix used for both clusters (suffixed with region names)
+      cluster_1_name="$group_id"
+      cluster_2_name="$group_id"
+    fi
+
+    # Validate that both cluster names are non-empty to avoid overly broad regex patterns
+    if [[ -z "$cluster_1_name" || -z "$cluster_2_name" ]]; then
+      echo "Error: Failed to parse dual-region cluster names from group_id '$group_id' (expected format: name1-oOo-name2)"
+      exit 1
+    fi
 
     tf_config_file="$SCRIPT_DIR/config-dual-region"
 
-    if [[ "$RETRY_DESTROY" == "true" ]]; then
-      echo "Retry destroy: nuking dual-region VPCs..."
-      yq eval ".VPC.include.names_regex = [\"^$cluster_1_name.*\", \"^$cluster_2_name.*\"]" -i "$SCRIPT_DIR/matching-vpc.yml"
-      cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$CLUSTER_1_AWS_REGION" --force
-      cloud-nuke aws --config "$SCRIPT_DIR/matching-vpc.yml" --resource-type vpc --region "$CLUSTER_2_AWS_REGION" --force
+    # Pre-cleanup for dual-region: same rationale as single-cluster above.
+    if [[ "$module_name" == "clusters" ]]; then
+      local vpc1_check vpc2_check
+      vpc1_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_1_name}*" \
+                   --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_1_AWS_REGION" 2>/dev/null)
+      vpc2_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_2_name}*" \
+                   --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_2_AWS_REGION" 2>/dev/null)
+      if [[ -n "$vpc1_check" && "$vpc1_check" != "None" ]]; then
+        echo "[$group_id][$module_name] Pre-cleanup: removing orphan resources in VPC $vpc1_check (region 1)..."
+        cleanup_vpc_dependencies "$vpc1_check" "$CLUSTER_1_AWS_REGION"
+      fi
+      if [[ -n "$vpc2_check" && "$vpc2_check" != "None" ]]; then
+        echo "[$group_id][$module_name] Pre-cleanup: removing orphan resources in VPC $vpc2_check (region 2)..."
+        cleanup_vpc_dependencies "$vpc2_check" "$CLUSTER_2_AWS_REGION"
+      fi
+
+      # On retry, use cloud-nuke as a last resort for dual-region VPCs.
+      if [[ "$RETRY_DESTROY" == "true" ]]; then
+        echo "[$group_id][$module_name] Retry: running cloud-nuke on dual-region VPCs as fallback..."
+        local nuke_config="${temp_dir}/matching-vpc.yml"
+        mkdir -p "$temp_dir"
+        cp "$SCRIPT_DIR/matching-vpc.yml" "$nuke_config"
+        local safe_c1 safe_c2
+        safe_c1=$(printf '%s' "$cluster_1_name" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
+        safe_c2=$(printf '%s' "$cluster_2_name" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
+        NAME_REGEX_1="^${safe_c1}.*" NAME_REGEX_2="^${safe_c2}.*" \
+          yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX_1), strenv(NAME_REGEX_2)]' -i "$nuke_config"
+        [[ -n "$vpc1_check" && "$vpc1_check" != "None" ]] && \
+          cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$CLUSTER_1_AWS_REGION" --force
+        [[ -n "$vpc2_check" && "$vpc2_check" != "None" ]] && \
+          cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$CLUSTER_2_AWS_REGION" --force
+      fi
     fi
 
     # Peering module check: we verify if both VPCs exist because the peering module contains data blocks

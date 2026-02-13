@@ -5,3 +5,7 @@
 module "orchestration_cluster" {
   s3_force_destroy = true
 }
+
+resource "aws_s3_bucket" "backup" {
+  force_destroy = true
+}
