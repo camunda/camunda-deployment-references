@@ -893,8 +893,8 @@ runs:
               PLAYWRIGHT_BASE_URL=https://${CAMUNDA_DOMAIN}
               KEYCLOAK_URL=https://${CAMUNDA_DOMAIN}
               MINOR_VERSION=SM-${CAMUNDA_VERSION}
-              CLUSTER_VERSION=
-              DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME=${}
+              CLUSTER_VERSION=""
+              DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME=${FIRSTUSER_USERNAME}
               CI=true
               VERBOSE=true
               ENVEOF
