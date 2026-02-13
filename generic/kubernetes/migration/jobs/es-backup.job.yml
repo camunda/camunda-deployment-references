@@ -1,0 +1,82 @@
+---
+# Elasticsearch Snapshot Backup Job
+# Uses the source ES image dynamically (no custom image needed).
+# Required env vars: JOB_NAME, ES_IMAGE, ES_HOST, ES_PORT, ES_SECRET_NAME,
+#   SNAPSHOT_REPO, SNAPSHOT_NAME, BACKUP_PVC, NAMESPACE, TIMESTAMP
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: ${JOB_NAME}
+    namespace: ${NAMESPACE}
+    labels:
+        app: orchestration-migration
+        migration.camunda.io/type: backup
+        migration.camunda.io/component: elasticsearch
+spec:
+    ttlSecondsAfterFinished: 3600
+    backoffLimit: 2
+    template:
+        metadata:
+            labels:
+                app: orchestration-migration
+                migration.camunda.io/type: backup
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: backup
+                  image: ${ES_IMAGE}
+                  command:
+                      - /bin/sh
+                      - -c
+                      - |
+                        set -e
+                        echo "=== ES Backup ==="
+                        echo "Host: ${ES_HOST}:${ES_PORT}"
+
+                        AUTH=""
+                        [ -n "$ES_PASSWORD" ] && AUTH="-u elastic:$ES_PASSWORD"
+
+                        # Wait for ES
+                        until curl -sf $AUTH "http://${ES_HOST}:${ES_PORT}/_cluster/health" >/dev/null; do
+                          echo "Waiting for Elasticsearch ..."; sleep 5
+                        done
+
+                        # Register snapshot repository
+                        echo "Registering snapshot repo: ${SNAPSHOT_REPO}"
+                        curl -sf -X PUT $AUTH \
+                          "http://${ES_HOST}:${ES_PORT}/_snapshot/${SNAPSHOT_REPO}" \
+                          -H 'Content-Type: application/json' \
+                          -d '{"type":"fs","settings":{"location":"/backup/elasticsearch"}}'
+                        echo ""
+
+                        # Create snapshot
+                        echo "Creating snapshot: ${SNAPSHOT_NAME}"
+                        curl -sf -X PUT $AUTH \
+                          "http://${ES_HOST}:${ES_PORT}/_snapshot/${SNAPSHOT_REPO}/${SNAPSHOT_NAME}?wait_for_completion=true" \
+                          -H 'Content-Type: application/json' \
+                          -d '{"indices":"*","ignore_unavailable":true,"include_global_state":false}'
+                        echo ""
+
+                        # Verify
+                        STATE=$(curl -sf $AUTH \
+                          "http://${ES_HOST}:${ES_PORT}/_snapshot/${SNAPSHOT_REPO}/${SNAPSHOT_NAME}" \
+                          | grep -o '"state":"[^"]*"' | head -1)
+                        echo "Snapshot state: $STATE"
+
+                        echo "$STATE" | grep -q "SUCCESS" && echo "Backup OK" || { echo "Backup may have failed"; exit 1; }
+                  env:
+                      - name: ES_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: ${ES_SECRET_NAME}
+                                key: elasticsearch-password
+                                optional: true
+                  resources:
+                      requests: {memory: 128Mi, cpu: 50m}
+                      limits: {memory: 256Mi, cpu: 200m}
+                  volumeMounts:
+                      - {name: backup, mountPath: /backup}
+            volumes:
+                - name: backup
+                  persistentVolumeClaim:
+                      claimName: ${BACKUP_PVC}
