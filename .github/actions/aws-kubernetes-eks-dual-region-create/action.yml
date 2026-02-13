@@ -1,0 +1,199 @@
+---
+name: Deploy AWS Kubernetes EKS Dual Region Cluster
+
+description: |
+    This GitHub Action automates the deployment of the aws/kubernetes/eks-dual-region reference architecture cluster using Terraform.
+    It creates two EKS clusters in different regions (eu-west-2/London and eu-west-3/Paris) with VPC peering.
+
+inputs:
+    cluster-name:
+        description: Name of the EKS cluster to deploy (will be suffixed with region names)
+        required: true
+    aws-region:
+        description: Primary AWS region (owner region) for the EKS cluster
+        required: false
+        default: eu-west-2
+    kubernetes-version:
+        description: Version of Kubernetes to install
+        required: false
+        # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
+        default: '1.35'
+    single-nat-gateway:
+        description: Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.
+        default: 'true'
+    tags:
+        description: Tags to apply to the cluster and related resources, in JSON format
+        default: '{}'
+    s3-backend-bucket:
+        description: Name of the S3 bucket to store Terraform state
+        required: true
+    s3-bucket-region:
+        description: Region of the bucket containing the resources states, if not set, will fallback on aws-region
+    s3-bucket-key-prefix:
+        description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+        default: ''
+    ref-arch:
+        description: Reference architecture to deploy
+        default: eks-dual-region
+        required: false
+
+outputs:
+    terraform-state-url-cluster:
+        description: URL of the Terraform state file in the S3 bucket
+        value: ${{ steps.init-cluster.outputs.terraform-state-url-cluster }}
+    s3-aws-access-key:
+        description: AWS access key for the S3 bucket used by Elasticsearch backup
+        value: ${{ steps.s3-credentials.outputs.s3-aws-access-key }}
+    s3-aws-secret-access-key:
+        description: AWS secret access key for the S3 bucket used by Elasticsearch backup
+        value: ${{ steps.s3-credentials.outputs.s3-aws-secret-access-key }}
+    s3-bucket-name:
+        description: Name of the S3 bucket for Elasticsearch backup
+        value: ${{ steps.s3-credentials.outputs.s3-bucket-name }}
+
+runs:
+    using: composite
+    steps:
+
+        - name: Set Terraform variables
+          id: set-terraform-variables
+          shell: bash
+          run: |
+              set -euo pipefail
+              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
+              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
+
+              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+                export TFSTATE_REGION="${{ inputs.aws-region }}"
+              else
+                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+              fi
+
+              echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
+              echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
+              echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Sanitize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanitize-tags
+          with:
+              raw-tags: ${{ inputs.tags }}
+        - name: Export Cluster Name
+          shell: bash
+          run: |
+              echo "CLUSTER_NAME=${{ inputs.cluster-name }}" >> "$GITHUB_ENV"
+
+        - name: Terraform Init - Cluster
+          id: init-cluster
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}clusters.tfstate"
+              terraform_state_url_cluster="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
+              echo "terraform-state-url-cluster=${terraform_state_url_cluster}" | tee -a "$GITHUB_OUTPUT"
+
+              terraform version
+
+              terraform init \
+                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
+                -backend-config="key=$terraform_state_key" \
+                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
+
+              terraform validate -no-color
+
+        - name: Generate tfvars file - Cluster
+          id: generate-tfvars-cluster
+          shell: bash
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
+          run: |
+              set -euo pipefail
+
+              cat > terraform-cluster.tfvars <<EOF
+              cluster_name = "${{ inputs.cluster-name }}"
+              kubernetes_version = "${{ inputs.kubernetes-version }}"
+              single_nat_gateway = ${{ inputs.single-nat-gateway }}
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              aws_profile = "infraex"
+              EOF
+
+              echo "Generated tfvars file:"
+              cat terraform-cluster.tfvars
+
+        - name: Terraform Plan - Cluster
+          id: plan-cluster
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Planning dual-region cluster deployment..."
+
+              terraform plan -no-color -var-file=terraform-cluster.tfvars -out tf.plan
+
+        - name: Terraform Apply - Cluster
+          id: apply-cluster
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
+          shell: bash
+          run: |
+              set -euo pipefail
+              terraform apply -no-color tf.plan
+
+        - name: Terraform Drift Detection - Cluster
+          uses: ./.github/actions/internal-terraform-drift-detect
+          id: drift-detect-cluster
+          with:
+              working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
+              plan-extra-args: |
+                  -var-file=terraform-cluster.tfvars
+
+        - name: Get S3 credentials
+          id: s3-credentials
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              s3_access_key=$(terraform output -raw s3_aws_access_key)
+              s3_secret_key=$(terraform output -raw s3_aws_secret_access_key)
+
+              # Mask the secrets
+              echo "::add-mask::${s3_access_key}"
+              echo "::add-mask::${s3_secret_key}"
+
+              echo "AWS_ACCESS_KEY_ES=${s3_access_key}" >> "$GITHUB_OUTPUT"
+              echo "AWS_SECRET_ACCESS_KEY_ES=${s3_secret_key}" >> "$GITHUB_OUTPUT"
+
+              s3_bucket_name=$(terraform output -raw s3_bucket_name)
+              echo "s3-aws-access-key=${s3_access_key}" >> "$GITHUB_OUTPUT"
+              echo "s3-aws-secret-access-key=${s3_secret_key}" >> "$GITHUB_OUTPUT"
+              echo "s3-bucket-name=${s3_bucket_name}" >> "$GITHUB_OUTPUT"
+
+        - name: KubeConfig generation
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/test/
+          shell: bash
+          run: |
+              go test --count=1 -v -timeout 4m -failfast -run TestAWSKubeConfigCreation
+        - name: Export GHA for namespace setup
+          shell: bash
+          run: |
+              echo "CLUSTER_1_NAMESPACE_ARR=c8-snap-cluster-1" >> "$GITHUB_ENV"
+              echo "CLUSTER_0_NAMESPACE_ARR=c8-snap-cluster-0" >> "$GITHUB_ENV"
+        - name: Create all required namespaces and secrets
+          shell: bash
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/test/
+          env:
+              AWS_ACCESS_KEY_ES: ${{ steps.s3-credentials.outputs.AWS_ACCESS_KEY_ES }}
+              AWS_SECRET_ACCESS_KEY_ES: ${{ steps.s3-credentials.outputs.AWS_SECRET_ACCESS_KEY_ES }}
+          run: |
+              go test --count=1 -v -timeout 9m -failfast -run TestClusterPrerequisites
+        ########### Namespace and DNS setup #########
+        - name: Do the DNS chaining for all required namespaces
+          working-directory: aws/kubernetes/${{ inputs.ref-arch }}/test/
+          shell: bash
+          env:
+              # Pick a known namespace for cross cluster testing
+              CLUSTER_0_NAMESPACE: c8-snap-cluster-0
+              CLUSTER_1_NAMESPACE: c8-snap-cluster-1
+          run: |
+              go test --count=1 -v -timeout 44m -failfast -run TestAWSDNSChaining

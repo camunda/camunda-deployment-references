@@ -1,0 +1,251 @@
+---
+# Helm values for mkcert CA trust configuration
+# This file configures pods to trust the locally-generated mkcert CA certificate
+# for internal HTTPS communication between components.
+#
+# The mkcert CA is mounted via a ConfigMap (mkcert-ca) created by:
+#   ./procedure/certs-create-ca-configmap.sh
+#
+# Strategy:
+# - For Java apps: Use initContainer to copy truststore to writable location and import CA,
+#   then point JAVA_TOOL_OPTIONS to the custom truststore
+# - For Node.js apps: Use NODE_EXTRA_CA_CERTS environment variable
+
+# WebModeler components
+webModeler:
+    # restapi is Java-based
+    restapi:
+        extraVolumes:
+            - name: mkcert-ca
+              configMap:
+                  name: mkcert-ca
+            - name: java-truststore
+              emptyDir: {}
+        extraVolumeMounts:
+            - name: mkcert-ca
+              mountPath: /mkcert-ca
+              readOnly: true
+            - name: java-truststore
+              mountPath: /opt/java-truststore
+        initContainers:
+            - name: import-ca-cert
+              image: camunda/camunda:latest
+              command:
+                  - sh
+                  - -c
+                  - |
+                    cp $JAVA_HOME/lib/security/cacerts /opt/java-truststore/cacerts
+                    chmod 644 /opt/java-truststore/cacerts
+                    keytool -import -trustcacerts -keystore /opt/java-truststore/cacerts -storepass changeit -noprompt -alias mkcert-ca -file /mkcert-ca/ca.crt
+              volumeMounts:
+                  - name: mkcert-ca
+                    mountPath: /mkcert-ca
+                    readOnly: true
+                  - name: java-truststore
+                    mountPath: /opt/java-truststore
+              securityContext:
+                  runAsUser: 1001
+                  runAsNonRoot: true
+                  allowPrivilegeEscalation: false
+        env:
+            - name: JAVA_TOOL_OPTIONS
+              value: -Djavax.net.ssl.trustStore=/opt/java-truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+    # webapp is Node.js-based
+    webapp:
+        extraVolumes:
+            - name: mkcert-ca
+              configMap:
+                  name: mkcert-ca
+        extraVolumeMounts:
+            - name: mkcert-ca
+              mountPath: /mkcert-ca
+              readOnly: true
+        env:
+            - name: NODE_EXTRA_CA_CERTS
+              value: /mkcert-ca/ca.crt
+    # websockets is Node.js-based
+    websockets:
+        extraVolumes:
+            - name: mkcert-ca
+              configMap:
+                  name: mkcert-ca
+        extraVolumeMounts:
+            - name: mkcert-ca
+              mountPath: /mkcert-ca
+              readOnly: true
+        env:
+            - name: NODE_EXTRA_CA_CERTS
+              value: /mkcert-ca/ca.crt
+
+# Console is Node.js-based
+# Uses tls.certKeyFilename to set NODE_EXTRA_CA_CERTS via the chart
+console:
+    extraVolumes:
+        - name: mkcert-ca
+          configMap:
+              name: mkcert-ca
+    extraVolumeMounts:
+        - name: mkcert-ca
+          mountPath: /usr/local/console/certificates
+          readOnly: true
+    tls:
+        certKeyFilename: ca.crt
+
+# Connectors is Java-based
+connectors:
+    extraVolumes:
+        - name: mkcert-ca
+          configMap:
+              name: mkcert-ca
+        - name: java-truststore
+          emptyDir: {}
+    extraVolumeMounts:
+        - name: mkcert-ca
+          mountPath: /mkcert-ca
+          readOnly: true
+        - name: java-truststore
+          mountPath: /opt/java-truststore
+    initContainers:
+        - name: import-ca-cert
+          image: camunda/camunda:latest
+          command:
+              - sh
+              - -c
+              - |
+                cp $JAVA_HOME/lib/security/cacerts /opt/java-truststore/cacerts
+                chmod 644 /opt/java-truststore/cacerts
+                keytool -import -trustcacerts -keystore /opt/java-truststore/cacerts -storepass changeit -noprompt -alias mkcert-ca -file /mkcert-ca/ca.crt
+          volumeMounts:
+              - name: mkcert-ca
+                mountPath: /mkcert-ca
+                readOnly: true
+              - name: java-truststore
+                mountPath: /opt/java-truststore
+          securityContext:
+              runAsUser: 1001
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+    env:
+        - name: JAVA_TOOL_OPTIONS
+          value: -Djavax.net.ssl.trustStore=/opt/java-truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+
+# Identity is Java-based
+identity:
+    extraVolumes:
+        - name: mkcert-ca
+          configMap:
+              name: mkcert-ca
+        - name: java-truststore
+          emptyDir: {}
+    extraVolumeMounts:
+        - name: mkcert-ca
+          mountPath: /mkcert-ca
+          readOnly: true
+        - name: java-truststore
+          mountPath: /opt/java-truststore
+    initContainers:
+        - name: import-ca-cert
+          image: camunda/camunda:latest
+          command:
+              - sh
+              - -c
+              - |
+                cp $JAVA_HOME/lib/security/cacerts /opt/java-truststore/cacerts
+                chmod 644 /opt/java-truststore/cacerts
+                keytool -import -trustcacerts -keystore /opt/java-truststore/cacerts -storepass changeit -noprompt -alias mkcert-ca -file /mkcert-ca/ca.crt
+          volumeMounts:
+              - name: mkcert-ca
+                mountPath: /mkcert-ca
+                readOnly: true
+              - name: java-truststore
+                mountPath: /opt/java-truststore
+          securityContext:
+              runAsUser: 1001
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+    env:
+        - name: JAVA_TOOL_OPTIONS
+          value: -Djavax.net.ssl.trustStore=/opt/java-truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+
+# Optimize is Java-based
+optimize:
+    extraVolumes:
+        - name: mkcert-ca
+          configMap:
+              name: mkcert-ca
+        - name: java-truststore
+          emptyDir: {}
+    extraVolumeMounts:
+        - name: mkcert-ca
+          mountPath: /mkcert-ca
+          readOnly: true
+        - name: java-truststore
+          mountPath: /opt/java-truststore
+    initContainers:
+        - name: import-ca-cert
+          image: camunda/camunda:latest
+          command:
+              - sh
+              - -c
+              - |
+                cp $JAVA_HOME/lib/security/cacerts /opt/java-truststore/cacerts
+                chmod 644 /opt/java-truststore/cacerts
+                keytool -import -trustcacerts -keystore /opt/java-truststore/cacerts -storepass changeit -noprompt -alias mkcert-ca -file /mkcert-ca/ca.crt
+          volumeMounts:
+              - name: mkcert-ca
+                mountPath: /mkcert-ca
+                readOnly: true
+              - name: java-truststore
+                mountPath: /opt/java-truststore
+          securityContext:
+              runAsUser: 1001
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+    env:
+        - name: JAVA_TOOL_OPTIONS
+          value: -Djavax.net.ssl.trustStore=/opt/java-truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
+
+# Orchestration (Zeebe) is Java-based
+# NOTE: orchestration uses javaOpts instead of env.JAVA_TOOL_OPTIONS
+# because the chart template generates JAVA_TOOL_OPTIONS from javaOpts
+orchestration:
+    extraVolumes:
+        - name: mkcert-ca
+          configMap:
+              name: mkcert-ca
+        - name: java-truststore
+          emptyDir: {}
+    extraVolumeMounts:
+        - name: mkcert-ca
+          mountPath: /mkcert-ca
+          readOnly: true
+        - name: java-truststore
+          mountPath: /opt/java-truststore
+    initContainers:
+        - name: import-ca-cert
+          image: camunda/camunda:latest
+          command:
+              - sh
+              - -c
+              - |
+                cp $JAVA_HOME/lib/security/cacerts /opt/java-truststore/cacerts
+                chmod 644 /opt/java-truststore/cacerts
+                keytool -import -trustcacerts -keystore /opt/java-truststore/cacerts -storepass changeit -noprompt -alias mkcert-ca -file /mkcert-ca/ca.crt
+          volumeMounts:
+              - name: mkcert-ca
+                mountPath: /mkcert-ca
+                readOnly: true
+              - name: java-truststore
+                mountPath: /opt/java-truststore
+          securityContext:
+              runAsUser: 1001
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+    # javaOpts is used by orchestration to set JAVA_TOOL_OPTIONS
+    javaOpts: >-
+        -XX:+HeapDumpOnOutOfMemoryError
+        -XX:HeapDumpPath=/usr/local/camunda/data
+        -XX:ErrorFile=/usr/local/camunda/data/camunda_error%p.log
+        -XX:+ExitOnOutOfMemoryError
+        -Djavax.net.ssl.trustStore=/opt/java-truststore/cacerts
+        -Djavax.net.ssl.trustStorePassword=changeit

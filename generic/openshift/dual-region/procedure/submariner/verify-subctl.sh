@@ -4,7 +4,7 @@ CLUSTERS=("$CLUSTER_1_NAME" "$CLUSTER_2_NAME")
 
 # Check the status of both clusters
 while true; do
-    last_cluster_ok=false
+    all_connected=true
 
     for CLUSTER_NAME in "${CLUSTERS[@]}"; do
         STATUS=$(subctl show all --contexts "$CLUSTER_NAME")
@@ -14,13 +14,13 @@ while true; do
         if echo "$STATUS" | grep -q "All connections (1) are established" && \
            echo "$STATUS" | grep -q " connected "; then
             echo "Gateway and Connection for $CLUSTER_NAME are correctly established!"
-            last_cluster_ok=true
         else
             echo "$CLUSTER_NAME is not fully connected, retrying..."
+            all_connected=false
         fi
     done
 
-    if [ "$last_cluster_ok" = true ]; then
+    if [ "$all_connected" = true ]; then
         echo "Both clusters are correctly connected!"
         exit 0
     fi

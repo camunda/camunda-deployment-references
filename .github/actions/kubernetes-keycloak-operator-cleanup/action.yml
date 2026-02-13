@@ -1,0 +1,109 @@
+---
+# This action cleans up Keycloak deployed via the Keycloak Operator with CNPG PostgreSQL
+# It removes the Keycloak CRD, PostgreSQL cluster, operators, and related secrets
+name: Cleanup Keycloak Operator Deployment
+description: Remove Keycloak deployed via Keycloak Operator and CNPG PostgreSQL
+
+inputs:
+    namespace:
+        description: Kubernetes namespace where Keycloak was deployed
+        required: true
+    skip-operator-uninstall:
+        description: Skip uninstalling the operators (useful if shared across namespaces)
+        required: false
+        default: 'false'
+
+runs:
+    using: composite
+    steps:
+        - name: 🗑️ Delete Keycloak CR
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Deleting Keycloak CR..."
+              if kubectl get keycloak keycloak -n "${{ inputs.namespace }}" &>/dev/null; then
+                kubectl delete keycloak keycloak -n "${{ inputs.namespace }}" --timeout=120s || true
+              else
+                echo "Keycloak CR not found, skipping..."
+              fi
+
+        - name: 🗑️ Delete PostgreSQL Cluster for Keycloak
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Deleting CNPG PostgreSQL cluster for Keycloak..."
+              if kubectl get cluster pg-keycloak -n "${{ inputs.namespace }}" &>/dev/null; then
+                kubectl delete cluster pg-keycloak -n "${{ inputs.namespace }}" --timeout=120s || true
+              else
+                echo "PostgreSQL cluster not found, skipping..."
+              fi
+
+        - name: 🗑️ Delete Keycloak-related secrets
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Deleting Keycloak-related secrets..."
+
+              # Delete secrets created by the action
+              for secret in pg-keycloak-superuser-secret pg-keycloak-secret identity-secret-for-components; do
+                if kubectl get secret "$secret" -n "${{ inputs.namespace }}" &>/dev/null; then
+                  kubectl delete secret "$secret" -n "${{ inputs.namespace }}" || true
+                  echo "Deleted secret: $secret"
+                else
+                  echo "Secret $secret not found, skipping..."
+                fi
+              done
+
+        - name: 🗑️ Uninstall Keycloak Operator and CRDs
+          if: inputs.skip-operator-uninstall != 'true'
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Uninstalling Keycloak Operator..."
+
+              # Delete the operator deployment
+              if kubectl get namespace keycloak-system &>/dev/null; then
+                kubectl delete namespace keycloak-system --timeout=60s || true
+              else
+                echo "Namespace keycloak-system not found, skipping..."
+              fi
+
+              # Delete Keycloak CRDs
+              echo "Deleting Keycloak CRDs..."
+              for crd in keycloaks.k8s.keycloak.org keycloakrealmimports.k8s.keycloak.org; do
+                if kubectl get crd "$crd" &>/dev/null; then
+                  kubectl delete crd "$crd" --timeout=60s || true
+                  echo "Deleted CRD: $crd"
+                else
+                  echo "CRD $crd not found, skipping..."
+                fi
+              done
+
+        - name: 🗑️ Uninstall CloudNativePG Operator
+          if: inputs.skip-operator-uninstall != 'true'
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Uninstalling CloudNativePG Operator..."
+
+              # Check if the operator is installed
+              if helm list -n cnpg-system 2>/dev/null | grep -q cloudnative-pg; then
+                helm uninstall cloudnative-pg -n cnpg-system --wait --timeout 120s || true
+              else
+                echo "CloudNativePG Operator not installed via Helm, skipping..."
+              fi
+
+              # Delete namespace if empty
+              if kubectl get namespace cnpg-system &>/dev/null; then
+                # Check if namespace has any resources
+                if [ "$(kubectl get all -n cnpg-system -o name 2>/dev/null | wc -l)" -eq 0 ]; then
+                  kubectl delete namespace cnpg-system --timeout=60s || true
+                else
+                  echo "Namespace cnpg-system still has resources, not deleting"
+                fi
+              fi
+
+        - name: ✅ Cleanup completed
+          shell: bash
+          run: |
+              echo "Keycloak Operator cleanup completed successfully"

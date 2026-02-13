@@ -47,7 +47,7 @@ runs:
     using: composite
     steps:
         - name: Checkout Repository
-          uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -55,7 +55,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
         - name: Set Terraform variables
           id: set-terraform-variables
@@ -75,16 +75,21 @@ runs:
               echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" >> "$GITHUB_OUTPUT"
 
+              terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_BASE_KEY}${{ inputs.tf-modules-name }}.tfstate"
+              echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
+
+              echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}" >> "$GITHUB_ENV"
+
         - name: Copy CI fixtures
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
               cp -r ./test/fixtures/ci/fixture_* .
 
         - name: Terraform Init
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+          working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
           run: |
               set -euo pipefail
@@ -107,7 +112,7 @@ runs:
         - name: Generate tfvars file
           id: generate-tfvars
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -124,7 +129,7 @@ runs:
 
         - name: Terraform Plan
           id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+          working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
           run: |
               set -euo pipefail
@@ -136,7 +141,7 @@ runs:
 
         - name: Terraform Apply
           id: apply
-          working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+          working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
           run: |
               set -euo pipefail
@@ -146,6 +151,6 @@ runs:
           uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/compute/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}
+              working-directory: ${{ env.TF_MODULE_DIR }}
               plan-extra-args: |
                   -var-file=terraform.tfvars

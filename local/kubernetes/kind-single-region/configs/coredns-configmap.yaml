@@ -1,0 +1,33 @@
+---
+# CoreDNS configuration to resolve local domains within the cluster
+# This is needed for internal pod-to-pod communication over the local domain.
+# Ref: https://coredns.io/2017/05/08/custom-dns-entries-for-kubernetes/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: coredns
+    namespace: kube-system
+data:
+    Corefile: |
+        .:53 {
+            errors
+            health {
+               lameduck 5s
+            }
+            ready
+            rewrite name substring zeebe-camunda.example.com ingress-nginx-controller.ingress-nginx.svc.cluster.local answer auto
+            rewrite name substring camunda.example.com ingress-nginx-controller.ingress-nginx.svc.cluster.local answer auto
+            kubernetes cluster.local in-addr.arpa ip6.arpa {
+               pods insecure
+               fallthrough in-addr.arpa ip6.arpa
+               ttl 30
+            }
+            prometheus :9153
+            forward . /etc/resolv.conf {
+               max_concurrent 1000
+            }
+            cache 30
+            loop
+            reload
+            loadbalance
+        }

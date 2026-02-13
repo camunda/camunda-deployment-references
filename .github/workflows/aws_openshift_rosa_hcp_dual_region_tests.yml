@@ -26,6 +26,7 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/actions/internal-camunda-chart-tests/**
+            - .github/actions/internal-multi-region-tests/**
 
     workflow_dispatch:
         inputs:
@@ -59,7 +60,7 @@ concurrency:
     cancel-in-progress: false
 
 env:
-    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infex
@@ -94,7 +95,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -108,12 +109,12 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -137,13 +138,13 @@ jobs:
 
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
             - name: Import Secrets
               id: secrets
@@ -303,10 +304,10 @@ jobs:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: openshift
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
             - name: Install CLI tools from OpenShift Mirror
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -685,35 +686,69 @@ jobs:
                   default-values-yaml: ${{ github.workspace }}/openshift.yml
                   region-0-values-yaml: ${{ github.workspace }}/generated-values-region-1.yml
                   region-1-values-yaml: ${{ github.workspace }}/generated-values-region-2.yml
-
+                  # Skip cleanup since OpenShift deployment is already done with Submariner ServiceExports
+                  # Deploy will use helm upgrade --install which preserves existing resources
+                  skip-cleanup: 'true'
+                  # Re-export services after Failback since the test recreates the Helm release without ServiceExports
+                  post-failback-script: ./generic/openshift/dual-region/procedure/export-services-submariner.sh
+                  distribution: OpenShift
 
             - name: 🔬🚨 Get failed Pods info - Cluster 1
               if: failure()
-              run: |
-                  set -euo pipefail
-
-                  echo "Debug MCH installation issues"
-                  # https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.13/html/release_notes/acm-release-notes#upgrade-stuck
-                  oc --context="$CLUSTER_1_NAME" get multiclusterhubs -n open-cluster-management -o yaml
-
-                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po
-                  kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
-                    echo -e "\n### Failed Pod: ${pod_name} ###\n"
-                    kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" describe po "$pod_name"
-                    kubectl --context="$CLUSTER_1_NAME" -n "$CAMUNDA_NAMESPACE_1" logs "$pod_name"
-                  done
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 || format('camunda-{0}', env.CLUSTER_1_NAME) }}
+                  context: ${{ env.CLUSTER_1_NAME }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-cluster-1
 
             - name: 🔬🚨 Get failed Pods info - Cluster 2
+              if: failure()
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_2 || format('camunda-{0}', env.CLUSTER_2_NAME) }}
+                  context: ${{ env.CLUSTER_2_NAME }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-cluster-2
+
+            - name: 🔬🚨 Debug dual-region infrastructure
               if: failure()
               run: |
                   set -euo pipefail
 
-                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get po
-                  kubectl -n "$CAMUNDA_NAMESPACE_2" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
-                    echo -e "\n### Failed Pod: ${pod_name} ###\n"
-                    kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" describe po "$pod_name"
-                    kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name"
+                  # Derive namespace if not already set (e.g. failure before chart-env.sh is sourced)
+                  export CAMUNDA_NAMESPACE_1="${CAMUNDA_NAMESPACE_1:-camunda-$CLUSTER_1_NAME}"
+                  export CAMUNDA_NAMESPACE_2="${CAMUNDA_NAMESPACE_2:-camunda-$CLUSTER_2_NAME}"
+
+                  echo "::group::MCH installation status"
+                  oc --context="$CLUSTER_1_NAME" get multiclusterhubs -n open-cluster-management -o yaml || true
+                  echo "::endgroup::"
+
+                  for cluster_ctx in "$CLUSTER_1_NAME" "$CLUSTER_2_NAME"; do
+                    ns="CAMUNDA_NAMESPACE_1"
+                    [[ "$cluster_ctx" == "$CLUSTER_2_NAME" ]] && ns="CAMUNDA_NAMESPACE_2"
+                    ns_val="${!ns}"
+
+                    echo "::group::Submariner ServiceExports/Imports - ${cluster_ctx}"
+                    kubectl --context="$cluster_ctx" -n "$ns_val" get serviceexports -o wide 2>/dev/null || echo "No ServiceExports found"
+                    kubectl --context="$cluster_ctx" -n "$ns_val" get serviceimports -o wide 2>/dev/null || echo "No ServiceImports found"
+                    echo "::endgroup::"
+
+                    echo "::group::DNS resolution test - ${cluster_ctx}"
+                    kubectl --context="$cluster_ctx" -n "$ns_val" \
+                      run dns-test-"${cluster_ctx}" --image=busybox:1.28 --rm --restart=Never --command -- \
+                      nslookup "${CAMUNDA_RELEASE_NAME:-camunda}-zeebe.${ns_val}.svc.clusterset.local" \
+                      2>/dev/null || echo "DNS test failed or timed out"
+                    echo "::endgroup::"
                   done
+
+                  echo "::group::Cross-cluster connectivity test (Cluster 2 → Cluster 1)"
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" run connectivity-test --image=busybox:1.28 --rm -it --restart=Never --command -- sh -c "
+                    echo 'Testing DNS for cluster 1 zeebe...'
+                    nslookup local-cluster.${CAMUNDA_RELEASE_NAME:-camunda}-zeebe.${CAMUNDA_NAMESPACE_1}.svc.clusterset.local || echo 'DNS resolution failed'
+                    echo ''
+                    echo 'Testing TCP connectivity to cluster 1 zeebe on port 26502...'
+                    nc -zv local-cluster.${CAMUNDA_RELEASE_NAME:-camunda}-zeebe.${CAMUNDA_NAMESPACE_1}.svc.clusterset.local 26502 2>&1 || echo 'TCP connection failed'
+                  " 2>/dev/null || echo "Connectivity test failed or timed out"
+                  echo "::endgroup::"
 
     integration-tests-retry:
         name: Retry Tests in case of failure
@@ -723,7 +758,7 @@ jobs:
             - integration-tests
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@39cfd357d270487b9f1ac02bbdbcfc7ae4e19d97 # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@317ad657a9766301b0cae99eadfde9dddcffd286 # main
               with:
                   error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
                   run-id: ${{ github.run_id }}
@@ -747,14 +782,14 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
 
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
             - name: Import Secrets
               id: secrets
@@ -809,7 +844,7 @@ jobs:
             - integration-tests
             - cleanup-clusters
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -829,7 +864,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

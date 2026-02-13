@@ -1,0 +1,466 @@
+---
+name: Tests - Integration - Local Kubernetes Kind Single Region
+
+permissions:
+    contents: read
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+
+on:
+    schedule:
+        - cron: 0 4 * * 3 # Runs at 4 AM on Wednesdays
+    pull_request:
+        paths:
+            - .github/workflows/local_kubernetes_kind_single_region_tests.yml
+            - .github/workflows-config/local-kubernetes-kind-single-region/**
+            - .github/actions/internal-triage-skip/**
+            - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-tests-matrix/**
+            - .github/actions/internal-camunda-chart-tests/**
+            - .tool-versions
+            - local/kubernetes/kind-single-region/**
+    workflow_dispatch:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: false
+
+env:
+    REF_ARCH_PATH: local/kubernetes/kind-single-region
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
+    IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
+    CI_MATRIX_FILE: .github/workflows-config/local-kubernetes-kind-single-region/test_matrix.yml
+
+    # TEST VARIABLES
+    TESTS_ENABLED: 'true'
+    # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    clusters-info:
+        needs: triage
+        if: needs.triage.outputs.should_skip == 'false'
+        name: Define Matrix
+        runs-on: ubuntu-latest
+        outputs:
+            platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+
+            - name: Define tests matrix
+              uses: ./.github/actions/internal-tests-matrix
+              id: matrix
+              with:
+                  ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
+                  cluster_prefix: kind-${{ github.event.pull_request.number || '' }}
+                  is_schedule: ${{ env.IS_SCHEDULE }}
+                  is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
+
+    integration-tests:
+        name: Test ${{ matrix.distro.name }} - ${{ matrix.declination.name }}
+        needs:
+            - triage
+            - clusters-info
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: aws-core-8-default
+        timeout-minutes: 45
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
+        env:
+            CLUSTER_NAME: camunda-platform-local
+            CAMUNDA_NAMESPACE: camunda
+            CAMUNDA_RELEASE_NAME: camunda
+            TEST_CLUSTER_TYPE: kubernetes
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+
+            - name: Install envsubst
+              run: |
+                  sudo apt-get update -qq
+                  sudo apt-get install -y -qq gettext-base
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
+
+            - name: Create Kind cluster
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/cluster-create.sh
+
+            - name: Deploy Ingress NGINX
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/ingress-nginx-deploy.sh
+
+            # Domain mode specific steps
+            - name: Configure CoreDNS
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: |
+                  set -euo pipefail
+
+                  ./procedure/coredns-config.sh
+
+            - name: Generate TLS certificates
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: |
+                  set -euo pipefail
+
+                  ./procedure/certs-generate.sh
+
+            - name: Create TLS secret
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: |
+                  set -euo pipefail
+
+                  ./procedure/certs-create-secret.sh
+
+            - name: Create CA ConfigMap
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: |
+                  set -euo pipefail
+
+                  ./procedure/certs-create-ca-configmap.sh
+
+            - name: Create Docker Hub pull secret
+              run: |
+                  set -euo pipefail
+
+                  # Create the pull secret to avoid Docker Hub rate limit
+                  kubectl create secret docker-registry index-docker-io \
+                      --docker-server=index.docker.io \
+                      --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                      --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                      --namespace="${{ env.CAMUNDA_NAMESPACE }}"
+
+            # Deploy prerequisite operators (Elasticsearch, PostgreSQL, Keycloak)
+            - name: Deploy operators (Elasticsearch, PostgreSQL, Keycloak)
+              timeout-minutes: 15
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              env:
+                  CAMUNDA_MODE: ${{ matrix.declination.use_tls && 'domain' || 'no-domain' }}
+              run: |
+                  set -euo pipefail
+
+                  ./procedure/operators-deploy.sh
+
+            # Deploy Camunda
+            - name: Deploy Camunda (domain mode)
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: |
+                  set -euo pipefail
+
+                  # Apply registry configuration to avoid Docker Hub rate limit
+                  yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/registry.yml\")" \
+                    helm-values/values-domain.yml > helm-values/values-domain.yml.tmp
+                  mv helm-values/values-domain.yml.tmp helm-values/values-domain.yml
+
+                  ./procedure/camunda-deploy-domain.sh
+
+            - name: Deploy Camunda (no-domain mode)
+              if: ${{ !matrix.declination.use_tls }}
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: |
+                  set -euo pipefail
+
+                  # Apply registry configuration to avoid Docker Hub rate limit
+                  yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/registry.yml\")" \
+                    helm-values/values-no-domain.yml > helm-values/values-no-domain.yml.tmp
+                  mv helm-values/values-no-domain.yml.tmp helm-values/values-no-domain.yml
+
+                  ./procedure/camunda-deploy-no-domain.sh
+
+            - name: Wait for Camunda deployment
+              timeout-minutes: 10
+              env:
+                  CAMUNDA_NAMESPACE: ${{ env.CAMUNDA_NAMESPACE }}
+              run: ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+
+            - name: ✅ Deployment verification successful
+              run: |
+                  set -euo pipefail
+
+                  echo "=== Deployment Successful ==="
+                  echo "Camunda Platform has been successfully deployed and all pods are ready."
+
+                  echo ""
+                  echo "=== Helm Release ==="
+                  helm list -n "${{ env.CAMUNDA_NAMESPACE }}"
+
+                  echo ""
+                  echo "=== All Resources ==="
+                  kubectl get all -n "${{ env.CAMUNDA_NAMESPACE }}"
+
+            - name: Set Camunda domain environment variables
+              run: |
+                  set -euo pipefail
+
+                  if [[ "${{ matrix.declination.use_tls }}" == "true" ]]; then
+                      echo "CAMUNDA_DOMAIN=camunda.example.com" | tee -a "$GITHUB_ENV"
+                      echo "CAMUNDA_GRPC_DOMAIN=zeebe-camunda.example.com:443" | tee -a "$GITHUB_ENV"
+                  else
+                      echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
+                      echo "CAMUNDA_GRPC_DOMAIN=" | tee -a "$GITHUB_ENV"
+                  fi
+
+            - name: Set current Camunda version
+              id: camunda-version
+              run: |
+                  set -euo pipefail
+
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Extract auto-generated credentials from Helm deployment
+              id: local-credentials
+              run: |
+                  set -euo pipefail
+
+                  echo "📦 Extracting auto-generated credentials from camunda-credentials secret..."
+
+                  # The Helm chart auto-generates an 'orchestration' client that can be used for M2M authentication
+                  # Client ID is 'orchestration' and secret is stored in identity-orchestration-client-token
+                  LOCAL_CLIENT_ID="orchestration"
+                  LOCAL_CLIENT_SECRET=$(kubectl get secret camunda-credentials -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                    -o jsonpath='{.data.identity-orchestration-client-token}' | base64 -d)
+
+                  if [[ -z "$LOCAL_CLIENT_SECRET" ]]; then
+                    echo "⚠️ Could not extract orchestration client secret, tests requiring auth will be skipped"
+                    echo "LOCAL_CLIENT_ID=" | tee -a "$GITHUB_OUTPUT"
+                    echo "LOCAL_CLIENT_SECRET=" | tee -a "$GITHUB_OUTPUT"
+                  else
+                    echo "✅ Successfully extracted orchestration client credentials"
+                    echo "LOCAL_CLIENT_ID=$LOCAL_CLIENT_ID" | tee -a "$GITHUB_OUTPUT"
+                    # Don't print secret to logs
+                    echo "LOCAL_CLIENT_SECRET=$LOCAL_CLIENT_SECRET" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: 🧪 Run C8-SM-CHECKS deployment and connectivity tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 15
+              uses: ./.github/actions/internal-camunda-chart-tests
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
+                  camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
+                  webmodeler-enabled: 'true'
+                  console-enabled: 'true'
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  # Use auto-generated local credentials instead of CI credentials from Vault
+                  test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
+                  test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
+                  # Disable Venom/Helm chart tests, only run C8-SM-CHECKS
+                  enable-helm-chart-tests: 'false'
+                  enable-zeebe-client-tests: 'false'
+                  keycloak-service-name: keycloak-service:18080
+                  elasticsearch-service-name: elasticsearch-es-http:9200
+                  # Enable C8-SM-CHECKS
+                  enable-c8sm-deployment-check: 'true'
+                  enable-c8sm-connectivity-check: 'true'
+                  skip-c8sm-connectivity-ingress-class-check: 'false'
+                  enable-c8sm-irsa-check: 'false'  # Not applicable for Kind
+                  # Enable Zeebe token/connectivity checks using auto-generated credentials
+                  enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
+                      'false' }}
+                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
+                      || 'false' }}
+                  # Enable local domain mode for Kind - configures /etc/hosts for domain resolution
+                  local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+
+            - name: 🔬🚨 Debug - Show pod details on failure
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  echo "========================================"
+                  echo "=== CLUSTER STATE DEBUG INFORMATION ==="
+                  echo "========================================"
+
+                  echo ""
+                  echo "=== Node Status ==="
+                  kubectl get nodes -o wide
+                  kubectl describe nodes | grep -A 10 "Allocated resources"
+
+                  echo ""
+                  echo "=== Pod Status (All Namespaces) ==="
+                  kubectl get pods -A -o wide
+
+                  echo ""
+                  echo "=== Pod Status (Camunda Namespace) ==="
+                  kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide
+
+                  echo ""
+                  echo "=== PVC Status ==="
+                  kubectl get pvc -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide || true
+
+                  echo ""
+                  echo "=== PV Status ==="
+                  kubectl get pv -o wide || true
+
+                  echo ""
+                  echo "=== Services ==="
+                  kubectl get svc -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide
+
+                  echo ""
+                  echo "=== ConfigMaps ==="
+                  kubectl get configmaps -n "${{ env.CAMUNDA_NAMESPACE }}"
+
+                  echo ""
+                  echo "=== Ingress ==="
+                  kubectl get ingress -n "${{ env.CAMUNDA_NAMESPACE }}" -o wide || true
+
+                  echo ""
+                  echo "=== Events (sorted by time, last 100) ==="
+                  kubectl get events -n "${{ env.CAMUNDA_NAMESPACE }}" --sort-by='.lastTimestamp' | tail -100
+
+                  echo ""
+                  echo "========================================"
+                  echo "=== DETAILED POD ANALYSIS ==="
+                  echo "========================================"
+
+                  echo ""
+                  echo "=== All Pods Full Description ==="
+                  kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" --no-headers | awk '{print $1}' | while read -r pod; do
+                      if [[ -n "$pod" ]]; then
+                          echo ""
+                          echo "############################################"
+                          echo "### Pod: $pod"
+                          echo "############################################"
+                          kubectl describe pod "$pod" -n "${{ env.CAMUNDA_NAMESPACE }}"
+                      fi
+                  done
+
+                  echo ""
+                  echo "========================================"
+                  echo "=== POD LOGS (last 200 lines each) ==="
+                  echo "========================================"
+
+                  kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" --no-headers | awk '{print $1}' | while read -r pod; do
+                      if [[ -n "$pod" ]]; then
+                          echo ""
+                          echo "############################################"
+                          echo "### Logs: $pod"
+                          echo "############################################"
+                          kubectl logs "$pod" -n "${{ env.CAMUNDA_NAMESPACE }}" --all-containers --tail=200 || true
+                          echo ""
+                          echo "### Previous Logs (if container restarted): $pod"
+                          kubectl logs "$pod" -n "${{ env.CAMUNDA_NAMESPACE }}" --all-containers --tail=100 --previous 2>/dev/null || echo "No previous logs available"
+                      fi
+                  done
+
+                  echo ""
+                  echo "========================================"
+                  echo "=== RESOURCE USAGE ==="
+                  echo "========================================"
+                  kubectl top pods -n "${{ env.CAMUNDA_NAMESPACE }}" 2>/dev/null || echo "Metrics server not available"
+                  kubectl top nodes 2>/dev/null || echo "Metrics server not available"
+
+            - name: 🔬🚨 Debug - Show Helm status on failure
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  echo "========================================"
+                  echo "=== HELM DEBUG INFORMATION ==="
+                  echo "========================================"
+
+                  echo ""
+                  echo "=== Helm Releases ==="
+                  helm list -n "${{ env.CAMUNDA_NAMESPACE }}" -a
+
+                  echo ""
+                  echo "=== Helm Status ==="
+                  helm status "${{ env.CAMUNDA_RELEASE_NAME }}" -n "${{ env.CAMUNDA_NAMESPACE }}" || true
+
+                  echo ""
+                  echo "=== Helm History ==="
+                  helm history "${{ env.CAMUNDA_RELEASE_NAME }}" -n "${{ env.CAMUNDA_NAMESPACE }}" || true
+
+                  echo ""
+                  echo "=== Helm Values (computed) ==="
+                  helm get values "${{ env.CAMUNDA_RELEASE_NAME }}" -n "${{ env.CAMUNDA_NAMESPACE }}" --all || true
+
+                  echo ""
+                  echo "=== Helm Notes ==="
+                  helm get notes "${{ env.CAMUNDA_RELEASE_NAME }}" -n "${{ env.CAMUNDA_NAMESPACE }}" || true
+
+                  echo ""
+                  echo "=== Helm Hooks ==="
+                  helm get hooks "${{ env.CAMUNDA_RELEASE_NAME }}" -n "${{ env.CAMUNDA_NAMESPACE }}" || true
+
+            - name: Cleanup
+              if: always()
+              run: |
+                  set -euo pipefail
+
+                  echo "Cleaning up Kind cluster: ${{ env.CLUSTER_NAME }}"
+                  kind delete cluster --name "${{ env.CLUSTER_NAME }}" || true
+
+    report-success:
+        name: Report success
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Prevent other runs for renovate
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
+    report-failure:
+        name: Report failures
+        if: failure()
+        runs-on: ubuntu-latest
+        needs:
+            - report-success
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: ${{ env.IS_SCHEDULE == 'true' }}
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

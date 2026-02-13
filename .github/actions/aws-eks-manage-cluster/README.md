@@ -34,7 +34,7 @@ This action will also install Terraform, awscli, and kubectl. The kube context w
 | --- | --- |
 | `eks-cluster-endpoint` | <p>The API endpoint of the deployed EKS cluster</p> |
 | `terraform-state-url` | <p>URL of the Terraform state file in the S3 bucket</p> |
-| `all-terraform-outputs` | <p>All outputs from Terraform</p> |
+| `all-terraform-outputs` | <p>All outputs from Terraform as a JSON blob</p> |
 
 
 ## Runs

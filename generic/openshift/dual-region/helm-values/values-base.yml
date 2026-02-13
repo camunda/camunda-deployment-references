@@ -22,6 +22,8 @@ global:
             # Disable the Identity authentication
             # it will fall back to basic-auth: demo/demo as default user
             enabled: false
+    elasticsearch:
+        enabled: true
 
     compatibility:
         openshift:

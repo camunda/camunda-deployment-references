@@ -120,6 +120,7 @@
       },
       "type": "aws_iam_policy",
       "values": {
+        "delay_after_policy_creation_in_ms": null,
         "description": "Policy for CloudWatch to allow monitoring of the EC2 instances",
         "name": "camunda-cloudwatch-policy",
         "path": "/",
@@ -199,6 +200,7 @@
         "primary_network_interface": [],
         "private_dns_name_options": [],
         "root_block_device": [],
+        "secondary_network_interface": [],
         "secondary_private_ips": [],
         "security_groups": [],
         "tags": {},
@@ -262,6 +264,7 @@
             "tags_all": {}
           }
         ],
+        "secondary_network_interface": [],
         "secondary_private_ips": [],
         "security_groups": [],
         "tags": {},
@@ -335,6 +338,7 @@
             "tags_all": {}
           }
         ],
+        "secondary_network_interface": [],
         "secondary_private_ips": [],
         "security_groups": [],
         "tags": {},
@@ -408,6 +412,7 @@
             "tags_all": {}
           }
         ],
+        "secondary_network_interface": [],
         "secondary_private_ips": [],
         "security_groups": [],
         "tags": {},
@@ -891,6 +896,7 @@
       "values": {
         "availability_zone": null,
         "port": 9090,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -905,6 +911,7 @@
       "values": {
         "availability_zone": null,
         "port": 9090,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -919,6 +926,7 @@
       "values": {
         "availability_zone": null,
         "port": 9090,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -933,6 +941,7 @@
       "values": {
         "availability_zone": null,
         "port": 26500,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -947,6 +956,7 @@
       "values": {
         "availability_zone": null,
         "port": 26500,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -961,6 +971,7 @@
       "values": {
         "availability_zone": null,
         "port": 26500,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -975,6 +986,7 @@
       "values": {
         "availability_zone": null,
         "port": 8080,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -989,6 +1001,7 @@
       "values": {
         "availability_zone": null,
         "port": 8080,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -1003,6 +1016,7 @@
       "values": {
         "availability_zone": null,
         "port": 8080,
+        "quic_server_id": null,
         "region": "eu-west-2"
       }
     },
@@ -2582,8 +2596,11 @@
             "enable_lni_at_device_index": null,
             "enable_resource_name_dns_a_record_on_launch": false,
             "enable_resource_name_dns_aaaa_record_on_launch": false,
-            "ipv6_cidr_block": null,
+            "ipv4_ipam_pool_id": null,
+            "ipv4_netmask_length": null,
+            "ipv6_ipam_pool_id": null,
             "ipv6_native": false,
+            "ipv6_netmask_length": null,
             "map_customer_owned_ip_on_launch": null,
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
@@ -2623,8 +2640,11 @@
             "enable_lni_at_device_index": null,
             "enable_resource_name_dns_a_record_on_launch": false,
             "enable_resource_name_dns_aaaa_record_on_launch": false,
-            "ipv6_cidr_block": null,
+            "ipv4_ipam_pool_id": null,
+            "ipv4_netmask_length": null,
+            "ipv6_ipam_pool_id": null,
             "ipv6_native": false,
+            "ipv6_netmask_length": null,
             "map_customer_owned_ip_on_launch": null,
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
@@ -2664,8 +2684,11 @@
             "enable_lni_at_device_index": null,
             "enable_resource_name_dns_a_record_on_launch": false,
             "enable_resource_name_dns_aaaa_record_on_launch": false,
-            "ipv6_cidr_block": null,
+            "ipv4_ipam_pool_id": null,
+            "ipv4_netmask_length": null,
+            "ipv6_ipam_pool_id": null,
             "ipv6_native": false,
+            "ipv6_netmask_length": null,
             "map_customer_owned_ip_on_launch": null,
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
@@ -2705,8 +2728,11 @@
             "enable_lni_at_device_index": null,
             "enable_resource_name_dns_a_record_on_launch": false,
             "enable_resource_name_dns_aaaa_record_on_launch": false,
-            "ipv6_cidr_block": null,
+            "ipv4_ipam_pool_id": null,
+            "ipv4_netmask_length": null,
+            "ipv6_ipam_pool_id": null,
             "ipv6_native": false,
+            "ipv6_netmask_length": null,
             "map_customer_owned_ip_on_launch": null,
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
@@ -2746,8 +2772,11 @@
             "enable_lni_at_device_index": null,
             "enable_resource_name_dns_a_record_on_launch": false,
             "enable_resource_name_dns_aaaa_record_on_launch": false,
-            "ipv6_cidr_block": null,
+            "ipv4_ipam_pool_id": null,
+            "ipv4_netmask_length": null,
+            "ipv6_ipam_pool_id": null,
             "ipv6_native": false,
+            "ipv6_netmask_length": null,
             "map_customer_owned_ip_on_launch": null,
             "map_public_ip_on_launch": false,
             "outpost_arn": null,
@@ -2787,8 +2816,11 @@
             "enable_lni_at_device_index": null,
             "enable_resource_name_dns_a_record_on_launch": false,
             "enable_resource_name_dns_aaaa_record_on_launch": false,
-            "ipv6_cidr_block": null,
+            "ipv4_ipam_pool_id": null,
+            "ipv4_netmask_length": null,
+            "ipv6_ipam_pool_id": null,
             "ipv6_native": false,
+            "ipv6_netmask_length": null,
             "map_customer_owned_ip_on_launch": null,
             "map_public_ip_on_launch": false,
             "outpost_arn": null,

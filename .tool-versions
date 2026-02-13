@@ -15,45 +15,51 @@
 # diff <(sed '/^#/d; /^$/d' .tool-versions | sort) <(sed '/^#/d; /^$/d' .tool-versions) && echo ".tool-versions is sorted correctly" || echo ".tool-versions is not sorted correctly"
 
 # renovate: datasource=github-tags depName=rhysd/actionlint
-actionlint 1.7.9
+actionlint 1.7.10
 
-awscli 2.32.16
+awscli 2.33.17
 
 delta 0.18.2
 
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
-eksctl 0.220.0
+eksctl 0.222.0
 
-golang 1.25.5
+golang 1.25.7
 
 # renovate: datasource=github-tags depName=fullstorydev/grpcurl
 grpcurl 1.9.3
 
 # datasource=custom.helm-camunda depName=helm
-helm 3.19.3
+helm 3.19.4
 
 jq 1.7.1
 
-just 1.45.0
+just 1.46.0
 
-kubectl 1.34.3
+# renovate: datasource=github-tags depName=kubernetes-sigs/kind
+kind 0.31.0
+
+kubectl 1.35.0
 
 kustomize 5.8.0 # used by the tests
 
-pre-commit 4.5.0
+# renovate: datasource=github-tags depName=FiloSottile/mkcert
+mkcert 1.4.4
 
-python 3.14.2
+pre-commit 4.5.1
+
+python 3.14.3
 
 shellcheck 0.11.0
 
 task 3.30.1  # used by the tests
 
-terraform 1.14.2
+terraform 1.14.4
 
 terraform-docs 0.21.0
 
-tflint 0.60.0
+tflint 0.61.0
 
 trivy 0.60.0
 
-yq 4.49.2
+yq 4.52.2

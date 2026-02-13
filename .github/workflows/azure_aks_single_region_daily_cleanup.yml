@@ -1,0 +1,173 @@
+---
+name: Tests - Daily Cleanup - Azure Kubernetes AKS Single Region
+
+permissions:
+    id-token: write # this is required for azure login
+    contents: write # allow commits
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+
+on:
+    workflow_dispatch:
+        inputs:
+            max_age_hours_cluster:
+                description: Maximum age of clusters in hours
+                required: true
+                default: '12'
+    pull_request:
+        paths:
+            - .github/workflows/azure_aks_single_region_daily_cleanup.yml
+            - .tool-versions
+            - azure/kubernetes/aks-single-region*/**
+            - '!azure/kubernetes/aks-single-region/test/golden/**'
+            - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
+
+    schedule:
+        - cron: 0 4 * * * # At 04:00 everyday.
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
+    cancel-in-progress: false
+
+env:
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
+
+    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
+
+    # please keep those variables synced with azure_kubernetes_aks_single_region_tests.yml
+    AWS_PROFILE: infex
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    AWS_REGION: eu-central-1
+
+    # Test environment for cloud provider, please keep it synced between the workflows
+    AZURE_REGION: swedencentral
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    cleanup-clusters:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              with:
+                  ref: ${{ github.ref }}
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AZURE_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
+                      secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
+
+            - name: Azure Login with OIDC
+              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              with:
+                  client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+
+            - name: Use repo .tool-version as global version
+              run: cp .tool-versions ~/.tool-versions
+
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Export S3_BACKEND_BUCKET based on matrix
+              id: s3_prefix
+              run: |
+                  set -euo pipefail
+                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/aks-single-region/" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Delete clusters
+              id: delete_clusters
+              continue-on-error: true
+              timeout-minutes: 90 # Auth token have a max lifetime of 60 - 90 minutes
+              uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours-cluster: ${{ env.MAX_AGE_HOURS_CLUSTER }}
+                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+
+            # The previous step has a continue-on-error set to true in case of schedule run.
+            # This means that the workflow is not marked as failed, but the step is.
+            # We can't use the `if: failure()` condition here, as the overall job is succeeding.
+            # Instead, we check the outcome of the previous step and if it failed, we retry the deletion.
+            # If the retry fails, then the report-failure job will be triggered as normally.
+
+            # Login again to Azure with OIDC to gain a new token
+            - name: Azure Login with OIDC
+              if: steps.delete_clusters.outcome == 'failure'
+              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              with:
+                  client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+
+            # There are cases where the deletion of resources fails due to dependencies.
+            - name: Retry delete clusters
+              id: retry_delete_clusters
+              if: steps.delete_clusters.outcome == 'failure'
+              timeout-minutes: 125
+              uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
+              env:
+                  RETRY_DESTROY: 'true' # trigger az deletion of rg
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours-cluster: 0 # the previous step alters the age and resets it to 0
+                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+
+    report-failure:
+        name: Report failures
+        if: failure()
+        runs-on: ubuntu-latest
+        needs:
+            - cleanup-clusters
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: ${{ env.IS_SCHEDULE == 'true' }}
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

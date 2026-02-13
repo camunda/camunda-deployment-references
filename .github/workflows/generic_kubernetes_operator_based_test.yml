@@ -69,7 +69,7 @@ concurrency:
     cancel-in-progress: false
 
 env:
-    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
 
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
@@ -108,7 +108,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -122,12 +122,12 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -150,13 +150,13 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
             - name: Import Secrets
               id: secrets
@@ -275,8 +275,7 @@ jobs:
                   source ${{ github.workspace }}/.github/scripts/gha-functions.sh
 
                   export_new_env_vars_to_file \
-                      ${{ github.workspace }}/aws/kubernetes/eks-single-region/procedure/export-helm-values.sh \
-                      ${{ runner.temp }}/outputs_raw
+                      ${{ github.workspace }}/aws/kubernetes/eks-single-region/procedure/export-helm-values.sh
 
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
               id: encrypt_outputs
@@ -334,10 +333,10 @@ jobs:
             # Do not change this secret name without updating manifests that reference this TLS secret
             WILDCARD_TLS_SECRET_NAME: camunda-tls
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
             - name: Install CLI tools from OpenShift Mirror
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -391,11 +390,8 @@ jobs:
               timeout-minutes: 3
               run: |
                   set -euo pipefail
-
-                  # Export the decrypted outputs as environment variables
-                  while IFS= read -r line; do
-                    echo "$line" | tee -a "$GITHUB_ENV"
-                  done < "${{ runner.temp }}/outputs_raw"
+                  source .github/scripts/gha-functions.sh
+                  export_file_to_github_env "${{ runner.temp }}/outputs_raw"
 
             - name: Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
@@ -546,13 +542,7 @@ jobs:
                       echo "Processing and merging OpenShift route configurations (orchestration + connectors)..."
 
                       # Process both orchestration-route.yml and connectors-route.yml with envsubst
-                      CAMUNDA_RELEASE_NAME="$CAMUNDA_RELEASE_NAME" \
-                      CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}" \
-                      DOMAIN_NAME="$CAMUNDA_DOMAIN" \
                       envsubst < "../../../generic/openshift/single-region/helm-values/orchestration-route.yml" > orchestration-route-processed.yml
-
-                      CAMUNDA_RELEASE_NAME="$CAMUNDA_RELEASE_NAME" \
-                      CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}" \
                       envsubst < "../../../generic/openshift/single-region/helm-values/connectors-route.yml" > connectors-route-processed.yml
 
                       # Merge processed routes with assembled values and apply TLS adjustments
@@ -660,13 +650,7 @@ jobs:
                   set -euo pipefail
 
                   echo "Deploying PostgreSQL clusters..."
-                  if [[ "${{ matrix.distro.type }}" == "openshift" ]]; then
-                      POSTGRES_SCRIPT="./deploy-openshift.sh"
-                  else
-                      POSTGRES_SCRIPT="./deploy.sh"
-                  fi
-
-                  if ! (cd postgresql && $POSTGRES_SCRIPT); then
+                  if ! (cd postgresql && ./deploy.sh); then
                       echo "ERROR: PostgreSQL deployment failed"
                       kubectl get pods -n cnpg-system || true
                       kubectl get pods -n "$CAMUNDA_NAMESPACE" || true
@@ -696,8 +680,9 @@ jobs:
                   set -euo pipefail
                   echo "Creating Camunda Identity credentials..."
                   source .github/scripts/gha-functions.sh
-                  export_new_env_vars ./generic/kubernetes/single-region/procedure/generate-passwords.sh
-                  ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
+
+                  export_new_env_vars ./generic/kubernetes/single-region/tests/procedure/generate-passwords.sh
+                  ./generic/kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh
 
             - name: Create test secrets (Docker registry & identity integration)
               if: env.TESTS_ENABLED == 'true'
@@ -790,7 +775,7 @@ jobs:
                   skip-c8sm-connectivity-ingress-class-check: ${{ matrix.distro.type == 'openshift' && 'true' || 'false' }}
 
                   # Service name for operator-based deployment
-                  keycloak-service-name: keycloak-service:8080
+                  keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200
 
                   # Authentication tokens (from Vault secrets)
@@ -799,15 +784,10 @@ jobs:
 
             - name: 🚨🔬 Get failed Pods info
               if: failure()
-              run: |
-                  set -euo pipefail
-
-                  kubectl -n "$CAMUNDA_NAMESPACE" get po
-                  kubectl -n "$CAMUNDA_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
-                    echo -e "\n###Failed Pod: ${pod_name}###\n";
-                    kubectl -n "$CAMUNDA_NAMESPACE" describe po "$pod_name";
-                    kubectl -n "$CAMUNDA_NAMESPACE" logs "$pod_name";
-                  done
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
 
     cleanup-clusters:
         name: Cleanup clusters
@@ -823,14 +803,14 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
 
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
             - name: Import Secrets
               id: secrets
@@ -898,7 +878,7 @@ jobs:
             - integration-tests
             - cleanup-clusters
         steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -916,7 +896,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

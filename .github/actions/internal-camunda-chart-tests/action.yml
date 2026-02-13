@@ -112,6 +112,18 @@ inputs:
     enable-c8sm-zeebe-connectivity-check:
         description: Whether the C8 SM Zeebe connectivity check should be run
         default: 'true'
+    local-domain-mode:
+        description: >
+            Enable local domain mode. When true, /etc/hosts entries will be added
+            to resolve camunda.example.com and zeebe-camunda.example.com to 127.0.0.1.
+            This is required for local Kind clusters with domain-based access where
+            the runner needs to access the ingress via localhost.
+        default: 'false'
+    local-domain-ip:
+        description: >
+            The IP address to use for local domain resolution in /etc/hosts.
+            Defaults to 127.0.0.1 for standard local development.
+        default: 127.0.0.1
 
 runs:
     using: composite
@@ -131,7 +143,7 @@ runs:
                   secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
 
         - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
-          uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
           if: ${{ inputs.enable-helm-chart-tests == 'true' }}
           with:
               repository: camunda/camunda-platform-helm
@@ -140,7 +152,7 @@ runs:
               fetch-depth: 0
 
         - name: 🧙‍♂️ Clone camunda/c8-sm-checks
-          uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
           with:
               repository: camunda/c8-sm-checks
               ref: ${{ inputs.tests-c8-sm-checks-repo-ref }}
@@ -225,7 +237,7 @@ runs:
 
               # setup docker registry secret for tests
               echo "TEST_CREATE_DOCKER_LOGIN_SECRET=true" | tee -a "$GITHUB_ENV"
-              echo "TEST_DOCKER_USERNAME_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_USERNAME }}" | tee -a "$GITHUB_ENV"
+              echo "TEST_DOCKER_USERNAME_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_USER }}" | tee -a "$GITHUB_ENV"
               echo "TEST_DOCKER_PASSWORD_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" | tee -a "$GITHUB_ENV"
 
               CI_TASKS_BASE_DIR="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/test/integration/scenarios/"
@@ -373,7 +385,7 @@ runs:
           if: ${{ inputs.enable-zeebe-client-tests == 'true' }}
           shell: bash
           env:
-              DOMAIN_NAME: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
               CLUSTER_2_NAME: ${{ inputs.cluster-2-name || '' }}
               CAMUNDA_NAMESPACE_2: ${{ inputs.camunda-namespace-2 || '' }}
               CAMUNDA_NAMESPACE_1: ${{ inputs.camunda-namespace-1 || '' }}
@@ -416,7 +428,7 @@ runs:
               PORT_FORWARD_PIDS=()
 
               # Dual-Region includes the portforwarding itself, therefore skipping it here
-              if [[ -z "$DOMAIN_NAME" && -z "$CLUSTER_2_NAME" ]]; then
+              if [[ -z "$CAMUNDA_DOMAIN" && -z "$CLUSTER_2_NAME" ]]; then
                 # Without domain:
                 source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 
@@ -627,6 +639,39 @@ runs:
                 -n "$NAMESPACE" \
                 -p "$PG_COMPONENTS" \
                 -l "$OS_COMPONENTS"
+
+        - name: 🔧 Configure /etc/hosts for local domain mode
+          if: ${{ inputs.local-domain-mode == 'true' && inputs.camunda-domain != '' }}
+          shell: bash
+          env:
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
+              LOCAL_DOMAIN_IP: ${{ inputs.local-domain-ip }}
+          run: |
+              set -euo pipefail
+
+              echo "🔧 Configuring /etc/hosts for local domain mode..."
+              echo "   Using IP: $LOCAL_DOMAIN_IP"
+
+              # Add main Camunda domain
+              if [[ -n "$CAMUNDA_DOMAIN" ]]; then
+                echo "Adding hosts entry: $LOCAL_DOMAIN_IP $CAMUNDA_DOMAIN"
+                echo "$LOCAL_DOMAIN_IP $CAMUNDA_DOMAIN" | sudo tee -a /etc/hosts
+              fi
+
+              # Add gRPC domain if different from main domain
+              # Extract hostname from port if present (e.g., zeebe-camunda.example.com:443 -> zeebe-camunda.example.com)
+              if [[ -n "$CAMUNDA_DOMAIN_GRPC" ]]; then
+                GRPC_HOST="${CAMUNDA_DOMAIN_GRPC%%:*}"
+                if [[ "$GRPC_HOST" != "$CAMUNDA_DOMAIN" ]]; then
+                  echo "Adding hosts entry: $LOCAL_DOMAIN_IP $GRPC_HOST"
+                  echo "$LOCAL_DOMAIN_IP $GRPC_HOST" | sudo tee -a /etc/hosts
+                fi
+              fi
+
+              echo ""
+              echo "✅ /etc/hosts configured for local domain mode:"
+              grep -E "($CAMUNDA_DOMAIN|${CAMUNDA_DOMAIN_GRPC%%:*})" /etc/hosts || true
 
         - name: 🧪 C8-SM-CHECKS - Run Zeebe Token Generation Check
           if: ${{ inputs.enable-c8sm-zeebe-token-check == 'true' && inputs.zeebe-authenticated == 'true' && inputs.camunda-domain != '' }}

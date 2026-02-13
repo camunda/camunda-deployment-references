@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 while true; do
   echo "Checking pods in context: $CLUSTER_1_NAME, namespace: $CAMUNDA_NAMESPACE_1";
   kubectl --context="$CLUSTER_1_NAME" get pods -n "$CAMUNDA_NAMESPACE_1" --output=wide;

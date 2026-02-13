@@ -1,0 +1,16 @@
+---
+# OIDC Domain Overlay - Redirect URLs for Domain mode
+#
+# This file extends values-oidc.yml with domain-specific URLs.
+# Merge order: values-domain.yml + values-oidc.yml + values-oidc-domain.yml
+#   yq ". *+ load(\"values-oidc.yml\") *+ load(\"values-oidc-domain.yml\")" values-domain.yml > values.yml
+#
+# Required environment variables:
+#   - CAMUNDA_DOMAIN: Your domain name
+
+orchestration:
+    security:
+        authentication:
+            oidc:
+                # Note: The Helm chart appends '/sso-callback' to this URL
+                redirectUrl: https://${CAMUNDA_DOMAIN}

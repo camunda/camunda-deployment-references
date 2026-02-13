@@ -82,6 +82,7 @@
                 "service_cidrs": []
               }
             ],
+            "node_provisioning_profile": [],
             "oms_agent": [],
             "service_mesh_profile": [],
             "service_principal": [],
@@ -127,7 +128,7 @@
                 "node_public_ip_enabled": null,
                 "node_public_ip_prefix_id": null,
                 "only_critical_addons_enabled": true,
-                "orchestrator_version": "1.33",
+                "orchestrator_version": "1.34",
                 "os_disk_size_gb": 30,
                 "os_disk_type": "Managed",
                 "pod_subnet_id": null,
@@ -174,7 +175,7 @@
               }
             ],
             "key_vault_secrets_provider": [],
-            "kubernetes_version": "1.33",
+            "kubernetes_version": "1.34",
             "linux_profile": [],
             "local_account_disabled": null,
             "location": "swedencentral",
@@ -269,7 +270,7 @@
             "node_public_ip_enabled": null,
             "node_public_ip_prefix_id": null,
             "node_taints": null,
-            "orchestrator_version": "1.33",
+            "orchestrator_version": "1.34",
             "os_disk_size_gb": 30,
             "os_disk_type": "Managed",
             "os_type": "Linux",
@@ -342,7 +343,6 @@
           },
           "type": "azurerm_key_vault",
           "values": {
-            "enable_rbac_authorization": true,
             "enabled_for_deployment": null,
             "enabled_for_disk_encryption": true,
             "enabled_for_template_deployment": true,
@@ -358,6 +358,7 @@
             ],
             "public_network_access_enabled": true,
             "purge_protection_enabled": true,
+            "rbac_authorization_enabled": true,
             "resource_group_name": "camunda-rg",
             "sku_name": "standard",
             "soft_delete_retention_days": 90,
@@ -365,89 +366,6 @@
               "Environment": "Testing",
               "Purpose": "Reference Implementation"
             },
-            "tenant_id": "cbd46654-4f74-4332-a490-69f0f071ba9f",
-            "timeouts": null
-          }
-        },
-        "module.kms.azurerm_key_vault_access_policy.aks_kms": {
-          "mode": "managed",
-          "name": "aks_kms",
-          "provider_name": "registry.terraform.io/hashicorp/azurerm",
-          "schema_version": 0,
-          "sensitive_values": {
-            "key_permissions": [
-              false,
-              false,
-              false,
-              false,
-              false,
-              false,
-              false,
-              false,
-              false,
-              false
-            ]
-          },
-          "type": "azurerm_key_vault_access_policy",
-          "values": {
-            "application_id": null,
-            "certificate_permissions": null,
-            "key_permissions": [
-              "Get",
-              "List",
-              "Create",
-              "Delete",
-              "Update",
-              "Import",
-              "Encrypt",
-              "Decrypt",
-              "WrapKey",
-              "UnwrapKey"
-            ],
-            "secret_permissions": null,
-            "storage_permissions": null,
-            "tenant_id": "cbd46654-4f74-4332-a490-69f0f071ba9f",
-            "timeouts": null
-          }
-        },
-        "module.kms.azurerm_key_vault_access_policy.tf_kv": {
-          "mode": "managed",
-          "name": "tf_kv",
-          "provider_name": "registry.terraform.io/hashicorp/azurerm",
-          "schema_version": 0,
-          "sensitive_values": {
-            "key_permissions": [
-              false,
-              false,
-              false,
-              false,
-              false,
-              false,
-              false,
-              false,
-              false,
-              false
-            ]
-          },
-          "type": "azurerm_key_vault_access_policy",
-          "values": {
-            "application_id": null,
-            "certificate_permissions": null,
-            "key_permissions": [
-              "Get",
-              "List",
-              "Create",
-              "Delete",
-              "WrapKey",
-              "UnwrapKey",
-              "GetRotationPolicy",
-              "SetRotationPolicy",
-              "Update",
-              "Rotate"
-            ],
-            "object_id": "4138cee6-a588-4911-9ddb-3b24145d639f",
-            "secret_permissions": null,
-            "storage_permissions": null,
             "tenant_id": "cbd46654-4f74-4332-a490-69f0f071ba9f",
             "timeouts": null
           }
@@ -552,6 +470,7 @@
           "sensitive_values": {},
           "type": "azurerm_user_assigned_identity",
           "values": {
+            "isolation_scope": null,
             "location": "swedencentral",
             "name": "camunda-uai",
             "resource_group_name": "camunda-rg",
@@ -964,6 +883,7 @@
           "sensitive_values": {
             "administrator_password": true,
             "authentication": [],
+            "cluster": [],
             "customer_managed_key": [],
             "high_availability": [
               {}
@@ -980,6 +900,7 @@
             "administrator_password_wo_version": null,
             "auto_grow_enabled": false,
             "backup_retention_days": 7,
+            "cluster": [],
             "create_mode": null,
             "customer_managed_key": [],
             "delegated_subnet_id": null,

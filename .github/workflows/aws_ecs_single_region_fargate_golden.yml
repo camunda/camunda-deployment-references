@@ -1,0 +1,74 @@
+---
+name: Tests - Golden - AWS Containers ECS Single Region Fargate
+
+on:
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/aws_ecs_single_region_fargate_golden.yml
+            - .tool-versions
+            - aws/containers/ecs-single-region-fargate/terraform/**
+            - aws/modules/ecs/**
+            - .github/actions/aws-configure-cli/**
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
+
+    AWS_PROFILE: infraex
+    AWS_REGION: eu-west-2
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    S3_BUCKET_KEY: golden.tfstate
+
+    MODULE_DIR: ./aws/containers/ecs-single-region-fargate/terraform/cluster/
+
+
+jobs:
+    triage:
+        runs-on: ubuntu-slim
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    compare:
+        runs-on: ubuntu-latest
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        permissions:
+            contents: write
+            pull-requests: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Run Terraform Golden Plan Comparison
+              uses: ./.github/actions/internal-terraform-golden-plan
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              with:
+                  module-dir: ${{ env.MODULE_DIR }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key: ${{ env.S3_BUCKET_KEY }}

@@ -1,0 +1,135 @@
+---
+name: Deploy Keycloak via Operator
+description: |
+    Deploys Keycloak using the Keycloak Operator with CloudNativePG PostgreSQL.
+    Uses scripts from generic/kubernetes/operator-based/ for deployment.
+
+inputs:
+    namespace:
+        description: Kubernetes namespace for deployment
+        required: false
+        default: camunda
+    keycloak-mode:
+        description: |
+            Keycloak deployment mode:
+            - 'domain': With ingress for domain access (nginx)
+            - 'domain-openshift': With ingress for OpenShift router
+            - 'no-domain': Without ingress (port-forward access)
+        required: false
+        default: no-domain
+    domain-name:
+        description: Domain name (required for domain mode)
+        required: false
+        default: ''
+    cnpg-operator-namespace:
+        description: Namespace for CNPG operator
+        required: false
+        default: cnpg-system
+
+outputs:
+    keycloak-admin-secret:
+        description: Name of the Keycloak admin secret
+        value: keycloak-initial-admin
+    keycloak-service:
+        description: Keycloak service name
+        value: keycloak-service
+    keycloak-port:
+        description: Keycloak service port
+        value: '18080'
+
+runs:
+    using: composite
+    steps:
+        - name: Deploy PostgreSQL for Keycloak via CloudNativePG
+          shell: bash
+          env:
+              CAMUNDA_NAMESPACE: ${{ inputs.namespace }}
+              CLUSTER_FILTER: pg-keycloak
+          run: |
+              set -euo pipefail
+
+              cd generic/kubernetes/operator-based/postgresql
+              ./deploy.sh "${{ inputs.cnpg-operator-namespace }}"
+
+        - name: Install Keycloak Operator and deploy instance
+          shell: bash
+          env:
+              CAMUNDA_NAMESPACE: ${{ inputs.namespace }}
+              CAMUNDA_DOMAIN: ${{ inputs.domain-name }}
+          run: |
+              set -euo pipefail
+
+              MODE="${{ inputs.keycloak-mode }}"
+              KEYCLOAK_DIR="generic/kubernetes/operator-based/keycloak"
+
+              # Select the right config file based on mode
+              case "$MODE" in
+                  "no-domain")
+                      export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-no-domain.yml"
+                      ;;
+                  "domain")
+                      export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-nginx.yml"
+                      ;;
+                  "domain-openshift")
+                      export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-openshift.yml"
+                      ;;
+                  *)
+                      echo "Error: Unknown mode '$MODE'" >&2
+                      exit 1
+                      ;;
+              esac
+
+              echo "🔑 Deploying Keycloak (mode: $MODE, config: $KEYCLOAK_CONFIG_FILE)..."
+
+              # Run the deploy script
+              "${KEYCLOAK_DIR}/deploy.sh"
+
+              echo "✓ Keycloak deployed"
+              kubectl wait --for=condition=Ready --timeout=600s keycloak --all -n "$CAMUNDA_NAMESPACE"
+              echo "✓ Keycloak instance deployed"
+
+        - name: Verify Keycloak admin secret
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              NAMESPACE="${{ inputs.namespace }}"
+
+              if kubectl get secret keycloak-initial-admin -n "$NAMESPACE" >/dev/null 2>&1; then
+                  echo "✓ keycloak-initial-admin secret exists"
+              else
+                  echo "❌ ERROR: keycloak-initial-admin secret not found!"
+                  exit 1
+              fi
+
+        - name: Create identity secrets for components
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              NAMESPACE="${{ inputs.namespace }}"
+
+              echo "🔐 Creating identity-secret-for-components..."
+
+              # Generate random secrets for all components
+              CONNECTORS_SECRET="$(openssl rand -hex 16)"
+              CONSOLE_SECRET="$(openssl rand -hex 16)"
+              WEB_MODELER_SECRET="$(openssl rand -hex 16)"
+              ORCHESTRATION_SECRET="$(openssl rand -hex 16)"
+              OPTIMIZE_SECRET="$(openssl rand -hex 16)"
+              ADMIN_PASSWORD="$(openssl rand -hex 16)"
+              FIRST_USER_PASSWORD="$(openssl rand -hex 16)"
+
+              # Key names must match generic/kubernetes/operator-based/tests/utils/camunda-values-identity-secrets.yml
+              kubectl create secret generic identity-secret-for-components \
+                  --namespace "$NAMESPACE" \
+                  --from-literal=identity-connectors-client-token="$CONNECTORS_SECRET" \
+                  --from-literal=identity-console-client-token="$CONSOLE_SECRET" \
+                  --from-literal=identity-webmodeler-client-token="$WEB_MODELER_SECRET" \
+                  --from-literal=identity-orchestration-client-token="$ORCHESTRATION_SECRET" \
+                  --from-literal=identity-optimize-client-token="$OPTIMIZE_SECRET" \
+                  --from-literal=identity-admin-client-token="$ADMIN_PASSWORD" \
+                  --from-literal=identity-first-user-password="$FIRST_USER_PASSWORD" \
+                  --dry-run=client -o yaml | kubectl apply -f -
+
+              echo "✓ identity-secret-for-components created"

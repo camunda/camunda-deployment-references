@@ -1,0 +1,18 @@
+---
+matrix:
+    distro:
+        - name: Kind
+          schedule_only: false
+
+    scenario:
+        - name: kind-single-region
+
+    declination:
+        - name: no-domain
+          use_tls: false
+          cluster_suffix: nodomain
+          desc: Setup chart without Ingress and TLS, using port-forward.
+        - name: domain
+          use_tls: true
+          cluster_suffix: domain
+          desc: Setup chart with Ingress and TLS using mkcert.

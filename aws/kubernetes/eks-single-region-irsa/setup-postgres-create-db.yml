@@ -1,5 +1,5 @@
 ---
-# this manifest creates the database
+# This manifest creates the databases for Camunda 8 components
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -23,19 +23,6 @@ spec:
 
                         echo "Installing dependencies..."
                         yum install -y postgresql15
-
-                        echo "Create keycloak user and associated database"
-                        echo "Note: Any message indicating that the user or the database already exists is informational and can be safely ignored."
-                        psql -h $AURORA_ENDPOINT -p $AURORA_PORT "sslmode=require dbname=postgres user=$AURORA_USERNAME password=$AURORA_PASSWORD" \
-                          -c "CREATE DATABASE \"${DB_KEYCLOAK_NAME}\";"
-
-                        # the grant SCHEMA public must be performed on the target database
-                        psql -h $AURORA_ENDPOINT -p $AURORA_PORT "sslmode=require dbname=$DB_KEYCLOAK_NAME user=$AURORA_USERNAME password=$AURORA_PASSWORD" \
-                          -c "CREATE USER \"${DB_KEYCLOAK_USERNAME}\" WITH LOGIN NOSUPERUSER CREATEDB CREATEROLE INHERIT;" \
-                          -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_KEYCLOAK_NAME}\" TO \"${DB_KEYCLOAK_USERNAME}\";" \
-                          -c "GRANT ALL ON SCHEMA public TO \"${DB_KEYCLOAK_USERNAME}\";" \
-                          -c "GRANT rds_iam TO \"${DB_KEYCLOAK_USERNAME}\";"
-
 
                         echo "Create identity user and associated database"
                         echo "Note: Any message indicating that the user or the database already exists is informational and can be safely ignored."
@@ -81,16 +68,6 @@ spec:
                             secretKeyRef:
                                 name: setup-db-secret
                                 key: AURORA_PASSWORD
-                      - name: DB_KEYCLOAK_NAME
-                        valueFrom:
-                            secretKeyRef:
-                                name: setup-db-secret
-                                key: DB_KEYCLOAK_NAME
-                      - name: DB_KEYCLOAK_USERNAME
-                        valueFrom:
-                            secretKeyRef:
-                                name: setup-db-secret
-                                key: DB_KEYCLOAK_USERNAME
                       - name: DB_IDENTITY_NAME
                         valueFrom:
                             secretKeyRef:
