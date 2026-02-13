@@ -656,52 +656,45 @@ jobs:
                   export CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
                   export CAMUNDA_RELEASE_NAME="camunda"
 
-                  # Run the validation script (still in migration-from-bitnami for now)
-                  if [[ -f ./generic/kubernetes/migration-from-bitnami/shared/test-data/validate-test-data.sh ]]; then
-                      ./generic/kubernetes/migration-from-bitnami/shared/test-data/validate-test-data.sh
-                  else
-                      echo "Test data validation script not found — running inline checks"
+                  # Quick validation: check ES indices exist and PG tables present
+                  ES_POD=$(kubectl get pods -n "${CAMUNDA_NAMESPACE}" \
+                      -l "elasticsearch.k8s.elastic.co/cluster-name" \
+                      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
 
-                      # Quick inline validation: check ES indices exist and PG tables present
-                      ES_POD=$(kubectl get pods -n "${CAMUNDA_NAMESPACE}" \
-                          -l "elasticsearch.k8s.elastic.co/cluster-name" \
-                          -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+                  if [[ -n "$ES_POD" ]]; then
+                      ES_PWD=$(kubectl get secret elasticsearch-es-elastic-user -n "${CAMUNDA_NAMESPACE}" \
+                          -o jsonpath='{.data.elastic}' 2>/dev/null | base64 -d || echo "")
+                      INDICES=$(kubectl exec -n "${CAMUNDA_NAMESPACE}" "$ES_POD" -- \
+                          curl -sf -u "elastic:${ES_PWD}" "localhost:9200/_cat/indices?h=index" 2>/dev/null || echo "")
+                      echo "ECK Elasticsearch indices after migration:"
+                      echo "$INDICES"
 
-                      if [[ -n "$ES_POD" ]]; then
-                          ES_PWD=$(kubectl get secret elasticsearch-es-elastic-user -n "${CAMUNDA_NAMESPACE}" \
-                              -o jsonpath='{.data.elastic}' 2>/dev/null | base64 -d || echo "")
-                          INDICES=$(kubectl exec -n "${CAMUNDA_NAMESPACE}" "$ES_POD" -- \
-                              curl -sf -u "elastic:${ES_PWD}" "localhost:9200/_cat/indices?h=index" 2>/dev/null || echo "")
-                          echo "ECK Elasticsearch indices after migration:"
-                          echo "$INDICES"
-
-                          if echo "$INDICES" | grep -qE "(operate|tasklist|zeebe)"; then
-                              echo "✓ Camunda indices found in ECK Elasticsearch"
-                          else
-                              echo "⚠ No Camunda indices detected — data may not have migrated"
-                          fi
+                      if echo "$INDICES" | grep -qE "(operate|tasklist|zeebe)"; then
+                          echo "✓ Camunda indices found in ECK Elasticsearch"
+                      else
+                          echo "⚠ No Camunda indices detected — data may not have migrated"
                       fi
-
-                      # Check CNPG clusters have tables
-                      for CLUSTER in pg-identity pg-keycloak pg-webmodeler; do
-                          SECRET="${CLUSTER}-secret"
-                          if kubectl get secret "$SECRET" -n "${CAMUNDA_NAMESPACE}" &>/dev/null; then
-                              PASSWORD=$(kubectl get secret "$SECRET" -n "${CAMUNDA_NAMESPACE}" \
-                                  -o jsonpath='{.data.password}' | base64 -d)
-                              USER=$(kubectl get secret "$SECRET" -n "${CAMUNDA_NAMESPACE}" \
-                                  -o jsonpath='{.data.username}' | base64 -d)
-                              DB=$(kubectl get secret "$SECRET" -n "${CAMUNDA_NAMESPACE}" \
-                                  -o jsonpath='{.data.dbname}' | base64 -d 2>/dev/null || echo "${CLUSTER#pg-}")
-
-                              TABLE_COUNT=$(kubectl run "pg-check-${CLUSTER}-${RANDOM}" --rm -i --restart=Never \
-                                  --image=postgres:15-alpine -n "${CAMUNDA_NAMESPACE}" -- \
-                                  psql "postgresql://${USER}:${PASSWORD}@${CLUSTER}-rw:5432/${DB}" \
-                                  -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" \
-                                  2>/dev/null || echo "0")
-                              echo "${CLUSTER}: ${TABLE_COUNT} tables in public schema"
-                          fi
-                      done
                   fi
+
+                  # Check CNPG clusters have tables
+                  for CLUSTER in pg-identity pg-keycloak pg-webmodeler; do
+                      SECRET="${CLUSTER}-secret"
+                      if kubectl get secret "$SECRET" -n "${CAMUNDA_NAMESPACE}" &>/dev/null; then
+                          PASSWORD=$(kubectl get secret "$SECRET" -n "${CAMUNDA_NAMESPACE}" \
+                              -o jsonpath='{.data.password}' | base64 -d)
+                          USER=$(kubectl get secret "$SECRET" -n "${CAMUNDA_NAMESPACE}" \
+                              -o jsonpath='{.data.username}' | base64 -d)
+                          DB=$(kubectl get secret "$SECRET" -n "${CAMUNDA_NAMESPACE}" \
+                              -o jsonpath='{.data.dbname}' | base64 -d 2>/dev/null || echo "${CLUSTER#pg-}")
+
+                          TABLE_COUNT=$(kubectl run "pg-check-${CLUSTER}-${RANDOM}" --rm -i --restart=Never \
+                              --image=postgres:15-alpine -n "${CAMUNDA_NAMESPACE}" -- \
+                              psql "postgresql://${USER}:${PASSWORD}@${CLUSTER}-rw:5432/${DB}" \
+                              -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" \
+                              2>/dev/null || echo "0")
+                          echo "${CLUSTER}: ${TABLE_COUNT} tables in public schema"
+                      fi
+                  done
 
                   echo "✓ Test data validation completed"
 
