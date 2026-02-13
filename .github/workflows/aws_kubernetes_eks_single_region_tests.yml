@@ -902,6 +902,8 @@ jobs:
                   enable-helm-playwright-tests: ${{ matrix.declination.name == 'domain' && 'true' || 'false' }}
                   helm-playwright-test-project: smoke-tests
                   helm-playwright-test-auth-type: keycloak
+                  helm-playwright-firstuser-secret-name: identity-secret-for-components
+                  helm-playwright-firstuser-secret-key: identity-first-user-password
 
             - name: 🔬🚨 Get failed certificate info
               if: failure() && matrix.declination.name == 'domain'

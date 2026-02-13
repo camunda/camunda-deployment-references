@@ -154,6 +154,41 @@ inputs:
             Test suites to exclude from Helm Playwright tests.
             Example: 'identity.spec.ts' or 'console.spec.ts|identity.spec.ts'
         default: ''
+    helm-playwright-orchestration-context-path:
+        description: >
+            Orchestration context path used by the Camunda deployment.
+            This maps to the ORCHESTRATION_CONTEXT_PATH env var used by Playwright tests
+            for navigating to Tasklist, Operate, and OC Identity.
+            Defaults to empty string (apps served at /, e.g. /tasklist, /operate).
+        default: ''
+    helm-playwright-identity-context-path:
+        description: >
+            Management Identity context path used by the Camunda deployment.
+            This maps to the MANAGEMENT_IDENTITY_CONTEXT_PATH env var used by Playwright tests.
+            Must match the identity.contextPath value in the Helm values.
+        default: /managementidentity
+    helm-playwright-firstuser-secret-name:
+        description: >
+            Name of the Kubernetes secret containing the Identity first user password.
+            For auto-generated secrets (Kind), use 'camunda-credentials'.
+            For manually provisioned secrets (EKS/AKS), use the appropriate secret name.
+        default: camunda-credentials
+    helm-playwright-firstuser-secret-key:
+        description: >
+            Key within the first user secret that contains the password.
+        default: identity-firstuser-password
+    helm-playwright-keycloak-secret-name:
+        description: >
+            Name of the Kubernetes secret containing the Keycloak admin password.
+        default: keycloak-initial-admin
+    helm-playwright-keycloak-secret-key:
+        description: >
+            Key within the Keycloak secret that contains the admin password.
+        default: password
+    helm-playwright-firstuser-username:
+        description: >
+            The username of the Camunda identity first user used for Playwright authentication.
+        default: admin
     helm-playwright-upload-artifacts:
         description: Whether to upload Playwright test artifacts on failure
         default: 'true'
@@ -830,12 +865,16 @@ runs:
           env:
               CAMUNDA_VERSION: ${{ inputs.camunda-version }}
               CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
-              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
               TEST_NAMESPACE: ${{ inputs.test-namespace }}
-              CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name }}
               TEST_AUTH_TYPE: ${{ inputs.helm-playwright-test-auth-type }}
               TEST_CLIENT_ID: ${{ inputs.test-client-id }}
-              TEST_CLIENT_SECRET: ${{ inputs.test-client-secret }}
+              ORCHESTRATION_CONTEXT_PATH: ${{ inputs.helm-playwright-orchestration-context-path }}
+              MANAGEMENT_IDENTITY_CONTEXT_PATH: ${{ inputs.helm-playwright-identity-context-path }}
+              FIRSTUSER_USERNAME: ${{ inputs.helm-playwright-firstuser-username }}
+              FIRSTUSER_SECRET_NAME: ${{ inputs.helm-playwright-firstuser-secret-name }}
+              FIRSTUSER_SECRET_KEY: ${{ inputs.helm-playwright-firstuser-secret-key }}
+              KEYCLOAK_SECRET_NAME: ${{ inputs.helm-playwright-keycloak-secret-name }}
+              KEYCLOAK_SECRET_KEY: ${{ inputs.helm-playwright-keycloak-secret-key }}
           run: |
               set -euo pipefail
 
@@ -843,51 +882,53 @@ runs:
 
               echo "📝 Setting up Playwright environment file..."
 
-              # Base URLs
-              cat > "$ENV_FILE" << EOF
-              # Camunda Platform URLs
+              # Write .env file (no leading whitespace — dotenv requires flush-left lines)
+              cat > "$ENV_FILE" <<ENVEOF
               OAUTH_URL=https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform/protocol/openid-connect/token
-
-              # Login paths
-              ORCHESTRATION_CONTEXT_PATH=""
-              MANAGEMENT_IDENTITY_CONTEXT_PATH="managementidentity"
-
-              # Authentication
+              ORCHESTRATION_CONTEXT_PATH=${ORCHESTRATION_CONTEXT_PATH}
+              MANAGEMENT_IDENTITY_CONTEXT_PATH=${MANAGEMENT_IDENTITY_CONTEXT_PATH}
               TEST_AUTH_TYPE=${TEST_AUTH_TYPE}
               TEST_CLIENT_ID=${TEST_CLIENT_ID}
               TASKLIST_VERSION=v2
               PLAYWRIGHT_BASE_URL=https://${CAMUNDA_DOMAIN}
-              MINOR_VERSION="SM-${CAMUNDA_VERSION}"
-              DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME=admin
-              EOF
+              KEYCLOAK_URL=https://${CAMUNDA_DOMAIN}
+              MINOR_VERSION=SM-${CAMUNDA_VERSION}
+              CLUSTER_VERSION=
+              DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME=${}
+              CI=true
+              VERBOSE=true
+              ENVEOF
 
-              # Fisrt user credentials
+              # Remove leading whitespace from every line (heredoc inside YAML inherits indentation)
+              sed -i 's/^[[:space:]]*//' "$ENV_FILE"
+
+              # First user credentials
               firstuser_password=$(kubectl -n "$TEST_NAMESPACE" \
-                get secret camunda-credentials \
-                -o jsonpath="{.data.identity-firstuser-password}" 2>/dev/null | base64 -d 2>/dev/null)
+                get secret "$FIRSTUSER_SECRET_NAME" \
+                -o jsonpath="{.data.${FIRSTUSER_SECRET_KEY}}" 2>/dev/null | base64 -d 2>/dev/null || true)
 
               if [[ -n "$firstuser_password" ]]; then
                 echo "::add-mask::$firstuser_password"
+              else
+                echo "⚠️ Could not extract first user password from secret $FIRSTUSER_SECRET_NAME/$FIRSTUSER_SECRET_KEY"
               fi
               echo "DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_PASSWORD=${firstuser_password}" >> "$ENV_FILE"
 
-              # keycloak pass
+              # Keycloak admin password
               keycloak_password=$(kubectl -n "$TEST_NAMESPACE" \
-                get secret keycloak-initial-admin \
-                -o jsonpath="{.data.password}" 2>/dev/null | base64 -d 2>/dev/null)
+                get secret "$KEYCLOAK_SECRET_NAME" \
+                -o jsonpath="{.data.${KEYCLOAK_SECRET_KEY}}" 2>/dev/null | base64 -d 2>/dev/null || true)
 
               if [[ -n "$keycloak_password" ]]; then
                 echo "::add-mask::$keycloak_password"
+              else
+                echo "⚠️ Could not extract keycloak password from secret $KEYCLOAK_SECRET_NAME/$KEYCLOAK_SECRET_KEY"
               fi
               echo "DISTRO_QA_E2E_TESTS_KEYCLOAK_PASSWORD=${keycloak_password}" >> "$ENV_FILE"
 
-              # Additional settings
-              cat >> "$ENV_FILE" << EOF
-              CI=true
-              VERBOSE=true
-              EOF
-
               echo "✅ Environment file created at $ENV_FILE"
+              echo "📋 .env contents (secrets masked):"
+              grep -v 'PASSWORD' "$ENV_FILE" || true
 
         - name: 🎭 HELM PLAYWRIGHT - Run e2e tests
           id: helm-playwright-tests
@@ -906,16 +947,13 @@ runs:
               echo "   Auth type: $TEST_AUTH_TYPE"
               echo "   Exclude: ${TEST_EXCLUDE:-none}"
 
-              # Patch Playwright config to ignore HTTPS errors
+              # Patch Playwright config to ignore HTTPS errors (self-signed certs in CI)
               node -e "
                 const fs = require('fs');
                 let config = fs.readFileSync('playwright.config.ts', 'utf8');
                 config = config.replace(/use:\s*{/, 'use: {\n    ignoreHTTPSErrors: true,');
                 fs.writeFileSync('playwright.config.ts', config);
               "
-
-              echo "Cat .env file contents"
-              cat .env
 
               # Build playwright arguments
               PLAYWRIGHT_ARGS="--project=$TEST_PROJECT --reporter=html,list"
