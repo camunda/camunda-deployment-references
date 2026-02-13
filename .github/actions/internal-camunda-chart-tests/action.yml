@@ -849,19 +849,15 @@ runs:
               OAUTH_URL=https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform/protocol/openid-connect/token
 
               # Login paths
-              CONSOLE_LOGIN_PATH=/login
-              IDENTITY_LOGIN_PATH=/login
-              OPERATE_LOGIN_PATH=/login
-              OPTIMIZE_LOGIN_PATH=/api/authentication/callback
-              TASKLIST_LOGIN_PATH=/login
-              CONNECTORS_LOGIN_PATH=/login
+              ORCHESTRATION_CONTEXT_PATH=""
+              MANAGEMENT_IDENTITY_CONTEXT_PATH="managementidentity"
 
               # Authentication
               TEST_AUTH_TYPE=${TEST_AUTH_TYPE}
               TEST_CLIENT_ID=${TEST_CLIENT_ID}
               TASKLIST_VERSION=v2
               PLAYWRIGHT_BASE_URL=https://${CAMUNDA_DOMAIN}
-              CLUSTER_VERSION=${CAMUNDA_VERSION}
+              MINOR_VERSION="SM-${CAMUNDA_VERSION}"
               DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME=admin
               EOF
 
