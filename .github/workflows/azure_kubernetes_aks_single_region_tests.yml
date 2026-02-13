@@ -137,7 +137,9 @@ jobs:
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
                   ref_arch: ${{ inputs.ref-arch }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  # TODO: revert
+                  cluster_name: l23
+                  # cluster_name: ${{ inputs.cluster_name }}
     prepare-clusters:
         name: Prepare clusters
         needs:
@@ -220,13 +222,9 @@ jobs:
               if: always() && success()
               timeout-minutes: 120
               with:
-                  resource-prefix: l19
-                  cluster-name: l19-${{matrix.scenario.shortName }}-aks
-                  resource-group-name: l19-${{matrix.scenario.shortName }}-rg
-                  # TODO: removes
-                  # resource-prefix: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
-                  # cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-aks
-                  # resource-group-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-rg
+                  resource-prefix: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-aks
+                  resource-group-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-rg
                   location: ${{ env.AZURE_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
