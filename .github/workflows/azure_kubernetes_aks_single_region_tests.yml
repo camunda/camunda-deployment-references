@@ -87,9 +87,7 @@ env:
     # Test environment for cloud provider, please keep it synced between the workflows
     AZURE_REGION: swedencentral
 
-    CLEANUP_CLUSTERS: 'false'
-    # TODO: revert
-    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
@@ -137,9 +135,7 @@ jobs:
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
                   ref_arch: ${{ inputs.ref-arch }}
-                  # TODO: revert
-                  cluster_name: l23
-                  # cluster_name: ${{ inputs.cluster_name }}
+                  cluster_name: ${{ inputs.cluster_name }}
     prepare-clusters:
         name: Prepare clusters
         needs:
@@ -672,11 +668,6 @@ jobs:
                   fi
 
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
-
-            - name: tmate debugging session
-              if: always()
-              uses: mxschmitt/action-tmate@v3
-              timeout-minutes: 30
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
