@@ -58,9 +58,10 @@ runs:
 
               # Prioritize CrashLoopBackOff/Error pods first, then other non-ready pods
               # Use --tail to prevent verbose logs (e.g., connectors gRPC retries) from truncating CI output
+              # Note: use awk instead of grep to avoid exit code 1 (no match) killing the script under pipefail
               {
-                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers | grep -E "CrashLoopBackOff|Error" | awk '{print $1}'
-                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers | grep -v "Completed" | grep -v "CrashLoopBackOff" | grep -v "Error" | awk '/0\//{print $1}'
+                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers | awk '/CrashLoopBackOff|Error/{print $1}'
+                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers | awk '!/Completed/ && !/CrashLoopBackOff/ && !/Error/ && /0\//{print $1}'
               } | while read -r pod_name; do
                 echo ""
                 echo "============================================"
@@ -104,10 +105,8 @@ runs:
 
               # Show tail logs for healthy running pods (collapsed)
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers \
-                | grep -v "Completed" \
-                | grep -v -E "CrashLoopBackOff|Error" \
-                | grep -v -E '0\/' \
-                | awk '{print $1}' | while read -r pod_name; do
+                | awk '!/Completed/ && !/CrashLoopBackOff|Error/ && !/0\//{print $1}' \
+                | while read -r pod_name; do
                 containers=$(kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po "$pod_name" \
                   -o jsonpath='{.spec.containers[*].name}' 2>/dev/null || true)
                 for container in $containers; do
@@ -141,7 +140,8 @@ runs:
               helm get values camunda -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-values-camunda.yaml" 2>&1 || true
 
               # Dump info for all non-Completed pods (per container)
-              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers | grep -v "Completed" | awk '{print $1}' | while read -r pod_name; do
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers \
+                | awk '!/Completed/{print $1}' | while read -r pod_name; do
                 echo "Dumping info for pod: ${pod_name}"
                 kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" describe po "$pod_name" > "${DUMP_DIR}/${pod_name}-describe.txt" 2>&1 || true
                 kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po "$pod_name" -o yaml > "${DUMP_DIR}/${pod_name}-manifest.yaml" 2>&1 || true
