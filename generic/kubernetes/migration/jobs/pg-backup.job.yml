@@ -1,0 +1,65 @@
+---
+# PostgreSQL Backup Job (generic, parameterized by COMPONENT)
+# Required env vars: COMPONENT, JOB_NAME, PG_HOST, PG_PORT, PG_DATABASE,
+#   PG_USERNAME, PG_SECRET_NAME, PG_IMAGE, BACKUP_PVC, NAMESPACE, TIMESTAMP
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: ${JOB_NAME}
+    namespace: ${NAMESPACE}
+    labels:
+        app: ${COMPONENT}-migration
+        migration.camunda.io/type: backup
+        migration.camunda.io/component: ${COMPONENT}
+spec:
+    ttlSecondsAfterFinished: 3600
+    backoffLimit: 2
+    template:
+        metadata:
+            labels:
+                app: ${COMPONENT}-migration
+                migration.camunda.io/type: backup
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: backup
+                  image: ${PG_IMAGE}
+                  command:
+                      - /bin/bash
+                      - -c
+                      - |
+                        set -e
+                        echo "=== PG Backup: ${COMPONENT} ==="
+                        echo "Source: ${PG_HOST}:${PG_PORT}/${PG_DATABASE}"
+
+                        until pg_isready -h "${PG_HOST}" -p "${PG_PORT}" -U "$PGUSER"; do
+                          echo "Waiting for PostgreSQL ..."; sleep 5
+                        done
+
+                        mkdir -p /backup/${COMPONENT}
+
+                        pg_dump -h "${PG_HOST}" -p "${PG_PORT}" -U "$PGUSER" \
+                          -d "${PG_DATABASE}" -F custom \
+                          -f /backup/${COMPONENT}/${COMPONENT}-db-${TIMESTAMP}.dump
+
+                        echo "Backup complete:"
+                        ls -lh /backup/${COMPONENT}/
+                        echo "Objects: $(pg_restore --list /backup/${COMPONENT}/${COMPONENT}-db-${TIMESTAMP}.dump | wc -l)"
+                  env:
+                      - name: PGUSER
+                        value: ${PG_USERNAME}
+                      - name: PGPASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: ${PG_SECRET_NAME}
+                                key: postgres-password
+                                optional: true
+                  resources:
+                      requests: {memory: 256Mi, cpu: 100m}
+                      limits: {memory: 512Mi, cpu: 500m}
+                  volumeMounts:
+                      - {name: backup, mountPath: /backup}
+            volumes:
+                - name: backup
+                  persistentVolumeClaim:
+                      claimName: ${BACKUP_PVC}
