@@ -58,11 +58,15 @@ inputs:
 runs:
     using: composite
     steps:
+        - name: Set working directory
+          shell: bash
+          run: echo "TEST_DIR=${TEST_DIR:-./aws/kubernetes/eks-dual-region/test}" >> "$GITHUB_ENV"
+
         # Explicitly set up Go for caching of packages
         - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
           with:
-              go-version-file: ./aws/kubernetes/eks-dual-region/test/go.mod
-              cache-dependency-path: ./aws/kubernetes/eks-dual-region/test/go.sum
+              go-version-file: ${{ env.TEST_DIR }}/go.mod
+              cache-dependency-path: ${{ env.TEST_DIR }}/go.sum
 
         - name: Split up Kubeconfig
           shell: bash
@@ -79,11 +83,11 @@ runs:
                 kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
               done
 
-              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./aws/kubernetes/eks-dual-region/test/kubeconfig-london"
-              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "./aws/kubernetes/eks-dual-region/test/kubeconfig-paris"
+              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig-london"
+              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig-paris"
 
               if [[ "${{ inputs.cluster-0-name }}" == "${{ inputs.cluster-1-name }}" ]]; then
-                cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "./aws/kubernetes/eks-dual-region/test/kubeconfig"
+                cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig"
               fi
 
         - name: Set Up Environment Variables
@@ -117,7 +121,8 @@ runs:
         - name: Clean Environment
           if: inputs.skip-cleanup != 'true'
           shell: bash
-          working-directory: ./aws/kubernetes/eks-dual-region/test
+          working-directory: ${{ env.TEST_DIR }}
+
           run: |
               set -euo pipefail
 
@@ -125,7 +130,7 @@ runs:
 
         - name: Deploy multi-region setup - ${{ inputs.helm-version }}
           shell: bash
-          working-directory: ./aws/kubernetes/eks-dual-region/test
+          working-directory: ${{ env.TEST_DIR }}
           run: |
               set -euo pipefail
 
@@ -141,7 +146,7 @@ runs:
 
         - name: Failover ${{ inputs.helm-version }}
           shell: bash
-          working-directory: ./aws/kubernetes/eks-dual-region/test
+          working-directory: ${{ env.TEST_DIR }}
           run: |
               set -euo pipefail
 
@@ -169,7 +174,7 @@ runs:
 
         - name: Failback - ${{ inputs.helm-version }}
           shell: bash
-          working-directory: ./aws/kubernetes/eks-dual-region/test
+          working-directory: ${{ env.TEST_DIR }}
           run: |
               set -euo pipefail
 
@@ -198,7 +203,7 @@ runs:
 
         - name: Test multi-tenancy
           shell: bash
-          working-directory: ./aws/kubernetes/eks-dual-region/test
+          working-directory: ${{ env.TEST_DIR }}
           run: |
               set -euo pipefail
 
@@ -206,7 +211,7 @@ runs:
 
         - name: Test scaling zeebe brokers in multi-region setup
           shell: bash
-          working-directory: ./aws/kubernetes/eks-dual-region/test
+          working-directory: ${{ env.TEST_DIR }}
           run: |
               set -euo pipefail
 
@@ -214,7 +219,7 @@ runs:
 
         - name: Test scaling zeebe partitions in multi-region setup
           shell: bash
-          working-directory: ./aws/kubernetes/eks-dual-region/test
+          working-directory: ${{ env.TEST_DIR }}
           run: |
               set -euo pipefail
 
@@ -222,7 +227,7 @@ runs:
 
         - name: Test scaling zeebe brokers and partitions in multi-region setup
           shell: bash
-          working-directory: ./aws/kubernetes/eks-dual-region/test
+          working-directory: ${{ env.TEST_DIR }}
           run: |
               set -euo pipefail
 
@@ -248,7 +253,8 @@ runs:
 
         - name: Test connector webhook flow in multi-region setup
           shell: bash
-          working-directory: ./aws/kubernetes/eks-dual-region/test
+          if: inputs.distribution == 'EKS'
+          working-directory: ${{ env.TEST_DIR }}
           env:
               DISTRIBUTION: ${{ inputs.distribution }}
           run: |
@@ -258,7 +264,7 @@ runs:
 
         - name: Debug Step
           shell: bash
-          working-directory: ./aws/kubernetes/eks-dual-region/test
+          working-directory: ${{ env.TEST_DIR }}
           if: failure()
           run: |
               set -euo pipefail
@@ -271,4 +277,4 @@ runs:
           with:
               name: pod-logs-${{ inputs.helm-version }}
               retention-days: 7
-              path: ./aws/kubernetes/eks-dual-region/test/*.log
+              path: ${{ env.TEST_DIR }}/*.log

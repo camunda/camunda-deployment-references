@@ -1,4 +1,15 @@
 ---
+# Base Domain Configuration for Camunda Platform
+#
+# This file contains infrastructure configuration with ingress/domain enabled.
+# Combine with an auth overlay:
+#   - Keycloak Operator: yq ". *+ load(\"generic/kubernetes/operator-based/keycloak/camunda-keycloak-domain-values.yml\")" values-domain.yml > values.yml
+#   - OIDC:              yq ". *+ load(\"values-oidc.yml\")" values-domain.yml > values.yml
+#
+# Required environment variables:
+#   - CAMUNDA_DOMAIN: Your domain name
+#   - OPENSEARCH_HOST: OpenSearch endpoint
+
 global:
     elasticsearch:
         enabled: false
@@ -21,62 +32,30 @@ global:
 
     ingress:
         enabled: true
-        host: ${DOMAIN_NAME}
+        host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
             secretName: camunda-c8-tls
         annotations:
             kubernetes.io/tls-acme: 'true'
+
     identity:
         auth:
             enabled: true
-            type: KEYCLOAK
-            publicIssuerUrl: https://${DOMAIN_NAME}/auth/realms/camunda-platform
-
-            admin:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-admin-client-token
-
             identity:
-                redirectUrl: https://${DOMAIN_NAME}/managementidentity
-
-            optimize:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-optimize-client-token
-                redirectUrl: https://${DOMAIN_NAME}/optimize
-
-            webModeler:
-                redirectUrl: https://${DOMAIN_NAME}/modeler
-
+                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
             console:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-console-client-token
-                redirectUrl: https://${DOMAIN_NAME}/console
-
-identityKeycloak:
-    enabled: true
-    postgresql:
-        enabled: false
-    externalDatabase:
-        # see https://artifacthub.io/packages/helm/bitnami/keycloak
-        existingSecret: identity-keycloak-secret   # Name of an existing secret resource containing the database credentials
-        existingSecretHostKey: host
-        existingSecretPortKey: port
-        existingSecretUserKey: user
-        existingSecretDatabaseKey: database
-        existingSecretPasswordKey: password
-    auth:
-        existingSecret: identity-secret-for-components
-        passwordSecretKey: identity-admin-client-token
+                redirectUrl: https://${CAMUNDA_DOMAIN}/console
+            webModeler:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
+            optimize:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/optimize
 
 identity:
     enabled: true
     contextPath: /managementidentity
 
-    fullURL: https://${DOMAIN_NAME}/managementidentity
+    fullURL: https://${CAMUNDA_DOMAIN}/managementidentity
 
     firstUser:
         enabled: true
@@ -96,19 +75,11 @@ identity:
         database: ${DB_IDENTITY_NAME}
         secret:
             existingSecret: identity-postgres-secret
-            existingSecretPasswordKey: password
+            existingSecretKey: password
+
 
 connectors:
-
     contextPath: /connectors
-
-    # Configure OIDC for connectors
-    security:
-        authentication:
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-connectors-client-token
 
 optimize:
     enabled: true
@@ -121,14 +92,11 @@ optimize:
 orchestration:
     contextPath: /
 
-    # Configure OIDC for orchestration
+    data:
+        secondaryStorage:
+            type: opensearch
+
     security:
-        authentication:
-            oidc:
-                secret:
-                    existingSecret: identity-secret-for-components
-                    existingSecretKey: identity-orchestration-client-token
-                redirectUrl: https://${DOMAIN_NAME}
         initialization:
             defaultRoles:
                 admin:
@@ -138,12 +106,13 @@ orchestration:
     ingress:
         grpc:
             enabled: true
-            host: zeebe-${DOMAIN_NAME}
+            host: zeebe-${CAMUNDA_DOMAIN}
             tls:
                 enabled: true
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
+
 
 console:
     enabled: false # by default, console is not enabled
@@ -166,7 +135,7 @@ webModeler:
               value: software.amazon.jdbc.Driver
         mail:
             secret:
-                existingSecret: identity-secret-for-components # reference the smtp password
+                existingSecret: webmodeler-secret
                 existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
 

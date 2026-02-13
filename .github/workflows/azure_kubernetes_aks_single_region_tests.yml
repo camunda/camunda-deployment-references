@@ -70,7 +70,7 @@ concurrency:
     cancel-in-progress: false
 
 env:
-    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     # terraform statefile is to be stored in an AWS S3 bucket to benefit from existing automated cleanup capabilities
@@ -257,9 +257,6 @@ jobs:
                     echo "DB_PORT=$DB_PORT"
                     echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME"
                     echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD"
-                    echo "DB_KEYCLOAK_NAME=$DB_KEYCLOAK_NAME"
-                    echo "DB_KEYCLOAK_USERNAME=$DB_KEYCLOAK_USERNAME"
-                    echo "DB_KEYCLOAK_PASSWORD=$DB_KEYCLOAK_PASSWORD"
                     echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME"
                     echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME"
                     echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD"
@@ -370,11 +367,8 @@ jobs:
               timeout-minutes: 3
               run: |
                   set -euo pipefail
-
-                  # Export the decrypted outputs as environment variables
-                  while IFS= read -r line; do
-                    echo "$line" | tee -a "$GITHUB_ENV"
-                  done < "${{ runner.temp }}/outputs_raw"
+                  source .github/scripts/gha-functions.sh
+                  export_file_to_github_env "${{ runner.temp }}/outputs_raw"
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -511,12 +505,37 @@ jobs:
                   yq ". *+ load(\"azure/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml\")" values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
-                  if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
-                    export DOMAIN_NAME="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
-                    echo "DOMAIN_NAME=$DOMAIN_NAME" | tee -a "$GITHUB_ENV"
+                  # Merge auth provider specific overlays (keycloak-operator or OIDC)
+                  AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
+                  HELM_VALUES_PATH="generic/kubernetes/single-region/helm-values"
 
-                    export DOMAIN_NAME_GRPC="zeebe-$DOMAIN_NAME:443"
-                    echo "DOMAIN_NAME_GRPC=$DOMAIN_NAME_GRPC" | tee -a "$GITHUB_ENV"
+                  if [[ "$AUTH_PROVIDER" == "oidc" ]]; then
+                    echo "Applying OIDC auth overlays"
+                    yq ". *+ load(\"${HELM_VALUES_PATH}/values-oidc.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"${HELM_VALUES_PATH}/values-oidc-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
+                    cat values-merged2.yml && mv values-merged2.yml values.yml && rm values-merged.yml
+
+                  elif [[ "$AUTH_PROVIDER" == "keycloak-operator" ]]; then
+                    echo "Merging operator-based Keycloak config for Keycloak Operator"
+                    OPERATOR_KEYCLOAK_PATH="generic/kubernetes/operator-based/keycloak"
+                    yq ". *+ load(\"${OPERATOR_KEYCLOAK_PATH}/camunda-keycloak-${{ matrix.declination.name }}-values.yml\")" values.yml > values-merged.yml
+                    cat values-merged.yml && mv values-merged.yml values.yml
+
+                    # Merge identity secrets configuration for keycloak-operator auth
+                    yq ". *+ load(\"generic/kubernetes/operator-based/tests/utils/camunda-values-identity-secrets.yml\")" values.yml > values-merged.yml
+                    cat values-merged.yml && mv values-merged.yml values.yml
+
+                  else
+                    echo "Error: unsupported auth_provider '$AUTH_PROVIDER'. Supported: oidc, keycloak-operator" >&2
+                    exit 1
+                  fi
+
+                  if [[ "${{ matrix.declination.name }}" == "domain" ]]; then
+                    export CAMUNDA_DOMAIN="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}"
+                    echo "CAMUNDA_DOMAIN=$CAMUNDA_DOMAIN" | tee -a "$GITHUB_ENV"
+
+                    export CAMUNDA_DOMAIN_GRPC="zeebe-$CAMUNDA_DOMAIN:443"
+                    echo "CAMUNDA_DOMAIN_GRPC=$CAMUNDA_DOMAIN_GRPC" | tee -a "$GITHUB_ENV"
                   fi
 
 
@@ -584,6 +603,7 @@ jobs:
                   kubectl logs job/create-setup-user-db --namespace "$CAMUNDA_NAMESPACE"
 
                   kubectl delete job create-setup-user-db --namespace "$CAMUNDA_NAMESPACE"
+
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
             - name: 💪 Execute DB secret creation scripts
@@ -592,15 +612,32 @@ jobs:
                   set -euo pipefail
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
 
+            - name: 🐘 Deploy Keycloak via Operator (keycloak-operator mode)
+              if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
+              timeout-minutes: 15
+              uses: ./.github/actions/kubernetes-keycloak-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain' || 'no-domain' }}
+                  domain-name: ${{ env.CAMUNDA_DOMAIN }}
+
             - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
               timeout-minutes: 10
               run: |
                   set -euo pipefail
 
                   source generic/kubernetes/single-region/procedure/chart-env.sh
-                  source generic/kubernetes/single-region/procedure/generate-passwords.sh
 
-                  ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
+                  AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
+
+                  # Identity secrets:
+                  # For 'keycloak-operator', secrets are created by the operator action
+                  # For 'oidc', secrets are created in a separate step
+
+                  # Create WebModeler secrets
+                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                    ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-webmodeler-secret.sh
+                  fi
 
                   # Generate tests objects
                   if [ "$TESTS_ENABLED" == "true" ]; then
@@ -621,10 +658,13 @@ jobs:
                         --docker-password="${{ steps.secrets.outputs.MACHINE_PWD }}" \
                         --namespace="$CAMUNDA_NAMESPACE"
 
-                    kubectl create secret generic identity-secret-for-components-integration \
-                        --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
-                        --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
-                        --namespace="$CAMUNDA_NAMESPACE"
+                    # Create identity integration secret for keycloak-operator auth
+                    if [[ "$AUTH_PROVIDER" != "oidc" ]]; then
+                      kubectl create secret generic identity-secret-for-components-integration \
+                          --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                          --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+                          --namespace="$CAMUNDA_NAMESPACE"
+                    fi
                   fi
 
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
@@ -656,8 +696,8 @@ jobs:
               with:
                   secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
-                  camunda-domain: ${{ env.DOMAIN_NAME }}
-                  camunda-domain-grpc: ${{ env.DOMAIN_NAME_GRPC }}
+                  camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
+                  camunda-domain-grpc: ${{ env.CAMUNDA_DOMAIN_GRPC }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
                   elasticsearch-enabled: 'true'
@@ -668,6 +708,7 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
+                  keycloak-service-name: ${{ matrix.scenario.auth_provider == 'keycloak-operator' && 'keycloak-service:18080' || '' }}
 
             - name: 🔬🚨 Get failed certificate info
               if: failure() && matrix.declination.name == 'domain'
@@ -679,15 +720,16 @@ jobs:
 
             - name: 🔬🚨 Get failed Pods info
               if: failure()
-              run: |
-                  set -euo pipefail
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  artifact-suffix: ${{ matrix.scenario.name }}-${{ matrix.declination.name }}
 
-                  kubectl -n "$CAMUNDA_NAMESPACE" get po
-                  kubectl -n "$CAMUNDA_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
-                    echo -e "\n###Failed Pod: ${pod_name}###\n";
-                    kubectl -n "$CAMUNDA_NAMESPACE" describe po "$pod_name";
-                    kubectl -n "$CAMUNDA_NAMESPACE" logs "$pod_name";
-                  done
+            - name: 🧹 Cleanup Keycloak Operator deployment
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.auth_provider == 'keycloak-operator'
+              uses: ./.github/actions/kubernetes-keycloak-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
 
             - name: 🧹 Cleanup Namespace
               if: always() && env.CLEANUP_CLUSTERS == 'true'

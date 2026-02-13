@@ -69,7 +69,7 @@ concurrency:
     cancel-in-progress: false
 
 env:
-    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
 
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
@@ -275,8 +275,7 @@ jobs:
                   source ${{ github.workspace }}/.github/scripts/gha-functions.sh
 
                   export_new_env_vars_to_file \
-                      ${{ github.workspace }}/aws/kubernetes/eks-single-region/procedure/export-helm-values.sh \
-                      ${{ runner.temp }}/outputs_raw
+                      ${{ github.workspace }}/aws/kubernetes/eks-single-region/procedure/export-helm-values.sh
 
             - name: Export other secrets from the action # this is required to pass matrix outputs securely using artifacts
               id: encrypt_outputs
@@ -391,11 +390,8 @@ jobs:
               timeout-minutes: 3
               run: |
                   set -euo pipefail
-
-                  # Export the decrypted outputs as environment variables
-                  while IFS= read -r line; do
-                    echo "$line" | tee -a "$GITHUB_ENV"
-                  done < "${{ runner.temp }}/outputs_raw"
+                  source .github/scripts/gha-functions.sh
+                  export_file_to_github_env "${{ runner.temp }}/outputs_raw"
 
             - name: Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
@@ -546,13 +542,7 @@ jobs:
                       echo "Processing and merging OpenShift route configurations (orchestration + connectors)..."
 
                       # Process both orchestration-route.yml and connectors-route.yml with envsubst
-                      CAMUNDA_RELEASE_NAME="$CAMUNDA_RELEASE_NAME" \
-                      CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}" \
-                      DOMAIN_NAME="$CAMUNDA_DOMAIN" \
                       envsubst < "../../../generic/openshift/single-region/helm-values/orchestration-route.yml" > orchestration-route-processed.yml
-
-                      CAMUNDA_RELEASE_NAME="$CAMUNDA_RELEASE_NAME" \
-                      CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}" \
                       envsubst < "../../../generic/openshift/single-region/helm-values/connectors-route.yml" > connectors-route-processed.yml
 
                       # Merge processed routes with assembled values and apply TLS adjustments
@@ -660,13 +650,7 @@ jobs:
                   set -euo pipefail
 
                   echo "Deploying PostgreSQL clusters..."
-                  if [[ "${{ matrix.distro.type }}" == "openshift" ]]; then
-                      POSTGRES_SCRIPT="./deploy-openshift.sh"
-                  else
-                      POSTGRES_SCRIPT="./deploy.sh"
-                  fi
-
-                  if ! (cd postgresql && $POSTGRES_SCRIPT); then
+                  if ! (cd postgresql && ./deploy.sh); then
                       echo "ERROR: PostgreSQL deployment failed"
                       kubectl get pods -n cnpg-system || true
                       kubectl get pods -n "$CAMUNDA_NAMESPACE" || true
@@ -696,8 +680,9 @@ jobs:
                   set -euo pipefail
                   echo "Creating Camunda Identity credentials..."
                   source .github/scripts/gha-functions.sh
-                  export_new_env_vars ./generic/kubernetes/single-region/procedure/generate-passwords.sh
-                  ./generic/kubernetes/single-region/procedure/create-identity-secret.sh
+
+                  export_new_env_vars ./generic/kubernetes/single-region/tests/procedure/generate-passwords.sh
+                  ./generic/kubernetes/single-region/tests/procedure/create-keycloak-identity-secret.sh
 
             - name: Create test secrets (Docker registry & identity integration)
               if: env.TESTS_ENABLED == 'true'
@@ -799,15 +784,10 @@ jobs:
 
             - name: 🚨🔬 Get failed Pods info
               if: failure()
-              run: |
-                  set -euo pipefail
-
-                  kubectl -n "$CAMUNDA_NAMESPACE" get po
-                  kubectl -n "$CAMUNDA_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
-                    echo -e "\n###Failed Pod: ${pod_name}###\n";
-                    kubectl -n "$CAMUNDA_NAMESPACE" describe po "$pod_name";
-                    kubectl -n "$CAMUNDA_NAMESPACE" logs "$pod_name";
-                  done
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
 
     cleanup-clusters:
         name: Cleanup clusters

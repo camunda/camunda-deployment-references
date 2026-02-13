@@ -1,0 +1,185 @@
+---
+name: Create AWS Cognito for Testing
+description: Creates a temporary AWS Cognito User Pool for Camunda OIDC testing
+
+inputs:
+    resource-prefix:
+        description: Prefix for Cognito resources
+        required: true
+    domain-name:
+        description: Bare hostname for Camunda deployment (e.g., my-cluster.camunda.example.com). No protocol, no trailing slash. Does not need to exist
+            in DNS.
+        required: true
+    aws-region:
+        description: AWS region for Cognito (uses current region if not specified)
+        required: false
+        default: ''
+    enable-webmodeler:
+        description: Enable Web Modeler component
+        required: false
+        default: 'false'
+    enable-console:
+        description: Enable Console component
+        required: false
+        default: 'false'
+    create-test-user:
+        description: Create a test user for simulating human login
+        required: false
+        default: 'false'
+    test-user-name:
+        description: Email for the test user
+        required: false
+        default: camunda-test@example.com
+    test-user-password:
+        description: Password for the test user
+        required: false
+        default: CamundaTest123!
+    auto-cleanup-hours:
+        description: Hours after which this Cognito pool should be cleaned up
+        required: false
+        default: '72'
+    terraform-backend-bucket:
+        description: S3 bucket for Terraform state
+        required: true
+    terraform-backend-region:
+        description: S3 bucket region
+        required: true
+    terraform-backend-key:
+        description: S3 key for Terraform state
+        required: true
+    aws-profile:
+        description: AWS profile to use (must be configured beforehand)
+        required: false
+        default: infraex
+
+outputs:
+    user-pool-id:
+        description: Cognito User Pool ID
+        value: ${{ steps.outputs.outputs.user_pool_id }}
+    issuer-url:
+        description: OIDC Issuer URL
+        value: ${{ steps.outputs.outputs.issuer_url }}
+    authorization-url:
+        description: OIDC Authorization URL
+        value: ${{ steps.outputs.outputs.authorization_url }}
+    token-url:
+        description: OIDC Token URL
+        value: ${{ steps.outputs.outputs.token_url }}
+    jwks-url:
+        description: OIDC JWKS URL
+        value: ${{ steps.outputs.outputs.jwks_url }}
+    userinfo-url:
+        description: OIDC UserInfo URL
+        value: ${{ steps.outputs.outputs.userinfo_url }}
+    resource-server-identifier:
+        description: Resource Server identifier (used as scope prefix, e.g., 'camunda')
+        value: ${{ steps.outputs.outputs.resource_server_identifier }}
+    identity-client-id:
+        description: Identity component client ID
+        value: ${{ steps.outputs.outputs.identity_client_id }}
+    identity-client-secret:
+        description: Identity component client secret
+        value: ${{ steps.outputs.outputs.identity_client_secret }}
+    optimize-client-id:
+        description: Optimize component client ID
+        value: ${{ steps.outputs.outputs.optimize_client_id }}
+    optimize-client-secret:
+        description: Optimize component client secret
+        value: ${{ steps.outputs.outputs.optimize_client_secret }}
+    orchestration-client-id:
+        description: Orchestration component client ID
+        value: ${{ steps.outputs.outputs.orchestration_client_id }}
+    orchestration-client-secret:
+        description: Orchestration component client secret
+        value: ${{ steps.outputs.outputs.orchestration_client_secret }}
+    connectors-client-id:
+        description: Connectors component client ID
+        value: ${{ steps.outputs.outputs.connectors_client_id }}
+    connectors-client-secret:
+        description: Connectors component client secret
+        value: ${{ steps.outputs.outputs.connectors_client_secret }}
+    console-client-id:
+        description: Console component client ID
+        value: ${{ steps.outputs.outputs.console_client_id }}
+    webmodeler-ui-client-id:
+        description: WebModeler UI client ID
+        value: ${{ steps.outputs.outputs.webmodeler_ui_client_id }}
+    webmodeler-api-client-id:
+        description: WebModeler API client ID
+        value: ${{ steps.outputs.outputs.webmodeler_api_client_id }}
+    webmodeler-api-client-secret:
+        description: WebModeler API client secret
+        value: ${{ steps.outputs.outputs.webmodeler_api_client_secret }}
+    test-user-name:
+        description: Test user email
+        value: ${{ steps.outputs.outputs.test_user_name }}
+    test-user-password:
+        description: Test user password
+        value: ${{ steps.outputs.outputs.test_user_password }}
+
+runs:
+    using: composite
+    steps:
+        - name: Set working directory
+          shell: bash
+          run: echo "TF_MODULE_DIR=${{ github.workspace }}/aws/common/cognito" >> "$GITHUB_ENV"
+
+        - name: Terraform Init
+          shell: bash
+          working-directory: ${{ env.TF_MODULE_DIR }}
+          run: |
+              terraform init -upgrade \
+                -backend-config="bucket=${{ inputs.terraform-backend-bucket }}" \
+                -backend-config="key=${{ inputs.terraform-backend-key }}" \
+                -backend-config="region=${{ inputs.terraform-backend-region }}" \
+                -backend-config="profile=${{ inputs.aws-profile }}"
+
+        - name: Generate tfvars file
+          shell: bash
+          working-directory: ${{ env.TF_MODULE_DIR }}
+          run: |
+              cat > ci.tfvars <<EOF
+              resource_prefix     = "${{ inputs.resource-prefix }}"
+              domain_name         = "${{ inputs.domain-name }}"
+              enable_webmodeler   = ${{ inputs.enable-webmodeler }}
+              enable_console      = ${{ inputs.enable-console }}
+              create_test_user    = ${{ inputs.create-test-user }}
+              test_user_name      = "${{ inputs.test-user-name }}"
+              test_user_password  = "${{ inputs.test-user-password }}"
+              auto_cleanup_hours  = ${{ inputs.auto-cleanup-hours }}
+              EOF
+
+        - name: Terraform Plan
+          shell: bash
+          working-directory: ${{ env.TF_MODULE_DIR }}
+          run: |
+              terraform plan -var-file=ci.tfvars -out=tfplan
+
+        - name: Terraform Apply
+          id: apply
+          shell: bash
+          working-directory: ${{ env.TF_MODULE_DIR }}
+          run: |
+              terraform apply -auto-approve tfplan
+
+        - name: Terraform Drift Detection
+          uses: ./.github/actions/internal-terraform-drift-detect
+          id: drift-detect
+          with:
+              working-directory: ${{ env.TF_MODULE_DIR }}
+              plan-extra-args: -var-file=ci.tfvars \
+
+        - name: Export Terraform outputs
+          id: outputs
+          shell: bash
+          working-directory: ${{ env.TF_MODULE_DIR }}
+          run: |
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
+
+        - name: Save state file location
+          shell: bash
+          run: |
+              echo "Cognito Terraform state: s3://${{ inputs.terraform-backend-bucket }}/${{ inputs.terraform-backend-key }}" >> $GITHUB_STEP_SUMMARY
+              echo "User Pool ID: ${{ steps.outputs.outputs.user_pool_id }}" >> $GITHUB_STEP_SUMMARY
+              echo "Issuer URL: ${{ steps.outputs.outputs.issuer_url }}" >> $GITHUB_STEP_SUMMARY

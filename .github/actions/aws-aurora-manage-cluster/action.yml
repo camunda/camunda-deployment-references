@@ -99,16 +99,15 @@ inputs:
 outputs:
     aurora-endpoint:
         description: The endpoint of the deployed Aurora cluster
-        value: ${{ steps.apply.outputs.aurora_endpoint }}
+        value: ${{ steps.terraform_outputs.outputs.aurora_endpoint }}
 
     terraform-state-url:
         description: URL of the Terraform state file in the S3 bucket
         value: ${{ steps.utility.outputs.terraform-state-url }}
 
-    # Add all terraform outputs dynamically
     all-terraform-outputs:
-        description: All outputs from Terraform
-        value: ${{ steps.fetch_outputs.outputs.all_terraform_outputs }}
+        description: All outputs from Terraform as a JSON blob
+        value: ${{ steps.terraform_outputs.outputs.all_terraform_outputs }}
 
 runs:
     using: composite
@@ -141,10 +140,14 @@ runs:
               path: ${{ inputs.tf-modules-path }}
               fetch-depth: 0
 
+        - name: Set working directory
+          shell: bash
+          run: echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/aws/modules/aurora" >> "$GITHUB_ENV"
+
         - name: Terraform Init
           shell: bash
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -163,7 +166,7 @@ runs:
         - name: Generate tfvars file
           id: generate-tfvars
           shell: bash
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -184,7 +187,7 @@ runs:
         - name: Terraform Plan
           shell: bash
           id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -196,29 +199,25 @@ runs:
         - name: Terraform Apply
           shell: bash
           id: apply
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
               terraform apply -no-color aurora.plan
-              export aurora_endpoint="$(terraform output -raw aurora_endpoint)"
-              echo "aurora_endpoint=$aurora_endpoint" >> "$GITHUB_OUTPUT"
+
+        - name: Export Terraform Outputs
+          shell: bash
+          id: terraform_outputs
+          working-directory: ${{ env.TF_MODULE_DIR }}
+          run: |
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
 
         - name: Terraform Drift Detection
           uses: ./.github/actions/internal-terraform-drift-detect
           id: drift-detect
           with:
-              working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
+              working-directory: ${{ env.TF_MODULE_DIR }}
               plan-extra-args: |
                   -var-file=/tmp/var.tfvars.json \
                   -var-file=terraform.tfvars
-
-        - name: Fetch Terraform Outputs
-          shell: bash
-          id: fetch_outputs
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/aurora/
-          run: |
-              set -euo pipefail
-
-              all_outputs=$(terraform output -json | jq -c .)
-              echo "all_terraform_outputs=$all_outputs" | tee -a "$GITHUB_OUTPUT"

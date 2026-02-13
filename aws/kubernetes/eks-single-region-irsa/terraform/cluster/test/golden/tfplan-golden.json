@@ -3296,29 +3296,6 @@
             "tags": null
           }
         },
-        "module.postgresql.aws_iam_policy.access_policies[\"AuroraRole-Keycloak-cluster-name-pg-irsa\"]": {
-          "identity": {
-            "arn": null
-          },
-          "identity_schema_version": 0,
-          "index": "AuroraRole-Keycloak-cluster-name-pg-irsa",
-          "mode": "managed",
-          "name": "access_policies",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "sensitive_values": {
-            "tags_all": {}
-          },
-          "type": "aws_iam_policy",
-          "values": {
-            "delay_after_policy_creation_in_ms": null,
-            "description": "Access policy for AuroraRole-Keycloak-cluster-name-pg-irsa",
-            "name": "AuroraRole-Keycloak-cluster-name-pg-irsa-access-policy",
-            "path": "/",
-            "policy": "{\"Statement\":[{\"Action\":[\"rds-db:connect\"],\"Effect\":\"Allow\",\"Resource\":\"ARN_REDACTED",
-            "tags": null
-          }
-        },
         "module.postgresql.aws_iam_policy.access_policies[\"AuroraRole-Webmodeler-cluster-name-pg-irsa\"]": {
           "identity": {
             "arn": null
@@ -3369,33 +3346,6 @@
             "tags": null
           }
         },
-        "module.postgresql.aws_iam_role.roles[\"AuroraRole-Keycloak-cluster-name-pg-irsa\"]": {
-          "identity": {
-            "account_id": null,
-            "name": null
-          },
-          "identity_schema_version": 0,
-          "index": "AuroraRole-Keycloak-cluster-name-pg-irsa",
-          "mode": "managed",
-          "name": "roles",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "sensitive_values": {
-            "inline_policy": [],
-            "managed_policy_arns": [],
-            "tags_all": {}
-          },
-          "type": "aws_iam_role",
-          "values": {
-            "description": null,
-            "force_detach_policies": false,
-            "max_session_duration": 3600,
-            "name": "AuroraRole-Keycloak-cluster-name-pg-irsa",
-            "path": "/",
-            "permissions_boundary": null,
-            "tags": null
-          }
-        },
         "module.postgresql.aws_iam_role.roles[\"AuroraRole-Webmodeler-cluster-name-pg-irsa\"]": {
           "identity": {
             "account_id": null,
@@ -3439,24 +3389,6 @@
           "type": "aws_iam_role_policy_attachment",
           "values": {
             "role": "AuroraRole-Identity-cluster-name-pg-irsa"
-          }
-        },
-        "module.postgresql.aws_iam_role_policy_attachment.attach_policies[\"AuroraRole-Keycloak-cluster-name-pg-irsa\"]": {
-          "identity": {
-            "account_id": null,
-            "policy_arn": null,
-            "role": null
-          },
-          "identity_schema_version": 0,
-          "index": "AuroraRole-Keycloak-cluster-name-pg-irsa",
-          "mode": "managed",
-          "name": "attach_policies",
-          "provider_name": "registry.terraform.io/hashicorp/aws",
-          "schema_version": 0,
-          "sensitive_values": {},
-          "type": "aws_iam_role_policy_attachment",
-          "values": {
-            "role": "AuroraRole-Keycloak-cluster-name-pg-irsa"
           }
         },
         "module.postgresql.aws_iam_role_policy_attachment.attach_policies[\"AuroraRole-Webmodeler-cluster-name-pg-irsa\"]": {
@@ -3543,7 +3475,7 @@
             "backtrack_window": null,
             "cluster_identifier": "cluster-name-pg-irsa",
             "copy_tags_to_snapshot": true,
-            "database_name": "camunda_keycloak",
+            "database_name": "camunda_identity",
             "db_cluster_instance_class": null,
             "db_instance_parameter_group_name": null,
             "db_subnet_group_name": "cluster-name-pg-irsa",

@@ -26,6 +26,11 @@ matrix:
 
     scenario:
         - name: rosa-hcp-single-region
+          # Auth provider options:
+          #   - 'keycloak-operator': Keycloak deployed via Keycloak Operator with CNPG PostgreSQL
+          #   - 'oidc': External OIDC provider (Cognito, EntraID)
+          # TODO: Add 'oidc' support with AWS Cognito
+          auth_provider: keycloak-operator
 
     declination:
         - name: no-domain

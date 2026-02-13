@@ -1760,6 +1760,7 @@
                       false,
                       false
                     ],
+                    "log_forwarder_ids": [],
                     "ocm_properties": {},
                     "properties": {},
                     "sts": {
@@ -1769,6 +1770,7 @@
                   },
                   "type": "rhcs_cluster_rosa_hcp",
                   "values": {
+                    "audit_log_arn": null,
                     "availability_zones": [
                       "eu-north-1a",
                       "eu-north-1b",
@@ -1794,6 +1796,7 @@
                     "external_auth_providers_enabled": null,
                     "host_prefix": 23,
                     "kms_key_arn": null,
+                    "log_forwarders_at_cluster_creation": null,
                     "machine_cidr": "10.0.0.0/18",
                     "max_hcp_cluster_wait_timeout_in_minutes": null,
                     "max_machinepool_wait_timeout_in_minutes": null,
@@ -1810,7 +1813,8 @@
                     "shared_vpc": null,
                     "sts": {
                       "instance_iam_roles": {},
-                      "operator_role_prefix": "my-rosa-operator"
+                      "operator_role_prefix": "my-rosa-operator",
+                      "trust_policy_external_id": null
                     },
                     "tags": {
                       "owner": "ARN_REDACTED"

@@ -81,16 +81,15 @@ inputs:
 outputs:
     eks-cluster-endpoint:
         description: The API endpoint of the deployed EKS cluster
-        value: ${{ steps.apply.outputs.cluster_endpoint }}
+        value: ${{ steps.terraform_outputs.outputs.cluster_endpoint }}
 
     terraform-state-url:
         description: URL of the Terraform state file in the S3 bucket
         value: ${{ steps.utility.outputs.terraform-state-url }}
 
-    # Add all terraform outputs dynamically
     all-terraform-outputs:
-        description: All outputs from Terraform
-        value: ${{ steps.fetch_outputs.outputs.all_terraform_outputs }}
+        description: All outputs from Terraform as a JSON blob
+        value: ${{ steps.terraform_outputs.outputs.all_terraform_outputs }}
 
 runs:
     using: composite
@@ -123,10 +122,14 @@ runs:
               path: ${{ inputs.tf-modules-path }}
               fetch-depth: 0
 
+        - name: Set working directory
+          shell: bash
+          run: echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/aws/modules/eks-cluster/" >> "$GITHUB_ENV"
+
         - name: Terraform Init
           shell: bash
           id: init
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/eks-cluster/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -145,7 +148,7 @@ runs:
         - name: Terraform Plan
           shell: bash
           id: plan
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/eks-cluster/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
@@ -161,23 +164,19 @@ runs:
         - name: Terraform Apply
           shell: bash
           id: apply
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/eks-cluster/
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               set -euo pipefail
 
               terraform apply -no-color eks.plan
-              export cluster_endpoint="$(terraform output -raw cluster_endpoint)"
-              echo "cluster_endpoint=$cluster_endpoint" >> "$GITHUB_OUTPUT"
 
-        - name: Fetch Terraform Outputs
+        - name: Export Terraform Outputs
           shell: bash
-          id: fetch_outputs
-          working-directory: ${{ inputs.tf-modules-path }}/aws/modules/eks-cluster/
+          id: terraform_outputs
+          working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
-              set -euo pipefail
-
-              all_outputs=$(terraform output -json | jq -c .)
-              echo "all_terraform_outputs=$all_outputs" | tee -a "$GITHUB_OUTPUT"
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
 
         - name: Configure kubectl
           shell: bash

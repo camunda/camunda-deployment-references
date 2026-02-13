@@ -237,7 +237,7 @@ runs:
 
               # setup docker registry secret for tests
               echo "TEST_CREATE_DOCKER_LOGIN_SECRET=true" | tee -a "$GITHUB_ENV"
-              echo "TEST_DOCKER_USERNAME_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_USERNAME }}" | tee -a "$GITHUB_ENV"
+              echo "TEST_DOCKER_USERNAME_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_USER }}" | tee -a "$GITHUB_ENV"
               echo "TEST_DOCKER_PASSWORD_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" | tee -a "$GITHUB_ENV"
 
               CI_TASKS_BASE_DIR="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/test/integration/scenarios/"
@@ -385,7 +385,7 @@ runs:
           if: ${{ inputs.enable-zeebe-client-tests == 'true' }}
           shell: bash
           env:
-              DOMAIN_NAME: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
               CLUSTER_2_NAME: ${{ inputs.cluster-2-name || '' }}
               CAMUNDA_NAMESPACE_2: ${{ inputs.camunda-namespace-2 || '' }}
               CAMUNDA_NAMESPACE_1: ${{ inputs.camunda-namespace-1 || '' }}
@@ -428,7 +428,7 @@ runs:
               PORT_FORWARD_PIDS=()
 
               # Dual-Region includes the portforwarding itself, therefore skipping it here
-              if [[ -z "$DOMAIN_NAME" && -z "$CLUSTER_2_NAME" ]]; then
+              if [[ -z "$CAMUNDA_DOMAIN" && -z "$CLUSTER_2_NAME" ]]; then
                 # Without domain:
                 source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 

@@ -11,11 +11,6 @@ export DB_PORT=5432
 export POSTGRES_ADMIN_USERNAME=$(echo "$outputs_json" | jq -r .postgres_admin_username.value)
 export POSTGRES_ADMIN_PASSWORD=$(echo "$outputs_json" | jq -r .postgres_admin_password.value)
 
-# Keycloak DB
-export DB_KEYCLOAK_NAME=$(echo "$outputs_json" | jq -r .camunda_database_keycloak.value)
-export DB_KEYCLOAK_USERNAME=$(echo "$outputs_json" | jq -r .camunda_keycloak_db_username.value)
-export DB_KEYCLOAK_PASSWORD=$(echo "$outputs_json" | jq -r .camunda_keycloak_db_password.value)
-
 # Identity DB
 export DB_IDENTITY_NAME=$(echo "$outputs_json" | jq -r .camunda_database_identity.value)
 export DB_IDENTITY_USERNAME=$(echo "$outputs_json" | jq -r .camunda_identity_db_username.value)
