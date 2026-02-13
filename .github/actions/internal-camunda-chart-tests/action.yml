@@ -767,7 +767,7 @@ runs:
           if: ${{ inputs.enable-helm-playwright-tests == 'true' && inputs.camunda-domain != '' }}
           uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
           with:
-              node-version: '20'
+              node-version: '24'
 
         - name: 🎭 HELM PLAYWRIGHT - Verify prerequisites
           id: playwright-prereqs
@@ -917,6 +917,9 @@ runs:
                 config = config.replace(/use:\s*{/, 'use: {\n    ignoreHTTPSErrors: true,');
                 fs.writeFileSync('playwright.config.ts', config);
               "
+
+              echo "Cat .env file contents"
+              cat .env
 
               # Build playwright arguments
               PLAYWRIGHT_ARGS="--project=$TEST_PROJECT --reporter=html,list"
