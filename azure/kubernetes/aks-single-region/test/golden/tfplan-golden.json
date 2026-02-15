@@ -852,6 +852,7 @@
           "sensitive_values": {
             "administrator_password": true,
             "authentication": [],
+            "cluster": [],
             "customer_managed_key": [],
             "high_availability": [
               {}
@@ -868,6 +869,7 @@
             "administrator_password_wo_version": null,
             "auto_grow_enabled": false,
             "backup_retention_days": 7,
+            "cluster": [],
             "create_mode": null,
             "customer_managed_key": [],
             "delegated_subnet_id": null,
