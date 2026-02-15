@@ -15,7 +15,7 @@
 # diff <(sed '/^#/d; /^$/d' .tool-versions | sort) <(sed '/^#/d; /^$/d' .tool-versions) && echo ".tool-versions is sorted correctly" || echo ".tool-versions is not sorted correctly"
 
 # renovate: datasource=github-tags depName=rhysd/actionlint
-actionlint 1.7.10
+actionlint 1.7.11
 
 awscli 2.31.38
 
@@ -30,7 +30,7 @@ golang 1.25.7
 grpcurl 1.9.3
 
 # datasource=custom.helm-camunda depName=helm
-helm 3.19.4
+helm 3.19.5
 
 jq 1.7.1
 
@@ -39,7 +39,7 @@ just 1.43.1
 # renovate: datasource=github-tags depName=kubernetes-sigs/kind
 kind 0.30.0
 
-kubectl 1.35.0
+kubectl 1.35.1
 
 kustomize 5.7.1 # used by the tests
 
