@@ -60,18 +60,11 @@ webModeler:
                 existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
 
+# WebModeler PostgreSQL is managed by the CNPG operator.
+# See generic/kubernetes/operator-based/postgresql/ for the CNPG cluster definitions
+# and camunda-webmodeler-values.yml for the corresponding Helm overlay.
 webModelerPostgresql:
-    # Will deploy a postgresql database for webModeler.
-    # If you enable webModeler, you either need to turn it true or use an external database
     enabled: false
-    auth:
-        # The chart deployment template references webModelerPostgresql.auth.existingSecret
-        # directly without a default fallback, so we must explicitly provide the secret name.
-        # The secret is created by create-webmodeler-secret.sh
-        existingSecret: webmodeler-postgresql-secret
-        secretKeys:
-            adminPasswordKey: webmodeler-postgresql-admin-password
-            userPasswordKey: webmodeler-postgresql-user-password
 
 elasticsearch:
     enabled: true # use the embedded elasticsearch

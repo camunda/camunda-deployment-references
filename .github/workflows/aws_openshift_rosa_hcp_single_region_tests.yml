@@ -499,10 +499,18 @@ jobs:
                   fi
 
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
-                    echo "Enabling WebModeler"
-                    yq -i '.webModeler.enabled = true' values.yml
-                    yq -i '.webModelerPostgresql.enabled = true' values.yml
-                    yq -i '.webModeler.restapi.externalDatabase.enabled = false' values.yml
+                    echo "Enabling WebModeler with CNPG PostgreSQL"
+                    OPERATOR_PG_PATH="generic/kubernetes/operator-based/postgresql"
+                    yq ". *+ load(\"${OPERATOR_PG_PATH}/camunda-webmodeler-values.yml\")" values.yml > values-merged.yml
+                    cat values-merged.yml && mv values-merged.yml values.yml
+                  fi
+
+                  # Merge CNPG Identity PostgreSQL overlay (external DB managed by CNPG operator)
+                  if [[ "$AUTH_PROVIDER" == "keycloak-operator" ]]; then
+                    echo "Merging CNPG Identity PostgreSQL config"
+                    OPERATOR_PG_PATH="generic/kubernetes/operator-based/postgresql"
+                    yq ". *+ load(\"${OPERATOR_PG_PATH}/camunda-identity-values.yml\")" values.yml > values-merged.yml
+                    cat values-merged.yml && mv values-merged.yml values.yml
                   fi
 
                   if [ "$CONSOLE_ENABLED" == "true" ]; then
@@ -529,6 +537,22 @@ jobs:
                   keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain-openshift' || 'no-domain' }}
                   domain-name: ${{ env.CAMUNDA_DOMAIN }}
 
+            - name: 🐘 Deploy CNPG PostgreSQL for Identity
+              if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
+              timeout-minutes: 10
+              uses: ./.github/actions/kubernetes-cnpg-cluster
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  cluster-name: pg-identity
+
+            - name: 🐘 Deploy CNPG PostgreSQL for WebModeler
+              if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' && env.WEBMODELER_ENABLED == 'true' }}
+              timeout-minutes: 10
+              uses: ./.github/actions/kubernetes-cnpg-cluster
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  cluster-name: pg-webmodeler
+
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 10
               run: |
@@ -541,7 +565,7 @@ jobs:
                   # For 'keycloak-operator', secrets are created by the operator action
                   # For 'oidc', secrets are created in a separate step (if added)
 
-                  # Create WebModeler secrets (SMTP + PostgreSQL)
+                  # Create WebModeler SMTP secret
                   if [ "$WEBMODELER_ENABLED" == "true" ]; then
                     ./generic/openshift/single-region/procedure/create-webmodeler-secret.sh
                   fi
@@ -616,6 +640,20 @@ jobs:
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+
+            - name: 🧹 Cleanup CNPG cluster pg-identity
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.auth_provider == 'keycloak-operator'
+              uses: ./.github/actions/kubernetes-cnpg-cluster-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  cluster-name: pg-identity
+
+            - name: 🧹 Cleanup CNPG cluster pg-webmodeler
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.auth_provider == 'keycloak-operator'
+              uses: ./.github/actions/kubernetes-cnpg-cluster-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  cluster-name: pg-webmodeler
 
             - name: 🧹 Cleanup Keycloak Operator deployment
               if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.auth_provider == 'keycloak-operator'

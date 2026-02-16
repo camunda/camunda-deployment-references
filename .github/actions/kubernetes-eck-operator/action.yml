@@ -1,0 +1,50 @@
+---
+name: Deploy Elasticsearch via ECK Operator
+description: |
+    Deploys Elasticsearch using the Elastic Cloud on Kubernetes (ECK) operator.
+    Installs the ECK operator if not already present (idempotent).
+    Uses scripts and manifests from generic/kubernetes/operator-based/elasticsearch/.
+
+inputs:
+    namespace:
+        description: Kubernetes namespace for the Elasticsearch cluster
+        required: false
+        default: camunda
+    eck-operator-namespace:
+        description: Namespace for the ECK operator
+        required: false
+        default: elastic-system
+    elasticsearch-cluster-file:
+        description: |
+            Path to the Elasticsearch cluster manifest.
+            Relative to generic/kubernetes/operator-based/elasticsearch/.
+        required: false
+        default: elasticsearch-cluster.yml
+
+outputs:
+    elasticsearch-service:
+        description: Elasticsearch service name
+        value: elasticsearch-es-http
+    elasticsearch-port:
+        description: Elasticsearch service port
+        value: '9200'
+    elasticsearch-secret:
+        description: Name of the Elasticsearch elastic user secret
+        value: elasticsearch-es-elastic-user
+
+runs:
+    using: composite
+    steps:
+        - name: 🔍 Deploy ECK operator and Elasticsearch cluster
+          shell: bash
+          env:
+              CAMUNDA_NAMESPACE: ${{ inputs.namespace }}
+              ELASTICSEARCH_CLUSTER_FILE: ${{ inputs.elasticsearch-cluster-file }}
+          run: |
+              set -euo pipefail
+
+              cd generic/kubernetes/operator-based/elasticsearch
+
+              ./deploy.sh "${{ inputs.eck-operator-namespace }}"
+
+              echo "✓ Elasticsearch cluster deployed in namespace ${{ inputs.namespace }}"

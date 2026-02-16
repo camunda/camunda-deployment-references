@@ -41,15 +41,11 @@ runs:
     using: composite
     steps:
         - name: Deploy PostgreSQL for Keycloak via CloudNativePG
-          shell: bash
-          env:
-              CAMUNDA_NAMESPACE: ${{ inputs.namespace }}
-              CLUSTER_FILTER: pg-keycloak
-          run: |
-              set -euo pipefail
-
-              cd generic/kubernetes/operator-based/postgresql
-              ./deploy.sh "${{ inputs.cnpg-operator-namespace }}"
+          uses: ./.github/actions/kubernetes-cnpg-cluster
+          with:
+              namespace: ${{ inputs.namespace }}
+              cluster-name: pg-keycloak
+              cnpg-operator-namespace: ${{ inputs.cnpg-operator-namespace }}
 
         - name: Install Keycloak Operator and deploy instance
           shell: bash
