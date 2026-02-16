@@ -13,7 +13,6 @@ Uses scripts and manifests from generic/kubernetes/operator-based/postgresql/.
 | --- | --- | --- | --- |
 | `namespace` | <p>Kubernetes namespace for the PostgreSQL cluster</p> | `false` | `camunda` |
 | `cluster-name` | <p>Name of the CNPG cluster to deploy (must match a cluster in postgresql-clusters.yml). Examples: pg-keycloak, pg-identity, pg-webmodeler</p> | `true` | `""` |
-| `cnpg-operator-namespace` | <p>Namespace for the CNPG operator</p> | `false` | `cnpg-system` |
 
 
 ## Outputs
@@ -46,10 +45,4 @@ This action is a `composite` action.
     #
     # Required: true
     # Default: ""
-
-    cnpg-operator-namespace:
-    # Namespace for the CNPG operator
-    #
-    # Required: false
-    # Default: cnpg-system
 ```

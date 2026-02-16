@@ -21,10 +21,6 @@ inputs:
         description: Domain name (required for domain mode)
         required: false
         default: ''
-    cnpg-operator-namespace:
-        description: Namespace for CNPG operator
-        required: false
-        default: cnpg-system
 
 outputs:
     keycloak-admin-secret:
@@ -45,7 +41,6 @@ runs:
           with:
               namespace: ${{ inputs.namespace }}
               cluster-name: pg-keycloak
-              cnpg-operator-namespace: ${{ inputs.cnpg-operator-namespace }}
 
         - name: Install Keycloak Operator and deploy instance
           shell: bash

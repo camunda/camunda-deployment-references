@@ -15,10 +15,6 @@ inputs:
             Name of the CNPG cluster to deploy (must match a cluster in postgresql-clusters.yml).
             Examples: pg-keycloak, pg-identity, pg-webmodeler
         required: true
-    cnpg-operator-namespace:
-        description: Namespace for the CNPG operator
-        required: false
-        default: cnpg-system
 
 outputs:
     cluster-service:
@@ -45,6 +41,6 @@ runs:
               cd generic/kubernetes/operator-based/postgresql
 
               # deploy.sh installs the operator (idempotent), creates secrets, and deploys the cluster
-              ./deploy.sh "${{ inputs.cnpg-operator-namespace }}"
+              ./deploy.sh
 
               echo "✓ CNPG cluster ${{ inputs.cluster-name }} deployed in namespace ${{ inputs.namespace }}"

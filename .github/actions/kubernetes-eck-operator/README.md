@@ -12,7 +12,7 @@ Uses scripts and manifests from generic/kubernetes/operator-based/elasticsearch/
 | name | description | required | default |
 | --- | --- | --- | --- |
 | `namespace` | <p>Kubernetes namespace for the Elasticsearch cluster</p> | `false` | `camunda` |
-| `eck-operator-namespace` | <p>Namespace for the ECK operator</p> | `false` | `elastic-system` |
+| `elasticsearch-cluster-name` | <p>Name of the Elasticsearch cluster (must match the metadata.name of the Elasticsearch resource in the manifest). Used to derive the service and secret names.</p> | `false` | `elasticsearch` |
 | `elasticsearch-cluster-file` | <p>Path to the Elasticsearch cluster manifest. Relative to generic/kubernetes/operator-based/elasticsearch/.</p> | `false` | `elasticsearch-cluster.yml` |
 
 
@@ -40,11 +40,13 @@ This action is a `composite` action.
     # Required: false
     # Default: camunda
 
-    eck-operator-namespace:
-    # Namespace for the ECK operator
+    elasticsearch-cluster-name:
+    # Name of the Elasticsearch cluster (must match the metadata.name
+    # of the Elasticsearch resource in the manifest). Used to derive
+    # the service and secret names.
     #
     # Required: false
-    # Default: elastic-system
+    # Default: elasticsearch
 
     elasticsearch-cluster-file:
     # Path to the Elasticsearch cluster manifest.

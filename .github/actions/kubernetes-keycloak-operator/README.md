@@ -13,7 +13,6 @@ Uses scripts from generic/kubernetes/operator-based/ for deployment.
 | `namespace` | <p>Kubernetes namespace for deployment</p> | `false` | `camunda` |
 | `keycloak-mode` | <p>Keycloak deployment mode:</p> <ul> <li>'domain': With ingress for domain access (nginx)</li> <li>'domain-openshift': With ingress for OpenShift router</li> <li>'no-domain': Without ingress (port-forward access)</li> </ul> | `false` | `no-domain` |
 | `domain-name` | <p>Domain name (required for domain mode)</p> | `false` | `""` |
-| `cnpg-operator-namespace` | <p>Namespace for CNPG operator</p> | `false` | `cnpg-system` |
 
 
 ## Outputs
@@ -54,10 +53,4 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ""
-
-    cnpg-operator-namespace:
-    # Namespace for CNPG operator
-    #
-    # Required: false
-    # Default: cnpg-system
 ```

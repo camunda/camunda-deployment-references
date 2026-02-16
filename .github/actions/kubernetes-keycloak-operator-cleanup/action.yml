@@ -14,10 +14,6 @@ inputs:
         description: Skip uninstalling the operators (useful if shared across namespaces)
         required: false
         default: 'false'
-    cnpg-operator-namespace:
-        description: Namespace for the CNPG operator
-        required: false
-        default: cnpg-system
 
 runs:
     using: composite
@@ -39,7 +35,6 @@ runs:
               namespace: ${{ inputs.namespace }}
               cluster-name: pg-keycloak
               skip-operator-uninstall: 'true'
-              cnpg-operator-namespace: ${{ inputs.cnpg-operator-namespace }}
 
         - name: 🗑️ Delete Keycloak identity secrets
           shell: bash
@@ -85,7 +80,7 @@ runs:
               set -euo pipefail
               echo "Uninstalling CloudNativePG Operator..."
 
-              CNPG_NS="${{ inputs.cnpg-operator-namespace }}"
+              CNPG_NS="cnpg-system"
 
               # Delete the operator deployment (installed via raw manifests)
               if kubectl get deployment cnpg-controller-manager -n "$CNPG_NS" &>/dev/null; then

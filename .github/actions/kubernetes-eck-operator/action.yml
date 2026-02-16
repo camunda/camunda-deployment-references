@@ -10,10 +10,13 @@ inputs:
         description: Kubernetes namespace for the Elasticsearch cluster
         required: false
         default: camunda
-    eck-operator-namespace:
-        description: Namespace for the ECK operator
+    elasticsearch-cluster-name:
+        description: |
+            Name of the Elasticsearch cluster (must match the metadata.name
+            of the Elasticsearch resource in the manifest). Used to derive
+            the service and secret names.
         required: false
-        default: elastic-system
+        default: elasticsearch
     elasticsearch-cluster-file:
         description: |
             Path to the Elasticsearch cluster manifest.
@@ -24,13 +27,13 @@ inputs:
 outputs:
     elasticsearch-service:
         description: Elasticsearch service name
-        value: elasticsearch-es-http
+        value: ${{ format('{0}-es-http', inputs.elasticsearch-cluster-name) }}
     elasticsearch-port:
         description: Elasticsearch service port
         value: '9200'
     elasticsearch-secret:
         description: Name of the Elasticsearch elastic user secret
-        value: elasticsearch-es-elastic-user
+        value: ${{ format('{0}-es-elastic-user', inputs.elasticsearch-cluster-name) }}
 
 runs:
     using: composite
@@ -45,6 +48,6 @@ runs:
 
               cd generic/kubernetes/operator-based/elasticsearch
 
-              ./deploy.sh "${{ inputs.eck-operator-namespace }}"
+              ./deploy.sh
 
               echo "✓ Elasticsearch cluster deployed in namespace ${{ inputs.namespace }}"

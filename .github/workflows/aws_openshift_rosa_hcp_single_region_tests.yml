@@ -546,7 +546,7 @@ jobs:
                   cluster-name: pg-identity
 
             - name: 🐘 Deploy CNPG PostgreSQL for WebModeler
-              if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' && env.WEBMODELER_ENABLED == 'true' }}
+              if: ${{ env.WEBMODELER_ENABLED == 'true' }}
               timeout-minutes: 10
               uses: ./.github/actions/kubernetes-cnpg-cluster
               with:
@@ -649,7 +649,7 @@ jobs:
                   cluster-name: pg-identity
 
             - name: 🧹 Cleanup CNPG cluster pg-webmodeler
-              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.auth_provider == 'keycloak-operator'
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && env.WEBMODELER_ENABLED == 'true'
               uses: ./.github/actions/kubernetes-cnpg-cluster-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}

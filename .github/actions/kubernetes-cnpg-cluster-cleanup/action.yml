@@ -16,10 +16,6 @@ inputs:
         description: Skip uninstalling the CNPG operator (set to false only if no other clusters remain)
         required: false
         default: 'true'
-    cnpg-operator-namespace:
-        description: Namespace for the CNPG operator
-        required: false
-        default: cnpg-system
 
 runs:
     using: composite
@@ -57,7 +53,7 @@ runs:
               set -euo pipefail
               echo "Uninstalling CloudNativePG Operator..."
 
-              CNPG_NS="${{ inputs.cnpg-operator-namespace }}"
+              CNPG_NS="cnpg-system"
 
               # Delete the operator deployment (installed via raw manifests)
               if kubectl get deployment cnpg-controller-manager -n "$CNPG_NS" &>/dev/null; then
