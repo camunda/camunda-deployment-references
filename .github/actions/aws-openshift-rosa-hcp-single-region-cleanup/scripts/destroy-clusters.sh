@@ -178,18 +178,23 @@ cleanup_vpc_dependencies() {
     --query "NetworkInterfaces[*].[NetworkInterfaceId,Attachment.AttachmentId]" \
     --output text --region "$region" 2>/dev/null)
   if [[ -n "$attached_enis" && "$attached_enis" != "None" ]]; then
+    # Parse attached ENIs once: detach and remember IDs for later deletion.
+    local attached_eni_ids=()
     while IFS=$'\t' read -r eni_id attachment_id; do
       [[ -z "$eni_id" ]] && continue
+      [[ -z "$attachment_id" || "$attachment_id" == "None" ]] && continue
       echo "  Detaching Network Interface: $eni_id (attachment: $attachment_id)"
       aws ec2 detach-network-interface --attachment-id "$attachment_id" --force --region "$region" 2>/dev/null || true
+      attached_eni_ids+=("$eni_id")
     done <<< "$attached_enis"
     echo "  Waiting for ENIs to detach..."
-    sleep 10
-    while IFS=$'\t' read -r eni_id _; do
+    # Use a slightly longer wait to handle multiple ENIs and potential AWS throttling
+    sleep 20
+    for eni_id in "${attached_eni_ids[@]}"; do
       [[ -z "$eni_id" ]] && continue
       echo "  Deleting Network Interface: $eni_id"
       aws ec2 delete-network-interface --network-interface-id "$eni_id" --region "$region" 2>/dev/null || true
-    done <<< "$attached_enis"
+    done
   fi
 
   # 7. Delete non-main Route Table associations and Route Tables
@@ -309,6 +314,7 @@ destroy_cluster() {
     local output
     if output=$(terraform destroy -auto-approve 2>&1); then
       destroy_succeeded=true
+      echo "$output"
       break
     fi
     echo "$output"
@@ -330,6 +336,10 @@ destroy_cluster() {
       continue
     fi
 
+    # For non-DependencyViolation errors we fail fast instead of retrying, since these
+    # typically indicate configuration or logic issues (e.g. invalid Terraform, IAM),
+    # not transient AWS conditions. Only DependencyViolation (and known special cases)
+    # are retried above.
     return 1
   done
 
