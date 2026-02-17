@@ -358,6 +358,9 @@ jobs:
                       username: identity
                       password: identity-password
                       database: identity
+                      secretKeys:
+                        adminPasswordKey: "postgres-password"
+                        userPasswordKey: "password"
 
                   identity:
                     enabled: true
@@ -698,17 +701,12 @@ jobs:
 
                   echo "✓ Test data validation completed"
 
-            - name: Get failed Pods info
+            - name: 🚨🔬 Get failed Pods info
               if: failure()
-              run: |
-                  set -euo pipefail
-
-                  kubectl -n "${{ env.CAMUNDA_NAMESPACE }}" get po
-                  kubectl -n "${{ env.CAMUNDA_NAMESPACE }}" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
-                    echo -e "\n###Failed Pod: ${pod_name}###\n";
-                    kubectl -n "${{ env.CAMUNDA_NAMESPACE }}" describe po "$pod_name";
-                    kubectl -n "${{ env.CAMUNDA_NAMESPACE }}" logs "$pod_name" --tail=100;
-                  done
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
 
     cleanup-clusters:
         name: Cleanup clusters
