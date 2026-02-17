@@ -10,7 +10,7 @@ on:
         - cron: 0 3 * * 2  # Runs at 3 AM on Tuesday (after operator-based tests on Monday)
     pull_request:
         paths:
-            - .github/workflows/generic_kubernetes_migration_from_bitnami_test.yml
+            - .github/workflows/generic_kubernetes_migration_test.yml
             - .github/workflows-config/generic-kubernetes-migration-from-bitnami/test_matrix.yml
             - .tool-versions
             - generic/kubernetes/migration/**
