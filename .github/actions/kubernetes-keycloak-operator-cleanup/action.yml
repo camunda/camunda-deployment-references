@@ -1,8 +1,7 @@
 ---
 # This action cleans up Keycloak deployed via the Keycloak Operator with CNPG PostgreSQL.
-# It removes the Keycloak CRD, pg-keycloak cluster, operators, and related secrets.
-# Other CNPG clusters (pg-identity, pg-webmodeler) should be cleaned up separately
-# using the kubernetes-cnpg-cluster-cleanup action.
+# It removes the Keycloak CRD, pg-keycloak cluster, Keycloak operator, and related secrets.
+# CNPG operator cleanup should be handled separately using kubernetes-cnpg-cluster-cleanup.
 name: Cleanup Keycloak Operator Deployment
 description: Remove Keycloak deployed via Keycloak Operator and its CNPG PostgreSQL cluster (pg-keycloak)
 
@@ -10,10 +9,6 @@ inputs:
     namespace:
         description: Kubernetes namespace where Keycloak was deployed
         required: true
-    skip-operator-uninstall:
-        description: Skip uninstalling the operators (useful if shared across namespaces)
-        required: false
-        default: 'false'
 
 runs:
     using: composite
@@ -36,11 +31,11 @@ runs:
               cluster-name: pg-keycloak
               skip-operator-uninstall: 'true'
 
-        - name: 🗑️ Delete Keycloak identity secrets
+        - name: 🗑️ Delete Identity component secrets
           shell: bash
           run: |
               set -euo pipefail
-              echo "Deleting Keycloak identity secrets..."
+              echo "Deleting Identity component secrets..."
               if kubectl get secret identity-secret-for-components -n "${{ inputs.namespace }}" &>/dev/null; then
                 kubectl delete secret identity-secret-for-components -n "${{ inputs.namespace }}" || true
                 echo "Deleted secret: identity-secret-for-components"
@@ -49,7 +44,6 @@ runs:
               fi
 
         - name: 🗑️ Uninstall Keycloak Operator and CRDs
-          if: inputs.skip-operator-uninstall != 'true'
           shell: bash
           run: |
               set -euo pipefail
@@ -72,39 +66,6 @@ runs:
                   echo "CRD $crd not found, skipping..."
                 fi
               done
-
-        - name: 🗑️ Uninstall CloudNativePG Operator
-          if: inputs.skip-operator-uninstall != 'true'
-          shell: bash
-          run: |
-              set -euo pipefail
-              echo "Uninstalling CloudNativePG Operator..."
-
-              CNPG_NS="cnpg-system"
-
-              # Delete the operator deployment (installed via raw manifests)
-              if kubectl get deployment cnpg-controller-manager -n "$CNPG_NS" &>/dev/null; then
-                kubectl delete deployment cnpg-controller-manager -n "$CNPG_NS" --timeout=60s || true
-                echo "Deleted CNPG controller manager deployment"
-              else
-                echo "CNPG controller manager not found, skipping..."
-              fi
-
-              # Delete CNPG CRDs
-              echo "Deleting CNPG CRDs..."
-              for crd in $(kubectl get crd -o name 2>/dev/null | grep -E '\.postgresql\.cnpg\.io$' || true); do
-                kubectl delete "$crd" --timeout=60s || true
-                echo "Deleted CRD: $crd"
-              done
-
-              # Delete operator namespace if empty
-              if kubectl get namespace "$CNPG_NS" &>/dev/null; then
-                if [ "$(kubectl get all -n "$CNPG_NS" -o name 2>/dev/null | wc -l)" -eq 0 ]; then
-                  kubectl delete namespace "$CNPG_NS" --timeout=60s || true
-                else
-                  echo "Namespace $CNPG_NS still has resources, not deleting"
-                fi
-              fi
 
         - name: ✅ Cleanup completed
           shell: bash

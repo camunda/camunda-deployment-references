@@ -9,7 +9,6 @@ Remove Keycloak deployed via Keycloak Operator and its CNPG PostgreSQL cluster (
 | name | description | required | default |
 | --- | --- | --- | --- |
 | `namespace` | <p>Kubernetes namespace where Keycloak was deployed</p> | `true` | `""` |
-| `skip-operator-uninstall` | <p>Skip uninstalling the operators (useful if shared across namespaces)</p> | `false` | `false` |
 
 
 ## Runs
@@ -26,10 +25,4 @@ This action is a `composite` action.
     #
     # Required: true
     # Default: ""
-
-    skip-operator-uninstall:
-    # Skip uninstalling the operators (useful if shared across namespaces)
-    #
-    # Required: false
-    # Default: false
 ```

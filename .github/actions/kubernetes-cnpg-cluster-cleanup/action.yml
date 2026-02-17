@@ -10,8 +10,10 @@ inputs:
         required: true
     cluster-name:
         description: |
-            Name of the CNPG cluster to delete (e.g., pg-keycloak, pg-identity, pg-webmodeler)
-        required: true
+            Name of the CNPG cluster to delete (e.g., pg-keycloak, pg-identity, pg-webmodeler).
+            Leave empty to only uninstall the operator.
+        required: false
+        default: ''
     skip-operator-uninstall:
         description: Skip uninstalling the CNPG operator (set to false only if no other clusters remain)
         required: false
@@ -21,6 +23,7 @@ runs:
     using: composite
     steps:
         - name: 🗑️ Delete CNPG PostgreSQL Cluster
+          if: inputs.cluster-name != ''
           shell: bash
           run: |
               set -euo pipefail
@@ -33,6 +36,7 @@ runs:
               fi
 
         - name: 🗑️ Delete cluster secrets
+          if: inputs.cluster-name != ''
           shell: bash
           run: |
               set -euo pipefail

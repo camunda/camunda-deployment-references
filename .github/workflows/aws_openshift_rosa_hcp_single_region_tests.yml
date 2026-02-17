@@ -506,12 +506,10 @@ jobs:
                   fi
 
                   # Merge CNPG Identity PostgreSQL overlay (external DB managed by CNPG operator)
-                  if [[ "$AUTH_PROVIDER" == "keycloak-operator" ]]; then
-                    echo "Merging CNPG Identity PostgreSQL config"
-                    OPERATOR_PG_PATH="generic/kubernetes/operator-based/postgresql"
-                    yq ". *+ load(\"${OPERATOR_PG_PATH}/camunda-identity-values.yml\")" values.yml > values-merged.yml
-                    cat values-merged.yml && mv values-merged.yml values.yml
-                  fi
+                  echo "Merging CNPG Identity PostgreSQL config"
+                  OPERATOR_PG_PATH="generic/kubernetes/operator-based/postgresql"
+                  yq ". *+ load(\"${OPERATOR_PG_PATH}/camunda-identity-values.yml\")" values.yml > values-merged.yml
+                  cat values-merged.yml && mv values-merged.yml values.yml
 
                   if [ "$CONSOLE_ENABLED" == "true" ]; then
                     echo "Enabling Console"
@@ -537,16 +535,15 @@ jobs:
                   keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain-openshift' || 'no-domain' }}
                   domain-name: ${{ env.CAMUNDA_DOMAIN }}
 
-            - name: 🐘 Deploy CNPG PostgreSQL for Identity
-              if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
+            - name: 🐘 Deploy CNPG cluster pg-identity
               timeout-minutes: 10
               uses: ./.github/actions/kubernetes-cnpg-cluster
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   cluster-name: pg-identity
 
-            - name: 🐘 Deploy CNPG PostgreSQL for WebModeler
-              if: ${{ env.WEBMODELER_ENABLED == 'true' }}
+            - name: 🐘 Deploy CNPG cluster pg-webmodeler
+              if: env.WEBMODELER_ENABLED == 'true'
               timeout-minutes: 10
               uses: ./.github/actions/kubernetes-cnpg-cluster
               with:
@@ -642,7 +639,7 @@ jobs:
                   artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
 
             - name: 🧹 Cleanup CNPG cluster pg-identity
-              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.auth_provider == 'keycloak-operator'
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
               uses: ./.github/actions/kubernetes-cnpg-cluster-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
@@ -660,6 +657,13 @@ jobs:
               uses: ./.github/actions/kubernetes-keycloak-operator-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
+            - name: 🧹 Uninstall CNPG Operator
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-cnpg-cluster-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  skip-operator-uninstall: 'false'
 
             - name: 🧹 Cleanup Namespace
               if: always() && env.CLEANUP_CLUSTERS == 'true'
