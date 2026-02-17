@@ -15,6 +15,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Scaling timeout summary (retryInterval=15s):
+//
+//	Test                        | maxRetries | Timeout
+//	Broker scaling               |         30 |  7m30s
+//	Partition scaling            |        120 |    30m
+//	Combined broker + partition  |        120 |    30m
+//
+// Tests that create new partitions need higher timeouts because Raft priority
+// election (AwaitRelocationCompletion) must transfer leadership cross-region,
+// which can take 15+ minutes.
+
 // TestZeebeClusterScaleUpBrokers tests scaling Zeebe brokers in a multi-region setup
 // Initial state: 8 brokers (4 per region), 8 partitions
 // Target state: 12 brokers (6 per region), 8 partitions
@@ -64,7 +75,7 @@ func TestZeebeClusterScaleUpPartitions(t *testing.T) {
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 10, 8) }},
 		{"TestScaleUpPartitions", func(t *testing.T) { scaleUpPartitions(t, 10, 4) }},
-		{"TestWaitForPartitionScalingComplete", func(t *testing.T) { waitForScalingComplete(t, "partition scaling", 60) }},
+		{"TestWaitForPartitionScalingComplete", func(t *testing.T) { waitForScalingComplete(t, "partition scaling", 120) }},
 		{"TestVerifyScaledPartitionTopology", func(t *testing.T) { verifyClusterTopology(t, 10, 10) }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -93,7 +104,7 @@ func TestZeebeClusterScaleUpBothBrokersAndPartitions(t *testing.T) {
 		{"TestScaleUpBrokerStatefulSets", func(t *testing.T) { scaleUpBrokerStatefulSets(t, 6) }},
 		{"TestWaitForNewBrokersToStart", func(t *testing.T) { waitForNewBrokersToStart(t, 5, 1) }},
 		{"TestScaleUpBrokersAndPartitions", func(t *testing.T) { scaleUpBrokersAndPartitions(t, []int{10, 11}, 12, 4) }},
-		{"TestWaitForCombinedScalingComplete", func(t *testing.T) { waitForScalingComplete(t, "combined broker and partition scaling", 60) }},
+		{"TestWaitForCombinedScalingComplete", func(t *testing.T) { waitForScalingComplete(t, "combined broker and partition scaling", 120) }},
 		{"TestVerifyScaledClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 12) }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
