@@ -435,6 +435,10 @@ jobs:
 
                   echo "Construct the values.yml file"
 
+                  # /!\ IMPORTANT: Keep the overlays and merge order in sync with the documentation:
+                  # https://github.com/camunda/camunda-docs  (repo: camunda/camunda-docs)
+                  # File: docs/self-managed/deployment/helm/cloud-providers/openshift/redhat-openshift.md
+
                   # TODO: Align with AKS deployment to use values-enterprise.yaml as base
                   # and apply registry-harbor.yml for all deployments (not just tests).
                   # This should be documented in the procedure for production deployments.
@@ -473,6 +477,12 @@ jobs:
                   # Enable SCC
                   yq '. *+ load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
+
+                  # Merge ECK Elasticsearch operator overlay
+                  echo "Merging ECK Elasticsearch config"
+                  OPERATOR_ES_PATH="generic/kubernetes/operator-based/elasticsearch"
+                  yq ". *+ load(\"${OPERATOR_ES_PATH}/camunda-elastic-values.yml\")" values.yml > values-merged.yml
+                  cat values-merged.yml && mv values-merged.yml values.yml
 
                   # Merge auth provider specific overlays (keycloak-operator or OIDC)
                   # These overlays contain the auth-specific configuration
@@ -526,7 +536,13 @@ jobs:
 
                   ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
 
-            - name: 🐘 Deploy Keycloak via Operator (keycloak-operator mode)
+            - name: � Deploy Elasticsearch via ECK Operator
+              timeout-minutes: 10
+              uses: ./.github/actions/kubernetes-eck-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
+            - name: �🐘 Deploy Keycloak via Operator (keycloak-operator mode)
               if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
               timeout-minutes: 15
               uses: ./.github/actions/kubernetes-keycloak-operator
@@ -652,6 +668,12 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   cluster-name: pg-webmodeler
 
+            - name: 🧹 Cleanup ECK Elasticsearch deployment
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
             - name: 🧹 Cleanup Keycloak Operator deployment
               if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.auth_provider == 'keycloak-operator'
               uses: ./.github/actions/kubernetes-keycloak-operator-cleanup
@@ -661,6 +683,13 @@ jobs:
             - name: 🧹 Uninstall CNPG Operator
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               uses: ./.github/actions/kubernetes-cnpg-cluster-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  skip-operator-uninstall: 'false'
+
+            - name: 🧹 Uninstall ECK Operator
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   skip-operator-uninstall: 'false'
