@@ -536,13 +536,13 @@ jobs:
 
                   ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
 
-            - name: � Deploy Elasticsearch via ECK Operator
+            - name: Deploy Elasticsearch via ECK Operator
               timeout-minutes: 10
               uses: ./.github/actions/kubernetes-eck-operator
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
 
-            - name: �🐘 Deploy Keycloak via Operator (keycloak-operator mode)
+            - name: 🐘 Deploy Keycloak via Operator (keycloak-operator mode)
               if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
               timeout-minutes: 15
               uses: ./.github/actions/kubernetes-keycloak-operator
