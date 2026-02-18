@@ -568,7 +568,12 @@ jobs:
 
                   echo "✓ Test data validation completed"
 
-            - name: 🚨🔬 Get failed Pods info
+            - name: �️ Setup tmate session for debugging
+              if: failure()
+              uses: mxschmitt/action-tmate@v3
+              timeout-minutes: 60
+
+            - name: �🚨🔬 Get failed Pods info
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
