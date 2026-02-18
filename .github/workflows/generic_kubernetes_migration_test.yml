@@ -7,7 +7,7 @@ permissions:
 
 on:
     schedule:
-        - cron: 0 3 * * 2  # Runs at 3 AM on Tuesday (after operator-based tests on Monday)
+        - cron: 0 3 * * 2 # Runs at 3 AM on Tuesday (after operator-based tests on Monday)
     pull_request:
         paths:
             - .github/workflows/generic_kubernetes_migration_test.yml
@@ -15,27 +15,13 @@ on:
             - .tool-versions
             - generic/kubernetes/migration/**
             - generic/kubernetes/operator-based/**
-            - aws/kubernetes/eks-single-region-irsa/**
-            - '!aws/kubernetes/eks-single-region-irsa/test/golden/**'
-            - .github/actions/aws-kubernetes-eks-single-region-create/**
-            - .github/actions/aws-generic-terraform-cleanup/**
-            - .github/actions/aws-configure-cli/**
+            - local/kubernetes/kind-single-region/**
             - .github/actions/internal-apply-skip-label/**
-            - .github/actions/internal-generic-encrypt-export/**
-            - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-clean-namespace/**
 
     workflow_dispatch:
         inputs:
-            cluster_name:
-                description: Cluster name.
-                required: false
-                type: string
-            delete_clusters:
-                description: Whether to delete the clusters.
-                type: boolean
-                default: true
             enable_tests:
                 description: Whether to enable the tests.
                 type: boolean
@@ -53,20 +39,8 @@ concurrency:
     cancel-in-progress: false
 
 env:
-    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
-
-    AWS_PROFILE: infex
-    AWS_REGION: eu-west-2
-    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
-    S3_BUCKET_REGION: eu-central-1
-    TF_MODULES_DIRECTORY: ./.tf-modules-workflow/
-
-    S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION: aws/kubernetes/eks-single-region/
-
-    # TODO : revert this before merge
-    CLEANUP_CLUSTERS: false
-    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     CI_MATRIX_FILE: .github/workflows-config/generic-kubernetes-migration-from-bitnami/test_matrix.yml
 
@@ -108,139 +82,39 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  # TODO: revert later
-                  cluster_name: migr
-                  # cluster_name: ${{ inputs.cluster_name }}
+                  cluster_prefix: kind-migr
                   ref_arch: migration-from-bitnami
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
-    prepare-clusters:
-        name: Prepare clusters
-        needs:
-            - clusters-info
-        strategy:
-            fail-fast: false
-            matrix:
-                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
-                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-              with:
-                  ref: ${{ github.ref }}
-                  fetch-depth: 0
-
-            - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
-
-            - name: Import Secrets
-              id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
-              with:
-                  url: ${{ secrets.VAULT_ADDR }}
-                  method: approle
-                  roleId: ${{ secrets.VAULT_ROLE_ID }}
-                  secretId: ${{ secrets.VAULT_SECRET_ID }}
-                  exportEnv: false
-                  secrets: |
-                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
-
-            - name: Configure AWS CLI
-              uses: ./.github/actions/aws-configure-cli
-              with:
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-                  aws-profile: ${{ env.AWS_PROFILE }}
-                  aws-region: ${{ env.AWS_REGION }}
-
-            - name: Set current target branch
-              id: target-branch
-              run: |
-                  set -euo pipefail
-                  TARGET_BRANCH=$(cat .target-branch)
-                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
-            - name: Create EKS cluster and login
-              uses: ./.github/actions/aws-kubernetes-eks-single-region-create
-              id: create_eks_cluster
-              if: always() && success()
-              with:
-                  cluster-name: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
-                  aws-region: ${{ env.AWS_REGION }}
-                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-                  tf-modules-revision: ${{ github.ref }}
-                  tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
-                  ref-arch: eks-single-region
-                  deploy-aurora: 'false'
-                  deploy-opensearch: 'false'
-                  tags: >
-                      {
-                        "ci-run-id": "${{ github.run_id }}",
-                        "ci-run-number": "${{ github.run_number }}",
-                        "ci-workflow": "${{ github.workflow }}",
-                        "ci-actor": "${{ github.actor }}",
-                        "ci-ref": "${{ github.ref }}",
-                        "ci-commit": "${{ github.sha }}",
-                        "ci-repo": "${{ github.repository }}",
-                        "ci-event": "${{ github.event_name }}",
-                        "map-migrated": "migARUADZHVWZ"
-                      }
-
-            - name: Dump kubeconfig before encryption
-              run: |
-                  set -euo pipefail
-                  kubectl config view --raw > "${{ runner.temp }}/kubeconfig.yaml"
-
-            - name: Export kubeconfig and encrypt it
-              id: export_kube_config
-              uses: ./.github/actions/internal-generic-encrypt-export
-              with:
-                  file_path: ${{ runner.temp }}/kubeconfig.yaml
-                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
-
-            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
-              if: always()
-              id: out
-              with:
-                  matrix-step-name: ${{ github.job }}
-                  matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
-                  outputs: |-
-                      kubeconfig_encrypted: ${{ steps.export_kube_config.outputs.encrypted_file_base64 }}
-
-    access-info:
-        name: Read kube configs from matrix
-        runs-on: ubuntu-latest
-        needs: prepare-clusters
-        outputs:
-            config: ${{ steps.read-workflow.outputs.result }}
-        steps:
-            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
-              id: read-workflow
-              with:
-                  matrix-step-name: prepare-clusters
-
     migration-tests:
         name: Run migration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }}
-        runs-on: ubuntu-latest
         needs:
+            - triage
             - clusters-info
-            - access-info
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: aws-core-8-default
+        timeout-minutes: 60
         strategy:
             fail-fast: false
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         env:
+            CLUSTER_NAME: camunda-migration-local
             CAMUNDA_NAMESPACE: camunda
+            CAMUNDA_RELEASE_NAME: camunda
+            REF_ARCH_PATH: local/kubernetes/kind-single-region
         steps:
             - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
-            - name: Install asdf tools with cache for the project
+            - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+
+            - name: Install envsubst
+              run: |
+                  sudo apt-get update -qq
+                  sudo apt-get install -y -qq gettext-base
 
             - name: Import Secrets
               id: secrets
@@ -254,101 +128,54 @@ jobs:
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
-                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
-            - name: Configure AWS CLI for EKS access
-              uses: ./.github/actions/aws-configure-cli
-              with:
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-                  aws-profile: ${{ env.AWS_PROFILE }}
-                  aws-region: ${{ env.AWS_REGION }}
+            # =================================================================
+            # Create Kind cluster
+            # =================================================================
+            - name: Create Kind cluster
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/cluster-create.sh
 
-            - name: Retrieve kubeconfig from outputs
-              uses: ./.github/actions/internal-generic-decrypt-import
-              with:
-                  output_path: ${{ runner.temp }}/kubeconfig
-                  encrypted_file_base64: >
-                      ${{ fromJson(needs.access-info.outputs.config).kubeconfig_encrypted[
-                        format(
-                          '{0}-{1}',
-                          matrix.distro.name,
-                          matrix.scenario.name
-                        )
-                      ] }}
-                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
-
-            - name: 🔐 Login into the cluster
-              timeout-minutes: 2
+            - name: Create Docker Hub pull secret
               run: |
                   set -euo pipefail
+                  kubectl create namespace "${{ env.CAMUNDA_NAMESPACE }}" --dry-run=client -o yaml | kubectl apply -f -
+                  kubectl create secret docker-registry index-docker-io \
+                      --docker-server=index.docker.io \
+                      --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                      --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                      --namespace="${{ env.CAMUNDA_NAMESPACE }}"
 
-                  mkdir -p "$HOME/.kube"
-                  mv "${{ runner.temp }}/kubeconfig" "$HOME/.kube/config"
-
-                  kubectl config current-context
-                  kubectl get nodes
-
-            - name: 📁 Get a copy of the migration scripts
-              timeout-minutes: 5
-              run: |
-                  set -euo pipefail
-                  ls -la generic/kubernetes/migration/
-                  echo "Migration scripts ready"
-
-            - name: 🏗️ Clean and recreate Camunda namespace
-              timeout-minutes: 20
-              uses: ./.github/actions/internal-clean-namespace
-              with:
-                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  recreate: 'true'
-
-            - name: Wait for cluster stability
-              run: sleep 30
-
-            # =========================================================================
+            # =================================================================
             # STEP 1: Deploy Camunda with Bitnami sub-charts (SOURCE)
-            # =========================================================================
-            - name: 🚀 Deploy Camunda with Bitnami sub-charts
+            # =================================================================
+            - name: Deploy Camunda with Bitnami sub-charts
               timeout-minutes: 20
               run: |
                   set -euo pipefail
-
-                  echo "Setting up environment variables..."
-                  export CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
-                  export CAMUNDA_RELEASE_NAME="camunda"
 
                   echo "Adding Camunda Helm repository..."
                   helm repo add camunda https://helm.camunda.io
                   helm repo update
 
-                  echo "Creating Docker registry secret..."
-                  kubectl create secret docker-registry index-docker-io \
-                      --docker-server=index.docker.io \
-                      --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
-                      --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
-                      --namespace="${CAMUNDA_NAMESPACE}" || true
-
                   # Pre-create the webModelerPostgresql secret required by the chart.
-                  # The chart references it via existingSecret but doesn't create it on install.
                   echo "Creating webModelerPostgresql secret..."
                   kubectl create secret generic camunda-postgresql-web-modeler \
-                      --namespace="${CAMUNDA_NAMESPACE}" \
+                      --namespace="${{ env.CAMUNDA_NAMESPACE }}" \
                       --from-literal=password="webmodeler-password" \
                       --from-literal=postgres-password="$(openssl rand -base64 16)" \
                       || true
 
                   echo "Installing Camunda Platform with Bitnami sub-charts..."
                   helm install camunda camunda/camunda-platform \
-                      --namespace "${CAMUNDA_NAMESPACE}" \
+                      --namespace "${{ env.CAMUNDA_NAMESPACE }}" \
                       --values generic/kubernetes/migration/tests/bitnami-values.yml \
                       --timeout 20m \
                       --wait
 
-                  echo "✓ Camunda with Bitnami sub-charts deployed successfully"
+                  echo "Camunda with Bitnami sub-charts deployed successfully"
 
-            - name: ⏳ Wait for Bitnami deployment to be ready
+            - name: Wait for Bitnami deployment to be ready
               timeout-minutes: 15
               run: |
                   set -euo pipefail
@@ -363,47 +190,42 @@ jobs:
                   kubectl rollout status deployment/camunda-operate -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=300s || true
                   kubectl rollout status deployment/camunda-identity -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=300s || true
 
-                  echo "✓ Bitnami deployment ready"
+                  echo "Bitnami deployment ready"
 
-            # =========================================================================
+            # =================================================================
             # STEP 1.5: Generate Test Data for Migration Validation
-            # =========================================================================
-            - name: 📊 Generate test data using Camunda 8 Benchmark
+            # =================================================================
+            - name: Generate test data using Camunda 8 Benchmark
               timeout-minutes: 15
               run: |
                   set -euo pipefail
 
                   echo "Generating test data using camunda-8-benchmark..."
 
-                  # Deploy the benchmark job that will create process instances
                   kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
                       -f generic/kubernetes/migration/tests/benchmark-job.yml
 
                   echo "Waiting for benchmark job to start..."
                   sleep 10
 
-                  # Wait for the job to run for a bit and create some data
                   echo "Benchmark is running, waiting for data generation (60s)..."
                   sleep 60
 
-                  # Check job status
                   kubectl get job migration-test-data-generator -n "${{ env.CAMUNDA_NAMESPACE }}" || true
                   kubectl logs job/migration-test-data-generator -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=50 || true
 
-                  # Delete the job (we just needed it to generate some data)
                   kubectl delete job migration-test-data-generator -n "${{ env.CAMUNDA_NAMESPACE }}" --ignore-not-found=true || true
 
-                  # Create a marker ConfigMap to track test data generation
                   kubectl create configmap migration-test-data-marker \
                       --namespace="${{ env.CAMUNDA_NAMESPACE }}" \
-                      --from-literal=created_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                      --from-literal=created_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
                       --from-literal=generator="camunda-8-benchmark" \
                       --from-literal=process_id="benchmark" \
                       --dry-run=client -o yaml | kubectl apply -f -
 
-                  echo "✓ Test data generation completed"
+                  echo "Test data generation completed"
 
-            - name: ⏳ Wait for data to propagate to Elasticsearch
+            - name: Wait for data to propagate to Elasticsearch
               timeout-minutes: 5
               run: |
                   set -euo pipefail
@@ -411,7 +233,6 @@ jobs:
                   echo "Waiting for data to propagate to Elasticsearch..."
                   sleep 60
 
-                  # Verify data in Elasticsearch
                   ES_POD=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" \
                       -l "app=elasticsearch" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
 
@@ -420,27 +241,25 @@ jobs:
                       kubectl exec -n "${{ env.CAMUNDA_NAMESPACE }}" "$ES_POD" -- \
                           curl -s "localhost:9200/_cat/indices?v" | grep -E "(operate|tasklist|optimize|connectors)" || true
 
-                      # Count process instances
                       INSTANCE_COUNT=$(kubectl exec -n "${{ env.CAMUNDA_NAMESPACE }}" "$ES_POD" -- \
                           curl -s "localhost:9200/operate-list-view-*/_count" 2>/dev/null | jq -r '.count // 0' || echo "0")
                       echo "Found ${INSTANCE_COUNT} process instances in Elasticsearch"
                   fi
 
-                  echo "✓ Data propagation complete"
+                  echo "Data propagation complete"
 
-            # =========================================================================
+            # =================================================================
             # STEP 2: Run Migration (4 phases)
-            # =========================================================================
-            - name: 📋 Set migration environment variables
+            # =================================================================
+            - name: Set migration environment variables
               run: |
                   set -euo pipefail
 
-                  # Set environment variables for the new migration scripts (env.sh)
                   cat >> "$GITHUB_ENV" <<EOF
                   NAMESPACE=${{ env.CAMUNDA_NAMESPACE }}
                   CAMUNDA_RELEASE_NAME=camunda
                   BACKUP_PVC=migration-backup-pvc
-                  BACKUP_STORAGE_SIZE=50Gi
+                  BACKUP_STORAGE_SIZE=10Gi
                   MIGRATE_IDENTITY=true
                   MIGRATE_KEYCLOAK=true
                   MIGRATE_WEBMODELER=true
@@ -449,21 +268,17 @@ jobs:
                   ES_TARGET_MODE=operator
                   EOF
 
-            # ─── Phase 1: Deploy Targets (no downtime) ───
-            - name: 🔄 Phase 1 — Deploy target infrastructure
+            # --- Phase 1: Deploy Targets (no downtime) ---
+            - name: Phase 1 - Deploy target infrastructure
               timeout-minutes: 20
               working-directory: ./generic/kubernetes/migration/
               run: |
                   set -euo pipefail
-
-                  # Source env.sh to load configuration
                   source ./env.sh
-
-                  # Run Phase 1 non-interactively (pipe 'yes' to confirm prompts)
                   yes | ./1-deploy-targets.sh
 
-            # ─── Phase 2: Backup (no downtime) ───
-            - name: 🔄 Phase 2 — Initial backup (warm, no downtime)
+            # --- Phase 2: Backup (no downtime) ---
+            - name: Phase 2 - Initial backup (warm, no downtime)
               timeout-minutes: 15
               working-directory: ./generic/kubernetes/migration/
               run: |
@@ -471,19 +286,17 @@ jobs:
                   source ./env.sh
                   ./2-backup.sh
 
-            # ─── Phase 3: Cutover (downtime window) ───
-            - name: 🔄 Phase 3 — Cutover (freeze → backup → restore → switch)
+            # --- Phase 3: Cutover (downtime window) ---
+            - name: Phase 3 - Cutover (freeze, backup, restore, switch)
               timeout-minutes: 20
               working-directory: ./generic/kubernetes/migration/
               run: |
                   set -euo pipefail
                   source ./env.sh
-
-                  # Pipe 'yes' to the downtime confirmation prompt
                   yes | ./3-cutover.sh
 
-            # ─── Phase 4: Validate ───
-            - name: 🔄 Phase 4 — Validate migration
+            # --- Phase 4: Validate ---
+            - name: Phase 4 - Validate migration
               timeout-minutes: 10
               working-directory: ./generic/kubernetes/migration/
               run: |
@@ -491,10 +304,10 @@ jobs:
                   source ./env.sh
                   ./4-validate.sh
 
-            # =========================================================================
+            # =================================================================
             # STEP 3: Verify Final State
-            # =========================================================================
-            - name: ✅ Verify final deployment state
+            # =================================================================
+            - name: Verify final deployment state
               timeout-minutes: 10
               run: |
                   set -euo pipefail
@@ -515,7 +328,7 @@ jobs:
                   kubectl get keycloaks.k8s.keycloak.org -n "${{ env.CAMUNDA_NAMESPACE }}" || echo "No Keycloak instances found"
 
                   echo ""
-                  echo "✓ Migration tests completed successfully!"
+                  echo "Migration tests completed successfully!"
 
             - name: Validate migrated test data
               timeout-minutes: 10
@@ -526,7 +339,6 @@ jobs:
                   export CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
                   export CAMUNDA_RELEASE_NAME="camunda"
 
-                  # Quick validation: check ES indices exist and PG tables present
                   ES_POD=$(kubectl get pods -n "${CAMUNDA_NAMESPACE}" \
                       -l "elasticsearch.k8s.elastic.co/cluster-name" \
                       -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
@@ -540,13 +352,12 @@ jobs:
                       echo "$INDICES"
 
                       if echo "$INDICES" | grep -qE "(operate|tasklist|optimize|zeebe)"; then
-                          echo "✓ Camunda indices found in ECK Elasticsearch"
+                          echo "Camunda indices found in ECK Elasticsearch"
                       else
-                          echo "⚠ No Camunda indices detected — data may not have migrated"
+                          echo "WARNING: No Camunda indices detected - data may not have migrated"
                       fi
                   fi
 
-                  # Check CNPG clusters have tables
                   for CLUSTER in pg-identity pg-keycloak pg-webmodeler; do
                       SECRET="${CLUSTER}-secret"
                       if kubectl get secret "$SECRET" -n "${CAMUNDA_NAMESPACE}" &>/dev/null; then
@@ -566,81 +377,37 @@ jobs:
                       fi
                   done
 
-                  echo "✓ Test data validation completed"
+                  echo "Test data validation completed"
 
+            # =================================================================
+            # Debug & Cleanup
+            # =================================================================
             - name: Setup tmate session for debugging
               if: failure()
               uses: mxschmitt/action-tmate@v3
               with:
                   detached: true
-                  timeout-minutes: 60
+              timeout-minutes: 60
 
-            - name: �🚨🔬 Get failed Pods info
+            - name: Get failed Pods info
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
 
-    cleanup-clusters:
-        name: Cleanup clusters
-        if: always()
-        runs-on: ubuntu-latest
-        needs:
-            - clusters-info
-            - migration-tests
-        strategy:
-            fail-fast: false
-            matrix:
-                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
-                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-
-        steps:
-            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-              if: env.CLEANUP_CLUSTERS == 'true'
-              with:
-                  fetch-depth: 0
-
-            - name: Install asdf tools with cache
-              if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
-
-            - name: Configure AWS CLI
-              uses: ./.github/actions/aws-configure-cli
-              if: env.CLEANUP_CLUSTERS == 'true'
-              with:
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-                  aws-profile: ${{ env.AWS_PROFILE }}
-                  aws-region: ${{ env.AWS_REGION }}
-
-            - name: Set current target branch
-              if: env.CLEANUP_CLUSTERS == 'true'
-              id: target-branch
+            - name: Cleanup Kind cluster
+              if: always()
               run: |
                   set -euo pipefail
-                  TARGET_BRANCH=$(cat .target-branch)
-                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
-            - name: Delete on-demand EKS Cluster
-              uses: ./.github/actions/aws-generic-terraform-cleanup
-              if: always() && env.CLEANUP_CLUSTERS == 'true'
-              timeout-minutes: 125
-              with:
-                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours: 0
-                  target: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
-                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-                  modules-order: vpn,cluster
+                  echo "Cleaning up Kind cluster: ${{ env.CLUSTER_NAME }}"
+                  kind delete cluster --name "${{ env.CLUSTER_NAME }}" || true
 
     report-success:
         name: Report success
         runs-on: ubuntu-latest
         needs:
             - migration-tests
-            - cleanup-clusters
         steps:
             - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
