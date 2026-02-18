@@ -11,6 +11,10 @@ global:
     identity:
         auth:
             enabled: true
+            optimize:
+                secret:
+                    existingSecret: camunda-credentials
+                    existingSecretKey: identity-optimize-client-token
     image:
         pullSecrets:
             - name: index-docker-io
