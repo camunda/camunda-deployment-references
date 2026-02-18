@@ -1,0 +1,60 @@
+---
+# Benchmark job to generate test data for migration validation.
+# Deploys a short-lived job that creates process instances in the Camunda cluster
+# via the camunda-8-benchmark tool.
+#
+# Usage: envsubst < benchmark-job.yml | kubectl apply -n <namespace> -f -
+# Required env: CAMUNDA_NAMESPACE (only for labels, the namespace is set at apply time)
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: migration-test-data-generator
+    labels:
+        app: migration-test-data
+spec:
+    ttlSecondsAfterFinished: 3600
+    backoffLimit: 3
+    template:
+        metadata:
+            labels:
+                app: migration-test-data
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: benchmark
+                  image: camundacommunityhub/camunda-8-benchmark:main
+                  env:
+                      - name: CAMUNDA_CLIENT_MODE
+                        value: self-managed
+                      - name: CAMUNDA_CLIENT_ZEEBE_BASE_URL
+                        value: http://camunda-zeebe-gateway:26500
+                      - name: CAMUNDA_CLIENT_ZEEBE_GRPC_ADDRESS
+                        value: http://camunda-zeebe-gateway:26500
+                      - name: CAMUNDA_CLIENT_ZEEBE_PREFER_REST_OVER_GRPC
+                        value: 'false'
+                      - name: BENCHMARK_START_PROCESSES
+                        value: 'true'
+                      - name: BENCHMARK_START_PI_PER_SECOND
+                        value: '5'
+                      - name: BENCHMARK_AUTO_DEPLOY_PROCESS
+                        value: 'true'
+                      - name: BENCHMARK_BPMN_PROCESS_ID
+                        value: benchmark
+                      - name: BENCHMARK_START_WORKERS
+                        value: 'true'
+                      - name: BENCHMARK_JOB_TYPE
+                        value: benchmark-task
+                      - name: BENCHMARK_TASK_COMPLETION_DELAY
+                        value: '100'
+                      - name: BENCHMARK_WARMUP_PHASE_DURATION_MILLIS
+                        value: '10000'
+                      - name: BENCHMARK_START_RATE_ADJUSTMENT_STRATEGY
+                        value: none
+                  resources:
+                      requests:
+                          cpu: 500m
+                          memory: 512Mi
+                      limits:
+                          cpu: 1
+                          memory: 1Gi
