@@ -101,7 +101,7 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         env:
-            CLUSTER_NAME: camunda-migration-local
+            CLUSTER_NAME: camunda-platform-local
             CAMUNDA_NAMESPACE: camunda
             CAMUNDA_RELEASE_NAME: camunda
             REF_ARCH_PATH: local/kubernetes/kind-single-region
@@ -255,18 +255,18 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  cat >> "$GITHUB_ENV" <<EOF
-                  NAMESPACE=${{ env.CAMUNDA_NAMESPACE }}
-                  CAMUNDA_RELEASE_NAME=camunda
-                  BACKUP_PVC=migration-backup-pvc
-                  BACKUP_STORAGE_SIZE=10Gi
-                  MIGRATE_IDENTITY=true
-                  MIGRATE_KEYCLOAK=true
-                  MIGRATE_WEBMODELER=true
-                  MIGRATE_ELASTICSEARCH=true
-                  PG_TARGET_MODE=operator
-                  ES_TARGET_MODE=operator
-                  EOF
+                  {
+                    echo "NAMESPACE=${{ env.CAMUNDA_NAMESPACE }}"
+                    echo "CAMUNDA_RELEASE_NAME=camunda"
+                    echo "BACKUP_PVC=migration-backup-pvc"
+                    echo "BACKUP_STORAGE_SIZE=10Gi"
+                    echo "MIGRATE_IDENTITY=true"
+                    echo "MIGRATE_KEYCLOAK=true"
+                    echo "MIGRATE_WEBMODELER=true"
+                    echo "MIGRATE_ELASTICSEARCH=true"
+                    echo "PG_TARGET_MODE=operator"
+                    echo "ES_TARGET_MODE=operator"
+                  } >> "$GITHUB_ENV"
 
             # --- Phase 1: Deploy Targets (no downtime) ---
             - name: Phase 1 - Deploy target infrastructure
