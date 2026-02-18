@@ -684,7 +684,8 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
-        if: always() && (needs.integration-tests.result == 'success' || fromJson(github.run_attempt) >= 3)
+        # Always cleanup when: tests passed, last retry attempt reached, OR retry mechanism itself failed (e.g. bad credentials)
+        if: always() && (needs.integration-tests.result == 'success' || fromJson(github.run_attempt) >= 3 || needs.integration-tests-retry.result == 'failure')
         runs-on: ubuntu-latest
         needs:
             - clusters-info
