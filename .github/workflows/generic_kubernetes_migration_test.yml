@@ -93,7 +93,7 @@ jobs:
             - triage
             - clusters-info
         if: needs.triage.outputs.should_skip == 'false'
-        runs-on: aws-core-8-default
+        runs-on: aws-core-16-default
         timeout-minutes: 60
         strategy:
             fail-fast: false
@@ -133,8 +133,13 @@ jobs:
             # Create Kind cluster
             # =================================================================
             - name: Create Kind cluster
-              working-directory: ${{ env.REF_ARCH_PATH }}
-              run: ./procedure/cluster-create.sh
+              run: |
+                  set -euo pipefail
+                  kind create cluster --config generic/kubernetes/migration/tests/kind-cluster-config.yaml
+                  kubectl cluster-info --context kind-camunda-platform-local
+                  kubectl wait --for=condition=Ready nodes --all --timeout=300s
+                  kubectl get nodes -o wide
+                  kubectl create namespace camunda --dry-run=client -o yaml | kubectl apply -f -
 
             - name: Create Docker Hub pull secret
               run: |
@@ -157,14 +162,6 @@ jobs:
                   echo "Adding Camunda Helm repository..."
                   helm repo add camunda https://helm.camunda.io
                   helm repo update
-
-                  # Pre-create the webModelerPostgresql secret required by the chart.
-                  echo "Creating webModelerPostgresql secret..."
-                  kubectl create secret generic camunda-postgresql-web-modeler \
-                      --namespace="${{ env.CAMUNDA_NAMESPACE }}" \
-                      --from-literal=password="webmodeler-password" \
-                      --from-literal=postgres-password="$(openssl rand -base64 16)" \
-                      || true
 
                   echo "Installing Camunda Platform with Bitnami sub-charts..."
                   helm install camunda camunda/camunda-platform \
