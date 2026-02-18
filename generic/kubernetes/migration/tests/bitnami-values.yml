@@ -25,6 +25,7 @@ identityPostgresql:
     auth:
         username: identity
         database: identity
+        existingSecret: camunda-credentials
 
 identity:
     enabled: true
