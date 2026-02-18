@@ -75,6 +75,9 @@ webModelerPostgresql:
             adminPasswordKey: postgres-password
             userPasswordKey: password
 
+optimize:
+    enabled: true
+
 # Orchestration cluster (replaces zeebe, operate, tasklist in 8.8+)
 # Single-node for CI testing — keeps resource footprint manageable
 orchestration:
