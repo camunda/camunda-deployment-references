@@ -48,6 +48,8 @@ webModeler:
             smtpPort: 587
             smtpUser: test@example.com
             fromAddress: noreply@example.com
+            secret:
+                inlineSecret: placeholder
 
 # Bitnami PostgreSQL for WebModeler
 webModelerPostgresql:
