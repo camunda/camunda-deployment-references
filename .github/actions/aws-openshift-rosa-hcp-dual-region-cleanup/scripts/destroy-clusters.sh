@@ -177,6 +177,32 @@ cleanup_vpc_dependencies() {
     done
   fi
 
+  # 6b. Forcefully detach and delete in-use Network Interfaces (left by ROSA/EKS teardown)
+  local attached_enis
+  attached_enis=$(aws ec2 describe-network-interfaces \
+    --filters "Name=vpc-id,Values=${vpc_id}" "Name=status,Values=in-use" \
+    --query "NetworkInterfaces[*].[NetworkInterfaceId,Attachment.AttachmentId]" \
+    --output text --region "$region" 2>/dev/null)
+  if [[ -n "$attached_enis" && "$attached_enis" != "None" ]]; then
+    # Parse attached ENIs once: detach and remember IDs for later deletion.
+    local attached_eni_ids=()
+    while IFS=$'\t' read -r eni_id attachment_id; do
+      [[ -z "$eni_id" ]] && continue
+      [[ -z "$attachment_id" || "$attachment_id" == "None" ]] && continue
+      echo "  Detaching Network Interface: $eni_id (attachment: $attachment_id)"
+      aws ec2 detach-network-interface --attachment-id "$attachment_id" --force --region "$region" 2>/dev/null || true
+      attached_eni_ids+=("$eni_id")
+    done <<< "$attached_enis"
+    echo "  Waiting for ENIs to detach..."
+    # Use a slightly longer wait to handle multiple ENIs and potential AWS throttling
+    sleep 20
+    for eni_id in "${attached_eni_ids[@]}"; do
+      [[ -z "$eni_id" ]] && continue
+      echo "  Deleting Network Interface: $eni_id"
+      aws ec2 delete-network-interface --network-interface-id "$eni_id" --region "$region" 2>/dev/null || true
+    done
+  fi
+
   # 7. Delete non-main Route Table associations and Route Tables
   local rtb_ids
   rtb_ids=$(aws ec2 describe-route-tables \
@@ -346,15 +372,55 @@ destroy_resource() {
   fi
 
   echo "Destroying module $module_name in group $group_id"
-  if ! output_tf_destroy=$(terraform destroy -auto-approve 2>&1); then
+
+  # Retry loop: after ROSA cluster destruction (~28min), the cloud provider may leave
+  # behind orphan resources (SGs, ENIs) in the VPC. If terraform fails with DependencyViolation,
+  # we re-run VPC dependency cleanup and retry.
+  local max_destroy_attempts=3
+  local destroy_succeeded=false
+  for attempt in $(seq 1 $max_destroy_attempts); do
+    if output_tf_destroy=$(terraform destroy -auto-approve 2>&1); then
+      destroy_succeeded=true
+      echo "$output_tf_destroy"
+      break
+    fi
     echo "$output_tf_destroy"
 
     if [[ "$module_name" == "clusters" && "$output_tf_destroy" == *"CLUSTERS-MGMT-404"* ]]; then
       echo "The cluster appears to have already been deleted (error: CLUSTERS-MGMT-404). Considering the deletion successful (likely due to cloud-nuke)."
-    else
-      echo "Error destroying module $module_name in group $group_id"
-      return 1
+      destroy_succeeded=true
+      break
     fi
+
+    # On DependencyViolation, re-clean VPC dependencies and retry
+    if [[ "$output_tf_destroy" == *"DependencyViolation"* && $attempt -lt $max_destroy_attempts ]]; then
+      echo "[$group_id][$module_name] DependencyViolation detected (attempt $attempt/$max_destroy_attempts)"
+      echo "[$group_id][$module_name] Re-running VPC dependency cleanup before retry..."
+
+      local retry_vpc1 retry_vpc2
+      retry_vpc1=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_1_name}*" \
+                   --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_1_AWS_REGION" 2>/dev/null)
+      retry_vpc2=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_2_name}*" \
+                   --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_2_AWS_REGION" 2>/dev/null)
+      [[ -n "$retry_vpc1" && "$retry_vpc1" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc1" "$CLUSTER_1_AWS_REGION"
+      [[ -n "$retry_vpc2" && "$retry_vpc2" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc2" "$CLUSTER_2_AWS_REGION"
+
+      echo "[$group_id][$module_name] Waiting 30s for async resource cleanup..."
+      sleep 30
+      continue
+    fi
+
+    # For non-DependencyViolation errors we fail fast instead of retrying, since these
+    # typically indicate configuration or logic issues (e.g. invalid Terraform, IAM),
+    # not transient AWS conditions. Only DependencyViolation (and known special cases)
+    # are retried above.
+    echo "Error destroying module $module_name in group $group_id"
+    return 1
+  done
+
+  if [[ "$destroy_succeeded" != "true" ]]; then
+    echo "Error destroying module $module_name in group $group_id after $max_destroy_attempts attempts"
+    return 1
   fi
 
   # Cleanup S3 resources
