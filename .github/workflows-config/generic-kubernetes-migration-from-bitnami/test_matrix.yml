@@ -5,11 +5,10 @@
 
 matrix:
     distro:
-        # EKS is the primary test platform for migration tests
-        - name: EKS Latest
+        # Kind is used for migration tests — no cloud infra needed
+        - name: Kind
           schedule_only: false
-          clusterName: mig-bitnami  # cluster name for migration tests
-          type: eks
+          type: kind
 
     scenario:
         # Test the full migration workflow
