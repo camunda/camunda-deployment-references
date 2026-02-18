@@ -18,26 +18,13 @@ global:
 # Bitnami Elasticsearch
 elasticsearch:
     enabled: true
-    replicas: 1
-    minimumMasterNodes: 1
-    resources:
-        requests:
-            cpu: 500m
-            memory: 1Gi
-        limits:
-            cpu: 1
-            memory: 2Gi
 
 # Bitnami PostgreSQL for Identity (renamed from postgresql to identityPostgresql in 8.8)
 identityPostgresql:
     enabled: true
     auth:
         username: identity
-        password: identity-password
         database: identity
-        secretKeys:
-            adminPasswordKey: postgres-password
-            userPasswordKey: password
 
 identity:
     enabled: true
@@ -60,7 +47,6 @@ webModeler:
             smtpHost: smtp.example.com
             smtpPort: 587
             smtpUser: test@example.com
-            smtpPassword: test-password
             fromAddress: noreply@example.com
 
 # Bitnami PostgreSQL for WebModeler
@@ -68,20 +54,11 @@ webModelerPostgresql:
     enabled: true
     auth:
         username: webmodeler
-        password: webmodeler-password
         database: webmodeler
-        existingSecret: camunda-postgresql-web-modeler
-        secretKeys:
-            adminPasswordKey: postgres-password
-            userPasswordKey: password
 
 optimize:
     enabled: true
 
 # Orchestration cluster (replaces zeebe, operate, tasklist in 8.8+)
-# Single-node for CI testing — keeps resource footprint manageable
 orchestration:
     enabled: true
-    clusterSize: '1'
-    partitionCount: '1'
-    replicationFactor: '1'
