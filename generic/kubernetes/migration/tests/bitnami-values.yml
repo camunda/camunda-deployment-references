@@ -57,6 +57,7 @@ webModelerPostgresql:
     auth:
         username: webmodeler
         database: webmodeler
+        existingSecret: camunda-credentials
 
 optimize:
     enabled: true
