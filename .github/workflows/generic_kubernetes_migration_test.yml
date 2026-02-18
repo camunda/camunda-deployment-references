@@ -330,11 +330,20 @@ jobs:
                       --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                       --namespace="${CAMUNDA_NAMESPACE}" || true
 
+                  # Pre-create the webModelerPostgresql secret required by the chart.
+                  # The chart references it via existingSecret but doesn't create it on install.
+                  echo "Creating webModelerPostgresql secret..."
+                  kubectl create secret generic camunda-postgresql-web-modeler \
+                      --namespace="${CAMUNDA_NAMESPACE}" \
+                      --from-literal=password="webmodeler-password" \
+                      --from-literal=postgres-password="$(openssl rand -base64 16)" \
+                      || true
+
                   echo "Installing Camunda Platform with Bitnami sub-charts..."
                   helm install camunda camunda/camunda-platform \
                       --namespace "${CAMUNDA_NAMESPACE}" \
                       --values generic/kubernetes/migration/tests/bitnami-values.yml \
-                      --timeout 15m \
+                      --timeout 20m \
                       --wait
 
                   echo "✓ Camunda with Bitnami sub-charts deployed successfully"
