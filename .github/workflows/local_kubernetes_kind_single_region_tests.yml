@@ -33,7 +33,7 @@ env:
     # TEST VARIABLES
     TESTS_ENABLED: 'true'
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: main   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
 jobs:
@@ -278,7 +278,7 @@ jobs:
 
             - name: 🧪 Run C8-SM-CHECKS deployment and connectivity tests
               if: env.TESTS_ENABLED == 'true'
-              timeout-minutes: 15
+              timeout-minutes: 25
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
                   secrets: ${{ toJSON(secrets) }}
@@ -290,10 +290,12 @@ jobs:
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  tests-camunda-helm-chart-repo-ref: main
+                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   # Use auto-generated local credentials instead of CI credentials from Vault
                   test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
                   test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
-                  # Disable Venom/Helm chart tests, only run C8-SM-CHECKS
+                  # Disable Venom/Helm chart tests
                   enable-helm-chart-tests: 'false'
                   enable-zeebe-client-tests: 'false'
                   keycloak-service-name: keycloak-service:18080
@@ -310,6 +312,10 @@ jobs:
                       || 'false' }}
                   # Enable local domain mode for Kind - configures /etc/hosts for domain resolution
                   local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+                  # Enable Helm Playwright smoke tests (only when domain/TLS is enabled)
+                  enable-helm-playwright-tests: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+                  helm-playwright-test-project: smoke-tests
+                  helm-playwright-test-auth-type: keycloak
 
             - name: 🔬🚨 Debug - Show pod details on failure
               if: failure()
