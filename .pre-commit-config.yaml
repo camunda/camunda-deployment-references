@@ -88,4 +88,6 @@ repos:
       rev: 0.2.3
       hooks:
           - id: yamlfmt
-            exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.yml|local/kubernetes/kind-single-region/configs/elasticsearch-cluster.yml)
+            # yamlfmt removes quotes around YAML values like "OFF" which breaks ES config
+            # yamllint disable-line rule:line-length
+            exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.yml|generic/kubernetes/migration/manifests/eck-cluster.yml|local/kubernetes/kind-single-region/configs/elasticsearch-cluster.yml)

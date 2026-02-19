@@ -21,7 +21,7 @@ spec:
               # yamllint disable-line
               node.store.allow_mmap: 'false'
               # yamllint disable-line
-              logger.org.elasticsearch.deprecation: off
+              logger.org.elasticsearch.deprecation: "OFF"
               # Snapshot repository path for migration
               path.repo: [/backup/elasticsearch]
           podTemplate:
