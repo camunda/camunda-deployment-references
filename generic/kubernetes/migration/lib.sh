@@ -53,10 +53,30 @@ section() {
 # Utilities
 # =============================================================================
 
+# Global flag: set to true by parse_common_args when --yes is passed.
+AUTO_CONFIRM="false"
+
+# Parse common flags shared by all migration scripts.
+# Usage: parse_common_args "$@"   (call at the top of each script)
+parse_common_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --yes|-y) AUTO_CONFIRM="true" ;;
+            *) log_warn "Unknown flag: $1" ;;
+        esac
+        shift
+    done
+}
+
 # Ask for interactive confirmation; abort on no.
+# Skips the prompt when --yes was passed.
 # Usage: confirm "About to delete data"
 confirm() {
     local msg="${1:-Continue?}"
+    if [[ "$AUTO_CONFIRM" == "true" ]]; then
+        log_info "${msg} → auto-confirmed (--yes)"
+        return 0
+    fi
     read -r -p "${msg} (yes/no): " answer
     [[ "$answer" == "yes" ]] || { echo "Aborted."; exit 0; }
 }

@@ -272,7 +272,7 @@ jobs:
               run: |
                   set -euo pipefail
                   source ./env.sh
-                  yes | ./1-deploy-targets.sh
+                  ./1-deploy-targets.sh --yes
 
             # --- Phase 2: Backup (no downtime) ---
             - name: Phase 2 - Initial backup (warm, no downtime)
@@ -290,7 +290,7 @@ jobs:
               run: |
                   set -euo pipefail
                   source ./env.sh
-                  yes | ./3-cutover.sh
+                  ./3-cutover.sh --yes
 
             # --- Phase 4: Validate ---
             - name: Phase 4 - Validate migration
