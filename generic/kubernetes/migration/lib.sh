@@ -408,13 +408,19 @@ _major_version() {
     echo "$1" | grep -oE '^[0-9]+' | head -1
 }
 
+# Extract major.minor from a version string.
+# Usage: _minor_version "8.15.3" → 8.15
+_minor_version() {
+    echo "$1" | grep -oE '^[0-9]+\.[0-9]+' | head -1
+}
+
 # Validate PG version compatibility for a component.
 # pg_restore can restore dumps from older PG versions to newer ones, NOT the reverse.
+# This check is lenient: version differences are warnings, not errors.
 # Usage: validate_pg_version <component> <cnpg-cluster-name>
 validate_pg_version() {
     local component="$1"
     local cluster_name="$2"
-    local issues=0
 
     local sts_name
     sts_name=$(detect_pg_sts "$component" 2>/dev/null) || return 0
@@ -444,22 +450,23 @@ validate_pg_version() {
     tgt_major=$(_major_version "$target_version")
 
     if [[ $tgt_major -lt $src_major ]]; then
-        log_error "  ${component}: PG version DOWNGRADE detected (source=${source_version} → target=${target_version})"
-        log_error "    pg_restore cannot restore dumps from PG ${src_major} into PG ${tgt_major}"
-        issues=1
+        log_warn "  ${component}: PG version DOWNGRADE (source=${source_version} → target=${target_version})"
+        log_warn "    pg_restore cannot restore dumps from PG ${src_major} into PG ${tgt_major}"
     elif [[ $tgt_major -gt $src_major ]]; then
         log_warn "  ${component}: PG major version UPGRADE (source=${source_version} → target=${target_version})"
         log_warn "    pg_dump/pg_restore supports this, but test thoroughly in staging first"
+    elif [[ "$source_version" != "$target_version" ]]; then
+        log_warn "  ${component}: PG minor version differs (source=${source_version} → target=${target_version})"
     else
         log_success "  ${component}: PG version OK (source=${source_version}, target=${target_version})"
     fi
 
-    return $issues
+    return 0
 }
 
 # Validate ES version compatibility.
-# ES snapshots can be restored to the same major version or one major version higher.
-# e.g., 7.x → 7.x ✓, 7.x → 8.x ✓, 8.x → 7.x ✗, 7.x → 9.x ✗
+# The source and target must share the same major.minor version; patch differences are OK.
+# e.g., 8.15.0 → 8.15.3 ✓, 8.15.0 → 8.16.0 ✗, 8.x → 7.x ✗
 validate_es_version() {
     local issues=0
 
@@ -489,23 +496,76 @@ validate_es_version() {
         return 0
     fi
 
-    local src_major tgt_major
-    src_major=$(_major_version "$source_version")
-    tgt_major=$(_major_version "$target_version")
+    local src_minor tgt_minor
+    src_minor=$(_minor_version "$source_version")
+    tgt_minor=$(_minor_version "$target_version")
 
-    if [[ $tgt_major -lt $src_major ]]; then
-        log_error "  ES: version DOWNGRADE detected (source=${source_version} → target=${target_version})"
-        log_error "    ES snapshots cannot be restored to an older major version"
+    if [[ "$src_minor" != "$tgt_minor" ]]; then
+        log_error "  ES: minor version MISMATCH (source=${source_version} → target=${target_version})"
+        log_error "    Source and target must share the same major.minor version (patch differences are OK)"
+        log_error "    Update the ECK manifest (eck-cluster.yml) to use version ${src_minor}.x"
         issues=1
-    elif [[ $((tgt_major - src_major)) -gt 1 ]]; then
-        log_error "  ES: version jump too large (source=${source_version} → target=${target_version})"
-        log_error "    ES snapshots can only be restored to the same or +1 major version"
-        issues=1
-    elif [[ $tgt_major -gt $src_major ]]; then
-        log_warn "  ES: major version upgrade (source=${source_version} → target=${target_version})"
-        log_warn "    Snapshot restore across major versions is supported but test in staging first"
+    elif [[ "$source_version" != "$target_version" ]]; then
+        log_success "  ES: version OK (source=${source_version}, target=${target_version} — same minor, patch differs)"
     else
         log_success "  ES: version OK (source=${source_version}, target=${target_version})"
+    fi
+
+    return $issues
+}
+
+# Validate Keycloak version compatibility.
+# The source Bitnami Keycloak image and the target operator image must have the
+# exact same version — even a patch difference can break realm import or schema
+# compatibility.
+validate_keycloak_version() {
+    local issues=0
+
+    # Get source Keycloak version from the Bitnami StatefulSet image tag
+    local release="${CAMUNDA_RELEASE_NAME}"
+    local source_image source_version
+    source_image=$(kubectl get statefulset "${release}-keycloak" -n "${NAMESPACE}" \
+        -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "")
+
+    # Fallback: init container image (Bitnami uses init containers for keycloak)
+    if [[ -z "$source_image" ]]; then
+        source_image=$(kubectl get statefulset "${release}-keycloak" -n "${NAMESPACE}" \
+            -o jsonpath='{.spec.template.spec.initContainers[0].image}' 2>/dev/null || echo "")
+    fi
+
+    # Extract version: handle both 'keycloak:26.3.3' and 'keycloak:26.3.3-debian-12-r2' formats
+    source_version=$(echo "$source_image" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
+
+    if [[ -z "$source_version" ]]; then
+        return 0
+    fi
+
+    # Get target Keycloak version from the operator instance manifest
+    local kc_config
+    if [[ -n "${CUSTOM_KEYCLOAK_CONFIG_FILE:-}" ]]; then
+        kc_config="${CUSTOM_KEYCLOAK_CONFIG_FILE}"
+    elif [[ -n "${CAMUNDA_DOMAIN:-}" && "${CAMUNDA_DOMAIN}" != "localhost" ]]; then
+        kc_config="${OPERATOR_BASED_DIR}/keycloak/keycloak-instance-domain-nginx.yml"
+    else
+        kc_config="${OPERATOR_BASED_DIR}/keycloak/keycloak-instance-no-domain.yml"
+    fi
+
+    local target_image target_version
+    target_image=$(yq 'select(.kind == "Keycloak") | .spec.image' "$kc_config" 2>/dev/null || echo "")
+    # Handle 'quay-optimized-26.3.2' or plain '26.3.2' tag formats
+    target_version=$(echo "$target_image" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
+
+    if [[ -z "$target_version" ]]; then
+        return 0
+    fi
+
+    if [[ "$source_version" != "$target_version" ]]; then
+        log_error "  Keycloak: version MISMATCH (source=${source_version} → target=${target_version})"
+        log_error "    Keycloak source and target versions must be exactly the same"
+        log_error "    Update the Keycloak instance manifest image tag to match ${source_version}"
+        issues=1
+    else
+        log_success "  Keycloak: version OK (source=${source_version}, target=${target_version})"
     fi
 
     return $issues
@@ -561,24 +621,25 @@ validate_target_resources() {
     fi
 
     # --- Version compatibility checks (only for operator targets) ---
-    if ! is_external_pg || ! is_external_es; then
-        log_info "Version compatibility (operator targets):"
-        if ! is_external_pg; then
-            if [[ "${MIGRATE_IDENTITY}" == "true" ]]; then
-                validate_pg_version identity "${CNPG_IDENTITY_CLUSTER}" || has_errors=1
-            fi
-            if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-                validate_pg_version keycloak "${CNPG_KEYCLOAK_CLUSTER}" || has_errors=1
-            fi
-            if [[ "${MIGRATE_WEBMODELER}" == "true" ]]; then
-                validate_pg_version webmodeler "${CNPG_WEBMODELER_CLUSTER}" || has_errors=1
-            fi
+    log_info "Version compatibility:"
+    if ! is_external_pg; then
+        if [[ "${MIGRATE_IDENTITY}" == "true" ]]; then
+            validate_pg_version identity "${CNPG_IDENTITY_CLUSTER}"
         fi
-        if ! is_external_es && [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
-            validate_es_version || has_errors=1
+        if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
+            validate_pg_version keycloak "${CNPG_KEYCLOAK_CLUSTER}"
         fi
-        echo ""
+        if [[ "${MIGRATE_WEBMODELER}" == "true" ]]; then
+            validate_pg_version webmodeler "${CNPG_WEBMODELER_CLUSTER}"
+        fi
     fi
+    if ! is_external_es && [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
+        validate_es_version || has_errors=1
+    fi
+    if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
+        validate_keycloak_version || has_errors=1
+    fi
+    echo ""
 
     if [[ $has_errors -gt 0 ]]; then
         log_error "Validation errors detected — fix the issues above before proceeding."
@@ -755,10 +816,15 @@ detect_pg_sts() {
     local candidates=()
     case "$component" in
         identity)
-            candidates=("${release}-postgresql" "${release}-identity-postgresql")
+            # 8.8+: identityPostgresql → ${release}-identity-postgresql
+            # pre-8.8: postgresql → ${release}-postgresql (shared with keycloak)
+            candidates=("${release}-identity-postgresql" "${release}-postgresql")
             ;;
         keycloak)
-            candidates=("${release}-keycloak-postgresql" "${release}-postgresql-keycloak")
+            # 8.8+: identityKeycloak.postgresql → ${release}-postgresql (dedicated)
+            # Older charts may use ${release}-keycloak-postgresql variants.
+            candidates=("${release}-keycloak-postgresql" "${release}-postgresql-keycloak"
+                        "${release}-postgresql")
             ;;
         webmodeler)
             candidates=("${release}-postgresql-web-modeler" "${release}-web-modeler-postgresql"
