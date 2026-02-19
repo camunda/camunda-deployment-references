@@ -104,6 +104,9 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
     elif kubectl get elasticsearch "${ECK_CLUSTER_NAME}" -n "${NAMESPACE}" &>/dev/null; then
         log_success "ECK cluster ${ECK_CLUSTER_NAME} already exists — skipping"
     else
+        # The ECK cluster manifest mounts the backup PVC for snapshot support,
+        # so it must exist before the ES pods can be scheduled.
+        ensure_backup_pvc
         deploy_elasticsearch
         save_state "ECK_DEPLOYED" "true"
     fi
