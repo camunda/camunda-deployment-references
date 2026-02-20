@@ -128,6 +128,8 @@ jobs:
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
+                      secret/data/products/infrastructure-experience/ci/common MACHINE_USR;
+                      secret/data/products/infrastructure-experience/ci/common MACHINE_PWD;
 
             # =================================================================
             # Create Kind cluster
@@ -141,7 +143,7 @@ jobs:
                   kubectl get nodes -o wide
                   kubectl create namespace camunda --dry-run=client -o yaml | kubectl apply -f -
 
-            - name: Create Docker Hub pull secret
+            - name: Create pull secrets
               run: |
                   set -euo pipefail
                   kubectl create namespace "${{ env.CAMUNDA_NAMESPACE }}" --dry-run=client -o yaml | kubectl apply -f -
@@ -149,6 +151,11 @@ jobs:
                       --docker-server=index.docker.io \
                       --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
                       --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                      --namespace="${{ env.CAMUNDA_NAMESPACE }}"
+                  kubectl create secret docker-registry registry-camunda-cloud \
+                      --docker-server=registry.camunda.cloud \
+                      --docker-username="${{ steps.secrets.outputs.MACHINE_USR }}" \
+                      --docker-password="${{ steps.secrets.outputs.MACHINE_PWD }}" \
                       --namespace="${{ env.CAMUNDA_NAMESPACE }}"
 
             # =================================================================
