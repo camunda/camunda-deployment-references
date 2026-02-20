@@ -25,12 +25,12 @@ global:
             - name: registry-camunda-cloud
             - name: index-docker-io
 
-# Bitnami Elasticsearch — pinned to match ECK target (8.18.x)
+# Bitnami Elasticsearch — pinned to match ECK target (8.19.x)
 elasticsearch:
     enabled: true
     image:
         # renovate: datasource=docker depName=bitnami/elasticsearch
-        tag: 8.18.0
+        tag: 8.19.11
 
 # Bitnami PostgreSQL for Identity (renamed from postgresql to identityPostgresql in 8.8)
 identityPostgresql:
@@ -43,12 +43,12 @@ identityPostgresql:
 identity:
     enabled: true
 
-# Bitnami Keycloak — pinned to match Keycloak Operator target (26.3.3)
+# Bitnami Keycloak — pinned to match Keycloak Operator target (26.3.2)
 identityKeycloak:
     enabled: true
     image:
         # renovate: datasource=docker depName=bitnami/keycloak
-        tag: 26.3.3
+        tag: 26.3.2
     postgresql:
         enabled: true
         auth:

@@ -777,7 +777,7 @@ _minor_version() {
 
 # Validate PG version compatibility for a component.
 # pg_restore can restore dumps from older PG versions to newer ones, NOT the reverse.
-# This check is lenient: version differences are warnings, not errors.
+# Downgrades are blocked (error); upgrades are allowed with a warning.
 # Usage: validate_pg_version <component> <cnpg-cluster-name>
 validate_pg_version() {
     local component="$1"
@@ -811,8 +811,9 @@ validate_pg_version() {
     tgt_major=$(_major_version "$target_version")
 
     if [[ $tgt_major -lt $src_major ]]; then
-        log_warn "  ${component}: PG version DOWNGRADE (source=${source_version} → target=${target_version})"
-        log_warn "    pg_restore cannot restore dumps from PG ${src_major} into PG ${tgt_major}"
+        log_error "  ${component}: PG version DOWNGRADE (source=${source_version} → target=${target_version})"
+        log_error "    pg_restore cannot restore dumps from PG ${src_major} into PG ${tgt_major}"
+        return 1
     elif [[ $tgt_major -gt $src_major ]]; then
         log_warn "  ${component}: PG major version UPGRADE (source=${source_version} → target=${target_version})"
         log_warn "    pg_dump/pg_restore supports this, but test thoroughly in staging first"
@@ -827,6 +828,7 @@ validate_pg_version() {
 
 # Validate ES version compatibility.
 # The source and target must share the same major.minor version; patch differences are OK.
+# Downgrades are never allowed.
 # e.g., 8.15.0 → 8.15.3 ✓, 8.15.0 → 8.16.0 ✗, 8.x → 7.x ✗
 validate_es_version() {
     local issues=0
@@ -861,7 +863,16 @@ validate_es_version() {
     src_minor=$(_minor_version "$source_version")
     tgt_minor=$(_minor_version "$target_version")
 
-    if [[ "$src_minor" != "$tgt_minor" ]]; then
+    local src_major tgt_major
+    src_major=$(_major_version "$source_version")
+    tgt_major=$(_major_version "$target_version")
+
+    # Block any downgrade (major or minor)
+    if [[ $tgt_major -lt $src_major ]] || { [[ $tgt_major -eq $src_major ]] && [[ "$tgt_minor" < "$src_minor" ]]; }; then
+        log_error "  ES: version DOWNGRADE (source=${source_version} → target=${target_version})"
+        log_error "    Downgrades are not supported. Target must be >= source version."
+        issues=1
+    elif [[ "$src_minor" != "$tgt_minor" ]]; then
         log_error "  ES: minor version MISMATCH (source=${source_version} → target=${target_version})"
         log_error "    Source and target must share the same major.minor version (patch differences are OK)"
         log_error "    Update the ECK manifest (eck-cluster.yml) to use version ${src_minor}.x"
@@ -876,9 +887,9 @@ validate_es_version() {
 }
 
 # Validate Keycloak version compatibility.
-# The source Bitnami Keycloak image and the target operator image must have the
-# exact same version — even a patch difference can break realm import or schema
-# compatibility.
+# The source Bitnami Keycloak image and the target operator image must share
+# the same major version. Minor and patch differences are allowed (upgrade only).
+# Downgrades are never allowed.
 validate_keycloak_version() {
     local issues=0
 
@@ -920,11 +931,24 @@ validate_keycloak_version() {
         return 0
     fi
 
-    if [[ "$source_version" != "$target_version" ]]; then
-        log_error "  Keycloak: version MISMATCH (source=${source_version} → target=${target_version})"
-        log_error "    Keycloak source and target versions must be exactly the same"
-        log_error "    Update the Keycloak instance manifest image tag to match ${source_version}"
+    local src_major tgt_major src_minor tgt_minor
+    src_major=$(_major_version "$source_version")
+    tgt_major=$(_major_version "$target_version")
+    src_minor=$(_minor_version "$source_version")
+    tgt_minor=$(_minor_version "$target_version")
+
+    # Block any downgrade
+    if [[ $tgt_major -lt $src_major ]] || { [[ $tgt_major -eq $src_major ]] && [[ "$tgt_minor" < "$src_minor" ]]; }; then
+        log_error "  Keycloak: version DOWNGRADE (source=${source_version} → target=${target_version})"
+        log_error "    Downgrades are not supported. Target must be >= source version."
         issues=1
+    elif [[ $src_major -ne $tgt_major ]]; then
+        log_error "  Keycloak: major version MISMATCH (source=${source_version} → target=${target_version})"
+        log_error "    Source and target must share the same major version"
+        log_error "    Update the Keycloak instance manifest image tag to match major ${src_major}.x.x"
+        issues=1
+    elif [[ "$source_version" != "$target_version" ]]; then
+        log_success "  Keycloak: version OK (source=${source_version}, target=${target_version} — same major, minor/patch differs)"
     else
         log_success "  Keycloak: version OK (source=${source_version}, target=${target_version})"
     fi
@@ -985,13 +1009,13 @@ validate_target_resources() {
     log_info "Version compatibility:"
     if ! is_external_pg; then
         if [[ "${MIGRATE_IDENTITY}" == "true" ]]; then
-            validate_pg_version identity "${CNPG_IDENTITY_CLUSTER}"
+            validate_pg_version identity "${CNPG_IDENTITY_CLUSTER}" || has_errors=1
         fi
         if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-            validate_pg_version keycloak "${CNPG_KEYCLOAK_CLUSTER}"
+            validate_pg_version keycloak "${CNPG_KEYCLOAK_CLUSTER}" || has_errors=1
         fi
         if [[ "${MIGRATE_WEBMODELER}" == "true" ]]; then
-            validate_pg_version webmodeler "${CNPG_WEBMODELER_CLUSTER}"
+            validate_pg_version webmodeler "${CNPG_WEBMODELER_CLUSTER}" || has_errors=1
         fi
     fi
     if ! is_external_es && [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then

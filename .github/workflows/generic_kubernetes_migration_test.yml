@@ -193,7 +193,7 @@ jobs:
             # STEP 1.5: Generate Test Data for Migration Validation
             # =================================================================
             - name: Seed test data (Zeebe processes, Keycloak user/client, WebModeler project)
-              timeout-minutes: 10
+              timeout-minutes: 15
               run: |
                   set -euo pipefail
 
@@ -204,7 +204,7 @@ jobs:
 
                   echo "Waiting for seed job to complete..."
                   kubectl wait --for=condition=complete job/seed-test-data \
-                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=300s || {
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || {
                       echo "Seed job did not complete in time. Logs:"
                       kubectl logs job/seed-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=100 || true
                       exit 1
@@ -298,7 +298,7 @@ jobs:
             # STEP 3: Verify Seeded Test Data Post-Migration
             # =================================================================
             - name: Verify test data survived migration
-              timeout-minutes: 10
+              timeout-minutes: 15
               run: |
                   set -euo pipefail
 
@@ -309,7 +309,7 @@ jobs:
 
                   echo "Waiting for verify job to complete..."
                   kubectl wait --for=condition=complete job/verify-test-data \
-                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=300s || {
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || {
                       echo "Verify job did not complete in time. Logs:"
                       kubectl logs job/verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=100 || true
                       exit 1
