@@ -1,0 +1,84 @@
+---
+name: Cleanup ECK Elasticsearch Deployment
+description: |
+    Removes the Elasticsearch cluster and optionally the ECK operator.
+
+inputs:
+    namespace:
+        description: Kubernetes namespace where Elasticsearch was deployed
+        required: false
+        default: camunda
+    skip-operator-uninstall:
+        description: Skip uninstalling the ECK operator (CRDs are cluster-wide; default true for safety)
+        required: false
+        default: 'true'
+
+outputs: {}
+
+runs:
+    using: composite
+    steps:
+        - name: 🗑️ Delete Elasticsearch cluster
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Deleting Elasticsearch clusters in namespace ${{ inputs.namespace }}..."
+              if kubectl get elasticsearch -n "${{ inputs.namespace }}" &>/dev/null; then
+                kubectl delete elasticsearch --all -n "${{ inputs.namespace }}" --timeout=120s || true
+                echo "Deleted Elasticsearch clusters"
+              else
+                echo "No Elasticsearch clusters found, skipping..."
+              fi
+
+        - name: 🗑️ Delete Elasticsearch secrets
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Deleting Elasticsearch secrets in namespace ${{ inputs.namespace }}..."
+
+              # Find all secrets associated with Elasticsearch resources via the common ECK label.
+              # This will match secrets for any Elasticsearch cluster name in the namespace.
+              mapfile -t ES_SECRETS < <(kubectl get secret \
+                -n "${{ inputs.namespace }}" \
+                -l 'common.k8s.elastic.co/type=elasticsearch' \
+                -o name 2>/dev/null || true)
+
+              if ((${#ES_SECRETS[@]} == 0)); then
+                echo "No Elasticsearch secrets found, skipping..."
+              else
+                echo "Found Elasticsearch secrets to delete:"
+                for s in "${ES_SECRETS[@]}"; do
+                  echo "  $s"
+                done
+                kubectl delete -n "${{ inputs.namespace }}" \
+                  "${ES_SECRETS[@]}" || true
+                echo "Deleted Elasticsearch secrets"
+              fi
+
+        - name: 🗑️ Uninstall ECK Operator
+          if: inputs.skip-operator-uninstall != 'true'
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Uninstalling ECK Operator..."
+
+              # Delete operator namespace (contains the operator statefulset)
+              ECK_NS="elastic-system"
+              if kubectl get namespace "$ECK_NS" &>/dev/null; then
+                kubectl delete namespace "$ECK_NS" --timeout=60s || true
+                echo "Deleted namespace: $ECK_NS"
+              else
+                echo "Namespace $ECK_NS not found, skipping..."
+              fi
+
+              # Delete ECK CRDs
+              echo "Deleting ECK CRDs..."
+              for crd in $(kubectl get crd -o name 2>/dev/null | grep -E '\.k8s\.elastic\.co$' || true); do
+                kubectl delete "$crd" --timeout=60s || true
+                echo "Deleted CRD: $crd"
+              done
+
+        - name: ✅ ECK cleanup completed
+          shell: bash
+          run: |
+              echo "ECK Elasticsearch cleanup completed"

@@ -1,0 +1,90 @@
+---
+name: Cleanup CNPG PostgreSQL Cluster
+description: |
+    Removes a single CloudNativePG PostgreSQL cluster and its secrets.
+    Optionally uninstalls the CNPG operator.
+
+inputs:
+    namespace:
+        description: Kubernetes namespace where the cluster was deployed
+        required: false
+        default: camunda
+    cluster-name:
+        description: |
+            Name of the CNPG cluster to delete (e.g., pg-keycloak, pg-identity, pg-webmodeler).
+            Leave empty to only uninstall the operator.
+        required: false
+        default: ''
+    skip-operator-uninstall:
+        description: Skip uninstalling the CNPG operator (set to false only if no other clusters remain)
+        required: false
+        default: 'true'
+
+runs:
+    using: composite
+    steps:
+        - name: 🗑️ Delete CNPG PostgreSQL Cluster
+          if: inputs.cluster-name != ''
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Deleting CNPG PostgreSQL cluster: ${{ inputs.cluster-name }}..."
+              if kubectl get cluster "${{ inputs.cluster-name }}" -n "${{ inputs.namespace }}" &>/dev/null; then
+                kubectl delete cluster "${{ inputs.cluster-name }}" -n "${{ inputs.namespace }}" --timeout=120s || true
+                echo "Deleted cluster: ${{ inputs.cluster-name }}"
+              else
+                echo "Cluster ${{ inputs.cluster-name }} not found, skipping..."
+              fi
+
+        - name: 🗑️ Delete cluster secrets
+          if: inputs.cluster-name != ''
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Deleting secrets for cluster: ${{ inputs.cluster-name }}..."
+              for secret in "${{ inputs.cluster-name }}-superuser-secret" "${{ inputs.cluster-name }}-secret"; do
+                if kubectl get secret "$secret" -n "${{ inputs.namespace }}" &>/dev/null; then
+                  kubectl delete secret "$secret" -n "${{ inputs.namespace }}" || true
+                  echo "Deleted secret: $secret"
+                else
+                  echo "Secret $secret not found, skipping..."
+                fi
+              done
+
+        - name: 🗑️ Uninstall CloudNativePG Operator
+          if: inputs.skip-operator-uninstall != 'true'
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Uninstalling CloudNativePG Operator..."
+
+              CNPG_NS="cnpg-system"
+
+              # Delete the operator deployment (installed via raw manifests)
+              if kubectl get deployment cnpg-controller-manager -n "$CNPG_NS" &>/dev/null; then
+                kubectl delete deployment cnpg-controller-manager -n "$CNPG_NS" --timeout=60s || true
+                echo "Deleted CNPG controller manager deployment"
+              else
+                echo "CNPG controller manager not found, skipping..."
+              fi
+
+              # Delete CNPG CRDs
+              echo "Deleting CNPG CRDs..."
+              for crd in $(kubectl get crd -o name 2>/dev/null | grep -E '\.postgresql\.cnpg\.io$' || true); do
+                kubectl delete "$crd" --timeout=60s || true
+                echo "Deleted CRD: $crd"
+              done
+
+              # Delete operator namespace if empty
+              if kubectl get namespace "$CNPG_NS" &>/dev/null; then
+                if [ "$(kubectl get all -n "$CNPG_NS" -o name 2>/dev/null | wc -l)" -eq 0 ]; then
+                  kubectl delete namespace "$CNPG_NS" --timeout=60s || true
+                else
+                  echo "Namespace $CNPG_NS still has resources, not deleting"
+                fi
+              fi
+
+        - name: ✅ CNPG cluster cleanup completed
+          shell: bash
+          run: |
+              echo "CNPG cluster ${{ inputs.cluster-name }} cleanup completed"

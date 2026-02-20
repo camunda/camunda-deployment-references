@@ -4,7 +4,7 @@
 #
 # Environment variables:
 #   CAMUNDA_NAMESPACE  - Target namespace (default: camunda)
-#   CLUSTER_FILTER     - Optional: deploy only a specific cluster (e.g., "pg-keycloak")
+#   CLUSTER_FILTER     - Optional: deploy only specific clusters, comma-separated (e.g., "pg-keycloak" or "pg-identity,pg-webmodeler")
 #
 # Arguments:
 #   $1 - CNPG operator namespace (default: cnpg-system)
@@ -57,10 +57,15 @@ if [[ -z "$CLUSTER_FILTER" ]]; then
     kubectl apply --server-side -f postgresql-clusters.yml -n "$CAMUNDA_NAMESPACE"
     kubectl wait --for=condition=Ready --timeout=600s cluster --all -n "$CAMUNDA_NAMESPACE"
 else
-    echo "Filtered deployment: $CLUSTER_FILTER only"
-    yq "select(.metadata.name == \"$CLUSTER_FILTER\")" postgresql-clusters.yml | \
-        kubectl apply -n "$CAMUNDA_NAMESPACE" --server-side -f -
-    kubectl wait --for=condition=Ready --timeout=600s cluster "$CLUSTER_FILTER" -n "$CAMUNDA_NAMESPACE"
+    echo "Filtered deployment: $CLUSTER_FILTER"
+    IFS=',' read -ra CLUSTERS <<< "$CLUSTER_FILTER"
+    for cluster in "${CLUSTERS[@]}"; do
+        yq "select(.metadata.name == \"$cluster\")" postgresql-clusters.yml | \
+            kubectl apply -n "$CAMUNDA_NAMESPACE" --server-side -f -
+    done
+    for cluster in "${CLUSTERS[@]}"; do
+        kubectl wait --for=condition=Ready --timeout=600s cluster "$cluster" -n "$CAMUNDA_NAMESPACE"
+    done
 fi
 
 echo "PostgreSQL deployment completed in namespace: $CAMUNDA_NAMESPACE"
