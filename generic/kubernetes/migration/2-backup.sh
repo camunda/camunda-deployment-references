@@ -16,11 +16,22 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC2034 # Used by lib.sh after sourcing
+CURRENT_SCRIPT="2-backup.sh"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib.sh"
+parse_common_args "$@"
 load_state
 
+check_env
+require_phase 1 "Phase 1 (deploy targets)"
+
+timer_start
+
 section "Phase 2: Initial Backup (no downtime)"
+
+show_plan 2
+run_hooks "pre-phase-2"
 
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 export TIMESTAMP
@@ -94,9 +105,10 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
 
     save_state "ES_SNAPSHOT_NAME" "$SNAPSHOT_NAME"
     save_state "ES_STS" "$ES_STS_NAME"
+    save_state "ES_IMAGE" "$ES_IMAGE"
 fi
 
-section "Phase 2 Complete"
+section "Phase 2 Complete ($(timer_elapsed))"
 echo "All initial backups are done. The application is still fully operational."
 echo ""
 echo "IMPORTANT: The next phase (3-cutover.sh) will cause a brief downtime"
@@ -104,3 +116,6 @@ echo "while it freezes the application, takes a final consistent backup,"
 echo "restores data to the new targets, and switches over."
 echo ""
 echo "Next: ./3-cutover.sh"
+
+run_hooks "post-phase-2"
+complete_phase 2

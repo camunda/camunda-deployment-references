@@ -182,45 +182,38 @@ jobs:
 
                   kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}"
 
-                  # Wait for key deployments
-                  kubectl rollout status deployment/camunda-zeebe-gateway -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=300s || true
-                  kubectl rollout status deployment/camunda-operate -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=300s || true
+                  # Wait for key resources (8.8+: zeebe StatefulSet = orchestration, includes gateway/operate/tasklist)
+                  kubectl rollout status statefulset/camunda-zeebe -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=300s || true
                   kubectl rollout status deployment/camunda-identity -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=300s || true
+                  kubectl rollout status deployment/camunda-connectors -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=300s || true
 
                   echo "Bitnami deployment ready"
 
             # =================================================================
             # STEP 1.5: Generate Test Data for Migration Validation
             # =================================================================
-            - name: Generate test data using Camunda 8 Benchmark
-              timeout-minutes: 15
+            - name: Seed test data (Zeebe processes, Keycloak user/client, WebModeler project)
+              timeout-minutes: 10
               run: |
                   set -euo pipefail
 
-                  echo "Generating test data using camunda-8-benchmark..."
+                  echo "Seeding migration test data across all components..."
 
                   kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                      -f generic/kubernetes/migration/tests/benchmark-job.yml
+                      -f generic/kubernetes/migration/tests/seed-test-data-job.yml
 
-                  echo "Waiting for benchmark job to start..."
-                  sleep 10
+                  echo "Waiting for seed job to complete..."
+                  kubectl wait --for=condition=complete job/seed-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=300s || {
+                      echo "Seed job did not complete in time. Logs:"
+                      kubectl logs job/seed-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=100 || true
+                      exit 1
+                  }
 
-                  echo "Benchmark is running, waiting for data generation (60s)..."
-                  sleep 60
+                  echo "Seed job logs:"
+                  kubectl logs job/seed-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=50 || true
 
-                  kubectl get job migration-test-data-generator -n "${{ env.CAMUNDA_NAMESPACE }}" || true
-                  kubectl logs job/migration-test-data-generator -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=50 || true
-
-                  kubectl delete job migration-test-data-generator -n "${{ env.CAMUNDA_NAMESPACE }}" --ignore-not-found=true || true
-
-                  kubectl create configmap migration-test-data-marker \
-                      --namespace="${{ env.CAMUNDA_NAMESPACE }}" \
-                      --from-literal=created_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-                      --from-literal=generator="camunda-8-benchmark" \
-                      --from-literal=process_id="benchmark" \
-                      --dry-run=client -o yaml | kubectl apply -f -
-
-                  echo "Test data generation completed"
+                  echo "Seeding completed"
 
             - name: Wait for data to propagate to Elasticsearch
               timeout-minutes: 5
@@ -300,6 +293,40 @@ jobs:
                   set -euo pipefail
                   source ./env.sh
                   ./4-validate.sh
+
+            # =================================================================
+            # STEP 3: Verify Seeded Test Data Post-Migration
+            # =================================================================
+            - name: Verify test data survived migration
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  echo "Verifying seeded test data after migration..."
+
+                  kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -f generic/kubernetes/migration/tests/verify-test-data-job.yml
+
+                  echo "Waiting for verify job to complete..."
+                  kubectl wait --for=condition=complete job/verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=300s || {
+                      echo "Verify job did not complete in time. Logs:"
+                      kubectl logs job/verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=100 || true
+                      exit 1
+                  }
+
+                  echo "Verification logs:"
+                  kubectl logs job/verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}"
+
+                  # Check exit code: the job script exits with the number of failures
+                  VERIFY_STATUS=$(kubectl get job verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -o jsonpath='{.status.succeeded}' || echo "0")
+                  if [[ "$VERIFY_STATUS" == "1" ]]; then
+                      echo "All migration verification checks passed!"
+                  else
+                      echo "Migration verification FAILED"
+                      exit 1
+                  fi
 
             # =================================================================
             # Debug & Cleanup
