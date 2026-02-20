@@ -1,0 +1,220 @@
+---
+# Kubernetes Job to verify seeded test data after migration.
+#
+# Validates that data created by seed-test-data-job.yml survived migration:
+#   - Zeebe: process instances exist for migration-seed-process
+#   - Keycloak: test user and M2M client exist in camunda-platform realm
+#   - WebModeler: project exists (optional, skipped if WebModeler is unavailable)
+#
+# Usage:
+#   kubectl apply -n camunda -f verify-test-data-job.yml
+#   kubectl wait --for=condition=complete job/verify-test-data -n camunda --timeout=300s
+#   kubectl logs job/verify-test-data -n camunda
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: verify-test-data
+    labels:
+        app: migration-test-data
+spec:
+    ttlSecondsAfterFinished: 3600
+    backoffLimit: 3
+    template:
+        metadata:
+            labels:
+                app: migration-test-data
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: verify
+                  image: alpine/curl:latest
+                  command: [/bin/sh, -c]
+                  args:
+                      - |
+                        #!/bin/sh
+                        set -eu
+
+                        log()  { echo "[$(date -u +%H:%M:%S)] $*"; }
+                        pass() { echo "[$(date -u +%H:%M:%S)] PASS: $*"; }
+                        fail_test() { echo "[$(date -u +%H:%M:%S)] FAIL: $*"; FAILURES=$((FAILURES + 1)); }
+
+                        retry() {
+                            local max=$1; shift; local delay=$1; shift
+                            local attempt=1
+                            while [ "$attempt" -le "$max" ]; do
+                                if "$@"; then return 0; fi
+                                sleep "$delay"; attempt=$((attempt + 1))
+                            done
+                            return 1
+                        }
+
+                        FAILURES=0
+
+                        ZEEBE_URL="http://camunda-zeebe-gateway:8080"
+                        WM_URL="http://camunda-web-modeler-restapi:8081"
+
+                        DEMO_USER="demo"
+                        DEMO_PASS="demo"
+                        KC_REALM="camunda-platform"
+
+                        # Determine KC admin credentials:
+                        # - Bitnami Keycloak: admin / identity-keycloak-admin-password
+                        # - After migration the Bitnami admin user is preserved in the DB
+                        # - Operator Keycloak may use temp-admin / keycloak-initial-admin
+                        KC_ADMIN_USER="admin"
+                        KC_ADMIN_PASS="${KC_BITNAMI_ADMIN_PASSWORD:-}"
+                        if [ -z "${KC_ADMIN_PASS}" ]; then
+                            # Try operator secret (user is usually temp-admin)
+                            KC_ADMIN_USER="temp-admin"
+                            KC_ADMIN_PASS="${KC_OPERATOR_ADMIN_PASSWORD:-}"
+                        fi
+
+                        # Post-migration: Keycloak Operator service is keycloak-service:18080
+                        # Pre-migration (Bitnami): camunda-keycloak:80
+                        # Try operator service first, fall back to Bitnami
+                        KC_URL=""
+                        if retry 3 5 curl -sf -o /dev/null "http://keycloak-service:18080/auth/realms/${KC_REALM}/.well-known/openid-configuration" 2>/dev/null; then
+                            KC_URL="http://keycloak-service:18080/auth"
+                            log "Using Keycloak Operator service (keycloak-service:18080)"
+                        elif retry 3 5 curl -sf -o /dev/null "http://camunda-keycloak:80/auth/realms/${KC_REALM}/.well-known/openid-configuration" 2>/dev/null; then
+                            KC_URL="http://camunda-keycloak:80/auth"
+                            log "Using Bitnami Keycloak service (camunda-keycloak:80)"
+                        fi
+
+                        PROCESS_ID="migration-seed-process"
+                        EXPECTED_INSTANCES=5
+                        TEST_USER="migration-test-user"
+                        TEST_M2M_CLIENT="migration-test-m2m"
+
+                        # ── Wait for services ──
+                        log "=== Waiting for services ==="
+                        retry 30 10 curl -sf -o /dev/null "${ZEEBE_URL}/v2/topology" \
+                            || { fail_test "Zeebe Gateway not reachable"; }
+
+                        if [ -z "${KC_URL}" ]; then
+                            # Retry discovery with longer timeout
+                            retry 30 10 curl -sf -o /dev/null "http://keycloak-service:18080/auth/realms/${KC_REALM}/.well-known/openid-configuration" 2>/dev/null \
+                                && KC_URL="http://keycloak-service:18080/auth"
+                        fi
+                        if [ -z "${KC_URL}" ]; then
+                            fail_test "Keycloak not reachable (tried keycloak-service:18080 and camunda-keycloak:80)"
+                        fi
+
+                        # ── Verify Zeebe process instances ──
+                        log ""
+                        log "=== Verifying Zeebe data ==="
+
+                        SEARCH_RESP=$(curl -sf -u "${DEMO_USER}:${DEMO_PASS}" \
+                            -X POST "${ZEEBE_URL}/v2/process-instances/search" \
+                            -H "Content-Type: application/json" \
+                            -H "Accept: application/json" \
+                            -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" 2>/dev/null || echo '{}')
+
+                        FOUND=$(echo "${SEARCH_RESP}" | grep -o '"total":[0-9]*' | head -1 | cut -d: -f2)
+                        FOUND=${FOUND:-0}
+
+                        if [ "$FOUND" -ge "$EXPECTED_INSTANCES" ]; then
+                            pass "Zeebe: found ${FOUND} instances for '${PROCESS_ID}' (expected >= ${EXPECTED_INSTANCES})"
+                        else
+                            fail_test "Zeebe: found ${FOUND} instances for '${PROCESS_ID}' (expected >= ${EXPECTED_INSTANCES})"
+                        fi
+
+                        # ── Verify Keycloak user ──
+                        log ""
+                        log "=== Verifying Keycloak data ==="
+
+                        KC_TOKEN=$(curl -sf -X POST \
+                            "${KC_URL}/realms/master/protocol/openid-connect/token" \
+                            -H "Content-Type: application/x-www-form-urlencoded" \
+                            -d "grant_type=password&client_id=admin-cli&username=${KC_ADMIN_USER}&password=${KC_ADMIN_PASS}" \
+                            | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
+
+                        if [ -z "${KC_TOKEN}" ]; then
+                            fail_test "Keycloak: could not get admin token"
+                        else
+                            # Check user
+                            USER_RESP=$(curl -sf \
+                                "${KC_URL}/admin/realms/${KC_REALM}/users?username=${TEST_USER}" \
+                                -H "Authorization: Bearer ${KC_TOKEN}" 2>/dev/null || echo '[]')
+
+                            if echo "${USER_RESP}" | grep -q "${TEST_USER}"; then
+                                pass "Keycloak: user '${TEST_USER}' exists"
+                            else
+                                fail_test "Keycloak: user '${TEST_USER}' NOT found"
+                            fi
+
+                            # Check M2M client
+                            CLIENT_RESP=$(curl -sf \
+                                "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=${TEST_M2M_CLIENT}" \
+                                -H "Authorization: Bearer ${KC_TOKEN}" 2>/dev/null || echo '[]')
+
+                            if echo "${CLIENT_RESP}" | grep -q "${TEST_M2M_CLIENT}"; then
+                                pass "Keycloak: M2M client '${TEST_M2M_CLIENT}' exists"
+                            else
+                                fail_test "Keycloak: M2M client '${TEST_M2M_CLIENT}' NOT found"
+                            fi
+                        fi
+
+                        # ── Verify WebModeler (optional) ──
+                        if retry 3 5 curl -sf -o /dev/null "${WM_URL}/health/readiness" 2>/dev/null; then
+                            log ""
+                            log "=== Verifying WebModeler data ==="
+
+                            WM_TOKEN=$(curl -sf -X POST \
+                                "${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token" \
+                                -H "Content-Type: application/x-www-form-urlencoded" \
+                                -d "grant_type=password&client_id=web-modeler&username=${DEMO_USER}&password=${DEMO_PASS}" \
+                                | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
+
+                            if [ -n "${WM_TOKEN}" ]; then
+                                PROJECTS_RESP=$(curl -sf -X POST "${WM_URL}/api/v1/projects/search" \
+                                    -H "Authorization: Bearer ${WM_TOKEN}" \
+                                    -H "Content-Type: application/json" \
+                                    -d '{}' 2>/dev/null || echo '{}')
+
+                                if echo "${PROJECTS_RESP}" | grep -q "Migration Test Project"; then
+                                    pass "WebModeler: project 'Migration Test Project' exists"
+                                else
+                                    fail_test "WebModeler: project 'Migration Test Project' NOT found"
+                                fi
+                            else
+                                log "SKIP: Could not get WebModeler token"
+                            fi
+                        else
+                            log "SKIP: WebModeler not available"
+                        fi
+
+                        # ── Final result ──
+                        log ""
+                        log "=========================================="
+                        if [ "$FAILURES" -eq 0 ]; then
+                            log "  ALL CHECKS PASSED"
+                        else
+                            log "  ${FAILURES} CHECK(S) FAILED"
+                        fi
+                        log "=========================================="
+
+                        exit "$FAILURES"
+                  env:
+                      # Bitnami Keycloak admin password (from Helm-managed secret)
+                      - name: KC_BITNAMI_ADMIN_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: camunda-credentials
+                                key: identity-keycloak-admin-password
+                                optional: true
+                      # Keycloak Operator initial admin password
+                      - name: KC_OPERATOR_ADMIN_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: keycloak-initial-admin
+                                key: password
+                                optional: true
+                  resources:
+                      requests:
+                          cpu: 100m
+                          memory: 128Mi
+                      limits:
+                          cpu: 500m
+                          memory: 256Mi

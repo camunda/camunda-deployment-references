@@ -13,6 +13,7 @@ MIGRATION_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 JOBS_DIR="${MIGRATION_DIR}/jobs"
 MANIFESTS_DIR="${MIGRATION_DIR}/manifests"
 STATE_DIR="${MIGRATION_DIR}/.state"
+HOOKS_DIR="${MIGRATION_DIR}/hooks"
 OPERATOR_BASED_DIR="${MIGRATION_DIR}/../operator-based"
 
 if [[ ! -d "$OPERATOR_BASED_DIR" ]]; then
@@ -30,16 +31,25 @@ mkdir -p "${STATE_DIR}"
 # Logging
 # =============================================================================
 
-_RED='\033[0;31m'
-_GREEN='\033[0;32m'
-_YELLOW='\033[1;33m'
-_BLUE='\033[0;34m'
-_NC='\033[0m'
+# Conditional colors: disabled when stdout is not a TTY or NO_COLOR is set.
+# Respects https://no-color.org/ convention and --no-color flag.
+if [[ -t 1 ]] && [[ "${NO_COLOR:-}" != "true" ]]; then
+    _RED='\033[0;31m' _GREEN='\033[0;32m' _YELLOW='\033[1;33m' _BLUE='\033[0;34m' _BOLD='\033[1m' _NC='\033[0m'
+else
+    _RED='' _GREEN='' _YELLOW='' _BLUE='' _BOLD='' _NC=''
+fi
 
-log_info()    { echo -e "${_BLUE}[INFO]${_NC} $*"; }
-log_success() { echo -e "${_GREEN}[OK]${_NC}   $*"; }
-log_warn()    { echo -e "${_YELLOW}[WARN]${_NC} $*"; }
-log_error()   { echo -e "${_RED}[ERR]${_NC}  $*"; }
+# Log file — every message is appended with a timestamp.
+LOG_FILE="${STATE_DIR}/migration-$(date +%Y-%m-%d).log"
+
+_log_to_file() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
+}
+
+log_info()    { echo -e "${_BLUE}[INFO]${_NC} $*"; _log_to_file "INFO  $*"; }
+log_success() { echo -e "${_GREEN}[OK]${_NC}   $*"; _log_to_file "OK    $*"; }
+log_warn()    { echo -e "${_YELLOW}[WARN]${_NC} $*"; _log_to_file "WARN  $*"; }
+log_error()   { echo -e "${_RED}[ERR]${_NC}  $*" >&2; _log_to_file "ERROR $*"; }
 
 section() {
     echo ""
@@ -47,29 +57,84 @@ section() {
     echo "  $*"
     echo "============================================================================="
     echo ""
+    _log_to_file "===== $* ====="
+}
+
+# Verbose mode: when enabled, logs kubectl/helm commands before execution.
+VERBOSE="false"
+
+log_verbose() {
+    if [[ "$VERBOSE" == "true" ]]; then
+        echo -e "${_BLUE}[DBG]${_NC}  $*"
+        _log_to_file "DEBUG $*"
+    fi
 }
 
 # =============================================================================
 # Utilities
 # =============================================================================
 
-# Global flag: set to true by parse_common_args when --yes is passed.
+# Global flags — set by parse_common_args.
 AUTO_CONFIRM="false"
+DRY_RUN="false"
+
+# The current script name — set by each script before calling parse_common_args.
+CURRENT_SCRIPT="${CURRENT_SCRIPT:-}"
+
+# Standard Camunda component lists (used by freeze/validate).
+# 8.8+: zeebe-gateway, operate, tasklist are merged into the "zeebe" StatefulSet
+# (orchestration). Only optimize, identity, and connectors remain as Deployments.
+# The zeebe StatefulSet is handled separately by the freeze/validate logic.
+# shellcheck disable=SC2034 # Used by scripts that source lib.sh
+CAMUNDA_DEPLOYMENTS=(optimize identity connectors)
+# shellcheck disable=SC2034 # Used by scripts that source lib.sh
+CAMUNDA_WEBMODELER_COMPONENTS=(restapi webapp websockets)
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+
+# Show usage for the current script.
+show_help() {
+    local script="${CURRENT_SCRIPT:-migration}"
+    cat <<EOF
+Usage: ${script} [options]
+
+Options:
+  --yes, -y          Auto-confirm all prompts (non-interactive mode)
+  --dry-run          Show what would be done without making any changes
+  --verbose, -v      Enable verbose output (show commands before execution)
+  --no-color         Disable colored output
+  --status           Show current migration status and exit
+  --help, -h         Show this help message and exit
+EOF
+    exit 0
+}
 
 # Parse common flags shared by all migration scripts.
 # Usage: parse_common_args "$@"   (call at the top of each script)
 parse_common_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --yes|-y) AUTO_CONFIRM="true" ;;
+            --yes|-y)      AUTO_CONFIRM="true" ;;
+            --dry-run)     DRY_RUN="true"; AUTO_CONFIRM="true" ;;
+            --verbose|-v)  VERBOSE="true"; set -x ;;
+            --no-color)    _RED='' _GREEN='' _YELLOW='' _BLUE='' _BOLD='' _NC='' ;;
+            --status)      show_migration_status; exit 0 ;;
+            --help|-h)     show_help ;;
             *) log_warn "Unknown flag: $1" ;;
         esac
         shift
     done
 }
 
+# ---------------------------------------------------------------------------
+# Interactive confirmation
+# ---------------------------------------------------------------------------
+
 # Ask for interactive confirmation; abort on no.
 # Skips the prompt when --yes was passed.
+# Accepts: y, yes, Y, YES (case-insensitive).
 # Usage: confirm "About to delete data"
 confirm() {
     local msg="${1:-Continue?}"
@@ -78,7 +143,273 @@ confirm() {
         return 0
     fi
     read -r -p "${msg} (yes/no): " answer
-    [[ "$answer" == "yes" ]] || { echo "Aborted."; exit 0; }
+    case "${answer,,}" in
+        y|yes) return 0 ;;
+        *) echo "Aborted."; exit 0 ;;
+    esac
+}
+
+# ---------------------------------------------------------------------------
+# Environment & prerequisite checks
+# ---------------------------------------------------------------------------
+
+# Verify that env.sh has been sourced and critical variables are set.
+# Call at the beginning of each script after sourcing lib.sh.
+check_env() {
+    local missing=()
+    [[ -z "${NAMESPACE:-}" ]]                && missing+=("NAMESPACE")
+    [[ -z "${CAMUNDA_RELEASE_NAME:-}" ]]     && missing+=("CAMUNDA_RELEASE_NAME")
+    [[ -z "${CAMUNDA_HELM_CHART_VERSION:-}" ]] && missing+=("CAMUNDA_HELM_CHART_VERSION")
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        log_error "Required environment variables are not set: ${missing[*]}"
+        log_error "Did you forget to run:  source env.sh"
+        exit 1
+    fi
+}
+
+# Verify that a prerequisite tool is available.
+require_tool() {
+    local tool="$1"
+    if ! command -v "$tool" &>/dev/null; then
+        log_error "Required tool not found: ${tool}"
+        log_error "  Install it before running the migration scripts."
+        exit 1
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Phase sequence tracking
+# ---------------------------------------------------------------------------
+
+# Record that a phase has been completed.
+# Usage: complete_phase 1
+complete_phase() {
+    save_state "PHASE_${1}_COMPLETED" "true"
+    save_state "PHASE_${1}_TIMESTAMP" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+
+# Verify that a previous phase was completed before starting the current one.
+# Usage: require_phase 1 "Phase 1 (deploy targets)"
+require_phase() {
+    local phase="$1"
+    local label="${2:-Phase ${phase}}"
+    local var="PHASE_${phase}_COMPLETED"
+
+    if [[ "${!var:-}" != "true" ]]; then
+        log_error "${label} has not been completed yet."
+        log_error "Run the phases in order: 1-deploy-targets → 2-backup → 3-cutover → 4-validate"
+        exit 1
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Timer
+# ---------------------------------------------------------------------------
+
+_TIMER_START=0
+
+timer_start() {
+    _TIMER_START=$(date +%s)
+}
+
+# Print elapsed time since timer_start. Returns the formatted string.
+timer_elapsed() {
+    local end now elapsed
+    end=$(date +%s)
+    elapsed=$(( end - _TIMER_START ))
+    local mins=$(( elapsed / 60 ))
+    local secs=$(( elapsed % 60 ))
+    if [[ $mins -gt 0 ]]; then
+        echo "${mins}m${secs}s"
+    else
+        echo "${secs}s"
+    fi
+}
+
+# Step timer for tracking individual operations within a phase.
+_STEP_START=0
+
+step_start() {
+    _STEP_START=$(date +%s)
+}
+
+step_elapsed() {
+    local end elapsed
+    end=$(date +%s)
+    elapsed=$(( end - _STEP_START ))
+    local mins=$(( elapsed / 60 ))
+    local secs=$(( elapsed % 60 ))
+    if [[ $mins -gt 0 ]]; then
+        echo "${mins}m${secs}s"
+    else
+        echo "${secs}s"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Hooks
+# ---------------------------------------------------------------------------
+
+# Execute hook scripts if they exist.
+# Usage: run_hooks "pre-phase-1"
+#
+# Hooks are shell scripts in the hooks/ directory, named:
+#   hooks/pre-phase-1.sh, hooks/post-phase-3.sh, hooks/post-restore.sh, etc.
+run_hooks() {
+    local hook_name="$1"
+    local hook_file="${HOOKS_DIR}/${hook_name}.sh"
+
+    if [[ -f "$hook_file" ]]; then
+        log_info "Running hook: ${hook_name}"
+        # shellcheck source=/dev/null
+        source "$hook_file"
+        log_success "Hook ${hook_name} completed"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Dry-run wrappers
+# ---------------------------------------------------------------------------
+
+# Run kubectl only if not in dry-run mode.
+# Usage: dryrun_kubectl apply -f foo.yml
+dryrun_kubectl() {
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] kubectl $*"
+        return 0
+    fi
+    log_verbose "kubectl $*"
+    kubectl "$@"
+}
+
+# Run helm only if not in dry-run mode.
+# Usage: dryrun_helm upgrade ...
+dryrun_helm() {
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] helm $*"
+        return 0
+    fi
+    log_verbose "helm $*"
+    helm "$@"
+}
+
+# ---------------------------------------------------------------------------
+# Migration plan display
+# ---------------------------------------------------------------------------
+
+# Show a structured plan of what will happen.
+# Usage: show_plan (call from each phase script before confirm)
+show_plan() {
+    local phase="$1"
+    echo ""
+    echo -e "${_BOLD}Migration Plan — Phase ${phase}${_NC}"
+    echo "─────────────────────────────────────────"
+    echo "  Namespace:    ${NAMESPACE}"
+    echo "  Release:      ${CAMUNDA_RELEASE_NAME}"
+    echo "  Chart:        ${CAMUNDA_HELM_CHART_VERSION}"
+    echo ""
+
+    case "$phase" in
+        1)
+            echo "  Components to deploy:"
+            if [[ "${MIGRATE_IDENTITY}" == "true" ]] || [[ "${MIGRATE_KEYCLOAK}" == "true" ]] || [[ "${MIGRATE_WEBMODELER}" == "true" ]]; then
+                if is_external_pg; then
+                    echo "    ├── PostgreSQL: external managed service"
+                else
+                    echo "    ├── PostgreSQL: CNPG operator + clusters"
+                    [[ "${MIGRATE_IDENTITY}"   == "true" ]] && echo "    │     • ${CNPG_IDENTITY_CLUSTER}"
+                    [[ "${MIGRATE_KEYCLOAK}"    == "true" ]] && echo "    │     • ${CNPG_KEYCLOAK_CLUSTER}"
+                    [[ "${MIGRATE_WEBMODELER}"  == "true" ]] && echo "    │     • ${CNPG_WEBMODELER_CLUSTER}"
+                fi
+            fi
+            if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
+                if is_external_es; then
+                    echo "    ├── Elasticsearch: external managed service"
+                else
+                    echo "    ├── Elasticsearch: ECK operator + cluster (${ECK_CLUSTER_NAME})"
+                fi
+            fi
+            if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
+                echo "    └── Keycloak: operator + CR"
+            fi
+            ;;
+        2)
+            echo "  Backups to create:"
+            [[ "${MIGRATE_IDENTITY}"      == "true" ]] && echo "    ├── identity: pg_dump"
+            [[ "${MIGRATE_KEYCLOAK}"       == "true" ]] && echo "    ├── keycloak: pg_dump"
+            [[ "${MIGRATE_WEBMODELER}"     == "true" ]] && echo "    ├── webmodeler: pg_dump"
+            [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]] && echo "    └── elasticsearch: snapshot"
+            ;;
+        3)
+            echo "  Cutover steps:"
+            echo "    1. Save Helm values for rollback"
+            echo "    2. Freeze all Camunda components (scale → 0)"
+            echo "    3. Final consistent backups"
+            echo "    4. Restore data to new targets"
+            echo "    5. Helm upgrade → switch to operator-managed backends"
+            ;;
+        4)
+            echo "  Validations:"
+            echo "    ├── Camunda deployments and StatefulSets"
+            [[ "${MIGRATE_IDENTITY}" == "true" || "${MIGRATE_KEYCLOAK}" == "true" || "${MIGRATE_WEBMODELER}" == "true" ]] \
+                && echo "    ├── PostgreSQL target clusters"
+            [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]] && echo "    ├── Elasticsearch target cluster"
+            [[ "${MIGRATE_KEYCLOAK}" == "true" ]]      && echo "    ├── Keycloak CR"
+            echo "    └── Generate migration report"
+            ;;
+    esac
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo ""
+        echo -e "  ${_YELLOW}▶ DRY-RUN MODE — no changes will be made${_NC}"
+    fi
+    echo ""
+}
+
+# ---------------------------------------------------------------------------
+# Migration status
+# ---------------------------------------------------------------------------
+
+# Display current migration status and exit.
+show_migration_status() {
+    echo ""
+    echo "Migration Status"
+    echo "════════════════"
+    echo ""
+
+    load_state 2>/dev/null || true
+
+    local phases=("1:Deploy Targets" "2:Initial Backup" "3:Cutover" "4:Validate")
+    for entry in "${phases[@]}"; do
+        local num="${entry%%:*}"
+        local label="${entry#*:}"
+        local var="PHASE_${num}_COMPLETED"
+        local ts_var="PHASE_${num}_TIMESTAMP"
+
+        if [[ "${!var:-}" == "true" ]]; then
+            echo -e "  ${_GREEN}✓${_NC} Phase ${num} (${label})  — completed ${!ts_var:-}"
+        else
+            echo -e "  ○ Phase ${num} (${label})  — not started"
+        fi
+    done
+
+    echo ""
+
+    # Show component status from state
+    if [[ -n "${NAMESPACE:-}" ]]; then
+        echo "  Namespace:  ${NAMESPACE}"
+        echo "  Release:    ${CAMUNDA_RELEASE_NAME:-unknown}"
+        echo ""
+    fi
+
+    if [[ -f "${STATE_DIR}/migration.env" ]]; then
+        echo "  State file: ${STATE_DIR}/migration.env"
+        echo "  Log file:   ${LOG_FILE:-<none>}"
+    else
+        echo "  No migration state found."
+    fi
+    echo ""
 }
 
 # Apply an envsubst-templated YAML file and optionally save the rendered result.
@@ -100,10 +431,17 @@ apply_template() {
         echo "$rendered" > "$save"
     fi
 
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] Would apply template: ${tpl}"
+        return 0
+    fi
+
     echo "$rendered" | kubectl apply -f -
 }
 
 # Run a Kubernetes Job from a template and wait for completion.
+# Before creating, cleans up any previous instance of the same job.
+# On failure, shows describe output and recent events for debugging.
 # All variables must be exported before calling.
 # Usage: run_job <template.yml> <job-name> [timeout_seconds]
 run_job() {
@@ -111,18 +449,41 @@ run_job() {
     local job_name="$2"
     local timeout="${3:-1800}"
 
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] Would run job: ${job_name} (template: ${tpl})"
+        return 0
+    fi
+
+    step_start
+
+    # Clean up any previous instance to avoid "already exists" errors.
+    if kubectl get job "${job_name}" -n "${NAMESPACE}" &>/dev/null; then
+        log_info "Cleaning up previous job ${job_name} ..."
+        kubectl delete job "${job_name}" -n "${NAMESPACE}" --ignore-not-found --wait=true 2>/dev/null || true
+    fi
+
     log_info "Creating job ${job_name} ..."
     apply_template "$tpl" "${STATE_DIR}/${job_name}.yml"
 
     log_info "Waiting for job ${job_name} (timeout ${timeout}s) ..."
     if ! kubectl wait --for=condition=complete "job/${job_name}" \
             -n "${NAMESPACE}" --timeout="${timeout}s" 2>/dev/null; then
-        log_error "Job ${job_name} failed or timed out"
-        kubectl logs -n "${NAMESPACE}" "job/${job_name}" --tail=50 2>/dev/null || true
+        log_error "Job ${job_name} failed or timed out after ${timeout}s"
+        echo ""
+        echo "--- Job description ---"
+        kubectl describe job "${job_name}" -n "${NAMESPACE}" 2>/dev/null || true
+        echo ""
+        echo "--- Pod events ---"
+        kubectl get events -n "${NAMESPACE}" --sort-by='.lastTimestamp' \
+            --field-selector "involvedObject.name=${job_name}" 2>/dev/null | tail -20 || true
+        echo ""
+        echo "--- Job logs (last 80 lines) ---"
+        kubectl logs -n "${NAMESPACE}" "job/${job_name}" --tail=80 2>/dev/null || true
+        _log_to_file "ERROR Job ${job_name} failed — see console output above"
         return 1
     fi
 
-    log_success "Job ${job_name} completed"
+    log_success "Job ${job_name} completed ($(step_elapsed))"
 }
 
 # =============================================================================
@@ -940,6 +1301,83 @@ restore_es() {
 }
 
 # =============================================================================
+# Zeebe Exporting Control (Management API)
+# =============================================================================
+# The Zeebe Management API (port 9600) allows pausing and resuming the export
+# pipeline.  The official Camunda backup procedure requires:
+#   Step 1 – soft-pause exporting (records keep flowing but log is not compacted)
+#   Step 10 – resume exporting
+#
+# For the migration cutover (Phase 3) we use a hard-pause so that no new
+# records are written after the cluster is frozen – guaranteeing absolute
+# consistency of the final backup.
+#
+# Reference:
+#   https://docs.camunda.io/docs/self-managed/zeebe-deployment/operations/management-api/#exporting-api
+
+_zeebe_gateway_mgmt_url() {
+    # Management port is 9600 by default on the gateway service
+    echo "http://${CAMUNDA_RELEASE_NAME}-zeebe-gateway.${NAMESPACE}.svc.cluster.local:9600"
+}
+
+# Soft-pause exporting: records continue to be exported but Zeebe will NOT
+# compact (delete) the write-ahead log.  Used for hot backups (Phase 2).
+zeebe_exporting_soft_pause() {
+    local url
+    url="$(_zeebe_gateway_mgmt_url)"
+    log_info "Soft-pausing Zeebe exporting (log compaction disabled) ..."
+    local http_code
+    http_code=$(kubectl run "zeebe-export-softpause-${RANDOM}" --rm -i --restart=Never \
+        --image="${ES_IMAGE:-alpine/curl:latest}" -n "${NAMESPACE}" -- \
+        curl -sf -o /dev/null -w "%{http_code}" -X POST \
+        "${url}/actuator/exporting/pause?soft=true" 2>/dev/null || echo "000")
+
+    if [[ "$http_code" == "204" ]]; then
+        log_success "Zeebe exporting soft-paused (HTTP 204)"
+    else
+        log_warn "Zeebe exporting soft-pause returned HTTP ${http_code} (non-critical, continuing)"
+    fi
+}
+
+# Hard-pause exporting: records are NOT exported at all until resumed.
+# The cluster may become unavailable if this is not reverted.  Only use during
+# a controlled downtime window (Phase 3).
+zeebe_exporting_pause() {
+    local url
+    url="$(_zeebe_gateway_mgmt_url)"
+    log_info "Hard-pausing Zeebe exporting ..."
+    local http_code
+    http_code=$(kubectl run "zeebe-export-pause-${RANDOM}" --rm -i --restart=Never \
+        --image="${ES_IMAGE:-alpine/curl:latest}" -n "${NAMESPACE}" -- \
+        curl -sf -o /dev/null -w "%{http_code}" -X POST \
+        "${url}/actuator/exporting/pause" 2>/dev/null || echo "000")
+
+    if [[ "$http_code" == "204" ]]; then
+        log_success "Zeebe exporting paused (HTTP 204)"
+    else
+        log_warn "Zeebe exporting pause returned HTTP ${http_code} (non-critical, continuing)"
+    fi
+}
+
+# Resume exporting.  MUST be called after any pause to avoid cluster issues.
+zeebe_exporting_resume() {
+    local url
+    url="$(_zeebe_gateway_mgmt_url)"
+    log_info "Resuming Zeebe exporting ..."
+    local http_code
+    http_code=$(kubectl run "zeebe-export-resume-${RANDOM}" --rm -i --restart=Never \
+        --image="${ES_IMAGE:-alpine/curl:latest}" -n "${NAMESPACE}" -- \
+        curl -sf -o /dev/null -w "%{http_code}" -X POST \
+        "${url}/actuator/exporting/resume" 2>/dev/null || echo "000")
+
+    if [[ "$http_code" == "204" ]]; then
+        log_success "Zeebe exporting resumed (HTTP 204)"
+    else
+        log_warn "Zeebe exporting resume returned HTTP ${http_code}"
+    fi
+}
+
+# =============================================================================
 # Scale Management
 # =============================================================================
 
@@ -1018,6 +1456,22 @@ helm_upgrade() {
         values_args+=(-f "$f")
     done
 
+    # Warn if the currently installed chart version differs from the target.
+    local installed_version
+    installed_version=$(helm list -n "${NAMESPACE}" -f "^${CAMUNDA_RELEASE_NAME}$" -o json \
+        | jq -r '.[0].chart // empty' 2>/dev/null \
+        | sed 's/^camunda-platform-//')
+    if [[ -n "${installed_version}" && "${installed_version}" != "${CAMUNDA_HELM_CHART_VERSION}" ]]; then
+        log_warn "Installed chart version (${installed_version}) differs from target (${CAMUNDA_HELM_CHART_VERSION})"
+        log_warn "Using --reuse-values with a version change may produce unexpected results."
+        log_warn "Review the diff: helm diff upgrade ${CAMUNDA_RELEASE_NAME} camunda/camunda-platform --version ${CAMUNDA_HELM_CHART_VERSION} --reuse-values"
+    fi
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] Would run: helm upgrade ${CAMUNDA_RELEASE_NAME} --version ${CAMUNDA_HELM_CHART_VERSION} --reuse-values ${values_args[*]}"
+        return 0
+    fi
+
     log_info "Running helm upgrade ..."
     helm upgrade "${CAMUNDA_RELEASE_NAME}" camunda/camunda-platform \
         -n "${NAMESPACE}" \
@@ -1050,7 +1504,17 @@ helm_rollback_from_backup() {
 
 save_state() {
     local key="$1" value="$2"
-    echo "export ${key}=\"${value}\"" >> "${STATE_DIR}/migration.env"
+    local state_file="${STATE_DIR}/migration.env"
+    local entry="export ${key}=\"${value}\""
+
+    if [[ -f "$state_file" ]] && grep -q "^export ${key}=" "$state_file"; then
+        # Upsert: replace existing entry in-place.
+        sed -i.bak "s|^export ${key}=.*|${entry}|" "$state_file"
+        rm -f "${state_file}.bak"
+    else
+        echo "$entry" >> "$state_file"
+    fi
+    log_verbose "State saved: ${key}=${value}"
 }
 
 load_state() {
@@ -1058,4 +1522,162 @@ load_state() {
         # shellcheck source=/dev/null
         source "${STATE_DIR}/migration.env"
     fi
+}
+
+# =============================================================================
+# Target readiness checks
+# =============================================================================
+
+# Wait for all operator-managed targets to be ready before restoring data.
+# This prevents restore jobs from failing because the target is not yet available.
+# Usage: wait_for_targets_ready [timeout_seconds]
+wait_for_targets_ready() {
+    local timeout="${1:-600}"
+    local deadline=$(( $(date +%s) + timeout ))
+
+    section "Waiting for target backends to be ready"
+
+    # --- CNPG PostgreSQL clusters ---
+    if ! is_external_pg; then
+        local pg_clusters=()
+        [[ "${MIGRATE_IDENTITY:-false}"   == "true" ]] && pg_clusters+=("${CNPG_IDENTITY_CLUSTER}")
+        [[ "${MIGRATE_KEYCLOAK:-false}"    == "true" ]] && pg_clusters+=("${CNPG_KEYCLOAK_CLUSTER}")
+        [[ "${MIGRATE_WEBMODELER:-false}"  == "true" ]] && pg_clusters+=("${CNPG_WEBMODELER_CLUSTER}")
+
+        for cluster in "${pg_clusters[@]}"; do
+            log_info "Waiting for CNPG cluster ${cluster} ..."
+            while true; do
+                local phase
+                phase=$(kubectl get cluster "${cluster}" -n "${NAMESPACE}" \
+                    -o jsonpath='{.status.phase}' 2>/dev/null || echo "unknown")
+                if [[ "$phase" == "Cluster in healthy state" ]]; then
+                    log_success "CNPG cluster ${cluster} is ready"
+                    break
+                fi
+                if [[ $(date +%s) -ge $deadline ]]; then
+                    log_error "Timeout waiting for CNPG cluster ${cluster} (current phase: ${phase})"
+                    return 1
+                fi
+                log_verbose "  ${cluster} phase: ${phase} — retrying in 10s ..."
+                sleep 10
+            done
+        done
+    fi
+
+    # --- ECK Elasticsearch ---
+    if [[ "${MIGRATE_ELASTICSEARCH:-false}" == "true" ]] && ! is_external_es; then
+        log_info "Waiting for Elasticsearch cluster ${ECK_CLUSTER_NAME} ..."
+        while true; do
+            local health
+            health=$(kubectl get elasticsearch "${ECK_CLUSTER_NAME}" -n "${NAMESPACE}" \
+                -o jsonpath='{.status.health}' 2>/dev/null || echo "unknown")
+            if [[ "$health" == "green" || "$health" == "yellow" ]]; then
+                log_success "Elasticsearch cluster ${ECK_CLUSTER_NAME} is ready (health: ${health})"
+                break
+            fi
+            if [[ $(date +%s) -ge $deadline ]]; then
+                log_error "Timeout waiting for ES cluster ${ECK_CLUSTER_NAME} (health: ${health})"
+                return 1
+            fi
+            log_verbose "  ${ECK_CLUSTER_NAME} health: ${health} — retrying in 10s ..."
+            sleep 10
+        done
+    fi
+
+    # --- Keycloak CR ---
+    if [[ "${MIGRATE_KEYCLOAK:-false}" == "true" ]]; then
+        log_info "Waiting for Keycloak CR to be ready ..."
+        while true; do
+            local kc_ready
+            kc_ready=$(kubectl get keycloak -n "${NAMESPACE}" \
+                -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "unknown")
+            if [[ "$kc_ready" == "true" || "$kc_ready" == "True" ]]; then
+                log_success "Keycloak CR is ready"
+                break
+            fi
+            if [[ $(date +%s) -ge $deadline ]]; then
+                log_error "Timeout waiting for Keycloak CR (ready: ${kc_ready})"
+                return 1
+            fi
+            log_verbose "  Keycloak ready: ${kc_ready} — retrying in 10s ..."
+            sleep 10
+        done
+    fi
+
+    log_success "All target backends are ready"
+}
+
+# =============================================================================
+# Migration report
+# =============================================================================
+
+# Generate a migration report summarizing what happened.
+# Called at the end of phase 4 (validate).
+generate_report() {
+    local report="${STATE_DIR}/migration-report.md"
+    local now
+    now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+    cat > "$report" <<EOF
+# Migration Report
+
+Generated: ${now}
+
+## Environment
+
+| Parameter | Value |
+|-----------|-------|
+| Namespace | ${NAMESPACE} |
+| Release   | ${CAMUNDA_RELEASE_NAME} |
+| Chart     | camunda-platform ${CAMUNDA_HELM_CHART_VERSION} |
+| PG Mode   | ${PG_TARGET_MODE:-operator} |
+| ES Mode   | ${ES_TARGET_MODE:-operator} |
+
+## Phases
+
+| Phase | Status | Timestamp |
+|-------|--------|-----------|
+| 1 - Deploy Targets | ${PHASE_1_COMPLETED:-not run} | ${PHASE_1_TIMESTAMP:-—} |
+| 2 - Initial Backup | ${PHASE_2_COMPLETED:-not run} | ${PHASE_2_TIMESTAMP:-—} |
+| 3 - Cutover         | ${PHASE_3_COMPLETED:-not run} | ${PHASE_3_TIMESTAMP:-—} |
+| 4 - Validate        | ${PHASE_4_COMPLETED:-not run} | ${PHASE_4_TIMESTAMP:-—} |
+
+## Components Migrated
+
+EOF
+
+    if [[ "${MIGRATE_IDENTITY:-false}" == "true" ]]; then
+        echo "- **Identity PostgreSQL**: ${BITNAMI_PG_IDENTITY_STS:-?} → ${CNPG_IDENTITY_CLUSTER:-operator}" >> "$report"
+    fi
+    if [[ "${MIGRATE_KEYCLOAK:-false}" == "true" ]]; then
+        echo "- **Keycloak PostgreSQL**: ${BITNAMI_PG_KEYCLOAK_STS:-?} → ${CNPG_KEYCLOAK_CLUSTER:-operator}" >> "$report"
+        echo "- **Keycloak**: Bitnami chart → Keycloak Operator CR" >> "$report"
+    fi
+    if [[ "${MIGRATE_WEBMODELER:-false}" == "true" ]]; then
+        echo "- **WebModeler PostgreSQL**: ${BITNAMI_PG_WEBMODELER_STS:-?} → ${CNPG_WEBMODELER_CLUSTER:-operator}" >> "$report"
+    fi
+    if [[ "${MIGRATE_ELASTICSEARCH:-false}" == "true" ]]; then
+        echo "- **Elasticsearch**: ${BITNAMI_ES_STS:-?} → ${ECK_CLUSTER_NAME:-eck}" >> "$report"
+    fi
+
+    cat >> "$report" <<EOF
+
+## Artifacts
+
+- State directory: \`${STATE_DIR}\`
+- Helm values backup: \`${STATE_DIR}/helm-values-backup.yml\`
+- Log file: \`${LOG_FILE}\`
+
+## Notes
+
+- Review the log file for detailed timing and any warnings.
+- The old Bitnami StatefulSets can be cleaned up once the migration is validated:
+  \`\`\`
+  # Example cleanup (ONLY after full validation):
+  # kubectl delete sts <old-bitnami-sts> -n ${NAMESPACE}
+  # kubectl delete pvc <old-bitnami-pvc> -n ${NAMESPACE}
+  \`\`\`
+EOF
+
+    log_success "Migration report saved to ${report}"
 }

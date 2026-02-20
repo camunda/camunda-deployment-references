@@ -4,6 +4,10 @@
 #
 # Chart: camunda/camunda-platform (13.x / Camunda 8.8+)
 # Usage: helm install camunda camunda/camunda-platform -f bitnami-values.yml
+#
+# Versions are pinned to match the operator-based target manifests to ensure
+# migration version validation passes. When updating operator versions,
+# update these values accordingly.
 
 global:
     secrets:
@@ -16,12 +20,17 @@ global:
                     existingSecret: camunda-credentials
                     existingSecretKey: identity-optimize-client-token
     image:
+        registry: registry.camunda.cloud
         pullSecrets:
+            - name: registry-camunda-cloud
             - name: index-docker-io
 
-# Bitnami Elasticsearch
+# Bitnami Elasticsearch — pinned to match ECK target (8.18.x)
 elasticsearch:
     enabled: true
+    image:
+        # renovate: datasource=docker depName=bitnami/elasticsearch
+        tag: 8.18.0
 
 # Bitnami PostgreSQL for Identity (renamed from postgresql to identityPostgresql in 8.8)
 identityPostgresql:
@@ -34,9 +43,12 @@ identityPostgresql:
 identity:
     enabled: true
 
-# Bitnami Keycloak with its own PostgreSQL
+# Bitnami Keycloak — pinned to match Keycloak Operator target (26.3.3)
 identityKeycloak:
     enabled: true
+    image:
+        # renovate: datasource=docker depName=bitnami/keycloak
+        tag: 26.3.3
     postgresql:
         enabled: true
         auth:

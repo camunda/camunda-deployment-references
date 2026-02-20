@@ -8,11 +8,22 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC2034 # Used by lib.sh after sourcing
+CURRENT_SCRIPT="4-validate.sh"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib.sh"
+parse_common_args "$@"
 load_state
 
+check_env
+require_phase 3 "Phase 3 (cutover)"
+
+timer_start
+
 section "Phase 4: Validate Migration"
+
+show_plan 4
+run_hooks "pre-phase-4"
 
 RELEASE="${CAMUNDA_RELEASE_NAME}"
 ERRORS=0
@@ -33,7 +44,7 @@ check() {
 # ─────────────────────────────────────────────────────────────────────────────
 section "Camunda Deployments"
 
-for comp in zeebe-gateway operate tasklist optimize identity connectors; do
+for comp in "${CAMUNDA_DEPLOYMENTS[@]}"; do
     deploy="${RELEASE}-${comp}"
     if kubectl get deployment "$deploy" -n "${NAMESPACE}" &>/dev/null; then
         check "Deployment ${deploy}" \
@@ -48,7 +59,7 @@ if kubectl get statefulset "${RELEASE}-zeebe" -n "${NAMESPACE}" &>/dev/null; the
 fi
 
 # WebModeler
-for comp in restapi webapp websockets; do
+for comp in "${CAMUNDA_WEBMODELER_COMPONENTS[@]}"; do
     for prefix in web-modeler webmodeler; do
         deploy="${RELEASE}-${prefix}-${comp}"
         if kubectl get deployment "$deploy" -n "${NAMESPACE}" &>/dev/null; then
@@ -78,8 +89,16 @@ if [[ "${MIGRATE_IDENTITY}" == "true" || "${MIGRATE_KEYCLOAK}" == "true" || "${M
 
             if [[ -z "$host" ]]; then continue; fi
 
+            # Use the same Bitnami PG image as the source for consistency
+            pg_img="${IDENTITY_PG_IMAGE:-${KEYCLOAK_PG_IMAGE:-${WEBMODELER_PG_IMAGE:-${PG_IMAGE:-}}}}"
+            if [[ -z "$pg_img" ]]; then
+                log_error "No PG image set (IDENTITY_PG_IMAGE, KEYCLOAK_PG_IMAGE, WEBMODELER_PG_IMAGE, or PG_IMAGE). Run Phase 2 first."
+                ERRORS=$((ERRORS + 1))
+                continue
+            fi
+
             if kubectl run "pg-check-${comp}-${RANDOM}" --rm -i --restart=Never \
-                --image=postgres:15-alpine -n "${NAMESPACE}" -- \
+                --image="${pg_img}" -n "${NAMESPACE}" -- \
                 pg_isready -h "$host" -p "$port" -t 5 &>/dev/null; then
                 log_success "External PG ${comp}: reachable (${host}:${port})"
             else
@@ -115,7 +134,14 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
         ES_PORT="${EXTERNAL_ES_PORT:-443}"
 
         if [[ -n "$ES_HOST" ]]; then
-            # Try to reach the external ES — use curl image for HTTP check
+            # Use the Bitnami ES image from state for connectivity checks
+            es_img="${ES_IMAGE:-}"
+            if [[ -z "$es_img" ]]; then
+                log_error "ES_IMAGE is not set. Run Phase 2 first to detect the ES image."
+                ERRORS=$((ERRORS + 1))
+            else
+
+            # Try to reach the external ES
             ES_CURL_ARGS=(-sf)
             if kubectl get secret "${EXTERNAL_ES_SECRET:-external-es}" -n "${NAMESPACE}" &>/dev/null; then
                 ES_PWD=$(kubectl get secret "${EXTERNAL_ES_SECRET}" -n "${NAMESPACE}" \
@@ -124,16 +150,17 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
             fi
 
             if kubectl run "es-check-ext-${RANDOM}" --rm -i --restart=Never \
-                --image=curlimages/curl:latest -n "${NAMESPACE}" -- \
+                --image="${es_img}" -n "${NAMESPACE}" -- \
                 curl "${ES_CURL_ARGS[@]}" "http://${ES_HOST}:${ES_PORT}/_cluster/health" &>/dev/null; then
                 log_success "External ES: reachable (${ES_HOST}:${ES_PORT})"
             elif kubectl run "es-check-ext-${RANDOM}" --rm -i --restart=Never \
-                --image=curlimages/curl:latest -n "${NAMESPACE}" -- \
+                --image="${es_img}" -n "${NAMESPACE}" -- \
                 curl "${ES_CURL_ARGS[@]}" "https://${ES_HOST}:${ES_PORT}/_cluster/health" -k &>/dev/null; then
                 log_success "External ES: reachable via HTTPS (${ES_HOST}:${ES_PORT})"
             else
                 log_warn "External ES: could not verify connectivity (${ES_HOST}:${ES_PORT})"
                 log_warn "  This may be expected if auth or network policies restrict access"
+            fi
             fi
         fi
     else
@@ -152,11 +179,17 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
         ES_PWD=$(kubectl get secret "${ECK_CLUSTER_NAME}-es-elastic-user" -n "${NAMESPACE}" \
             -o jsonpath='{.data.elastic}' 2>/dev/null | base64 -d || echo "")
         if [[ -n "$ES_PWD" ]]; then
-            idx_count=$(kubectl run es-check-${RANDOM} --rm -i --restart=Never \
-                --image=curlimages/curl:latest -n "${NAMESPACE}" -- \
-                curl -sf -u "elastic:${ES_PWD}" \
-                "http://${ECK_CLUSTER_NAME}-es-http:9200/_cat/indices" 2>/dev/null | wc -l || echo "0")
-            log_info "Elasticsearch indices: ${idx_count}"
+            es_img="${ES_IMAGE:-}"
+            if [[ -z "$es_img" ]]; then
+                log_error "ES_IMAGE is not set. Run Phase 2 first to detect the ES image."
+                ERRORS=$((ERRORS + 1))
+            else
+                idx_count=$(kubectl run es-check-${RANDOM} --rm -i --restart=Never \
+                    --image="${es_img}" -n "${NAMESPACE}" -- \
+                    curl -sf -u "elastic:${ES_PWD}" \
+                    "http://${ECK_CLUSTER_NAME}-es-http:9200/_cat/indices" 2>/dev/null | wc -l || echo "0")
+                log_info "Elasticsearch indices: ${idx_count}"
+            fi
         fi
     fi
 fi
@@ -180,7 +213,10 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────────────────────────────────
-section "Validation Summary"
+section "Validation Summary ($(timer_elapsed))"
+
+# Generate migration report regardless of errors.
+generate_report
 
 if [[ $ERRORS -eq 0 ]]; then
     log_success "All checks passed! Migration is successful."
@@ -191,9 +227,14 @@ if [[ $ERRORS -eq 0 ]]; then
     echo "  - Old Keycloak StatefulSet"
     echo "  - Migration backup PVC: kubectl delete pvc ${BACKUP_PVC} -n ${NAMESPACE}"
     echo ""
+    echo "Migration report: ${STATE_DIR}/migration-report.md"
     echo "Keep the rollback artifacts in .state/ until you're confident everything works."
 else
     log_error "${ERRORS} check(s) failed. Review the errors above."
     echo ""
+    echo "Migration report: ${STATE_DIR}/migration-report.md"
     echo "If needed, rollback with: ./rollback.sh"
 fi
+
+run_hooks "post-phase-4"
+complete_phase 4

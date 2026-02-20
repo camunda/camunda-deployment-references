@@ -23,11 +23,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC2034 # Used by lib.sh after sourcing
+CURRENT_SCRIPT="1-deploy-targets.sh"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib.sh"
 parse_common_args "$@"
 
+check_env
+
+timer_start
+
 section "Phase 1: Deploy Target Infrastructure (no downtime)"
+
+show_plan 1
+run_hooks "pre-phase-1"
 
 if is_external_pg || is_external_es; then
     echo "External target mode is active:"
@@ -127,7 +136,7 @@ if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
     fi
 fi
 
-section "Phase 1 Complete"
+section "Phase 1 Complete ($(timer_elapsed))"
 if is_external_pg || is_external_es; then
     echo "Target infrastructure configured (external targets will be used for data restore)."
 else
@@ -136,3 +145,6 @@ fi
 echo "The application is still fully operational — no downtime has occurred."
 echo ""
 echo "Next: ./2-backup.sh"
+
+run_hooks "post-phase-1"
+complete_phase 1

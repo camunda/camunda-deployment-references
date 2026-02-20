@@ -37,8 +37,13 @@ spec:
                         [ -n "$ES_PASSWORD" ] && AUTH="-u elastic:$ES_PASSWORD"
 
                         # Wait for ES
+                        MAX_RETRIES=60; RETRY=0
                         until curl -sf $AUTH "http://${ES_HOST}:${ES_PORT}/_cluster/health" >/dev/null; do
-                          echo "Waiting for Elasticsearch ..."; sleep 5
+                          RETRY=$((RETRY + 1))
+                          if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
+                            echo "ERROR: Elasticsearch not ready after $MAX_RETRIES attempts"; exit 1
+                          fi
+                          echo "Waiting for Elasticsearch ($RETRY/$MAX_RETRIES)..."; sleep 5
                         done
 
                         # Register snapshot repository

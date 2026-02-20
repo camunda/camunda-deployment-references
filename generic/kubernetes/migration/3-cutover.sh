@@ -15,12 +15,22 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC2034 # Used by lib.sh after sourcing
+CURRENT_SCRIPT="3-cutover.sh"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib.sh"
 parse_common_args "$@"
 load_state
 
+check_env
+require_phase 2 "Phase 2 (initial backup)"
+
+timer_start
+
 section "Phase 3: Cutover (downtime window)"
+
+show_plan 3
+run_hooks "pre-phase-3"
 
 echo "This will:"
 echo "  1. Stop all Camunda components"
@@ -54,14 +64,14 @@ if kubectl get statefulset "${RELEASE}-zeebe" -n "${NAMESPACE}" &>/dev/null; the
 fi
 
 # Freeze standard deployments
-for comp in zeebe-gateway operate tasklist optimize identity connectors; do
+for comp in "${CAMUNDA_DEPLOYMENTS[@]}"; do
     if kubectl get deployment "${RELEASE}-${comp}" -n "${NAMESPACE}" &>/dev/null; then
         DEPLOYMENTS_TO_FREEZE+=("${RELEASE}-${comp}")
     fi
 done
 
 # WebModeler deployments
-for comp in restapi webapp websockets; do
+for comp in "${CAMUNDA_WEBMODELER_COMPONENTS[@]}"; do
     if kubectl get deployment "${RELEASE}-web-modeler-${comp}" -n "${NAMESPACE}" &>/dev/null; then
         DEPLOYMENTS_TO_FREEZE+=("${RELEASE}-web-modeler-${comp}")
     elif kubectl get deployment "${RELEASE}-webmodeler-${comp}" -n "${NAMESPACE}" &>/dev/null; then
@@ -94,7 +104,12 @@ do_final_pg_backup() {
     local sts_var="${component^^}_PG_STS"
     local image_var="${component^^}_PG_IMAGE"
     local sts_name="${!sts_var:-}"
-    local pg_image="${!image_var:-postgres:15}"
+    local pg_image="${!image_var:-${PG_IMAGE:-}}"
+
+    if [[ -z "$pg_image" ]]; then
+        log_error "${image_var} (or PG_IMAGE) is not set. Run Phase 2 first to detect the PG image."
+        return 1
+    fi
 
     if [[ -z "$sts_name" ]]; then
         sts_name=$(detect_pg_sts "$component" 2>/dev/null) || return 0
@@ -156,6 +171,9 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 section "Step 4/5: Restore to targets"
 
+# Ensure new targets are ready before restoring data.
+wait_for_targets_ready
+
 do_pg_restore() {
     local component="$1"
     local db_name="$2"
@@ -187,7 +205,12 @@ do_pg_restore() {
         export DB_SECRET_NAME="${cluster_name}-secret"
     fi
 
-    export PG_IMAGE="${!image_var:-postgres:15}"
+    local pg_img="${!image_var:-${PG_IMAGE:-}}"
+    if [[ -z "$pg_img" ]]; then
+        log_error "${image_var} (or PG_IMAGE) is not set. Run Phase 2 first to detect the PG image."
+        return 1
+    fi
+    export PG_IMAGE="$pg_img"
     export BACKUP_FILE="${component}-db-final.dump"
 
     restore_pg
@@ -283,7 +306,7 @@ sleep 10
 kubectl rollout status deployment -n "${NAMESPACE}" -l "app.kubernetes.io/instance=${RELEASE}" \
     --timeout=600s 2>/dev/null || true
 
-section "Phase 3 Complete — Cutover Done"
+section "Phase 3 Complete — Cutover Done ($(timer_elapsed))"
 if is_external_pg || is_external_es; then
     echo "Camunda is now running on the new infrastructure."
     is_external_pg && echo "  PostgreSQL: external managed service"
@@ -294,3 +317,6 @@ else
 fi
 echo ""
 echo "Next: ./4-validate.sh"
+
+run_hooks "post-phase-3"
+complete_phase 3

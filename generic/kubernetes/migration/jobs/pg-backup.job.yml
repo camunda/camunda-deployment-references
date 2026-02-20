@@ -32,8 +32,13 @@ spec:
                         echo "=== PG Backup: ${COMPONENT} ==="
                         echo "Source: ${PG_HOST}:${PG_PORT}/${PG_DATABASE}"
 
+                        MAX_RETRIES=60; RETRY=0
                         until pg_isready -h "${PG_HOST}" -p "${PG_PORT}" -U "$PGUSER"; do
-                          echo "Waiting for PostgreSQL ..."; sleep 5
+                          RETRY=$((RETRY + 1))
+                          if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
+                            echo "ERROR: PostgreSQL not ready after $MAX_RETRIES attempts"; exit 1
+                          fi
+                          echo "Waiting for PostgreSQL ($RETRY/$MAX_RETRIES)..."; sleep 5
                         done
 
                         mkdir -p /backup/${COMPONENT}

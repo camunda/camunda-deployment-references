@@ -10,12 +10,19 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC2034 # Used by lib.sh after sourcing
+CURRENT_SCRIPT="rollback.sh"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib.sh"
 parse_common_args "$@"
 load_state
 
+check_env
+timer_start
+
 section "Rollback"
+
+run_hooks "pre-rollback"
 
 echo "This will:"
 echo "  1. Restore the previous Helm values (re-enable Bitnami components)"
@@ -45,7 +52,7 @@ if kubectl get statefulset "${RELEASE}-zeebe" -n "${NAMESPACE}" &>/dev/null; the
     kubectl rollout status statefulset "${RELEASE}-zeebe" -n "${NAMESPACE}" --timeout=300s 2>/dev/null || true
 fi
 
-section "Rollback Complete"
+section "Rollback Complete ($(timer_elapsed))"
 echo "Camunda is running on the original Bitnami infrastructure."
 echo ""
 echo "To clean up operator-managed resources (optional):"
@@ -53,3 +60,5 @@ echo "  kubectl delete cluster --all -n ${NAMESPACE}"
 echo "  kubectl delete elasticsearch --all -n ${NAMESPACE}"
 echo "  kubectl delete keycloak --all -n ${NAMESPACE}"
 echo "  kubectl delete pvc ${BACKUP_PVC} -n ${NAMESPACE}"
+
+run_hooks "post-rollback"
