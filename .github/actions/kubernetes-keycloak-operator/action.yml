@@ -21,10 +21,6 @@ inputs:
         description: Domain name (required for domain mode)
         required: false
         default: ''
-    cnpg-operator-namespace:
-        description: Namespace for CNPG operator
-        required: false
-        default: cnpg-system
 
 outputs:
     keycloak-admin-secret:
@@ -41,15 +37,10 @@ runs:
     using: composite
     steps:
         - name: Deploy PostgreSQL for Keycloak via CloudNativePG
-          shell: bash
-          env:
-              CAMUNDA_NAMESPACE: ${{ inputs.namespace }}
-              CLUSTER_FILTER: pg-keycloak
-          run: |
-              set -euo pipefail
-
-              cd generic/kubernetes/operator-based/postgresql
-              ./deploy.sh "${{ inputs.cnpg-operator-namespace }}"
+          uses: ./.github/actions/kubernetes-cnpg-cluster
+          with:
+              namespace: ${{ inputs.namespace }}
+              cluster-name: pg-keycloak
 
         - name: Install Keycloak Operator and deploy instance
           shell: bash

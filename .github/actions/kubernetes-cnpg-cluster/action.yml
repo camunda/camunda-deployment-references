@@ -1,0 +1,46 @@
+---
+name: Deploy CNPG PostgreSQL Cluster
+description: |
+    Deploys a single CloudNativePG PostgreSQL cluster.
+    Installs the CNPG operator if not already present (idempotent).
+    Uses scripts and manifests from generic/kubernetes/operator-based/postgresql/.
+
+inputs:
+    namespace:
+        description: Kubernetes namespace for the PostgreSQL cluster
+        required: false
+        default: camunda
+    cluster-name:
+        description: |
+            Name of the CNPG cluster to deploy (must match a cluster in postgresql-clusters.yml).
+            Examples: pg-keycloak, pg-identity, pg-webmodeler
+        required: true
+
+outputs:
+    cluster-service:
+        description: PostgreSQL read-write service name (e.g., pg-identity-rw)
+        value: ${{ inputs.cluster-name }}-rw
+    cluster-service-port:
+        description: PostgreSQL service port
+        value: '5432'
+    cluster-secret:
+        description: Name of the bootstrap secret containing credentials
+        value: ${{ inputs.cluster-name }}-secret
+
+runs:
+    using: composite
+    steps:
+        - name: 🐘 Install CNPG operator (idempotent)
+          shell: bash
+          env:
+              CAMUNDA_NAMESPACE: ${{ inputs.namespace }}
+              CLUSTER_FILTER: ${{ inputs.cluster-name }}
+          run: |
+              set -euo pipefail
+
+              cd generic/kubernetes/operator-based/postgresql
+
+              # deploy.sh installs the operator (idempotent), creates secrets, and deploys the cluster
+              ./deploy.sh
+
+              echo "✓ CNPG cluster ${{ inputs.cluster-name }} deployed in namespace ${{ inputs.namespace }}"

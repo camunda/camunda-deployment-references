@@ -2,14 +2,13 @@
 
 ## Description
 
-Remove Keycloak deployed via Keycloak Operator and CNPG PostgreSQL
+Remove Keycloak deployed via Keycloak Operator and its CNPG PostgreSQL cluster (pg-keycloak)
 
 ## Inputs
 
 | name | description | required | default |
 | --- | --- | --- | --- |
-| `namespace` | <p>Kubernetes namespace where Keycloak was deployed</p> | `true` | `""` |
-| `skip-operator-uninstall` | <p>Skip uninstalling the operators (useful if shared across namespaces)</p> | `false` | `false` |
+| `namespace` | <p>Kubernetes namespace where Keycloak was deployed</p> | `false` | `camunda` |
 
 
 ## Runs
@@ -24,12 +23,6 @@ This action is a `composite` action.
     namespace:
     # Kubernetes namespace where Keycloak was deployed
     #
-    # Required: true
-    # Default: ""
-
-    skip-operator-uninstall:
-    # Skip uninstalling the operators (useful if shared across namespaces)
-    #
     # Required: false
-    # Default: false
+    # Default: camunda
 ```
