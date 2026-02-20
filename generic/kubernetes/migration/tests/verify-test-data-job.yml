@@ -90,11 +90,13 @@ spec:
 
                         # ── Wait for services ──
                         log "=== Waiting for services ==="
-                        # Stage 1: management API (available before REST)
+                        # Stage 1: management API liveness (available earliest)
                         retry 60 10 curl -sf -o /dev/null "${ZEEBE_MGMT_URL}/actuator/health/liveness" \
                             || log "WARN: Zeebe management API not reachable (continuing)"
-                        # Stage 2: REST API (requires healthy partitions)
-                        retry 60 10 curl -sf -o /dev/null "${ZEEBE_URL}/v2/topology" \
+                        # Stage 2: management API readiness (partitions healthy → REST API on 8080 is ready)
+                        # Uses management port (9600) because /v2/topology requires auth when
+                        # global.identity.auth.enabled=true.
+                        retry 60 10 curl -sf -o /dev/null "${ZEEBE_MGMT_URL}/actuator/health/readiness" \
                             || { fail_test "Zeebe Gateway not reachable"; }
 
                         if [ -z "${KC_URL}" ]; then
