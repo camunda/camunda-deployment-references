@@ -9,7 +9,7 @@ Removes the Elasticsearch cluster and optionally the ECK operator.
 
 | name | description | required | default |
 | --- | --- | --- | --- |
-| `namespace` | <p>Kubernetes namespace where Elasticsearch was deployed</p> | `true` | `""` |
+| `namespace` | <p>Kubernetes namespace where Elasticsearch was deployed</p> | `false` | `camunda` |
 | `skip-operator-uninstall` | <p>Skip uninstalling the ECK operator (CRDs are cluster-wide; default true for safety)</p> | `false` | `true` |
 
 
@@ -31,8 +31,8 @@ This action is a `composite` action.
     namespace:
     # Kubernetes namespace where Elasticsearch was deployed
     #
-    # Required: true
-    # Default: ""
+    # Required: false
+    # Default: camunda
 
     skip-operator-uninstall:
     # Skip uninstalling the ECK operator (CRDs are cluster-wide; default true for safety)

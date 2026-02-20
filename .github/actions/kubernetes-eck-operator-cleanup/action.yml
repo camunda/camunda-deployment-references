@@ -6,7 +6,8 @@ description: |
 inputs:
     namespace:
         description: Kubernetes namespace where Elasticsearch was deployed
-        required: true
+        required: false
+        default: camunda
     skip-operator-uninstall:
         description: Skip uninstalling the ECK operator (CRDs are cluster-wide; default true for safety)
         required: false

@@ -7,7 +7,8 @@ description: |
 inputs:
     namespace:
         description: Kubernetes namespace where the cluster was deployed
-        required: true
+        required: false
+        default: camunda
     cluster-name:
         description: |
             Name of the CNPG cluster to delete (e.g., pg-keycloak, pg-identity, pg-webmodeler).

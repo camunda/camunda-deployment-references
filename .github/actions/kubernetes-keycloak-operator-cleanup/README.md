@@ -8,7 +8,7 @@ Remove Keycloak deployed via Keycloak Operator and its CNPG PostgreSQL cluster (
 
 | name | description | required | default |
 | --- | --- | --- | --- |
-| `namespace` | <p>Kubernetes namespace where Keycloak was deployed</p> | `true` | `""` |
+| `namespace` | <p>Kubernetes namespace where Keycloak was deployed</p> | `false` | `camunda` |
 
 
 ## Runs
@@ -23,6 +23,6 @@ This action is a `composite` action.
     namespace:
     # Kubernetes namespace where Keycloak was deployed
     #
-    # Required: true
-    # Default: ""
+    # Required: false
+    # Default: camunda
 ```

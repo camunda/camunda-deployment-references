@@ -10,7 +10,7 @@ Optionally uninstalls the CNPG operator.
 
 | name | description | required | default |
 | --- | --- | --- | --- |
-| `namespace` | <p>Kubernetes namespace where the cluster was deployed</p> | `true` | `""` |
+| `namespace` | <p>Kubernetes namespace where the cluster was deployed</p> | `false` | `camunda` |
 | `cluster-name` | <p>Name of the CNPG cluster to delete (e.g., pg-keycloak, pg-identity, pg-webmodeler). Leave empty to only uninstall the operator.</p> | `false` | `""` |
 | `skip-operator-uninstall` | <p>Skip uninstalling the CNPG operator (set to false only if no other clusters remain)</p> | `false` | `true` |
 
@@ -27,8 +27,8 @@ This action is a `composite` action.
     namespace:
     # Kubernetes namespace where the cluster was deployed
     #
-    # Required: true
-    # Default: ""
+    # Required: false
+    # Default: camunda
 
     cluster-name:
     # Name of the CNPG cluster to delete (e.g., pg-keycloak, pg-identity, pg-webmodeler).
