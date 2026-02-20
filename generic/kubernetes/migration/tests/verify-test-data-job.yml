@@ -52,6 +52,7 @@ spec:
                         FAILURES=0
 
                         ZEEBE_URL="http://camunda-zeebe-gateway:8080"
+                        ZEEBE_MGMT_URL="http://camunda-zeebe-gateway:9600"
                         WM_URL="http://camunda-web-modeler-restapi:8081"
 
                         DEMO_USER="demo"
@@ -89,7 +90,11 @@ spec:
 
                         # ── Wait for services ──
                         log "=== Waiting for services ==="
-                        retry 30 10 curl -sf -o /dev/null "${ZEEBE_URL}/v2/topology" \
+                        # Stage 1: management API (available before REST)
+                        retry 60 10 curl -sf -o /dev/null "${ZEEBE_MGMT_URL}/actuator/health/liveness" \
+                            || log "WARN: Zeebe management API not reachable (continuing)"
+                        # Stage 2: REST API (requires healthy partitions)
+                        retry 60 10 curl -sf -o /dev/null "${ZEEBE_URL}/v2/topology" \
                             || { fail_test "Zeebe Gateway not reachable"; }
 
                         if [ -z "${KC_URL}" ]; then

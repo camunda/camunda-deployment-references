@@ -69,6 +69,7 @@ spec:
 
                         # ── Configuration ────────────────────────────────────────────────────
                         ZEEBE_URL="http://camunda-zeebe-gateway:8080"
+                        ZEEBE_MGMT_URL="http://camunda-zeebe-gateway:9600"
                         KC_URL="http://camunda-keycloak:80/auth"
                         WM_URL="http://camunda-web-modeler-restapi:8081"
 
@@ -95,11 +96,14 @@ spec:
                         wait_for_service() {
                             local name=$1 url=$2
                             log "Waiting for ${name}..."
-                            retry 30 10 curl -sf -o /dev/null -w '' "$url" \
+                            retry 60 10 curl -sf -o /dev/null -w '' "$url" \
                                 || fail "${name} not reachable at ${url}"
                             ok "${name} is ready"
                         }
 
+                        # Stage 1: Wait for Zeebe management API (available earlier than REST)
+                        wait_for_service "Zeebe Management API" "${ZEEBE_MGMT_URL}/actuator/health/liveness"
+                        # Stage 2: Wait for Zeebe REST API (requires healthy partitions)
                         wait_for_service "Zeebe Gateway" "${ZEEBE_URL}/v2/topology"
                         wait_for_service "Keycloak"      "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration"
 
