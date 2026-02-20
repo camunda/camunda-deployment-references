@@ -101,10 +101,13 @@ spec:
                             ok "${name} is ready"
                         }
 
-                        # Stage 1: Wait for Zeebe management API (available earlier than REST)
+                        # Stage 1: Wait for Zeebe management API liveness
                         wait_for_service "Zeebe Management API" "${ZEEBE_MGMT_URL}/actuator/health/liveness"
-                        # Stage 2: Wait for Zeebe REST API (requires healthy partitions)
-                        wait_for_service "Zeebe Gateway" "${ZEEBE_URL}/v2/topology"
+                        # Stage 2: Wait for Zeebe readiness (partitions healthy, REST API serving)
+                        # Uses management port (9600) because /v2/topology requires auth when
+                        # global.identity.auth.enabled=true, and actuator/readiness covers
+                        # partition health which implies the REST API on 8080 is ready.
+                        wait_for_service "Zeebe Readiness" "${ZEEBE_MGMT_URL}/actuator/health/readiness"
                         wait_for_service "Keycloak"      "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration"
 
                         # WebModeler is optional — don't fail if it's not deployed
