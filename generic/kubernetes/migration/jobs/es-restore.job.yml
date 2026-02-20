@@ -1,0 +1,95 @@
+---
+# Elasticsearch Snapshot Restore Job
+# Uses the source ES image dynamically (no custom image needed).
+# Required env vars: JOB_NAME, ES_IMAGE, TARGET_ES_HOST, TARGET_ES_PORT,
+#   ES_SECRET_NAME, SNAPSHOT_REPO, SNAPSHOT_NAME, NAMESPACE, TIMESTAMP
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: ${JOB_NAME}
+    namespace: ${NAMESPACE}
+    labels:
+        app: orchestration-migration
+        migration.camunda.io/type: restore
+        migration.camunda.io/component: elasticsearch
+spec:
+    ttlSecondsAfterFinished: 3600
+    backoffLimit: 2
+    template:
+        metadata:
+            labels:
+                app: orchestration-migration
+                migration.camunda.io/type: restore
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: restore
+                  image: ${ES_IMAGE}
+                  command:
+                      - /bin/sh
+                      - -c
+                      - |
+                        set -e
+                        echo "=== ES Restore ==="
+                        echo "Target: ${TARGET_ES_HOST}:${TARGET_ES_PORT}"
+
+                        AUTH=""
+                        [ -n "$ES_PASSWORD" ] && AUTH="-u elastic:$ES_PASSWORD"
+
+                        # Wait for target ES
+                        MAX_RETRIES=60; RETRY=0
+                        until curl -sf $AUTH "http://${TARGET_ES_HOST}:${TARGET_ES_PORT}/_cluster/health" >/dev/null; do
+                          RETRY=$((RETRY + 1))
+                          if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
+                            echo "ERROR: Target Elasticsearch not ready after $MAX_RETRIES attempts"; exit 1
+                          fi
+                          echo "Waiting for target Elasticsearch ($RETRY/$MAX_RETRIES)..."; sleep 5
+                        done
+
+                        # Register snapshot repository on target
+                        echo "Registering snapshot repo on target ..."
+                        curl -sf -X PUT $AUTH \
+                          "http://${TARGET_ES_HOST}:${TARGET_ES_PORT}/_snapshot/${SNAPSHOT_REPO}" \
+                          -H 'Content-Type: application/json' \
+                          -d '{"type":"fs","settings":{"location":"/backup/elasticsearch"}}'
+                        echo ""
+
+                        # Delete existing Camunda indices on target to avoid conflicts
+                        echo "Cleaning up existing indices ..."
+                        for pattern in "zeebe-*" "operate-*" "tasklist-*" "optimize-*"; do
+                          curl -sf -X DELETE $AUTH \
+                            "http://${TARGET_ES_HOST}:${TARGET_ES_PORT}/${pattern}" 2>/dev/null || true
+                        done
+
+                        # Restore snapshot
+                        echo "Restoring snapshot ${SNAPSHOT_NAME} ..."
+                        curl -sf -X POST $AUTH \
+                          "http://${TARGET_ES_HOST}:${TARGET_ES_PORT}/_snapshot/${SNAPSHOT_REPO}/${SNAPSHOT_NAME}/_restore?wait_for_completion=true" \
+                          -H 'Content-Type: application/json' \
+                          -d '{"indices":"*","ignore_unavailable":true,"include_global_state":false,"include_aliases":true}'
+                        echo ""
+
+                        # Verify
+                        echo "Cluster health:"
+                        curl -sf $AUTH "http://${TARGET_ES_HOST}:${TARGET_ES_PORT}/_cluster/health"
+                        echo ""
+                        echo "Indices:"
+                        curl -sf $AUTH "http://${TARGET_ES_HOST}:${TARGET_ES_PORT}/_cat/indices?v"
+
+                        echo "Restore complete"
+                  env:
+                      - name: ES_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: ${ES_SECRET_NAME}
+                                key: elastic
+                                optional: true
+                  resources:
+                      requests: {memory: 128Mi, cpu: 50m}
+                      limits: {memory: 256Mi, cpu: 200m}
+                  volumeMounts:
+                      - {name: backup, mountPath: /backup}
+            volumes:
+                - name: backup
+                  persistentVolumeClaim:
+                      claimName: ${BACKUP_PVC}

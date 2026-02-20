@@ -21,7 +21,7 @@ CNPG_VERSION="1.28.1"
 
 # Auto-detect OpenShift by checking for the route.openshift.io API group
 is_openshift() {
-    kubectl api-resources --api-group=route.openshift.io >/dev/null 2>&1
+    [[ -n "$(kubectl api-resources --api-group=route.openshift.io --no-headers 2>/dev/null)" ]]
 }
 
 CNPG_MANIFEST_URL="https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-${CNPG_VERSION%.*}/releases/cnpg-${CNPG_VERSION}.yaml"
