@@ -54,6 +54,13 @@
       }
     },
     "aws_ecs_task_definition.db_seed[0]": {
+      "identity": {
+        "account_id": null,
+        "family": null,
+        "region": null,
+        "revision": null
+      },
+      "identity_schema_version": 0,
       "index": 0,
       "mode": "managed",
       "name": "db_seed",
@@ -1669,6 +1676,13 @@
           }
         },
         "module.connectors.aws_ecs_task_definition.connectors": {
+          "identity": {
+            "account_id": null,
+            "family": null,
+            "region": null,
+            "revision": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "connectors",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2197,6 +2211,13 @@
           }
         },
         "module.orchestration_cluster.aws_ecs_task_definition.orchestration_cluster": {
+          "identity": {
+            "account_id": null,
+            "family": null,
+            "region": null,
+            "revision": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "orchestration_cluster",
           "provider_name": "registry.terraform.io/hashicorp/aws",
