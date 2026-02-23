@@ -176,7 +176,7 @@ inputs:
     helm-playwright-firstuser-secret-key:
         description: >
             Key within the first user secret that contains the password.
-        default: identity-firstuser-password
+        default: identity-first-user-password
     helm-playwright-keycloak-secret-name:
         description: >
             Name of the Kubernetes secret containing the Keycloak admin password.

@@ -61,7 +61,7 @@ All checks can be individually enabled/disabled via inputs.
 | `helm-playwright-orchestration-context-path` | <p>Orchestration context path used by the Camunda deployment. This maps to the ORCHESTRATION<em>CONTEXT</em>PATH env var used by Playwright tests for navigating to Tasklist, Operate, and OC Identity. Defaults to empty string (apps served at /, e.g. /tasklist, /operate).</p> | `false` | `""` |
 | `helm-playwright-identity-context-path` | <p>Management Identity context path used by the Camunda deployment. This maps to the MANAGEMENT<em>IDENTITY</em>CONTEXT_PATH env var used by Playwright tests. Must match the identity.contextPath value in the Helm values.</p> | `false` | `/managementidentity` |
 | `helm-playwright-firstuser-secret-name` | <p>Name of the Kubernetes secret containing the Identity first user password. For auto-generated secrets (Kind), use 'camunda-credentials'. For manually provisioned secrets (EKS/AKS), use the appropriate secret name.</p> | `false` | `camunda-credentials` |
-| `helm-playwright-firstuser-secret-key` | <p>Key within the first user secret that contains the password.</p> | `false` | `identity-firstuser-password` |
+| `helm-playwright-firstuser-secret-key` | <p>Key within the first user secret that contains the password.</p> | `false` | `identity-first-user-password` |
 | `helm-playwright-keycloak-secret-name` | <p>Name of the Kubernetes secret containing the Keycloak admin password.</p> | `false` | `keycloak-initial-admin` |
 | `helm-playwright-keycloak-secret-key` | <p>Key within the Keycloak secret that contains the admin password.</p> | `false` | `password` |
 | `helm-playwright-firstuser-username` | <p>The username of the Camunda identity first user used for Playwright authentication.</p> | `false` | `admin` |
@@ -329,7 +329,7 @@ This action is a `composite` action.
     # Key within the first user secret that contains the password.
     #
     # Required: false
-    # Default: identity-firstuser-password
+    # Default: identity-first-user-password
 
     helm-playwright-keycloak-secret-name:
     # Name of the Kubernetes secret containing the Keycloak admin password.
