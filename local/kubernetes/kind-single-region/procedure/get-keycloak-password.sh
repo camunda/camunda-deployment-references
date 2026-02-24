@@ -5,5 +5,5 @@ set -euo pipefail
 
 CAMUNDA_NAMESPACE="${CAMUNDA_NAMESPACE:-camunda}"
 
-echo "Keycloak Admin Username: $(kubectl get secret keycloak-initial-admin -n "$CAMUNDA_NAMESPACE" -o jsonpath='{.data.username}' | base64 --decode)"
-echo "Keycloak Admin Password: $(kubectl get secret keycloak-initial-admin -n "$CAMUNDA_NAMESPACE" -o jsonpath='{.data.password}' | base64 --decode)"
+echo "Keycloak Admin Username: $(kubectl get secret keycloak-initial-admin -n "$CAMUNDA_NAMESPACE" -o jsonpath='{.data.username}' | base64 -d)"
+echo "Keycloak Admin Password: $(kubectl get secret keycloak-initial-admin -n "$CAMUNDA_NAMESPACE" -o jsonpath='{.data.password}' | base64 -d)"
