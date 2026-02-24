@@ -4,8 +4,8 @@
 # This is the base values file for Camunda components.
 #
 # Auth provider configs are applied via overlays:
-# - Keycloak Operator: generic/kubernetes/operator-based/keycloak/camunda-keycloak-no-domain-values.yml
-# - OIDC: generic/kubernetes/single-region/helm-values/values-oidc.yml + values-oidc-no-domain.yml
+# - Keycloak Operator: generic/kubernetes/operator-based/keycloak/camunda-keycloak-domain-values.yml
+# - OIDC: generic/kubernetes/single-region/helm-values/values-oidc.yml + values-oidc-domain.yml
 #
 # Elasticsearch is managed via the ECK operator and configured through a separate overlay file:
 # - Elasticsearch: generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml
