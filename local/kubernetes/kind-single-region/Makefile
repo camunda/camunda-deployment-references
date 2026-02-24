@@ -63,7 +63,8 @@ help:
 	@echo "Utilities:"
 	@echo "  make status             Show cluster status"
 	@echo "  make port-forward       Start port-forwarding"
-	@echo "  make get-password       Get admin password"
+	@echo "  make get-password       Get Camunda admin password"
+	@echo "  make get-keycloak-password  Get Keycloak admin credentials"
 
 # =============================================================================
 # Full workflows
@@ -77,6 +78,8 @@ domain.init: cluster.create ingress.deploy coredns.config hosts.add certs.genera
 		echo "✓ Domain setup complete!"; \
 		echo "  Access: https://camunda.example.com"; \
 		echo "  Credentials: admin / $$PASSWORD"; \
+		echo ""; \
+		echo "  Keycloak admin credentials: make get-keycloak-password"; \
 	)
 
 .PHONY: domain.clean
@@ -92,6 +95,8 @@ no-domain.init: cluster.create hosts.add-keycloak operators.deploy-no-domain ide
 		echo "✓ No-domain setup complete!"; \
 		echo "  Run: make port-forward"; \
 		echo "  Credentials: admin / $$PASSWORD"; \
+		echo ""; \
+		echo "  Keycloak admin credentials: make get-keycloak-password"; \
 	)
 
 .PHONY: no-domain.clean
@@ -248,3 +253,7 @@ port-forward:
 .PHONY: get-password
 get-password:
 	@$(PROCEDURE_DIR)/get-password.sh
+
+.PHONY: get-keycloak-password
+get-keycloak-password:
+	@$(PROCEDURE_DIR)/get-keycloak-password.sh
