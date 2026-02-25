@@ -12,7 +12,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 
 CLUSTER_NAME="camunda-platform-local"
 NAMESPACE="camunda"
@@ -95,7 +94,7 @@ run_seed_job() {
     log "Following seed job logs..."
     # Wait for pod to be created, then tail logs
     local pod=""
-    for i in $(seq 1 30); do
+    for _i in $(seq 1 30); do
         pod=$(kubectl get pods -n "${NAMESPACE}" -l job-name=seed-test-data \
             --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}' 2>/dev/null || echo "")
         if [[ -n "$pod" ]]; then break; fi
@@ -149,7 +148,7 @@ debug_services() {
         curl -sf http://camunda-keycloak:80/auth/realms/camunda-platform/.well-known/openid-configuration | head -c 200 && echo " => OK" || echo " => FAIL"
 
         echo "--- WebModeler readiness ---"
-        curl -sf http://camunda-web-modeler-restapi:8081/health/readiness && echo " => OK" || echo " => FAIL (expected if WM not deployed)"
+        curl -sf http://camunda-web-modeler-restapi:8091/health/readiness && echo " => OK" || echo " => FAIL (expected if WM not deployed)"
     ' 2>/dev/null || true
 }
 
