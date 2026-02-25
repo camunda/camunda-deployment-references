@@ -2,6 +2,8 @@
 # Helm values for deploying Camunda Platform with Bitnami sub-charts.
 # This is the "source" deployment used as the starting point for migration tests.
 #
+# For domain mode (Ingress + TLS), layer bitnami-values-domain.yml on top.
+#
 # Chart: camunda/camunda-platform (13.x / Camunda 8.8+)
 # Usage: helm install camunda camunda/camunda-platform -f bitnami-values.yml
 #
