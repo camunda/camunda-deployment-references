@@ -217,6 +217,22 @@ jobs:
                   CAMUNDA_NAMESPACE: ${{ env.CAMUNDA_NAMESPACE }}
               run: ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
+            - name: Verify get-keycloak-password script
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: |
+                  set -euo pipefail
+
+                  echo "Testing get-keycloak-password.sh script..."
+                  output=$(./procedure/get-keycloak-password.sh)
+
+                  echo "$output"
+
+                  # Verify the script outputs both username and password
+                  echo "$output" | grep -q "Keycloak Admin Username:" || { echo "ERROR: Missing username in output"; exit 1; }
+                  echo "$output" | grep -q "Keycloak Admin Password:" || { echo "ERROR: Missing password in output"; exit 1; }
+
+                  echo "✅ get-keycloak-password.sh works correctly"
+
             - name: ✅ Deployment verification successful
               run: |
                   set -euo pipefail
