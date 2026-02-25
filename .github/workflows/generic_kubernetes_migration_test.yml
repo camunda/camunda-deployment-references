@@ -88,7 +88,7 @@ jobs:
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
     migration-tests:
-        name: Run migration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }}
+        name: Run migration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
         needs:
             - triage
             - clusters-info
@@ -100,6 +100,7 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         env:
             CLUSTER_NAME: camunda-platform-local
             CAMUNDA_NAMESPACE: camunda
@@ -159,6 +160,41 @@ jobs:
                       --namespace="${{ env.CAMUNDA_NAMESPACE }}"
 
             # =================================================================
+            # Domain mode setup (ingress, TLS, DNS)
+            # =================================================================
+            - name: Deploy Ingress NGINX
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/ingress-nginx-deploy.sh
+
+            - name: Configure CoreDNS for domain resolution
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/coredns-config.sh
+
+            - name: Generate TLS certificates
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/certs-generate.sh
+
+            - name: Create TLS secret
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/certs-create-secret.sh
+
+            - name: Create CA ConfigMap
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/certs-create-ca-configmap.sh
+
+            - name: Set domain environment
+              run: |
+                  set -euo pipefail
+                  if [[ "${{ matrix.declination.use_tls }}" == "true" ]]; then
+                      echo "CAMUNDA_DOMAIN=camunda.example.com" | tee -a "$GITHUB_ENV"
+                  fi
+
+            # =================================================================
             # STEP 1: Deploy Camunda with Bitnami sub-charts (SOURCE)
             # =================================================================
             - name: Deploy Camunda with Bitnami sub-charts
@@ -170,12 +206,22 @@ jobs:
                   helm repo add camunda https://helm.camunda.io
                   helm repo update
 
-                  echo "Installing Camunda Platform with Bitnami sub-charts..."
-                  helm install camunda camunda/camunda-platform \
-                      --namespace "${{ env.CAMUNDA_NAMESPACE }}" \
-                      --values generic/kubernetes/migration/tests/bitnami-values.yml \
-                      --timeout 20m \
+                  HELM_ARGS=(
+                      --namespace "${{ env.CAMUNDA_NAMESPACE }}"
+                      --values generic/kubernetes/migration/tests/bitnami-values.yml
+                      --timeout 20m
                       --wait
+                  )
+
+                  # Add domain overlay values for TLS/Ingress mode
+                  if [[ "${{ matrix.declination.use_tls }}" == "true" ]]; then
+                      echo "Installing Camunda Platform with Bitnami sub-charts (domain mode)..."
+                      HELM_ARGS+=(--values generic/kubernetes/migration/tests/bitnami-values-domain.yml)
+                  else
+                      echo "Installing Camunda Platform with Bitnami sub-charts (no-domain mode)..."
+                  fi
+
+                  helm install camunda camunda/camunda-platform "${HELM_ARGS[@]}"
 
                   echo "Camunda with Bitnami sub-charts deployed successfully"
 
@@ -350,7 +396,7 @@ jobs:
               uses: ./.github/actions/internal-debug-failed-pods
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
 
             - name: Cleanup Kind cluster
               if: always()

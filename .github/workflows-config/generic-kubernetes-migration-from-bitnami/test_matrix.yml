@@ -16,10 +16,12 @@ matrix:
           shortName: mfb
 
     declination:
-        # Migration tests run in no-domain mode for simplicity
-        # Domain mode can be added later if needed
         - name: no-domain
+          use_tls: false
           desc: Test migration from Bitnami to operators without domain configuration.
+        - name: domain
+          use_tls: true
+          desc: Test migration from Bitnami to operators with Ingress and TLS (camunda.example.com).
 
     # Components to test migration for
     # Each component can be tested independently
