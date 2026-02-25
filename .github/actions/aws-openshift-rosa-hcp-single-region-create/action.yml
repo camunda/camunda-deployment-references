@@ -170,8 +170,9 @@ runs:
               set -euo pipefail
 
               rosa verify quota
-              rosa verify permissions
               rosa create account-roles --mode auto
+              rosa create ocm-role --mode auto
+              rosa verify permissions
 
         - name: Set Terraform variables
           id: set-terraform-variables
