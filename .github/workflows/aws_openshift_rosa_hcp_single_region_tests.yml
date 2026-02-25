@@ -645,6 +645,7 @@ jobs:
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                   keycloak-service-name: ${{ matrix.scenario.auth_provider == 'keycloak-operator' && 'keycloak-service:18080' || '' }}
+                  elasticsearch-service-name: elasticsearch-es-http:9200
                   skip-c8sm-connectivity-ingress-class-check: 'true' # OpenShift uses different ingress class names
 
             - name: 🔬🚨 Get failed Pods info
