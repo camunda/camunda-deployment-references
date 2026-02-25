@@ -172,7 +172,6 @@ runs:
               rosa verify quota
               rosa create account-roles --mode auto --yes
               rosa create ocm-role --mode auto --yes
-              rosa verify permissions
 
         - name: Set Terraform variables
           id: set-terraform-variables
