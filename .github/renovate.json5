@@ -1,5 +1,12 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["github>camunda/infraex-common-config:default.json5"],
-  packageRules: []
+  packageRules: [],
+  baseBranchPatterns: [
+    'main',
+    // TODO [release-duty]: remove branches whose maintenance period has ended and add the new stable branch
+    'stable/8.6',
+    'stable/8.7',
+    'stable/8.8',
+  ]
 }
