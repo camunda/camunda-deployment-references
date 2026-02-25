@@ -71,7 +71,8 @@ spec:
                         ZEEBE_URL="http://camunda-zeebe-gateway:8080"
                         ZEEBE_MGMT_URL="http://camunda-zeebe-gateway:9600"
                         KC_URL="http://camunda-keycloak:80/auth"
-                        WM_URL="http://camunda-web-modeler-restapi:8081"
+                        WM_URL="http://camunda-web-modeler-restapi:80"
+                        WM_MGMT_URL="http://camunda-web-modeler-restapi:8091"
 
                         DEMO_USER="demo"
                         DEMO_PASS="demo"
@@ -112,7 +113,7 @@ spec:
 
                         # WebModeler is optional — don't fail if it's not deployed
                         WM_AVAILABLE="false"
-                        if retry 3 5 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "${WM_URL}/health/readiness" 2>/dev/null; then
+                        if retry 3 5 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "${WM_MGMT_URL}/health/readiness" 2>/dev/null; then
                             WM_AVAILABLE="true"
                             ok "WebModeler REST API is ready"
                         else
