@@ -4,17 +4,9 @@
   packageRules: [],
   baseBranchPatterns: [
     'main',
-    // stable/8.4 and stable/8.5 excluded as maintenance period ended
-    // Note: Some branches listed above may not exist yet but are included to avoid regex complexity
+    // TODO [release-duty]: remove branches whose maintenance period has ended and add the new stable branch
     'stable/8.6',
     'stable/8.7',
     'stable/8.8',
-    'stable/8.9',
-    'stable/8.10',
-    'stable/8.11',
-    'stable/8.12',
-    'stable/8.13',
-    'stable/8.14',
-    'stable/8.15',
   ]
 }
