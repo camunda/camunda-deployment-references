@@ -54,6 +54,7 @@ help:
 	@echo "  make hosts.remove             Remove /etc/hosts entries (domain mode)"
 	@echo "  make hosts.remove-keycloak    Remove Keycloak host entry"
 	@echo "  make certs.generate     Generate TLS certificates"
+	@echo "  make identity-secrets.create   Create identity secrets"
 	@echo "  make camunda.deploy-domain     Deploy Camunda (domain)"
 	@echo "  make camunda.deploy-no-domain  Deploy Camunda (no-domain)"
 	@echo "  make camunda.wait       Wait for Camunda pods to be ready"
@@ -62,20 +63,23 @@ help:
 	@echo "Utilities:"
 	@echo "  make status             Show cluster status"
 	@echo "  make port-forward       Start port-forwarding"
-	@echo "  make get-password       Get admin password"
+	@echo "  make get-password       Get Camunda admin password"
+	@echo "  make get-keycloak-password  Get Keycloak admin credentials"
 
 # =============================================================================
 # Full workflows
 # =============================================================================
 
 .PHONY: domain.init
-domain.init: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap operators.deploy-domain camunda.deploy-domain camunda.wait
+domain.init: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap operators.deploy-domain identity-secrets.create camunda.deploy-domain camunda.wait
 	@( \
 		PASSWORD=$$($(PROCEDURE_DIR)/get-password.sh); \
 		echo ""; \
 		echo "✓ Domain setup complete!"; \
 		echo "  Access: https://camunda.example.com"; \
 		echo "  Credentials: admin / $$PASSWORD"; \
+		echo ""; \
+		echo "  Keycloak admin credentials: make get-keycloak-password"; \
 	)
 
 .PHONY: domain.clean
@@ -84,13 +88,15 @@ domain.clean: camunda.uninstall cluster.delete hosts.remove certs.clean
 	@echo "✓ Domain cleanup complete!"
 
 .PHONY: no-domain.init
-no-domain.init: cluster.create hosts.add-keycloak operators.deploy-no-domain camunda.deploy-no-domain camunda.wait
+no-domain.init: cluster.create hosts.add-keycloak operators.deploy-no-domain identity-secrets.create camunda.deploy-no-domain camunda.wait
 	@( \
 		PASSWORD=$$($(PROCEDURE_DIR)/get-password.sh); \
 		echo ""; \
 		echo "✓ No-domain setup complete!"; \
 		echo "  Run: make port-forward"; \
 		echo "  Credentials: admin / $$PASSWORD"; \
+		echo ""; \
+		echo "  Keycloak admin credentials: make get-keycloak-password"; \
 	)
 
 .PHONY: no-domain.clean
@@ -199,6 +205,14 @@ certs.clean:
 	@echo "Certificates cleaned."
 
 # =============================================================================
+# Identity Secrets
+# =============================================================================
+
+.PHONY: identity-secrets.create
+identity-secrets.create:
+	@$(PROCEDURE_DIR)/create-identity-secrets.sh
+
+# =============================================================================
 # Camunda
 # =============================================================================
 
@@ -239,3 +253,7 @@ port-forward:
 .PHONY: get-password
 get-password:
 	@$(PROCEDURE_DIR)/get-password.sh
+
+.PHONY: get-keycloak-password
+get-keycloak-password:
+	@$(PROCEDURE_DIR)/get-keycloak-password.sh

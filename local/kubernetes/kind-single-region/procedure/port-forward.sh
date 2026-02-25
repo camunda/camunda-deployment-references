@@ -29,7 +29,7 @@ echo "  - Console:           localhost:8087"
 echo "  - Identity:          localhost:8085"
 echo "  - Keycloak:          keycloak-service:18080/auth (requires /etc/hosts entry)"
 echo ""
-echo "Login: admin / $(kubectl get secret camunda-credentials -n camunda -o jsonpath='{.data.identity-firstuser-password}' | base64 -d)"
+echo "Login: admin / $(kubectl get secret camunda-credentials -n camunda -o jsonpath='{.data.identity-first-user-password}' | base64 -d)"
 echo ""
 
 kubectl port-forward svc/camunda-zeebe-gateway 26500:26500 -n camunda &
