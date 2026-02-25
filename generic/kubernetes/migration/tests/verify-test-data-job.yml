@@ -75,11 +75,16 @@ spec:
                         # Pre-migration (Bitnami): camunda-keycloak:80
                         # Try operator service first, fall back to Bitnami
                         KC_URL=""
-                        if retry 3 5 curl -sf -o /dev/null "http://keycloak-service:18080/auth/realms/${KC_REALM}/.well-known/openid-configuration" 2>/dev/null; then
-                            KC_URL="http://keycloak-service:18080/auth"
+                        KC_OP="http://keycloak-service:18080/auth"
+                        KC_BN="http://camunda-keycloak:80/auth"
+                        KC_OIDC="realms/${KC_REALM}/.well-known/openid-configuration"
+                        if retry 3 5 curl -sf --connect-timeout 5 --max-time 10 \
+                            -o /dev/null "${KC_OP}/${KC_OIDC}" 2>/dev/null; then
+                            KC_URL="${KC_OP}"
                             log "Using Keycloak Operator service (keycloak-service:18080)"
-                        elif retry 3 5 curl -sf -o /dev/null "http://camunda-keycloak:80/auth/realms/${KC_REALM}/.well-known/openid-configuration" 2>/dev/null; then
-                            KC_URL="http://camunda-keycloak:80/auth"
+                        elif retry 3 5 curl -sf --connect-timeout 5 --max-time 10 \
+                            -o /dev/null "${KC_BN}/${KC_OIDC}" 2>/dev/null; then
+                            KC_URL="${KC_BN}"
                             log "Using Bitnami Keycloak service (camunda-keycloak:80)"
                         fi
 
@@ -91,18 +96,19 @@ spec:
                         # ── Wait for services ──
                         log "=== Waiting for services ==="
                         # Stage 1: management API liveness (available earliest)
-                        retry 60 10 curl -sf -o /dev/null "${ZEEBE_MGMT_URL}/actuator/health/liveness" \
+                        retry 60 10 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${ZEEBE_MGMT_URL}/actuator/health/liveness" \
                             || log "WARN: Zeebe management API not reachable (continuing)"
                         # Stage 2: management API readiness (partitions healthy → REST API on 8080 is ready)
                         # Uses management port (9600) because /v2/topology requires auth when
                         # global.identity.auth.enabled=true.
-                        retry 60 10 curl -sf -o /dev/null "${ZEEBE_MGMT_URL}/actuator/health/readiness" \
+                        retry 60 10 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${ZEEBE_MGMT_URL}/actuator/health/readiness" \
                             || { fail_test "Zeebe Gateway not reachable"; }
 
                         if [ -z "${KC_URL}" ]; then
                             # Retry discovery with longer timeout
-                            retry 30 10 curl -sf -o /dev/null "http://keycloak-service:18080/auth/realms/${KC_REALM}/.well-known/openid-configuration" 2>/dev/null \
-                                && KC_URL="http://keycloak-service:18080/auth"
+                            retry 30 10 curl -sf --connect-timeout 5 --max-time 10 \
+                                -o /dev/null "${KC_OP}/${KC_OIDC}" 2>/dev/null \
+                                && KC_URL="${KC_OP}"
                         fi
                         if [ -z "${KC_URL}" ]; then
                             fail_test "Keycloak not reachable (tried keycloak-service:18080 and camunda-keycloak:80)"
@@ -112,14 +118,27 @@ spec:
                         log ""
                         log "=== Verifying Zeebe data ==="
 
-                        SEARCH_RESP=$(curl -sf -u "${DEMO_USER}:${DEMO_PASS}" \
-                            -X POST "${ZEEBE_URL}/v2/process-instances/search" \
-                            -H "Content-Type: application/json" \
-                            -H "Accept: application/json" \
-                            -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" 2>/dev/null || echo '{}')
+                        # Retry search up to 12 times (2 min total) to allow ES indexing
+                        FOUND=0
+                        SEARCH_ATTEMPT=1
+                        SEARCH_MAX=12
+                        while [ "$SEARCH_ATTEMPT" -le "$SEARCH_MAX" ]; do
+                            SEARCH_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -u "${DEMO_USER}:${DEMO_PASS}" \
+                                -X POST "${ZEEBE_URL}/v2/process-instances/search" \
+                                -H "Content-Type: application/json" \
+                                -H "Accept: application/json" \
+                                -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" 2>/dev/null || echo '{}')
 
-                        FOUND=$(echo "${SEARCH_RESP}" | grep -o '"total":[0-9]*' | head -1 | cut -d: -f2)
-                        FOUND=${FOUND:-0}
+                            FOUND=$(echo "${SEARCH_RESP}" | grep -o '"totalItems":[0-9]*' | head -1 | cut -d: -f2)
+                            FOUND=${FOUND:-0}
+
+                            if [ "$FOUND" -ge "$EXPECTED_INSTANCES" ]; then
+                                break
+                            fi
+                            log "  Search attempt ${SEARCH_ATTEMPT}/${SEARCH_MAX}: found ${FOUND} (need >= ${EXPECTED_INSTANCES}), waiting 10s for ES indexing..."
+                            sleep 10
+                            SEARCH_ATTEMPT=$((SEARCH_ATTEMPT + 1))
+                        done
 
                         if [ "$FOUND" -ge "$EXPECTED_INSTANCES" ]; then
                             pass "Zeebe: found ${FOUND} instances for '${PROCESS_ID}' (expected >= ${EXPECTED_INSTANCES})"
@@ -131,7 +150,7 @@ spec:
                         log ""
                         log "=== Verifying Keycloak data ==="
 
-                        KC_TOKEN=$(curl -sf -X POST \
+                        KC_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
                             "${KC_URL}/realms/master/protocol/openid-connect/token" \
                             -H "Content-Type: application/x-www-form-urlencoded" \
                             -d "grant_type=password&client_id=admin-cli&username=${KC_ADMIN_USER}&password=${KC_ADMIN_PASS}" \
@@ -141,7 +160,7 @@ spec:
                             fail_test "Keycloak: could not get admin token"
                         else
                             # Check user
-                            USER_RESP=$(curl -sf \
+                            USER_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
                                 "${KC_URL}/admin/realms/${KC_REALM}/users?username=${TEST_USER}" \
                                 -H "Authorization: Bearer ${KC_TOKEN}" 2>/dev/null || echo '[]')
 
@@ -152,7 +171,7 @@ spec:
                             fi
 
                             # Check M2M client
-                            CLIENT_RESP=$(curl -sf \
+                            CLIENT_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
                                 "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=${TEST_M2M_CLIENT}" \
                                 -H "Authorization: Bearer ${KC_TOKEN}" 2>/dev/null || echo '[]')
 
@@ -164,18 +183,18 @@ spec:
                         fi
 
                         # ── Verify WebModeler (optional) ──
-                        if retry 3 5 curl -sf -o /dev/null "${WM_URL}/health/readiness" 2>/dev/null; then
+                        if retry 3 5 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${WM_URL}/health/readiness" 2>/dev/null; then
                             log ""
                             log "=== Verifying WebModeler data ==="
 
-                            WM_TOKEN=$(curl -sf -X POST \
+                            WM_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
                                 "${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token" \
                                 -H "Content-Type: application/x-www-form-urlencoded" \
                                 -d "grant_type=password&client_id=web-modeler&username=${DEMO_USER}&password=${DEMO_PASS}" \
                                 | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
 
                             if [ -n "${WM_TOKEN}" ]; then
-                                PROJECTS_RESP=$(curl -sf -X POST "${WM_URL}/api/v1/projects/search" \
+                                PROJECTS_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -X POST "${WM_URL}/api/v1/projects/search" \
                                     -H "Authorization: Bearer ${WM_TOKEN}" \
                                     -H "Content-Type: application/json" \
                                     -d '{}' 2>/dev/null || echo '{}')
