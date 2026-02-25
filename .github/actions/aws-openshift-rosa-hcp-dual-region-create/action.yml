@@ -1,0 +1,588 @@
+---
+name: Deploy AWS ROSA HCP Dual Region Cluster
+
+description: |
+    This GitHub Action automates the deployment of the aws/openshift/rosa-hcp-dual-region reference architecture cluster using Terraform.
+    It will create 2 OpenShift clusters, a VPC peering accross the regions and a backup bucket.
+    This action will also install oc, awscli, rosa cli.
+    Each cluster will be added to the kube config with the name of the cluster as context's name.
+
+inputs:
+    rh-token:
+        description: Red Hat Hybrid Cloud Console Token
+        required: true
+    cluster-name-1:
+        description: Name of the ROSA cluster 1 to deploy
+        required: true
+    cluster-name-2:
+        description: Name of the ROSA cluster 2 to deploy
+        required: true
+    admin-password-cluster-1:
+        description: Admin password for the ROSA cluster 1
+        required: true
+    admin-username-cluster-1:
+        description: Admin username for the ROSA cluster 1
+        default: kube-admin
+    admin-password-cluster-2:
+        description: Admin password for the ROSA cluster 2
+        required: true
+    admin-username-cluster-2:
+        description: Admin username for the ROSA cluster 2
+        default: kube-admin
+    aws-region-cluster-1:
+        description: AWS region where the ROSA cluster 1 will be deployed
+        required: true
+    aws-region-cluster-2:
+        description: AWS region where the ROSA cluster 2 will be deployed
+        required: true
+    availability-zones-cluster-1:
+        description: Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)
+        default: a,b,c
+    availability-zones-cluster-2:
+        description: Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)
+        default: a,b,c
+    rosa-cli-version:
+        description: Version of the ROSA CLI to use
+        default: latest
+    openshift-version-cluster-1:
+        description: Version of the OpenShift to install
+        # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
+        default: 4.20.3
+    openshift-version-cluster-2:
+        description: Version of the OpenShift to install
+        # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
+        default: 4.20.3
+    replicas-cluster-1:
+        description: Number of replicas for the ROSA cluster 1 (empty will fallback on default value of the module)
+        default: ''
+    replicas-cluster-2:
+        description: Number of replicas for the ROSA cluster 2 (empty will fallback on default value of the module)
+        default: ''
+    s3-backend-bucket:
+        description: Name of the S3 bucket to store Terraform state
+        required: true
+    s3-bucket-region:
+        description: Region of the bucket containing the resources states.
+        required: true
+    s3-bucket-key-prefix:
+        description: Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.
+        default: ''
+    tf-modules-revision:
+        description: Git revision of the tf modules to use
+        default: main
+    tf-modules-path:
+        description: Path where the tf rosa modules will be cloned
+        default: ./.action-tf-modules/aws-openshift-rosa-hcp-dual-region-create/
+    login:
+        description: Authenticate the current kube context on the created clusters
+        default: 'true'
+    enable-vpc-peering:
+        description: Whether or not to enable VPC Peering between the clusters
+        default: 'true'
+    enable-backup-bucket:
+        description: Whether or not to enable Backup Bucket creation used by the clusters
+        default: 'true'
+    cleanup-tf-modules-path:
+        description: Whether to clean up the tf modules path
+        default: 'false'
+    tags:
+        description: Tags to apply to the cluster and related resources, in JSON format
+        default: '{}'
+
+outputs:
+    openshift-server-api-cluster-1:
+        description: The server API URL of the deployed ROSA cluster 1
+        value: ${{ steps.terraform_outputs_clusters.outputs.cluster_1_openshift_api_url }}
+    openshift-server-api-cluster-2:
+        description: The server API URL of the deployed ROSA cluster 2
+        value: ${{ steps.terraform_outputs_clusters.outputs.cluster_2_openshift_api_url }}
+
+    openshift-cluster-id-cluster-1:
+        description: The ID of the deployed ROSA cluster 1
+        value: ${{ steps.terraform_outputs_clusters.outputs.cluster_1_cluster_id }}
+    openshift-cluster-id-cluster-2:
+        description: The ID of the deployed ROSA cluster 2
+        value: ${{ steps.terraform_outputs_clusters.outputs.cluster_2_cluster_id }}
+
+    openshift-cluster-vpc-id-cluster-1:
+        description: The VPC ID of the deployed ROSA cluster 1
+        value: ${{ steps.terraform_outputs_clusters.outputs.cluster_1_vpc_id }}
+    openshift-cluster-vpc-id-cluster-2:
+        description: The VPC ID of the deployed ROSA cluster 2
+        value: ${{ steps.terraform_outputs_clusters.outputs.cluster_2_vpc_id }}
+
+    backup-bucket-s3-aws-access-key:
+        description: The AWS Access Key of the S3 Backup bucket used by Camunda
+        value: ${{ steps.terraform_outputs_backup_bucket.outputs.s3_aws_access_key }}
+    backup-bucket-s3-aws-secret-access-key:
+        description: The AWS Secret Access Key of the S3 Backup bucket used by Camunda
+        value: ${{ steps.terraform_outputs_backup_bucket.outputs.s3_aws_secret_access_key }}
+    backup-bucket-s3-bucket-name:
+        description: The name of the S3 Backup bucket used by Camunda
+        value: ${{ steps.terraform_outputs_backup_bucket.outputs.s3_bucket_name }}
+
+    terraform-state-url-clusters:
+        description: URL of the module "clusters" Terraform state file in the S3 bucket
+        value: ${{ steps.init-clusters.outputs.terraform-state-url-clusters }}
+
+    terraform-state-url-peering:
+        description: URL of the module "peering" Terraform state file in the S3 bucket
+        value: ${{ steps.init-peering.outputs.terraform-state-url-peering }}
+
+    terraform-state-url-backup-bucket:
+        description: URL of the module "backup-bucket" Terraform state file in the S3 bucket
+        value: ${{ steps.init-backup-bucket.outputs.terraform-state-url-backup-bucket }}
+
+runs:
+    using: composite
+    steps:
+        - name: Checkout Repository
+          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+          with:
+              repository: camunda/camunda-deployment-references
+              ref: ${{ inputs.tf-modules-revision }}
+              path: ${{ inputs.tf-modules-path }}
+              fetch-depth: 0
+
+        - name: Install asdf tools with cache for the project
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+
+        # TODO: when available on asdf, migrate this to it
+        - name: Install ROSA CLI
+          shell: bash
+          working-directory: /tmp
+          run: |
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              tar -xvf rosa-linux.tar.gz
+              sudo mv rosa /usr/local/bin/rosa
+              chmod +x /usr/local/bin/rosa
+              rm -f rosa-linux.tar.gz
+              rosa version
+
+        - name: Install CLI tools from OpenShift Mirror
+          uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+          with:
+              oc: ${{ inputs.openshift-version-cluster-1 }}
+
+        - name: Set AWS Region and associated AZs
+          id: construct_azs
+          shell: bash
+          run: |
+              IFS=',' read -r -a az_cluster_1 <<< "${{ inputs.availability-zones-cluster-1 }}"
+              IFS=',' read -r -a az_cluster_2 <<< "${{ inputs.availability-zones-cluster-2 }}"
+
+              FULL_AZS_CLUSTER_1=()
+              FULL_AZS_CLUSTER_2=()
+
+              for az in "${az_cluster_1[@]}"; do
+                FULL_AZS_CLUSTER_1+=("\"${{ inputs.aws-region-cluster-1 }}${az}\"")
+              done
+
+              for az in "${az_cluster_2[@]}"; do
+                FULL_AZS_CLUSTER_2+=("\"${{ inputs.aws-region-cluster-2 }}${az}\"")
+              done
+
+              # Join the AZs with commas
+              FULL_AZS_CLUSTER_1_STRING=$(IFS=,; echo "${FULL_AZS_CLUSTER_1[*]}")
+              FULL_AZS_CLUSTER_2_STRING=$(IFS=,; echo "${FULL_AZS_CLUSTER_2[*]}")
+
+              echo "FULL_AZS_CLUSTER_1=$FULL_AZS_CLUSTER_1_STRING" | tee -a "$GITHUB_ENV"
+              echo "FULL_AZS_CLUSTER_2=$FULL_AZS_CLUSTER_2_STRING" | tee -a "$GITHUB_ENV"
+
+
+        - name: Login to Red Hat Hybrid Cloud Console
+          shell: bash
+          run: |
+              rosa login --token="${{ inputs.rh-token }}"
+              rosa whoami
+
+        - name: Verify and enable HCP ROSA on AWS Marketplace
+          shell: bash
+          run: |
+              rosa verify quota
+              rosa create account-roles --mode auto --yes
+              rosa create ocm-role --mode auto --yes
+
+        - name: Set Terraform variables
+          id: set-terraform-variables
+          shell: bash
+          run: |
+              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
+              export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}/"
+
+              echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" | tee -a "$GITHUB_OUTPUT"
+              echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
+              echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
+
+              echo "TF_DIR_CLUSTERS=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/" >> "$GITHUB_ENV"
+              echo "TF_DIR_PEERING=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/" >> "$GITHUB_ENV"
+              echo "TF_DIR_BACKUP_BUCKET=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/" >> "$GITHUB_ENV"
+
+        - name: Check if S3 bucket exists
+          id: create-s3-bucket
+          shell: bash
+          run: |
+              if aws s3api head-bucket --bucket ${{ inputs.s3-backend-bucket }} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
+                echo "Bucket already exists"
+              else
+                echo "Bucket does not exist, creating..."
+                aws s3api create-bucket --bucket ${{ inputs.s3-backend-bucket }} \
+                    --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
+                    --create-bucket-configuration LocationConstraint=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
+              fi
+
+              aws s3api put-public-access-block --bucket ${{ inputs.s3-backend-bucket }} \
+                --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
+                --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+
+      ### Clusters
+
+        - name: Terraform Init - Clusters
+          id: init-clusters
+          working-directory: ${{ env.TF_DIR_CLUSTERS }}
+          env:
+              RHCS_TOKEN: ${{ inputs.rh-token }}
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}clusters.tfstate"
+              terraform_state_url_clusters="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
+              echo "terraform-state-url-clusters=${terraform_state_url_clusters}" | tee -a "$GITHUB_OUTPUT"
+
+
+              terraform version
+
+              terraform init \
+                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
+                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
+                -backend-config="key=$terraform_state_key" \
+                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
+                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
+
+              terraform validate -no-color
+
+        - name: Sanitize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanitize-tags
+          with:
+              raw-tags: ${{ inputs.tags }}
+
+        - name: Generate tfvars file - Clusters
+          id: generate-tfvars-clusters
+          shell: bash
+          working-directory: ${{ env.TF_DIR_CLUSTERS }}
+          run: |
+              set -euo pipefail
+
+              cat > terraform.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              cluster_1_region="${{ inputs.aws-region-cluster-1 }}"
+              cluster_2_region="${{ inputs.aws-region-cluster-2 }}"
+              EOF
+
+        - name: Terraform Plan - Clusters
+          id: plan-clusters
+          working-directory: ${{ env.TF_DIR_CLUSTERS }}
+          env:
+              RHCS_TOKEN: ${{ inputs.rh-token }}
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "Adapting the files with input values"
+              pwd
+              ls
+
+              # protect sensitive values
+              echo "::add-mask::${{ inputs.admin-password-cluster-1 }}"
+              echo "::add-mask::${{ inputs.admin-password-cluster-2 }}"
+
+              ## Cluster 1
+
+              # We use sed instead of -var because the module presented to the user
+              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
+              sed -i -e 's/\(rosa_cluster_1_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name-1 }}\2/' \
+                     -e 's/\(rosa_cluster_1_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password-cluster-1 }}\2/' \
+                     -e 's/\(rosa_cluster_1_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username-cluster-1 }}\2/' \
+                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version-cluster-1 }}\2/' \
+                     -e "s/\(rosa_cluster_1_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS_CLUSTER_1]/" \
+                     cluster_region_1.tf
+
+              if [ -n "${{ inputs.replicas-cluster-1 }}" ]; then
+                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas-cluster-1 }}/' cluster_region_1.tf
+              else
+                echo "No replicas value provided, skipping replica modification."
+              fi
+
+              echo "Displaying templated cluster_cluster_1.tf file:"
+              cat cluster_region_1.tf
+
+              ## Cluster 2
+
+              # We use sed instead of -var because the module presented to the user
+              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
+              sed -i -e 's/\(rosa_cluster_2_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name-2 }}\2/' \
+                     -e 's/\(rosa_cluster_2_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password-cluster-2 }}\2/' \
+                     -e 's/\(rosa_cluster_2_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username-cluster-2 }}\2/' \
+                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version-cluster-2 }}\2/' \
+                     -e "s/\(rosa_cluster_2_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS_CLUSTER_2]/" \
+                     cluster_region_2.tf
+
+              if [ -n "${{ inputs.replicas-cluster-2 }}" ]; then
+                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas-cluster-2 }}/' cluster_region_2.tf
+              else
+                echo "No replicas value provided, skipping replica modification."
+              fi
+
+              echo "Displaying templated cluster_cluster_2.tf file:"
+              cat cluster_region_2.tf
+
+              terraform plan -no-color -out clusters.plan  \
+                -var-file=terraform.tfvars
+
+        - name: Terraform Apply - Clusters
+          id: apply-clusters
+          working-directory: ${{ env.TF_DIR_CLUSTERS }}
+          env:
+              RHCS_TOKEN: ${{ inputs.rh-token }}
+          shell: bash
+          run: |
+              terraform apply -no-color clusters.plan
+
+        - name: Export Terraform Outputs - Clusters
+          id: terraform_outputs_clusters
+          working-directory: ${{ env.TF_DIR_CLUSTERS }}
+          shell: bash
+          run: |
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
+
+        - name: Terraform Drift Detection - Clusters
+          id: drift-detect-clusters
+          uses: ./.github/actions/internal-terraform-drift-detect
+          with:
+              working-directory: ${{ env.TF_DIR_CLUSTERS }}
+              plan-extra-args: |
+                  -var-file=terraform.tfvars
+              fail-on-drift: 'false' # not failing on drift as there may be an expected drift due to hcp module drifting - cluster_console_url
+          env:
+              RHCS_TOKEN: ${{ inputs.rh-token }}
+
+        - name: Login and generate kubeconfig on the clusters
+          # we need to retry due as the cluster has just been created and the OIDC provider may not be available yet
+          uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3
+          id: kube_config
+          if: inputs.login == 'true'
+          with:
+              timeout_minutes: 10
+              max_attempts: 40
+              shell: bash
+              retry_wait_seconds: 15
+              command: |
+                  set -o errexit
+                  set -o pipefail
+
+                  # Cluster 1
+
+                  if ! rosa list users --cluster="${{ inputs.cluster-name-1 }}" | grep -q "${{ inputs.admin-username-cluster-1 }}"; then
+                    rosa grant user cluster-admin --cluster="${{ inputs.cluster-name-1 }}" --user="${{ inputs.admin-username-cluster-1 }}"
+                  else
+                    echo "✅ User '${{ inputs.admin-username-cluster-1 }}' is already a cluster-admin on '${{ inputs.cluster-name-1 }}'."
+                  fi
+
+                  echo "Logging in to Cluster 1: ${{ inputs.cluster-name-1 }}"
+                  oc login --username "${{ inputs.admin-username-cluster-1 }}" --password "${{ inputs.admin-password-cluster-1 }}" \
+                    "${{ steps.terraform_outputs_clusters.outputs.cluster_1_openshift_api_url }}"
+
+
+                  oc whoami
+                  echo "Show existing contexts"
+                  kubectl config get-contexts
+                  if kubectl config get-contexts -o name | grep -qx '${{ inputs.cluster-name-1 }}'; then
+                      echo "Context '${{ inputs.cluster-name-1 }}' already exists. No changes made."
+                  else
+                      echo "Renaming oc config current context to '${{ inputs.cluster-name-1 }}'"
+                      kubectl config delete-context '${{ inputs.cluster-name-1 }}' 2>/dev/null || true
+                      kubectl config rename-context "$(oc config current-context)" "${{ inputs.cluster-name-1 }}"
+                  fi
+
+                  # Cluster 2
+
+                  if ! rosa list users --cluster="${{ inputs.cluster-name-2 }}" | grep -q "${{ inputs.admin-username-cluster-2 }}"; then
+                    rosa grant user cluster-admin --cluster="${{ inputs.cluster-name-2 }}" --user="${{ inputs.admin-username-cluster-2 }}"
+                  else
+                    echo "✅ User '${{ inputs.admin-username-cluster-2 }}' is already a cluster-admin on '${{ inputs.cluster-name-2 }}'."
+                  fi
+
+                  echo "Logging in to Cluster 2: ${{ inputs.cluster-name-2 }}"
+                  oc login --username "${{ inputs.admin-username-cluster-2 }}" --password "${{ inputs.admin-password-cluster-2 }}" \
+                    "${{ steps.terraform_outputs_clusters.outputs.cluster_2_openshift_api_url }}"
+
+                  oc whoami
+                  echo "Show existing contexts"
+                  kubectl config get-contexts
+                  if kubectl config get-contexts -o name | grep -qx '${{ inputs.cluster-name-2 }}'; then
+                      echo "Context '${{ inputs.cluster-name-2 }}' already exists. No changes made."
+                  else
+                      echo "Renaming oc config current context to '${{ inputs.cluster-name-2 }}'"
+                      kubectl config delete-context '${{ inputs.cluster-name-2 }}' 2>/dev/null || true
+                      kubectl config rename-context "$(oc config current-context)" "${{ inputs.cluster-name-2 }}"
+                  fi
+
+      ### VPC Peering
+
+        - name: Terraform Init - Peering
+          id: init-peering
+          if: inputs.enable-vpc-peering == 'true'
+          working-directory: ${{ env.TF_DIR_PEERING }}
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}peering.tfstate"
+              terraform_state_url_peering="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
+              echo "terraform-state-url-peering=${terraform_state_url_peering}" | tee -a "$GITHUB_OUTPUT"
+
+              terraform version
+
+              terraform init \
+                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
+                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
+                -backend-config="key=$terraform_state_key"  \
+                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
+                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
+
+              terraform validate -no-color
+
+        - name: Generate tfvars file - Peering
+          id: generate-tfvars-peering
+          shell: bash
+          working-directory: ${{ env.TF_DIR_PEERING }}
+          run: |
+              set -euo pipefail
+
+              cat > terraform.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              cluster_1_region="${{ inputs.aws-region-cluster-1 }}"
+              cluster_2_region="${{ inputs.aws-region-cluster-2 }}"
+              cluster_1_vpc_id="${{ steps.terraform_outputs_clusters.outputs.cluster_1_vpc_id }}"
+              cluster_2_vpc_id="${{ steps.terraform_outputs_clusters.outputs.cluster_2_vpc_id }}"
+              EOF
+
+        - name: Terraform Plan - Peering
+          id: plan-peering
+          if: inputs.enable-vpc-peering == 'true'
+          working-directory: ${{ env.TF_DIR_PEERING }}
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              terraform plan -no-color -out peering.plan \
+                -var-file=terraform.tfvars
+
+        - name: Terraform Apply - Peering
+          id: apply-peering
+          if: inputs.enable-vpc-peering == 'true'
+          working-directory: ${{ env.TF_DIR_PEERING }}
+          shell: bash
+          run: |
+              terraform apply -no-color peering.plan
+
+        - name: Terraform Drift Detection - Peering
+          if: inputs.enable-vpc-peering == 'true'
+          id: drift-detect-peering
+          uses: ./.github/actions/internal-terraform-drift-detect
+          with:
+              working-directory: ${{ env.TF_DIR_PEERING }}
+              plan-extra-args: |
+                  -var-file=terraform.tfvars
+
+      ### Backup bucket
+
+        - name: Terraform Init - Backup bucket
+          id: init-backup-bucket
+          if: inputs.enable-backup-bucket == 'true'
+          working-directory: ${{ env.TF_DIR_BACKUP_BUCKET }}
+          shell: bash
+          env:
+              AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
+          run: |
+              set -euo pipefail
+
+              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}backup_bucket.tfstate"
+              terraform_state_url_backup_bucket="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
+              echo "terraform-state-url-backup-bucket=${terraform_state_url_backup_bucket}" | tee -a "$GITHUB_OUTPUT"
+
+              terraform version
+
+              terraform init \
+                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
+                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
+                -backend-config="key=$terraform_state_key"
+
+              terraform validate -no-color
+
+        - name: Generate tfvars file - Backup bucket
+          id: generate-tfvars-backup-bucket
+          shell: bash
+          working-directory: ${{ env.TF_DIR_BACKUP_BUCKET }}
+          run: |
+              set -euo pipefail
+
+              hash=$(echo -n "${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}" | sha256sum | cut -c1-8)
+
+              cat > terraform.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              bucket_name="cb-${hash}"
+              EOF
+
+        - name: Terraform Plan - Backup bucket
+          id: plan-backup-bucket
+          if: inputs.enable-backup-bucket == 'true'
+          working-directory: ${{ env.TF_DIR_BACKUP_BUCKET }}
+          shell: bash
+          env:
+              AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
+          run: |
+              set -euo pipefail
+
+              terraform plan -no-color -out  backup_bucket.plan \
+                -var-file=terraform.tfvars
+
+        - name: Terraform Apply - Backup bucket
+          id: apply-backup-bucket
+          if: inputs.enable-backup-bucket == 'true'
+          working-directory: ${{ env.TF_DIR_BACKUP_BUCKET }}
+          shell: bash
+          env:
+              AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
+          run: |
+              terraform apply -no-color backup_bucket.plan
+
+        - name: Export Terraform Outputs - Backup Bucket
+          id: terraform_outputs_backup_bucket
+          if: inputs.enable-backup-bucket == 'true'
+          working-directory: ${{ env.TF_DIR_BACKUP_BUCKET }}
+          shell: bash
+          env:
+              AWS_REGION: ${{ inputs.aws-region-cluster-1 }}
+          run: |
+              source "${{ github.workspace }}/.github/scripts/gha-functions.sh"
+              export_terraform_outputs
+
+        - name: Terraform Drift Detection - Backup Bucket
+          if: inputs.enable-backup-bucket == 'true'
+          id: drift-detect-backup-bucket
+          uses: ./.github/actions/internal-terraform-drift-detect
+          with:
+              working-directory: ${{ env.TF_DIR_BACKUP_BUCKET }}
+              plan-extra-args: |
+                  -var-file=terraform.tfvars
+
+        - name: Clean up cloned modules
+          if: always() && inputs.cleanup-tf-modules-path == 'true'
+          shell: bash
+          run: |
+              rm -rf "${{ inputs.tf-modules-path }}"
