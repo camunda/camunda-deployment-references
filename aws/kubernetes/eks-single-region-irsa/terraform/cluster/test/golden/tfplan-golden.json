@@ -2968,6 +2968,7 @@
             "advanced_options": {},
             "advanced_security_options": [
               {
+                "jwt_options": [],
                 "master_user_options": [
                   {
                     "master_user_password": true
@@ -3039,6 +3040,7 @@
                 "anonymous_auth_enabled": false,
                 "enabled": true,
                 "internal_user_database_enabled": true,
+                "jwt_options": [],
                 "master_user_options": [
                   {
                     "master_user_arn": null,

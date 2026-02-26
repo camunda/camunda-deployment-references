@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # renovate: datasource=helm depName=camunda-platform versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-export CAMUNDA_HELM_CHART_VERSION="13.4.2"
+export CAMUNDA_HELM_CHART_VERSION="13.5.2"
 
 # Deploy Camunda Platform (domain mode with TLS)
 # Run from: local/kubernetes/kind-single-region/
