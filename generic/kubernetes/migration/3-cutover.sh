@@ -117,13 +117,16 @@ do_final_pg_backup() {
 
     log_info "Final backup: ${component} (${sts_name})"
 
+    # Introspect to detect PG_SECRET_NAME, PG_SECRET_KEY, PG_IMAGE, etc.
+    introspect_pg "${sts_name}"
+
     export COMPONENT="$component"
     export PG_HOST="${sts_name}.${NAMESPACE}.svc.cluster.local"
     export PG_PORT="5432"
     export PG_DATABASE="$db_name"
     export PG_USERNAME="$db_user"
-    export PG_SECRET_NAME="$sts_name"
     export PG_IMAGE="$pg_image"
+    # PG_SECRET_NAME and PG_SECRET_KEY are set by introspect_pg above
 
     # Use "final" as the timestamp for the definitive backup
     local saved_ts="$TIMESTAMP"
