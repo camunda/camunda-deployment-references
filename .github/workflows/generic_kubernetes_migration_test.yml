@@ -112,7 +112,7 @@ jobs:
             - name: Install build dependencies
               run: |
                   sudo apt-get update -qq
-                  sudo apt-get install -y -qq build-essential gettext-base
+                  sudo apt-get install -y -qq build-essential libssl-dev zlib1g-dev libffi-dev gettext-base
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
