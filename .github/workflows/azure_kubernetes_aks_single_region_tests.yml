@@ -753,6 +753,13 @@ jobs:
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
 
+            - name: 🧹 Uninstall ECK Operator
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  skip-operator-uninstall: 'false'
+
             - name: 🧹 Cleanup Namespace
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 20
