@@ -105,7 +105,7 @@ webModelerPostgresql:
         registry: registry.camunda.cloud
         repository: vendor-ee/postgresql
         # renovate: datasource=docker depName=registry.camunda.cloud/vendor-ee/postgresql
-        tag: 14.21.0-debian-12-r0
+        tag: 15.15.0-debian-12-r2
         pullSecrets:
             - name: registry-camunda-cloud
     auth:
