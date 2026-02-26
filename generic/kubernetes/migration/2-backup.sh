@@ -61,7 +61,7 @@ do_pg_backup() {
     export PG_PORT="5432"
     export PG_DATABASE="$db_name"
     export PG_USERNAME="$db_user"
-    export PG_SECRET_NAME="$sts_name"
+    # PG_SECRET_NAME and PG_SECRET_KEY are auto-detected by introspect_pg
 
     backup_pg
 

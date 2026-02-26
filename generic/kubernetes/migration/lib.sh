@@ -466,9 +466,33 @@ run_job() {
     apply_template "$tpl" "${STATE_DIR}/${job_name}.yml"
 
     log_info "Waiting for job ${job_name} (timeout ${timeout}s) ..."
-    if ! kubectl wait --for=condition=complete "job/${job_name}" \
-            -n "${NAMESPACE}" --timeout="${timeout}s" 2>/dev/null; then
-        log_error "Job ${job_name} failed or timed out after ${timeout}s"
+
+    # Wait for either complete or failed condition.
+    # kubectl wait only supports a single condition, so we poll in a loop
+    # to detect failure early instead of waiting for the full timeout.
+    local deadline=$((SECONDS + timeout))
+    local result=""
+    while [[ $SECONDS -lt $deadline ]]; do
+        # Check for completion
+        if kubectl wait --for=condition=complete "job/${job_name}" \
+                -n "${NAMESPACE}" --timeout=10s 2>/dev/null; then
+            result="complete"
+            break
+        fi
+        # Check for failure (backoffLimit reached)
+        if kubectl wait --for=condition=failed "job/${job_name}" \
+                -n "${NAMESPACE}" --timeout=1s 2>/dev/null; then
+            result="failed"
+            break
+        fi
+    done
+
+    if [[ "$result" != "complete" ]]; then
+        if [[ "$result" == "failed" ]]; then
+            log_error "Job ${job_name} FAILED (backoffLimit reached)"
+        else
+            log_error "Job ${job_name} timed out after ${timeout}s"
+        fi
         echo ""
         echo "--- Job description ---"
         kubectl describe job "${job_name}" -n "${NAMESPACE}" 2>/dev/null || true
@@ -1168,7 +1192,8 @@ get_helm_values() {
 
 # Introspect a Bitnami PostgreSQL StatefulSet.
 # Usage: introspect_pg <sts-name>
-# Exports: PG_IMAGE, PG_STORAGE_SIZE, PG_REPLICAS, PG_RESOURCES, PG_VERSION
+# Exports: PG_IMAGE, PG_STORAGE_SIZE, PG_REPLICAS, PG_VERSION,
+#          PG_SECRET_NAME, PG_SECRET_KEY
 introspect_pg() {
     local sts_name="$1"
     log_info "Introspecting StatefulSet ${sts_name} ..."
@@ -1186,8 +1211,49 @@ introspect_pg() {
     export PG_REPLICAS;    PG_REPLICAS=$(echo "$json" | jq -r '.spec.replicas // 1')
     export PG_VERSION;     PG_VERSION=$(echo "$PG_IMAGE" | grep -oE '[0-9]+\.[0-9]+' | head -1 || echo "15")
 
+    # Auto-detect the PG password secret from POSTGRES_PASSWORD or
+    # POSTGRES_POSTGRES_PASSWORD env vars in the container spec.
+    local detected_secret detected_key
+    detected_secret=$(echo "$json" | jq -r '
+        [.spec.template.spec.containers[0].env[]
+         | select(.name == "POSTGRES_PASSWORD" or .name == "POSTGRES_POSTGRES_PASSWORD")
+         | .valueFrom.secretKeyRef.name // empty
+        ] | map(select(. != "")) | first // empty
+    ')
+    detected_key=$(echo "$json" | jq -r '
+        [.spec.template.spec.containers[0].env[]
+         | select(.name == "POSTGRES_PASSWORD" or .name == "POSTGRES_POSTGRES_PASSWORD")
+         | .valueFrom.secretKeyRef.key // empty
+        ] | map(select(. != "")) | first // empty
+    ')
+
+    # Fallback: file-based passwords (POSTGRES_PASSWORD_FILE) — extract the
+    # key from the file path basename, and the secret from the volume mount.
+    if [[ -z "$detected_secret" ]]; then
+        # Extract key from POSTGRES_PASSWORD_FILE path (basename = secret key)
+        detected_key=$(echo "$json" | jq -r '
+            [.spec.template.spec.containers[0].env[]
+             | select(.name == "POSTGRES_PASSWORD_FILE")
+             | .value | split("/") | last
+            ] | first // empty
+        ')
+        # Get secret name from the volume definition
+        detected_secret=$(echo "$json" | jq -r '
+            [.spec.template.spec.volumes[]
+             | select(.secret != null)
+             | select(.name | test("password|credential"))
+             | .secret.secretName
+            ] | first // empty
+        ')
+    fi
+
+    # Final fallback to legacy Bitnami convention
+    export PG_SECRET_NAME;  PG_SECRET_NAME="${detected_secret:-$sts_name}"
+    export PG_SECRET_KEY;   PG_SECRET_KEY="${detected_key:-postgres-password}"
+
     log_success "Image: ${PG_IMAGE}"
     log_success "Storage: ${PG_STORAGE_SIZE}, Replicas: ${PG_REPLICAS}, Version: ${PG_VERSION}"
+    log_success "Secret: ${PG_SECRET_NAME} (key: ${PG_SECRET_KEY})"
 }
 
 # Detect the Bitnami PG StatefulSet name for a component.
