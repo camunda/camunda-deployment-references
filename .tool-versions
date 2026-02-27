@@ -17,7 +17,7 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.11
 
-awscli 2.33.22
+awscli 2.33.31
 
 delta 0.18.2
 
@@ -39,7 +39,7 @@ just 1.46.0
 # renovate: datasource=github-tags depName=kubernetes-sigs/kind
 kind 0.31.0
 
-kubectl 1.35.1
+kubectl 1.35.2
 
 kustomize 5.8.1 # used by the tests
 
@@ -54,7 +54,7 @@ shellcheck 0.11.0
 
 task 3.30.1  # used by the tests
 
-terraform 1.14.5
+terraform 1.14.6
 
 terraform-docs 0.21.0
 

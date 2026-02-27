@@ -63,7 +63,7 @@ runs:
           run: echo "TEST_DIR=${TEST_DIR:-./aws/kubernetes/eks-dual-region/test}" >> "$GITHUB_ENV"
 
         # Explicitly set up Go for caching of packages
-        - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
+        - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
           with:
               go-version-file: ${{ env.TEST_DIR }}/go.mod
               cache-dependency-path: ${{ env.TEST_DIR }}/go.sum

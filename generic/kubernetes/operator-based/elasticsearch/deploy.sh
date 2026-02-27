@@ -9,7 +9,7 @@ OPERATOR_NAMESPACE=${1:-elastic-system}
 ELASTICSEARCH_CLUSTER_FILE=${ELASTICSEARCH_CLUSTER_FILE:-elasticsearch-cluster.yml}
 
 # renovate: datasource=github-releases depName=elastic/cloud-on-k8s
-ECK_VERSION="3.3.0"
+ECK_VERSION="3.3.1"
 
 # Install ECK operator CRDs
 kubectl apply --server-side -f \
