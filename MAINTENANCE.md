@@ -65,6 +65,13 @@ When a new version is ready for release, we need to cut the `main` branch to cre
    * Update version references in relevant files to reflect the new development cycle.
    * **Update `.target-branch`** so that it continues to point to `main` (or whichever branch is the new default target).
 
+7. **Update Renovate branch patterns**
+
+   * In `.github/renovate.json5`, update the `baseBranchPatterns` list:
+     * Add the newly created `stable/8.x` branch.
+     * Remove any branches whose maintenance period has ended.
+   * This ensures Renovate only creates dependency update PRs for actively maintained branches.
+
 ---
 
 ## Modules

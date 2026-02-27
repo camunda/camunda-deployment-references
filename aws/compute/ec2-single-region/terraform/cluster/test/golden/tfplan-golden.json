@@ -886,6 +886,16 @@
       }
     },
     "aws_lb_target_group_attachment.connectors[\"0\"]": {
+      "identity": {
+        "account_id": null,
+        "availability_zone": null,
+        "port": null,
+        "quic_server_id": null,
+        "region": null,
+        "target_group_arn": null,
+        "target_id": null
+      },
+      "identity_schema_version": 0,
       "index": "0",
       "mode": "managed",
       "name": "connectors",
@@ -901,6 +911,16 @@
       }
     },
     "aws_lb_target_group_attachment.connectors[\"1\"]": {
+      "identity": {
+        "account_id": null,
+        "availability_zone": null,
+        "port": null,
+        "quic_server_id": null,
+        "region": null,
+        "target_group_arn": null,
+        "target_id": null
+      },
+      "identity_schema_version": 0,
       "index": "1",
       "mode": "managed",
       "name": "connectors",
@@ -916,6 +936,16 @@
       }
     },
     "aws_lb_target_group_attachment.connectors[\"2\"]": {
+      "identity": {
+        "account_id": null,
+        "availability_zone": null,
+        "port": null,
+        "quic_server_id": null,
+        "region": null,
+        "target_group_arn": null,
+        "target_id": null
+      },
+      "identity_schema_version": 0,
       "index": "2",
       "mode": "managed",
       "name": "connectors",
@@ -931,6 +961,16 @@
       }
     },
     "aws_lb_target_group_attachment.grpc[\"0\"]": {
+      "identity": {
+        "account_id": null,
+        "availability_zone": null,
+        "port": null,
+        "quic_server_id": null,
+        "region": null,
+        "target_group_arn": null,
+        "target_id": null
+      },
+      "identity_schema_version": 0,
       "index": "0",
       "mode": "managed",
       "name": "grpc",
@@ -946,6 +986,16 @@
       }
     },
     "aws_lb_target_group_attachment.grpc[\"1\"]": {
+      "identity": {
+        "account_id": null,
+        "availability_zone": null,
+        "port": null,
+        "quic_server_id": null,
+        "region": null,
+        "target_group_arn": null,
+        "target_id": null
+      },
+      "identity_schema_version": 0,
       "index": "1",
       "mode": "managed",
       "name": "grpc",
@@ -961,6 +1011,16 @@
       }
     },
     "aws_lb_target_group_attachment.grpc[\"2\"]": {
+      "identity": {
+        "account_id": null,
+        "availability_zone": null,
+        "port": null,
+        "quic_server_id": null,
+        "region": null,
+        "target_group_arn": null,
+        "target_id": null
+      },
+      "identity_schema_version": 0,
       "index": "2",
       "mode": "managed",
       "name": "grpc",
@@ -976,6 +1036,16 @@
       }
     },
     "aws_lb_target_group_attachment.main[\"0\"]": {
+      "identity": {
+        "account_id": null,
+        "availability_zone": null,
+        "port": null,
+        "quic_server_id": null,
+        "region": null,
+        "target_group_arn": null,
+        "target_id": null
+      },
+      "identity_schema_version": 0,
       "index": "0",
       "mode": "managed",
       "name": "main",
@@ -991,6 +1061,16 @@
       }
     },
     "aws_lb_target_group_attachment.main[\"1\"]": {
+      "identity": {
+        "account_id": null,
+        "availability_zone": null,
+        "port": null,
+        "quic_server_id": null,
+        "region": null,
+        "target_group_arn": null,
+        "target_id": null
+      },
+      "identity_schema_version": 0,
       "index": "1",
       "mode": "managed",
       "name": "main",
@@ -1006,6 +1086,16 @@
       }
     },
     "aws_lb_target_group_attachment.main[\"2\"]": {
+      "identity": {
+        "account_id": null,
+        "availability_zone": null,
+        "port": null,
+        "quic_server_id": null,
+        "region": null,
+        "target_group_arn": null,
+        "target_id": null
+      },
+      "identity_schema_version": 0,
       "index": "2",
       "mode": "managed",
       "name": "main",
@@ -1877,6 +1967,7 @@
             "advanced_options": {},
             "advanced_security_options": [
               {
+                "jwt_options": [],
                 "master_user_options": [
                   {
                     "master_user_password": true
@@ -1948,6 +2039,7 @@
                 "anonymous_auth_enabled": false,
                 "enabled": false,
                 "internal_user_database_enabled": false,
+                "jwt_options": [],
                 "master_user_options": [
                   {
                     "master_user_arn": "",
