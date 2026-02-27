@@ -1585,6 +1585,13 @@
     "module.connectors": {
       "resources": {
         "module.connectors.aws_ecs_service.connectors": {
+          "identity": {
+            "account_id": null,
+            "cluster": null,
+            "name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "connectors",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1610,6 +1617,7 @@
             "placement_constraints": [],
             "service_connect_configuration": [
               {
+                "access_log_configuration": [],
                 "log_configuration": [],
                 "service": []
               }
@@ -1657,6 +1665,7 @@
             "scheduling_strategy": "REPLICA",
             "service_connect_configuration": [
               {
+                "access_log_configuration": [],
                 "enabled": true,
                 "log_configuration": [],
                 "service": []
@@ -2032,6 +2041,13 @@
           }
         },
         "module.orchestration_cluster.aws_ecs_service.orchestration_cluster": {
+          "identity": {
+            "account_id": null,
+            "cluster": null,
+            "name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "orchestration_cluster",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2060,6 +2076,7 @@
             "placement_constraints": [],
             "service_connect_configuration": [
               {
+                "access_log_configuration": [],
                 "log_configuration": [],
                 "service": [
                   {
@@ -2143,6 +2160,7 @@
             "scheduling_strategy": "REPLICA",
             "service_connect_configuration": [
               {
+                "access_log_configuration": [],
                 "enabled": true,
                 "log_configuration": [],
                 "service": [
