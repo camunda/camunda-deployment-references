@@ -426,6 +426,21 @@ apply_template() {
     local rendered
     rendered=$(envsubst < "$tpl")
 
+    # Inject imagePullSecrets for private registry images in Job templates.
+    # IMAGE_PULL_SECRET is set by introspect_pg() / introspect_es() when the
+    # source StatefulSet uses a private registry.
+    if [[ -n "${IMAGE_PULL_SECRET:-}" ]] && printf '%s' "$rendered" | grep -q 'restartPolicy:'; then
+        rendered=$(printf '%s\n' "$rendered" | awk '
+            /restartPolicy:/ {
+                print
+                print "            imagePullSecrets:"
+                print "                - name: '"${IMAGE_PULL_SECRET}"'"
+                next
+            }
+            {print}
+        ')
+    fi
+
     if [[ -n "$save" ]]; then
         mkdir -p "$(dirname "$save")"
         echo "$rendered" > "$save"
@@ -1193,7 +1208,7 @@ get_helm_values() {
 # Introspect a Bitnami PostgreSQL StatefulSet.
 # Usage: introspect_pg <sts-name>
 # Exports: PG_IMAGE, PG_STORAGE_SIZE, PG_REPLICAS, PG_VERSION,
-#          PG_SECRET_NAME, PG_SECRET_KEY
+#          PG_SECRET_NAME, PG_SECRET_KEY, IMAGE_PULL_SECRET
 introspect_pg() {
     local sts_name="$1"
     log_info "Introspecting StatefulSet ${sts_name} ..."
@@ -1251,9 +1266,17 @@ introspect_pg() {
     export PG_SECRET_NAME;  PG_SECRET_NAME="${detected_secret:-$sts_name}"
     export PG_SECRET_KEY;   PG_SECRET_KEY="${detected_key:-postgres-password}"
 
+    # Detect imagePullSecrets so backup/restore jobs can pull private images.
+    local pull_secret
+    pull_secret=$(echo "$json" | jq -r '.spec.template.spec.imagePullSecrets[0].name // empty')
+    export IMAGE_PULL_SECRET="${pull_secret:-}"
+
     log_success "Image: ${PG_IMAGE}"
     log_success "Storage: ${PG_STORAGE_SIZE}, Replicas: ${PG_REPLICAS}, Version: ${PG_VERSION}"
     log_success "Secret: ${PG_SECRET_NAME} (key: ${PG_SECRET_KEY})"
+    if [[ -n "$IMAGE_PULL_SECRET" ]]; then
+        log_success "Image pull secret: ${IMAGE_PULL_SECRET}"
+    fi
 }
 
 # Detect the Bitnami PG StatefulSet name for a component.
@@ -1327,6 +1350,11 @@ introspect_es() {
     export ES_STORAGE_SIZE; ES_STORAGE_SIZE=$(echo "$json" | jq -r '.spec.volumeClaimTemplates[0].spec.resources.requests.storage // "30Gi"')
     export ES_REPLICAS;     ES_REPLICAS=$(echo "$json" | jq -r '.spec.replicas // 1')
     export ES_VERSION;      ES_VERSION=$(echo "$ES_IMAGE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "8.15.0")
+
+    # Detect imagePullSecrets (may be needed for private registry images).
+    local pull_secret
+    pull_secret=$(echo "$json" | jq -r '.spec.template.spec.imagePullSecrets[0].name // empty')
+    export IMAGE_PULL_SECRET="${pull_secret:-}"
 
     log_success "ES STS: ${sts_name}, Image: ${ES_IMAGE}"
     log_success "Storage: ${ES_STORAGE_SIZE}, Replicas: ${ES_REPLICAS}, Version: ${ES_VERSION}"
