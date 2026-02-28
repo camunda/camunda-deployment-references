@@ -5,7 +5,7 @@ go 1.26
 require (
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/aws/aws-sdk-go-v2/config v1.32.10
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.292.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.293.0
 	github.com/aws/aws-sdk-go-v2/service/eks v1.80.1
 	github.com/gruntwork-io/terratest v0.56.0
 	github.com/stretchr/testify v1.11.1
