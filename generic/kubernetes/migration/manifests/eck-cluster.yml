@@ -1,0 +1,67 @@
+---
+# ECK Elasticsearch Cluster
+# Aligned with the operator-based reference architecture (stable/8.8).
+# Required: ECK_CLUSTER_NAME, NAMESPACE
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+    name: ${ECK_CLUSTER_NAME}
+    namespace: ${NAMESPACE}
+spec:
+    # renovate: datasource=docker depName=docker.elastic.co/elasticsearch/elasticsearch
+    version: 8.19.11
+    http:
+        tls:
+            selfSignedCertificate:
+                disabled: true
+    nodeSets:
+        - name: masters
+          count: 3
+          config:
+              # yamllint disable-line
+              node.store.allow_mmap: 'false'
+              # yamllint disable-line
+              logger.org.elasticsearch.deprecation: "OFF"
+              # Snapshot repository path for migration
+              path.repo: [/backup/elasticsearch]
+          podTemplate:
+              spec:
+                  affinity:
+                      podAntiAffinity:
+                          preferredDuringSchedulingIgnoredDuringExecution:
+                              - weight: 100
+                                podAffinityTerm:
+                                    labelSelector:
+                                        matchExpressions:
+                                            - key: elasticsearch.k8s.elastic.co/cluster-name
+                                              operator: In
+                                              values:
+                                                  - ${ECK_CLUSTER_NAME}
+                                    topologyKey: kubernetes.io/hostname
+                  containers:
+                      - name: elasticsearch
+                        securityContext:
+                            readOnlyRootFilesystem: true
+                        env:
+                            - name: ELASTICSEARCH_ENABLE_REST_TLS
+                              value: 'false'
+                            - name: READINESS_PROBE_TIMEOUT
+                              value: '300'
+                        resources:
+                            requests: {cpu: 1, memory: 2Gi}
+                            limits: {cpu: 2, memory: 2Gi}
+                        volumeMounts:
+                            - name: backup
+                              mountPath: /backup
+                  volumes:
+                      - name: backup
+                        persistentVolumeClaim:
+                            claimName: ${BACKUP_PVC}
+          volumeClaimTemplates:
+              - metadata:
+                    name: elasticsearch-data
+                spec:
+                    accessModes: [ReadWriteOnce]
+                    resources:
+                        requests:
+                            storage: 64Gi

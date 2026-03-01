@@ -1,0 +1,361 @@
+---
+# Kubernetes Job to seed reproducible test data into a Camunda 8.8+ cluster.
+#
+# This job creates data across multiple Camunda components so that migration
+# can be validated end-to-end:
+#   - Zeebe: deploys a BPMN process + creates process instances
+#   - WebModeler: creates a project and a BPMN file
+#   - Keycloak: creates a test user in the camunda-platform realm
+#   - Keycloak: creates an M2M client in the camunda-platform realm
+#
+# Prerequisites:
+#   - Camunda 8.8+ deployed with Bitnami sub-charts (helm chart 13.x)
+#   - global.identity.auth.enabled: true
+#   - identity.firstUser: demo/demo (chart default)
+#   - Keycloak admin password in camunda-credentials secret
+#
+# Usage:
+#   kubectl apply -n camunda -f seed-test-data-job.yml
+#   kubectl wait --for=condition=complete job/seed-test-data -n camunda --timeout=300s
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: seed-test-data
+    labels:
+        app: migration-test-data
+spec:
+    ttlSecondsAfterFinished: 3600
+    backoffLimit: 3
+    template:
+        metadata:
+            labels:
+                app: migration-test-data
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: seed
+                  image: alpine/curl:latest
+                  command: [/bin/sh, -c]
+                  args:
+                      - |
+                        #!/bin/sh
+                        # =============================================================================
+                        # Camunda 8.8+ Migration Test Data Seeder
+                        # =============================================================================
+                        # Seeds reproducible test data that can be verified after migration.
+                        # Runs from inside the Kubernetes cluster (no TLS needed).
+                        # =============================================================================
+
+                        set -eu
+
+                        # ── Helpers ──────────────────────────────────────────────────────────
+                        log()  { echo "[$(date -u +%H:%M:%S)] $*"; }
+                        fail() { log "FAIL: $*"; exit 1; }
+                        ok()   { log "  OK: $*"; }
+
+                        retry() {
+                            local max_attempts=$1; shift
+                            local delay=$1; shift
+                            local attempt=1
+                            while [ "$attempt" -le "$max_attempts" ]; do
+                                if "$@"; then return 0; fi
+                                log "  Attempt ${attempt}/${max_attempts} failed, retrying in ${delay}s..."
+                                sleep "$delay"
+                                attempt=$((attempt + 1))
+                            done
+                            return 1
+                        }
+
+                        # ── Configuration ────────────────────────────────────────────────────
+                        ZEEBE_URL="http://camunda-zeebe-gateway:8080"
+                        ZEEBE_MGMT_URL="http://camunda-zeebe-gateway:9600"
+                        KC_URL="http://camunda-keycloak:80/auth"
+                        WM_URL="http://camunda-web-modeler-restapi:80"
+                        WM_MGMT_URL="http://camunda-web-modeler-restapi:8091"
+
+                        DEMO_USER="demo"
+                        DEMO_PASS="demo"
+                        KC_ADMIN_USER="admin"
+                        KC_ADMIN_PASS="${KEYCLOAK_ADMIN_PASSWORD}"
+                        KC_REALM="camunda-platform"
+
+                        # Test data identifiers (deterministic, for validation after migration)
+                        PROCESS_ID="migration-seed-process"
+                        NUM_INSTANCES=5
+                        TEST_USER="migration-test-user"
+                        TEST_USER_EMAIL="migration-test@example.com"
+                        TEST_M2M_CLIENT="migration-test-m2m"
+                        WM_PROJECT_NAME="Migration Test Project"
+                        WM_FILE_NAME="migration-test-process.bpmn"
+
+                        # =====================================================================
+                        # 1. WAIT FOR SERVICES
+                        # =====================================================================
+                        log "=== Waiting for services to be ready ==="
+
+                        wait_for_service() {
+                            local name=$1 url=$2
+                            log "Waiting for ${name}..."
+                            retry 60 10 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "$url" \
+                                || fail "${name} not reachable at ${url}"
+                            ok "${name} is ready"
+                        }
+
+                        # Stage 1: Wait for Zeebe management API liveness
+                        wait_for_service "Zeebe Management API" "${ZEEBE_MGMT_URL}/actuator/health/liveness"
+                        # Stage 2: Wait for Zeebe readiness (partitions healthy, REST API serving)
+                        # Uses management port (9600) because /v2/topology requires auth when
+                        # global.identity.auth.enabled=true, and actuator/readiness covers
+                        # partition health which implies the REST API on 8080 is ready.
+                        wait_for_service "Zeebe Readiness" "${ZEEBE_MGMT_URL}/actuator/health/readiness"
+                        wait_for_service "Keycloak"      "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration"
+
+                        # WebModeler is optional — don't fail if it's not deployed
+                        WM_AVAILABLE="false"
+                        if retry 3 5 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "${WM_MGMT_URL}/health/readiness" 2>/dev/null; then
+                            WM_AVAILABLE="true"
+                            ok "WebModeler REST API is ready"
+                        else
+                            log "SKIP: WebModeler not available, skipping WebModeler seeding"
+                        fi
+
+                        # =====================================================================
+                        # 2. ZEEBE: Deploy process + create instances
+                        # =====================================================================
+                        log ""
+                        log "=== Zeebe: Deploying process and creating instances ==="
+
+                        # Inline a minimal BPMN process (single service task)
+                        BPMN_XML='<?xml version="1.0" encoding="UTF-8"?>
+                        <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                                          xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                                          xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                                          xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                                          xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                                          id="Definitions_1"
+                                          targetNamespace="http://bpmn.io/schema/bpmn">
+                          <bpmn:process id="'"${PROCESS_ID}"'" name="Migration Seed Process" isExecutable="true">
+                            <bpmn:startEvent id="start" name="Start"/>
+                            <bpmn:serviceTask id="task1" name="Seed Task">
+                              <bpmn:extensionElements>
+                                <zeebe:taskDefinition type="migration-seed-task"/>
+                              </bpmn:extensionElements>
+                            </bpmn:serviceTask>
+                            <bpmn:endEvent id="end" name="End"/>
+                            <bpmn:sequenceFlow id="flow1" sourceRef="start" targetRef="task1"/>
+                            <bpmn:sequenceFlow id="flow2" sourceRef="task1" targetRef="end"/>
+                          </bpmn:process>
+                        </bpmn:definitions>'
+
+                        # Write BPMN to temp file for multipart upload
+                        echo "${BPMN_XML}" > /tmp/process.bpmn
+
+                        # Deploy the process
+                        log "Deploying BPMN process '${PROCESS_ID}'..."
+                        DEPLOY_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -u "${DEMO_USER}:${DEMO_PASS}" \
+                            -X POST "${ZEEBE_URL}/v2/deployments" \
+                            -H "Accept: application/json" \
+                            -F "resources=@/tmp/process.bpmn") \
+                            || fail "Failed to deploy process"
+
+                        PROC_DEF_KEY=$(echo "${DEPLOY_RESP}" | grep -o '"processDefinitionKey":"[^"]*"' | head -1 | cut -d'"' -f4)
+                        ok "Deployed process, processDefinitionKey=${PROC_DEF_KEY}"
+
+                        # Create process instances
+                        log "Creating ${NUM_INSTANCES} process instances..."
+                        i=1
+                        while [ "$i" -le "$NUM_INSTANCES" ]; do
+                            INST_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -u "${DEMO_USER}:${DEMO_PASS}" \
+                                -X POST "${ZEEBE_URL}/v2/process-instances" \
+                                -H "Content-Type: application/json" \
+                                -H "Accept: application/json" \
+                                -d "{\"processDefinitionId\":\"${PROCESS_ID}\",\"variables\":{\"seedIndex\":${i},\"seedTimestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}")
+                            if [ $? -eq 0 ]; then
+                                ok "Instance ${i}/${NUM_INSTANCES} created"
+                            else
+                                log "  WARN: Instance ${i} creation may have failed"
+                            fi
+                            i=$((i + 1))
+                        done
+
+                        # Verify instances via search (wait a bit for indexing)
+                        log "Waiting 15s for Elasticsearch indexing..."
+                        sleep 15
+
+                        SEARCH_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -u "${DEMO_USER}:${DEMO_PASS}" \
+                            -X POST "${ZEEBE_URL}/v2/process-instances/search" \
+                            -H "Content-Type: application/json" \
+                            -H "Accept: application/json" \
+                            -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" 2>/dev/null || echo '{}')
+
+                        FOUND_COUNT=$(echo "${SEARCH_RESP}" | grep -o '"totalItems":[0-9]*' | head -1 | cut -d: -f2)
+                        log "Zeebe: found ${FOUND_COUNT:-0} instances via search (expected ${NUM_INSTANCES})"
+
+                        # =====================================================================
+                        # 3. KEYCLOAK: Create test user + M2M client
+                        # =====================================================================
+                        log ""
+                        log "=== Keycloak: Creating test user and M2M client ==="
+
+                        # Get admin token from master realm
+                        KC_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
+                            "${KC_URL}/realms/master/protocol/openid-connect/token" \
+                            -H "Content-Type: application/x-www-form-urlencoded" \
+                            -d "grant_type=password" \
+                            -d "client_id=admin-cli" \
+                            -d "username=${KC_ADMIN_USER}" \
+                            -d "password=${KC_ADMIN_PASS}" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4) \
+                            || fail "Failed to get Keycloak admin token"
+                        ok "Got Keycloak admin token"
+
+                        # Create test user in camunda-platform realm
+                        log "Creating user '${TEST_USER}' in realm '${KC_REALM}'..."
+                        HTTP_CODE=$(curl -s --connect-timeout 5 --max-time 30 -o /dev/null -w "%{http_code}" -X POST \
+                            "${KC_URL}/admin/realms/${KC_REALM}/users" \
+                            -H "Authorization: Bearer ${KC_TOKEN}" \
+                            -H "Content-Type: application/json" \
+                            -d "{
+                                \"username\": \"${TEST_USER}\",
+                                \"email\": \"${TEST_USER_EMAIL}\",
+                                \"firstName\": \"Migration\",
+                                \"lastName\": \"TestUser\",
+                                \"enabled\": true,
+                                \"credentials\": [{
+                                    \"type\": \"password\",
+                                    \"value\": \"testpassword123\",
+                                    \"temporary\": false
+                                }]
+                            }" 2>/dev/null || echo "000")
+                        if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "409" ]; then
+                            ok "User '${TEST_USER}' created (HTTP ${HTTP_CODE})"
+                        else
+                            log "WARN: User creation returned HTTP ${HTTP_CODE}"
+                        fi
+
+                        # Verify user
+                        USER_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
+                            "${KC_URL}/admin/realms/${KC_REALM}/users?username=${TEST_USER}" \
+                            -H "Authorization: Bearer ${KC_TOKEN}" 2>/dev/null || echo '[]')
+                        USER_COUNT=$(echo "${USER_RESP}" | grep -c '"username"' || echo "0")
+                        ok "Verified: found ${USER_COUNT} matching user(s)"
+
+                        # Create M2M client
+                        log "Creating M2M client '${TEST_M2M_CLIENT}' in realm '${KC_REALM}'..."
+                        HTTP_CODE=$(curl -s --connect-timeout 5 --max-time 30 -o /dev/null -w "%{http_code}" -X POST \
+                            "${KC_URL}/admin/realms/${KC_REALM}/clients" \
+                            -H "Authorization: Bearer ${KC_TOKEN}" \
+                            -H "Content-Type: application/json" \
+                            -d "{
+                                \"clientId\": \"${TEST_M2M_CLIENT}\",
+                                \"name\": \"Migration Test M2M Client\",
+                                \"enabled\": true,
+                                \"serviceAccountsEnabled\": true,
+                                \"clientAuthenticatorType\": \"client-secret\",
+                                \"secret\": \"migration-test-secret\",
+                                \"directAccessGrantsEnabled\": false,
+                                \"publicClient\": false,
+                                \"protocol\": \"openid-connect\"
+                            }" 2>/dev/null || echo "000")
+                        if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "409" ]; then
+                            ok "M2M client '${TEST_M2M_CLIENT}' created (HTTP ${HTTP_CODE})"
+                        else
+                            log "WARN: M2M client creation returned HTTP ${HTTP_CODE}"
+                        fi
+
+                        # Verify client
+                        CLIENT_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
+                            "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=${TEST_M2M_CLIENT}" \
+                            -H "Authorization: Bearer ${KC_TOKEN}" 2>/dev/null || echo '[]')
+                        CLIENT_COUNT=$(echo "${CLIENT_RESP}" | grep -c '"clientId"' || echo "0")
+                        ok "Verified: found ${CLIENT_COUNT} matching client(s)"
+
+                        # =====================================================================
+                        # 4. WEBMODELER: Create project + file (optional)
+                        # =====================================================================
+                        if [ "$WM_AVAILABLE" = "true" ]; then
+                            log ""
+                            log "=== WebModeler: Creating project and file ==="
+
+                            # Get a token for WebModeler using the demo user via Keycloak
+                            # WebModeler internal API audience = web-modeler-api
+                            WM_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
+                                "${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token" \
+                                -H "Content-Type: application/x-www-form-urlencoded" \
+                                -d "grant_type=password" \
+                                -d "client_id=web-modeler" \
+                                -d "username=${DEMO_USER}" \
+                                -d "password=${DEMO_PASS}" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4) \
+                                || { log "WARN: Failed to get WebModeler token, skipping"; WM_AVAILABLE="false"; }
+
+                            if [ "$WM_AVAILABLE" = "true" ] && [ -n "${WM_TOKEN:-}" ]; then
+                                # Create project
+                                log "Creating project '${WM_PROJECT_NAME}'..."
+                                PROJECT_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -X POST "${WM_URL}/api/v1/projects" \
+                                    -H "Authorization: Bearer ${WM_TOKEN}" \
+                                    -H "Content-Type: application/json" \
+                                    -d "{\"name\":\"${WM_PROJECT_NAME}\"}" 2>/dev/null || echo '{}')
+
+                                PROJECT_ID=$(echo "${PROJECT_RESP}" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+                                if [ -n "${PROJECT_ID}" ]; then
+                                    ok "Created project id=${PROJECT_ID}"
+
+                                    # Create a BPMN file in the project
+                                    log "Creating file '${WM_FILE_NAME}' in project..."
+                                    FILE_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -X POST "${WM_URL}/api/v1/files" \
+                                        -H "Authorization: Bearer ${WM_TOKEN}" \
+                                        -H "Content-Type: application/json" \
+                                        -d "{
+                                            \"name\": \"${WM_FILE_NAME}\",
+                                            \"projectId\": \"${PROJECT_ID}\",
+                                            \"content\": $(echo "${BPMN_XML}" | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}' | sed 's/.*/"&"/'),
+                                            \"fileType\": \"bpmn\"
+                                        }" 2>/dev/null || echo '{}')
+
+                                    FILE_ID=$(echo "${FILE_RESP}" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+                                    if [ -n "${FILE_ID}" ]; then
+                                        ok "Created file id=${FILE_ID}"
+                                    else
+                                        log "WARN: File creation response: ${FILE_RESP}"
+                                    fi
+                                else
+                                    log "WARN: Project creation response: ${PROJECT_RESP}"
+                                fi
+                            fi
+                        fi
+
+                        # =====================================================================
+                        # 5. SUMMARY
+                        # =====================================================================
+                        log ""
+                        log "=========================================="
+                        log "  Seed Data Summary"
+                        log "=========================================="
+                        log "  Zeebe:"
+                        log "    Process:    ${PROCESS_ID}"
+                        log "    Instances:  ${NUM_INSTANCES}"
+                        log "    Def Key:    ${PROC_DEF_KEY:-unknown}"
+                        log "  Keycloak (realm: ${KC_REALM}):"
+                        log "    User:       ${TEST_USER}"
+                        log "    M2M Client: ${TEST_M2M_CLIENT}"
+                        if [ "$WM_AVAILABLE" = "true" ]; then
+                        log "  WebModeler:"
+                        log "    Project:    ${WM_PROJECT_NAME}"
+                        log "    File:       ${WM_FILE_NAME}"
+                        fi
+                        log "=========================================="
+                        log "Seeding complete."
+                  env:
+                      - name: KEYCLOAK_ADMIN_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: camunda-credentials
+                                key: identity-keycloak-admin-password
+                  resources:
+                      requests:
+                          cpu: 100m
+                          memory: 128Mi
+                      limits:
+                          cpu: 500m
+                          memory: 256Mi

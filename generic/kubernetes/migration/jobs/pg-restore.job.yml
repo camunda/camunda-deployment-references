@@ -1,0 +1,83 @@
+---
+# PostgreSQL Restore Job (generic, parameterized by COMPONENT)
+# Required env vars: COMPONENT, JOB_NAME, TARGET_PG_HOST, TARGET_PG_PORT,
+#   TARGET_PG_DATABASE, TARGET_PG_USER, DB_SECRET_NAME, PG_IMAGE,
+#   BACKUP_PVC, BACKUP_FILE, NAMESPACE, TIMESTAMP
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: ${JOB_NAME}
+    namespace: ${NAMESPACE}
+    labels:
+        app: ${COMPONENT}-migration
+        migration.camunda.io/type: restore
+        migration.camunda.io/component: ${COMPONENT}
+spec:
+    ttlSecondsAfterFinished: 3600
+    backoffLimit: 2
+    template:
+        metadata:
+            labels:
+                app: ${COMPONENT}-migration
+                migration.camunda.io/type: restore
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: restore
+                  image: ${PG_IMAGE}
+                  command:
+                      - /bin/bash
+                      - -c
+                      - |
+                        set -e
+                        echo "=== PG Restore: ${COMPONENT} ==="
+                        echo "Target: ${TARGET_PG_HOST}:${TARGET_PG_PORT}/${TARGET_PG_DATABASE}"
+
+                        MAX_RETRIES=60; RETRY=0
+                        until pg_isready -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" -U "${TARGET_PG_USER}"; do
+                          RETRY=$((RETRY + 1))
+                          if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
+                            echo "ERROR: Target PostgreSQL not ready after $MAX_RETRIES attempts"; exit 1
+                          fi
+                          echo "Waiting for target PostgreSQL ($RETRY/$MAX_RETRIES)..."; sleep 5
+                        done
+
+                        # Locate backup file
+                        if [ -f "/backup/${COMPONENT}/${BACKUP_FILE}" ]; then
+                          DUMP="/backup/${COMPONENT}/${BACKUP_FILE}"
+                        elif [ -f "/backup/${COMPONENT}/${COMPONENT}-db-final.dump" ]; then
+                          DUMP="/backup/${COMPONENT}/${COMPONENT}-db-final.dump"
+                        else
+                          DUMP=$(ls -t /backup/${COMPONENT}/${COMPONENT}-db-*.dump 2>/dev/null | head -1)
+                        fi
+
+                        [ -f "$DUMP" ] || { echo "ERROR: no backup found"; exit 1; }
+                        echo "Restoring from: $DUMP"
+
+                        pg_restore -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" \
+                          -U "${TARGET_PG_USER}" -d "${TARGET_PG_DATABASE}" \
+                          --clean --if-exists --no-owner --no-privileges \
+                          "$DUMP" || echo "(pg_restore warnings are normal with --clean --if-exists)"
+
+                        echo ""
+                        echo "Tables restored:"
+                        psql -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" \
+                          -U "${TARGET_PG_USER}" -d "${TARGET_PG_DATABASE}" \
+                          -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY 1"
+
+                        echo "Restore complete"
+                  env:
+                      - name: PGPASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: ${DB_SECRET_NAME}
+                                key: password
+                  resources:
+                      requests: {memory: 256Mi, cpu: 100m}
+                      limits: {memory: 512Mi, cpu: 500m}
+                  volumeMounts:
+                      - {name: backup, mountPath: /backup}
+            volumes:
+                - name: backup
+                  persistentVolumeClaim:
+                      claimName: ${BACKUP_PVC}

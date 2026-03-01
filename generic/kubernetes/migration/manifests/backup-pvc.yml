@@ -1,0 +1,14 @@
+---
+# Shared backup PVC used by all migration jobs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: ${BACKUP_PVC}
+    namespace: ${NAMESPACE}
+    labels:
+        app: camunda-migration
+spec:
+    accessModes: [ReadWriteOnce]
+    resources:
+        requests:
+            storage: ${BACKUP_STORAGE_SIZE}
