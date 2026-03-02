@@ -64,19 +64,33 @@ spec:
                           echo "Waiting for source ES ($RETRY/$MAX_RETRIES)..."; sleep 5
                         done
 
-                        # Get list of Camunda indices from source
+                        # Get Camunda indices with doc counts in one call
                         echo "Getting indices from source..."
-                        INDICES=$(curl -sf $SOURCE_AUTH \
-                          "$SOURCE/_cat/indices?h=index&format=text" \
+                        INDEX_DATA=$(curl -sf $SOURCE_AUTH \
+                          "$SOURCE/_cat/indices?h=index,docs.count&format=text" \
                           | grep -E "^(zeebe|operate|tasklist|optimize|connectors)" | sort)
 
-                        if [ -z "$INDICES" ]; then
+                        if [ -z "$INDEX_DATA" ]; then
                           echo "WARNING: No Camunda indices found on source. Nothing to reindex."
                           exit 0
                         fi
 
-                        INDEX_COUNT=$(echo "$INDICES" | wc -l | tr -d ' ')
-                        echo "Found $INDEX_COUNT Camunda indices to migrate"
+                        # Split indices: those with data vs empty
+                        ALL_COUNT=$(echo "$INDEX_DATA" | wc -l | tr -d ' ')
+                        INDICES=$(echo "$INDEX_DATA" | awk '$2+0 > 0 {print $1}' | sort)
+                        DATA_COUNT=0
+                        if [ -n "$INDICES" ]; then
+                          DATA_COUNT=$(echo "$INDICES" | wc -l | tr -d ' ')
+                        fi
+                        SKIPPED=$((ALL_COUNT - DATA_COUNT))
+
+                        echo "Found $ALL_COUNT Camunda indices ($DATA_COUNT with data, $SKIPPED empty)"
+                        echo "$INDEX_DATA" | awk '$2+0 == 0 {print "  Skipping empty: " $1}' | sort
+
+                        if [ "$DATA_COUNT" -eq 0 ]; then
+                          echo "No indices with data to migrate."
+                          exit 0
+                        fi
 
                         # Delete existing Camunda indices on target to avoid conflicts
                         echo "Cleaning up existing indices on target..."
@@ -90,19 +104,43 @@ spec:
                           REMOTE_AUTH=",\"username\":\"elastic\",\"password\":\"$SOURCE_ES_PASSWORD\""
                         fi
 
-                        # Reindex each index from source to target
+                        # Reindex each non-empty index from source to target
                         CURRENT=0
                         FAILED=0
                         for idx in $INDICES; do
                           CURRENT=$((CURRENT + 1))
-                          echo "[$CURRENT/$INDEX_COUNT] Reindexing: $idx"
+                          echo "[$CURRENT/$DATA_COUNT] Reindexing: $idx"
+
+                          # Pre-create target index with source mappings to prevent type conflicts.
+                          # GET /{idx}/_mapping returns {"idx_name":{"mappings":{...}}}
+                          # We extract {"mappings":{...}} using shell string manipulation.
+                          FULL_MAPPING=$(curl -sf $SOURCE_AUTH "$SOURCE/$idx/_mapping")
+                          if [ -n "$FULL_MAPPING" ]; then
+                            MAPPING="${FULL_MAPPING#*:}"
+                            MAPPING="${MAPPING%\}}"
+                            PUT_RESP=$(curl -s -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                              -H 'Content-Type: application/json' \
+                              -d "$MAPPING" 2>&1)
+                            if echo "$PUT_RESP" | grep -q '"error"'; then
+                              echo "  Mapping copy failed, using date_detection fallback"
+                              curl -s -X DELETE $TARGET_AUTH "$TARGET/$idx" >/dev/null 2>&1 || true
+                              curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                -H 'Content-Type: application/json' \
+                                -d '{"mappings":{"date_detection":false,"numeric_detection":false}}' \
+                                >/dev/null 2>&1 || echo "  Note: fallback index creation also failed"
+                            fi
+                          fi
 
                           BODY="{\"source\":{\"remote\":{\"host\":\"$SOURCE\"$REMOTE_AUTH},\"index\":\"$idx\"},\"dest\":{\"index\":\"$idx\"}}"
 
-                          if ! curl -sf -X POST $TARGET_AUTH \
+                          RESPONSE=$(curl -s -X POST $TARGET_AUTH \
                             "$TARGET/_reindex?wait_for_completion=true&timeout=10m" \
                             -H 'Content-Type: application/json' \
-                            -d "$BODY"; then
+                            -d "$BODY")
+                          echo "$RESPONSE"
+
+                          # Detect API errors or document-level failures
+                          if echo "$RESPONSE" | grep -qE '"error"|"failures":\[\{'; then
                             echo "  WARN: Failed to reindex $idx"
                             FAILED=$((FAILED + 1))
                           fi
@@ -119,11 +157,11 @@ spec:
                         echo ""
 
                         if [ "$FAILED" -gt 0 ]; then
-                          echo "ERROR: $FAILED out of $INDEX_COUNT indices failed to reindex"
+                          echo "ERROR: $FAILED out of $DATA_COUNT indices with data failed to reindex"
                           exit 1
                         fi
 
-                        echo "Restore complete: $INDEX_COUNT indices migrated"
+                        echo "Restore complete: $DATA_COUNT indices migrated ($SKIPPED empty indices skipped)"
                   env:
                       - name: TARGET_ES_PASSWORD
                         valueFrom:
