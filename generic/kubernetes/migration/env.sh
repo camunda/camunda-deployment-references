@@ -79,10 +79,9 @@ export EXTERNAL_PG_WEBMODELER_PORT="${EXTERNAL_PG_WEBMODELER_PORT:-5432}"
 export EXTERNAL_PG_WEBMODELER_SECRET="${EXTERNAL_PG_WEBMODELER_SECRET:-external-pg-webmodeler}"
 
 # ---[ External ES/OpenSearch target (ES_TARGET_MODE=external) ]---------------
-# NOTE: Automated ES data migration is NOT supported for external targets
-#       (filesystem snapshots require shared storage with the ES process).
-#       Only operator deployment is skipped and helm is reconfigured.
-#       For data transfer options, see the migration README.
+# NOTE: Automated ES data migration uses the _reindex API for operator targets.
+#       For external targets, automated migration is NOT supported — see README
+#       for data transfer options (elasticdump, S3 repo, reindex API).
 export EXTERNAL_ES_HOST="${EXTERNAL_ES_HOST:-}"
 export EXTERNAL_ES_PORT="${EXTERNAL_ES_PORT:-443}"
 export EXTERNAL_ES_SECRET="${EXTERNAL_ES_SECRET:-external-es}"

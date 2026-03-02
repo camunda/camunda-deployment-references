@@ -22,8 +22,9 @@ spec:
               node.store.allow_mmap: 'false'
               # yamllint disable-line
               logger.org.elasticsearch.deprecation: "OFF"
-              # Snapshot repository path for migration
-              path.repo: [/backup/elasticsearch]
+              # Allow reindex from any in-cluster ES on port 9200 (migration)
+              # yamllint disable-line
+              reindex.remote.whitelist: "*:9200"
           podTemplate:
               spec:
                   affinity:
@@ -50,13 +51,6 @@ spec:
                         resources:
                             requests: {cpu: 1, memory: 2Gi}
                             limits: {cpu: 2, memory: 2Gi}
-                        volumeMounts:
-                            - name: backup
-                              mountPath: /backup
-                  volumes:
-                      - name: backup
-                        persistentVolumeClaim:
-                            claimName: ${BACKUP_PVC}
           volumeClaimTemplates:
               - metadata:
                     name: elasticsearch-data

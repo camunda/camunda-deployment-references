@@ -10,7 +10,7 @@
 #   1. Introspect source Bitnami StatefulSets (PG + ES)
 #   2. Create backup PVC
 #   3. Run PG backup jobs for identity, keycloak, webmodeler
-#   4. Run ES snapshot backup for orchestration data
+#   4. Run ES backup verification for orchestration data
 # =============================================================================
 
 set -euo pipefail
@@ -85,7 +85,7 @@ if [[ "${MIGRATE_WEBMODELER}" == "true" ]]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Elasticsearch snapshot backup
+# Elasticsearch backup verification
 # ─────────────────────────────────────────────────────────────────────────────
 
 if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
@@ -93,18 +93,15 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
 
     introspect_es
 
-    # The source ES must have path.repo configured for filesystem snapshots.
-    # For Bitnami ES, the backup PVC needs to be mounted.
-    export ES_HOST="${ES_STS_NAME}.${NAMESPACE}.svc.cluster.local"
+    # Use the ClusterIP service name for ES API access (not the StatefulSet name).
+    export ES_HOST="${ES_SERVICE}.${NAMESPACE}.svc.cluster.local"
     export ES_PORT="9200"
     export ES_SECRET_NAME="${CAMUNDA_RELEASE_NAME}-elasticsearch"
-    export SNAPSHOT_REPO="migration_backup"
-    export SNAPSHOT_NAME="pre-migration-${TIMESTAMP}"
 
     backup_es
 
-    save_state "ES_SNAPSHOT_NAME" "$SNAPSHOT_NAME"
     save_state "ES_STS" "$ES_STS_NAME"
+    save_state "ES_SERVICE" "$ES_SERVICE"
     save_state "ES_IMAGE" "$ES_IMAGE"
 fi
 

@@ -90,8 +90,8 @@ generic/kubernetes/
     ├── jobs/                        # Kubernetes Job templates
     │   ├── pg-backup.job.yml        #   PostgreSQL backup (generic)
     │   ├── pg-restore.job.yml       #   PostgreSQL restore (generic)
-    │   ├── es-backup.job.yml        #   Elasticsearch snapshot backup
-    │   └── es-restore.job.yml       #   Elasticsearch snapshot restore
+    │   ├── es-backup.job.yml        #   Elasticsearch backup verification
+    │   └── es-restore.job.yml       #   Elasticsearch reindex restore
     └── manifests/                   # Migration-specific manifests only
         ├── backup-pvc.yml           #   Shared backup PVC
         └── eck-cluster.yml          #   ECK cluster with snapshot repo support
@@ -197,7 +197,7 @@ Restores the pre-cutover Helm values, re-enabling Bitnami sub-charts. The operat
 | 10-50 GB    | ~15-30 minutes     |
 | > 50 GB     | 30+ minutes        |
 
-The main factor is the `pg_restore` and ES snapshot restore duration.
+The main factor is the `pg_restore` and ES reindex duration.
 
 ## Precautions
 
@@ -206,7 +206,7 @@ The main factor is the `pg_restore` and ES snapshot restore duration.
 3. **Check cluster capacity** — During Phase 1-2, both old and new infrastructure run simultaneously
 4. **Backup your Helm values** — Done automatically in Phase 3, but consider an extra manual backup
 5. **Monitor resource quotas** — CNPG and ECK clusters consume additional CPU/memory
-6. **Elasticsearch `path.repo`** — The source Bitnami ES must support filesystem snapshots. If it doesn't, you may need to patch the StatefulSet to mount the backup PVC and configure `path.repo`
+6. **Elasticsearch connectivity** — The target ECK cluster uses the `_reindex` API to pull data from the source Bitnami ES over HTTP. Both clusters must be reachable within the same namespace.
 7. **DNS TTL** — If using a domain for Keycloak, ensure DNS TTL is low before cutover
 
 ## Cleanup (post-migration)

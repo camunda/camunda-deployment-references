@@ -158,14 +158,13 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
     fi
 
     if [[ -n "$es_sts" ]]; then
-        export ES_HOST="${es_sts}.${NAMESPACE}.svc.cluster.local"
+        # Use ClusterIP service name for API access (STS name without "-master" suffix)
+        es_svc="${es_sts%-master}"
+        export ES_HOST="${es_svc}.${NAMESPACE}.svc.cluster.local"
         export ES_PORT="9200"
         export ES_SECRET_NAME="${RELEASE}-elasticsearch"
-        export SNAPSHOT_REPO="migration_backup"
-        export SNAPSHOT_NAME="final-${TIMESTAMP}"
 
         backup_es
-        save_state "ES_FINAL_SNAPSHOT" "$SNAPSHOT_NAME"
     fi
 fi
 
@@ -234,22 +233,25 @@ fi
 if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
     if is_external_es; then
         log_warn "ES_TARGET_MODE=external — automated ES data migration is not supported"
-        log_warn "  Filesystem snapshots require shared storage with the ES process,"
-        log_warn "  which is not available for managed services."
         log_warn "  Data transfer options:"
+        log_warn "    • Reindex API: configure reindex.remote.whitelist on target"
         log_warn "    • elasticdump (npm tool): reads from source, writes to target API"
         log_warn "    • S3 snapshot repo: configure on both source and target ES"
-        log_warn "    • Reindex API: requires target whitelist configuration"
         log_warn "    • Fresh start: Camunda rebuilds ES indices from Zeebe on next export"
         log_warn "  Helm will be reconfigured to point to the external ES endpoint."
     else
-        log_info "Restoring Elasticsearch → ECK ${ECK_CLUSTER_NAME}"
+        log_info "Restoring Elasticsearch → ECK ${ECK_CLUSTER_NAME} (reindex from remote)"
 
+        # Source ES (Bitnami) — still running, data will be pulled via _reindex API
+        es_svc="${ES_SERVICE:-${ES_STS%-master}}"
+        export SOURCE_ES_HOST="${es_svc}.${NAMESPACE}.svc.cluster.local"
+        export SOURCE_ES_PORT="9200"
+        export SOURCE_ES_SECRET_NAME="${RELEASE}-elasticsearch"
+
+        # Target ES (ECK) — configured with reindex.remote.whitelist: "*:9200"
         export TARGET_ES_HOST="${ECK_CLUSTER_NAME}-es-http.${NAMESPACE}.svc.cluster.local"
         export TARGET_ES_PORT="9200"
-        export ES_SECRET_NAME="${ECK_CLUSTER_NAME}-es-elastic-user"
-        export SNAPSHOT_REPO="migration_backup"
-        export SNAPSHOT_NAME="${ES_FINAL_SNAPSHOT:-final-${TIMESTAMP}}"
+        export TARGET_ES_SECRET_NAME="${ECK_CLUSTER_NAME}-es-elastic-user"
 
         restore_es
     fi

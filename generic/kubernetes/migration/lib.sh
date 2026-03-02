@@ -423,8 +423,14 @@ apply_template() {
         return 1
     fi
 
+    # Build an explicit variable list for envsubst to avoid clobbering
+    # runtime shell variables ($RETRY, $AUTH, $STATE, etc.) inside embedded
+    # scripts.  Only ${VAR} references are treated as template parameters.
+    local varlist
+    varlist=$(grep -oE '\$\{[A-Z_][A-Z0-9_]*\}' "$tpl" | sort -u | tr '\n' ' ')
+
     local rendered
-    rendered=$(envsubst < "$tpl")
+    rendered=$(envsubst "$varlist" < "$tpl")
 
     # Inject imagePullSecrets for private registry images in Job templates.
     # IMAGE_PULL_SECRET is set by introspect_pg() / introspect_es() when the
@@ -1113,7 +1119,7 @@ deploy_postgresql() {
 }
 
 # Deploy ECK operator + Elasticsearch cluster.
-# Uses the migration-specific ECK manifest (with path.repo + backup PVC mount).
+# Uses the migration-specific ECK manifest (with reindex.remote.whitelist for data migration).
 deploy_elasticsearch() {
     if is_external_es; then
         log_info "ES_TARGET_MODE=external — skipping ECK operator deployment"
@@ -1351,12 +1357,17 @@ introspect_es() {
     export ES_REPLICAS;     ES_REPLICAS=$(echo "$json" | jq -r '.spec.replicas // 1')
     export ES_VERSION;      ES_VERSION=$(echo "$ES_IMAGE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "8.15.0")
 
+    # Derive the ClusterIP service name from the StatefulSet name.
+    # Bitnami convention: STS is "{release}-elasticsearch-master",
+    # ClusterIP service is "{release}-elasticsearch" (without "-master").
+    export ES_SERVICE; ES_SERVICE="${sts_name%-master}"
+
     # Detect imagePullSecrets (may be needed for private registry images).
     local pull_secret
     pull_secret=$(echo "$json" | jq -r '.spec.template.spec.imagePullSecrets[0].name // empty')
     export IMAGE_PULL_SECRET="${pull_secret:-}"
 
-    log_success "ES STS: ${sts_name}, Image: ${ES_IMAGE}"
+    log_success "ES STS: ${sts_name}, Service: ${ES_SERVICE}, Image: ${ES_IMAGE}"
     log_success "Storage: ${ES_STORAGE_SIZE}, Replicas: ${ES_REPLICAS}, Version: ${ES_VERSION}"
 }
 
@@ -1401,18 +1412,21 @@ restore_pg() {
 # Elasticsearch Backup / Restore (via Kubernetes Jobs)
 # =============================================================================
 
-# Run an ES backup job using the snapshot API.
-# Expects: ES_HOST, ES_PORT, SNAPSHOT_REPO, SNAPSHOT_NAME, ES_SECRET_NAME,
-#          BACKUP_PVC, NAMESPACE, TIMESTAMP
+# Run an ES backup verification job.
+# Verifies source ES health and lists indices to be migrated.
+# Expects: ES_HOST, ES_PORT, ES_SECRET_NAME, ES_IMAGE,
+#          NAMESPACE, TIMESTAMP
 backup_es() {
     ensure_backup_pvc
     export JOB_NAME="es-backup-${TIMESTAMP}"
     run_job "${JOBS_DIR}/es-backup.job.yml" "${JOB_NAME}"
 }
 
-# Run an ES restore job.
-# Expects: TARGET_ES_HOST, TARGET_ES_PORT, SNAPSHOT_REPO, SNAPSHOT_NAME,
-#          ES_SECRET_NAME, NAMESPACE, TIMESTAMP
+# Run an ES restore job using the _reindex API (reindex from remote).
+# Copies data from source ES to target ES over HTTP — no shared filesystem needed.
+# Expects: SOURCE_ES_HOST, SOURCE_ES_PORT, SOURCE_ES_SECRET_NAME,
+#          TARGET_ES_HOST, TARGET_ES_PORT, TARGET_ES_SECRET_NAME,
+#          ES_IMAGE, NAMESPACE, TIMESTAMP
 restore_es() {
     export JOB_NAME="es-restore-${TIMESTAMP}"
     run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}"
