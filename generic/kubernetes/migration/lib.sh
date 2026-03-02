@@ -1588,26 +1588,34 @@ helm_upgrade() {
         values_args+=(-f "$f")
     done
 
-    # Warn if the currently installed chart version differs from the target.
+    # Detect currently installed chart version.
     local installed_version
     installed_version=$(helm list -n "${NAMESPACE}" -f "^${CAMUNDA_RELEASE_NAME}$" -o json \
         | jq -r '.[0].chart // empty' 2>/dev/null \
         | sed 's/^camunda-platform-//')
-    if [[ -n "${installed_version}" && "${installed_version}" != "${CAMUNDA_HELM_CHART_VERSION}" ]]; then
-        log_warn "Installed chart version (${installed_version}) differs from target (${CAMUNDA_HELM_CHART_VERSION})"
+
+    # If CAMUNDA_HELM_CHART_VERSION is the default placeholder, use the installed version.
+    local chart_version="${CAMUNDA_HELM_CHART_VERSION}"
+    if [[ "${chart_version}" == "0.0.0-snapshot-alpha" && -n "${installed_version}" ]]; then
+        log_info "Auto-detected installed chart version: ${installed_version}"
+        chart_version="${installed_version}"
+    fi
+
+    if [[ -n "${installed_version}" && "${installed_version}" != "${chart_version}" ]]; then
+        log_warn "Installed chart version (${installed_version}) differs from target (${chart_version})"
         log_warn "Using --reuse-values with a version change may produce unexpected results."
-        log_warn "Review the diff: helm diff upgrade ${CAMUNDA_RELEASE_NAME} camunda/camunda-platform --version ${CAMUNDA_HELM_CHART_VERSION} --reuse-values"
+        log_warn "Review the diff: helm diff upgrade ${CAMUNDA_RELEASE_NAME} camunda/camunda-platform --version ${chart_version} --reuse-values"
     fi
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[dry-run] Would run: helm upgrade ${CAMUNDA_RELEASE_NAME} --version ${CAMUNDA_HELM_CHART_VERSION} --reuse-values ${values_args[*]}"
+        log_info "[dry-run] Would run: helm upgrade ${CAMUNDA_RELEASE_NAME} --version ${chart_version} --reuse-values ${values_args[*]}"
         return 0
     fi
 
     log_info "Running helm upgrade ..."
     helm upgrade "${CAMUNDA_RELEASE_NAME}" camunda/camunda-platform \
         -n "${NAMESPACE}" \
-        --version "${CAMUNDA_HELM_CHART_VERSION}" \
+        --version "${chart_version}" \
         --reuse-values \
         "${values_args[@]}"
 
@@ -1621,10 +1629,20 @@ helm_rollback_from_backup() {
         return 1
     fi
 
+    # Detect installed version for rollback.
+    local installed_version
+    installed_version=$(helm list -n "${NAMESPACE}" -f "^${CAMUNDA_RELEASE_NAME}$" -o json \
+        | jq -r '.[0].chart // empty' 2>/dev/null \
+        | sed 's/^camunda-platform-//')
+    local chart_version="${CAMUNDA_HELM_CHART_VERSION}"
+    if [[ "${chart_version}" == "0.0.0-snapshot-alpha" && -n "${installed_version}" ]]; then
+        chart_version="${installed_version}"
+    fi
+
     log_info "Rolling back Helm to pre-migration values ..."
     helm upgrade "${CAMUNDA_RELEASE_NAME}" camunda/camunda-platform \
         -n "${NAMESPACE}" \
-        --version "${CAMUNDA_HELM_CHART_VERSION}" \
+        --version "${chart_version}" \
         -f "$backup"
 
     log_success "Helm rollback complete"
