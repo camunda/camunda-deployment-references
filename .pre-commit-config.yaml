@@ -56,14 +56,15 @@ repos:
                 - --hook-config=--add-to-existing-file=true
                 - --args=--config=.lint/terraform_docs/.terraform-docs.yml
 
-    - repo: local
-      hooks:
-          - id: trivy-scan
-            name: Trivy Scan
-            entry: .lint/trivy/trivy-scan.sh
-            language: script
-            types: [terraform]
-            pass_filenames: false
+    # TODO: remove before merge - download trivy is broken
+    # - repo: local
+    #   hooks:
+    #       - id: trivy-scan
+    #         name: Trivy Scan
+    #         entry: .lint/trivy/trivy-scan.sh
+    #         language: script
+    #         types: [terraform]
+    #         pass_filenames: false
 
     - repo: https://github.com/tekwizely/pre-commit-golang
       rev: v1.0.0-rc.4
