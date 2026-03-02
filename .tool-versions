@@ -60,6 +60,10 @@ terraform-docs 0.20.0
 
 tflint 0.59.1
 
+<<<<<<< HEAD
 trivy 0.69.2
 
 yq 4.48.2
+=======
+yq 4.52.4
+>>>>>>> 3f01630 (fix(trivy): disable Trivy usage)

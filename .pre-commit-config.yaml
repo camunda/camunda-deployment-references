@@ -56,9 +56,17 @@ repos:
                 - --hook-config=--add-to-existing-file=true
                 - --args=--config=.lint/terraform_docs/.terraform-docs.yml
 
+<<<<<<< HEAD
     - repo: https://github.com/dnephin/pre-commit-golang
       rev: v0.5.1
       hooks:
+=======
+    - repo: https://github.com/tekwizely/pre-commit-golang
+      rev: v1.0.0-rc.4
+      hooks:
+          - id: go-mod-tidy
+          - id: go-mod-tidy-repo
+>>>>>>> 3f01630 (fix(trivy): disable Trivy usage)
           - id: go-fmt
           - id: no-go-testing
           - id: go-mod-tidy
