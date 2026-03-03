@@ -30,6 +30,16 @@ import (
 // Used only for test/demo authentication against the Camunda components.
 const basicAuthDemoHeader = "Basic ZGVtbzpkZW1v"
 
+var (
+	// ElasticsearchPodName is the ECK-managed Elasticsearch pod used for exec operations (backup, restore, health checks).
+	// Override via ELASTICSEARCH_POD_NAME env var.
+	ElasticsearchPodName = helpers.GetEnv("ELASTICSEARCH_POD_NAME", "elasticsearch-es-masters-0")
+
+	// ElasticsearchServiceName is the ECK-managed Elasticsearch service name used in cross-region URLs.
+	// Override via ELASTICSEARCH_SERVICE_NAME env var.
+	ElasticsearchServiceName = helpers.GetEnv("ELASTICSEARCH_SERVICE_NAME", "elasticsearch-es-http")
+)
+
 type Partition struct {
 	PartitionId int    `json:"partitionId"`
 	Role        string `json:"role"`
@@ -337,7 +347,7 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, backupBucket,
 	// Replace dots with dashes in the version string.
 	version := strings.ReplaceAll(inputVersion, ".", "-")
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--",
 		"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
 		"-H", "Content-Type: application/json",
 		"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}",
@@ -360,7 +370,7 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, backupBucket,
 func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Creating Elasticsearch backup for cluster %s", cluster.ClusterName)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
@@ -394,11 +404,11 @@ func CheckThatElasticBackupIsPresent(t *testing.T, cluster helpers.Cluster, back
 func removeElasticBackup(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[ELASTICSEARCH BACKUP] Backup not found, removing backup store to recreate %s", cluster.ClusterName)
 
-	k8s.RunKubectl(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XDELETE", "localhost:9200/_snapshot/camunda_backup")
+	k8s.RunKubectl(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-XDELETE", "localhost:9200/_snapshot/camunda_backup")
 }
 
 func getAllElasticBackups(t *testing.T, cluster helpers.Cluster) (string, error) {
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XGET", "localhost:9200/_snapshot/camunda_backup/_all")
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-XGET", "localhost:9200/_snapshot/camunda_backup/_all")
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return "", err
@@ -410,7 +420,7 @@ func getAllElasticBackups(t *testing.T, cluster helpers.Cluster) (string, error)
 func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Restoring Elasticsearch backup for cluster %s", cluster.ClusterName)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
@@ -470,8 +480,8 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 
 	// Replace the placeholders with the replacement strings
 	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", initialContact, -1)
-	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200", elastic0, -1)
-	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", elastic1, -1)
+	modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://%s.camunda-primary.svc.cluster.local:9200", ElasticsearchServiceName), elastic0, -1)
+	modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://%s.camunda-secondary.svc.cluster.local:9200", ElasticsearchServiceName), elastic1, -1)
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
@@ -913,7 +923,7 @@ func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
 			t,
 			&cluster.KubectlNamespace,
 			"exec",
-			"camunda-elasticsearch-master-0",
+			ElasticsearchPodName,
 			"-c",
 			"elasticsearch",
 			"--",
