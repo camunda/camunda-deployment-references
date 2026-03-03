@@ -68,6 +68,11 @@ func TestClusterPrerequisites(t *testing.T) {
 		for i := range allPrimaryNamespaces {
 			if helpers.IsTeleportEnabled() {
 				os.Setenv("KUBECONFIG", "./kubeconfig")
+				// In Teleport mode, both namespaces are in the primary cluster
+				os.Setenv("CLUSTER_0", primary.ClusterName)
+				os.Setenv("CAMUNDA_NAMESPACE_0", allPrimaryNamespaces[i])
+				os.Setenv("CLUSTER_1", primary.ClusterName)
+				os.Setenv("CAMUNDA_NAMESPACE_1", allSecondaryNamespaces[i])
 				t.Logf("Primary Namespace: %s, Secondary Namespace: %s", allPrimaryNamespaces[i], allSecondaryNamespaces[i])
 			} else {
 				os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
