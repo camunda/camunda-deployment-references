@@ -68,7 +68,7 @@ spec:
                         echo "Getting indices from source..."
                         INDEX_DATA=$(curl -sf $SOURCE_AUTH \
                           "$SOURCE/_cat/indices?h=index,docs.count&format=text" \
-                          | grep -E "^(zeebe|operate|tasklist|optimize|connectors)" | sort)
+                          | grep -E "^(zeebe|operate|tasklist|optimize|connectors|camunda-)" | sort)
 
                         if [ -z "$INDEX_DATA" ]; then
                           echo "WARNING: No Camunda indices found on source. Nothing to reindex."
@@ -94,7 +94,7 @@ spec:
 
                         # Delete existing Camunda indices on target to avoid conflicts
                         echo "Cleaning up existing indices on target..."
-                        for pattern in "zeebe-*" "operate-*" "tasklist-*" "optimize-*" "connectors-*"; do
+                        for pattern in "zeebe-*" "operate-*" "tasklist-*" "optimize-*" "connectors-*" "camunda-*"; do
                           curl -sf -X DELETE $TARGET_AUTH "$TARGET/$pattern" 2>/dev/null || true
                         done
 
@@ -199,7 +199,7 @@ spec:
                         # Format: alias  index  filter  routing.search  routing.index  is_write_index
                         ALIAS_DATA=$(curl -sf $SOURCE_AUTH \
                           "$SOURCE/_cat/aliases?h=alias,index,is_write_index&format=text" \
-                          | grep -E "\s(zeebe|operate|tasklist|optimize|connectors)" || true)
+                          | grep -E "\s(zeebe|operate|tasklist|optimize|connectors|camunda-)" || true)
 
                         if [ -n "$ALIAS_DATA" ]; then
                           ALIAS_COUNT=$(echo "$ALIAS_DATA" | wc -l | tr -d ' ')

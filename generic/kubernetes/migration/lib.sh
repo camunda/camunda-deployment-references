@@ -1209,9 +1209,11 @@ sync_keycloak_admin_credentials() {
 
     log_info "Updated ${operator_secret} secret (user=${admin_user})"
 
-    # Generate a Helm override file so Identity uses the correct admin username.
-    # The identity-keycloak values default to "temp-admin" which won't exist in the
-    # restored DB. This override ensures Helm applies the right username.
+    # Generate a Helm override file so Identity uses the correct admin username
+    # AND has explicit references to all client secrets in camunda-credentials.
+    # When identityKeycloak.enabled switches to false, the Helm chart stops
+    # auto-rendering client secret env vars. We must set them explicitly so
+    # Identity can register all Camunda clients in Keycloak.
     local override="${STATE_DIR}/keycloak-admin-override.yml"
     cat > "$override" <<EOF
 global:
@@ -1219,6 +1221,29 @@ global:
         keycloak:
             auth:
                 adminUser: ${admin_user}
+        auth:
+            admin:
+                secret:
+                    existingSecret: ${bitnami_secret}
+                    existingSecretKey: identity-admin-client-token
+            console:
+                secret:
+                    existingSecret: ${bitnami_secret}
+                    existingSecretKey: identity-console-client-token
+connectors:
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: ${bitnami_secret}
+                    existingSecretKey: identity-connectors-client-token
+orchestration:
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: ${bitnami_secret}
+                    existingSecretKey: identity-orchestration-client-token
 EOF
     log_info "Generated helm override: ${override}"
 
