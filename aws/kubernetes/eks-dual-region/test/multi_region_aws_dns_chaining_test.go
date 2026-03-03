@@ -78,7 +78,7 @@ func TestClusterPrerequisites(t *testing.T) {
 			}
 
 			shell.RunCommand(t, shell.Command{
-				Command: "sh",
+				Command: "bash",
 				Args: []string{
 					"../procedure/create_elasticsearch_secrets.sh",
 				},
