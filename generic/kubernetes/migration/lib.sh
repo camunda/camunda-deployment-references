@@ -1170,6 +1170,65 @@ deploy_keycloak() {
     log_success "Keycloak deployment complete"
 }
 
+# Sync Keycloak admin credentials from Bitnami secrets to the operator secret.
+# After pg_restore, the Keycloak DB contains the Bitnami admin user (typically
+# "admin") with the password from the Bitnami Helm chart auto-generated secrets.
+# The operator-created "keycloak-initial-admin" secret has a different user
+# ("temp-admin") that doesn't exist in the restored DB.
+# KC_BOOTSTRAP_ADMIN_* env vars are ignored when the DB already has data, so
+# we must update the operator secret to match the restored DB credentials.
+# Also generates a Helm override file to set the correct adminUser.
+sync_keycloak_admin_credentials() {
+    log_info "Syncing Keycloak admin credentials from Bitnami → operator ..."
+
+    local release="${RELEASE:-${CAMUNDA_RELEASE_NAME:-camunda}}"
+    local bitnami_secret="${release}-credentials"
+    local bitnami_key="identity-keycloak-admin-password"
+    local operator_secret="keycloak-initial-admin"
+
+    # Read the Bitnami admin password
+    local admin_pass
+    admin_pass=$(kubectl get secret "$bitnami_secret" -n "${NAMESPACE}" \
+        -o jsonpath="{.data.${bitnami_key}}" 2>/dev/null | base64 -d 2>/dev/null || true)
+    if [[ -z "$admin_pass" ]]; then
+        log_warn "Could not read Bitnami admin password from ${bitnami_secret}/${bitnami_key}"
+        log_warn "Keycloak admin authentication may fail after migration"
+        return 0
+    fi
+
+    # The Bitnami Keycloak chart default admin user is "admin"
+    local admin_user="admin"
+
+    # Update the operator secret to match the restored DB credentials
+    kubectl create secret generic "$operator_secret" \
+        -n "${NAMESPACE}" \
+        --from-literal=username="$admin_user" \
+        --from-literal=password="$admin_pass" \
+        --dry-run=client -o yaml \
+        | kubectl apply -f - >/dev/null
+
+    log_info "Updated ${operator_secret} secret (user=${admin_user})"
+
+    # Generate a Helm override file so Identity uses the correct admin username.
+    # The identity-keycloak values default to "temp-admin" which won't exist in the
+    # restored DB. This override ensures Helm applies the right username.
+    local override="${STATE_DIR}/keycloak-admin-override.yml"
+    cat > "$override" <<EOF
+global:
+    identity:
+        keycloak:
+            auth:
+                adminUser: ${admin_user}
+EOF
+    log_info "Generated helm override: ${override}"
+
+    # Export for use in cutover
+    export KEYCLOAK_ADMIN_OVERRIDE_FILE="$override"
+    save_state "KEYCLOAK_ADMIN_OVERRIDE_FILE" "$override"
+
+    log_success "Keycloak admin credentials synced"
+}
+
 # Render an envsubst template to a file. Used for helm values containing ${CAMUNDA_DOMAIN}.
 # Usage: render_template <source> <destination>
 render_template() {

@@ -111,23 +111,44 @@ spec:
                           CURRENT=$((CURRENT + 1))
                           echo "[$CURRENT/$DATA_COUNT] Reindexing: $idx"
 
-                          # Pre-create target index with source mappings to prevent type conflicts.
-                          # GET /{idx}/_mapping returns {"idx_name":{"mappings":{...}}}
-                          # We extract {"mappings":{...}} using shell string manipulation.
-                          FULL_MAPPING=$(curl -sf $SOURCE_AUTH "$SOURCE/$idx/_mapping")
-                          if [ -n "$FULL_MAPPING" ]; then
-                            MAPPING="${FULL_MAPPING#*:}"
-                            MAPPING="${MAPPING%\}}"
+                          # ── Pre-create target index with source settings + mappings ──
+                          # Use filter_path to get ONLY analysis settings + mappings from
+                          # the source index. This excludes read-only settings (uuid,
+                          # creation_date, version, etc.) that would cause PUT to fail.
+                          # The response format is:
+                          #   {"idx":{"mappings":{...},"settings":{"index":{"analysis":{...}}}}}
+                          # We strip the outer {"idx": ... } wrapper to get a valid PUT body.
+                          FILTERED=$(curl -sf $SOURCE_AUTH \
+                            "$SOURCE/$idx?filter_path=*.mappings,*.settings.index.analysis")
+                          if [ -n "$FILTERED" ] && [ "$FILTERED" != "{}" ]; then
+                            # Strip outer {"index_name": and trailing }
+                            CREATE_BODY="${FILTERED#*:}"
+                            CREATE_BODY="${CREATE_BODY%\}}"
+
                             PUT_RESP=$(curl -s -X PUT $TARGET_AUTH "$TARGET/$idx" \
                               -H 'Content-Type: application/json' \
-                              -d "$MAPPING" 2>&1)
+                              -d "$CREATE_BODY" 2>&1)
                             if echo "$PUT_RESP" | grep -q '"error"'; then
-                              echo "  Mapping copy failed, using date_detection fallback"
+                              echo "  Settings+mappings copy failed, trying mappings only"
                               curl -s -X DELETE $TARGET_AUTH "$TARGET/$idx" >/dev/null 2>&1 || true
-                              curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
-                                -H 'Content-Type: application/json' \
-                                -d '{"mappings":{"date_detection":false,"numeric_detection":false}}' \
-                                >/dev/null 2>&1 || echo "  Note: fallback index creation also failed"
+                              # Retry with only mappings (no analysis settings)
+                              MAPPING_ONLY=$(curl -sf $SOURCE_AUTH \
+                                "$SOURCE/$idx/_mapping?filter_path=*.mappings")
+                              if [ -n "$MAPPING_ONLY" ] && [ "$MAPPING_ONLY" != "{}" ]; then
+                                M_BODY="${MAPPING_ONLY#*:}"
+                                M_BODY="${M_BODY%\}}"
+                                PUT_RESP2=$(curl -s -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                  -H 'Content-Type: application/json' \
+                                  -d "$M_BODY" 2>&1)
+                                if echo "$PUT_RESP2" | grep -q '"error"'; then
+                                  echo "  Mappings-only also failed, using date_detection fallback"
+                                  curl -s -X DELETE $TARGET_AUTH "$TARGET/$idx" >/dev/null 2>&1 || true
+                                  curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                    -H 'Content-Type: application/json' \
+                                    -d '{"mappings":{"date_detection":false,"numeric_detection":false}}' \
+                                    >/dev/null 2>&1 || echo "  Note: fallback index creation also failed"
+                                fi
+                              fi
                             fi
                           fi
 
@@ -147,7 +168,65 @@ spec:
                           echo ""
                         done
 
-                        # Verify
+                        # ── Migrate aliases from source to target ──
+                        # The _reindex API does NOT copy aliases. Camunda components use
+                        # aliases (e.g. operate-decision-8.3.0_alias) to find their
+                        # indices — without aliases, schema init fails with
+                        # index_not_found_exception.
+                        echo "=== Migrating aliases ==="
+
+                        # Create empty indices on target (skipped during reindex) so aliases work
+                        EMPTY_INDICES=$(echo "$INDEX_DATA" | awk '$2+0 == 0 {print $1}')
+                        for idx in $EMPTY_INDICES; do
+                          # Pre-create with settings+mappings from source
+                          FILTERED=$(curl -sf $SOURCE_AUTH \
+                            "$SOURCE/$idx?filter_path=*.mappings,*.settings.index.analysis")
+                          if [ -n "$FILTERED" ] && [ "$FILTERED" != "{}" ]; then
+                            CREATE_BODY="${FILTERED#*:}"
+                            CREATE_BODY="${CREATE_BODY%\}}"
+                            curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                              -H 'Content-Type: application/json' \
+                              -d "$CREATE_BODY" >/dev/null 2>&1 || \
+                            curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                              -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                          else
+                            curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                              -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                          fi
+                        done
+
+                        # Use _cat/aliases to get alias→index mappings in plain text
+                        # Format: alias  index  filter  routing.search  routing.index  is_write_index
+                        ALIAS_DATA=$(curl -sf $SOURCE_AUTH \
+                          "$SOURCE/_cat/aliases?h=alias,index,is_write_index&format=text" \
+                          | grep -E "\s(zeebe|operate|tasklist|optimize|connectors)" || true)
+
+                        if [ -n "$ALIAS_DATA" ]; then
+                          ALIAS_COUNT=$(echo "$ALIAS_DATA" | wc -l | tr -d ' ')
+                          echo "Found $ALIAS_COUNT alias(es) to migrate"
+                          ALIAS_OK=0
+                          ALIAS_FAIL=0
+                          echo "$ALIAS_DATA" | while IFS= read -r line; do
+                            ALIAS_NAME=$(echo "$line" | awk '{print $1}')
+                            IDX_NAME=$(echo "$line" | awk '{print $2}')
+                            IS_WRITE=$(echo "$line" | awk '{print $3}')
+                            if [ "$IS_WRITE" = "true" ]; then
+                              RESP=$(curl -s -X POST $TARGET_AUTH "$TARGET/$IDX_NAME/_alias/$ALIAS_NAME" \
+                                -H 'Content-Type: application/json' \
+                                -d '{"is_write_index":true}' 2>&1)
+                            else
+                              RESP=$(curl -s -X POST $TARGET_AUTH "$TARGET/$IDX_NAME/_alias/$ALIAS_NAME" 2>&1)
+                            fi
+                            if echo "$RESP" | grep -q '"acknowledged":true'; then
+                              echo "  $ALIAS_NAME -> $IDX_NAME"
+                            else
+                              echo "  WARN: Failed alias $ALIAS_NAME -> $IDX_NAME: $RESP"
+                            fi
+                          done
+                          echo "Alias migration complete"
+                        else
+                          echo "No Camunda aliases found on source"
+                        fi
                         echo ""
                         echo "Target cluster health:"
                         curl -sf $TARGET_AUTH "$TARGET/_cluster/health?pretty"

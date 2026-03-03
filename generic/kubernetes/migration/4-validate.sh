@@ -238,3 +238,8 @@ fi
 
 run_hooks "post-phase-4"
 complete_phase 4
+
+# Exit with failure if any checks failed so CI/CD pipelines detect the issue.
+if [[ $ERRORS -gt 0 ]]; then
+    exit 1
+fi
