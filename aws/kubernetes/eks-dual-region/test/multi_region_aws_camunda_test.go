@@ -53,13 +53,11 @@ var (
 
 	// Manifest management
 	defaultValuesYaml      = helpers.GetEnv("DEFAULT_VALUES_YAML", "../helm-values/camunda-values.yml")
+	eckElasticValuesYaml   = helpers.GetEnv("ECK_ELASTIC_VALUES_YAML", "../../../../generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml")
 	region0ValuesYaml      = helpers.GetEnv("REGION0_VALUES_YAML", "../helm-values/region0/camunda-values.yml")
 	region1ValuesYaml      = helpers.GetEnv("REGION1_VALUES_YAML", "../helm-values/region1/camunda-values.yml")
 	multiTenancyValuesYaml = helpers.GetEnv("MULTI_TENANCY_VALUES_YAML", "./fixtures/multi-tenancy.yml")
 	extraValuesYaml        = helpers.GetEnv("EXTRA_VALUES_YAML", "")
-
-	// Teleport-specific Elasticsearch CRD overlay (adds tolerations and nodeAffinity)
-	elasticsearchTeleportManifest = helpers.GetEnv("ELASTICSEARCH_TELEPORT_MANIFEST", "../../../../generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster-dual-region-teleport.yml")
 )
 
 // AWS EKS Multi-Region Tests
@@ -80,7 +78,6 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 	}{
 		// Camunda 8 Deployment
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestApplyElasticsearchTeleportOverlay", applyElasticsearchTeleportOverlay},
 		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default", "") }},
@@ -176,7 +173,6 @@ func TestMultiTenancyDualReg(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestApplyElasticsearchTeleportOverlay", applyElasticsearchTeleportOverlay},
 		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml, multiTenancyValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 24, "default", "<default>") }}, // assumes previous tests to be executed
@@ -251,26 +247,6 @@ func initKubernetesHelpers(t *testing.T) {
 	}
 }
 
-func applyElasticsearchTeleportOverlay(t *testing.T) {
-	if !helpers.IsTeleportEnabled() {
-		t.Log("[ES TELEPORT] Teleport not enabled, skipping Elasticsearch overlay")
-		return
-	}
-
-	t.Log("[ES TELEPORT] Applying Teleport tolerations/nodeAffinity overlay to Elasticsearch CRD")
-
-	// Re-apply the Elasticsearch CRD with Teleport scheduling constraints.
-	// ECK will perform a rolling update to reconcile the new pod template.
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "apply", "-f", elasticsearchTeleportManifest)
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "apply", "-f", elasticsearchTeleportManifest)
-
-	// Wait for ECK to reconcile both Elasticsearch clusters
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
-
-	t.Log("[ES TELEPORT] Elasticsearch clusters reconciled with Teleport overlay")
-}
-
 func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
 
@@ -282,6 +258,9 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	}
 	// avoid pod anti-affinity limitations
 	baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
+
+	// Merge ECK Elasticsearch operator overlay values
+	valuesYamlFiles = append(valuesYamlFiles, eckElasticValuesYaml)
 
 	if extraValuesYaml != "" {
 		extraValuesYamls := strings.Split(extraValuesYaml, ",")
@@ -475,6 +454,9 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 	}
 
 	valuesYamlFiles := []string{defaultValuesYaml}
+
+	// Merge ECK Elasticsearch operator overlay values
+	valuesYamlFiles = append(valuesYamlFiles, eckElasticValuesYaml)
 
 	if extraValuesYaml != "" {
 		extraValuesYamls := strings.Split(extraValuesYaml, ",")

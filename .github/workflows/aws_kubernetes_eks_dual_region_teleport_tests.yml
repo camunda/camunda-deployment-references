@@ -256,6 +256,13 @@ jobs:
               with:
                   namespace: ${{ env.CLUSTER_1_NAMESPACE }}
 
+            - name: 🧹 Uninstall ECK Operator
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  skip-operator-uninstall: 'false'
+
             - name: Delete namespaces
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               working-directory: ./aws/kubernetes/eks-dual-region/test
