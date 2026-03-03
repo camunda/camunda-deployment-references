@@ -35,9 +35,14 @@ on:
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
             - .github/actions/setup-aws/action.yml
+            - .github/actions/kubernetes-eck-operator/**
+            - .github/actions/kubernetes-eck-operator-cleanup/**
             - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
+            - aws/kubernetes/eks-dual-region/helm-values/**
+            - aws/kubernetes/eks-dual-region/procedure/**
             - aws/kubernetes/eks-dual-region/terraform/**
             - aws/kubernetes/eks-dual-region/test/**
+            - generic/kubernetes/operator-based/elasticsearch/**
             - .tools-versions
             - .github/actions/internal-multi-region-tests/**
 # limit to a single execution per actor of this workflow
@@ -64,6 +69,10 @@ env:
     CI_MATRIX_FILE: .github/workflows-config/aws-kubernetes-eks-dual-region/test_matrix.yml
     TF_VAR_default_tags: '{"map-migrated": "migARUADZHVWZ"}'
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+
+    CAMUNDA_NAMESPACE_0: c8-snap-cluster-0
+    CAMUNDA_NAMESPACE_1: c8-snap-cluster-1
+    CAMUNDA_RELEASE_NAME: camunda
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
     CAMUNDA_HELM_CHART_VERSION: 0.0.0-snapshot-alpha
@@ -119,6 +128,8 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         timeout-minutes: 90
+        env:
+            CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
@@ -172,6 +183,39 @@ jobs:
                         "map-migrated": "migARUADZHVWZ"
                       }
 
+            ############# ECK Elasticsearch Deployment ##############
+            - name: Generate kubeconfig for ECK deployment
+              if: always() && steps.create_cluster.outcome == 'success'
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+                  aws eks update-kubeconfig --region eu-west-2 --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
+                  aws eks update-kubeconfig --region eu-west-3 --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
+
+            - name: Set kubectl context to London
+              if: always() && steps.create_cluster.outcome == 'success'
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-london
+
+            - name: Deploy Elasticsearch via ECK on London cluster
+              if: always() && steps.create_cluster.outcome == 'success'
+              timeout-minutes: 10
+              uses: ./.github/actions/kubernetes-eck-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region.yml
+
+            - name: Set kubectl context to Paris
+              if: always() && steps.create_cluster.outcome == 'success'
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-paris
+
+            - name: Deploy Elasticsearch via ECK on Paris cluster
+              if: always() && steps.create_cluster.outcome == 'success'
+              timeout-minutes: 10
+              uses: ./.github/actions/kubernetes-eck-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region.yml
+
     integration-tests:
         needs:
             - prepare-clusters
@@ -185,9 +229,6 @@ jobs:
         timeout-minutes: 120
         env:
             CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
-            CAMUNDA_NAMESPACE_1: c8-snap-cluster-0
-            CAMUNDA_NAMESPACE_2: c8-snap-cluster-1
-            CAMUNDA_RELEASE_NAME: camunda
         steps:
             ################## Checkout ##################
             - name: Checkout repository
@@ -218,8 +259,8 @@ jobs:
               with:
                   cluster-0-name: ${{ env.CLUSTER_NAME }}-london
                   cluster-1-name: ${{ env.CLUSTER_NAME }}-paris
-                  cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
-                  cluster-1-namespace: ${{ env.CAMUNDA_NAMESPACE_2 }}
+                  cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  cluster-1-namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   helm-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
                   backup-name: ${{ env.CAMUNDA_RELEASE_NAME }}-backup-${{ github.run_attempt }}
                   backup-bucket: ${{ env.CLUSTER_NAME }}-elastic-backup
@@ -278,14 +319,59 @@ jobs:
               timeout-minutes: 5
               run: |
                   go test --count=1 -v -timeout 4m -failfast -run TestAWSKubeConfigCreation
-    ########### Load Balancer Removal ############
+
+            ############# ECK Elasticsearch Cleanup ##############
+            - name: Generate kubeconfig for ECK cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+                  aws eks update-kubeconfig --region eu-west-2 --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
+                  aws eks update-kubeconfig --region eu-west-3 --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
+
+            - name: Set kubectl context to London for ECK cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-london
+
+            - name: Cleanup ECK Elasticsearch on London cluster
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+
+            - name: 🧹 Uninstall ECK Operator on London cluster
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  skip-operator-uninstall: 'false'
+
+            - name: Set kubectl context to Paris for ECK cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-paris
+
+            - name: Cleanup ECK Elasticsearch on Paris cluster
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+
+            - name: 🧹 Uninstall ECK Operator on Paris cluster
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  skip-operator-uninstall: 'false'
+
+            ########### Load Balancer Removal ############
             - name: Delete LBs to unblock teardown
               if: env.CLEANUP_CLUSTERS == 'true'
               working-directory: ./aws/kubernetes/eks-dual-region/test/
               timeout-minutes: 5
               run: |
                   go test --count=1 -v -timeout 4m -failfast -run TestClusterCleanup
-    ############# Terratest Teardown #############
+
+            ############# Terratest Teardown #############
             - name: Delete on-demand EKS Cluster
               uses: ./.github/actions/aws-generic-terraform-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
