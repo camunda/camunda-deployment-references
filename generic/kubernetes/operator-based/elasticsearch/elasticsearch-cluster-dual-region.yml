@@ -1,7 +1,7 @@
 ---
 # Elasticsearch cluster managed by ECK (Elastic Cloud on Kubernetes) for dual-region setup.
 #
-# This manifest deploys a 2-node Elasticsearch cluster with S3 snapshot repository
+# This manifest deploys a 3-node Elasticsearch cluster with S3 snapshot repository
 # support for cross-region backup and restore operations.
 #
 # Prerequisites:
@@ -30,14 +30,14 @@ spec:
         - secretName: elasticsearch-s3-credentials
     nodeSets:
         - name: masters
-          count: 2
+          count: 3
           config:
               # Disable mmap for compatibility with containers that lack the required vm.max_map_count sysctl
               # yamllint disable-line
               node.store.allow_mmap: 'false'
               # Disable deprecation warnings - https://github.com/camunda/camunda/issues/26285
               # yamllint disable-line
-              logger.org.elasticsearch.deprecation: OFF
+              logger.org.elasticsearch.deprecation: "OFF"
           podTemplate:
               spec:
                   affinity:
@@ -61,10 +61,10 @@ spec:
                               value: '300'
                         resources:
                             requests:
-                                cpu: 100m
-                                memory: 512Mi
-                            limits:
                                 cpu: 1
+                                memory: 2Gi
+                            limits:
+                                cpu: 2
                                 memory: 2Gi
           volumeClaimTemplates:
               - metadata:
@@ -73,4 +73,4 @@ spec:
                     accessModes: [ReadWriteOnce]
                     resources:
                         requests:
-                            storage: 30Gi
+                            storage: 64Gi
