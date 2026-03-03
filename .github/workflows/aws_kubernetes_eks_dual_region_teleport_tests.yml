@@ -28,6 +28,9 @@ on:
             - aws/kubernetes/eks-dual-region/test/**
             - .tools-versions
             - .github/actions/internal-multi-region-tests/**
+            - .github/actions/kubernetes-eck-operator/**
+            - .github/actions/kubernetes-eck-operator-cleanup/**
+            - generic/kubernetes/operator-based/elasticsearch/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -129,6 +132,8 @@ jobs:
                     echo "CLUSTER_0_NAMESPACE=${CLUSTER_0_NAMESPACE}"
                     echo "CAMUNDA_NAMESPACE_0=${CLUSTER_0_NAMESPACE}"
                     echo "CAMUNDA_NAMESPACE_1=${CLUSTER_1_NAMESPACE}"
+                    echo "CLUSTER_0_NAMESPACE_ARR=${CLUSTER_0_NAMESPACE}"
+                    echo "CLUSTER_1_NAMESPACE_ARR=${CLUSTER_1_NAMESPACE}"
                   } | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
             - name: Import Secrets
@@ -153,6 +158,21 @@ jobs:
                   set -euo pipefail
 
                   go test --count=1 -v -timeout 9m -failfast -run TestClusterPrerequisites
+
+            ############# ECK Elasticsearch Deployment ##############
+            - name: Deploy Elasticsearch via ECK on cluster-0 namespace
+              timeout-minutes: 10
+              uses: ./.github/actions/kubernetes-eck-operator
+              with:
+                  namespace: ${{ env.CLUSTER_0_NAMESPACE }}
+                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region-teleport.yml
+
+            - name: Deploy Elasticsearch via ECK on cluster-1 namespace
+              timeout-minutes: 10
+              uses: ./.github/actions/kubernetes-eck-operator
+              with:
+                  namespace: ${{ env.CLUSTER_1_NAMESPACE }}
+                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region-teleport.yml
 
             - name: Label and annotate namespaces and secrets
               working-directory: ./aws/kubernetes/eks-dual-region/test
@@ -222,6 +242,19 @@ jobs:
                   region-0-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
                   region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
                   skip-cleanup: 'true'
+
+            ############# ECK Elasticsearch Cleanup ##############
+            - name: Cleanup ECK Elasticsearch on cluster-0 namespace
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CLUSTER_0_NAMESPACE }}
+
+            - name: Cleanup ECK Elasticsearch on cluster-1 namespace
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CLUSTER_1_NAMESPACE }}
 
             - name: Delete namespaces
               if: always() && env.CLEANUP_CLUSTERS == 'true'
