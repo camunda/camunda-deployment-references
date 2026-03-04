@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-SECRET_NAME="elasticsearch-s3-credentials"
+SECRET_NAME="elasticsearch-env-secret"
 
 create_namespace() {
     local context=$1
