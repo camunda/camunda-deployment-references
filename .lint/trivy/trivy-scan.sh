@@ -21,7 +21,7 @@ find . \( -type d \( -name .terraform -o -name .test -o -name test -o -name fixt
       "ghcr.io/aquasecurity/trivy:${TRIVY_VERSION}" \
       config --skip-dirs ".terraform,.test,test,fixtures" \
       --config /workspace/.lint/trivy/trivy.yaml \
-      --ignorefile /workspace/.lint/trivy/.trivyignore \
+      --ignorefile /workspace/.trivyignore \
       "$dir"
   fi
 done
