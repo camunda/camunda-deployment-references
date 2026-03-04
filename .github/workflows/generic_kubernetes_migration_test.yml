@@ -336,6 +336,13 @@ jobs:
               run: |
                   set -euo pipefail
                   source ./env.sh
+
+                  # In Kind with mkcert self-signed TLS certs, Java components need the
+                  # CA imported into their truststore for HTTPS OIDC discovery to work.
+                  if [[ -n "${CAMUNDA_DOMAIN:-}" ]]; then
+                      export CUSTOM_HELM_VALUES_FILE="${GITHUB_WORKSPACE}/local/kubernetes/kind-single-region/helm-values/values-mkcert.yml"
+                  fi
+
                   ./3-cutover.sh --yes
 
             # --- Phase 4: Validate ---
