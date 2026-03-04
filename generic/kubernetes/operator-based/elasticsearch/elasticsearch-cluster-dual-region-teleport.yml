@@ -31,7 +31,7 @@ spec:
     # S3 credentials for snapshot/backup repository
     # ECK injects these into the Elasticsearch keystore at startup
     secureSettings:
-        - secretName: elasticsearch-s3-credentials
+        - secretName: elasticsearch-env-secret
     nodeSets:
         - name: masters
           count: 2

@@ -27,10 +27,10 @@ spec:
     # S3 credentials for snapshot/backup repository
     # ECK injects these into the Elasticsearch keystore at startup
     secureSettings:
-        - secretName: elasticsearch-s3-credentials
+        - secretName: elasticsearch-env-secret
     nodeSets:
         - name: masters
-          count: 3
+          count: 2
           config:
               # Disable mmap for compatibility with containers that lack the required vm.max_map_count sysctl
               # yamllint disable-line
@@ -61,7 +61,7 @@ spec:
                               value: '300'
                         resources:
                             requests:
-                                cpu: 1
+                                cpu: 500Mi
                                 memory: 2Gi
                             limits:
                                 cpu: 2
