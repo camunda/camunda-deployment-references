@@ -195,6 +195,73 @@ spec:
                           echo ""
                         done
 
+                        # ── Migrate index templates from source to target ──
+                        # The _reindex API does NOT copy index templates or component
+                        # templates. Camunda's SchemaManager detects existing indices
+                        # and goes into "update" mode — if the corresponding index
+                        # template is missing (404), init schema retries forever.
+                        echo "=== Migrating index templates ==="
+                        TMPL_NAMES=$(curl -sf $SOURCE_AUTH \
+                          "$SOURCE/_index_template?filter_path=index_templates.name" \
+                          | sed 's/[{}":]/ /g' \
+                          | tr ',' '\n' \
+                          | grep -oE '(zeebe|operate|tasklist|optimize|connectors|camunda)[^ ]*' \
+                          | sort -u || true)
+
+                        if [ -n "$TMPL_NAMES" ]; then
+                          TMPL_COUNT=$(echo "$TMPL_NAMES" | wc -l | tr -d ' ')
+                          echo "Found $TMPL_COUNT Camunda index template(s) to migrate"
+                          for tname in $TMPL_NAMES; do
+                            TMPL_DEF=$(curl -sf $SOURCE_AUTH "$SOURCE/_index_template/$tname")
+                            if [ -n "$TMPL_DEF" ] && [ "$TMPL_DEF" != "{}" ]; then
+                              # Extract just the template body (strip the outer wrapper)
+                              # Response: {"index_templates":[{"name":"...","index_template":{...}}]}
+                              TMPL_BODY=$(echo "$TMPL_DEF" | sed 's/.*"index_template"://' | sed 's/}]}$/}/')
+                              PUT_TMPL=$(curl -s -X PUT $TARGET_AUTH "$TARGET/_index_template/$tname" \
+                                -H 'Content-Type: application/json' \
+                                -d "$TMPL_BODY" 2>&1)
+                              if echo "$PUT_TMPL" | grep -q '"acknowledged":true'; then
+                                echo "  $tname"
+                              else
+                                echo "  WARN: Failed to migrate index template $tname: $PUT_TMPL"
+                              fi
+                            fi
+                          done
+                        else
+                          echo "No Camunda index templates found on source"
+                        fi
+
+                        # Also migrate component templates (used by composable index templates)
+                        COMP_NAMES=$(curl -sf $SOURCE_AUTH \
+                          "$SOURCE/_component_template?filter_path=component_templates.name" \
+                          | sed 's/[{}":]/ /g' \
+                          | tr ',' '\n' \
+                          | grep -oE '(zeebe|operate|tasklist|optimize|connectors|camunda)[^ ]*' \
+                          | sort -u || true)
+
+                        if [ -n "$COMP_NAMES" ]; then
+                          COMP_COUNT=$(echo "$COMP_NAMES" | wc -l | tr -d ' ')
+                          echo "Found $COMP_COUNT Camunda component template(s) to migrate"
+                          for cname in $COMP_NAMES; do
+                            COMP_DEF=$(curl -sf $SOURCE_AUTH "$SOURCE/_component_template/$cname")
+                            if [ -n "$COMP_DEF" ] && [ "$COMP_DEF" != "{}" ]; then
+                              # Response: {"component_templates":[{"name":"...","component_template":{...}}]}
+                              COMP_BODY=$(echo "$COMP_DEF" | sed 's/.*"component_template"://' | sed 's/}]}$/}/')
+                              PUT_COMP=$(curl -s -X PUT $TARGET_AUTH "$TARGET/_component_template/$cname" \
+                                -H 'Content-Type: application/json' \
+                                -d "$COMP_BODY" 2>&1)
+                              if echo "$PUT_COMP" | grep -q '"acknowledged":true'; then
+                                echo "  $cname"
+                              else
+                                echo "  WARN: Failed to migrate component template $cname: $PUT_COMP"
+                              fi
+                            fi
+                          done
+                        else
+                          echo "No Camunda component templates found on source"
+                        fi
+                        echo ""
+
                         # ── Migrate aliases from source to target ──
                         # The _reindex API does NOT copy aliases. Camunda components use
                         # aliases (e.g. operate-decision-8.3.0_alias) to find their
