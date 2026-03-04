@@ -184,7 +184,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-1-account-HCP-ROSA-Installer-Role"
                   }
                 },
@@ -203,7 +202,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-1-account-HCP-ROSA-Support-Role"
                   }
                 },
@@ -222,7 +220,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-1-account-HCP-ROSA-Worker-Role"
                   }
                 },
@@ -443,7 +440,6 @@
                     "destroy_duration": "10s",
                     "triggers": {
                       "account_iam_role_name": "[\"cluster-region-1-account-HCP-ROSA-Installer-Role\",\"cluster-region-1-account-HCP-ROSA-Support-Role\",\"cluster-region-1-account-HCP-ROSA-Worker-Role\"]",
-                      "account_policy_arns": "[\"ARN_REDACTED",
                       "account_role_prefix": "cluster-region-1-account",
                       "path": "/",
                       "shared_vpc_policy_attachments": "[]"
@@ -902,7 +898,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-1-operator-openshift-image-registry-installer-clo"
                   }
                 },
@@ -921,7 +916,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-1-operator-openshift-ingress-operator-cloud-crede"
                   }
                 },
@@ -940,7 +934,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-1-operator-openshift-cluster-csi-drivers-ebs-clou"
                   }
                 },
@@ -959,7 +952,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-1-operator-openshift-cloud-network-config-control"
                   }
                 },
@@ -978,7 +970,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-1-operator-kube-system-kube-controller-manager"
                   }
                 },
@@ -997,7 +988,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-1-operator-kube-system-capa-controller-manager"
                   }
                 },
@@ -1016,7 +1006,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-1-operator-kube-system-control-plane-operator"
                   }
                 },
@@ -1035,7 +1024,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-1-operator-kube-system-kms-provider"
                   }
                 },
@@ -1603,6 +1591,14 @@
                     "version": null
                   }
                 },
+                "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].data.aws_partition.current": {
+                  "mode": "data",
+                  "name": "current",
+                  "provider_name": "registry.terraform.io/hashicorp/aws",
+                  "schema_version": 0,
+                  "sensitive_values": {},
+                  "type": "aws_partition"
+                },
                 "module.rosa_cluster_1.module.rosa_hcp.module.operator_roles[0].time_sleep.role_resources_propagation": {
                   "mode": "managed",
                   "name": "role_resources_propagation",
@@ -1616,7 +1612,6 @@
                     "create_duration": "20s",
                     "destroy_duration": null,
                     "triggers": {
-                      "operator_policy_arns": "[\"ARN_REDACTED",
                       "operator_role_prefix": "cluster-region-1-operator",
                       "shared_vpc_policy_attachments": "[]"
                     }
@@ -1634,6 +1629,14 @@
                   "schema_version": 0,
                   "sensitive_values": {},
                   "type": "aws_caller_identity"
+                },
+                "module.rosa_cluster_1.module.rosa_hcp.module.rosa_cluster_hcp.data.aws_partition.current": {
+                  "mode": "data",
+                  "name": "current",
+                  "provider_name": "registry.terraform.io/hashicorp/aws",
+                  "schema_version": 0,
+                  "sensitive_values": {},
+                  "type": "aws_partition"
                 },
                 "module.rosa_cluster_1.module.rosa_hcp.module.rosa_cluster_hcp.data.aws_region.current[0]": {
                   "index": 0,
@@ -1849,6 +1852,14 @@
               "schema_version": 0,
               "sensitive_values": {},
               "type": "aws_caller_identity"
+            },
+            "module.rosa_cluster_1.module.rosa_hcp.data.aws_partition.current": {
+              "mode": "data",
+              "name": "current",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "aws_partition"
             },
             "module.rosa_cluster_1.module.rosa_hcp.null_resource.validations": {
               "mode": "managed",
@@ -2976,7 +2987,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-2-account-HCP-ROSA-Installer-Role"
                   }
                 },
@@ -2995,7 +3005,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-2-account-HCP-ROSA-Support-Role"
                   }
                 },
@@ -3014,7 +3023,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-2-account-HCP-ROSA-Worker-Role"
                   }
                 },
@@ -3235,7 +3243,6 @@
                     "destroy_duration": "10s",
                     "triggers": {
                       "account_iam_role_name": "[\"cluster-region-2-account-HCP-ROSA-Installer-Role\",\"cluster-region-2-account-HCP-ROSA-Support-Role\",\"cluster-region-2-account-HCP-ROSA-Worker-Role\"]",
-                      "account_policy_arns": "[\"ARN_REDACTED",
                       "account_role_prefix": "cluster-region-2-account",
                       "path": "/",
                       "shared_vpc_policy_attachments": "[]"
@@ -3694,7 +3701,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-2-operator-openshift-image-registry-installer-clo"
                   }
                 },
@@ -3713,7 +3719,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-2-operator-openshift-ingress-operator-cloud-crede"
                   }
                 },
@@ -3732,7 +3737,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-2-operator-openshift-cluster-csi-drivers-ebs-clou"
                   }
                 },
@@ -3751,7 +3755,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-2-operator-openshift-cloud-network-config-control"
                   }
                 },
@@ -3770,7 +3773,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-2-operator-kube-system-kube-controller-manager"
                   }
                 },
@@ -3789,7 +3791,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-2-operator-kube-system-capa-controller-manager"
                   }
                 },
@@ -3808,7 +3809,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-2-operator-kube-system-control-plane-operator"
                   }
                 },
@@ -3827,7 +3827,6 @@
                   "sensitive_values": {},
                   "type": "aws_iam_role_policy_attachment",
                   "values": {
-                    "policy_arn": "ARN_REDACTED",
                     "role": "cluster-region-2-operator-kube-system-kms-provider"
                   }
                 },
@@ -4395,6 +4394,14 @@
                     "version": null
                   }
                 },
+                "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].data.aws_partition.current": {
+                  "mode": "data",
+                  "name": "current",
+                  "provider_name": "registry.terraform.io/hashicorp/aws",
+                  "schema_version": 0,
+                  "sensitive_values": {},
+                  "type": "aws_partition"
+                },
                 "module.rosa_cluster_2.module.rosa_hcp.module.operator_roles[0].time_sleep.role_resources_propagation": {
                   "mode": "managed",
                   "name": "role_resources_propagation",
@@ -4408,7 +4415,6 @@
                     "create_duration": "20s",
                     "destroy_duration": null,
                     "triggers": {
-                      "operator_policy_arns": "[\"ARN_REDACTED",
                       "operator_role_prefix": "cluster-region-2-operator",
                       "shared_vpc_policy_attachments": "[]"
                     }
@@ -4426,6 +4432,14 @@
                   "schema_version": 0,
                   "sensitive_values": {},
                   "type": "aws_caller_identity"
+                },
+                "module.rosa_cluster_2.module.rosa_hcp.module.rosa_cluster_hcp.data.aws_partition.current": {
+                  "mode": "data",
+                  "name": "current",
+                  "provider_name": "registry.terraform.io/hashicorp/aws",
+                  "schema_version": 0,
+                  "sensitive_values": {},
+                  "type": "aws_partition"
                 },
                 "module.rosa_cluster_2.module.rosa_hcp.module.rosa_cluster_hcp.data.aws_region.current[0]": {
                   "index": 0,
@@ -4641,6 +4655,14 @@
               "schema_version": 0,
               "sensitive_values": {},
               "type": "aws_caller_identity"
+            },
+            "module.rosa_cluster_2.module.rosa_hcp.data.aws_partition.current": {
+              "mode": "data",
+              "name": "current",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "aws_partition"
             },
             "module.rosa_cluster_2.module.rosa_hcp.null_resource.validations": {
               "mode": "managed",
