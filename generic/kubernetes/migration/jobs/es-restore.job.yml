@@ -115,11 +115,14 @@ spec:
                           # Use filter_path to get ONLY analysis settings + mappings from
                           # the source index. This excludes read-only settings (uuid,
                           # creation_date, version, etc.) that would cause PUT to fail.
+                          # We also include max_ngram_diff / max_shingle_diff because
+                          # ES 8.19 defaults max_ngram_diff=1 which rejects NGram
+                          # tokenizers with larger diffs (Optimize uses min=1,max=10).
                           # The response format is:
                           #   {"idx":{"mappings":{...},"settings":{"index":{"analysis":{...}}}}}
                           # We strip the outer {"idx": ... } wrapper to get a valid PUT body.
                           FILTERED=$(curl -sf $SOURCE_AUTH \
-                            "$SOURCE/$idx?filter_path=*.mappings,*.settings.index.analysis")
+                            "$SOURCE/$idx?filter_path=*.mappings,*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
                           if [ -n "$FILTERED" ] && [ "$FILTERED" != "{}" ]; then
                             # Strip outer {"index_name": and trailing }
                             CREATE_BODY="${FILTERED#*:}"
@@ -129,24 +132,48 @@ spec:
                               -H 'Content-Type: application/json' \
                               -d "$CREATE_BODY" 2>&1)
                             if echo "$PUT_RESP" | grep -q '"error"'; then
-                              echo "  Settings+mappings copy failed, trying mappings only"
+                              echo "  Settings+mappings copy failed, trying settings only (analysis)"
                               curl -s -X DELETE $TARGET_AUTH "$TARGET/$idx" >/dev/null 2>&1 || true
-                              # Retry with only mappings (no analysis settings)
-                              MAPPING_ONLY=$(curl -sf $SOURCE_AUTH \
-                                "$SOURCE/$idx/_mapping?filter_path=*.mappings")
-                              if [ -n "$MAPPING_ONLY" ] && [ "$MAPPING_ONLY" != "{}" ]; then
-                                M_BODY="${MAPPING_ONLY#*:}"
-                                M_BODY="${M_BODY%\}}"
-                                PUT_RESP2=$(curl -s -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                              # Retry with settings only (analysis + ngram diff), no mappings.
+                              # This preserves custom analyzers so Optimize mappings can
+                              # reference them later via put_mapping.
+                              S_ONLY=$(curl -sf $SOURCE_AUTH \
+                                "$SOURCE/$idx?filter_path=*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
+                              if [ -n "$S_ONLY" ] && [ "$S_ONLY" != "{}" ]; then
+                                S_BODY="${S_ONLY#*:}"
+                                S_BODY="${S_BODY%\}}"
+                                PUT_S=$(curl -s -X PUT $TARGET_AUTH "$TARGET/$idx" \
                                   -H 'Content-Type: application/json' \
-                                  -d "$M_BODY" 2>&1)
-                                if echo "$PUT_RESP2" | grep -q '"error"'; then
-                                  echo "  Mappings-only also failed, using date_detection fallback"
-                                  curl -s -X DELETE $TARGET_AUTH "$TARGET/$idx" >/dev/null 2>&1 || true
-                                  curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                  -d "$S_BODY" 2>&1)
+                                if echo "$PUT_S" | grep -q '"error"'; then
+                                  echo "  Settings-only also failed, trying mappings only"
+                                else
+                                  echo "  Settings-only succeeded (analyzers preserved)"
+                                  # Settings created; skip further fallbacks
+                                  PUT_S=""
+                                fi
+                              else
+                                PUT_S="no_settings"
+                              fi
+                              # If settings-only didn't work, try mappings only
+                              if [ -n "$PUT_S" ]; then
+                                curl -s -X DELETE $TARGET_AUTH "$TARGET/$idx" >/dev/null 2>&1 || true
+                                MAPPING_ONLY=$(curl -sf $SOURCE_AUTH \
+                                  "$SOURCE/$idx/_mapping?filter_path=*.mappings")
+                                if [ -n "$MAPPING_ONLY" ] && [ "$MAPPING_ONLY" != "{}" ]; then
+                                  M_BODY="${MAPPING_ONLY#*:}"
+                                  M_BODY="${M_BODY%\}}"
+                                  PUT_RESP2=$(curl -s -X PUT $TARGET_AUTH "$TARGET/$idx" \
                                     -H 'Content-Type: application/json' \
-                                    -d '{"mappings":{"date_detection":false,"numeric_detection":false}}' \
-                                    >/dev/null 2>&1 || echo "  Note: fallback index creation also failed"
+                                    -d "$M_BODY" 2>&1)
+                                  if echo "$PUT_RESP2" | grep -q '"error"'; then
+                                    echo "  Mappings-only also failed, using date_detection fallback"
+                                    curl -s -X DELETE $TARGET_AUTH "$TARGET/$idx" >/dev/null 2>&1 || true
+                                    curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                      -H 'Content-Type: application/json' \
+                                      -d '{"mappings":{"date_detection":false,"numeric_detection":false}}' \
+                                      >/dev/null 2>&1 || echo "  Note: fallback index creation also failed"
+                                  fi
                                 fi
                               fi
                             fi
@@ -180,15 +207,30 @@ spec:
                         for idx in $EMPTY_INDICES; do
                           # Pre-create with settings+mappings from source
                           FILTERED=$(curl -sf $SOURCE_AUTH \
-                            "$SOURCE/$idx?filter_path=*.mappings,*.settings.index.analysis")
+                            "$SOURCE/$idx?filter_path=*.mappings,*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
                           if [ -n "$FILTERED" ] && [ "$FILTERED" != "{}" ]; then
                             CREATE_BODY="${FILTERED#*:}"
                             CREATE_BODY="${CREATE_BODY%\}}"
-                            curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                            # Try full settings+mappings first, then settings-only, then empty
+                            if ! curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
                               -H 'Content-Type: application/json' \
-                              -d "$CREATE_BODY" >/dev/null 2>&1 || \
-                            curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
-                              -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                              -d "$CREATE_BODY" >/dev/null 2>&1; then
+                              # Settings+mappings failed; try settings only (preserves analyzers)
+                              S_ONLY=$(curl -sf $SOURCE_AUTH \
+                                "$SOURCE/$idx?filter_path=*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
+                              if [ -n "$S_ONLY" ] && [ "$S_ONLY" != "{}" ]; then
+                                S_BODY="${S_ONLY#*:}"
+                                S_BODY="${S_BODY%\}}"
+                                curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                  -H 'Content-Type: application/json' \
+                                  -d "$S_BODY" >/dev/null 2>&1 || \
+                                curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                  -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                              else
+                                curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                  -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                              fi
+                            fi
                           else
                             curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
                               -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true

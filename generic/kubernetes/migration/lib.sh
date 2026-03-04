@@ -1209,6 +1209,39 @@ sync_keycloak_admin_credentials() {
 
     log_info "Updated ${operator_secret} secret (user=${admin_user})"
 
+    # Ensure the Bitnami secret has ALL keys that the operator chart references.
+    # Bitnami generates some client tokens (optimize, admin) but NOT all
+    # (connectors, orchestration, console). Generate random tokens for missing keys.
+    local required_keys=(
+        identity-connectors-client-token
+        identity-orchestration-client-token
+        identity-console-client-token
+    )
+    local existing_keys
+    existing_keys=$(kubectl get secret "$bitnami_secret" -n "${NAMESPACE}" \
+        -o jsonpath='{.data}' 2>/dev/null | tr ',' '\n' | sed 's/.*"\([^"]*\)":.*/\1/' || true)
+
+    local patch_args=()
+    for key in "${required_keys[@]}"; do
+        if ! echo "$existing_keys" | grep -qx "$key"; then
+            local token
+            token=$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 32)
+            local b64_token
+            b64_token=$(printf '%s' "$token" | base64)
+            patch_args+=("\"$key\":\"$b64_token\"")
+            log_info "Generated missing token: ${key}"
+        fi
+    done
+
+    if [[ ${#patch_args[@]} -gt 0 ]]; then
+        local patch_json
+        patch_json=$(printf ',%s' "${patch_args[@]}")
+        patch_json="{\"data\":{${patch_json:1}}}"
+        kubectl patch secret "$bitnami_secret" -n "${NAMESPACE}" \
+            --type merge -p "$patch_json" >/dev/null
+        log_info "Patched ${bitnami_secret} with ${#patch_args[@]} missing key(s)"
+    fi
+
     # Generate a Helm override file so Identity uses the correct admin username
     # AND has explicit references to all client secrets in camunda-credentials.
     # When identityKeycloak.enabled switches to false, the Helm chart stops
