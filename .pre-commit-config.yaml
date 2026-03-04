@@ -56,6 +56,15 @@ repos:
                 - --hook-config=--add-to-existing-file=true
                 - --args=--config=.lint/terraform_docs/.terraform-docs.yml
 
+    - repo: local
+      hooks:
+          - id: trivy-scan
+            name: Trivy Scan (Docker)
+            entry: .lint/trivy/trivy-scan.sh
+            language: script
+            types: [terraform]
+            pass_filenames: false
+
     - repo: https://github.com/dnephin/pre-commit-golang
       rev: v0.5.1
       hooks:
@@ -80,12 +89,3 @@ repos:
       hooks:
           - id: yamlfmt
             exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.yml)
-
-    - repo: local
-      hooks:
-          - id: trivy-scan
-            name: Trivy Scan
-            entry: .lint/trivy/trivy-scan.sh
-            language: script
-            types: [terraform]
-            pass_filenames: false
