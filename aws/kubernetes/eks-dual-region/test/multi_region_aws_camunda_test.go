@@ -286,7 +286,13 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 
 	// connectors last as they depend on the Orchestration Cluster
-	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-connectors", retries, 15*time.Second)
+	err := k8s.WaitUntilDeploymentAvailableE(t, &primary.KubectlNamespace, "camunda-connectors", retries, 20*time.Second)
+	if err != nil {
+		t.Log("[C8 HELM] camunda-connectors deployment not available, dumping container logs...")
+		output, _ := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "logs", "-l", "app.kubernetes.io/component=connectors", "--tail=200", "--all-containers=true")
+		t.Logf("[C8 HELM] camunda-connectors logs:\n%s", output)
+		t.Fatalf("[C8 HELM] camunda-connectors deployment failed to become available: %v", err)
+	}
 }
 
 func checkC8RunningProperly(t *testing.T) {
