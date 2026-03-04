@@ -149,6 +149,13 @@ spec:
                                   echo "  Settings-only also failed, trying mappings only"
                                 else
                                   echo "  Settings-only succeeded (analyzers preserved)"
+                                  # Disable date/numeric detection to prevent auto-mapping
+                                  # conflicts during reindex (e.g. variables.value being
+                                  # mapped as date from first doc, then failing on text docs)
+                                  curl -s -X PUT $TARGET_AUTH "$TARGET/$idx/_mapping" \
+                                    -H 'Content-Type: application/json' \
+                                    -d '{"date_detection":false,"numeric_detection":false}' \
+                                    >/dev/null 2>&1 || true
                                   # Settings created; skip further fallbacks
                                   PUT_S=""
                                 fi
@@ -212,11 +219,13 @@ spec:
                           TMPL_COUNT=$(echo "$TMPL_NAMES" | wc -l | tr -d ' ')
                           echo "Found $TMPL_COUNT Camunda index template(s) to migrate"
                           for tname in $TMPL_NAMES; do
-                            TMPL_DEF=$(curl -sf $SOURCE_AUTH "$SOURCE/_index_template/$tname")
+                            TMPL_DEF=$(curl -sf $SOURCE_AUTH "$SOURCE/_index_template/$tname") || { echo "  WARN: Could not fetch template $tname"; continue; }
                             if [ -n "$TMPL_DEF" ] && [ "$TMPL_DEF" != "{}" ]; then
                               # Extract just the template body (strip the outer wrapper)
                               # Response: {"index_templates":[{"name":"...","index_template":{...}}]}
-                              TMPL_BODY=$(echo "$TMPL_DEF" | sed 's/.*"index_template"://' | sed 's/}]}$/}/')
+                              # Strip everything before the body, then remove the trailing }]}
+                              # (array-element close + array close + response close)
+                              TMPL_BODY=$(echo "$TMPL_DEF" | sed 's/.*"index_template"://' | sed 's/}]}$//')
                               PUT_TMPL=$(curl -s -X PUT $TARGET_AUTH "$TARGET/_index_template/$tname" \
                                 -H 'Content-Type: application/json' \
                                 -d "$TMPL_BODY" 2>&1)
@@ -243,10 +252,10 @@ spec:
                           COMP_COUNT=$(echo "$COMP_NAMES" | wc -l | tr -d ' ')
                           echo "Found $COMP_COUNT Camunda component template(s) to migrate"
                           for cname in $COMP_NAMES; do
-                            COMP_DEF=$(curl -sf $SOURCE_AUTH "$SOURCE/_component_template/$cname")
+                            COMP_DEF=$(curl -sf $SOURCE_AUTH "$SOURCE/_component_template/$cname") || { echo "  WARN: Could not fetch component template $cname"; continue; }
                             if [ -n "$COMP_DEF" ] && [ "$COMP_DEF" != "{}" ]; then
                               # Response: {"component_templates":[{"name":"...","component_template":{...}}]}
-                              COMP_BODY=$(echo "$COMP_DEF" | sed 's/.*"component_template"://' | sed 's/}]}$/}/')
+                              COMP_BODY=$(echo "$COMP_DEF" | sed 's/.*"component_template"://' | sed 's/}]}$//')
                               PUT_COMP=$(curl -s -X PUT $TARGET_AUTH "$TARGET/_component_template/$cname" \
                                 -H 'Content-Type: application/json' \
                                 -d "$COMP_BODY" 2>&1)
