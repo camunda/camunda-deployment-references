@@ -198,7 +198,7 @@ jobs:
 
             - name: Deploy Elasticsearch via ECK on London cluster
               if: always() && steps.create_cluster.outcome == 'success'
-              timeout-minutes: 10
+              timeout-minutes: 15
               uses: ./.github/actions/kubernetes-eck-operator
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
@@ -210,7 +210,7 @@ jobs:
 
             - name: Deploy Elasticsearch via ECK on Paris cluster
               if: always() && steps.create_cluster.outcome == 'success'
-              timeout-minutes: 10
+              timeout-minutes: 15
               uses: ./.github/actions/kubernetes-eck-operator
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
