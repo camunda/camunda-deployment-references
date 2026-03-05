@@ -34,7 +34,9 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Switch to gh-pages branch
-              run: git checkout gh-pages
+              run: |
+                  git fetch origin gh-pages
+                  git checkout gh-pages
 
             - name: Output Aurora PostgreSQL versions to file
               shell: bash
