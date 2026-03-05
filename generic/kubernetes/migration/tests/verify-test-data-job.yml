@@ -15,6 +15,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
     name: verify-test-data
+    namespace: ${NAMESPACE}
     labels:
         app: migration-test-data
 spec:
