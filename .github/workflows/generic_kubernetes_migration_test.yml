@@ -103,6 +103,7 @@ jobs:
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         env:
             CLUSTER_NAME: camunda-platform-local
+            NAMESPACE: camunda
             CAMUNDA_NAMESPACE: camunda
             CAMUNDA_RELEASE_NAME: camunda
             REF_ARCH_PATH: local/kubernetes/kind-single-region
