@@ -330,7 +330,8 @@ else
     echo "Camunda is now running on operator-managed infrastructure."
 fi
 echo ""
-echo "Next: ./4-validate.sh"
+echo "Next: ./3b-verify.sh  (optional — verify data survived migration)"
+echo "      ./4-validate.sh (validate infrastructure health)"
 
 run_hooks "post-phase-3"
 complete_phase 3

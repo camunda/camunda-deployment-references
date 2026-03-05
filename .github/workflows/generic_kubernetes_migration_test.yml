@@ -391,13 +391,6 @@ jobs:
             # =================================================================
             # Debug & Cleanup
             # =================================================================
-            - name: Setup tmate session for debugging
-              if: failure()
-              uses: mxschmitt/action-tmate@v3
-              with:
-                  detached: true
-              timeout-minutes: 60
-
             - name: Get failed Pods info
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
