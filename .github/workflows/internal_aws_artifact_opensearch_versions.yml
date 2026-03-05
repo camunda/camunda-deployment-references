@@ -20,9 +20,7 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-              with:
-                  ref: gh-pages
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
@@ -34,6 +32,13 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            - name: Switch to gh-pages branch
+              run: |
+                  cp .tool-versions /tmp/.tool-versions
+                  git fetch origin gh-pages
+                  git checkout gh-pages
+                  cp /tmp/.tool-versions .tool-versions
 
             - name: Output OpenSearch versions to file
               shell: bash
