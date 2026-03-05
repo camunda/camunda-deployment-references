@@ -35,8 +35,10 @@ jobs:
 
             - name: Switch to gh-pages branch
               run: |
+                  cp .tool-versions /tmp/.tool-versions
                   git fetch origin gh-pages
                   git checkout gh-pages
+                  cp /tmp/.tool-versions .tool-versions
 
             - name: Output OpenSearch versions to file
               shell: bash
