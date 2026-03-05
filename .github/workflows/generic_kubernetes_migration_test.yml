@@ -359,34 +359,11 @@ jobs:
             # =================================================================
             - name: Verify test data survived migration
               timeout-minutes: 15
+              working-directory: ./generic/kubernetes/migration/
               run: |
                   set -euo pipefail
-
-                  echo "Verifying seeded test data after migration..."
-
-                  kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                      -f generic/kubernetes/migration/tests/verify-test-data-job.yml
-
-                  echo "Waiting for verify job to complete..."
-                  kubectl wait --for=condition=complete job/verify-test-data \
-                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || {
-                      echo "Verify job did not complete in time. Logs:"
-                      kubectl logs job/verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=100 || true
-                      exit 1
-                  }
-
-                  echo "Verification logs:"
-                  kubectl logs job/verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}"
-
-                  # Check exit code: the job script exits with the number of failures
-                  VERIFY_STATUS=$(kubectl get job verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                      -o jsonpath='{.status.succeeded}' || echo "0")
-                  if [[ "$VERIFY_STATUS" == "1" ]]; then
-                      echo "All migration verification checks passed!"
-                  else
-                      echo "Migration verification FAILED"
-                      exit 1
-                  fi
+                  source ./env.sh
+                  ./3b-verify.sh --yes
 
             # =================================================================
             # Debug & Cleanup
