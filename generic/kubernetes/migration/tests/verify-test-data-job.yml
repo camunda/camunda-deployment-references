@@ -265,12 +265,10 @@ spec:
                             log ""
                             log "=== Verifying WebModeler data ==="
 
-                            # Reuse the OIDC user token if available
-                            WM_TOKEN="${USER_TOKEN:-}"
-
-                            # If no OIDC token, try basic auth via Keycloak ROPC
-                            # (works when Keycloak is available but OIDC token wasn't obtained)
-                            if [ -z "${WM_TOKEN}" ] && [ -n "${KC_URL}" ]; then
+                            # WebModeler requires a token with azp=web-modeler (public client).
+                            # The camunda-identity token is rejected (401).
+                            WM_TOKEN=""
+                            if [ -n "${KC_URL}" ]; then
                                 WM_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
                                     "${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token" \
                                     -H "Content-Type: application/x-www-form-urlencoded" \
