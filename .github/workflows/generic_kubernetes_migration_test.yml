@@ -266,6 +266,20 @@ jobs:
                   kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
                       -f generic/kubernetes/migration/tests/benchmark-job.yml
 
+                  # Wait for the benchmark pod to be running before watching for completion
+                  echo "Waiting for benchmark pod to start..."
+                  for _ in $(seq 1 60); do
+                      PHASE=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                          -l job-name=migration-benchmark \
+                          -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Pending")
+                      if [ "$PHASE" = "Running" ] || [ "$PHASE" = "Succeeded" ] || [ "$PHASE" = "Failed" ]; then
+                          echo "Pod phase: $PHASE"
+                          break
+                      fi
+                      echo "  pod phase: $PHASE (waiting...)"
+                      sleep 5
+                  done
+
                   # The benchmark runs indefinitely; activeDeadlineSeconds (300s) kills it.
                   # Wait for the job to finish (either DeadlineExceeded or failed).
                   kubectl wait --for=condition=failed job/migration-benchmark \
@@ -364,6 +378,7 @@ jobs:
 
             # =================================================================
             # Debug & Cleanup
+            # =================================================================
             # =================================================================
             - name: Get failed Pods info
               if: failure()
