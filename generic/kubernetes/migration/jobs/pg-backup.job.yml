@@ -1,7 +1,7 @@
 ---
 # PostgreSQL Backup Job (generic, parameterized by COMPONENT)
 # Required env vars: COMPONENT, JOB_NAME, PG_HOST, PG_PORT, PG_DATABASE,
-#   PG_USERNAME, PG_SECRET_NAME, PG_IMAGE, BACKUP_PVC, NAMESPACE, TIMESTAMP
+#   PG_USERNAME, PG_SECRET_NAME, PG_SECRET_KEY, PG_IMAGE, BACKUP_PVC, NAMESPACE, TIMESTAMP
 apiVersion: batch/v1
 kind: Job
 metadata:

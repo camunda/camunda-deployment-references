@@ -44,7 +44,7 @@ This migration is designed to align your setup with the [operator-based referenc
 | Bitnami PostgreSQL (Identity)     | CloudNativePG cluster         | `pg_dump` / `pg_restore`   |
 | Bitnami PostgreSQL (Keycloak)     | CloudNativePG cluster         | `pg_dump` / `pg_restore`   |
 | Bitnami PostgreSQL (WebModeler)   | CloudNativePG cluster         | `pg_dump` / `pg_restore`   |
-| Bitnami Elasticsearch             | ECK Elasticsearch             | Snapshot API               |
+| Bitnami Elasticsearch             | ECK Elasticsearch             | Reindex-from-remote (`_reindex`) |
 | Bitnami Keycloak (Helm sub-chart) | Keycloak Operator CR          | Via PostgreSQL data        |
 
 ## Prerequisites

@@ -49,6 +49,8 @@ spec:
 
                         set -eu
 
+                        apk add --no-cache jq >/dev/null 2>&1
+
                         # ── Helpers ──────────────────────────────────────────────────────────
                         log()  { echo "[$(date -u +%H:%M:%S)] $*"; }
                         fail() { log "FAIL: $*"; exit 1; }
@@ -166,12 +168,17 @@ spec:
                         log "Creating ${NUM_INSTANCES} process instances..."
                         i=1
                         while [ "$i" -le "$NUM_INSTANCES" ]; do
-                            INST_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -u "${DEMO_USER}:${DEMO_PASS}" \
+                            if curl -sf --connect-timeout 5 --max-time 30 -u "${DEMO_USER}:${DEMO_PASS}" \
                                 -X POST "${ZEEBE_URL}/v2/process-instances" \
                                 -H "Content-Type: application/json" \
                                 -H "Accept: application/json" \
-                                -d "{\"processDefinitionId\":\"${PROCESS_ID}\",\"variables\":{\"seedIndex\":${i},\"seedTimestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}")
-                            if [ $? -eq 0 ]; then
+                                -d "{
+                                  \"processDefinitionId\":\"${PROCESS_ID}\",
+                                  \"variables\":{
+                                    \"seedIndex\":${i},
+                                    \"seedTimestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+                                  }
+                                }" >/dev/null 2>&1; then
                                 ok "Instance ${i}/${NUM_INSTANCES} created"
                             else
                                 log "  WARN: Instance ${i} creation may have failed"
@@ -303,13 +310,14 @@ spec:
 
                                     # Create a BPMN file in the project
                                     log "Creating file '${WM_FILE_NAME}' in project..."
+                                    CONTENT_JSON=$(printf '%s' "${BPMN_XML}" | jq -Rs .)
                                     FILE_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -X POST "${WM_URL}/api/v1/files" \
                                         -H "Authorization: Bearer ${WM_TOKEN}" \
                                         -H "Content-Type: application/json" \
                                         -d "{
                                             \"name\": \"${WM_FILE_NAME}\",
                                             \"projectId\": \"${PROJECT_ID}\",
-                                            \"content\": $(echo "${BPMN_XML}" | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}' | sed 's/.*/"&"/'),
+                                            \"content\": ${CONTENT_JSON},
                                             \"fileType\": \"bpmn\"
                                         }" 2>/dev/null || echo '{}')
 

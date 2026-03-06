@@ -343,7 +343,7 @@ spec:
                         # Format: alias  index  filter  routing.search  routing.index  is_write_index
                         ALIAS_DATA=$(curl -sf $SOURCE_AUTH \
                           "$SOURCE/_cat/aliases?h=alias,index,is_write_index&format=text" \
-                          | grep -E "\s(zeebe|operate|tasklist|optimize|connectors|camunda-)" || true)
+                          | grep -E "[[:space:]](zeebe|operate|tasklist|optimize|connectors|camunda-)" || true)
 
                         if [ -n "$ALIAS_DATA" ]; then
                           ALIAS_COUNT=$(echo "$ALIAS_DATA" | wc -l | tr -d ' ')
