@@ -183,6 +183,8 @@ do_pg_restore() {
     local cluster_name="$4"
     local image_var="${component^^}_PG_IMAGE"
 
+    export FORCE_RESTORE="${FORCE_RESTORE:-false}"
+
     if is_external_pg; then
         local host_var="EXTERNAL_PG_${component^^}_HOST"
         local port_var="EXTERNAL_PG_${component^^}_PORT"
@@ -223,7 +225,9 @@ if [[ "${MIGRATE_IDENTITY}" == "true" ]]; then
 fi
 
 if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-    do_pg_restore keycloak "${KEYCLOAK_DB_NAME}" "${KEYCLOAK_DB_USER}" "${CNPG_KEYCLOAK_CLUSTER}"
+    # Keycloak operator pre-creates tables in the target DB before restore;
+    # FORCE_RESTORE lets the restore job clean them automatically.
+    FORCE_RESTORE="true" do_pg_restore keycloak "${KEYCLOAK_DB_NAME}" "${KEYCLOAK_DB_USER}" "${CNPG_KEYCLOAK_CLUSTER}"
 
     # After restoring the Bitnami Keycloak DB, the admin user in the DB is "admin"
     # (from Bitnami), not "temp-admin" (from operator). Sync the operator secret and

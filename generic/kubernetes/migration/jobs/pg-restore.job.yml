@@ -54,28 +54,39 @@ spec:
                         [ -f "$DUMP" ] || { echo "ERROR: no backup found"; exit 1; }
                         echo "Restoring from: $DUMP"
 
-                        # Safety check: refuse to restore into a non-empty database.
-                        # pg_restore --clean drops existing objects, which could destroy
-                        # production data if the target is not a fresh database.
+                        # Safety check: refuse to restore into a non-empty database
+                        # unless FORCE_RESTORE is set (used by migration scripts where the
+                        # operator pre-creates the schema before restore).
                         TABLE_COUNT=$(psql -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" \
                           -U "${TARGET_PG_USER}" -d "${TARGET_PG_DATABASE}" -tAc \
                           "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" 2>/dev/null || echo "0")
 
                         if [ "$TABLE_COUNT" -gt 0 ]; then
-                          echo ""
-                          echo "ERROR: Target database '${TARGET_PG_DATABASE}' already contains $TABLE_COUNT table(s)."
-                          echo ""
-                          echo "Restoring would drop and recreate all objects, destroying existing data."
-                          echo ""
-                          echo "  ⚠  THIS IS A DESTRUCTIVE OPERATION"
-                          echo ""
-                          echo "To proceed, manually clean the target database first:"
-                          echo ""
-                          echo "  psql -h ${TARGET_PG_HOST} -p ${TARGET_PG_PORT} -U ${TARGET_PG_USER} -d ${TARGET_PG_DATABASE}"
-                          echo "  DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-                          echo ""
-                          echo "Then re-run the migration."
-                          exit 1
+                          if [ "${FORCE_RESTORE:-false}" = "true" ]; then
+                            echo "WARN: Target database contains $TABLE_COUNT table(s) — cleaning (FORCE_RESTORE=true)"
+                            psql -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" \
+                              -U "${TARGET_PG_USER}" -d "${TARGET_PG_DATABASE}" \
+                              -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" || {
+                              echo "ERROR: failed to clean target database"; exit 1
+                            }
+                          else
+                            echo ""
+                            echo "ERROR: Target database '${TARGET_PG_DATABASE}' already contains $TABLE_COUNT table(s)."
+                            echo ""
+                            echo "Restoring would drop and recreate all objects, destroying existing data."
+                            echo ""
+                            echo "  ⚠  THIS IS A DESTRUCTIVE OPERATION"
+                            echo ""
+                            echo "To proceed, either:"
+                            echo "  - Set FORCE_RESTORE=true in env.sh (migration will clean automatically)"
+                            echo "  - Or manually clean the target database:"
+                            echo ""
+                            echo "    psql -h ${TARGET_PG_HOST} -p ${TARGET_PG_PORT} -U ${TARGET_PG_USER} -d ${TARGET_PG_DATABASE}"
+                            echo "    DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+                            echo ""
+                            echo "Then re-run the migration."
+                            exit 1
+                          fi
                         fi
 
                         pg_restore -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" \
@@ -96,6 +107,8 @@ spec:
                             secretKeyRef:
                                 name: ${DB_SECRET_NAME}
                                 key: password
+                      - name: FORCE_RESTORE
+                        value: ${FORCE_RESTORE}
                   resources:
                       requests: {memory: 256Mi, cpu: 100m}
                       limits: {memory: 512Mi, cpu: 500m}
