@@ -87,6 +87,8 @@ generic/kubernetes/
     ├── 3-cutover.sh                 # Phase 3: Freeze → Restore → Switch
     ├── 4-validate.sh                # Phase 4: Validate everything
     ├── rollback.sh                  # Emergency rollback
+    ├── hooks/                       # Custom pre/post phase hooks (see Hooks)
+    │   └── README.md                #   Hook documentation
     ├── jobs/                        # Kubernetes Job templates
     │   ├── pg-backup.job.yml        #   PostgreSQL backup (generic)
     │   ├── pg-restore.job.yml       #   PostgreSQL restore (generic)
@@ -94,12 +96,14 @@ generic/kubernetes/
     │   └── es-restore.job.yml       #   Elasticsearch reindex restore
     ├── manifests/                   # Migration-specific manifests only
     │   └── backup-pvc.yml           #   Shared backup PVC
+    ├── .state/                      # Runtime state (gitignored, auto-created)
     └── tests/                       # CI & local test fixtures
         ├── local-test.sh            #   Local Kind test runner
         ├── seed-test-data-job.yml   #   Seed job (Zeebe, Keycloak, WebModeler)
         ├── benchmark-job.yml        #   Benchmark job (Zeebe process instances)
         ├── verify-test-data-job.yml #   Verify job (post-migration checks)
         ├── bitnami-values.yml       #   Helm values for Bitnami deployment
+        ├── bitnami-values-domain.yml #  Helm values variant with domain/TLS
         └── kind-cluster-config.yaml #   Kind cluster config for local testing
 ```
 
@@ -125,7 +129,9 @@ bash 4-validate.sh
 
 ## Configuration
 
-Edit `env.sh` before starting. Key variables:
+Edit `env.sh` before starting. The file is organized into 4 sections — see comments inside for details.
+
+**General settings:**
 
 | Variable                     | Default         | Description                                  |
 | ---------------------------- | --------------- | -------------------------------------------- |
@@ -133,14 +139,48 @@ Edit `env.sh` before starting. Key variables:
 | `CAMUNDA_RELEASE_NAME`       | `camunda`       | Helm release name                            |
 | `CAMUNDA_HELM_CHART_VERSION` | (chart version) | Target Helm chart version                    |
 | `CAMUNDA_DOMAIN`             | (empty)         | Domain for Keycloak Ingress (empty = no TLS) |
-| `PG_TARGET_MODE`             | `operator`      | `operator`: deploy CNPG via the scripts. `external`: skip CNPG deployment and migrate data to a pre-existing target (managed service or operator already installed). |
-| `ES_TARGET_MODE`             | `operator`      | `operator`: deploy ECK via the scripts. `external`: skip ECK deployment and point to a pre-existing target (managed service or operator already installed). |
+| `IDENTITY_DB_NAME`           | `identity`      | Identity database name (must match source)   |
+| `KEYCLOAK_DB_NAME`           | `keycloak`      | Keycloak database name (must match source)   |
+| `WEBMODELER_DB_NAME`         | `webmodeler`    | WebModeler database name (must match source) |
+| `BACKUP_PVC`                 | `migration-backup-pvc` | PVC name for backup data              |
+| `BACKUP_STORAGE_SIZE`        | `50Gi`          | Backup PVC size (must fit all dumps)         |
 | `MIGRATE_IDENTITY`           | `true`          | Migrate Identity PostgreSQL                  |
 | `MIGRATE_KEYCLOAK`           | `true`          | Migrate Keycloak + its PostgreSQL            |
 | `MIGRATE_WEBMODELER`         | `true`          | Migrate WebModeler PostgreSQL                |
 | `MIGRATE_ELASTICSEARCH`      | `true`          | Migrate Elasticsearch                        |
 
 Set any `MIGRATE_*` to `false` to skip a component (e.g. if it's not deployed or already uses an external service).
+
+**Target mode:**
+
+| Variable                     | Default         | Description                                  |
+| ---------------------------- | --------------- | -------------------------------------------- |
+| `PG_TARGET_MODE`             | `operator`      | `operator`: deploy CNPG. `external`: skip deployment, migrate to pre-existing target |
+| `ES_TARGET_MODE`             | `operator`      | `operator`: deploy ECK. `external`: skip deployment, point to pre-existing target |
+
+**Operator mode** (when `*_TARGET_MODE=operator`):
+
+| Variable                     | Default           | Description                                  |
+| ---------------------------- | ----------------- | -------------------------------------------- |
+| `CNPG_OPERATOR_NAMESPACE`    | `cnpg-system`     | Namespace for the CNPG operator              |
+| `ECK_OPERATOR_NAMESPACE`     | `elastic-system`  | Namespace for the ECK operator               |
+| `CNPG_IDENTITY_CLUSTER`     | `pg-identity`     | CNPG cluster name for Identity               |
+| `CNPG_KEYCLOAK_CLUSTER`     | `pg-keycloak`     | CNPG cluster name for Keycloak               |
+| `CNPG_WEBMODELER_CLUSTER`   | `pg-webmodeler`   | CNPG cluster name for WebModeler             |
+| `ECK_CLUSTER_NAME`          | `elasticsearch`   | ECK Elasticsearch cluster name               |
+
+**External mode** (when `*_TARGET_MODE=external`):
+
+| Variable                        | Default                  | Description                                  |
+| ------------------------------- | ------------------------ | -------------------------------------------- |
+| `EXTERNAL_PG_*_HOST`            | (empty)                  | PostgreSQL host per component                |
+| `EXTERNAL_PG_*_PORT`            | `5432`                   | PostgreSQL port per component                |
+| `EXTERNAL_PG_*_SECRET`          | `external-pg-<component>`| K8s Secret containing the password           |
+| `EXTERNAL_ES_HOST`              | (empty)                  | Elasticsearch host                           |
+| `EXTERNAL_ES_PORT`              | `443`                    | Elasticsearch port                           |
+| `EXTERNAL_ES_SECRET`            | `external-es`            | K8s Secret containing the password           |
+| `CUSTOM_HELM_VALUES_FILE`       | (empty)                  | Helm values file for external connections    |
+| `CUSTOM_KEYCLOAK_CONFIG_FILE`   | (empty)                  | Custom Keycloak CR for external PG           |
 
 ### When to use `external` target mode
 
@@ -170,6 +210,7 @@ Delegates to the `operator-based/` deploy scripts to install operators and creat
 Before deploying, the script:
 1. Displays a customization warning reminding you to review operator-based manifests
 2. Validates target resource allocations (CPU, memory, PVC sizes) against your current Bitnami StatefulSets
+3. Validates version compatibility (PG major downgrades blocked, ES major.minor must match)
 
 All targets are created empty and idle — no traffic is routed to them yet.
 
@@ -192,9 +233,8 @@ Sequence:
 2. **Freeze** all Camunda deployments (scale to 0)
 3. **Final backup** with no active connections (consistent state)
 4. **Restore** data to new operator-managed targets
-5. **Helm upgrade** to point Camunda at the new backends
-
-The Helm upgrade re-enables the deployments, so components restart automatically on the new infrastructure.
+5. **Sync Keycloak admin credentials** — copies the restored admin password to the operator secret so Keycloak and Identity stay in sync
+6. **Helm upgrade** to point Camunda at the new backends and restart all components
 
 ### Phase 4: Validate (`4-validate.sh`)
 
@@ -205,6 +245,9 @@ Checks:
 - CNPG clusters are in healthy state
 - ECK Elasticsearch is ready with indices
 - Keycloak CR is ready
+- Data verification job (if `tests/verify-test-data-job.yml` is present)
+
+At the end, generates a migration report in `.state/migration-report.md`.
 
 ### Rollback (`rollback.sh`)
 
@@ -245,7 +288,16 @@ The main factor is the `pg_restore` and ES reindex duration.
 
 ## Cleanup (post-migration)
 
-After validating the migration, remove old Bitnami resources:
+After validating the migration, remove old Bitnami resources.
+
+StatefulSet names vary depending on your Helm chart version. Discover yours first:
+
+```bash
+# List all Bitnami StatefulSets (adjust grep as needed)
+kubectl get sts -n ${NAMESPACE} | grep -E "postgresql|elasticsearch|keycloak"
+```
+
+Then delete them (common naming patterns shown):
 
 ```bash
 # Delete old PG StatefulSets and their PVCs
@@ -260,7 +312,7 @@ kubectl delete statefulset ${CAMUNDA_RELEASE_NAME}-elasticsearch-master -n ${NAM
 kubectl delete statefulset ${CAMUNDA_RELEASE_NAME}-keycloak -n ${NAMESPACE} --ignore-not-found
 
 # Delete migration backup PVC
-kubectl delete pvc migration-backup-pvc -n ${NAMESPACE}
+kubectl delete pvc ${BACKUP_PVC} -n ${NAMESPACE}
 
 # Delete old PVCs (verify first!)
 # kubectl get pvc -n ${NAMESPACE} | grep -E "postgresql|elasticsearch"
