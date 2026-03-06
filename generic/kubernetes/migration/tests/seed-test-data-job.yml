@@ -128,14 +128,19 @@ spec:
                         log ""
                         log "=== Zeebe: Deploying process and creating instances ==="
 
-                        # Obtain OIDC token for Zeebe REST API (orchestration client)
-                        log "Obtaining OIDC token for Zeebe (orchestration client)..."
+                        # Obtain OIDC token for Zeebe REST API via resource-owner password grant.
+                        # Uses the demo user (Identity firstUser / admin) so that the token carries
+                        # full permissions, unlike a client_credentials grant whose service-account
+                        # may lack deploy/create authorizations.
+                        log "Obtaining OIDC token for Zeebe (demo user, orchestration client)..."
                         ZEEBE_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
                             "${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token" \
                             -H "Content-Type: application/x-www-form-urlencoded" \
-                            -d "grant_type=client_credentials" \
+                            -d "grant_type=password" \
                             -d "client_id=orchestration" \
-                            -d "client_secret=${ORCHESTRATION_CLIENT_SECRET}" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4) \
+                            -d "client_secret=${ORCHESTRATION_CLIENT_SECRET}" \
+                            -d "username=${DEMO_USER}" \
+                            -d "password=${DEMO_PASS}" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4) \
                             || fail "Failed to obtain Zeebe OIDC token"
                         [ -n "${ZEEBE_TOKEN}" ] || fail "Empty Zeebe OIDC token"
                         ok "Got Zeebe OIDC token"
