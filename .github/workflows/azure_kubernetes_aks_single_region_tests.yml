@@ -26,6 +26,9 @@ on:
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/kubernetes-wildcard-certificate/**
             - .github/actions/internal-camunda-chart-tests/**
+            - .github/actions/kubernetes-eck-operator/**
+            - .github/actions/kubernetes-eck-operator-cleanup/**
+            - generic/kubernetes/operator-based/elasticsearch/**
 
     workflow_dispatch:
         inputs:
@@ -505,6 +508,12 @@ jobs:
                   yq ". *+ load(\"azure/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml\")" values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
+                  # Merge ECK Elasticsearch operator overlay
+                  echo "Merging ECK Elasticsearch config"
+                  OPERATOR_ES_PATH="generic/kubernetes/operator-based/elasticsearch"
+                  yq ". *+ load(\"${OPERATOR_ES_PATH}/camunda-elastic-values.yml\")" values.yml > values-merged.yml
+                  cat values-merged.yml && mv values-merged.yml values.yml
+
                   # Merge auth provider specific overlays (keycloak-operator or OIDC)
                   AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
                   HELM_VALUES_PATH="generic/kubernetes/single-region/helm-values"
@@ -612,6 +621,12 @@ jobs:
                   set -euo pipefail
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
 
+            - name: Deploy Elasticsearch via ECK Operator
+              timeout-minutes: 10
+              uses: ./.github/actions/kubernetes-eck-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
             - name: 🐘 Deploy Keycloak via Operator (keycloak-operator mode)
               if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
               timeout-minutes: 15
@@ -709,6 +724,7 @@ jobs:
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                   keycloak-service-name: ${{ matrix.scenario.auth_provider == 'keycloak-operator' && 'keycloak-service:18080' || '' }}
+                  elasticsearch-service-name: elasticsearch-es-http:9200
 
             - name: 🔬🚨 Get failed certificate info
               if: failure() && matrix.declination.name == 'domain'
@@ -725,11 +741,24 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   artifact-suffix: ${{ matrix.scenario.name }}-${{ matrix.declination.name }}
 
+            - name: 🧹 Cleanup ECK Elasticsearch deployment
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
             - name: 🧹 Cleanup Keycloak Operator deployment
               if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.auth_provider == 'keycloak-operator'
               uses: ./.github/actions/kubernetes-keycloak-operator-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
+            - name: 🧹 Uninstall ECK Operator
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  skip-operator-uninstall: 'false'
 
             - name: 🧹 Cleanup Namespace
               if: always() && env.CLEANUP_CLUSTERS == 'true'
