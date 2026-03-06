@@ -128,6 +128,18 @@ spec:
                         log ""
                         log "=== Zeebe: Deploying process and creating instances ==="
 
+                        # Obtain OIDC token for Zeebe REST API (orchestration client)
+                        log "Obtaining OIDC token for Zeebe (orchestration client)..."
+                        ZEEBE_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
+                            "${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token" \
+                            -H "Content-Type: application/x-www-form-urlencoded" \
+                            -d "grant_type=client_credentials" \
+                            -d "client_id=orchestration" \
+                            -d "client_secret=${ORCHESTRATION_CLIENT_SECRET}" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4) \
+                            || fail "Failed to obtain Zeebe OIDC token"
+                        [ -n "${ZEEBE_TOKEN}" ] || fail "Empty Zeebe OIDC token"
+                        ok "Got Zeebe OIDC token"
+
                         # Inline a minimal BPMN process (single service task)
                         BPMN_XML='<?xml version="1.0" encoding="UTF-8"?>
                         <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -155,11 +167,16 @@ spec:
 
                         # Deploy the process
                         log "Deploying BPMN process '${PROCESS_ID}'..."
-                        DEPLOY_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -u "${DEMO_USER}:${DEMO_PASS}" \
+                        DEPLOY_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
                             -X POST "${ZEEBE_URL}/v2/deployments" \
+                            -H "Authorization: Bearer ${ZEEBE_TOKEN}" \
                             -H "Accept: application/json" \
                             -F "resources=@/tmp/process.bpmn") \
-                            || fail "Failed to deploy process"
+                            || { log "Deploy response: $(curl -s --connect-timeout 5 --max-time 30 \
+                                -X POST "${ZEEBE_URL}/v2/deployments" \
+                                -H "Authorization: Bearer ${ZEEBE_TOKEN}" \
+                                -H "Accept: application/json" \
+                                -F "resources=@/tmp/process.bpmn")"; fail "Failed to deploy process"; }
 
                         PROC_DEF_KEY=$(echo "${DEPLOY_RESP}" | grep -o '"processDefinitionKey":"[^"]*"' | head -1 | cut -d'"' -f4)
                         ok "Deployed process, processDefinitionKey=${PROC_DEF_KEY}"
@@ -168,8 +185,9 @@ spec:
                         log "Creating ${NUM_INSTANCES} process instances..."
                         i=1
                         while [ "$i" -le "$NUM_INSTANCES" ]; do
-                            if curl -sf --connect-timeout 5 --max-time 30 -u "${DEMO_USER}:${DEMO_PASS}" \
+                            if curl -sf --connect-timeout 5 --max-time 30 \
                                 -X POST "${ZEEBE_URL}/v2/process-instances" \
+                                -H "Authorization: Bearer ${ZEEBE_TOKEN}" \
                                 -H "Content-Type: application/json" \
                                 -H "Accept: application/json" \
                                 -d "{
@@ -190,8 +208,9 @@ spec:
                         log "Waiting 15s for Elasticsearch indexing..."
                         sleep 15
 
-                        SEARCH_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -u "${DEMO_USER}:${DEMO_PASS}" \
+                        SEARCH_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
                             -X POST "${ZEEBE_URL}/v2/process-instances/search" \
+                            -H "Authorization: Bearer ${ZEEBE_TOKEN}" \
                             -H "Content-Type: application/json" \
                             -H "Accept: application/json" \
                             -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" 2>/dev/null || echo '{}')
@@ -360,6 +379,11 @@ spec:
                             secretKeyRef:
                                 name: camunda-credentials
                                 key: identity-keycloak-admin-password
+                      - name: ORCHESTRATION_CLIENT_SECRET
+                        valueFrom:
+                            secretKeyRef:
+                                name: camunda-credentials
+                                key: identity-orchestration-client-token
                   resources:
                       requests:
                           cpu: 100m

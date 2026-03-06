@@ -243,16 +243,23 @@ jobs:
                   kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
                       -f generic/kubernetes/migration/tests/seed-test-data-job.yml
 
-                  echo "Waiting for seed job to complete..."
+                  echo "Waiting for seed pod to be scheduled..."
+                  kubectl wait --for=condition=Ready pod \
+                      -l job-name=seed-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=120s 2>/dev/null || true
+
+                  echo "Streaming seed job logs..."
+                  kubectl logs job/seed-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --follow --tail=-1 &
+                  LOGS_PID=$!
+
                   kubectl wait --for=condition=complete job/seed-test-data \
                       -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || {
-                      echo "Seed job did not complete in time. Logs:"
-                      kubectl logs job/seed-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=100 || true
+                      echo "Seed job did not complete in time."
+                      kill "$LOGS_PID" 2>/dev/null || true
                       exit 1
                   }
-
-                  echo "Seed job logs:"
-                  kubectl logs job/seed-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=50 || true
+                  kill "$LOGS_PID" 2>/dev/null || true
 
                   echo "Seeding completed"
 
@@ -266,7 +273,7 @@ jobs:
                   kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
                       -f generic/kubernetes/migration/tests/benchmark-job.yml
 
-                  # Wait for the benchmark pod to be running before watching for completion
+                  # Wait for the benchmark pod to be running before streaming logs
                   echo "Waiting for benchmark pod to start..."
                   BENCHMARK_STARTED=false
                   for _ in $(seq 1 60); do
@@ -285,16 +292,22 @@ jobs:
                       sleep 5
                   done
 
+                  if [ "$BENCHMARK_STARTED" = "true" ]; then
+                      echo "Streaming benchmark logs..."
+                      kubectl logs job/migration-benchmark \
+                          -n "${{ env.CAMUNDA_NAMESPACE }}" --follow --tail=-1 &
+                      LOGS_PID=$!
+                  fi
+
                   # The benchmark runs indefinitely; activeDeadlineSeconds (300s) kills it.
                   # Wait for the job to finish (either DeadlineExceeded or failed).
                   kubectl wait --for=condition=failed job/migration-benchmark \
                       -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || true
 
+                  kill "$LOGS_PID" 2>/dev/null || true
+
                   echo "Benchmark init container logs (discover-auth):"
                   kubectl logs job/migration-benchmark -n "${{ env.CAMUNDA_NAMESPACE }}" -c discover-auth --tail=30 || true
-
-                  echo "Benchmark logs (last 30 lines):"
-                  kubectl logs job/migration-benchmark -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=30 || true
 
                   if [ "$BENCHMARK_STARTED" != "true" ]; then
                       echo "::error::Benchmark pod never reached Running phase — init container failed"
