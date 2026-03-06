@@ -92,8 +92,15 @@ generic/kubernetes/
     │   ├── pg-restore.job.yml       #   PostgreSQL restore (generic)
     │   ├── es-backup.job.yml        #   Elasticsearch backup verification
     │   └── es-restore.job.yml       #   Elasticsearch reindex restore
-    └── manifests/                   # Migration-specific manifests only
-        └── backup-pvc.yml           #   Shared backup PVC
+    ├── manifests/                   # Migration-specific manifests only
+    │   └── backup-pvc.yml           #   Shared backup PVC
+    └── tests/                       # CI & local test fixtures
+        ├── local-test.sh            #   Local Kind test runner
+        ├── seed-test-data-job.yml   #   Seed job (Zeebe, Keycloak, WebModeler)
+        ├── benchmark-job.yml        #   Benchmark job (Zeebe process instances)
+        ├── verify-test-data-job.yml #   Verify job (post-migration checks)
+        ├── bitnami-values.yml       #   Helm values for Bitnami deployment
+        └── kind-cluster-config.yaml #   Kind cluster config for local testing
 ```
 
 ## Quick Start
@@ -126,12 +133,28 @@ Edit `env.sh` before starting. Key variables:
 | `CAMUNDA_RELEASE_NAME`       | `camunda`       | Helm release name                            |
 | `CAMUNDA_HELM_CHART_VERSION` | (chart version) | Target Helm chart version                    |
 | `CAMUNDA_DOMAIN`             | (empty)         | Domain for Keycloak Ingress (empty = no TLS) |
+| `PG_TARGET_MODE`             | `operator`      | `operator`: deploy CNPG via the scripts. `external`: skip CNPG deployment and migrate data to a pre-existing target (managed service or operator already installed). |
+| `ES_TARGET_MODE`             | `operator`      | `operator`: deploy ECK via the scripts. `external`: skip ECK deployment and point to a pre-existing target (managed service or operator already installed). |
 | `MIGRATE_IDENTITY`           | `true`          | Migrate Identity PostgreSQL                  |
 | `MIGRATE_KEYCLOAK`           | `true`          | Migrate Keycloak + its PostgreSQL            |
 | `MIGRATE_WEBMODELER`         | `true`          | Migrate WebModeler PostgreSQL                |
 | `MIGRATE_ELASTICSEARCH`      | `true`          | Migrate Elasticsearch                        |
 
 Set any `MIGRATE_*` to `false` to skip a component (e.g. if it's not deployed or already uses an external service).
+
+### When to use `external` target mode
+
+Set `PG_TARGET_MODE=external` or `ES_TARGET_MODE=external` when the migration **should not** deploy operators or create cluster instances — i.e. when the target already exists:
+
+| Scenario | `*_TARGET_MODE` | Why |
+| --- | --- | --- |
+| Fresh cluster, no operators installed | `operator` (default) | Scripts install CNPG/ECK + create clusters |
+| Operators already installed by a platform team | `external` | Avoids overwriting the operator version (scripts apply a pinned version via `kubectl apply --server-side`) |
+| Target is a managed service (RDS, OpenSearch, …) | `external` | No operator needed — data migrates directly to the managed endpoint |
+
+When using `external` mode, you must also provide:
+- Connection details: `EXTERNAL_PG_*` or `EXTERNAL_ES_*` variables in `env.sh`
+- A `CUSTOM_HELM_VALUES_FILE` with Helm values pointing Camunda at the external targets
 
 ## Detailed Phase Descriptions
 
@@ -207,6 +230,18 @@ The main factor is the `pg_restore` and ES reindex duration.
 5. **Monitor resource quotas** — CNPG and ECK clusters consume additional CPU/memory
 6. **Elasticsearch connectivity** — The target ECK cluster uses the `_reindex` API to pull data from the source Bitnami ES over HTTP. Both clusters must be reachable within the same namespace.
 7. **DNS TTL** — If using a domain for Keycloak, ensure DNS TTL is low before cutover
+8. **Keycloak OIDC impact** — Keycloak is the OIDC provider for all Camunda components (and possibly external applications). Migrating to the Keycloak Operator changes the underlying service. To ensure a seamless transition:
+   - **Before migration:** Set up a DNS CNAME record pointing to Keycloak (e.g. `keycloak.example.com → camunda-keycloak.namespace.svc`), and reduce the TTL to 60s or less well in advance.
+   - **During cutover:** Use a `hooks/post-restore.sh` hook to switch the CNAME target to the new Keycloak Operator service. All applications using Keycloak OIDC will follow the DNS change automatically — no reconfiguration needed.
+   - **After validation:** Restore the TTL to a normal value.
+
+   If external applications depend on the same Keycloak realm, coordinate the DNS switch with their teams.
+
+   **Session impact:** The database migration preserves all persistent data (realms, users, clients, signing keys, refresh tokens). Since Keycloak 25+, user sessions are persisted in the database and survive the switch. In-flight authentication flows (login pages in progress) and pending action tokens (password reset links) are lost — users simply need to retry. This is inherent to the downtime window and has no lasting effect.
+
+## Limitations
+
+- **IRSA / IAM-based authentication is not supported.** The migration jobs use password-based PostgreSQL authentication (`PGPASSWORD`) and standard Elasticsearch HTTP API. Setups using AWS IAM Roles for Service Accounts (IRSA) with `jdbc:aws-wrapper` or OpenSearch with IAM auth require a custom migration approach.
 
 ## Cleanup (post-migration)
 
@@ -240,3 +275,56 @@ kubectl delete pvc migration-backup-pvc -n ${NAMESPACE}
 - **Aligned with reference arch**: Deploys the exact same operators and instances as `operator-based/`
 - **Validated**: Basic resource checks (CPU, memory, PVC sizes) before deployment
 - **Rollback-safe**: Helm values are backed up before cutover, enabling instant rollback
+
+## State Tracking
+
+The scripts maintain migration state in `.state/migration.env` — a plain key-value file that records:
+- **Phase completion** (`PHASE_1_COMPLETED=true`, `PHASE_1_TIMESTAMP=...`) — enforces execution order (Phase 3 requires Phase 2, etc.)
+- **Deployment decisions** (`ECK_DEPLOYED=true`, `PG_TARGET_IS_EXTERNAL=true`) — tracks what was deployed so subsequent phases know what to validate
+- **Logs** — each run appends to `.state/migration-YYYY-MM-DD.log`
+
+Check migration status at any time:
+
+```bash
+bash 1-deploy-targets.sh --status
+```
+
+The `.state/` directory is local and gitignored. To reset state (e.g. start over), simply delete it:
+
+```bash
+rm -rf .state/
+```
+
+## Hooks
+
+Each phase supports `pre-` and `post-` hooks for custom logic. Place executable shell scripts in the `hooks/` directory:
+
+| Hook file                    | When it runs                         |
+| ---------------------------- | ------------------------------------ |
+| `hooks/pre-phase-1.sh`      | Before deploying operators           |
+| `hooks/post-phase-1.sh`     | After operators + clusters are ready |
+| `hooks/pre-phase-2.sh`      | Before initial backup                |
+| `hooks/post-phase-2.sh`     | After initial backup completes       |
+| `hooks/pre-phase-3.sh`      | Before cutover (before freeze)       |
+| `hooks/post-phase-3.sh`     | After cutover (services restarted)   |
+| `hooks/pre-phase-4.sh`      | Before validation                    |
+| `hooks/post-phase-4.sh`     | After validation completes           |
+| `hooks/pre-rollback.sh`     | Before rollback                      |
+| `hooks/post-rollback.sh`    | After rollback completes             |
+
+Hooks are sourced (not executed), so they have access to all `env.sh` variables and `lib.sh` functions. Only present files are executed — missing hooks are silently skipped.
+
+**Example — DNS switch for Keycloak migration:**
+
+```bash
+# hooks/post-phase-3.sh
+# Switch the CNAME from old Bitnami Keycloak to new operator Keycloak
+log_info "Updating DNS CNAME for Keycloak..."
+aws route53 change-resource-record-sets \
+    --hosted-zone-id "$HOSTED_ZONE_ID" \
+    --change-batch '{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{
+        "Name":"keycloak.example.com",
+        "Type":"CNAME","TTL":60,
+        "ResourceRecords":[{"Value":"keycloak-service.camunda.svc.cluster.local"}]
+    }}]}'
+```

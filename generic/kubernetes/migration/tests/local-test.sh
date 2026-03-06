@@ -3,8 +3,9 @@
 # Local test runner for migration seed/verify jobs on Kind.
 #
 # Usage:
-#   ./local-test.sh              # Full run: reset cluster, deploy, seed
-#   ./local-test.sh seed-only    # Re-apply seed job on existing deployment
+#   ./local-test.sh              # Full run: reset cluster, deploy, seed, benchmark, verify
+#   ./local-test.sh seed-only    # Re-apply seed + benchmark jobs on existing deployment
+#   ./local-test.sh verify-only  # Run verify job on existing deployment
 #   ./local-test.sh deploy-only  # Deploy Camunda (skip cluster create)
 #   ./local-test.sh teardown     # Delete the Kind cluster
 # =============================================================================
@@ -19,6 +20,8 @@ RELEASE_NAME="camunda"
 KIND_CONFIG="${SCRIPT_DIR}/kind-cluster-config.yaml"
 VALUES_FILE="${SCRIPT_DIR}/bitnami-values.yml"
 SEED_JOB="${SCRIPT_DIR}/seed-test-data-job.yml"
+BENCHMARK_JOB="${SCRIPT_DIR}/benchmark-job.yml"
+VERIFY_JOB="${SCRIPT_DIR}/verify-test-data-job.yml"
 
 log() { echo "$(date +%H:%M:%S) | $*"; }
 err() { log "ERROR: $*" >&2; }
@@ -128,6 +131,56 @@ run_seed_job() {
     fi
 }
 
+run_benchmark_job() {
+    log "Cleaning up previous benchmark job (if any)..."
+    kubectl delete job migration-benchmark -n "${NAMESPACE}" --ignore-not-found=true
+
+    log "Applying benchmark job..."
+    kubectl apply -n "${NAMESPACE}" -f "${BENCHMARK_JOB}"
+
+    log "Waiting for benchmark to run (5 min deadline)..."
+    # The benchmark runs indefinitely; activeDeadlineSeconds (300s) terminates it.
+    # DeadlineExceeded counts as a failure condition, so we wait for that.
+    if kubectl wait --for=condition=complete job/migration-benchmark \
+        -n "${NAMESPACE}" --timeout=600s 2>/dev/null; then
+        log "Benchmark job completed"
+    elif kubectl wait --for=condition=failed job/migration-benchmark \
+        -n "${NAMESPACE}" --timeout=600s 2>/dev/null; then
+        log "Benchmark job terminated (DeadlineExceeded — expected)"
+    else
+        err "Benchmark job did not finish within timeout"
+        return 1
+    fi
+
+    kubectl logs job/migration-benchmark -n "${NAMESPACE}" --tail=20 || true
+
+    # Wait for ES to index the benchmark data
+    log "Waiting 30s for Elasticsearch to index benchmark data..."
+    sleep 30
+}
+
+run_verify_job() {
+    log "Cleaning up previous verify job (if any)..."
+    kubectl delete job verify-test-data -n "${NAMESPACE}" --ignore-not-found=true
+
+    log "Applying verify job..."
+    # verify-test-data-job.yml uses ${NAMESPACE} placeholder — substitute it
+    sed "s/\${NAMESPACE}/${NAMESPACE}/g" "${VERIFY_JOB}" \
+        | kubectl apply -n "${NAMESPACE}" -f -
+
+    log "Waiting for verify job..."
+    if kubectl wait --for=condition=complete job/verify-test-data \
+        -n "${NAMESPACE}" --timeout=300s; then
+        log "Verify job PASSED"
+    else
+        err "Verify job FAILED"
+        kubectl logs job/verify-test-data -n "${NAMESPACE}" --tail=50 || true
+        return 1
+    fi
+
+    kubectl logs job/verify-test-data -n "${NAMESPACE}" --tail=50
+}
+
 debug_services() {
     log "=== Debug: service connectivity from inside cluster ==="
     kubectl run debug-curl --rm -i --restart=Never -n "${NAMESPACE}" \
@@ -169,6 +222,8 @@ main() {
             deploy_camunda
             debug_services
             run_seed_job
+            run_benchmark_job
+            run_verify_job
             ;;
         deploy-only)
             ensure_cluster
@@ -179,6 +234,11 @@ main() {
             kubectl config use-context "kind-${CLUSTER_NAME}"
             debug_services
             run_seed_job
+            run_benchmark_job
+            ;;
+        verify-only)
+            kubectl config use-context "kind-${CLUSTER_NAME}"
+            run_verify_job
             ;;
         debug)
             kubectl config use-context "kind-${CLUSTER_NAME}"
@@ -188,7 +248,7 @@ main() {
             teardown
             ;;
         *)
-            echo "Usage: $0 {full|deploy-only|seed-only|debug|teardown}"
+            echo "Usage: $0 {full|deploy-only|seed-only|verify-only|debug|teardown}"
             exit 1
             ;;
     esac

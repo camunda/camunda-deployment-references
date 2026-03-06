@@ -82,13 +82,36 @@ DRY_RUN="false"
 CURRENT_SCRIPT="${CURRENT_SCRIPT:-}"
 
 # Standard Camunda component lists (used by freeze/validate).
-# 8.8+: zeebe-gateway, operate, tasklist are merged into the "zeebe" StatefulSet
-# (orchestration). Only optimize, identity, and connectors remain as Deployments.
-# The zeebe StatefulSet is handled separately by the freeze/validate logic.
-# shellcheck disable=SC2034 # Used by scripts that source lib.sh
-CAMUNDA_DEPLOYMENTS=(optimize identity connectors)
-# shellcheck disable=SC2034 # Used by scripts that source lib.sh
-CAMUNDA_WEBMODELER_COMPONENTS=(restapi webapp websockets)
+# Discovered dynamically from the cluster: list all deployments belonging to
+# the Helm release, excluding web-modeler/webmodeler (handled separately).
+# Falls back to a static list when the cluster is unreachable.
+discover_camunda_deployments() {
+    local all_deploys
+    all_deploys=$(kubectl get deployments -n "${NAMESPACE}" \
+        -l "app.kubernetes.io/instance=${CAMUNDA_RELEASE_NAME}" \
+        -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+
+    if [[ -z "$all_deploys" ]]; then
+        # Fallback: cluster not reachable or no deployments found
+        CAMUNDA_DEPLOYMENTS=(optimize identity connectors)
+        CAMUNDA_WEBMODELER_COMPONENTS=(restapi webapp websockets)
+        return
+    fi
+
+    CAMUNDA_DEPLOYMENTS=()
+    CAMUNDA_WEBMODELER_COMPONENTS=()
+
+    for deploy in $all_deploys; do
+        local short="${deploy#"${CAMUNDA_RELEASE_NAME}-"}"
+        # WebModeler: camunda-web-modeler-restapi or camunda-webmodeler-restapi
+        if [[ "$short" =~ ^web-?modeler-(.+)$ ]]; then
+            CAMUNDA_WEBMODELER_COMPONENTS+=("${BASH_REMATCH[1]}")
+        else
+            CAMUNDA_DEPLOYMENTS+=("$short")
+        fi
+    done
+}
+discover_camunda_deployments
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -1367,7 +1390,11 @@ introspect_pg() {
     export PG_IMAGE;       PG_IMAGE=$(echo "$json" | jq -r '.spec.template.spec.containers[0].image')
     export PG_STORAGE_SIZE; PG_STORAGE_SIZE=$(echo "$json" | jq -r '.spec.volumeClaimTemplates[0].spec.resources.requests.storage // "8Gi"')
     export PG_REPLICAS;    PG_REPLICAS=$(echo "$json" | jq -r '.spec.replicas // 1')
-    export PG_VERSION;     PG_VERSION=$(echo "$PG_IMAGE" | grep -oE '[0-9]+\.[0-9]+' | head -1 || echo "15")
+    export PG_VERSION;     PG_VERSION=$(echo "$PG_IMAGE" | grep -oE '[0-9]+\.[0-9]+' | head -1)
+    if [[ -z "$PG_VERSION" ]]; then
+        log_error "Could not detect PG version from image: ${PG_IMAGE}"
+        return 1
+    fi
 
     # Auto-detect the PG password secret from POSTGRES_PASSWORD or
     # POSTGRES_POSTGRES_PASSWORD env vars in the container spec.
@@ -1492,7 +1519,11 @@ introspect_es() {
     export ES_IMAGE;        ES_IMAGE=$(echo "$json" | jq -r '.spec.template.spec.containers[0].image')
     export ES_STORAGE_SIZE; ES_STORAGE_SIZE=$(echo "$json" | jq -r '.spec.volumeClaimTemplates[0].spec.resources.requests.storage // "30Gi"')
     export ES_REPLICAS;     ES_REPLICAS=$(echo "$json" | jq -r '.spec.replicas // 1')
-    export ES_VERSION;      ES_VERSION=$(echo "$ES_IMAGE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "8.15.0")
+    export ES_VERSION;      ES_VERSION=$(echo "$ES_IMAGE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    if [[ -z "$ES_VERSION" ]]; then
+        log_error "Could not detect ES version from image: ${ES_IMAGE}"
+        return 1
+    fi
 
     # Derive the ClusterIP service name from the StatefulSet name.
     # Bitnami convention: STS is "{release}-elasticsearch-master",
