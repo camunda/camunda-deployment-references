@@ -417,6 +417,7 @@ show_migration_status() {
 apply_template() {
     local tpl="$1"
     local save="${2:-}"
+    local explicit_varlist="${3:-}"
 
     if [[ ! -f "$tpl" ]]; then
         log_error "Template not found: $tpl"
@@ -426,8 +427,15 @@ apply_template() {
     # Build an explicit variable list for envsubst to avoid clobbering
     # runtime shell variables ($RETRY, $AUTH, $STATE, etc.) inside embedded
     # scripts.  Only ${VAR} references are treated as template parameters.
+    # When an explicit varlist is provided (3rd arg), use it instead of
+    # auto-detecting — necessary for templates with embedded shell scripts
+    # whose uppercase ${VAR} references would otherwise be matched.
     local varlist
-    varlist=$(grep -oE '\$\{[A-Z_][A-Z0-9_]*\}' "$tpl" | sort -u | tr '\n' ' ')
+    if [[ -n "$explicit_varlist" ]]; then
+        varlist="$explicit_varlist"
+    else
+        varlist=$(grep -oE '\$\{[A-Z_][A-Z0-9_]*\}' "$tpl" | sort -u | tr '\n' ' ')
+    fi
 
     local rendered
     rendered=$(envsubst "$varlist" < "$tpl")
@@ -464,11 +472,12 @@ apply_template() {
 # Before creating, cleans up any previous instance of the same job.
 # On failure, shows describe output and recent events for debugging.
 # All variables must be exported before calling.
-# Usage: run_job <template.yml> <job-name> [timeout_seconds]
+# Usage: run_job <template.yml> <job-name> [timeout_seconds] [envsubst_varlist]
 run_job() {
     local tpl="$1"
     local job_name="$2"
     local timeout="${3:-1800}"
+    local varlist="${4:-}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "[dry-run] Would run job: ${job_name} (template: ${tpl})"
@@ -484,7 +493,7 @@ run_job() {
     fi
 
     log_info "Creating job ${job_name} ..."
-    apply_template "$tpl" "${STATE_DIR}/${job_name}.yml"
+    apply_template "$tpl" "${STATE_DIR}/${job_name}.yml" "$varlist"
 
     log_info "Waiting for job ${job_name} (timeout ${timeout}s) ..."
 

@@ -42,7 +42,10 @@ echo ""
 TESTS_DIR="${MIGRATION_DIR}/tests"
 
 log_info "Running data verification job ..."
-run_job "${TESTS_DIR}/verify-test-data-job.yml" "verify-test-data" 600
+# Pass explicit varlist to prevent envsubst from clobbering the
+# shell variables inside the embedded verification script.
+# shellcheck disable=SC2016 # Intentional: literal ${NAMESPACE} for envsubst
+run_job "${TESTS_DIR}/verify-test-data-job.yml" "verify-test-data" 600 '${NAMESPACE}'
 
 echo ""
 echo "--- Verification logs ---"
