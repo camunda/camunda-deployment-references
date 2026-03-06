@@ -61,14 +61,23 @@ spec:
                           fi
 
                           echo "Looking up orchestration client..."
-                          CLIENT_UUID=$(curl -sf --max-time 10 \
-                            "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=orchestration" \
-                            -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-                            | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4) || true
+                          CLIENT_UUID=""
+                          ORCH_CLIENT_ID=""
+                          for CANDIDATE in orchestration orchestration-api; do
+                            CLIENT_UUID=$(curl -sf --max-time 10 \
+                              "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=${CANDIDATE}" \
+                              -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+                              | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4) || true
+                            if [ -n "${CLIENT_UUID}" ]; then
+                              ORCH_CLIENT_ID="${CANDIDATE}"
+                              break
+                            fi
+                          done
                           if [ -z "${CLIENT_UUID:-}" ]; then
                             echo "WARN: orchestration client not found (Identity not ready?)"
                             sleep $RETRY_DELAY; continue
                           fi
+                          echo "Found client '${ORCH_CLIENT_ID}'"
 
                           echo "Fetching client secret..."
                           SECRET=$(curl -sf --max-time 10 \
@@ -82,7 +91,8 @@ spec:
 
                           mkdir -p /tmp/auth
                           echo -n "${SECRET}" > /tmp/auth/client-secret
-                          echo "Auth configured for orchestration client."
+                          echo -n "${ORCH_CLIENT_ID}" > /tmp/auth/client-id
+                          echo "Auth configured for client '${ORCH_CLIENT_ID}'."
                           exit 0
                         done
 
@@ -105,8 +115,8 @@ spec:
                   command: [/bin/sh, -c]
                   args:
                       - |
-                        SECRET=$(cat /tmp/auth/client-secret)
-                        export CAMUNDA_CLIENT_AUTH_CLIENT_SECRET="${SECRET}"
+                        export CAMUNDA_CLIENT_AUTH_CLIENT_SECRET="$(cat /tmp/auth/client-secret)"
+                        export CAMUNDA_CLIENT_AUTH_CLIENT_ID="$(cat /tmp/auth/client-id)"
                         exec java -jar /app.jar
                   env:
                       - name: CAMUNDA_CLIENT_MODE
@@ -117,8 +127,6 @@ spec:
                         value: http://camunda-zeebe-gateway:8080/rest
                       - name: CAMUNDA_CLIENT_ZEEBE_PREFER_REST_OVER_GRPC
                         value: 'false'
-                      - name: CAMUNDA_CLIENT_AUTH_CLIENT_ID
-                        value: orchestration
                       - name: CAMUNDA_CLIENT_AUTH_ISSUER
                         value: http://camunda-keycloak:80/auth/realms/camunda-platform/protocol/openid-connect/token
                       - name: BENCHMARK_START_PROCESSES

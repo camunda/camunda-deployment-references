@@ -266,15 +266,27 @@ spec:
                             log ""
                             log "=== Verifying WebModeler data ==="
 
-                            # WebModeler requires a token with azp=web-modeler (public client).
-                            # The camunda-identity token is rejected (401).
+                            # WebModeler requires a token from the web-modeler-api client.
+                            # Discover the client secret from Keycloak admin API.
                             WM_TOKEN=""
-                            if [ -n "${KC_URL}" ]; then
-                                WM_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
-                                    "${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token" \
-                                    -H "Content-Type: application/x-www-form-urlencoded" \
-                                    -d "grant_type=password&client_id=web-modeler&username=${DEMO_USER}&password=${DEMO_PASS}" \
-                                    2>/dev/null | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
+                            if [ -n "${KC_ADMIN_TOKEN:-}" ]; then
+                                WM_CLIENT_UUID=$(curl -sf --connect-timeout 5 --max-time 10 \
+                                    "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=web-modeler-api" \
+                                    -H "Authorization: Bearer ${KC_ADMIN_TOKEN}" 2>/dev/null \
+                                    | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+                                if [ -n "${WM_CLIENT_UUID}" ]; then
+                                    WM_SECRET=$(curl -sf --connect-timeout 5 --max-time 10 \
+                                        "${KC_URL}/admin/realms/${KC_REALM}/clients/${WM_CLIENT_UUID}/client-secret" \
+                                        -H "Authorization: Bearer ${KC_ADMIN_TOKEN}" 2>/dev/null \
+                                        | grep -o '"value":"[^"]*"' | cut -d'"' -f4 || echo "")
+                                    if [ -n "${WM_SECRET}" ]; then
+                                        WM_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
+                                            "${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token" \
+                                            -H "Content-Type: application/x-www-form-urlencoded" \
+                                            -d "grant_type=client_credentials&client_id=web-modeler-api&client_secret=${WM_SECRET}" \
+                                            2>/dev/null | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
+                                    fi
+                                fi
                             fi
 
                             if [ -n "${WM_TOKEN}" ]; then
