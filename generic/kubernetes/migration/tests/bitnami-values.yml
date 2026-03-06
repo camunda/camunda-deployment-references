@@ -21,6 +21,10 @@ global:
     security:
         # Required for vendor-ee images (not signed by Bitnami)
         allowInsecureImages: true
+        authentication:
+            # OIDC auth so Identity registers clients (orchestration, connectors, etc.) in Keycloak.
+            # Without this, the default is "basic" and no Keycloak clients are created.
+            method: oidc
     identity:
         auth:
             enabled: true
@@ -116,6 +120,19 @@ webModelerPostgresql:
 optimize:
     enabled: true
 
+# Connectors — reference auto-generated OIDC secret
+connectors:
+    security:
+        authentication:
+            oidc:
+                existingSecret: camunda-credentials
+
 # Orchestration cluster (replaces zeebe, operate, tasklist in 8.8+)
 orchestration:
     enabled: true
+    security:
+        authentication:
+            oidc:
+                # Reference the auto-generated secret so Identity can register
+                # the orchestration client in Keycloak with a known secret.
+                existingSecret: camunda-credentials
