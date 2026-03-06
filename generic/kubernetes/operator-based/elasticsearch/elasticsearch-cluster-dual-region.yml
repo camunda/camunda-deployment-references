@@ -30,7 +30,7 @@ spec:
         - secretName: elasticsearch-env-secret
     nodeSets:
         - name: masters
-          count: 2
+          count: 3
           config:
               # Disable mmap for compatibility with containers that lack the required vm.max_map_count sysctl
               # yamllint disable-line
@@ -61,7 +61,7 @@ spec:
                               value: '300'
                         resources:
                             requests:
-                                cpu: 500Mi
+                                cpu: 1
                                 memory: 2Gi
                             limits:
                                 cpu: 2
