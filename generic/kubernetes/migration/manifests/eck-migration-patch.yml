@@ -1,0 +1,27 @@
+---
+# Migration-specific ECK cluster overrides.
+# Deep-merged onto operator-based/elasticsearch/elasticsearch-cluster.yml
+# by lib.sh deploy_elasticsearch().
+#
+# Variables (substituted via envsubst at runtime):
+#   ECK_CLUSTER_NAME — name of the migration ECK cluster
+metadata:
+    name: ${ECK_CLUSTER_NAME}
+spec:
+    nodeSets:
+        - name: masters
+          config:
+              # Allow _reindex from any in-cluster ES on port 9200
+              # yamllint disable-line
+              reindex.remote.whitelist: '*:9200'
+          podTemplate:
+              spec:
+                  affinity:
+                      podAntiAffinity:
+                          requiredDuringSchedulingIgnoredDuringExecution:
+                              - labelSelector:
+                                    matchExpressions:
+                                        - key: elasticsearch.k8s.elastic.co/cluster-name
+                                          operator: In
+                                          values:
+                                              - ${ECK_CLUSTER_NAME}

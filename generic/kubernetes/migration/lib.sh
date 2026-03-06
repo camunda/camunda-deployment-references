@@ -1164,17 +1164,16 @@ deploy_elasticsearch() {
     log_info "Deploying Elasticsearch via operator-based reference ..."
 
     local ref_eck="${OPERATOR_BASED_DIR}/elasticsearch/elasticsearch-cluster.yml"
+    local migration_patch="${MANIFESTS_DIR}/eck-migration-patch.yml"
     local rendered_eck="${STATE_DIR}/eck-cluster-rendered.yml"
 
-    # Patch the reference manifest for migration:
-    #  1. Set metadata.name to ECK_CLUSTER_NAME
-    #  2. Update affinity selector values to match
-    #  3. Add reindex.remote.whitelist so _reindex can pull from source ES
-    yq eval '
-        .metadata.name = "'"${ECK_CLUSTER_NAME}"'" |
-        .spec.nodeSets[0].podTemplate.spec.affinity.podAntiAffinity[][0].podAffinityTerm.labelSelector.matchExpressions[0].values[0] = "'"${ECK_CLUSTER_NAME}"'" |
-        .spec.nodeSets[0].config."reindex.remote.whitelist" = "*:9200"
-    ' "$ref_eck" > "$rendered_eck"
+    # Deep-merge the migration patch (name + reindex whitelist) onto the
+    # base reference manifest, then update the affinity selector to match.
+    export ECK_CLUSTER_NAME
+    # shellcheck disable=SC2016
+    envsubst '${ECK_CLUSTER_NAME}' < "$migration_patch" \
+        | yq eval-all 'select(fileIndex == 0) *d select(fileIndex == 1)' "$ref_eck" - \
+        > "$rendered_eck"
 
     (
         cd "${OPERATOR_BASED_DIR}/elasticsearch"
