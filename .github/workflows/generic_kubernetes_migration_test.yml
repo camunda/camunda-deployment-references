@@ -268,12 +268,17 @@ jobs:
 
                   # Wait for the benchmark pod to be running before watching for completion
                   echo "Waiting for benchmark pod to start..."
+                  BENCHMARK_STARTED=false
                   for _ in $(seq 1 60); do
                       PHASE=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" \
                           -l job-name=migration-benchmark \
                           -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Pending")
-                      if [ "$PHASE" = "Running" ] || [ "$PHASE" = "Succeeded" ] || [ "$PHASE" = "Failed" ]; then
+                      if [ "$PHASE" = "Running" ] || [ "$PHASE" = "Succeeded" ]; then
                           echo "Pod phase: $PHASE"
+                          BENCHMARK_STARTED=true
+                          break
+                      elif [ "$PHASE" = "Failed" ]; then
+                          echo "Pod phase: $PHASE (init container likely failed)"
                           break
                       fi
                       echo "  pod phase: $PHASE (waiting...)"
@@ -285,8 +290,16 @@ jobs:
                   kubectl wait --for=condition=failed job/migration-benchmark \
                       -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || true
 
+                  echo "Benchmark init container logs (discover-auth):"
+                  kubectl logs job/migration-benchmark -n "${{ env.CAMUNDA_NAMESPACE }}" -c discover-auth --tail=30 || true
+
                   echo "Benchmark logs (last 30 lines):"
                   kubectl logs job/migration-benchmark -n "${{ env.CAMUNDA_NAMESPACE }}" --tail=30 || true
+
+                  if [ "$BENCHMARK_STARTED" != "true" ]; then
+                      echo "::error::Benchmark pod never reached Running phase — init container failed"
+                      exit 1
+                  fi
 
                   echo "Benchmark finished"
 

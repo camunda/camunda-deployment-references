@@ -44,31 +44,50 @@ spec:
                         set -eu
                         KC_URL="http://camunda-keycloak:80/auth"
                         KC_REALM="camunda-platform"
+                        MAX_RETRIES=12
+                        RETRY_DELAY=10
 
-                        echo "Obtaining Keycloak admin token..."
-                        ADMIN_TOKEN=$(curl -sf --max-time 30 -X POST \
-                          "${KC_URL}/realms/master/protocol/openid-connect/token" \
-                          -d "grant_type=password&client_id=admin-cli&username=admin&password=${KC_ADMIN_PASS}" \
-                          | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
-                        [ -n "${ADMIN_TOKEN}" ] || { echo "ERROR: cannot get admin token"; exit 1; }
+                        for ATTEMPT in $(seq 1 $MAX_RETRIES); do
+                          echo "=== Attempt ${ATTEMPT}/${MAX_RETRIES} ==="
 
-                        echo "Looking up orchestration client..."
-                        CLIENT_UUID=$(curl -sf --max-time 10 \
-                          "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=orchestration" \
-                          -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-                          | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-                        [ -n "${CLIENT_UUID}" ] || { echo "ERROR: orchestration client not found"; exit 1; }
+                          echo "Obtaining Keycloak admin token..."
+                          ADMIN_TOKEN=$(curl -sf --max-time 30 -X POST \
+                            "${KC_URL}/realms/master/protocol/openid-connect/token" \
+                            -d "grant_type=password&client_id=admin-cli&username=admin&password=${KC_ADMIN_PASS}" \
+                            | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4) || true
+                          if [ -z "${ADMIN_TOKEN:-}" ]; then
+                            echo "WARN: cannot get admin token (Keycloak not ready?)"
+                            sleep $RETRY_DELAY; continue
+                          fi
 
-                        echo "Fetching client secret..."
-                        SECRET=$(curl -sf --max-time 10 \
-                          "${KC_URL}/admin/realms/${KC_REALM}/clients/${CLIENT_UUID}/client-secret" \
-                          -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-                          | grep -o '"value":"[^"]*"' | cut -d'"' -f4)
-                        [ -n "${SECRET}" ] || { echo "ERROR: cannot fetch orchestration secret"; exit 1; }
+                          echo "Looking up orchestration client..."
+                          CLIENT_UUID=$(curl -sf --max-time 10 \
+                            "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=orchestration" \
+                            -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+                            | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4) || true
+                          if [ -z "${CLIENT_UUID:-}" ]; then
+                            echo "WARN: orchestration client not found (Identity not ready?)"
+                            sleep $RETRY_DELAY; continue
+                          fi
 
-                        mkdir -p /tmp/auth
-                        echo -n "${SECRET}" > /tmp/auth/client-secret
-                        echo "Auth configured for orchestration client."
+                          echo "Fetching client secret..."
+                          SECRET=$(curl -sf --max-time 10 \
+                            "${KC_URL}/admin/realms/${KC_REALM}/clients/${CLIENT_UUID}/client-secret" \
+                            -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+                            | grep -o '"value":"[^"]*"' | cut -d'"' -f4) || true
+                          if [ -z "${SECRET:-}" ]; then
+                            echo "WARN: cannot fetch orchestration secret"
+                            sleep $RETRY_DELAY; continue
+                          fi
+
+                          mkdir -p /tmp/auth
+                          echo -n "${SECRET}" > /tmp/auth/client-secret
+                          echo "Auth configured for orchestration client."
+                          exit 0
+                        done
+
+                        echo "ERROR: failed after ${MAX_RETRIES} attempts"
+                        exit 1
                   env:
                       - name: KC_ADMIN_PASS
                         valueFrom:
