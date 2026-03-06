@@ -92,11 +92,37 @@ spec:
                           exit 0
                         fi
 
-                        # Delete existing Camunda indices on target to avoid conflicts
-                        echo "Cleaning up existing indices on target..."
+                        # Check if target already has Camunda indices — refuse to
+                        # overwrite to avoid accidental data loss.
+                        EXISTING=""
                         for pattern in "zeebe-*" "operate-*" "tasklist-*" "optimize-*" "connectors-*" "camunda-*"; do
-                          curl -sf -X DELETE $TARGET_AUTH "$TARGET/$pattern" 2>/dev/null || true
+                          MATCH=$(curl -sf $TARGET_AUTH "$TARGET/_cat/indices/$pattern?h=index" 2>/dev/null || true)
+                          if [ -n "$MATCH" ]; then
+                            EXISTING=$(printf '%s\n%s' "$EXISTING" "$MATCH")
+                          fi
                         done
+                        EXISTING=$(echo "$EXISTING" | sed '/^$/d' | sort)
+
+                        if [ -n "$EXISTING" ]; then
+                          EXIST_COUNT=$(echo "$EXISTING" | wc -l | tr -d ' ')
+                          echo ""
+                          echo "ERROR: Target Elasticsearch already contains $EXIST_COUNT Camunda index(es):"
+                          echo "$EXISTING" | sed 's/^/  - /'
+                          echo ""
+                          echo "Reindexing into existing indices would cause conflicts."
+                          echo ""
+                          echo "To proceed, manually delete the existing indices on the target:"
+                          echo ""
+                          echo "  ⚠  THIS IS A DESTRUCTIVE OPERATION — the data in these indices will be lost."
+                          echo ""
+                          echo "  ES_TARGET=http://${TARGET_ES_HOST}:${TARGET_ES_PORT}"
+                          for pattern in "zeebe-*" "operate-*" "tasklist-*" "optimize-*" "connectors-*" "camunda-*"; do
+                            echo "  curl -X DELETE \"\$ES_TARGET/$pattern\""
+                          done
+                          echo ""
+                          echo "Then re-run the migration."
+                          exit 1
+                        fi
 
                         # Build remote source auth fragment
                         REMOTE_AUTH=""

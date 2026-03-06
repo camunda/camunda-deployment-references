@@ -11,7 +11,7 @@ This migration is designed to align your setup with the [operator-based referenc
 >
 > In particular, verify:
 > - **PostgreSQL clusters** (`operator-based/postgresql/postgresql-clusters.yml`): storage size, replicas, PG version, parameters
-> - **Elasticsearch cluster** (`migration/manifests/eck-cluster.yml`): node count, storage, resource limits
+> - **Elasticsearch cluster** (`operator-based/elasticsearch/elasticsearch-cluster.yml`): node count, storage, resource limits
 > - **Keycloak CR** (`operator-based/keycloak/keycloak-instance-*.yml`): replicas, resource limits, hostname
 > - **Helm values** (`operator-based/*/camunda-*-values.yml`): connection settings, secrets
 >
@@ -93,8 +93,7 @@ generic/kubernetes/
     │   ├── es-backup.job.yml        #   Elasticsearch backup verification
     │   └── es-restore.job.yml       #   Elasticsearch reindex restore
     └── manifests/                   # Migration-specific manifests only
-        ├── backup-pvc.yml           #   Shared backup PVC
-        └── eck-cluster.yml          #   ECK cluster with snapshot repo support
+        └── backup-pvc.yml           #   Shared backup PVC
 ```
 
 ## Quick Start

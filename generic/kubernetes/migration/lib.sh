@@ -765,8 +765,8 @@ validate_es_resources() {
     source_mem=$(kubectl get statefulset "$sts_name" -n "${NAMESPACE}" \
         -o jsonpath='{.spec.template.spec.containers[0].resources.requests.memory}' 2>/dev/null || echo "")
 
-    # Compare with ECK cluster manifest (migration-specific, has backup PVC)
-    local eck_file="${MANIFESTS_DIR}/eck-cluster.yml"
+    # Compare with ECK cluster manifest (operator-based reference)
+    local eck_file="${OPERATOR_BASED_DIR}/elasticsearch/elasticsearch-cluster.yml"
     if [[ -f "$eck_file" ]]; then
         local target_storage target_cpu target_mem
         target_storage=$(grep -A2 'storage:' "$eck_file" | tail -1 | awk '{print $2}' || echo "")
@@ -907,7 +907,7 @@ validate_es_version() {
 
     # Get target ES version from ECK manifest
     local target_version
-    target_version=$(yq '.spec.version' "${MANIFESTS_DIR}/eck-cluster.yml" 2>/dev/null || echo "")
+    target_version=$(yq '.spec.version' "${OPERATOR_BASED_DIR}/elasticsearch/elasticsearch-cluster.yml" 2>/dev/null || echo "")
 
     if [[ -z "$target_version" ]]; then
         return 0
@@ -929,7 +929,7 @@ validate_es_version() {
     elif [[ "$src_minor" != "$tgt_minor" ]]; then
         log_error "  ES: minor version MISMATCH (source=${source_version} → target=${target_version})"
         log_error "    Source and target must share the same major.minor version (patch differences are OK)"
-        log_error "    Update the ECK manifest (eck-cluster.yml) to use version ${src_minor}.x"
+        log_error "    Update the ECK manifest (operator-based/elasticsearch/elasticsearch-cluster.yml) to use version ${src_minor}.x"
         issues=1
     elif [[ "$source_version" != "$target_version" ]]; then
         log_success "  ES: version OK (source=${source_version}, target=${target_version} — same minor, patch differs)"
@@ -1128,7 +1128,9 @@ deploy_postgresql() {
 }
 
 # Deploy ECK operator + Elasticsearch cluster.
-# Uses the migration-specific ECK manifest (with reindex.remote.whitelist for data migration).
+# Reuses the operator-based reference manifest, patching in:
+#   - metadata.name / affinity values → ECK_CLUSTER_NAME
+#   - reindex.remote.whitelist → allows _reindex from the source (Bitnami) ES
 deploy_elasticsearch() {
     if is_external_es; then
         log_info "ES_TARGET_MODE=external — skipping ECK operator deployment"
@@ -1138,9 +1140,18 @@ deploy_elasticsearch() {
 
     log_info "Deploying Elasticsearch via operator-based reference ..."
 
-    # Render migration-specific ECK cluster manifest (needs envsubst for variables)
+    local ref_eck="${OPERATOR_BASED_DIR}/elasticsearch/elasticsearch-cluster.yml"
     local rendered_eck="${STATE_DIR}/eck-cluster-rendered.yml"
-    envsubst < "${MANIFESTS_DIR}/eck-cluster.yml" > "$rendered_eck"
+
+    # Patch the reference manifest for migration:
+    #  1. Set metadata.name to ECK_CLUSTER_NAME
+    #  2. Update affinity selector values to match
+    #  3. Add reindex.remote.whitelist so _reindex can pull from source ES
+    yq eval '
+        .metadata.name = "'"${ECK_CLUSTER_NAME}"'" |
+        .spec.nodeSets[0].podTemplate.spec.affinity.podAntiAffinity[][0].podAffinityTerm.labelSelector.matchExpressions[0].values[0] = "'"${ECK_CLUSTER_NAME}"'" |
+        .spec.nodeSets[0].config."reindex.remote.whitelist" = "*:9200"
+    ' "$ref_eck" > "$rendered_eck"
 
     (
         cd "${OPERATOR_BASED_DIR}/elasticsearch"

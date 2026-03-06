@@ -54,6 +54,30 @@ spec:
                         [ -f "$DUMP" ] || { echo "ERROR: no backup found"; exit 1; }
                         echo "Restoring from: $DUMP"
 
+                        # Safety check: refuse to restore into a non-empty database.
+                        # pg_restore --clean drops existing objects, which could destroy
+                        # production data if the target is not a fresh database.
+                        TABLE_COUNT=$(psql -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" \
+                          -U "${TARGET_PG_USER}" -d "${TARGET_PG_DATABASE}" -tAc \
+                          "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" 2>/dev/null || echo "0")
+
+                        if [ "$TABLE_COUNT" -gt 0 ]; then
+                          echo ""
+                          echo "ERROR: Target database '${TARGET_PG_DATABASE}' already contains $TABLE_COUNT table(s)."
+                          echo ""
+                          echo "Restoring would drop and recreate all objects, destroying existing data."
+                          echo ""
+                          echo "  ⚠  THIS IS A DESTRUCTIVE OPERATION"
+                          echo ""
+                          echo "To proceed, manually clean the target database first:"
+                          echo ""
+                          echo "  psql -h ${TARGET_PG_HOST} -p ${TARGET_PG_PORT} -U ${TARGET_PG_USER} -d ${TARGET_PG_DATABASE}"
+                          echo "  DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+                          echo ""
+                          echo "Then re-run the migration."
+                          exit 1
+                        fi
+
                         pg_restore -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" \
                           -U "${TARGET_PG_USER}" -d "${TARGET_PG_DATABASE}" \
                           --clean --if-exists --no-owner --no-privileges \

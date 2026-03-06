@@ -1,38 +1,107 @@
 ---
-# Benchmark job to generate test data for migration validation.
-# Deploys a short-lived job that creates process instances in the Camunda cluster
-# via the camunda-8-benchmark tool.
+# Benchmark job to generate realistic Zeebe data for migration validation.
 #
-# Usage: envsubst < benchmark-job.yml | kubectl apply -n <namespace> -f -
-# Required env: CAMUNDA_NAMESPACE (only for labels, the namespace is set at apply time)
+# Uses camunda-8-benchmark to create process instances via gRPC, producing
+# real exporter data in Elasticsearch (operate, tasklist indices).
+# Runs for 5 minutes at 5 PI/s (~1500 process instances), then the Job
+# is terminated by activeDeadlineSeconds.
+#
+# Authentication: uses the Keycloak admin API to look up the zeebe-api
+# client secret, then configures OIDC for the benchmark tool.
+#
+# Prerequisites:
+#   - Camunda 8.8+ deployed with Bitnami sub-charts
+#   - Keycloak admin password in camunda-credentials secret
+#
+# Usage:
+#   kubectl apply -n camunda -f benchmark-job.yml
+#   kubectl wait --for=condition=complete job/migration-benchmark -n camunda --timeout=600s
 
 apiVersion: batch/v1
 kind: Job
 metadata:
-    name: migration-test-data-generator
+    name: migration-benchmark
     labels:
         app: migration-test-data
 spec:
     ttlSecondsAfterFinished: 3600
-    backoffLimit: 3
+    activeDeadlineSeconds: 300
+    backoffLimit: 0
     template:
         metadata:
             labels:
                 app: migration-test-data
         spec:
             restartPolicy: Never
+            initContainers:
+                # Discover the zeebe-api client secret from Keycloak admin API.
+                # Writes /tmp/auth/client-secret for the benchmark container.
+                - name: discover-auth
+                  image: alpine/curl:latest
+                  command: [/bin/sh, -c]
+                  args:
+                      - |
+                        set -eu
+                        KC_URL="http://camunda-keycloak:80/auth"
+                        KC_REALM="camunda-platform"
+
+                        echo "Obtaining Keycloak admin token..."
+                        ADMIN_TOKEN=$(curl -sf --max-time 30 -X POST \
+                          "${KC_URL}/realms/master/protocol/openid-connect/token" \
+                          -d "grant_type=password&client_id=admin-cli&username=admin&password=${KC_ADMIN_PASS}" \
+                          | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+                        [ -n "${ADMIN_TOKEN}" ] || { echo "ERROR: cannot get admin token"; exit 1; }
+
+                        echo "Looking up zeebe-api client..."
+                        CLIENT_UUID=$(curl -sf --max-time 10 \
+                          "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=zeebe-api" \
+                          -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+                          | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+                        [ -n "${CLIENT_UUID}" ] || { echo "ERROR: zeebe-api client not found"; exit 1; }
+
+                        echo "Fetching client secret..."
+                        SECRET=$(curl -sf --max-time 10 \
+                          "${KC_URL}/admin/realms/${KC_REALM}/clients/${CLIENT_UUID}/client-secret" \
+                          -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+                          | grep -o '"value":"[^"]*"' | cut -d'"' -f4)
+                        [ -n "${SECRET}" ] || { echo "ERROR: cannot fetch zeebe-api secret"; exit 1; }
+
+                        mkdir -p /tmp/auth
+                        echo -n "${SECRET}" > /tmp/auth/client-secret
+                        echo "Auth configured for zeebe-api client."
+                  env:
+                      - name: KC_ADMIN_PASS
+                        valueFrom:
+                            secretKeyRef:
+                                name: camunda-credentials
+                                key: identity-keycloak-admin-password
+                  volumeMounts:
+                      - {name: auth, mountPath: /tmp/auth}
+                  resources:
+                      requests: {cpu: 50m, memory: 64Mi}
+                      limits: {cpu: 200m, memory: 128Mi}
             containers:
                 - name: benchmark
                   image: camundacommunityhub/camunda-8-benchmark:main
+                  command: [/bin/sh, -c]
+                  args:
+                      - |
+                        SECRET=$(cat /tmp/auth/client-secret)
+                        export CAMUNDA_CLIENT_AUTH_CLIENT_SECRET="${SECRET}"
+                        exec java -jar /app.jar
                   env:
                       - name: CAMUNDA_CLIENT_MODE
                         value: self-managed
-                      - name: CAMUNDA_CLIENT_ZEEBE_BASE_URL
-                        value: http://camunda-zeebe-gateway:26500
                       - name: CAMUNDA_CLIENT_ZEEBE_GRPC_ADDRESS
                         value: http://camunda-zeebe-gateway:26500
+                      - name: CAMUNDA_CLIENT_ZEEBE_REST_ADDRESS
+                        value: http://camunda-zeebe-gateway:8080/rest
                       - name: CAMUNDA_CLIENT_ZEEBE_PREFER_REST_OVER_GRPC
                         value: 'false'
+                      - name: CAMUNDA_CLIENT_AUTH_CLIENT_ID
+                        value: zeebe-api
+                      - name: CAMUNDA_CLIENT_AUTH_ISSUER
+                        value: http://camunda-keycloak:80/auth/realms/camunda-platform/protocol/openid-connect/token
                       - name: BENCHMARK_START_PROCESSES
                         value: 'true'
                       - name: BENCHMARK_START_PI_PER_SECOND
@@ -51,6 +120,8 @@ spec:
                         value: '10000'
                       - name: BENCHMARK_START_RATE_ADJUSTMENT_STRATEGY
                         value: none
+                  volumeMounts:
+                      - {name: auth, mountPath: /tmp/auth, readOnly: true}
                   resources:
                       requests:
                           cpu: 500m
@@ -58,3 +129,6 @@ spec:
                       limits:
                           cpu: 1
                           memory: 1Gi
+            volumes:
+                - name: auth
+                  emptyDir: {}

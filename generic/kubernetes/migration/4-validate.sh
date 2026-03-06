@@ -211,6 +211,27 @@ if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 5. Data verification (CI test data)
+# ─────────────────────────────────────────────────────────────────────────────
+TESTS_DIR="${MIGRATION_DIR}/tests"
+VERIFY_TPL="${TESTS_DIR}/verify-test-data-job.yml"
+
+if [[ -f "$VERIFY_TPL" ]]; then
+    section "Data Verification"
+    log_info "Running data verification job ..."
+    # shellcheck disable=SC2016 # Intentional: literal ${NAMESPACE} for envsubst
+    if run_job "$VERIFY_TPL" "verify-test-data" 600 '${NAMESPACE}'; then
+        log_success "Data verification passed"
+    else
+        log_error "Data verification failed"
+        ERRORS=$((ERRORS + 1))
+    fi
+    echo ""
+    echo "--- Verification logs ---"
+    kubectl logs -n "${NAMESPACE}" "job/verify-test-data" 2>/dev/null || true
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────────────────────────────────
 section "Validation Summary ($(timer_elapsed))"
