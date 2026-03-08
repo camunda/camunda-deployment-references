@@ -1,0 +1,403 @@
+---
+# Elasticsearch Reindex-from-Remote Restore Job
+# Copies indices from source ES to target ES using the _reindex API.
+# Requires target ES to have: reindex.remote.whitelist: "*:9200"
+# Required env vars: JOB_NAME, ES_IMAGE, SOURCE_ES_HOST, SOURCE_ES_PORT,
+#   TARGET_ES_HOST, TARGET_ES_PORT, SOURCE_ES_SECRET_NAME,
+#   TARGET_ES_SECRET_NAME, NAMESPACE, TIMESTAMP
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: ${JOB_NAME}
+    namespace: ${NAMESPACE}
+    labels:
+        app: orchestration-migration
+        migration.camunda.io/type: restore
+        migration.camunda.io/component: elasticsearch
+spec:
+    ttlSecondsAfterFinished: 3600
+    backoffLimit: 2
+    template:
+        metadata:
+            labels:
+                app: orchestration-migration
+                migration.camunda.io/type: restore
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: restore
+                  image: ${ES_IMAGE}
+                  command:
+                      - /bin/sh
+                      - -c
+                      - |
+                        set -e
+                        echo "=== ES Restore (Reindex from Remote) ==="
+
+                        SOURCE="http://${SOURCE_ES_HOST}:${SOURCE_ES_PORT}"
+                        TARGET="http://${TARGET_ES_HOST}:${TARGET_ES_PORT}"
+                        echo "Source: $SOURCE"
+                        echo "Target: $TARGET"
+
+                        TARGET_AUTH=""
+                        [ -n "$TARGET_ES_PASSWORD" ] && TARGET_AUTH="-u elastic:$TARGET_ES_PASSWORD"
+                        SOURCE_AUTH=""
+                        [ -n "$SOURCE_ES_PASSWORD" ] && SOURCE_AUTH="-u elastic:$SOURCE_ES_PASSWORD"
+
+                        # Wait for target ES
+                        MAX_RETRIES=60; RETRY=0
+                        until curl -sf $TARGET_AUTH "$TARGET/_cluster/health" >/dev/null; do
+                          RETRY=$((RETRY + 1))
+                          if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
+                            echo "ERROR: Target ES not ready after $MAX_RETRIES attempts"; exit 1
+                          fi
+                          echo "Waiting for target ES ($RETRY/$MAX_RETRIES)..."; sleep 5
+                        done
+
+                        # Wait for source ES
+                        RETRY=0
+                        until curl -sf $SOURCE_AUTH "$SOURCE/_cluster/health" >/dev/null; do
+                          RETRY=$((RETRY + 1))
+                          if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
+                            echo "ERROR: Source ES not ready after $MAX_RETRIES attempts"; exit 1
+                          fi
+                          echo "Waiting for source ES ($RETRY/$MAX_RETRIES)..."; sleep 5
+                        done
+
+                        # Get Camunda indices with doc counts in one call
+                        echo "Getting indices from source..."
+                        INDEX_DATA=$(curl -sf $SOURCE_AUTH \
+                          "$SOURCE/_cat/indices?h=index,docs.count&format=text" \
+                          | grep -E "^(zeebe|operate|tasklist|optimize|connectors|camunda-)" | sort)
+
+                        if [ -z "$INDEX_DATA" ]; then
+                          echo "WARNING: No Camunda indices found on source. Nothing to reindex."
+                          exit 0
+                        fi
+
+                        # Split indices: those with data vs empty
+                        ALL_COUNT=$(echo "$INDEX_DATA" | wc -l | tr -d ' ')
+                        INDICES=$(echo "$INDEX_DATA" | awk '$2+0 > 0 {print $1}' | sort)
+                        DATA_COUNT=0
+                        if [ -n "$INDICES" ]; then
+                          DATA_COUNT=$(echo "$INDICES" | wc -l | tr -d ' ')
+                        fi
+                        SKIPPED=$((ALL_COUNT - DATA_COUNT))
+
+                        echo "Found $ALL_COUNT Camunda indices ($DATA_COUNT with data, $SKIPPED empty)"
+                        echo "$INDEX_DATA" | awk '$2+0 == 0 {print "  Skipping empty: " $1}' | sort
+
+                        if [ "$DATA_COUNT" -eq 0 ]; then
+                          echo "No indices with data to migrate."
+                          exit 0
+                        fi
+
+                        # Check if target already has Camunda indices — refuse to
+                        # overwrite to avoid accidental data loss.
+                        EXISTING=""
+                        for pattern in "zeebe-*" "operate-*" "tasklist-*" "optimize-*" "connectors-*" "camunda-*"; do
+                          MATCH=$(curl -sf $TARGET_AUTH "$TARGET/_cat/indices/$pattern?h=index" 2>/dev/null || true)
+                          if [ -n "$MATCH" ]; then
+                            EXISTING=$(printf '%s\n%s' "$EXISTING" "$MATCH")
+                          fi
+                        done
+                        EXISTING=$(echo "$EXISTING" | sed '/^$/d' | sort)
+
+                        if [ -n "$EXISTING" ]; then
+                          EXIST_COUNT=$(echo "$EXISTING" | wc -l | tr -d ' ')
+                          echo ""
+                          echo "ERROR: Target Elasticsearch already contains $EXIST_COUNT Camunda index(es):"
+                          echo "$EXISTING" | sed 's/^/  - /'
+                          echo ""
+                          echo "Reindexing into existing indices would cause conflicts."
+                          echo ""
+                          echo "To proceed, manually delete the existing indices on the target:"
+                          echo ""
+                          echo "  ⚠  THIS IS A DESTRUCTIVE OPERATION — the data in these indices will be lost."
+                          echo ""
+                          echo "  ES_TARGET=http://${TARGET_ES_HOST}:${TARGET_ES_PORT}"
+                          for pattern in "zeebe-*" "operate-*" "tasklist-*" "optimize-*" "connectors-*" "camunda-*"; do
+                            echo "  curl -X DELETE \"\$ES_TARGET/$pattern\""
+                          done
+                          echo ""
+                          echo "Then re-run the migration."
+                          exit 1
+                        fi
+
+                        # Build remote source auth fragment
+                        REMOTE_AUTH=""
+                        if [ -n "$SOURCE_ES_PASSWORD" ]; then
+                          REMOTE_AUTH=",\"username\":\"elastic\",\"password\":\"$SOURCE_ES_PASSWORD\""
+                        fi
+
+                        # Reindex each non-empty index from source to target
+                        CURRENT=0
+                        FAILED=0
+                        for idx in $INDICES; do
+                          CURRENT=$((CURRENT + 1))
+                          echo "[$CURRENT/$DATA_COUNT] Reindexing: $idx"
+
+                          # ── Pre-create target index with source settings + mappings ──
+                          # Use filter_path to get ONLY analysis settings + mappings from
+                          # the source index. This excludes read-only settings (uuid,
+                          # creation_date, version, etc.) that would cause PUT to fail.
+                          # We also include max_ngram_diff / max_shingle_diff because
+                          # ES 8.19 defaults max_ngram_diff=1 which rejects NGram
+                          # tokenizers with larger diffs (Optimize uses min=1,max=10).
+                          # The response format is:
+                          #   {"idx":{"mappings":{...},"settings":{"index":{"analysis":{...}}}}}
+                          # We strip the outer {"idx": ... } wrapper to get a valid PUT body.
+                          FILTERED=$(curl -sf $SOURCE_AUTH \
+                            "$SOURCE/$idx?filter_path=*.mappings,*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
+                          if [ -n "$FILTERED" ] && [ "$FILTERED" != "{}" ]; then
+                            # Strip outer {"index_name": and trailing }
+                            CREATE_BODY="${FILTERED#*:}"
+                            CREATE_BODY="${CREATE_BODY%\}}"
+
+                            PUT_RESP=$(curl -s -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                              -H 'Content-Type: application/json' \
+                              -d "$CREATE_BODY" 2>&1)
+                            if echo "$PUT_RESP" | grep -q '"error"'; then
+                              echo "  Settings+mappings copy failed, trying settings only (analysis)"
+                              curl -s -X DELETE $TARGET_AUTH "$TARGET/$idx" >/dev/null 2>&1 || true
+                              # Retry with settings only (analysis + ngram diff), no mappings.
+                              # This preserves custom analyzers so Optimize mappings can
+                              # reference them later via put_mapping.
+                              S_ONLY=$(curl -sf $SOURCE_AUTH \
+                                "$SOURCE/$idx?filter_path=*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
+                              if [ -n "$S_ONLY" ] && [ "$S_ONLY" != "{}" ]; then
+                                S_BODY="${S_ONLY#*:}"
+                                S_BODY="${S_BODY%\}}"
+                                PUT_S=$(curl -s -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                  -H 'Content-Type: application/json' \
+                                  -d "$S_BODY" 2>&1)
+                                if echo "$PUT_S" | grep -q '"error"'; then
+                                  echo "  Settings-only also failed, trying mappings only"
+                                else
+                                  echo "  Settings-only succeeded (analyzers preserved)"
+                                  # Disable date/numeric detection to prevent auto-mapping
+                                  # conflicts during reindex (e.g. variables.value being
+                                  # mapped as date from first doc, then failing on text docs)
+                                  curl -s -X PUT $TARGET_AUTH "$TARGET/$idx/_mapping" \
+                                    -H 'Content-Type: application/json' \
+                                    -d '{"date_detection":false,"numeric_detection":false}' \
+                                    >/dev/null 2>&1 || true
+                                  # Settings created; skip further fallbacks
+                                  PUT_S=""
+                                fi
+                              else
+                                PUT_S="no_settings"
+                              fi
+                              # If settings-only didn't work, try mappings only
+                              if [ -n "$PUT_S" ]; then
+                                curl -s -X DELETE $TARGET_AUTH "$TARGET/$idx" >/dev/null 2>&1 || true
+                                MAPPING_ONLY=$(curl -sf $SOURCE_AUTH \
+                                  "$SOURCE/$idx/_mapping?filter_path=*.mappings")
+                                if [ -n "$MAPPING_ONLY" ] && [ "$MAPPING_ONLY" != "{}" ]; then
+                                  M_BODY="${MAPPING_ONLY#*:}"
+                                  M_BODY="${M_BODY%\}}"
+                                  PUT_RESP2=$(curl -s -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                    -H 'Content-Type: application/json' \
+                                    -d "$M_BODY" 2>&1)
+                                  if echo "$PUT_RESP2" | grep -q '"error"'; then
+                                    echo "  Mappings-only also failed, using date_detection fallback"
+                                    curl -s -X DELETE $TARGET_AUTH "$TARGET/$idx" >/dev/null 2>&1 || true
+                                    curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                      -H 'Content-Type: application/json' \
+                                      -d '{"mappings":{"date_detection":false,"numeric_detection":false}}' \
+                                      >/dev/null 2>&1 || echo "  Note: fallback index creation also failed"
+                                  fi
+                                fi
+                              fi
+                            fi
+                          fi
+
+                          BODY="{\"source\":{\"remote\":{\"host\":\"$SOURCE\"$REMOTE_AUTH},\"index\":\"$idx\"},\"dest\":{\"index\":\"$idx\"}}"
+
+                          RESPONSE=$(curl -s -X POST $TARGET_AUTH \
+                            "$TARGET/_reindex?wait_for_completion=true&timeout=10m" \
+                            -H 'Content-Type: application/json' \
+                            -d "$BODY")
+                          echo "$RESPONSE"
+
+                          # Detect API errors or document-level failures
+                          if echo "$RESPONSE" | grep -qE '"error"|"failures":\[\{'; then
+                            echo "  WARN: Failed to reindex $idx"
+                            FAILED=$((FAILED + 1))
+                          fi
+                          echo ""
+                        done
+
+                        # ── Migrate index templates from source to target ──
+                        # The _reindex API does NOT copy index templates or component
+                        # templates. Camunda's SchemaManager detects existing indices
+                        # and goes into "update" mode — if the corresponding index
+                        # template is missing (404), init schema retries forever.
+                        echo "=== Migrating index templates ==="
+                        TMPL_NAMES=$(curl -sf $SOURCE_AUTH \
+                          "$SOURCE/_index_template?filter_path=index_templates.name" \
+                          | sed 's/[{}":]/ /g' \
+                          | tr ',' '\n' \
+                          | grep -oE '(zeebe|operate|tasklist|optimize|connectors|camunda)[^ ]*' \
+                          | sort -u || true)
+
+                        if [ -n "$TMPL_NAMES" ]; then
+                          TMPL_COUNT=$(echo "$TMPL_NAMES" | wc -l | tr -d ' ')
+                          echo "Found $TMPL_COUNT Camunda index template(s) to migrate"
+                          for tname in $TMPL_NAMES; do
+                            TMPL_DEF=$(curl -sf $SOURCE_AUTH "$SOURCE/_index_template/$tname") || { echo "  WARN: Could not fetch template $tname"; continue; }
+                            if [ -n "$TMPL_DEF" ] && [ "$TMPL_DEF" != "{}" ]; then
+                              # Extract just the template body (strip the outer wrapper)
+                              # Response: {"index_templates":[{"name":"...","index_template":{...}}]}
+                              # Strip everything before the body, then remove the trailing }]}
+                              # (array-element close + array close + response close)
+                              TMPL_BODY=$(echo "$TMPL_DEF" | sed 's/.*"index_template"://' | sed 's/}]}$//')
+                              PUT_TMPL=$(curl -s -X PUT $TARGET_AUTH "$TARGET/_index_template/$tname" \
+                                -H 'Content-Type: application/json' \
+                                -d "$TMPL_BODY" 2>&1)
+                              if echo "$PUT_TMPL" | grep -q '"acknowledged":true'; then
+                                echo "  $tname"
+                              else
+                                echo "  WARN: Failed to migrate index template $tname: $PUT_TMPL"
+                              fi
+                            fi
+                          done
+                        else
+                          echo "No Camunda index templates found on source"
+                        fi
+
+                        # Also migrate component templates (used by composable index templates)
+                        COMP_NAMES=$(curl -sf $SOURCE_AUTH \
+                          "$SOURCE/_component_template?filter_path=component_templates.name" \
+                          | sed 's/[{}":]/ /g' \
+                          | tr ',' '\n' \
+                          | grep -oE '(zeebe|operate|tasklist|optimize|connectors|camunda)[^ ]*' \
+                          | sort -u || true)
+
+                        if [ -n "$COMP_NAMES" ]; then
+                          COMP_COUNT=$(echo "$COMP_NAMES" | wc -l | tr -d ' ')
+                          echo "Found $COMP_COUNT Camunda component template(s) to migrate"
+                          for cname in $COMP_NAMES; do
+                            COMP_DEF=$(curl -sf $SOURCE_AUTH "$SOURCE/_component_template/$cname") || { echo "  WARN: Could not fetch component template $cname"; continue; }
+                            if [ -n "$COMP_DEF" ] && [ "$COMP_DEF" != "{}" ]; then
+                              # Response: {"component_templates":[{"name":"...","component_template":{...}}]}
+                              COMP_BODY=$(echo "$COMP_DEF" | sed 's/.*"component_template"://' | sed 's/}]}$//')
+                              PUT_COMP=$(curl -s -X PUT $TARGET_AUTH "$TARGET/_component_template/$cname" \
+                                -H 'Content-Type: application/json' \
+                                -d "$COMP_BODY" 2>&1)
+                              if echo "$PUT_COMP" | grep -q '"acknowledged":true'; then
+                                echo "  $cname"
+                              else
+                                echo "  WARN: Failed to migrate component template $cname: $PUT_COMP"
+                              fi
+                            fi
+                          done
+                        else
+                          echo "No Camunda component templates found on source"
+                        fi
+                        echo ""
+
+                        # ── Migrate aliases from source to target ──
+                        # The _reindex API does NOT copy aliases. Camunda components use
+                        # aliases (e.g. operate-decision-8.3.0_alias) to find their
+                        # indices — without aliases, schema init fails with
+                        # index_not_found_exception.
+                        echo "=== Migrating aliases ==="
+
+                        # Create empty indices on target (skipped during reindex) so aliases work
+                        EMPTY_INDICES=$(echo "$INDEX_DATA" | awk '$2+0 == 0 {print $1}')
+                        for idx in $EMPTY_INDICES; do
+                          # Pre-create with settings+mappings from source
+                          FILTERED=$(curl -sf $SOURCE_AUTH \
+                            "$SOURCE/$idx?filter_path=*.mappings,*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
+                          if [ -n "$FILTERED" ] && [ "$FILTERED" != "{}" ]; then
+                            CREATE_BODY="${FILTERED#*:}"
+                            CREATE_BODY="${CREATE_BODY%\}}"
+                            # Try full settings+mappings first, then settings-only, then empty
+                            if ! curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                              -H 'Content-Type: application/json' \
+                              -d "$CREATE_BODY" >/dev/null 2>&1; then
+                              # Settings+mappings failed; try settings only (preserves analyzers)
+                              S_ONLY=$(curl -sf $SOURCE_AUTH \
+                                "$SOURCE/$idx?filter_path=*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
+                              if [ -n "$S_ONLY" ] && [ "$S_ONLY" != "{}" ]; then
+                                S_BODY="${S_ONLY#*:}"
+                                S_BODY="${S_BODY%\}}"
+                                curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                  -H 'Content-Type: application/json' \
+                                  -d "$S_BODY" >/dev/null 2>&1 || \
+                                curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                  -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                              else
+                                curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                                  -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                              fi
+                            fi
+                          else
+                            curl -sf -X PUT $TARGET_AUTH "$TARGET/$idx" \
+                              -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                          fi
+                        done
+
+                        # Use _cat/aliases to get alias→index mappings in plain text
+                        # Format: alias  index  filter  routing.search  routing.index  is_write_index
+                        ALIAS_DATA=$(curl -sf $SOURCE_AUTH \
+                          "$SOURCE/_cat/aliases?h=alias,index,is_write_index&format=text" \
+                          | grep -E "[[:space:]](zeebe|operate|tasklist|optimize|connectors|camunda-)" || true)
+
+                        if [ -n "$ALIAS_DATA" ]; then
+                          ALIAS_COUNT=$(echo "$ALIAS_DATA" | wc -l | tr -d ' ')
+                          echo "Found $ALIAS_COUNT alias(es) to migrate"
+                          ALIAS_OK=0
+                          ALIAS_FAIL=0
+                          echo "$ALIAS_DATA" | while IFS= read -r line; do
+                            ALIAS_NAME=$(echo "$line" | awk '{print $1}')
+                            IDX_NAME=$(echo "$line" | awk '{print $2}')
+                            IS_WRITE=$(echo "$line" | awk '{print $3}')
+                            if [ "$IS_WRITE" = "true" ]; then
+                              RESP=$(curl -s -X POST $TARGET_AUTH "$TARGET/$IDX_NAME/_alias/$ALIAS_NAME" \
+                                -H 'Content-Type: application/json' \
+                                -d '{"is_write_index":true}' 2>&1)
+                            else
+                              RESP=$(curl -s -X POST $TARGET_AUTH "$TARGET/$IDX_NAME/_alias/$ALIAS_NAME" 2>&1)
+                            fi
+                            if echo "$RESP" | grep -q '"acknowledged":true'; then
+                              echo "  $ALIAS_NAME -> $IDX_NAME"
+                            else
+                              echo "  WARN: Failed alias $ALIAS_NAME -> $IDX_NAME: $RESP"
+                            fi
+                          done
+                          echo "Alias migration complete"
+                        else
+                          echo "No Camunda aliases found on source"
+                        fi
+                        echo ""
+                        echo "Target cluster health:"
+                        curl -sf $TARGET_AUTH "$TARGET/_cluster/health?pretty"
+                        echo ""
+                        echo "Target indices:"
+                        curl -sf $TARGET_AUTH "$TARGET/_cat/indices?v"
+                        echo ""
+
+                        if [ "$FAILED" -gt 0 ]; then
+                          echo "ERROR: $FAILED out of $DATA_COUNT indices with data failed to reindex"
+                          exit 1
+                        fi
+
+                        echo "Restore complete: $DATA_COUNT indices migrated ($SKIPPED empty indices skipped)"
+                  env:
+                      - name: TARGET_ES_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: ${TARGET_ES_SECRET_NAME}
+                                key: elastic
+                                optional: true
+                      - name: SOURCE_ES_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: ${SOURCE_ES_SECRET_NAME}
+                                key: elasticsearch-password
+                                optional: true
+                  resources:
+                      requests: {memory: 128Mi, cpu: 50m}
+                      limits: {memory: 256Mi, cpu: 200m}

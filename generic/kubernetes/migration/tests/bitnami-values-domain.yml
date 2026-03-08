@@ -1,0 +1,74 @@
+---
+# Helm values for deploying Camunda Platform with Bitnami sub-charts (DOMAIN mode).
+# This is the "source" deployment used as the starting point for migration tests
+# when testing with Ingress and TLS (camunda.example.com).
+#
+# This file layers ON TOP of bitnami-values.yml to add:
+# - Ingress with TLS (via mkcert certificates)
+# - Domain-based access (camunda.example.com)
+# - Redirect URLs pointing to the domain
+#
+# Usage:
+#   helm install camunda camunda/camunda-platform \
+#       -f bitnami-values.yml \
+#       -f bitnami-values-domain.yml
+
+global:
+    identity:
+        auth:
+            identity:
+                redirectUrl: https://camunda.example.com/identity
+            optimize:
+                redirectUrl: https://camunda.example.com/optimize
+            console:
+                redirectUrl: https://camunda.example.com/console
+            webModeler:
+                redirectUrl: https://camunda.example.com/modeler
+    ingress:
+        enabled: true
+        className: nginx
+        host: camunda.example.com
+        annotations:
+            nginx.ingress.kubernetes.io/proxy-buffer-size: 128k
+        tls:
+            enabled: true
+            secretName: camunda-platform
+
+identity:
+    contextPath: /identity
+    fullURL: https://camunda.example.com/identity
+
+identityKeycloak:
+    ingress:
+        enabled: true
+        ingressClassName: nginx
+        hostname: camunda.example.com
+        path: /auth
+        annotations:
+            nginx.ingress.kubernetes.io/proxy-buffer-size: 128k
+        tls: true
+        extraTls:
+            - hosts:
+                  - camunda.example.com
+              secretName: camunda-platform
+
+optimize:
+    contextPath: /optimize
+
+console:
+    enabled: true
+    contextPath: /console
+
+orchestration:
+    contextPath: /
+    ingress:
+        grpc:
+            enabled: true
+            className: nginx
+            host: zeebe-camunda.example.com
+            tls:
+                enabled: true
+                secretName: camunda-platform
+
+webModeler:
+    contextPath: /modeler

@@ -1,0 +1,34 @@
+---
+# Test matrix configuration for Migration from Bitnami tests
+# This matrix defines the test scenarios for migrating from Bitnami sub-charts
+# to Kubernetes operators (ECK, CNPG, Keycloak Operator)
+
+matrix:
+    distro:
+        # Kind is used for migration tests — no cloud infra needed
+        - name: Kind
+          schedule_only: false
+          type: kind
+
+    scenario:
+        # Test the full migration workflow
+        - name: migration-from-bitnami
+          shortName: mfb
+
+    declination:
+        - name: no-domain
+          use_tls: false
+          desc: Test migration from Bitnami to operators without domain configuration.
+        - name: domain
+          use_tls: true
+          desc: Test migration from Bitnami to operators with Ingress and TLS (camunda.example.com).
+
+    # Components to test migration for
+    # Each component can be tested independently
+    component:
+        - name: full
+          desc: Run full migration (all components)
+          orchestration: true
+          identity: true
+          keycloak: true
+          webmodeler: true
