@@ -673,7 +673,7 @@ jobs:
             - integration-tests
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@ddce99387a10a4d578e4d7d8e6c6626dcd3d8fd3 # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@a6b5d349d0324cbccd034990ae5c505d9bf6d04c # main
               with:
                   error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
                   run-id: ${{ github.run_id }}
