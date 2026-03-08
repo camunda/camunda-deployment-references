@@ -51,6 +51,7 @@ var (
 
 	// Manifest management
 	defaultValuesYaml      = helpers.GetEnv("DEFAULT_VALUES_YAML", "../helm-values/camunda-values.yml")
+	eckElasticValuesYaml   = helpers.GetEnv("ECK_ELASTIC_VALUES_YAML", "../../../../generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml")
 	region0ValuesYaml      = helpers.GetEnv("REGION0_VALUES_YAML", "../helm-values/region0/camunda-values.yml")
 	region1ValuesYaml      = helpers.GetEnv("REGION1_VALUES_YAML", "../helm-values/region1/camunda-values.yml")
 	multiTenancyValuesYaml = helpers.GetEnv("MULTI_TENANCY_VALUES_YAML", "./fixtures/multi-tenancy.yml")
@@ -256,6 +257,9 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	// avoid pod anti-affinity limitations
 	baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 
+	// Merge ECK Elasticsearch operator overlay values
+	valuesYamlFiles = append(valuesYamlFiles, eckElasticValuesYaml)
+
 	if extraValuesYaml != "" {
 		extraValuesYamls := strings.Split(extraValuesYaml, ",")
 		valuesYamlFiles = append(valuesYamlFiles, extraValuesYamls...)
@@ -272,17 +276,21 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "get", "pods")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "get", "pods")
 
-	// Elastic itself takes already ~2+ minutes to start
-	// no functions for Statefulsets yet
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
+	// Wait for ECK-managed Elasticsearch to be ready in both regions
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 
-	// no functions for Statefulsets yet
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 
 	// connectors last as they depend on the Orchestration Cluster
-	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-connectors", retries, 15*time.Second)
+	err := k8s.WaitUntilDeploymentAvailableE(t, &primary.KubectlNamespace, "camunda-connectors", retries, 20*time.Second)
+	if err != nil {
+		t.Log("[C8 HELM] camunda-connectors deployment not available, dumping container logs...")
+		output, _ := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "logs", "-l", "app.kubernetes.io/component=connectors", "--tail=200", "--all-containers=true")
+		t.Logf("[C8 HELM] camunda-connectors logs:\n%s", output)
+		t.Fatalf("[C8 HELM] camunda-connectors deployment failed to become available: %v", err)
+	}
 }
 
 func checkC8RunningProperly(t *testing.T) {
@@ -451,6 +459,9 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 
 	valuesYamlFiles := []string{defaultValuesYaml}
 
+	// Merge ECK Elasticsearch operator overlay values
+	valuesYamlFiles = append(valuesYamlFiles, eckElasticValuesYaml)
+
 	if extraValuesYaml != "" {
 		extraValuesYamls := strings.Split(extraValuesYaml, ",")
 		valuesYamlFiles = append(valuesYamlFiles, extraValuesYamls...)
@@ -464,7 +475,8 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 
 	kubectlHelpers.InstallUpgradeC8Helm(t, &cluster.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, valuesYamlFiles, region, helpers.CombineMaps(baseHelmVars, setValues), setStringValues)
 
-	k8s.RunKubectl(t, &cluster.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
+	// Wait for ECK-managed Elasticsearch to be ready
+	k8s.RunKubectl(t, &cluster.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
 
 	// We can't wait for Zeebe to become ready as it's not part of the cluster, therefore out of service 503
 	// We are using instead elastic to become ready as the next steps depend on it, additionally as direct next step we check that the brokers have joined in again.
@@ -482,7 +494,7 @@ func stopZeebeExporters(t *testing.T) {
 
 	// Partition distribution may take a while and results in a 500 error
 	for i := 0; i < 10; i++ {
-		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-i", "camunda-zeebe-gateway:9600/actuator/exporting/pause", "-XPOST")
+		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", kubectlHelpers.ElasticsearchPodName, "--", "curl", "-i", "camunda-zeebe-gateway:9600/actuator/exporting/pause", "-XPOST")
 		if err != nil {
 			t.Fatalf("[ZEEBE EXPORTERS] Failed to pause exporters: %v", err)
 			return
@@ -508,7 +520,7 @@ func startZeebeExporters(t *testing.T) {
 
 	// Partition distribution may take a while and results in a 500 error
 	for i := 0; i < 10; i++ {
-		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-i", "camunda-zeebe-gateway:9600/actuator/exporting/resume", "-XPOST")
+		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", kubectlHelpers.ElasticsearchPodName, "--", "curl", "-i", "camunda-zeebe-gateway:9600/actuator/exporting/resume", "-XPOST")
 		if err != nil {
 			t.Fatalf("[ZEEBE EXPORTERS] Failed to resume exporters: %v", err)
 			return
