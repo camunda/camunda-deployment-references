@@ -53,8 +53,15 @@ spec:
 
                         # List Camunda indices
                         echo "Camunda indices:"
-                        curl -sf $AUTH "http://${ES_HOST}:${ES_PORT}/_cat/indices?h=index,docs.count,store.size&v" \
-                          | grep -E "^(index|zeebe|operate|tasklist|optimize|connectors)" || echo "(none found)"
+                        INDEX_INFO=$(curl -sf $AUTH "http://${ES_HOST}:${ES_PORT}/_cat/indices?h=index,docs.count,store.size&v" \
+                          | grep -E "^(index|zeebe|operate|tasklist|optimize|connectors)" || echo "(none found)")
+                        echo "$INDEX_INFO"
+                        echo ""
+
+                        # Summary totals
+                        TOTAL_DOCS=$(echo "$INDEX_INFO" | grep -v "^index" | awk '{s+=$2} END {printf "%d", s}')
+                        TOTAL_INDICES=$(echo "$INDEX_INFO" | grep -v "^index" | wc -l | tr -d ' ')
+                        echo "Summary: $TOTAL_INDICES indices, $TOTAL_DOCS total documents"
                         echo ""
 
                         echo "Backup verification complete"

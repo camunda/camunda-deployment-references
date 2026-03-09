@@ -561,6 +561,10 @@ run_job() {
     fi
 
     log_success "Job ${job_name} completed ($(step_elapsed))"
+
+    # Save job logs for post-mortem analysis and metrics extraction
+    kubectl logs -n "${NAMESPACE}" "job/${job_name}" \
+        > "${STATE_DIR}/${job_name}.log" 2>/dev/null || true
 }
 
 # =============================================================================
@@ -1975,6 +1979,96 @@ EOF
     fi
     if [[ "${MIGRATE_ELASTICSEARCH:-false}" == "true" ]]; then
         echo "- **Elasticsearch**: ${BITNAMI_ES_STS:-?} → ${ECK_CLUSTER_NAME:-eck}" >> "$report"
+    fi
+
+    cat >> "$report" <<EOF
+
+## Data Metrics
+
+EOF
+
+    # Extract metrics from saved job logs
+    local has_metrics=false
+
+    # PostgreSQL metrics — scan all backup/restore logs
+    local pg_backup_logs pg_restore_logs
+    pg_backup_logs=$(find "${STATE_DIR}" -name '*-pg-backup-*.log' 2>/dev/null || true)
+    pg_restore_logs=$(find "${STATE_DIR}" -name '*-pg-restore-*.log' 2>/dev/null || true)
+
+    if [[ -n "$pg_backup_logs" || -n "$pg_restore_logs" ]]; then
+        has_metrics=true
+        {
+            echo "### PostgreSQL"
+            echo ""
+            echo "| Component | Direction | Database Size | Total Rows |"
+            echo "|-----------|-----------|---------------|------------|"
+        } >> "$report"
+
+        for logfile in $pg_backup_logs; do
+            local comp
+            comp=$(basename "$logfile" | sed 's/-pg-backup-.*//')
+            local db_size row_count
+            db_size=$(grep "^Database size:" "$logfile" 2>/dev/null | head -1 | sed 's/Database size: //' || echo "—")
+            row_count=$(grep "^Total rows" "$logfile" 2>/dev/null | head -1 | sed 's/Total rows.*: //' || echo "—")
+            echo "| ${comp} | backup (source) | ${db_size} | ${row_count} |" >> "$report"
+        done
+
+        for logfile in $pg_restore_logs; do
+            local comp
+            comp=$(basename "$logfile" | sed 's/-pg-restore-.*//')
+            local db_size row_count
+            db_size=$(grep "^Database size:" "$logfile" 2>/dev/null | head -1 | sed 's/Database size: //' || echo "—")
+            row_count=$(grep "^Total rows:" "$logfile" 2>/dev/null | head -1 | sed 's/Total rows: //' || echo "—")
+            echo "| ${comp} | restore (target) | ${db_size} | ${row_count} |" >> "$report"
+        done
+        echo "" >> "$report"
+    fi
+
+    # Elasticsearch metrics — scan restore log for summary
+    local es_restore_log
+    es_restore_log=$(find "${STATE_DIR}" -name 'es-restore-*.log' 2>/dev/null | sort | tail -1 || true)
+
+    if [[ -n "$es_restore_log" && -f "$es_restore_log" ]]; then
+        has_metrics=true
+        {
+            echo "### Elasticsearch"
+            echo ""
+        } >> "$report"
+
+        local es_summary
+        es_summary=$(grep "^  Indices:" "$es_restore_log" 2>/dev/null | head -1 || echo "")
+        local es_duration
+        es_duration=$(grep "^  Duration:" "$es_restore_log" 2>/dev/null | head -1 || echo "")
+
+        if [[ -n "$es_summary" ]]; then
+            echo "- ${es_summary}" >> "$report"
+        fi
+        if [[ -n "$es_duration" ]]; then
+            echo "- ${es_duration}" >> "$report"
+        fi
+        echo "" >> "$report"
+    fi
+
+    # ES backup verification log
+    local es_backup_log
+    es_backup_log=$(find "${STATE_DIR}" -name 'es-backup-*.log' 2>/dev/null | sort | tail -1 || true)
+
+    if [[ -n "$es_backup_log" && -f "$es_backup_log" ]]; then
+        local es_src_summary
+        es_src_summary=$(grep "^Summary:" "$es_backup_log" 2>/dev/null | head -1 || echo "")
+        if [[ -n "$es_src_summary" ]]; then
+            has_metrics=true
+            if [[ -z "$es_restore_log" || ! -f "$es_restore_log" ]]; then
+                { echo "### Elasticsearch"; echo ""; } >> "$report"
+            fi
+            echo "- Source: ${es_src_summary#Summary: }" >> "$report"
+            echo "" >> "$report"
+        fi
+    fi
+
+    if [[ "$has_metrics" == "false" ]]; then
+        echo "_No data metrics available (jobs not yet run or logs not captured)._" >> "$report"
+        echo "" >> "$report"
     fi
 
     cat >> "$report" <<EOF

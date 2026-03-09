@@ -87,6 +87,11 @@ spec:
                         echo "Found $ALL_COUNT Camunda indices ($DATA_COUNT with data, $SKIPPED empty)"
                         echo "$INDEX_DATA" | awk '$2+0 == 0 {print "  Skipping empty: " $1}' | sort
 
+                        # Compute total docs to migrate for progress tracking
+                        TOTAL_DOCS=$(echo "$INDEX_DATA" | awk '$2+0 > 0 {s+=$2} END {printf "%d", s}')
+                        echo "Total documents to migrate: $TOTAL_DOCS"
+                        echo ""
+
                         if [ "$DATA_COUNT" -eq 0 ]; then
                           echo "No indices with data to migrate."
                           exit 0
@@ -133,6 +138,8 @@ spec:
                         # Reindex each non-empty index from source to target
                         CURRENT=0
                         FAILED=0
+                        MIGRATED_DOCS=0
+                        REINDEX_START=$(date +%s)
                         for idx in $INDICES; do
                           CURRENT=$((CURRENT + 1))
                           echo "[$CURRENT/$DATA_COUNT] Reindexing: $idx"
@@ -218,15 +225,54 @@ spec:
                             "$TARGET/_reindex?wait_for_completion=true&timeout=10m" \
                             -H 'Content-Type: application/json' \
                             -d "$BODY")
-                          echo "$RESPONSE"
+
+                          # Extract stats from reindex response
+                          IDX_CREATED=$(echo "$RESPONSE" | sed -n 's/.*"created":\([0-9]*\).*/\1/p')
+                          IDX_TOTAL=$(echo "$RESPONSE" | sed -n 's/.*"total":\([0-9]*\).*/\1/p')
+                          IDX_TIME=$(echo "$RESPONSE" | sed -n 's/.*"took":\([0-9]*\).*/\1/p')
+                          IDX_CREATED=${IDX_CREATED:-0}
+                          IDX_TOTAL=${IDX_TOTAL:-0}
+                          IDX_TIME_S=$(( ${IDX_TIME:-0} / 1000 ))
+
+                          MIGRATED_DOCS=$((MIGRATED_DOCS + IDX_CREATED))
+                          ELAPSED=$(($(date +%s) - REINDEX_START))
+
+                          # Calculate throughput and ETA
+                          ETA_MSG=""
+                          if [ "$ELAPSED" -gt 0 ] && [ "$MIGRATED_DOCS" -gt 0 ]; then
+                            DOCS_PER_SEC=$((MIGRATED_DOCS / ELAPSED))
+                            REMAINING_DOCS=$((TOTAL_DOCS - MIGRATED_DOCS))
+                            if [ "$DOCS_PER_SEC" -gt 0 ]; then
+                              ETA_SECS=$((REMAINING_DOCS / DOCS_PER_SEC))
+                              ETA_MIN=$((ETA_SECS / 60))
+                              ETA_SEC=$((ETA_SECS % 60))
+                              ETA_MSG=" | ETA: ${ETA_MIN}m${ETA_SEC}s"
+                            fi
+                          fi
+
+                          echo "  -> ${IDX_CREATED} docs (${IDX_TIME_S}s)" \
+                            "| Progress: ${MIGRATED_DOCS}/${TOTAL_DOCS}" \
+                            "(${DOCS_PER_SEC:-?} docs/s)${ETA_MSG}"
 
                           # Detect API errors or document-level failures
                           if echo "$RESPONSE" | grep -qE '"error"|"failures":\[\{'; then
                             echo "  WARN: Failed to reindex $idx"
+                            echo "$RESPONSE"
                             FAILED=$((FAILED + 1))
                           fi
                           echo ""
                         done
+
+                        # Reindex summary
+                        REINDEX_ELAPSED=$(($(date +%s) - REINDEX_START))
+                        REINDEX_MIN=$((REINDEX_ELAPSED / 60))
+                        REINDEX_SEC=$((REINDEX_ELAPSED % 60))
+                        AVG_RATE=0
+                        [ "$REINDEX_ELAPSED" -gt 0 ] && AVG_RATE=$((MIGRATED_DOCS / REINDEX_ELAPSED))
+                        echo "=== Reindex Summary ==="
+                        echo "  Indices: $DATA_COUNT | Documents: $MIGRATED_DOCS/$TOTAL_DOCS"
+                        echo "  Duration: ${REINDEX_MIN}m${REINDEX_SEC}s | Avg throughput: ${AVG_RATE} docs/s"
+                        echo ""
 
                         # ── Migrate index templates from source to target ──
                         # The _reindex API does NOT copy index templates or component

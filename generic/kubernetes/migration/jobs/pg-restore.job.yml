@@ -100,6 +100,25 @@ spec:
                           -U "${TARGET_PG_USER}" -d "${TARGET_PG_DATABASE}" \
                           -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY 1"
 
+                        # ── Post-restore metrics ──
+                        echo ""
+                        PG_CONN="-h ${TARGET_PG_HOST} -p ${TARGET_PG_PORT} -U ${TARGET_PG_USER} -d ${TARGET_PG_DATABASE}"
+                        echo "Database size: $(psql $PG_CONN -tAc \
+                          "SELECT pg_size_pretty(pg_database_size(current_database()))")"
+                        echo ""
+                        echo "Row counts per table:"
+                        TOTAL_ROWS=0
+                        for tbl in $(psql $PG_CONN -tAc \
+                          "SELECT table_name FROM information_schema.tables \
+                           WHERE table_schema='public' ORDER BY 1"); do
+                          CNT=$(psql $PG_CONN -tAc \
+                            "SELECT count(*) FROM \"$tbl\"" 2>/dev/null || echo 0)
+                          echo "  $tbl: $CNT"
+                          TOTAL_ROWS=$((TOTAL_ROWS + CNT))
+                        done
+                        echo "Total rows: $TOTAL_ROWS"
+
+                        echo ""
                         echo "Restore complete"
                   env:
                       - name: PGPASSWORD

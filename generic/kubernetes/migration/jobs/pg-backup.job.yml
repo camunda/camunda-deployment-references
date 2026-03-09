@@ -43,6 +43,19 @@ spec:
 
                         mkdir -p /backup/${COMPONENT}
 
+                        # ── Pre-backup metrics ──
+                        echo "Database size: $(psql -h "${PG_HOST}" -p "${PG_PORT}" -U "$PGUSER" \
+                          -d "${PG_DATABASE}" -tAc "SELECT pg_size_pretty(pg_database_size(current_database()))")"
+                        echo ""
+                        echo "Row counts per table:"
+                        psql -h "${PG_HOST}" -p "${PG_PORT}" -U "$PGUSER" -d "${PG_DATABASE}" -tA \
+                          -c "SELECT table_name || ': ' || n_live_tup FROM pg_stat_user_tables ORDER BY n_live_tup DESC" \
+                          2>/dev/null || echo "  (statistics not available)"
+                        TOTAL_ROWS=$(psql -h "${PG_HOST}" -p "${PG_PORT}" -U "$PGUSER" -d "${PG_DATABASE}" -tAc \
+                          "SELECT COALESCE(SUM(n_live_tup),0) FROM pg_stat_user_tables" 2>/dev/null || echo "0")
+                        echo "Total rows (approx): $TOTAL_ROWS"
+                        echo ""
+
                         pg_dump -h "${PG_HOST}" -p "${PG_PORT}" -U "$PGUSER" \
                           -d "${PG_DATABASE}" -F custom \
                           -f /backup/${COMPONENT}/${COMPONENT}-db-${TIMESTAMP}.dump
