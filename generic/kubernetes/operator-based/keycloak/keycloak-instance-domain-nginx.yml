@@ -28,14 +28,19 @@ spec:
         # Enable proxy mode for proper HTTPS redirect handling behind nginx ingress
         - name: proxy-headers
           value: xforwarded
-        # Trust X-Forwarded-* headers from proxy
-        - name: hostname-strict-https
-          value: 'true'
     ingress:
         # Ingress disabled - using separate Ingress object with path /auth and className nginx
         enabled: false
     hostname:
-        hostname: ${CAMUNDA_DOMAIN}
+        # Use full URL with scheme to ensure KC 26 v2 hostname provider
+        # always uses HTTPS for issuer URLs (replaces deprecated v1 hostname-strict-https).
+        # Requires Keycloak >= 25 (v2 hostname provider). Not compatible with KC 24.
+        # For KC <= 24 (v1 hostname provider), use instead:
+        #   hostname: ${CAMUNDA_DOMAIN}
+        #   and add to additionalOptions:
+        #     - name: hostname-strict-https
+        #       value: 'true'
+        hostname: https://${CAMUNDA_DOMAIN}
         # Dynamic backchannel for ingress environments (set to false for localhost/no-ingress)
         backchannelDynamic: false
         strict: true
