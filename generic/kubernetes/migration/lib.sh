@@ -565,6 +565,14 @@ run_job() {
     # Save job logs for post-mortem analysis and metrics extraction
     kubectl logs -n "${NAMESPACE}" "job/${job_name}" \
         > "${STATE_DIR}/${job_name}.log" 2>/dev/null || true
+
+    # Display job output so metrics (database sizes, row counts, etc.) are
+    # visible in the CI log without having to inspect the saved log file.
+    if [[ -f "${STATE_DIR}/${job_name}.log" ]]; then
+        echo "--- Job output ---"
+        cat "${STATE_DIR}/${job_name}.log"
+        echo "--- End of job output ---"
+    fi
 }
 
 # =============================================================================
