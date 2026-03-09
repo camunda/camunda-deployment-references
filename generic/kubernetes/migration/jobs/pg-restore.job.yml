@@ -108,7 +108,7 @@ spec:
                                 name: ${DB_SECRET_NAME}
                                 key: password
                       - name: FORCE_RESTORE
-                        value: ${FORCE_RESTORE}
+                        value: '${FORCE_RESTORE}'
                   resources:
                       requests: {memory: 256Mi, cpu: 100m}
                       limits: {memory: 512Mi, cpu: 500m}
