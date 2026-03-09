@@ -28,8 +28,11 @@ identity:
                 definition: read:*
               - resourceServerId: orchestration-api
                 definition: write:*
-              - resourceServerId: optimize-api
-                definition: write:*
+              # TODO: [release-duty] re-enable optimize-api permission once Optimize
+              #       is no longer broken (NPE at startup in 8.9.0-alpha5).
+              #       See bitnami-values.yml where optimize.enabled is set to false.
+              # - resourceServerId: optimize-api
+              #   definition: write:*
               - resourceServerId: web-modeler-api
                 definition: write:*
               - resourceServerId: web-modeler-public-api
