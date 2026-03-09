@@ -6,12 +6,12 @@
 # Runs for 5 minutes at 5 PI/s (~1500 process instances), then the Job
 # is terminated by activeDeadlineSeconds.
 #
-# Authentication: uses the Keycloak admin API to look up the orchestration
-# client secret, then configures OIDC for the benchmark tool.
+# Authentication: uses the venom test client registered by Identity with
+# admin role and full permissions (via bitnami-values-identity-test.yml).
 #
 # Prerequisites:
-#   - Camunda 8.8+ deployed with Bitnami sub-charts
-#   - Keycloak admin password in camunda-credentials secret
+#   - Camunda 8.8+ deployed with bitnami-values.yml + bitnami-values-identity-test.yml
+#   - identity-secret-for-components-integration secret created before helm install
 #
 # Usage:
 #   kubectl apply -n camunda -f benchmark-job.yml
@@ -33,91 +33,9 @@ spec:
                 app: migration-test-data
         spec:
             restartPolicy: Never
-            initContainers:
-                # Discover the orchestration client secret from Keycloak admin API.
-                # Writes /tmp/auth/client-secret for the benchmark container.
-                - name: discover-auth
-                  image: alpine/curl:latest
-                  command: [/bin/sh, -c]
-                  args:
-                      - |
-                        set -eu
-                        KC_URL="http://camunda-keycloak:80/auth"
-                        KC_REALM="camunda-platform"
-                        MAX_RETRIES=12
-                        RETRY_DELAY=10
-
-                        for ATTEMPT in $(seq 1 $MAX_RETRIES); do
-                          echo "=== Attempt ${ATTEMPT}/${MAX_RETRIES} ==="
-
-                          echo "Obtaining Keycloak admin token..."
-                          ADMIN_TOKEN=$(curl -sf --max-time 30 -X POST \
-                            "${KC_URL}/realms/master/protocol/openid-connect/token" \
-                            -d "grant_type=password&client_id=admin-cli&username=admin&password=${KC_ADMIN_PASS}" \
-                            | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4) || true
-                          if [ -z "${ADMIN_TOKEN:-}" ]; then
-                            echo "WARN: cannot get admin token (Keycloak not ready?)"
-                            sleep $RETRY_DELAY; continue
-                          fi
-
-                          echo "Looking up orchestration client..."
-                          CLIENT_UUID=""
-                          ORCH_CLIENT_ID=""
-                          for CANDIDATE in orchestration orchestration-api; do
-                            CLIENT_UUID=$(curl -sf --max-time 10 \
-                              "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=${CANDIDATE}" \
-                              -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-                              | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4) || true
-                            if [ -n "${CLIENT_UUID}" ]; then
-                              ORCH_CLIENT_ID="${CANDIDATE}"
-                              break
-                            fi
-                          done
-                          if [ -z "${CLIENT_UUID:-}" ]; then
-                            echo "WARN: orchestration client not found (Identity not ready?)"
-                            sleep $RETRY_DELAY; continue
-                          fi
-                          echo "Found client '${ORCH_CLIENT_ID}'"
-
-                          echo "Fetching client secret..."
-                          SECRET=$(curl -sf --max-time 10 \
-                            "${KC_URL}/admin/realms/${KC_REALM}/clients/${CLIENT_UUID}/client-secret" \
-                            -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-                            | grep -o '"value":"[^"]*"' | cut -d'"' -f4) || true
-                          if [ -z "${SECRET:-}" ]; then
-                            echo "WARN: cannot fetch orchestration secret"
-                            sleep $RETRY_DELAY; continue
-                          fi
-
-                          mkdir -p /tmp/auth
-                          echo -n "${SECRET}" > /tmp/auth/client-secret
-                          echo -n "${ORCH_CLIENT_ID}" > /tmp/auth/client-id
-                          echo "Auth configured for client '${ORCH_CLIENT_ID}'."
-                          exit 0
-                        done
-
-                        echo "ERROR: failed after ${MAX_RETRIES} attempts"
-                        exit 1
-                  env:
-                      - name: KC_ADMIN_PASS
-                        valueFrom:
-                            secretKeyRef:
-                                name: camunda-credentials
-                                key: identity-keycloak-admin-password
-                  volumeMounts:
-                      - {name: auth, mountPath: /tmp/auth}
-                  resources:
-                      requests: {cpu: 50m, memory: 64Mi}
-                      limits: {cpu: 200m, memory: 128Mi}
             containers:
                 - name: benchmark
                   image: camundacommunityhub/camunda-8-benchmark:main
-                  command: [/bin/sh, -c]
-                  args:
-                      - |
-                        export CAMUNDA_CLIENT_AUTH_CLIENT_SECRET="$(cat /tmp/auth/client-secret)"
-                        export CAMUNDA_CLIENT_AUTH_CLIENT_ID="$(cat /tmp/auth/client-id)"
-                        exec java -jar /app.jar
                   env:
                       - name: CAMUNDA_CLIENT_MODE
                         value: self-managed
@@ -129,6 +47,16 @@ spec:
                         value: 'false'
                       - name: CAMUNDA_CLIENT_AUTH_ISSUER
                         value: http://camunda-keycloak:80/auth/realms/camunda-platform/protocol/openid-connect/token
+                      - name: CAMUNDA_CLIENT_AUTH_CLIENT_ID
+                        valueFrom:
+                            secretKeyRef:
+                                name: identity-secret-for-components-integration
+                                key: identity-admin-client-id
+                      - name: CAMUNDA_CLIENT_AUTH_CLIENT_SECRET
+                        valueFrom:
+                            secretKeyRef:
+                                name: identity-secret-for-components-integration
+                                key: identity-admin-client-secret
                       - name: BENCHMARK_START_PROCESSES
                         value: 'true'
                       - name: BENCHMARK_START_PI_PER_SECOND
@@ -147,8 +75,6 @@ spec:
                         value: '10000'
                       - name: BENCHMARK_START_RATE_ADJUSTMENT_STRATEGY
                         value: none
-                  volumeMounts:
-                      - {name: auth, mountPath: /tmp/auth, readOnly: true}
                   resources:
                       requests:
                           cpu: 500m
@@ -156,6 +82,3 @@ spec:
                       limits:
                           cpu: 1
                           memory: 1Gi
-            volumes:
-                - name: auth
-                  emptyDir: {}

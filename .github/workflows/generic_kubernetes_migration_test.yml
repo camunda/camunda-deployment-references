@@ -132,6 +132,8 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
                       secret/data/products/infrastructure-experience/ci/common MACHINE_USR;
                       secret/data/products/infrastructure-experience/ci/common MACHINE_PWD;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
 
             # =================================================================
             # Create Kind cluster
@@ -158,6 +160,11 @@ jobs:
                       --docker-server=registry.camunda.cloud \
                       --docker-username="${{ steps.secrets.outputs.MACHINE_USR }}" \
                       --docker-password="${{ steps.secrets.outputs.MACHINE_PWD }}" \
+                      --namespace="${{ env.CAMUNDA_NAMESPACE }}"
+
+                  kubectl create secret generic identity-secret-for-components-integration \
+                      --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                      --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
                       --namespace="${{ env.CAMUNDA_NAMESPACE }}"
 
             # =================================================================
@@ -212,6 +219,7 @@ jobs:
                   HELM_ARGS=(
                       --namespace "${{ env.CAMUNDA_NAMESPACE }}"
                       --values generic/kubernetes/migration/tests/bitnami-values.yml
+                      --values generic/kubernetes/migration/tests/bitnami-values-identity-test.yml
                       --timeout 20m
                       --wait
                   )
@@ -307,9 +315,6 @@ jobs:
                       -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || true
 
                   kill "$LOGS_PID" 2>/dev/null || true
-
-                  echo "Benchmark init container logs (discover-auth):"
-                  kubectl logs job/migration-benchmark -n "${{ env.CAMUNDA_NAMESPACE }}" -c discover-auth --tail=30 || true
 
                   if [ "$BENCHMARK_STARTED" != "true" ]; then
                       echo "::error::Benchmark pod never reached Running phase — init container failed"
@@ -414,91 +419,22 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-            - name: Extract auto-generated credentials from Helm deployment
+            - name: Extract test client credentials
               id: local-credentials
               run: |
                   set -euo pipefail
 
-                  echo "📦 Discovering orchestration client credentials via Keycloak admin API..."
+                  # The venom test client was registered by Identity during Helm install
+                  # (via bitnami-values-identity-test.yml). Its secret is stored in the
+                  # identity-secret-for-components-integration K8s secret that we created
+                  # before helm install. This secret persists through migration.
+                  LOCAL_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
+                  LOCAL_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
 
-                  KC_REALM="camunda-platform"
-
-                  # Get Keycloak admin password — try Bitnami first, then operator
-                  KC_ADMIN_USER="admin"
-                  KC_ADMIN_PASS=$(kubectl get secret camunda-credentials -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                    -o jsonpath='{.data.identity-keycloak-admin-password}' 2>/dev/null | base64 -d) || true
-                  if [[ -z "$KC_ADMIN_PASS" ]]; then
-                    KC_ADMIN_USER="temp-admin"
-                    KC_ADMIN_PASS=$(kubectl get secret keycloak-initial-admin -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                      -o jsonpath='{.data.password}' 2>/dev/null | base64 -d) || true
-                  fi
-
-                  if [[ -z "$KC_ADMIN_PASS" ]]; then
-                    echo "⚠️ Could not find Keycloak admin password"
-                    echo "LOCAL_CLIENT_ID=" | tee -a "$GITHUB_OUTPUT"
-                    echo "LOCAL_CLIENT_SECRET=" | tee -a "$GITHUB_OUTPUT"
-                    exit 0
-                  fi
-
-                  # Port-forward to Keycloak
-                  kubectl port-forward "svc/keycloak-service" 18080:18080 -n "${{ env.CAMUNDA_NAMESPACE }}" &
-                  PF_PID=$!
-                  sleep 3
-
-                  # Get admin token
-                  KC_ADMIN_TOKEN=$(curl -sf --max-time 30 -X POST \
-                    "http://localhost:18080/auth/realms/master/protocol/openid-connect/token" \
-                    -d "grant_type=password&client_id=admin-cli&username=${KC_ADMIN_USER}&password=${KC_ADMIN_PASS}" \
-                    | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4) || true
-
-                  if [[ -z "${KC_ADMIN_TOKEN}" ]]; then
-                    echo "⚠️ Could not obtain Keycloak admin token"
-                    kill $PF_PID 2>/dev/null || true
-                    echo "LOCAL_CLIENT_ID=" | tee -a "$GITHUB_OUTPUT"
-                    echo "LOCAL_CLIENT_SECRET=" | tee -a "$GITHUB_OUTPUT"
-                    exit 0
-                  fi
-
-                  # Discover orchestration client (name varies: orchestration or orchestration-api)
-                  LOCAL_CLIENT_ID=""
-                  CLIENT_UUID=""
-                  for CANDIDATE in orchestration orchestration-api; do
-                    CLIENT_UUID=$(curl -sf --max-time 10 \
-                      "http://localhost:18080/auth/admin/realms/${KC_REALM}/clients?clientId=${CANDIDATE}" \
-                      -H "Authorization: Bearer ${KC_ADMIN_TOKEN}" \
-                      | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4) || true
-                    if [[ -n "${CLIENT_UUID}" ]]; then
-                      LOCAL_CLIENT_ID="${CANDIDATE}"
-                      break
-                    fi
-                  done
-
-                  if [[ -z "${CLIENT_UUID}" ]]; then
-                    echo "⚠️ orchestration client not found in Keycloak"
-                    kill $PF_PID 2>/dev/null || true
-                    echo "LOCAL_CLIENT_ID=" | tee -a "$GITHUB_OUTPUT"
-                    echo "LOCAL_CLIENT_SECRET=" | tee -a "$GITHUB_OUTPUT"
-                    exit 0
-                  fi
-
-                  # Fetch the real client secret from Keycloak
-                  LOCAL_CLIENT_SECRET=$(curl -sf --max-time 10 \
-                    "http://localhost:18080/auth/admin/realms/${KC_REALM}/clients/${CLIENT_UUID}/client-secret" \
-                    -H "Authorization: Bearer ${KC_ADMIN_TOKEN}" \
-                    | grep -o '"value":"[^"]*"' | cut -d'"' -f4) || true
-
-                  kill $PF_PID 2>/dev/null || true
-
-                  if [[ -z "$LOCAL_CLIENT_SECRET" ]]; then
-                    echo "⚠️ Could not fetch orchestration client secret from Keycloak"
-                    echo "LOCAL_CLIENT_ID=" | tee -a "$GITHUB_OUTPUT"
-                    echo "LOCAL_CLIENT_SECRET=" | tee -a "$GITHUB_OUTPUT"
-                  else
-                    echo "✅ Discovered client '${LOCAL_CLIENT_ID}' credentials from Keycloak"
-                    echo "LOCAL_CLIENT_ID=$LOCAL_CLIENT_ID" | tee -a "$GITHUB_OUTPUT"
-                    # Don't print secret to logs
-                    echo "LOCAL_CLIENT_SECRET=$LOCAL_CLIENT_SECRET" >> "$GITHUB_OUTPUT"
-                  fi
+                  echo "✅ Using test client '${LOCAL_CLIENT_ID}'"
+                  echo "LOCAL_CLIENT_ID=$LOCAL_CLIENT_ID" | tee -a "$GITHUB_OUTPUT"
+                  # Don't print secret to logs
+                  echo "LOCAL_CLIENT_SECRET=$LOCAL_CLIENT_SECRET" >> "$GITHUB_OUTPUT"
 
             - name: 🧪 Run C8-SM-CHECKS deployment and connectivity tests
               if: env.TESTS_ENABLED == 'true'

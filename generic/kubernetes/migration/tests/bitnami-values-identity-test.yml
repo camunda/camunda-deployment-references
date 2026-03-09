@@ -1,0 +1,44 @@
+---
+# Test client (venom) registered in Identity with full permissions.
+# Mirrors the pattern used by other reference architectures
+# (generic/kubernetes/single-region/tests/helm-values/identity.yml).
+#
+# Prerequisites:
+#   kubectl create secret generic identity-secret-for-components-integration \
+#       --from-literal=identity-admin-client-id=venom \
+#       --from-literal=identity-admin-client-secret=<secret-from-vault-or-random> \
+#       --namespace=camunda
+
+identity:
+    clients:
+        - id: venom
+          name: Venom
+          secret:
+              existingSecret: identity-secret-for-components-integration
+              existingSecretKey: identity-admin-client-secret
+          redirectUris: /dummy
+          rootUrl: http://dummy
+          type: confidential
+          permissions:
+              - resourceServerId: camunda-identity-resource-server
+                definition: read
+              - resourceServerId: camunda-identity-resource-server
+                definition: write
+              - resourceServerId: orchestration-api
+                definition: read:*
+              - resourceServerId: orchestration-api
+                definition: write:*
+              - resourceServerId: optimize-api
+                definition: write:*
+              - resourceServerId: web-modeler-api
+                definition: write:*
+              - resourceServerId: console-api
+                definition: write:*
+
+orchestration:
+    security:
+        initialization:
+            defaultRoles:
+                admin:
+                    clients:
+                        - venom

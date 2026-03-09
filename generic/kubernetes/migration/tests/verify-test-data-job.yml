@@ -58,7 +58,7 @@ spec:
                         WM_MGMT_URL="http://camunda-web-modeler-restapi:8091"
 
                         DEMO_USER="demo"
-                        DEMO_PASS="${IDENTITY_FIRSTUSER_PASSWORD:-demo}"
+                        DEMO_PASS="demo"
                         KC_REALM="camunda-platform"
 
                         # Determine KC admin credentials:
@@ -117,58 +117,36 @@ spec:
                         fi
 
                         # ── Obtain OIDC token for REST API access ──
-                        # When Keycloak is available (method:oidc), use the admin API to
-                        # retrieve the camunda-identity client secret, then ROPC grant.
-                        # When Keycloak is not available (basic auth), fall back to -u user:pass.
+                        # Uses the venom test client registered by Identity with admin role
+                        # and full permissions on all resource servers.
                         AUTH_MODE="basic"
                         ZEEBE_AUTH_HEADER=""
                         if [ -n "${KC_URL}" ]; then
                             TOKEN_URL="${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token"
 
-                            # Step 1: admin token (master realm)
+                            log "Obtaining OIDC token via test client '${TEST_CLIENT_ID}'..."
+                            ZEEBE_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
+                                "${TOKEN_URL}" \
+                                -H "Content-Type: application/x-www-form-urlencoded" \
+                                -d "grant_type=client_credentials" \
+                                -d "client_id=${TEST_CLIENT_ID}" \
+                                -d "client_secret=${TEST_CLIENT_SECRET}" \
+                                2>/dev/null | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
+
+                            if [ -n "${ZEEBE_TOKEN}" ]; then
+                                log "Obtained OIDC token (client=${TEST_CLIENT_ID})"
+                                AUTH_MODE="oidc"
+                                ZEEBE_AUTH_HEADER="Authorization: Bearer ${ZEEBE_TOKEN}"
+                            else
+                                log "WARN: client_credentials grant failed for '${TEST_CLIENT_ID}'"
+                            fi
+
+                            # Also get Keycloak admin token for user/client checks later
                             KC_ADMIN_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
                                 "${KC_URL}/realms/master/protocol/openid-connect/token" \
                                 -H "Content-Type: application/x-www-form-urlencoded" \
                                 -d "grant_type=password&client_id=admin-cli&username=${KC_ADMIN_USER}&password=${KC_ADMIN_PASS}" \
                                 2>/dev/null | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
-
-                            if [ -n "${KC_ADMIN_TOKEN}" ]; then
-                                # Step 2: look up camunda-identity client UUID
-                                IDENTITY_UUID=$(curl -sf --connect-timeout 5 --max-time 10 \
-                                    "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=camunda-identity" \
-                                    -H "Authorization: Bearer ${KC_ADMIN_TOKEN}" 2>/dev/null \
-                                    | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
-
-                                if [ -n "${IDENTITY_UUID}" ]; then
-                                    # Step 3: fetch client secret
-                                    IDENTITY_SECRET=$(curl -sf --connect-timeout 5 --max-time 10 \
-                                        "${KC_URL}/admin/realms/${KC_REALM}/clients/${IDENTITY_UUID}/client-secret" \
-                                        -H "Authorization: Bearer ${KC_ADMIN_TOKEN}" 2>/dev/null \
-                                        | grep -o '"value":"[^"]*"' | cut -d'"' -f4 || echo "")
-
-                                    if [ -n "${IDENTITY_SECRET}" ]; then
-                                        # Step 4: ROPC with camunda-identity + firstUser
-                                        USER_TOKEN=$(curl -sf --connect-timeout 5 --max-time 10 -X POST "${TOKEN_URL}" \
-                                            -H "Content-Type: application/x-www-form-urlencoded" \
-                                            -d "grant_type=password&client_id=camunda-identity&client_secret=${IDENTITY_SECRET}&username=${DEMO_USER}&password=${DEMO_PASS}" \
-                                            2>/dev/null | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
-
-                                        if [ -n "${USER_TOKEN}" ]; then
-                                            log "Obtained OIDC token via camunda-identity ROPC"
-                                            AUTH_MODE="oidc"
-                                            ZEEBE_AUTH_HEADER="Authorization: Bearer ${USER_TOKEN}"
-                                        else
-                                            log "WARN: ROPC grant failed (wrong firstUser password?)"
-                                        fi
-                                    else
-                                        log "WARN: Could not fetch camunda-identity client secret"
-                                    fi
-                                else
-                                    log "WARN: camunda-identity client not found in realm '${KC_REALM}'"
-                                fi
-                            else
-                                log "WARN: Could not obtain Keycloak admin token"
-                            fi
 
                             if [ "${AUTH_MODE}" = "basic" ]; then
                                 log "WARN: Could not obtain OIDC token, falling back to basic auth"
@@ -266,28 +244,8 @@ spec:
                             log ""
                             log "=== Verifying WebModeler data ==="
 
-                            # WebModeler requires a token from the web-modeler-api client.
-                            # Discover the client secret from Keycloak admin API.
-                            WM_TOKEN=""
-                            if [ -n "${KC_ADMIN_TOKEN:-}" ]; then
-                                WM_CLIENT_UUID=$(curl -sf --connect-timeout 5 --max-time 10 \
-                                    "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=web-modeler-api" \
-                                    -H "Authorization: Bearer ${KC_ADMIN_TOKEN}" 2>/dev/null \
-                                    | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
-                                if [ -n "${WM_CLIENT_UUID}" ]; then
-                                    WM_SECRET=$(curl -sf --connect-timeout 5 --max-time 10 \
-                                        "${KC_URL}/admin/realms/${KC_REALM}/clients/${WM_CLIENT_UUID}/client-secret" \
-                                        -H "Authorization: Bearer ${KC_ADMIN_TOKEN}" 2>/dev/null \
-                                        | grep -o '"value":"[^"]*"' | cut -d'"' -f4 || echo "")
-                                    if [ -n "${WM_SECRET}" ]; then
-                                        WM_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
-                                            "${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token" \
-                                            -H "Content-Type: application/x-www-form-urlencoded" \
-                                            -d "grant_type=client_credentials&client_id=web-modeler-api&client_secret=${WM_SECRET}" \
-                                            2>/dev/null | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
-                                    fi
-                                fi
-                            fi
+                            # Reuse the venom test client token (has write:* on web-modeler-api)
+                            WM_TOKEN="${ZEEBE_TOKEN:-}"
 
                             if [ -n "${WM_TOKEN}" ]; then
                                 PROJECTS_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -X POST "${WM_URL}/api/v1/projects/search" \
@@ -333,13 +291,17 @@ spec:
                                 name: keycloak-initial-admin
                                 key: password
                                 optional: true
-                      # Identity firstUser password (auto-generated by chart)
-                      - name: IDENTITY_FIRSTUSER_PASSWORD
+                      # Test client credentials (venom) from identity-secret-for-components-integration
+                      - name: TEST_CLIENT_ID
                         valueFrom:
                             secretKeyRef:
-                                name: camunda-credentials
-                                key: identity-firstuser-password
-                                optional: true
+                                name: identity-secret-for-components-integration
+                                key: identity-admin-client-id
+                      - name: TEST_CLIENT_SECRET
+                        valueFrom:
+                            secretKeyRef:
+                                name: identity-secret-for-components-integration
+                                key: identity-admin-client-secret
                   resources:
                       requests:
                           cpu: 100m
