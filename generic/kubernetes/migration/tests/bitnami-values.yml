@@ -131,6 +131,12 @@ connectors:
 orchestration:
     enabled: true
     security:
+        # Disable resource-based authorizations for testing; the orchestration
+        # client's service account has no resource-level permissions by default,
+        # causing 403 FORBIDDEN on seed/benchmark deployments. OIDC
+        # authentication remains active — tokens are still validated.
+        authorizations:
+            enabled: false
         authentication:
             oidc:
                 # Reference the auto-generated secret so Identity can register
