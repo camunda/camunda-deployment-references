@@ -71,12 +71,21 @@ deploy_camunda() {
     helm repo add camunda https://helm.camunda.io 2>/dev/null || true
     helm repo update
 
+    local chart_version="${CAMUNDA_HELM_CHART_VERSION:-}"
+
     log "Installing Camunda with Bitnami sub-charts..."
-    helm upgrade --install "${RELEASE_NAME}" camunda/camunda-platform \
-        --namespace "${NAMESPACE}" \
-        --values "${VALUES_FILE}" \
-        --timeout 20m \
+    local helm_args=(
+        --namespace "${NAMESPACE}"
+        --values "${VALUES_FILE}"
+        --timeout 20m
         --wait
+    )
+    if [[ -n "${chart_version}" ]]; then
+        log "  Using chart version: ${chart_version}"
+        helm_args+=(--version "${chart_version}")
+    fi
+
+    helm upgrade --install "${RELEASE_NAME}" camunda/camunda-platform "${helm_args[@]}"
 
     log "Helm install complete. Waiting for rollouts..."
     kubectl rollout status statefulset/camunda-zeebe -n "${NAMESPACE}" --timeout=600s || true

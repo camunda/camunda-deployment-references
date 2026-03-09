@@ -46,6 +46,11 @@ env:
 
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
+    # renovate: datasource=helm depName=camunda-platform versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+    CAMUNDA_HELM_CHART_VERSION: 0.0.0-snapshot-alpha
+    # TODO: [release-duty] before the release, update this!
+    # TODO: [release-duty] adjust renovate comment to bump the major version
+
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
     TESTS_CAMUNDA_HELM_CHART_REPO_REF: main
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo
@@ -208,7 +213,7 @@ jobs:
             # STEP 1: Deploy Camunda with Bitnami sub-charts (SOURCE)
             # =================================================================
             - name: Deploy Camunda with Bitnami sub-charts
-              timeout-minutes: 20
+              timeout-minutes: 10
               run: |
                   set -euo pipefail
 
@@ -232,7 +237,9 @@ jobs:
                       echo "Installing Camunda Platform with Bitnami sub-charts (no-domain mode)..."
                   fi
 
-                  helm install camunda camunda/camunda-platform "${HELM_ARGS[@]}"
+                  helm install camunda camunda/camunda-platform \
+                      --version "${{ env.CAMUNDA_HELM_CHART_VERSION }}" \
+                      "${HELM_ARGS[@]}"
 
                   echo "Camunda with Bitnami sub-charts deployed successfully"
 
