@@ -120,6 +120,9 @@ webModelerPostgresql:
 optimize:
     enabled: true
 
+console:
+    enabled: true
+
 # Connectors — reference auto-generated OIDC secret
 connectors:
     security:
