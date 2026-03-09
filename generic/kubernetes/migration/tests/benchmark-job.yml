@@ -17,6 +17,41 @@
 #   kubectl apply -n camunda -f benchmark-job.yml
 #   kubectl wait --for=condition=complete job/migration-benchmark -n camunda --timeout=600s
 
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: benchmark-bpmn
+    labels:
+        app: migration-test-data
+data:
+    benchmark.bpmn: |
+        <?xml version="1.0" encoding="UTF-8"?>
+        <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                          xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                          xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                          xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                          xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                          id="Definitions_1"
+                          targetNamespace="http://bpmn.io/schema/bpmn">
+          <bpmn:process id="benchmark" name="Benchmark Process" isExecutable="true">
+            <bpmn:startEvent id="start" name="Start">
+              <bpmn:outgoing>flow1</bpmn:outgoing>
+            </bpmn:startEvent>
+            <bpmn:serviceTask id="task1" name="Benchmark Task">
+              <bpmn:extensionElements>
+                <zeebe:taskDefinition type="benchmark-task"/>
+              </bpmn:extensionElements>
+              <bpmn:incoming>flow1</bpmn:incoming>
+              <bpmn:outgoing>flow2</bpmn:outgoing>
+            </bpmn:serviceTask>
+            <bpmn:endEvent id="end" name="End">
+              <bpmn:incoming>flow2</bpmn:incoming>
+            </bpmn:endEvent>
+            <bpmn:sequenceFlow id="flow1" sourceRef="start" targetRef="task1"/>
+            <bpmn:sequenceFlow id="flow2" sourceRef="task1" targetRef="end"/>
+          </bpmn:process>
+        </bpmn:definitions>
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -33,9 +68,17 @@ spec:
                 app: migration-test-data
         spec:
             restartPolicy: Never
+            volumes:
+                - name: bpmn
+                  configMap:
+                      name: benchmark-bpmn
             containers:
                 - name: benchmark
                   image: camundacommunityhub/camunda-8-benchmark:main
+                  volumeMounts:
+                      - name: bpmn
+                        mountPath: /bpmn
+                        readOnly: true
                   env:
                       - name: CAMUNDA_CLIENT_MODE
                         value: self-managed
@@ -57,6 +100,8 @@ spec:
                             secretKeyRef:
                                 name: identity-secret-for-components-integration
                                 key: identity-admin-client-secret
+                      - name: BENCHMARK_BPMN_RESOURCE
+                        value: file:/bpmn/benchmark.bpmn
                       - name: BENCHMARK_START_PROCESSES
                         value: 'true'
                       - name: BENCHMARK_START_PI_PER_SECOND
