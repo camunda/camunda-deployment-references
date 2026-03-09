@@ -66,6 +66,12 @@ create_pull_secrets() {
     fi
 }
 
+create_identity_secrets() {
+    log "Creating identity secrets (camunda-credentials)..."
+    CAMUNDA_NAMESPACE="${NAMESPACE}" \
+        "${SCRIPT_DIR}/create-identity-secrets.sh"
+}
+
 deploy_camunda() {
     log "Adding Camunda Helm repo..."
     helm repo add camunda https://helm.camunda.io 2>/dev/null || true
@@ -80,12 +86,17 @@ deploy_camunda() {
         --timeout 20m
         --wait
     )
+    local chart_ref="camunda/camunda-platform"
     if [[ -n "${chart_version}" ]]; then
         log "  Using chart version: ${chart_version}"
         helm_args+=(--version "${chart_version}")
+        if [[ "${chart_version}" == *snapshot* ]]; then
+            log "  Using OCI registry for snapshot version"
+            chart_ref="oci://ghcr.io/camunda/helm/camunda-platform"
+        fi
     fi
 
-    helm upgrade --install "${RELEASE_NAME}" camunda/camunda-platform "${helm_args[@]}"
+    helm upgrade --install "${RELEASE_NAME}" "${chart_ref}" "${helm_args[@]}"
 
     log "Helm install complete. Waiting for rollouts..."
     kubectl rollout status statefulset/camunda-zeebe -n "${NAMESPACE}" --timeout=600s || true
@@ -228,6 +239,7 @@ main() {
         full)
             ensure_cluster
             create_pull_secrets
+            create_identity_secrets
             deploy_camunda
             debug_services
             run_seed_job
@@ -237,6 +249,7 @@ main() {
         deploy-only)
             ensure_cluster
             create_pull_secrets
+            create_identity_secrets
             deploy_camunda
             ;;
         seed-only)

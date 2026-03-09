@@ -209,6 +209,12 @@ jobs:
                       echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
                   fi
 
+            - name: Create identity secrets
+              run: |
+                  set -euo pipefail
+                  CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}" \
+                      generic/kubernetes/migration/tests/create-identity-secrets.sh
+
             # =================================================================
             # STEP 1: Deploy Camunda with Bitnami sub-charts (SOURCE)
             # =================================================================
@@ -237,8 +243,16 @@ jobs:
                       echo "Installing Camunda Platform with Bitnami sub-charts (no-domain mode)..."
                   fi
 
-                  helm install camunda camunda/camunda-platform \
-                      --version "${{ env.CAMUNDA_HELM_CHART_VERSION }}" \
+                  CHART_VERSION="${{ env.CAMUNDA_HELM_CHART_VERSION }}"
+                  if [[ "${CHART_VERSION}" == *snapshot* ]]; then
+                      echo "Using OCI registry for snapshot version ${CHART_VERSION}..."
+                      CHART_REF="oci://ghcr.io/camunda/helm/camunda-platform"
+                  else
+                      CHART_REF="camunda/camunda-platform"
+                  fi
+
+                  helm install camunda "${CHART_REF}" \
+                      --version "${CHART_VERSION}" \
                       "${HELM_ARGS[@]}"
 
                   echo "Camunda with Bitnami sub-charts deployed successfully"
