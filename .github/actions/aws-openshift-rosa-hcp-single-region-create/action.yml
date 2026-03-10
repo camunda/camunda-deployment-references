@@ -132,6 +132,7 @@ runs:
         - name: Verify and enable HCP ROSA on AWS Marketplace
           shell: bash
           run: |
+              set -euo pipefail
               rosa verify quota
               rosa create account-roles --mode auto --yes
               rosa create ocm-role --mode auto --yes
