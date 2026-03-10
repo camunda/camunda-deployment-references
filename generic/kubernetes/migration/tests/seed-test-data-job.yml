@@ -112,7 +112,7 @@ spec:
 
                         # WebModeler is optional — don't fail if it's not deployed
                         WM_AVAILABLE="false"
-                        if retry 3 5 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "${WM_MGMT_URL}/health/readiness" 2>/dev/null; then
+                        if retry 30 10 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "${WM_MGMT_URL}/health/readiness" 2>/dev/null; then
                             WM_AVAILABLE="true"
                             ok "WebModeler REST API is ready"
                         else
