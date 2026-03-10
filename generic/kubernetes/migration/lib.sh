@@ -1775,7 +1775,7 @@ helm_upgrade() {
 
     # If CAMUNDA_HELM_CHART_VERSION is the default placeholder, use the installed version.
     local chart_version="${CAMUNDA_HELM_CHART_VERSION}"
-    if [[ "${chart_version}" == "0.0.0-snapshot-alpha" && -n "${installed_version}" ]]; then
+    if [[ "${chart_version}" == *dev-latest* && -n "${installed_version}" ]]; then
         log_info "Auto-detected installed chart version: ${installed_version}"
         chart_version="${installed_version}"
     fi
@@ -1792,8 +1792,8 @@ helm_upgrade() {
     fi
 
     local chart_ref="camunda/camunda-platform"
-    if [[ "${chart_version}" == *snapshot* ]]; then
-        chart_ref="oci://ghcr.io/camunda/helm/camunda-platform"
+    if [[ "${chart_version}" == *dev-latest* ]]; then
+        chart_ref="oci://registry.camunda.cloud/team-distribution/camunda-platform"
     fi
 
     log_info "Running helm upgrade ..."
@@ -1819,13 +1819,13 @@ helm_rollback_from_backup() {
         | jq -r '.[0].chart // empty' 2>/dev/null \
         | sed 's/^camunda-platform-//')
     local chart_version="${CAMUNDA_HELM_CHART_VERSION}"
-    if [[ "${chart_version}" == "0.0.0-snapshot-alpha" && -n "${installed_version}" ]]; then
+    if [[ "${chart_version}" == *dev-latest* && -n "${installed_version}" ]]; then
         chart_version="${installed_version}"
     fi
 
     local chart_ref="camunda/camunda-platform"
-    if [[ "${chart_version}" == *snapshot* ]]; then
-        chart_ref="oci://ghcr.io/camunda/helm/camunda-platform"
+    if [[ "${chart_version}" == *dev-latest* ]]; then
+        chart_ref="oci://registry.camunda.cloud/team-distribution/camunda-platform"
     fi
 
     log_info "Rolling back Helm to pre-migration values ..."

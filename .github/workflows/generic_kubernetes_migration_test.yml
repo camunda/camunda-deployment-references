@@ -46,8 +46,8 @@ env:
 
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
-    # renovate: datasource=helm depName=camunda-platform versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 0.0.0-snapshot-alpha
+    # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+    CAMUNDA_HELM_CHART_VERSION: 14-dev-latest
     # TODO: [release-duty] before the release, update this!
     # TODO: [release-duty] adjust renovate comment to bump the major version
 
@@ -218,6 +218,14 @@ jobs:
             # =================================================================
             # STEP 1: Deploy Camunda with Bitnami sub-charts (SOURCE)
             # =================================================================
+            - name: Helm registry login
+              uses: ./.github/actions/internal-helm-registry-login
+              with:
+                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
             - name: Deploy Camunda with Bitnami sub-charts
               timeout-minutes: 10
               run: |
@@ -244,9 +252,9 @@ jobs:
                   fi
 
                   CHART_VERSION="${{ env.CAMUNDA_HELM_CHART_VERSION }}"
-                  if [[ "${CHART_VERSION}" == *snapshot* ]]; then
-                      echo "Using OCI registry for snapshot version ${CHART_VERSION}..."
-                      CHART_REF="oci://ghcr.io/camunda/helm/camunda-platform"
+                  if [[ "${CHART_VERSION}" == *dev-latest* ]]; then
+                      echo "Using OCI registry for dev version ${CHART_VERSION}..."
+                      CHART_REF="oci://registry.camunda.cloud/team-distribution/camunda-platform"
                   else
                       CHART_REF="camunda/camunda-platform"
                   fi

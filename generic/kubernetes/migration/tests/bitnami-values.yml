@@ -130,11 +130,8 @@ webModelerPostgresql:
         database: webmodeler
         existingSecret: camunda-credentials
 
-# [release-duty] Optimize 8.9.0-alpha5 crashes at startup with NPE:
-# getConnectionNodes() returns null when configuring the ES client.
-# Re-enable when a fixed alpha/stable is released.
 optimize:
-    enabled: false
+    enabled: true
 
 console:
     enabled: true
