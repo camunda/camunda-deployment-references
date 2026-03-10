@@ -69,8 +69,11 @@ repos:
       rev: v1.0.0-rc.4
       hooks:
           - id: go-mod-tidy
+            exclude: (camunda-platform-helm/|camunda-docs/)
           - id: go-mod-tidy-repo
+            exclude: (camunda-platform-helm/|camunda-docs/)
           - id: go-fmt
+            exclude: (camunda-platform-helm/|camunda-docs/)
 
     - repo: https://github.com/shellcheck-py/shellcheck-py
       rev: v0.9.0.6

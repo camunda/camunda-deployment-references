@@ -140,11 +140,23 @@ console:
     enabled: true
 
 # Connectors
-connectors: {}
+connectors:
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: camunda-credentials
+                    existingSecretKey: identity-connectors-client-token
 
 # Orchestration cluster (replaces zeebe, operate, tasklist in 8.8+)
 orchestration:
     enabled: true
+    security:
+        authentication:
+            oidc:
+                secret:
+                    existingSecret: camunda-credentials
+                    existingSecretKey: identity-orchestration-client-token
     data:
         secondaryStorage:
             type: elasticsearch
