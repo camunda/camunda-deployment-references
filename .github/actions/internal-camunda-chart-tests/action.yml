@@ -46,6 +46,9 @@ inputs:
     console-enabled:
         description: Whether the Console is enabled in the chart
         default: 'false'
+    optimize-enabled:
+        description: Whether Optimize is enabled in the chart
+        default: 'true'
     elasticsearch-enabled:
         description: Whether the Elasticsearch is enabled in the chart
         default: 'true'
@@ -557,7 +560,11 @@ runs:
               CAMUNDA_MINOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f2)
 
               # Camunda 8.8+ uses 'zeebe' instead of 'zeebe,zeebe-gateway'
-              REQUIRED_CONTAINERS="connector,optimize,zeebe"
+              REQUIRED_CONTAINERS="connector,zeebe"
+
+              if [[ "${{ inputs.optimize-enabled }}" == "true" ]]; then
+                REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},optimize"
+              fi
 
               if [[ "${{ inputs.webmodeler-enabled }}" == "true" ]]; then
                 REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},web-modeler"
@@ -624,7 +631,11 @@ runs:
               CAMUNDA_MINOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f2)
 
               # Camunda 8.8+ uses 'orchestration' and 'optimize' for OpenSearch
-              OS_COMPONENTS="orchestration,optimize"
+              OS_COMPONENTS="orchestration"
+
+              if [[ "${{ inputs.optimize-enabled }}" == "true" ]]; then
+                OS_COMPONENTS="${OS_COMPONENTS},optimize"
+              fi
 
               PG_COMPONENTS="identityKeycloak,identity"
 

@@ -497,6 +497,7 @@ jobs:
                   camunda-domain-grpc: ''
                   webmodeler-enabled: 'true'
                   console-enabled: 'false'
+                  optimize-enabled: 'false'
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: kubernetes
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}

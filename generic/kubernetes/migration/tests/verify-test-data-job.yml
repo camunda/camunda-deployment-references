@@ -240,7 +240,12 @@ spec:
                         fi
 
                         # ── Verify WebModeler (optional) ──
-                        if retry 30 10 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${WM_MGMT_URL}/health/readiness" 2>/dev/null; then
+                        # Try both bare and context-path prefixed readiness endpoints
+                        wm_readiness_check() {
+                            curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${WM_MGMT_URL}/health/readiness" 2>/dev/null || \
+                            curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${WM_MGMT_URL}/modeler/health/readiness" 2>/dev/null
+                        }
+                        if retry 30 10 wm_readiness_check; then
                             log ""
                             log "=== Verifying WebModeler data ==="
 

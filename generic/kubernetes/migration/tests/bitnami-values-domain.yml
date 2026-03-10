@@ -16,6 +16,9 @@
 global:
     identity:
         auth:
+            # Override the issuer to match the Keycloak Operator hostname (https://camunda.example.com/auth).
+            # Tokens issued by KC carry iss=https://camunda.example.com/auth/realms/camunda-platform.
+            publicIssuerUrl: https://camunda.example.com/auth/realms/camunda-platform
             identity:
                 redirectUrl: https://camunda.example.com/identity
             optimize:

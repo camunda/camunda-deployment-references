@@ -26,6 +26,10 @@ global:
     identity:
         auth:
             enabled: true
+            # Match the Keycloak in-cluster issuer so JWT iss claim validation succeeds.
+            # Without this, the chart defaults to http://localhost:18080/auth/realms/camunda-platform
+            # which mismatches the token iss from the Bitnami Keycloak sub-chart.
+            publicIssuerUrl: http://camunda-keycloak:80/auth/realms/camunda-platform
             connectors:
                 secret:
                     existingSecret: camunda-credentials

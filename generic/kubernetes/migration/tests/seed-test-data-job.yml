@@ -111,8 +111,14 @@ spec:
                         wait_for_service "Keycloak"      "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration"
 
                         # WebModeler is optional — don't fail if it's not deployed
+                        # Try both bare and context-path prefixed readiness endpoints
+                        # (contextPath: /modeler in domain mode shifts management endpoints)
                         WM_AVAILABLE="false"
-                        if retry 30 10 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "${WM_MGMT_URL}/health/readiness" 2>/dev/null; then
+                        wm_readiness_check() {
+                            curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "${WM_MGMT_URL}/health/readiness" 2>/dev/null || \
+                            curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "${WM_MGMT_URL}/modeler/health/readiness" 2>/dev/null
+                        }
+                        if retry 30 10 wm_readiness_check; then
                             WM_AVAILABLE="true"
                             ok "WebModeler REST API is ready"
                         else
@@ -138,6 +144,13 @@ spec:
                             || fail "Failed to obtain Zeebe OIDC token"
                         [ -n "${ZEEBE_TOKEN}" ] || fail "Empty Zeebe OIDC token"
                         ok "Got Zeebe OIDC token (client=${TEST_CLIENT_ID})"
+
+                        # Debug: decode JWT to show issuer and audiences
+                        JWT_PAYLOAD=$(echo "${ZEEBE_TOKEN}" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null || echo '{}')
+                        JWT_ISS=$(echo "${JWT_PAYLOAD}" | jq -r '.iss // "unknown"' 2>/dev/null || echo "parse-error")
+                        JWT_AUD=$(echo "${JWT_PAYLOAD}" | jq -c '.aud // "none"' 2>/dev/null || echo "parse-error")
+                        log "  Token issuer: ${JWT_ISS}"
+                        log "  Token audiences: ${JWT_AUD}"
 
                         # Inline a minimal BPMN process (single service task)
                         BPMN_XML='<?xml version="1.0" encoding="UTF-8"?>
@@ -307,6 +320,13 @@ spec:
                             WM_TOKEN="${ZEEBE_TOKEN}"
 
                             if [ -n "${WM_TOKEN:-}" ]; then
+                                # Check WM issuer configuration
+                                WM_ISSUER=$(curl -sf "${WM_URL}/actuator/env" 2>/dev/null \
+                                    | jq -r '.. | .["spring.security.oauth2.resourceserver.jwt.issuer-uri"]? // empty' 2>/dev/null \
+                                    | head -1 || echo "unknown")
+                                if [ -n "${WM_ISSUER}" ]; then
+                                    log "  WM expected issuer: ${WM_ISSUER}"
+                                fi
                                 # Create project (with retry — restapi may still be initializing)
                                 log "Creating project '${WM_PROJECT_NAME}'..."
                                 PROJECT_RESP=""
