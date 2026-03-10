@@ -61,7 +61,7 @@ env:
     TELEPORT: true
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 0.0.0-snapshot-alpha
+    CAMUNDA_HELM_CHART_VERSION: 14-dev-latest
     # TODO: [release-duty] before the release, update this!
     # TODO: [release-duty] adjust renovate comment to bump the major version
 
@@ -197,6 +197,15 @@ jobs:
                   for namespace in "${ALL_NAMESPACES[@]}"; do
                     apply_labels_and_annotations "$namespace"
                   done
+
+            - name: Helm registry login
+              uses: ./.github/actions/internal-helm-registry-login
+              with:
+                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
             - name: Run Multi-region tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60

@@ -597,6 +597,13 @@ jobs:
 
                   ./generic/openshift/dual-region/procedure/assemble-envsubst-values.sh
 
+            - name: Helm registry login
+              uses: ./.github/actions/internal-helm-registry-login
+              with:
+                  helm-chart-version: ${{ env.HELM_CHART_VERSION }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 30
@@ -670,6 +677,14 @@ jobs:
                   enable-c8sm-irsa-check: 'false'
                   enable-c8sm-zeebe-token-check: 'false'
                   enable-c8sm-zeebe-connectivity-check: 'false'
+
+            - name: Helm registry login
+              uses: ./.github/actions/internal-helm-registry-login
+              with:
+                  helm-chart-version: ${{ env.HELM_CHART_VERSION }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: Run Multi-region tests
               if: env.TESTS_ENABLED == 'true'

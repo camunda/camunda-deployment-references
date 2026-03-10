@@ -55,17 +55,17 @@ go test --count=1 -v -timeout 120m -run TestAWSDNSChaining
 
 ### Running Tests
 
-(Optional) Allows overwriting the version to use for Camunda 8, e.g. snapshot.
+(Optional) Allows overwriting the version to use for Camunda 8, e.g. dev-latest.
 Otherwise defaults to published Helm versions and the latest stable release.
 
 ```bash
-# Overwriting to snapshot image + snapshot helm chart
-export HELM_CHART_VERSION=0.0.0-snapshot-alpha
-export HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform
+# Overwriting to dev-latest helm chart
+export HELM_CHART_VERSION=14-dev-latest
+export HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform
 export GLOBAL_IMAGE_TAG=SNAPSHOT
 
 # Otherwise it's sufficient to set the helm chart version or rely on the default.
-export HELM_CHART_VERSION=13.4.1
+export HELM_CHART_VERSION=14.0.0
 ```
 
 - Deploy the dual-region setup

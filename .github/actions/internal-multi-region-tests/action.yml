@@ -95,9 +95,9 @@ runs:
           run: |
               set -euo pipefail
 
-              if [[ "${{ inputs.helm-version }}" =~ snapshot ]]; then
+              if [[ "${{ inputs.helm-version }}" =~ dev-latest ]]; then
                 {
-                  echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
+                  echo "HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform"
                 } >> "$GITHUB_ENV"
               fi
 

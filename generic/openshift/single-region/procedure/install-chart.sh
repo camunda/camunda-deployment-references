@@ -1,7 +1,7 @@
 #!/bin/bash
 
 helm upgrade --install \
-    "$CAMUNDA_RELEASE_NAME" oci://ghcr.io/camunda/helm/camunda-platform \
+    "$CAMUNDA_RELEASE_NAME" oci://registry.camunda.cloud/team-distribution/camunda-platform \
     --version "$CAMUNDA_HELM_CHART_VERSION" --namespace "$CAMUNDA_NAMESPACE" \
     -f generated-values.yml
 

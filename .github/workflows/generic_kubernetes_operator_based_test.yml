@@ -703,6 +703,14 @@ jobs:
                         --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
                         --namespace="$CAMUNDA_NAMESPACE" ||true
 
+            - name: Helm registry login
+              uses: ./.github/actions/internal-helm-registry-login
+              with:
+                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
             - name: 🏗️ Deploy Camunda Platform
               timeout-minutes: 15
               working-directory: ./generic/kubernetes/operator-based/
