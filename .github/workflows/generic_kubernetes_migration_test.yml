@@ -33,6 +33,15 @@ on:
                 required: false
                 type: string
                 default: full
+            benchmark_scenario:
+                description: |
+                    Benchmark data volume scenario.
+                    'light' = 5 PI/s for 5 min (~32 MB), 'heavy' = 150 PI/s for 10 min (~20 GB).
+                type: choice
+                options:
+                    - light
+                    - heavy
+                default: light
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -45,6 +54,7 @@ env:
     CI_MATRIX_FILE: .github/workflows-config/generic-kubernetes-migration-from-bitnami/test_matrix.yml
 
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+    BENCHMARK_SCENARIO: ${{ github.event.inputs.benchmark_scenario || 'light' }}
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
     CAMUNDA_HELM_CHART_VERSION: 14-dev-latest
@@ -303,14 +313,20 @@ jobs:
                   echo "Seeding completed"
 
             - name: Run benchmark to generate Zeebe data
-              timeout-minutes: 10
+              timeout-minutes: 15
               run: |
                   set -euo pipefail
 
-                  echo "Running benchmark for 5 minutes (5 PI/s) to populate ES indices..."
+                  if [ "${{ env.BENCHMARK_SCENARIO }}" = "heavy" ]; then
+                      BENCHMARK_FILE="generic/kubernetes/migration/tests/benchmark-job-heavy.yml"
+                      echo "Running HEAVY benchmark: 150 PI/s for 10 min (~20 GB)..."
+                  else
+                      BENCHMARK_FILE="generic/kubernetes/migration/tests/benchmark-job.yml"
+                      echo "Running LIGHT benchmark: 5 PI/s for 5 min (~32 MB)..."
+                  fi
 
                   kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                      -f generic/kubernetes/migration/tests/benchmark-job.yml
+                      -f "$BENCHMARK_FILE"
 
                   # Wait for the benchmark pod to be running before streaming logs
                   echo "Waiting for benchmark pod to start..."
@@ -338,10 +354,15 @@ jobs:
                       LOGS_PID=$!
                   fi
 
-                  # The benchmark runs indefinitely; activeDeadlineSeconds (300s) kills it.
                   # Wait for the job to finish (either DeadlineExceeded or failed).
+                  # Light: 5 min + buffer = 600s. Heavy: 10 min + buffer = 900s.
+                  if [ "${{ env.BENCHMARK_SCENARIO }}" = "heavy" ]; then
+                      WAIT_TIMEOUT=900s
+                  else
+                      WAIT_TIMEOUT=600s
+                  fi
                   kubectl wait --for=condition=failed job/migration-benchmark \
-                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || true
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout="$WAIT_TIMEOUT" || true
 
                   kill "$LOGS_PID" 2>/dev/null || true
 

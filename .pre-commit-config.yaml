@@ -70,10 +70,18 @@ repos:
       hooks:
           - id: go-mod-tidy
             exclude: (camunda-platform-helm/|camunda-docs/)
-          - id: go-mod-tidy-repo
-            exclude: (camunda-platform-helm/|camunda-docs/)
           - id: go-fmt
             exclude: (camunda-platform-helm/|camunda-docs/)
+
+    - repo: local
+      hooks:
+          - id: go-mod-tidy-repo
+            name: go-mod-tidy-repo
+            # yamllint disable-line rule:line-length
+            entry: bash -c 'find . -name go.mod -not -path "*/camunda-platform-helm/*" -not -path "*/camunda-docs/*" -execdir go mod tidy \;'
+            language: system
+            pass_filenames: false
+            files: (\.go$|go\.mod$|go\.sum$)
 
     - repo: https://github.com/shellcheck-py/shellcheck-py
       rev: v0.9.0.6
