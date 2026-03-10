@@ -23,6 +23,11 @@ global:
     multiregion:
         # number of regions that this Camunda Platform instance is stretched across
         regions: 2
+    security:
+        authentication:
+            # Use basic auth for inter-component communication (demo/demo)
+            # since Management Identity (Keycloak) is not deployed in dual-region
+            method: basic
     identity:
         auth:
             # Disable the Identity authentication
