@@ -307,12 +307,23 @@ spec:
                             WM_TOKEN="${ZEEBE_TOKEN}"
 
                             if [ -n "${WM_TOKEN:-}" ]; then
-                                # Create project
+                                # Create project (with retry — restapi may still be initializing)
                                 log "Creating project '${WM_PROJECT_NAME}'..."
-                                PROJECT_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -X POST "${WM_URL}/api/v1/projects" \
-                                    -H "Authorization: Bearer ${WM_TOKEN}" \
-                                    -H "Content-Type: application/json" \
-                                    -d "{\"name\":\"${WM_PROJECT_NAME}\"}" 2>/dev/null || echo '{}')
+                                PROJECT_RESP=""
+                                for wm_attempt in 1 2 3 4 5; do
+                                    HTTP_CODE=$(curl -s --connect-timeout 5 --max-time 30 -o /tmp/wm_resp.json -w '%{http_code}' \
+                                        -X POST "${WM_URL}/api/v1/projects" \
+                                        -H "Authorization: Bearer ${WM_TOKEN}" \
+                                        -H "Content-Type: application/json" \
+                                        -d "{\"name\":\"${WM_PROJECT_NAME}\"}" 2>/dev/null || echo "000")
+                                    PROJECT_RESP=$(cat /tmp/wm_resp.json 2>/dev/null || echo '{}')
+                                    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+                                        break
+                                    fi
+                                    log "  Attempt ${wm_attempt}/5: HTTP ${HTTP_CODE} — ${PROJECT_RESP}"
+                                    sleep 10
+                                    PROJECT_RESP="{}"
+                                done
 
                                 PROJECT_ID=$(echo "${PROJECT_RESP}" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
@@ -322,7 +333,8 @@ spec:
                                     # Create a BPMN file in the project
                                     log "Creating file '${WM_FILE_NAME}' in project..."
                                     CONTENT_JSON=$(printf '%s' "${BPMN_XML}" | jq -Rs .)
-                                    FILE_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -X POST "${WM_URL}/api/v1/files" \
+                                    FILE_HTTP=$(curl -s --connect-timeout 5 --max-time 30 -o /tmp/wm_file_resp.json -w '%{http_code}' \
+                                        -X POST "${WM_URL}/api/v1/files" \
                                         -H "Authorization: Bearer ${WM_TOKEN}" \
                                         -H "Content-Type: application/json" \
                                         -d "{
@@ -330,16 +342,17 @@ spec:
                                             \"projectId\": \"${PROJECT_ID}\",
                                             \"content\": ${CONTENT_JSON},
                                             \"fileType\": \"bpmn\"
-                                        }" 2>/dev/null || echo '{}')
+                                        }" 2>/dev/null || echo "000")
+                                    FILE_RESP=$(cat /tmp/wm_file_resp.json 2>/dev/null || echo '{}')
 
                                     FILE_ID=$(echo "${FILE_RESP}" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
                                     if [ -n "${FILE_ID}" ]; then
                                         ok "Created file id=${FILE_ID}"
                                     else
-                                        log "WARN: File creation response: ${FILE_RESP}"
+                                        log "WARN: File creation failed (HTTP ${FILE_HTTP}): ${FILE_RESP}"
                                     fi
                                 else
-                                    log "WARN: Project creation response: ${PROJECT_RESP}"
+                                    log "WARN: Project creation failed — response: ${PROJECT_RESP}"
                                 fi
                             fi
                         fi

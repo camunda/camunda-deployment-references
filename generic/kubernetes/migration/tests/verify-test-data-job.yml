@@ -240,7 +240,7 @@ spec:
                         fi
 
                         # ── Verify WebModeler (optional) ──
-                        if retry 3 5 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${WM_MGMT_URL}/health/readiness" 2>/dev/null; then
+                        if retry 30 10 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${WM_MGMT_URL}/health/readiness" 2>/dev/null; then
                             log ""
                             log "=== Verifying WebModeler data ==="
 
@@ -248,10 +248,16 @@ spec:
                             WM_TOKEN="${ZEEBE_TOKEN:-}"
 
                             if [ -n "${WM_TOKEN}" ]; then
-                                PROJECTS_RESP=$(curl -sf --connect-timeout 5 --max-time 30 -X POST "${WM_URL}/api/v1/projects/search" \
+                                WM_HTTP=$(curl -s --connect-timeout 5 --max-time 30 -o /tmp/wm_verify.json -w '%{http_code}' \
+                                    -X POST "${WM_URL}/api/v1/projects/search" \
                                     -H "Authorization: Bearer ${WM_TOKEN}" \
                                     -H "Content-Type: application/json" \
-                                    -d '{}' 2>/dev/null || echo '{}')
+                                    -d '{}' 2>/dev/null || echo "000")
+                                PROJECTS_RESP=$(cat /tmp/wm_verify.json 2>/dev/null || echo '{}')
+
+                                if [ "$WM_HTTP" != "200" ] && [ "$WM_HTTP" != "201" ]; then
+                                    log "WebModeler API returned HTTP ${WM_HTTP}: ${PROJECTS_RESP}"
+                                fi
 
                                 if echo "${PROJECTS_RESP}" | grep -q "Migration Test Project"; then
                                     pass "WebModeler: project 'Migration Test Project' exists"
