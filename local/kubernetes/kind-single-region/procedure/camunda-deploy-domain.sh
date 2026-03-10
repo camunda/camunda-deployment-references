@@ -26,6 +26,20 @@ helm upgrade --install "camunda" oci://registry.camunda.cloud/helm/camunda-platf
     --values helm-values/values-domain.yml \
     --values helm-values/values-mkcert.yml
 
+# TODO: [release-duty] before the release, update this by removing the oci pull above
+# and uncomment the installation instruction below
+
+# helm upgrade --install "camunda" camunda-platform \
+#     --repo https://helm.camunda.io \
+#     --version "$CAMUNDA_HELM_CHART_VERSION" \
+#     --namespace "camunda" \
+#     --values "$OPERATOR_VALUES_DIR/elasticsearch/camunda-elastic-values.yml" \
+#     --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
+#     --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
+#     --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
+#     --values helm-values/values-domain.yml \
+#     --values helm-values/values-mkcert.yml
+
 
 
 echo ""
