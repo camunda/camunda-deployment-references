@@ -63,6 +63,7 @@ When a new version is ready for release, we need to cut the `main` branch to cre
    * The `main` branch now represents the next unreleased version (`8.8`).
    * Add all the schedules for the version in `.github/workflows-config/workflow-scheduler.yml`.
    * Update version references in relevant files to reflect the new development cycle.
+   * Update the Helm chart major version: bump the `dev-latest` tag (e.g. `14-dev-latest` → `15-dev-latest`) and the Renovate `versioning=regex:^N` pattern in all files containing a `# renovate:` comment for `camunda-platform`. Search for `TODO: [release-duty]` markers to find all locations.
    * **Update `.target-branch`** so that it continues to point to `main` (or whichever branch is the new default target).
 
 7. **Update Renovate branch patterns**
