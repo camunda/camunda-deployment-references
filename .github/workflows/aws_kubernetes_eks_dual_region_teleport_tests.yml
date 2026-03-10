@@ -197,6 +197,15 @@ jobs:
                   for namespace in "${ALL_NAMESPACES[@]}"; do
                     apply_labels_and_annotations "$namespace"
                   done
+
+            - name: Helm registry login
+              uses: ./.github/actions/internal-helm-registry-login
+              with:
+                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
             - name: Run Multi-region tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60
