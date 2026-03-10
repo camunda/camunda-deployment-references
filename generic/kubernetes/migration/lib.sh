@@ -1791,8 +1791,13 @@ helm_upgrade() {
         return 0
     fi
 
+    local chart_ref="camunda/camunda-platform"
+    if [[ "${chart_version}" == *snapshot* ]]; then
+        chart_ref="oci://ghcr.io/camunda/helm/camunda-platform"
+    fi
+
     log_info "Running helm upgrade ..."
-    helm upgrade "${CAMUNDA_RELEASE_NAME}" camunda/camunda-platform \
+    helm upgrade "${CAMUNDA_RELEASE_NAME}" "${chart_ref}" \
         -n "${NAMESPACE}" \
         --version "${chart_version}" \
         --reuse-values \
@@ -1818,8 +1823,13 @@ helm_rollback_from_backup() {
         chart_version="${installed_version}"
     fi
 
+    local chart_ref="camunda/camunda-platform"
+    if [[ "${chart_version}" == *snapshot* ]]; then
+        chart_ref="oci://ghcr.io/camunda/helm/camunda-platform"
+    fi
+
     log_info "Rolling back Helm to pre-migration values ..."
-    helm upgrade "${CAMUNDA_RELEASE_NAME}" camunda/camunda-platform \
+    helm upgrade "${CAMUNDA_RELEASE_NAME}" "${chart_ref}" \
         -n "${NAMESPACE}" \
         --version "${chart_version}" \
         -f "$backup"
