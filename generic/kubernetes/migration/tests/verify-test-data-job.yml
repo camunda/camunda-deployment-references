@@ -241,20 +241,27 @@ spec:
 
                         # ── Verify WebModeler (optional) ──
                         # Try both bare and context-path prefixed readiness endpoints
+                        WM_CONTEXT_PATH=""
                         wm_readiness_check() {
-                            curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${WM_MGMT_URL}/health/readiness" 2>/dev/null || \
-                            curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${WM_MGMT_URL}/modeler/health/readiness" 2>/dev/null
+                            if curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${WM_MGMT_URL}/health/readiness" 2>/dev/null; then
+                                WM_CONTEXT_PATH=""
+                                return 0
+                            elif curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${WM_MGMT_URL}/modeler/health/readiness" 2>/dev/null; then
+                                WM_CONTEXT_PATH="/modeler"
+                                return 0
+                            fi
+                            return 1
                         }
                         if retry 30 10 wm_readiness_check; then
                             log ""
-                            log "=== Verifying WebModeler data ==="
+                            log "=== Verifying WebModeler data (contextPath='${WM_CONTEXT_PATH}') ==="
 
                             # Reuse the venom test client token (has write:* on web-modeler-api)
                             WM_TOKEN="${ZEEBE_TOKEN:-}"
 
                             if [ -n "${WM_TOKEN}" ]; then
                                 WM_HTTP=$(curl -s --connect-timeout 5 --max-time 30 -o /tmp/wm_verify.json -w '%{http_code}' \
-                                    -X POST "${WM_URL}/api/v1/projects/search" \
+                                    -X POST "${WM_URL}${WM_CONTEXT_PATH}/api/v1/projects/search" \
                                     -H "Authorization: Bearer ${WM_TOKEN}" \
                                     -H "Content-Type: application/json" \
                                     -d '{}' 2>/dev/null || echo "000")

@@ -112,15 +112,22 @@ spec:
 
                         # WebModeler is optional — don't fail if it's not deployed
                         # Try both bare and context-path prefixed readiness endpoints
-                        # (contextPath: /modeler in domain mode shifts management endpoints)
+                        # (contextPath: /modeler in domain mode shifts all endpoints)
                         WM_AVAILABLE="false"
+                        WM_CONTEXT_PATH=""
                         wm_readiness_check() {
-                            curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "${WM_MGMT_URL}/health/readiness" 2>/dev/null || \
-                            curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "${WM_MGMT_URL}/modeler/health/readiness" 2>/dev/null
+                            if curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "${WM_MGMT_URL}/health/readiness" 2>/dev/null; then
+                                WM_CONTEXT_PATH=""
+                                return 0
+                            elif curl -sf --connect-timeout 5 --max-time 10 -o /dev/null -w '' "${WM_MGMT_URL}/modeler/health/readiness" 2>/dev/null; then
+                                WM_CONTEXT_PATH="/modeler"
+                                return 0
+                            fi
+                            return 1
                         }
                         if retry 30 10 wm_readiness_check; then
                             WM_AVAILABLE="true"
-                            ok "WebModeler REST API is ready"
+                            ok "WebModeler REST API is ready (contextPath='${WM_CONTEXT_PATH}')"
                         else
                             log "SKIP: WebModeler not available, skipping WebModeler seeding"
                         fi
@@ -146,7 +153,10 @@ spec:
                         ok "Got Zeebe OIDC token (client=${TEST_CLIENT_ID})"
 
                         # Debug: decode JWT to show issuer and audiences
-                        JWT_PAYLOAD=$(echo "${ZEEBE_TOKEN}" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null || echo '{}')
+                        # JWT base64url needs padding and character translation before decoding
+                        JWT_B64=$(echo "${ZEEBE_TOKEN}" | cut -d. -f2 | tr '_-' '/+')
+                        while [ $(( ${#JWT_B64} % 4 )) -ne 0 ]; do JWT_B64="${JWT_B64}="; done
+                        JWT_PAYLOAD=$(printf '%s' "${JWT_B64}" | base64 -d 2>/dev/null || echo '{}')
                         JWT_ISS=$(echo "${JWT_PAYLOAD}" | jq -r '.iss // "unknown"' 2>/dev/null || echo "parse-error")
                         JWT_AUD=$(echo "${JWT_PAYLOAD}" | jq -c '.aud // "none"' 2>/dev/null || echo "parse-error")
                         log "  Token issuer: ${JWT_ISS}"
@@ -321,7 +331,7 @@ spec:
 
                             if [ -n "${WM_TOKEN:-}" ]; then
                                 # Check WM issuer configuration
-                                WM_ISSUER=$(curl -sf "${WM_URL}/actuator/env" 2>/dev/null \
+                                WM_ISSUER=$(curl -sf "${WM_URL}${WM_CONTEXT_PATH}/actuator/env" 2>/dev/null \
                                     | jq -r '.. | .["spring.security.oauth2.resourceserver.jwt.issuer-uri"]? // empty' 2>/dev/null \
                                     | head -1 || echo "unknown")
                                 if [ -n "${WM_ISSUER}" ]; then
@@ -332,7 +342,7 @@ spec:
                                 PROJECT_RESP=""
                                 for wm_attempt in 1 2 3 4 5; do
                                     HTTP_CODE=$(curl -s --connect-timeout 5 --max-time 30 -o /tmp/wm_resp.json -w '%{http_code}' \
-                                        -X POST "${WM_URL}/api/v1/projects" \
+                                        -X POST "${WM_URL}${WM_CONTEXT_PATH}/api/v1/projects" \
                                         -H "Authorization: Bearer ${WM_TOKEN}" \
                                         -H "Content-Type: application/json" \
                                         -d "{\"name\":\"${WM_PROJECT_NAME}\"}" 2>/dev/null || echo "000")
@@ -354,7 +364,7 @@ spec:
                                     log "Creating file '${WM_FILE_NAME}' in project..."
                                     CONTENT_JSON=$(printf '%s' "${BPMN_XML}" | jq -Rs .)
                                     FILE_HTTP=$(curl -s --connect-timeout 5 --max-time 30 -o /tmp/wm_file_resp.json -w '%{http_code}' \
-                                        -X POST "${WM_URL}/api/v1/files" \
+                                        -X POST "${WM_URL}${WM_CONTEXT_PATH}/api/v1/files" \
                                         -H "Authorization: Bearer ${WM_TOKEN}" \
                                         -H "Content-Type: application/json" \
                                         -d "{
