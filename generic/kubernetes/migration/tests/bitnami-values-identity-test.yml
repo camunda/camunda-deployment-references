@@ -35,7 +35,7 @@ identity:
               #   definition: write:*
               - resourceServerId: web-modeler-api
                 definition: write:*
-              - resourceServerId: web-modeler-public-api
+              - resourceServerId: console-api
                 definition: write:*
 
 orchestration:
