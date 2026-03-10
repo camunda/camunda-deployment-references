@@ -1792,14 +1792,17 @@ helm_upgrade() {
     fi
 
     local chart_ref="camunda/camunda-platform"
+    local helm_version="${chart_version}"
     if [[ "${CAMUNDA_HELM_CHART_VERSION}" == *dev-latest* ]]; then
         chart_ref="oci://registry.camunda.cloud/team-distribution/camunda-platform"
+        # OCI registry requires the tag as-is (e.g. 14-dev-latest), not the resolved version
+        helm_version="${CAMUNDA_HELM_CHART_VERSION}"
     fi
 
     log_info "Running helm upgrade ..."
     helm upgrade "${CAMUNDA_RELEASE_NAME}" "${chart_ref}" \
         -n "${NAMESPACE}" \
-        --version "${chart_version}" \
+        --version "${helm_version}" \
         --reuse-values \
         "${values_args[@]}"
 
@@ -1824,14 +1827,16 @@ helm_rollback_from_backup() {
     fi
 
     local chart_ref="camunda/camunda-platform"
+    local helm_version="${chart_version}"
     if [[ "${CAMUNDA_HELM_CHART_VERSION}" == *dev-latest* ]]; then
         chart_ref="oci://registry.camunda.cloud/team-distribution/camunda-platform"
+        helm_version="${CAMUNDA_HELM_CHART_VERSION}"
     fi
 
     log_info "Rolling back Helm to pre-migration values ..."
     helm upgrade "${CAMUNDA_RELEASE_NAME}" "${chart_ref}" \
         -n "${NAMESPACE}" \
-        --version "${chart_version}" \
+        --version "${helm_version}" \
         -f "$backup"
 
     log_success "Helm rollback complete"
