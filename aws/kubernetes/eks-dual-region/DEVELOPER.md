@@ -61,7 +61,7 @@ Otherwise defaults to published Helm versions and the latest stable release.
 ```bash
 # Overwriting to dev-latest helm chart
 export HELM_CHART_VERSION=14-dev-latest
-export HELM_CHART_NAME=oci://registry.camunda.cloud/helm/camunda-platform
+export HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform
 export GLOBAL_IMAGE_TAG=SNAPSHOT
 
 # Otherwise it's sufficient to set the helm chart version or rely on the default.

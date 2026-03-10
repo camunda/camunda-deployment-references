@@ -5,7 +5,7 @@ set -euo pipefail
 # Run from: local/kubernetes/kind-single-region/
 # Layers operator-based values from generic/kubernetes/operator-based/
 
-# renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://registry.camunda.cloud
+# renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
 export CAMUNDA_HELM_CHART_VERSION="14-dev-latest"
 # TODO: [release-duty] before the release, update this!
 # TODO: [release-duty] adjust renovate comment to bump the major version
@@ -15,7 +15,7 @@ OPERATOR_VALUES_DIR="$SCRIPT_DIR/../../../../generic/kubernetes/operator-based"
 
 echo "Installing Camunda Platform (no-domain mode)..."
 
-helm upgrade --install "camunda" oci://registry.camunda.cloud/helm/camunda-platform \
+helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/camunda-platform \
     --version "$CAMUNDA_HELM_CHART_VERSION" \
     --namespace "camunda" \
     --values "$OPERATOR_VALUES_DIR/elasticsearch/camunda-elastic-values.yml" \

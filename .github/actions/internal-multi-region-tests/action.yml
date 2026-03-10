@@ -97,7 +97,7 @@ runs:
 
               if [[ "${{ inputs.helm-version }}" =~ dev-latest ]]; then
                 {
-                  echo "HELM_CHART_NAME=oci://registry.camunda.cloud/helm/camunda-platform"
+                  echo "HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform"
                 } >> "$GITHUB_ENV"
               fi
 
