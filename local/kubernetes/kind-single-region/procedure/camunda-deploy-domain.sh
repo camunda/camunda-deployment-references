@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# renovate: datasource=helm depName=camunda-platform versioning=regex:^12(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-export CAMUNDA_HELM_CHART_VERSION="0.0.0-snapshot-alpha"
+# renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+export CAMUNDA_HELM_CHART_VERSION="14-dev-latest"
 # TODO: [release-duty] before the release, update this!
 # TODO: [release-duty] adjust renovate comment to bump the major version
 
@@ -16,7 +16,7 @@ export CAMUNDA_DOMAIN="camunda.example.com"
 
 echo "Installing Camunda Platform (domain mode)..."
 
-helm upgrade --install "camunda" oci://ghcr.io/camunda/helm/camunda-platform \
+helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/camunda-platform \
     --version "$CAMUNDA_HELM_CHART_VERSION" \
     --namespace "camunda" \
     --values "$OPERATOR_VALUES_DIR/elasticsearch/camunda-elastic-values.yml" \
@@ -39,6 +39,8 @@ helm upgrade --install "camunda" oci://ghcr.io/camunda/helm/camunda-platform \
 #     --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
 #     --values helm-values/values-domain.yml \
 #     --values helm-values/values-mkcert.yml
+
+
 
 echo ""
 echo "Camunda Platform deployed"

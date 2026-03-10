@@ -488,7 +488,7 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 		SetStrValues:   setStringValues,
 	}
 
-	if !strings.Contains(remoteChartVersion, "snapshot") {
+	if !strings.HasPrefix(remoteChartName, "oci://") {
 		helm.AddRepo(t, helmOptions, "camunda", remoteChartSource)
 	}
 

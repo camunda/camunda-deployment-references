@@ -5,7 +5,7 @@ helm repo update
 
 helm upgrade --install \
   "$CAMUNDA_RELEASE_NAME" \
-   oci://ghcr.io/camunda/helm/camunda-platform \
+   oci://registry.camunda.cloud/team-distribution/camunda-platform \
   --version "$HELM_CHART_VERSION" \
   --kube-context "$CLUSTER_1_NAME" \
   --namespace "$CAMUNDA_NAMESPACE_1" \
@@ -13,7 +13,7 @@ helm upgrade --install \
 
 helm upgrade --install \
   "$CAMUNDA_RELEASE_NAME" \
-   oci://ghcr.io/camunda/helm/camunda-platform \
+   oci://registry.camunda.cloud/team-distribution/camunda-platform \
   --version "$HELM_CHART_VERSION" \
   --kube-context "$CLUSTER_2_NAME" \
   --namespace "$CAMUNDA_NAMESPACE_2" \

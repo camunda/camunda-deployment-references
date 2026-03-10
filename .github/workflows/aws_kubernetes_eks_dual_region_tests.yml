@@ -66,7 +66,7 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 0.0.0-snapshot-alpha
+    CAMUNDA_HELM_CHART_VERSION: 14-dev-latest
     # TODO: [release-duty] before the release, update this!
     # TODO: [release-duty] adjust renovate comment to bump the major version
 
@@ -211,6 +211,15 @@ jobs:
                   # Simplify the requirement for the multi-region tests action
                   aws eks update-kubeconfig --region eu-west-2 --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
                   aws eks update-kubeconfig --region eu-west-3 --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
+
+            - name: Helm registry login
+              uses: ./.github/actions/internal-helm-registry-login
+              with:
+                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
             - name: Run Multi-region tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60

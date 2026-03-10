@@ -636,6 +636,14 @@ jobs:
                   keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain' || 'no-domain' }}
                   domain-name: ${{ env.CAMUNDA_DOMAIN }}
 
+            - name: Helm registry login
+              uses: ./.github/actions/internal-helm-registry-login
+              with:
+                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
             - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
               timeout-minutes: 10
               run: |
