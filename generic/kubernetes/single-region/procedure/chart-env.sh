@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # The Camunda 8 Helm Chart version
-# renovate: datasource=helm depName=camunda-platform versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-export CAMUNDA_HELM_CHART_VERSION="0.0.0-snapshot-alpha"
+# renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://registry.camunda.cloud
+export CAMUNDA_HELM_CHART_VERSION="14-dev-latest"
 # TODO: [release-duty] before the release, update this!
 # TODO: [release-duty] adjust renovate comment to bump the major version
 

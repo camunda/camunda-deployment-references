@@ -65,8 +65,8 @@ env:
     TF_VAR_default_tags: '{"map-migrated": "migARUADZHVWZ"}'
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
-    # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 0.0.0-snapshot-alpha
+    # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://registry.camunda.cloud
+    CAMUNDA_HELM_CHART_VERSION: 14-dev-latest
     # TODO: [release-duty] before the release, update this!
     # TODO: [release-duty] adjust renovate comment to bump the major version
 

@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	remoteChartSource = "https://helm.camunda.io"
+	remoteChartSource = "https://registry.camunda.cloud"
 
 	resourceDir         = "." // only used for the process deployment file
 	terraformDir        = "../terraform/clusters"
@@ -29,13 +29,13 @@ const (
 
 var (
 	// TODO: [release-duty] before the release, update this!
-	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "13.5.3")
-	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform")                  // allows using OCI registries
-	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                         // allows overwriting the image tag via GHA of every Camunda image
-	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                                      // allows supplying random cluster name via GHA
-	backupName         = helpers.GetEnv("BACKUP_NAME", "nightly")                                       // allows supplying random backup name via GHA
-	backupBucket       = helpers.GetEnv("BACKUP_BUCKET", fmt.Sprintf("%s-elastic-backup", clusterName)) // allows supplying backup bucket name via GHA
+	// renovate: datasource=helm depName=camunda-platform registryUrl=https://registry.camunda.cloud versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "14.0.0")
+	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "oci://registry.camunda.cloud/helm/camunda-platform") // OCI registry
+	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                                  // allows overwriting the image tag via GHA of every Camunda image
+	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                                               // allows supplying random cluster name via GHA
+	backupName         = helpers.GetEnv("BACKUP_NAME", "nightly")                                                // allows supplying random backup name via GHA
+	backupBucket       = helpers.GetEnv("BACKUP_BUCKET", fmt.Sprintf("%s-elastic-backup", clusterName))          // allows supplying backup bucket name via GHA
 	awsProfile         = helpers.GetEnv("AWS_PROFILE", "infraex")
 
 	primary   helpers.Cluster
