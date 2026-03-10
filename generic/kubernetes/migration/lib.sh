@@ -1792,7 +1792,7 @@ helm_upgrade() {
     fi
 
     local chart_ref="camunda/camunda-platform"
-    if [[ "${chart_version}" == *dev-latest* ]]; then
+    if [[ "${CAMUNDA_HELM_CHART_VERSION}" == *dev-latest* ]]; then
         chart_ref="oci://registry.camunda.cloud/team-distribution/camunda-platform"
     fi
 
@@ -1824,7 +1824,7 @@ helm_rollback_from_backup() {
     fi
 
     local chart_ref="camunda/camunda-platform"
-    if [[ "${chart_version}" == *dev-latest* ]]; then
+    if [[ "${CAMUNDA_HELM_CHART_VERSION}" == *dev-latest* ]]; then
         chart_ref="oci://registry.camunda.cloud/team-distribution/camunda-platform"
     fi
 
