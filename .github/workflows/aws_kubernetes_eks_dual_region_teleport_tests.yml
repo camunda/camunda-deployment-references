@@ -50,9 +50,7 @@ env:
 
     KUBECONFIG: ./kubeconfig
 
-    # TODO: revert to delete_clusters || 'true' and remove fixed RANDOM_ID once debugging is done
-    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-    CLEANUP_CLUSTERS: 'false'
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
     BACKUP_BUCKET: tests-c8-multi-region-es-eu-central-1 # static shared bucket for all Teleport tests
     ZEEBE_CLUSTER_SIZE: 8 # default size of Zeebe cluster for tests - used by scripts
