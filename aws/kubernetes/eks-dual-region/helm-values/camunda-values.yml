@@ -77,8 +77,6 @@ orchestration:
                   name: elasticsearch-es-elastic-user
                   key: elastic
         # Region 1 exporter config
-        # NOTE: The cross-region exporter uses the REMOTE ES password, synced via
-        # the elasticsearch-es-elastic-user-remote secret created by the CI workflow.
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL

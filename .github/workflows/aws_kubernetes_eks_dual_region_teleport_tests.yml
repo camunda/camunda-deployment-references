@@ -185,34 +185,6 @@ jobs:
                   namespace: ${{ env.CLUSTER_1_NAMESPACE }}
                   elasticsearch-cluster-file: elasticsearch-cluster-dual-region-teleport.yml
 
-            ############# Cross-region ES password sync ##############
-            - name: Sync Elasticsearch passwords across namespaces
-              timeout-minutes: 5
-              run: |
-                  set -euo pipefail
-
-                  # Fetch password from cluster-0
-                  CLUSTER_0_ES_PASSWORD=$(kubectl get secret elasticsearch-es-elastic-user \
-                    -n ${{ env.CLUSTER_0_NAMESPACE }} \
-                    -o go-template='{{ index .data "elastic" | base64decode }}')
-
-                  # Fetch password from cluster-1
-                  CLUSTER_1_ES_PASSWORD=$(kubectl get secret elasticsearch-es-elastic-user \
-                    -n ${{ env.CLUSTER_1_NAMESPACE }} \
-                    -o go-template='{{ index .data "elastic" | base64decode }}')
-
-                  # Create remote ES secret on cluster-0 (containing cluster-1 password)
-                  kubectl create secret generic elasticsearch-es-elastic-user-remote \
-                    -n ${{ env.CLUSTER_0_NAMESPACE }} \
-                    --from-literal=elastic="$CLUSTER_1_ES_PASSWORD" \
-                    --dry-run=client -o yaml | kubectl apply -f -
-
-                  # Create remote ES secret on cluster-1 (containing cluster-0 password)
-                  kubectl create secret generic elasticsearch-es-elastic-user-remote \
-                    -n ${{ env.CLUSTER_1_NAMESPACE }} \
-                    --from-literal=elastic="$CLUSTER_0_ES_PASSWORD" \
-                    --dry-run=client -o yaml | kubectl apply -f -
-
             - name: Label and annotate namespaces and secrets
               working-directory: ./aws/kubernetes/eks-dual-region/test
               run: |
