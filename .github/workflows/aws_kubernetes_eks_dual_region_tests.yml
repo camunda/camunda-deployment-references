@@ -61,7 +61,9 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # TODO: revert to delete_clusters || 'true' once debugging is done
+    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    CLEANUP_CLUSTERS: 'false'
 
     # TEST VARIABLES
 
@@ -215,6 +217,41 @@ jobs:
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   elasticsearch-cluster-file: elasticsearch-cluster-dual-region.yml
+
+            ############# Cross-region ES password sync ##############
+            # ECK generates a unique elastic password per cluster.
+            # Each cluster needs the remote cluster's password to export cross-region.
+            - name: Sync Elasticsearch passwords across regions
+              if: always() && steps.create_cluster.outcome == 'success'
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+
+                  # Fetch password from London cluster
+                  kubectl config use-context ${{ env.CLUSTER_NAME }}-london
+                  LONDON_ES_PASSWORD=$(kubectl get secret elasticsearch-es-elastic-user \
+                    -n ${{ env.CAMUNDA_NAMESPACE_0 }} \
+                    -o go-template='{{ index .data "elastic" | base64decode }}')
+
+                  # Fetch password from Paris cluster
+                  kubectl config use-context ${{ env.CLUSTER_NAME }}-paris
+                  PARIS_ES_PASSWORD=$(kubectl get secret elasticsearch-es-elastic-user \
+                    -n ${{ env.CAMUNDA_NAMESPACE_1 }} \
+                    -o go-template='{{ index .data "elastic" | base64decode }}')
+
+                  # Create remote ES secret on London (containing Paris password)
+                  kubectl config use-context ${{ env.CLUSTER_NAME }}-london
+                  kubectl create secret generic elasticsearch-es-elastic-user-remote \
+                    -n ${{ env.CAMUNDA_NAMESPACE_0 }} \
+                    --from-literal=elastic="$PARIS_ES_PASSWORD" \
+                    --dry-run=client -o yaml | kubectl apply -f -
+
+                  # Create remote ES secret on Paris (containing London password)
+                  kubectl config use-context ${{ env.CLUSTER_NAME }}-paris
+                  kubectl create secret generic elasticsearch-es-elastic-user-remote \
+                    -n ${{ env.CAMUNDA_NAMESPACE_1 }} \
+                    --from-literal=elastic="$LONDON_ES_PASSWORD" \
+                    --dry-run=client -o yaml | kubectl apply -f -
 
     integration-tests:
         needs:

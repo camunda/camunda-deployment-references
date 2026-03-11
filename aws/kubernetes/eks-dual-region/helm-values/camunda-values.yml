@@ -65,28 +65,30 @@ orchestration:
         - name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS
           value: PLACEHOLDER
         # Region 0 exporter config
-        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_CLASSNAME
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
-        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL
           value: http://elasticsearch-es-http.camunda-primary.svc.cluster.local:9200
-        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_USERNAME
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_USERNAME
           value: elastic
-        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_PASSWORD
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_PASSWORD
           valueFrom:
               secretKeyRef:
                   name: elasticsearch-es-elastic-user
                   key: elastic
         # Region 1 exporter config
-        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_CLASSNAME
+        # NOTE: The cross-region exporter uses the REMOTE ES password, synced via
+        # the elasticsearch-es-elastic-user-remote secret created by the CI workflow.
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
-        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL
           value: http://elasticsearch-es-http.camunda-secondary.svc.cluster.local:9200
-        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_USERNAME
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_USERNAME
           value: elastic
-        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_PASSWORD
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_PASSWORD
           valueFrom:
               secretKeyRef:
-                  name: elasticsearch-es-elastic-user
+                  name: elasticsearch-es-elastic-user-remote
                   key: elastic
         # Zeebe cluster tuning
         - name: CAMUNDA_DATA_SNAPSHOTPERIOD
