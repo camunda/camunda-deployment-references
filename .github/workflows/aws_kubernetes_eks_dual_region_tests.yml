@@ -57,6 +57,8 @@ env:
 
     AWS_PROFILE: infraex
     AWS_REGION: eu-west-2
+    CLUSTER_0_AWS_REGION: eu-west-2
+    CLUSTER_1_AWS_REGION: eu-west-3
     TESTS_TF_BINARY_NAME: terraform
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
@@ -140,6 +142,18 @@ jobs:
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
 
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -187,43 +201,51 @@ jobs:
                         "map-migrated": "migARUADZHVWZ"
                       }
 
-            ############# ECK Elasticsearch Deployment ##############
-            - name: Generate kubeconfig for ECK deployment
+            ############# Export S3 credentials for integration-tests ##############
+            - name: Dump S3 credentials
               if: always() && steps.create_cluster.outcome == 'success'
-              timeout-minutes: 5
+              id: dump_secrets
               run: |
                   set -euo pipefail
-                  aws eks update-kubeconfig --region eu-west-2 --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
-                  aws eks update-kubeconfig --region eu-west-3 --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
 
-            - name: Set kubectl context to London
-              if: always() && steps.create_cluster.outcome == 'success'
-              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-london
+                  yq eval -n \
+                    '.["s3-aws-access-key"] = "${{ steps.create_cluster.outputs.s3-aws-access-key }}" |
+                    .["s3-aws-secret-access-key"] = "${{ steps.create_cluster.outputs.s3-aws-secret-access-key }}" |
+                    .["s3-bucket-name"] = "${{ steps.create_cluster.outputs.s3-bucket-name }}"' > "${{ runner.temp }}/sensitive_values.yaml"
 
-            - name: Deploy Elasticsearch via ECK on London cluster
+            - name: Encrypt S3 credentials
               if: always() && steps.create_cluster.outcome == 'success'
-              timeout-minutes: 15
-              uses: ./.github/actions/kubernetes-eck-operator
+              id: export_secrets
+              uses: ./.github/actions/internal-generic-encrypt-export
               with:
-                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
-                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region.yml
+                  file_path: ${{ runner.temp }}/sensitive_values.yaml
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
-            - name: Set kubectl context to Paris
+            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
               if: always() && steps.create_cluster.outcome == 'success'
-              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-paris
-
-            - name: Deploy Elasticsearch via ECK on Paris cluster
-              if: always() && steps.create_cluster.outcome == 'success'
-              timeout-minutes: 15
-              uses: ./.github/actions/kubernetes-eck-operator
+              id: out
               with:
-                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
-                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region.yml
+                  matrix-step-name: ${{ github.job }}
+                  matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
+                  outputs: |-
+                      sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_file_base64 }}
+
+    access-info:
+        name: Read S3 credentials from matrix
+        runs-on: ubuntu-latest
+        needs: prepare-clusters
+        outputs:
+            config: ${{ steps.read-workflow.outputs.result }}
+        steps:
+            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+              id: read-workflow
+              with:
+                  matrix-step-name: prepare-clusters
 
     integration-tests:
         needs:
-            - prepare-clusters
             - clusters-info
+            - access-info
         strategy:
             fail-fast: false
             matrix:
@@ -240,6 +262,19 @@ jobs:
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -252,10 +287,87 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-                  # Create kubeconfig entries for both clusters in single file
-                  # Simplify the requirement for the multi-region tests action
-                  aws eks update-kubeconfig --region eu-west-2 --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
-                  aws eks update-kubeconfig --region eu-west-3 --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
+                  aws eks update-kubeconfig --region ${{ env.CLUSTER_0_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
+                  aws eks update-kubeconfig --region ${{ env.CLUSTER_1_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
+
+            ############# Retrieve S3 credentials ##############
+            - name: Decrypt S3 credentials
+              uses: ./.github/actions/internal-generic-decrypt-import
+              with:
+                  output_path: ${{ runner.temp }}/sensitive.yaml
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).sensitive_values_raw[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            ############# Clean up and recreate namespaces + secrets ##############
+            - name: Clean up namespaces
+              run: |
+                  set -euo pipefail
+
+                  for ctx in "${{ env.CLUSTER_NAME }}-london" "${{ env.CLUSTER_NAME }}-paris"; do
+                    for ns in ${{ env.CAMUNDA_NAMESPACE_0 }} ${{ env.CAMUNDA_NAMESPACE_1 }}; do
+                      if kubectl --context "$ctx" get namespace "$ns" &>/dev/null; then
+                        echo "Deleting namespace $ns on context $ctx..."
+                        kubectl --context "$ctx" delete namespace "$ns" --wait --timeout=120s
+                        echo "✓ Namespace $ns deleted on $ctx"
+                      fi
+                    done
+                  done
+
+            - name: Create namespaces and secrets
+              run: |
+                  set -euo pipefail
+
+                  export AWS_ACCESS_KEY_ES=$(yq eval '.["s3-aws-access-key"]' "${{ runner.temp }}/sensitive.yaml")
+                  echo "::add-mask::$AWS_ACCESS_KEY_ES"
+                  export AWS_SECRET_ACCESS_KEY_ES=$(yq eval '.["s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml")
+                  echo "::add-mask::$AWS_SECRET_ACCESS_KEY_ES"
+
+                  export CLUSTER_0="${{ env.CLUSTER_NAME }}-london"
+                  export CLUSTER_1="${{ env.CLUSTER_NAME }}-paris"
+                  export CAMUNDA_NAMESPACE_0="${{ env.CAMUNDA_NAMESPACE_0 }}"
+                  export CAMUNDA_NAMESPACE_1="${{ env.CAMUNDA_NAMESPACE_1 }}"
+
+                  bash ./aws/kubernetes/eks-dual-region/procedure/create_elasticsearch_secrets.sh
+
+            - name: Configure storage classes
+              run: |
+                  set -euo pipefail
+
+                  export CLUSTER_0="${{ env.CLUSTER_NAME }}-london"
+                  export CLUSTER_1="${{ env.CLUSTER_NAME }}-paris"
+
+                  cd ./aws/kubernetes/eks-dual-region/procedure
+                  ./storageclass-configure.sh
+                  cd -
+                  bash ./aws/kubernetes/eks-dual-region/procedure/storageclass-verify.sh
+
+            ############# ECK Elasticsearch Deployment ##############
+            - name: Set kubectl context to London
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-london
+
+            - name: Deploy Elasticsearch via ECK on London cluster
+              timeout-minutes: 15
+              uses: ./.github/actions/kubernetes-eck-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region.yml
+
+            - name: Set kubectl context to Paris
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-paris
+
+            - name: Deploy Elasticsearch via ECK on Paris cluster
+              timeout-minutes: 15
+              uses: ./.github/actions/kubernetes-eck-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region.yml
 
             - name: Helm registry login
               uses: ./.github/actions/internal-helm-registry-login
@@ -299,13 +411,52 @@ jobs:
                   context: ${{ env.CLUSTER_NAME }}-paris
                   artifact-suffix: ${{ env.CLUSTER_NAME }}-paris
 
+            - name: Debug dual-region infrastructure
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  CLUSTER_0_CTX="${{ env.CLUSTER_NAME }}-london"
+                  CLUSTER_1_CTX="${{ env.CLUSTER_NAME }}-paris"
+                  NS_0="${{ env.CAMUNDA_NAMESPACE_0 }}"
+                  NS_1="${{ env.CAMUNDA_NAMESPACE_1 }}"
+
+                  for ctx in "$CLUSTER_0_CTX" "$CLUSTER_1_CTX"; do
+                    echo "::group::ECK Elasticsearch status - ${ctx}"
+                    kubectl --context="$ctx" -n "$NS_0" get elasticsearch -o wide 2>/dev/null || echo "No Elasticsearch found in $NS_0"
+                    kubectl --context="$ctx" -n "$NS_1" get elasticsearch -o wide 2>/dev/null || echo "No Elasticsearch found in $NS_1"
+                    echo "::endgroup::"
+
+                    echo "::group::CoreDNS ConfigMap - ${ctx}"
+                    kubectl --context="$ctx" -n kube-system get configmap coredns -o yaml 2>/dev/null || echo "CoreDNS configmap not found"
+                    echo "::endgroup::"
+
+                    echo "::group::Internal DNS LB - ${ctx}"
+                    kubectl --context="$ctx" -n kube-system get svc internal-dns-lb -o wide 2>/dev/null || echo "No internal-dns-lb service found"
+                    echo "::endgroup::"
+                  done
+
+                  echo "::group::Cross-cluster DNS resolution test (London → Paris)"
+                  kubectl --context="$CLUSTER_0_CTX" -n "$NS_0" \
+                    run dns-test-cross --image=busybox:1.28 --rm --restart=Never -i --command -- \
+                    nslookup "${{ env.CAMUNDA_RELEASE_NAME }}-zeebe.${NS_1}.svc.cluster.local" \
+                    2>/dev/null || echo "DNS resolution test failed or timed out"
+                  echo "::endgroup::"
+
+                  echo "::group::Cross-cluster connectivity test (London → Paris zeebe:26502)"
+                  kubectl --context="$CLUSTER_0_CTX" -n "$NS_0" run connectivity-test --image=busybox:1.28 --rm -i --restart=Never --command -- sh -c "
+                    echo 'Testing TCP connectivity to Paris zeebe on port 26502...'
+                    nc -zv ${{ env.CAMUNDA_RELEASE_NAME }}-zeebe.${NS_1}.svc.cluster.local 26502 2>&1 || echo 'TCP connection failed'
+                  " 2>/dev/null || echo "Connectivity test failed or timed out"
+                  echo "::endgroup::"
+
     cleanup-clusters:
         runs-on: ubuntu-latest
         timeout-minutes: 60
         if: always()
         needs:
             - integration-tests
-            - prepare-clusters
+            - access-info
             - clusters-info
         strategy:
             fail-fast: false
@@ -356,8 +507,8 @@ jobs:
               timeout-minutes: 5
               run: |
                   set -euo pipefail
-                  aws eks update-kubeconfig --region eu-west-2 --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
-                  aws eks update-kubeconfig --region eu-west-3 --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
+                  aws eks update-kubeconfig --region ${{ env.CLUSTER_0_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
+                  aws eks update-kubeconfig --region ${{ env.CLUSTER_1_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
 
             - name: Set kubectl context to London for ECK cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
