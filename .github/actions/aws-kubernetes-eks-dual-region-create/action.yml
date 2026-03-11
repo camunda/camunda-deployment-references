@@ -185,7 +185,7 @@ runs:
               set -euo pipefail
 
               for ctx in "${{ env.CLUSTER_NAME }}-london" "${{ env.CLUSTER_NAME }}-paris"; do
-                for ns in c8-snap-cluster-0 c8-snap-cluster-1; do
+                for ns in ${{ env.CLUSTER_0_NAMESPACE_ARR }} ${{ env.CLUSTER_1_NAMESPACE_ARR }}; do
                   if kubectl --context "$ctx" get namespace "$ns" &>/dev/null; then
                     echo "Deleting namespace $ns on context $ctx..."
                     kubectl --context "$ctx" delete namespace "$ns" --wait --timeout=120s
