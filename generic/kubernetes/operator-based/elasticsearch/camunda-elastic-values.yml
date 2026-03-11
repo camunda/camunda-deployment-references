@@ -25,5 +25,17 @@ global:
                 existingSecretKey: elastic
 
 
+# Orchestration secondary storage (chart 8.9+ replaces deprecated global.elasticsearch.auth)
+orchestration:
+    data:
+        secondaryStorage:
+            elasticsearch:
+                url: http://elasticsearch-es-http:9200
+                auth:
+                    username: elastic
+                    secret:
+                        existingSecret: elasticsearch-es-elastic-user
+                        existingSecretKey: elastic
+
 elasticsearch:
     enabled: false
