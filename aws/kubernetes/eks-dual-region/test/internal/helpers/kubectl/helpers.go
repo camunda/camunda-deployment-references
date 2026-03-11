@@ -213,6 +213,11 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 
 	helm.Delete(t, helmOptions, "camunda", true)
 
+	// Delete ECK-managed Elasticsearch CR before PVCs to avoid stuck finalizers.
+	// The Elasticsearch CR is deployed outside of Helm via kubectl apply, so helm delete does not remove it.
+	t.Logf("[C8 HELM TEARDOWN] deleting ECK Elasticsearch CR in namespace %s", kubectlOptions.Namespace)
+	k8s.RunKubectl(t, kubectlOptions, "delete", "elasticsearch", "--all", "--timeout=120s", "--ignore-not-found=true")
+
 	t.Logf("[C8 HELM TEARDOWN] removing all PVCs and PVs from namespace %s", kubectlOptions.Namespace)
 
 	pvcs := k8s.ListPersistentVolumeClaims(t, kubectlOptions, metav1.ListOptions{})

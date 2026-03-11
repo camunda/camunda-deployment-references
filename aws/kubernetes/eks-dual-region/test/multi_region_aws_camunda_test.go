@@ -54,6 +54,7 @@ var (
 	// Manifest management
 	defaultValuesYaml      = helpers.GetEnv("DEFAULT_VALUES_YAML", "../helm-values/camunda-values.yml")
 	eckElasticValuesYaml   = helpers.GetEnv("ECK_ELASTIC_VALUES_YAML", "../../../../generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml")
+	eckElasticClusterYaml  = helpers.GetEnv("ECK_ELASTIC_CLUSTER_YAML", "../../../../generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster-dual-region.yml")
 	region0ValuesYaml      = helpers.GetEnv("REGION0_VALUES_YAML", "../helm-values/region0/camunda-values.yml")
 	region1ValuesYaml      = helpers.GetEnv("REGION1_VALUES_YAML", "../helm-values/region1/camunda-values.yml")
 	multiTenancyValuesYaml = helpers.GetEnv("MULTI_TENANCY_VALUES_YAML", "./fixtures/multi-tenancy.yml")
@@ -134,6 +135,7 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		// Multi-Region Operational Procedure
 		// Failback
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
+		{"TestDeployElasticsearchCRSecondary", func(t *testing.T) { deployElasticsearchCR(t, secondary) }},
 		{"TestRecreateCamundaInSecondary", func(t *testing.T) { redeployWithoutOperateTasklist(t, secondary, true) }},
 		{"TestRedeployCamundaInPrimary", func(t *testing.T) { redeployWithoutOperateTasklist(t, primary, false) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
@@ -427,6 +429,14 @@ func deleteSecondaryRegion(t *testing.T) {
 	t.Log("[REGION REMOVAL] Deleting secondary region 🚀")
 
 	kubectlHelpers.TeardownC8Helm(t, &secondary.KubectlNamespace)
+}
+
+// deployElasticsearchCR re-applies the ECK Elasticsearch custom resource.
+// Used during failback after TeardownC8Helm has deleted it.
+func deployElasticsearchCR(t *testing.T, cluster helpers.Cluster) {
+	t.Logf("[ECK] Deploying Elasticsearch CR in %s 🚀", cluster.ClusterName)
+
+	k8s.KubectlApply(t, &cluster.KubectlNamespace, eckElasticClusterYaml)
 }
 
 // redeployWithoutOperateTasklist redeploys Camunda in the specified cluster with Operate and Tasklist disabled.
