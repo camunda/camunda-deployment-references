@@ -144,6 +144,8 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
             # Try to reach the external ES
             ES_CURL_ARGS=(-sf)
             ES_HAS_CREDS=false
+            # Disable xtrace to avoid leaking credentials in logs
+            { _xtrace=$(set +o | grep xtrace); set +x; } 2>/dev/null
             if kubectl get secret "${EXTERNAL_ES_SECRET:-external-es}" -n "${NAMESPACE}" &>/dev/null; then
                 ES_PWD=$(kubectl get secret "${EXTERNAL_ES_SECRET}" -n "${NAMESPACE}" \
                     -o jsonpath='{.data.elastic}' 2>/dev/null | base64 -d || echo "")
@@ -159,8 +161,10 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
                 if kubectl run "es-check-ext-${RANDOM}" --rm -i --restart=Never \
                     --image="${es_img}" -n "${NAMESPACE}" -- \
                     curl "${ES_CURL_ARGS[@]}" "https://${ES_HOST}:${ES_PORT}/_cluster/health" &>/dev/null; then
+                    eval "$_xtrace" 2>/dev/null
                     log_success "External ES: reachable via HTTPS (${ES_HOST}:${ES_PORT})"
                 else
+                    eval "$_xtrace" 2>/dev/null
                     log_warn "External ES: could not verify connectivity (${ES_HOST}:${ES_PORT})"
                     log_warn "  This may be expected if auth or network policies restrict access"
                 fi
@@ -176,6 +180,7 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
                 log_warn "External ES: could not verify connectivity (${ES_HOST}:${ES_PORT})"
                 log_warn "  This may be expected if auth or network policies restrict access"
             fi
+            unset ES_PWD
             fi
         fi
     else
@@ -191,11 +196,14 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
         fi
 
         # Quick index check
+        # Disable xtrace to avoid leaking credentials in logs
+        { _xtrace=$(set +o | grep xtrace); set +x; } 2>/dev/null
         ES_PWD=$(kubectl get secret "${ECK_CLUSTER_NAME}-es-elastic-user" -n "${NAMESPACE}" \
             -o jsonpath='{.data.elastic}' 2>/dev/null | base64 -d || echo "")
         if [[ -n "$ES_PWD" ]]; then
             es_img="${ES_IMAGE:-}"
             if [[ -z "$es_img" ]]; then
+                eval "$_xtrace" 2>/dev/null
                 log_error "ES_IMAGE is not set. Run Phase 2 first to detect the ES image."
                 ERRORS=$((ERRORS + 1))
             else
@@ -203,8 +211,12 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
                     --image="${es_img}" -n "${NAMESPACE}" -- \
                     curl -sf -u "elastic:${ES_PWD}" \
                     "http://${ECK_CLUSTER_NAME}-es-http:9200/_cat/indices" 2>/dev/null | wc -l || echo "0")
+                unset ES_PWD
+                eval "$_xtrace" 2>/dev/null
                 log_info "Elasticsearch indices: ${idx_count}"
             fi
+        else
+            eval "$_xtrace" 2>/dev/null
         fi
     fi
 fi

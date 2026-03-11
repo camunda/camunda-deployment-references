@@ -1251,10 +1251,13 @@ sync_keycloak_admin_credentials() {
     local operator_secret="keycloak-initial-admin"
 
     # Read the Bitnami admin password
+    # Disable xtrace to avoid leaking credentials in logs
+    { local _xtrace; _xtrace=$(set +o | grep xtrace); set +x; } 2>/dev/null
     local admin_pass
     admin_pass=$(kubectl get secret "$bitnami_secret" -n "${NAMESPACE}" \
         -o jsonpath="{.data.${bitnami_key}}" 2>/dev/null | base64 -d 2>/dev/null || true)
     if [[ -z "$admin_pass" ]]; then
+        eval "$_xtrace" 2>/dev/null
         log_warn "Could not read Bitnami admin password from ${bitnami_secret}/${bitnami_key}"
         log_warn "Keycloak admin authentication may fail after migration"
         return 0
@@ -1270,6 +1273,8 @@ sync_keycloak_admin_credentials() {
         --from-literal=password="$admin_pass" \
         --dry-run=client -o yaml \
         | kubectl apply -f - >/dev/null
+    unset admin_pass
+    eval "$_xtrace" 2>/dev/null
 
     log_info "Updated ${operator_secret} secret (user=${admin_user})"
 

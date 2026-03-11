@@ -15,7 +15,7 @@
 #   - identity-secret-for-components-integration secret created before helm install
 #
 # Usage:
-#   kubectl apply -n camunda -f benchmark-job.yml
+#   kubectl apply -n camunda -f benchmark-job-heavy.yml
 #   kubectl wait --for=condition=complete job/migration-benchmark -n camunda --timeout=600s
 
 apiVersion: v1
