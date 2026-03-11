@@ -27,11 +27,9 @@ spec:
                 app: migration-test-data
         spec:
             restartPolicy: Never
-            imagePullSecrets:
-                - name: index-docker-io
             containers:
                 - name: verify
-                  image: camunda/camunda:${CAMUNDA_APP_VERSION}
+                  image: alpine/curl:latest
                   command: [/bin/sh, -c]
                   args:
                       - |

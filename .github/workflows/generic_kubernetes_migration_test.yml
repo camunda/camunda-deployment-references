@@ -282,16 +282,8 @@ jobs:
 
                   echo "Seeding migration test data across all components..."
 
-                  export CAMUNDA_APP_VERSION
-                  CAMUNDA_APP_VERSION=$(helm list -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                      -f "^${{ env.CAMUNDA_RELEASE_NAME }}$" -o json \
-                      | jq -r '.[0].app_version')
-                  echo "Using Camunda app version: ${CAMUNDA_APP_VERSION}"
-
-                  # shellcheck disable=SC2016
-                  envsubst '${CAMUNDA_APP_VERSION}' \
-                      < generic/kubernetes/migration/tests/seed-test-data-job.yml \
-                      | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
+                  kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -f generic/kubernetes/migration/tests/seed-test-data-job.yml
 
                   echo "Waiting for seed pod to be scheduled..."
                   kubectl wait --for=condition=Ready pod \
@@ -466,17 +458,12 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  export CAMUNDA_APP_VERSION
-                  CAMUNDA_APP_VERSION=$(helm list -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                      -f "^${{ env.CAMUNDA_RELEASE_NAME }}$" -o json \
-                      | jq -r '.[0].app_version')
-
                   export NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
                   export TEST_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
                   export TEST_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
 
                   # shellcheck disable=SC2016
-                  envsubst '${NAMESPACE} ${CAMUNDA_APP_VERSION} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET}' \
+                  envsubst '${NAMESPACE} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET}' \
                       < generic/kubernetes/migration/tests/verify-test-data-job.yml \
                       | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
 
@@ -578,11 +565,6 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  export CAMUNDA_APP_VERSION
-                  CAMUNDA_APP_VERSION=$(helm list -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                      -f "^${{ env.CAMUNDA_RELEASE_NAME }}$" -o json \
-                      | jq -r '.[0].app_version')
-
                   export NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
                   export TEST_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
                   export TEST_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
@@ -591,7 +573,7 @@ jobs:
                   kubectl delete job verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --ignore-not-found=true
 
                   # shellcheck disable=SC2016
-                  envsubst '${NAMESPACE} ${CAMUNDA_APP_VERSION} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET}' \
+                  envsubst '${NAMESPACE} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET}' \
                       < generic/kubernetes/migration/tests/verify-test-data-job.yml \
                       | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
 
