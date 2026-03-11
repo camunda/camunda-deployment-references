@@ -6,11 +6,11 @@
 #
 # Prerequisites:
 # - ECK operator installed (via .github/actions/kubernetes-eck-operator)
-# - Secret 'elasticsearch-s3-credentials' with keys:
+# - Secret 'elasticsearch-env-secret' with keys:
 #     s3.client.camunda.access_key
 #     s3.client.camunda.secret_key
 #
-# Created service: elasticsearch-es-http:9200
+# Created service: elasticsearch-es-http:9200 (ClusterIP), elasticsearch-es-masters:9200 (headless)
 # Created secret:  elasticsearch-es-elastic-user (pre-created by create_elasticsearch_secrets.sh, preserved by ECK)
 
 apiVersion: elasticsearch.k8s.elastic.co/v1

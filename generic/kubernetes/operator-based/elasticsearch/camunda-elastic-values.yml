@@ -25,7 +25,8 @@ global:
                 existingSecretKey: elastic
 
 
-# Orchestration secondary storage (chart 8.9+ replaces deprecated global.elasticsearch.auth)
+# Orchestration secondary storage — required in addition to global.elasticsearch.auth
+# for the Orchestration cluster data layer (chart 8.9+)
 orchestration:
     data:
         secondaryStorage:

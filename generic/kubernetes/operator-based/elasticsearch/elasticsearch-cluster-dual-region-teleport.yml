@@ -1,20 +1,17 @@
 ---
 # Elasticsearch cluster managed by ECK for dual-region setup — Teleport variant.
 #
-# This manifest adds Teleport-specific tolerations and nodeAffinity to
-# schedule Elasticsearch pods on the unstable node groups used by the
-# Teleport-based CI environment.
-#
-# Apply this AFTER the base elasticsearch-cluster-dual-region.yml to
-# patch the running cluster.  ECK will perform a rolling update.
+# In Teleport-based CI, this manifest is applied directly as the
+# Elasticsearch cluster definition with Teleport-specific tolerations
+# and nodeAffinity to schedule pods on unstable node groups.
 #
 # Prerequisites:
 # - ECK operator installed (via .github/actions/kubernetes-eck-operator)
-# - Secret 'elasticsearch-s3-credentials' with keys:
+# - Secret 'elasticsearch-env-secret' with keys:
 #     s3.client.camunda.access_key
 #     s3.client.camunda.secret_key
 #
-# Created service: elasticsearch-es-http:9200
+# Created service: elasticsearch-es-http:9200 (ClusterIP), elasticsearch-es-masters:9200 (headless)
 # Created secret:  elasticsearch-es-elastic-user (pre-created by create_elasticsearch_secrets.sh, preserved by ECK)
 
 apiVersion: elasticsearch.k8s.elastic.co/v1

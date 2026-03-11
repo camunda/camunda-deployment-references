@@ -35,8 +35,9 @@ var (
 	// Override via ELASTICSEARCH_POD_NAME env var.
 	ElasticsearchPodName = helpers.GetEnv("ELASTICSEARCH_POD_NAME", "elasticsearch-es-masters-0")
 
-	// ElasticsearchServiceName is the ECK-managed headless Elasticsearch service name used in cross-region URLs.
-	// Must be headless (ClusterIP: None) so DNS resolves to pod IPs routable cross-cluster.
+	// ElasticsearchServiceName is the ECK-managed headless Elasticsearch service name used when rewriting
+	// cross-region exporter URLs in camunda-values.yml placeholders. Must match the service name used by
+	// generate_zeebe_helm_values.sh (which also reads ELASTICSEARCH_SERVICE_NAME).
 	// Override via ELASTICSEARCH_SERVICE_NAME env var.
 	ElasticsearchServiceName = helpers.GetEnv("ELASTICSEARCH_SERVICE_NAME", "elasticsearch-es-masters")
 )
