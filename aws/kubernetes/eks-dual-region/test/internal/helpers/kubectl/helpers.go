@@ -40,6 +40,15 @@ var (
 	ElasticsearchServiceName = helpers.GetEnv("ELASTICSEARCH_SERVICE_NAME", "elasticsearch-es-http")
 )
 
+// getElasticsearchPassword retrieves the elastic user password from the ECK-generated secret.
+func getElasticsearchPassword(t *testing.T, kubectlOptions *k8s.KubectlOptions) string {
+	t.Helper()
+	secret := k8s.GetSecret(t, kubectlOptions, "elasticsearch-es-elastic-user")
+	password, ok := secret.Data["elastic"]
+	require.True(t, ok, "elastic key not found in elasticsearch-es-elastic-user secret")
+	return string(password)
+}
+
 type Partition struct {
 	PartitionId int    `json:"partitionId"`
 	Role        string `json:"role"`
@@ -344,11 +353,13 @@ func RunSensitiveKubectlCommand(t *testing.T, kubectlOptions *k8s.KubectlOptions
 func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, backupBucket, inputVersion string) {
 	t.Logf("[ELASTICSEARCH] Configuring Elasticsearch backup for cluster %s", cluster.ClusterName)
 
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
 	// Replace dots with dashes in the version string.
 	version := strings.ReplaceAll(inputVersion, ".", "-")
 
 	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--",
-		"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
+		"curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
 		"-H", "Content-Type: application/json",
 		"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}",
 			backupBucket, backupBucket, version))
@@ -370,7 +381,9 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, backupBucket,
 func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Creating Elasticsearch backup for cluster %s", cluster.ClusterName)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
@@ -404,11 +417,15 @@ func CheckThatElasticBackupIsPresent(t *testing.T, cluster helpers.Cluster, back
 func removeElasticBackup(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[ELASTICSEARCH BACKUP] Backup not found, removing backup store to recreate %s", cluster.ClusterName)
 
-	k8s.RunKubectl(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-XDELETE", "localhost:9200/_snapshot/camunda_backup")
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
+	k8s.RunKubectl(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XDELETE", "localhost:9200/_snapshot/camunda_backup")
 }
 
 func getAllElasticBackups(t *testing.T, cluster helpers.Cluster) (string, error) {
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-XGET", "localhost:9200/_snapshot/camunda_backup/_all")
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XGET", "localhost:9200/_snapshot/camunda_backup/_all")
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return "", err
@@ -420,7 +437,9 @@ func getAllElasticBackups(t *testing.T, cluster helpers.Cluster) (string, error)
 func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Restoring Elasticsearch backup for cluster %s", cluster.ClusterName)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
@@ -506,6 +525,10 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	helmOptions.ExtraArgs = map[string][]string{
 		"upgrade": {"--version", remoteChartVersion, "--install"},
 	}
+
+	// Write the final merged values to a debug file for troubleshooting
+	writeDebugValues(t, valuesFiles, setValues, setStringValues)
+
 	helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
 
 	// Write the old file back to the file - mostly for local development
@@ -527,6 +550,49 @@ func extractReplacementText(output, variableName string) string {
 		return output[startIndex:]
 	}
 	return output[startIndex : startIndex+endIndex]
+}
+
+func writeDebugValues(t *testing.T, valuesFiles []string, setValues, setStringValues map[string]string) {
+	debugDir := "debug"
+	if err := os.MkdirAll(debugDir, 0755); err != nil {
+		t.Logf("[C8 HELM DEBUG] Failed to create debug directory: %v", err)
+		return
+	}
+
+	var combined strings.Builder
+
+	for _, f := range valuesFiles {
+		combined.WriteString(fmt.Sprintf("# --- Source: %s ---\n", f))
+		content, err := os.ReadFile(f)
+		if err != nil {
+			combined.WriteString(fmt.Sprintf("# Error reading file: %v\n", err))
+		} else {
+			combined.Write(content)
+			combined.WriteString("\n")
+		}
+	}
+
+	if len(setValues) > 0 {
+		combined.WriteString("# --- Helm --set values ---\n")
+		for k, v := range setValues {
+			combined.WriteString(fmt.Sprintf("# %s=%s\n", k, v))
+		}
+	}
+
+	if len(setStringValues) > 0 {
+		combined.WriteString("# --- Helm --set-string values ---\n")
+		for k, v := range setStringValues {
+			combined.WriteString(fmt.Sprintf("# %s=%s\n", k, v))
+		}
+	}
+
+	debugFile := filepath.Join(debugDir, "values.yaml")
+	if err := os.WriteFile(debugFile, []byte(combined.String()), 0644); err != nil {
+		t.Logf("[C8 HELM DEBUG] Failed to write debug values: %v", err)
+		return
+	}
+
+	t.Logf("[C8 HELM DEBUG] Final values written to %s", debugFile)
 }
 
 func StatefulSetContains(t *testing.T, kubectlOptions *k8s.KubectlOptions, statefulset, searchValue string) bool {
@@ -914,6 +980,8 @@ func CheckTenantExists(t *testing.T, cluster helpers.Cluster, tenantId string) {
 func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[ELASTICSEARCH HEALTH] Checking cluster health for %s", cluster.ClusterName)
 
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
 	var output string
 	var err error
 
@@ -928,6 +996,7 @@ func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
 			"elasticsearch",
 			"--",
 			"curl",
+			"-u", fmt.Sprintf("elastic:%s", esPassword),
 			"-s",
 			"localhost:9200/_cluster/health",
 		)

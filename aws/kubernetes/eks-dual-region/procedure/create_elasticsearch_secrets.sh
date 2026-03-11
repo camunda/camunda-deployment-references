@@ -14,8 +14,6 @@
 
 set -euo pipefail
 
-SECRET_NAME="elasticsearch-env-secret"
-
 create_namespace() {
     local context=$1
     local namespace=$2
@@ -25,11 +23,23 @@ create_namespace() {
 create_secret() {
     local context=$1
     local namespace=$2
+    local secret_name=$3
 
-    kubectl --context "$context" -n "$namespace" delete secret "$SECRET_NAME" --ignore-not-found
-    kubectl --context "$context" -n "$namespace" create secret generic "$SECRET_NAME" \
+    kubectl --context "$context" -n "$namespace" delete secret "$secret_name" --ignore-not-found
+    kubectl --context "$context" -n "$namespace" create secret generic "$secret_name" \
         --from-literal=s3.client.camunda.access_key="$AWS_ACCESS_KEY_ES" \
         --from-literal=s3.client.camunda.secret_key="$AWS_SECRET_ACCESS_KEY_ES"
+}
+
+create_elastic_user_secret() {
+    local context=$1
+    local namespace=$2
+    local secret_name=$3
+    local secret_value=$4
+
+    kubectl --context "$context" -n "$namespace" delete secret "$secret_name" --ignore-not-found
+    kubectl --context "$context" -n "$namespace" create secret generic "$secret_name" \
+        --from-literal=elastic="$secret_value"
 }
 
 if [ -z "${AWS_ACCESS_KEY_ES:-}" ]; then
@@ -45,7 +55,15 @@ fi
 create_namespace "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0"
 create_namespace "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1"
 
+SECRET_NAME="elasticsearch-env-secret"
+
 echo "Creating ECK secure settings secret '$SECRET_NAME' in both regions..."
-create_secret "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0"
-create_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1"
+create_secret "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0" "$SECRET_NAME"
+create_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1" "$SECRET_NAME"
+
+elastic_user_secretname="elasticsearch-es-elastic-user"
+elastic_user_pass=$(openssl rand -base64 32)
+echo "Creating Elasticsearch user secret '$elastic_user_secretname' in both regions..."
+create_elastic_user_secret "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0" "$elastic_user_secretname" "$elastic_user_pass"
+create_elastic_user_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1" "$elastic_user_secretname" "$elastic_user_pass"
 echo "Done."
