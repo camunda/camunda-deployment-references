@@ -25,10 +25,10 @@ create_secret() {
     local namespace=$2
     local secret_name=$3
 
-    kubectl --context "$context" -n "$namespace" delete secret "$secret_name" --ignore-not-found
     kubectl --context "$context" -n "$namespace" create secret generic "$secret_name" \
         --from-literal=s3.client.camunda.access_key="$AWS_ACCESS_KEY_ES" \
-        --from-literal=s3.client.camunda.secret_key="$AWS_SECRET_ACCESS_KEY_ES"
+        --from-literal=s3.client.camunda.secret_key="$AWS_SECRET_ACCESS_KEY_ES" \
+        --dry-run=client -o yaml | kubectl --context "$context" apply -f -
 }
 
 create_elastic_user_secret() {
@@ -37,9 +37,9 @@ create_elastic_user_secret() {
     local secret_name=$3
     local secret_value=$4
 
-    kubectl --context "$context" -n "$namespace" delete secret "$secret_name" --ignore-not-found
     kubectl --context "$context" -n "$namespace" create secret generic "$secret_name" \
-        --from-literal=elastic="$secret_value"
+        --from-literal=elastic="$secret_value" \
+        --dry-run=client -o yaml | kubectl --context "$context" apply -f -
 }
 
 if [ -z "${AWS_ACCESS_KEY_ES:-}" ]; then
