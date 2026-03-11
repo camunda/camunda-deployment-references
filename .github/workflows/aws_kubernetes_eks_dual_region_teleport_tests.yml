@@ -119,9 +119,7 @@ jobs:
               run: |
                   set -euxo pipefail
 
-                  # TODO: revert to random ID once debugging is done
-                  # RANDOM_ID="$(openssl rand -hex 3)"
-                  RANDOM_ID="debug1"
+                  RANDOM_ID="$(openssl rand -hex 3)"
 
                   BACKUP_NAME=${RANDOM_ID}
                   CLUSTER_1_NAMESPACE="${NAMESPACE_PREFIX}${CLUSTER_1_NAMESPACE}-${RANDOM_ID}"
