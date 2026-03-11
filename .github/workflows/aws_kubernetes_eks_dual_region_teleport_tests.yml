@@ -271,6 +271,21 @@ jobs:
                   region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
                   skip-cleanup: 'true'
 
+            ############# Debug failed pods ##############
+            - name: Debug failed pods on cluster-0
+              if: failure()
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CLUSTER_0_NAMESPACE }}
+                  artifact-suffix: cluster-0
+
+            - name: Debug failed pods on cluster-1
+              if: failure()
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CLUSTER_1_NAMESPACE }}
+                  artifact-suffix: cluster-1
+
             ############# ECK Elasticsearch Cleanup ##############
             - name: Cleanup ECK Elasticsearch on cluster-0 namespace
               if: always() && env.CLEANUP_CLUSTERS == 'true'
