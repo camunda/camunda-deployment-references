@@ -113,7 +113,9 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  # TODO: revert to inputs.cluster_name once debugging is done
+                  # cluster_name: ${{ inputs.cluster_name }}
+                  cluster_name: eks-dual-debug
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_prefix: eks-dual-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
