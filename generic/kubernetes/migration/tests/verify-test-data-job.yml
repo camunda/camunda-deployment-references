@@ -27,9 +27,11 @@ spec:
                 app: migration-test-data
         spec:
             restartPolicy: Never
+            imagePullSecrets:
+                - name: index-docker-io
             containers:
                 - name: verify
-                  image: alpine/curl:latest
+                  image: camunda/camunda:${CAMUNDA_APP_VERSION}
                   command: [/bin/sh, -c]
                   args:
                       - |
@@ -121,32 +123,38 @@ spec:
                         # and full permissions on all resource servers.
                         AUTH_MODE="basic"
                         ZEEBE_AUTH_HEADER=""
+                        KC_ADMIN_TOKEN=""
                         if [ -n "${KC_URL}" ]; then
-                            TOKEN_URL="${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token"
-
-                            log "Obtaining OIDC token via test client '${TEST_CLIENT_ID}'..."
-                            ZEEBE_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
-                                "${TOKEN_URL}" \
-                                -H "Content-Type: application/x-www-form-urlencoded" \
-                                -d "grant_type=client_credentials" \
-                                -d "client_id=${TEST_CLIENT_ID}" \
-                                -d "client_secret=${TEST_CLIENT_SECRET}" \
-                                2>/dev/null | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
-
-                            if [ -n "${ZEEBE_TOKEN}" ]; then
-                                log "Obtained OIDC token (client=${TEST_CLIENT_ID})"
-                                AUTH_MODE="oidc"
-                                ZEEBE_AUTH_HEADER="Authorization: Bearer ${ZEEBE_TOKEN}"
-                            else
-                                log "WARN: client_credentials grant failed for '${TEST_CLIENT_ID}'"
-                            fi
-
-                            # Also get Keycloak admin token for user/client checks later
+                            # Get Keycloak admin token for user/client checks later
                             KC_ADMIN_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
                                 "${KC_URL}/realms/master/protocol/openid-connect/token" \
                                 -H "Content-Type: application/x-www-form-urlencoded" \
                                 -d "grant_type=password&client_id=admin-cli&username=${KC_ADMIN_USER}&password=${KC_ADMIN_PASS}" \
                                 2>/dev/null | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
+
+                            # Obtain OIDC token via test client (only if credentials are available)
+                            if [ -n "${TEST_CLIENT_ID:-}" ] && [ -n "${TEST_CLIENT_SECRET:-}" ]; then
+                                TOKEN_URL="${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token"
+
+                                log "Obtaining OIDC token via test client '${TEST_CLIENT_ID}'..."
+                                ZEEBE_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
+                                    "${TOKEN_URL}" \
+                                    -H "Content-Type: application/x-www-form-urlencoded" \
+                                    -d "grant_type=client_credentials" \
+                                    -d "client_id=${TEST_CLIENT_ID}" \
+                                    -d "client_secret=${TEST_CLIENT_SECRET}" \
+                                    2>/dev/null | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
+
+                                if [ -n "${ZEEBE_TOKEN}" ]; then
+                                    log "Obtained OIDC token (client=${TEST_CLIENT_ID})"
+                                    AUTH_MODE="oidc"
+                                    ZEEBE_AUTH_HEADER="Authorization: Bearer ${ZEEBE_TOKEN}"
+                                else
+                                    log "WARN: client_credentials grant failed for '${TEST_CLIENT_ID}'"
+                                fi
+                            else
+                                log "WARN: TEST_CLIENT_ID/TEST_CLIENT_SECRET not set, skipping OIDC token"
+                            fi
 
                             if [ "${AUTH_MODE}" = "basic" ]; then
                                 log "WARN: Could not obtain OIDC token, falling back to basic auth"
@@ -309,17 +317,13 @@ spec:
                                 name: keycloak-initial-admin
                                 key: password
                                 optional: true
-                      # Test client credentials (venom) from identity-secret-for-components-integration
+                      # Test client credentials for OIDC token acquisition.
+                      # Injected via envsubst by the CI workflow.
+                      # If empty, the job falls back to basic auth (demo/demo).
                       - name: TEST_CLIENT_ID
-                        valueFrom:
-                            secretKeyRef:
-                                name: identity-secret-for-components-integration
-                                key: identity-admin-client-id
+                        value: ${TEST_CLIENT_ID}
                       - name: TEST_CLIENT_SECRET
-                        valueFrom:
-                            secretKeyRef:
-                                name: identity-secret-for-components-integration
-                                key: identity-admin-client-secret
+                        value: ${TEST_CLIENT_SECRET}
                   resources:
                       requests:
                           cpu: 100m

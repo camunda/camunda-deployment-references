@@ -26,13 +26,6 @@ on:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
-            migration_component:
-                description: |
-                    Which component to test migration for.
-                    Valid values are 'full', 'orchestration', 'identity', 'keycloak', 'webmodeler'.
-                required: false
-                type: string
-                default: full
             benchmark_scenario:
                 description: |
                     Benchmark data volume scenario.
@@ -289,8 +282,16 @@ jobs:
 
                   echo "Seeding migration test data across all components..."
 
-                  kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                      -f generic/kubernetes/migration/tests/seed-test-data-job.yml
+                  export CAMUNDA_APP_VERSION
+                  CAMUNDA_APP_VERSION=$(helm list -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -f "^${{ env.CAMUNDA_RELEASE_NAME }}$" -o json \
+                      | jq -r '.[0].app_version')
+                  echo "Using Camunda app version: ${CAMUNDA_APP_VERSION}"
+
+                  # shellcheck disable=SC2016
+                  envsubst '${CAMUNDA_APP_VERSION}' \
+                      < generic/kubernetes/migration/tests/seed-test-data-job.yml \
+                      | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
 
                   echo "Waiting for seed pod to be scheduled..."
                   kubectl wait --for=condition=Ready pod \
@@ -347,6 +348,7 @@ jobs:
                       sleep 5
                   done
 
+                  LOGS_PID=""
                   if [ "$BENCHMARK_STARTED" = "true" ]; then
                       echo "Streaming benchmark logs..."
                       kubectl logs job/migration-benchmark \
@@ -364,7 +366,7 @@ jobs:
                   kubectl wait --for=condition=failed job/migration-benchmark \
                       -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout="$WAIT_TIMEOUT" || true
 
-                  kill "$LOGS_PID" 2>/dev/null || true
+                  [[ -n "$LOGS_PID" ]] && kill "$LOGS_PID" 2>/dev/null || true
 
                   if [ "$BENCHMARK_STARTED" != "true" ]; then
                       echo "::error::Benchmark pod never reached Running phase — init container failed"
@@ -459,6 +461,46 @@ jobs:
                   source ./env.sh
                   ./4-validate.sh
 
+            - name: Verify test data after migration
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  export CAMUNDA_APP_VERSION
+                  CAMUNDA_APP_VERSION=$(helm list -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -f "^${{ env.CAMUNDA_RELEASE_NAME }}$" -o json \
+                      | jq -r '.[0].app_version')
+
+                  export NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
+                  export TEST_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
+                  export TEST_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+
+                  # shellcheck disable=SC2016
+                  envsubst '${NAMESPACE} ${CAMUNDA_APP_VERSION} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET}' \
+                      < generic/kubernetes/migration/tests/verify-test-data-job.yml \
+                      | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
+
+                  echo "Waiting for verify pod to be scheduled..."
+                  kubectl wait --for=condition=Ready pod \
+                      -l job-name=verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=120s 2>/dev/null || true
+
+                  echo "Streaming verify job logs..."
+                  kubectl logs job/verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --follow --tail=-1 &
+                  LOGS_PID=$!
+
+                  kubectl wait --for=condition=complete job/verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || {
+                      echo "Verify job did not complete in time."
+                      kill "$LOGS_PID" 2>/dev/null || true
+                      kubectl logs job/verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" 2>/dev/null || true
+                      exit 1
+                  }
+                  kill "$LOGS_PID" 2>/dev/null || true
+
+                  echo "Data verification passed"
+
             # =================================================================
             # STEP 5: Post-migration integration tests
             # =================================================================
@@ -514,6 +556,91 @@ jobs:
                   skip-c8sm-connectivity-ingress-class-check: 'true'
                   enable-c8sm-irsa-check: 'false'
                   # Zeebe token/connectivity checks require domain + credentials
+                  enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
+                      'false' }}
+                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
+                      || 'false' }}
+                  local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+
+            # =================================================================
+            # STEP 6: Clean up old Bitnami resources and re-verify
+            # =================================================================
+            - name: Phase 5 - Clean up old Bitnami resources
+              timeout-minutes: 10
+              working-directory: ./generic/kubernetes/migration/
+              run: |
+                  set -euo pipefail
+                  source ./env.sh
+                  ./5-cleanup-bitnami.sh --yes
+
+            - name: Verify test data after cleanup
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  export CAMUNDA_APP_VERSION
+                  CAMUNDA_APP_VERSION=$(helm list -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -f "^${{ env.CAMUNDA_RELEASE_NAME }}$" -o json \
+                      | jq -r '.[0].app_version')
+
+                  export NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
+                  export TEST_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
+                  export TEST_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+
+                  # Delete previous verify job from Phase 4
+                  kubectl delete job verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --ignore-not-found=true
+
+                  # shellcheck disable=SC2016
+                  envsubst '${NAMESPACE} ${CAMUNDA_APP_VERSION} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET}' \
+                      < generic/kubernetes/migration/tests/verify-test-data-job.yml \
+                      | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
+
+                  echo "Waiting for verify pod to be scheduled..."
+                  kubectl wait --for=condition=Ready pod \
+                      -l job-name=verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=120s 2>/dev/null || true
+
+                  echo "Streaming verify job logs..."
+                  kubectl logs job/verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --follow --tail=-1 &
+                  LOGS_PID=$!
+
+                  kubectl wait --for=condition=complete job/verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || {
+                      echo "Verify job did not complete in time."
+                      kill "$LOGS_PID" 2>/dev/null || true
+                      kubectl logs job/verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" 2>/dev/null || true
+                      exit 1
+                  }
+                  kill "$LOGS_PID" 2>/dev/null || true
+
+                  echo "Data verification passed after cleanup"
+
+            - name: 🧪 Re-run C8-SM-CHECKS after Bitnami cleanup
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 15
+              uses: ./.github/actions/internal-camunda-chart-tests
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
+                  camunda-domain-grpc: ''
+                  webmodeler-enabled: 'true'
+                  console-enabled: 'false'
+                  optimize-enabled: 'false'
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  test-cluster-type: kubernetes
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
+                  test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
+                  enable-helm-chart-tests: 'false'
+                  enable-zeebe-client-tests: 'false'
+                  keycloak-service-name: keycloak-service:18080
+                  elasticsearch-service-name: elasticsearch-es-http:9200
+                  enable-c8sm-deployment-check: 'true'
+                  enable-c8sm-connectivity-check: 'true'
+                  skip-c8sm-connectivity-ingress-class-check: 'true'
+                  enable-c8sm-irsa-check: 'false'
                   enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
                       'false' }}
                   enable-c8sm-zeebe-connectivity-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'

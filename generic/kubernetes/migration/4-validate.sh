@@ -143,19 +143,34 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
 
             # Try to reach the external ES
             ES_CURL_ARGS=(-sf)
+            ES_HAS_CREDS=false
             if kubectl get secret "${EXTERNAL_ES_SECRET:-external-es}" -n "${NAMESPACE}" &>/dev/null; then
                 ES_PWD=$(kubectl get secret "${EXTERNAL_ES_SECRET}" -n "${NAMESPACE}" \
                     -o jsonpath='{.data.elastic}' 2>/dev/null | base64 -d || echo "")
-                [[ -n "$ES_PWD" ]] && ES_CURL_ARGS+=(-u "elastic:${ES_PWD}")
+                if [[ -n "$ES_PWD" ]]; then
+                    ES_CURL_ARGS+=(-u "elastic:${ES_PWD}")
+                    ES_HAS_CREDS=true
+                fi
             fi
 
-            if kubectl run "es-check-ext-${RANDOM}" --rm -i --restart=Never \
+            # When credentials are present, only use HTTPS to avoid leaking
+            # the password over plain HTTP or via -k (insecure TLS).
+            if [[ "$ES_HAS_CREDS" == "true" ]]; then
+                if kubectl run "es-check-ext-${RANDOM}" --rm -i --restart=Never \
+                    --image="${es_img}" -n "${NAMESPACE}" -- \
+                    curl "${ES_CURL_ARGS[@]}" "https://${ES_HOST}:${ES_PORT}/_cluster/health" &>/dev/null; then
+                    log_success "External ES: reachable via HTTPS (${ES_HOST}:${ES_PORT})"
+                else
+                    log_warn "External ES: could not verify connectivity (${ES_HOST}:${ES_PORT})"
+                    log_warn "  This may be expected if auth or network policies restrict access"
+                fi
+            elif kubectl run "es-check-ext-${RANDOM}" --rm -i --restart=Never \
                 --image="${es_img}" -n "${NAMESPACE}" -- \
                 curl "${ES_CURL_ARGS[@]}" "http://${ES_HOST}:${ES_PORT}/_cluster/health" &>/dev/null; then
                 log_success "External ES: reachable (${ES_HOST}:${ES_PORT})"
             elif kubectl run "es-check-ext-${RANDOM}" --rm -i --restart=Never \
                 --image="${es_img}" -n "${NAMESPACE}" -- \
-                curl "${ES_CURL_ARGS[@]}" "https://${ES_HOST}:${ES_PORT}/_cluster/health" -k &>/dev/null; then
+                curl "${ES_CURL_ARGS[@]}" "https://${ES_HOST}:${ES_PORT}/_cluster/health" &>/dev/null; then
                 log_success "External ES: reachable via HTTPS (${ES_HOST}:${ES_PORT})"
             else
                 log_warn "External ES: could not verify connectivity (${ES_HOST}:${ES_PORT})"
@@ -211,27 +226,6 @@ if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 5. Data verification (CI test data)
-# ─────────────────────────────────────────────────────────────────────────────
-TESTS_DIR="${MIGRATION_DIR}/tests"
-VERIFY_TPL="${TESTS_DIR}/verify-test-data-job.yml"
-
-if [[ -f "$VERIFY_TPL" ]]; then
-    section "Data Verification"
-    log_info "Running data verification job ..."
-    # shellcheck disable=SC2016 # Intentional: literal ${NAMESPACE} for envsubst
-    if run_job "$VERIFY_TPL" "verify-test-data" 600 '${NAMESPACE}'; then
-        log_success "Data verification passed"
-    else
-        log_error "Data verification failed"
-        ERRORS=$((ERRORS + 1))
-    fi
-    echo ""
-    echo "--- Verification logs ---"
-    kubectl logs -n "${NAMESPACE}" "job/verify-test-data" 2>/dev/null || true
-fi
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────────────────────────────────
 section "Validation Summary ($(timer_elapsed))"
@@ -242,14 +236,16 @@ generate_report
 if [[ $ERRORS -eq 0 ]]; then
     log_success "All checks passed! Migration is successful."
     echo ""
-    echo "You can now safely clean up old Bitnami resources:"
-    echo "  - Old PG StatefulSets and PVCs"
-    echo "  - Old ES StatefulSets and PVCs"
-    echo "  - Old Keycloak StatefulSet"
-    echo "  - Migration backup PVC: kubectl delete pvc ${BACKUP_PVC} -n ${NAMESPACE}"
+    echo "Next: ./5-cleanup-bitnami.sh  (remove old Bitnami resources and re-verify)"
+    echo ""
+    log_warn "⚠ Phase 5 is DESTRUCTIVE and IRREVERSIBLE."
+    echo "  Before running cleanup, strongly consider:"
+    echo "    1. Take a full backup of all databases (pg_dumpall)"
+    echo "    2. Snapshot PVCs or storage volumes (cloud provider snapshots)"
+    echo "    3. Store backups in cold storage (S3 Glacier, GCS Archive, etc.)"
+    echo "    4. Keep rollback artifacts in .state/ as a safety net"
     echo ""
     echo "Migration report: ${STATE_DIR}/migration-report.md"
-    echo "Keep the rollback artifacts in .state/ until you're confident everything works."
 else
     log_error "${ERRORS} check(s) failed. Review the errors above."
     echo ""

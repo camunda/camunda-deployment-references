@@ -189,6 +189,7 @@ check_env() {
         log_error "Did you forget to run:  source env.sh"
         exit 1
     fi
+
 }
 
 # Verify that a prerequisite tool is available.
@@ -221,7 +222,7 @@ require_phase() {
 
     if [[ "${!var:-}" != "true" ]]; then
         log_error "${label} has not been completed yet."
-        log_error "Run the phases in order: 1-deploy-targets → 2-backup → 3-cutover → 4-validate"
+        log_error "Run the phases in order: 1-deploy-targets → 2-backup → 3-cutover → 4-validate → 5-cleanup-bitnami"
         exit 1
     fi
 }
@@ -381,6 +382,15 @@ show_plan() {
             [[ "${MIGRATE_KEYCLOAK}" == "true" ]]      && echo "    ├── Keycloak CR"
             echo "    └── Generate migration report"
             ;;
+        5)
+            echo "  Cleanup targets:"
+            [[ "${MIGRATE_IDENTITY}" == "true" || "${MIGRATE_KEYCLOAK}" == "true" || "${MIGRATE_WEBMODELER}" == "true" ]] \
+                && echo "    ├── Old Bitnami PostgreSQL StatefulSets and PVCs"
+            [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]] && echo "    ├── Old Bitnami Elasticsearch StatefulSet and PVCs"
+            [[ "${MIGRATE_KEYCLOAK}" == "true" ]]      && echo "    ├── Old Bitnami Keycloak StatefulSet"
+            echo "    ├── Migration backup PVC"
+            echo "    └── Re-verify all components after cleanup"
+            ;;
     esac
 
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -403,7 +413,7 @@ show_migration_status() {
 
     load_state 2>/dev/null || true
 
-    local phases=("1:Deploy Targets" "2:Initial Backup" "3:Cutover" "4:Validate")
+    local phases=("1:Deploy Targets" "2:Initial Backup" "3:Cutover" "4:Validate" "5:Cleanup Bitnami")
     for entry in "${phases[@]}"; do
         local num="${entry%%:*}"
         local label="${entry#*:}"
@@ -1639,7 +1649,7 @@ zeebe_exporting_soft_pause() {
     log_info "Soft-pausing Zeebe exporting (log compaction disabled) ..."
     local http_code
     http_code=$(kubectl run "zeebe-export-softpause-${RANDOM}" --rm -i --restart=Never \
-        --image="${ES_IMAGE:-alpine/curl:latest}" -n "${NAMESPACE}" -- \
+        --image="${ES_IMAGE}" -n "${NAMESPACE}" -- \
         curl -sf -o /dev/null -w "%{http_code}" -X POST \
         "${url}/actuator/exporting/pause?soft=true" 2>/dev/null || echo "000")
 
@@ -1659,7 +1669,7 @@ zeebe_exporting_pause() {
     log_info "Hard-pausing Zeebe exporting ..."
     local http_code
     http_code=$(kubectl run "zeebe-export-pause-${RANDOM}" --rm -i --restart=Never \
-        --image="${ES_IMAGE:-alpine/curl:latest}" -n "${NAMESPACE}" -- \
+        --image="${ES_IMAGE}" -n "${NAMESPACE}" -- \
         curl -sf -o /dev/null -w "%{http_code}" -X POST \
         "${url}/actuator/exporting/pause" 2>/dev/null || echo "000")
 
@@ -1677,7 +1687,7 @@ zeebe_exporting_resume() {
     log_info "Resuming Zeebe exporting ..."
     local http_code
     http_code=$(kubectl run "zeebe-export-resume-${RANDOM}" --rm -i --restart=Never \
-        --image="${ES_IMAGE:-alpine/curl:latest}" -n "${NAMESPACE}" -- \
+        --image="${ES_IMAGE}" -n "${NAMESPACE}" -- \
         curl -sf -o /dev/null -w "%{http_code}" -X POST \
         "${url}/actuator/exporting/resume" 2>/dev/null || echo "000")
 

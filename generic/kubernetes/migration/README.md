@@ -34,6 +34,9 @@ This migration is designed to align your setup with the [operator-based referenc
 │                                                                      │
 │  Phase 4 ✦ Validate           ─── no downtime ──────────────────── │
 │    Verify all components are healthy on the new infrastructure       │
+│                                                                      │
+│  Phase 5 ✦ Cleanup Bitnami    ─── no downtime ──────────────────── │
+│    Remove old Bitnami resources and re-verify                        │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -86,6 +89,7 @@ generic/kubernetes/
     ├── 2-backup.sh                  # Phase 2: Initial backup
     ├── 3-cutover.sh                 # Phase 3: Freeze → Restore → Switch
     ├── 4-validate.sh                # Phase 4: Validate everything
+    ├── 5-cleanup-bitnami.sh         # Phase 5: Remove old Bitnami resources
     ├── rollback.sh                  # Emergency rollback
     ├── hooks/                       # Custom pre/post phase hooks (see Hooks)
     │   └── README.md                #   Hook documentation
@@ -98,7 +102,6 @@ generic/kubernetes/
     │   └── backup-pvc.yml           #   Shared backup PVC
     ├── .state/                      # Runtime state (gitignored, auto-created)
     └── tests/                       # CI & local test fixtures
-        ├── local-test.sh            #   Local Kind test runner
         ├── seed-test-data-job.yml   #   Seed job (Zeebe, Keycloak, WebModeler)
         ├── benchmark-job.yml        #   Benchmark job (Zeebe process instances)
         ├── verify-test-data-job.yml #   Verify job (post-migration checks)
@@ -125,6 +128,9 @@ bash 3-cutover.sh
 
 # 5. Validate
 bash 4-validate.sh
+
+# 6. Clean up old Bitnami resources
+bash 5-cleanup-bitnami.sh
 ```
 
 ## Configuration
@@ -245,9 +251,29 @@ Checks:
 - CNPG clusters are in healthy state
 - ECK Elasticsearch is ready with indices
 - Keycloak CR is ready
-- Data verification job (if `tests/verify-test-data-job.yml` is present)
 
 At the end, generates a migration report in `.state/migration-report.md`.
+
+### Phase 5: Cleanup Bitnami (`5-cleanup-bitnami.sh`)
+
+**Downtime: NONE**
+
+> **⚠ DESTRUCTIVE — This phase is irreversible.**
+>
+> After cleanup, rollback to Bitnami sub-charts is no longer possible.
+> Before running this phase, **strongly** consider:
+> 1. Take a full backup of all databases (`pg_dumpall` or equivalent)
+> 2. Snapshot PVCs or storage volumes (cloud provider snapshots)
+> 3. Store backups in cold storage (S3 Glacier, GCS Archive, etc.)
+> 4. Keep rollback artifacts in `.state/` as a safety net
+
+Removes old Bitnami sub-chart resources that are no longer used after migration:
+- Old PostgreSQL StatefulSets and their PVCs
+- Old Elasticsearch StatefulSet and its PVCs
+- Old Keycloak StatefulSet
+- Migration backup PVC
+
+After cleanup, re-verifies that all Camunda components, operator-managed targets, and test data remain healthy without the old resources.
 
 ### Rollback (`rollback.sh`)
 
@@ -288,40 +314,19 @@ The main factor is the `pg_restore` and ES reindex duration.
 
 ## Cleanup (post-migration)
 
-After validating the migration, remove old Bitnami resources.
-
-StatefulSet names vary depending on your Helm chart version. Discover yours first:
+After validating the migration, run Phase 5 to automatically remove old Bitnami resources and re-verify:
 
 ```bash
-# List all Bitnami StatefulSets (adjust grep as needed)
-kubectl get sts -n ${NAMESPACE} | grep -E "postgresql|elasticsearch|keycloak"
+source env.sh
+bash 5-cleanup-bitnami.sh
 ```
 
-Then delete them (common naming patterns shown):
-
-```bash
-# Delete old PG StatefulSets and their PVCs
-kubectl delete statefulset ${CAMUNDA_RELEASE_NAME}-postgresql -n ${NAMESPACE} --ignore-not-found
-kubectl delete statefulset ${CAMUNDA_RELEASE_NAME}-keycloak-postgresql -n ${NAMESPACE} --ignore-not-found
-kubectl delete statefulset ${CAMUNDA_RELEASE_NAME}-postgresql-web-modeler -n ${NAMESPACE} --ignore-not-found
-
-# Delete old ES StatefulSet
-kubectl delete statefulset ${CAMUNDA_RELEASE_NAME}-elasticsearch-master -n ${NAMESPACE} --ignore-not-found
-
-# Delete old Keycloak StatefulSet
-kubectl delete statefulset ${CAMUNDA_RELEASE_NAME}-keycloak -n ${NAMESPACE} --ignore-not-found
-
-# Delete migration backup PVC
-kubectl delete pvc ${BACKUP_PVC} -n ${NAMESPACE}
-
-# Delete old PVCs (verify first!)
-# kubectl get pvc -n ${NAMESPACE} | grep -E "postgresql|elasticsearch"
-```
+The script detects and removes old Bitnami StatefulSets (PostgreSQL, Elasticsearch, Keycloak), their associated PVCs, and the migration backup PVC. It then re-verifies that all components remain healthy.
 
 ## Design Principles
 
 - **DRY**: Reuses operator-based deploy scripts and manifests — no duplication of operator installation or Helm values
-- **Phase-oriented**: 4 clear phases instead of 28 per-component scripts
+- **Phase-oriented**: 5 clear phases instead of 28 per-component scripts
 - **Idempotent**: Each phase can be re-run safely (checks for existing resources before creating)
 - **Kubernetes-native**: All data operations run as Kubernetes Jobs inside the cluster
 - **Aligned with reference arch**: Deploys the exact same operators and instances as `operator-based/`
@@ -361,6 +366,8 @@ Each phase supports `pre-` and `post-` hooks for custom logic. Place executable 
 | `hooks/post-phase-3.sh`     | After cutover (services restarted)   |
 | `hooks/pre-phase-4.sh`      | Before validation                    |
 | `hooks/post-phase-4.sh`     | After validation completes           |
+| `hooks/pre-phase-5.sh`      | Before Bitnami cleanup               |
+| `hooks/post-phase-5.sh`     | After cleanup and re-verification    |
 | `hooks/pre-rollback.sh`     | Before rollback                      |
 | `hooks/post-rollback.sh`    | After rollback completes             |
 
