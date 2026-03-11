@@ -50,7 +50,9 @@ env:
 
     KUBECONFIG: ./kubeconfig
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # TODO: revert to delete_clusters || 'true' and remove fixed RANDOM_ID once debugging is done
+    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    CLEANUP_CLUSTERS: 'false'
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
     BACKUP_BUCKET: tests-c8-multi-region-es-eu-central-1 # static shared bucket for all Teleport tests
     ZEEBE_CLUSTER_SIZE: 8 # default size of Zeebe cluster for tests - used by scripts
@@ -119,7 +121,9 @@ jobs:
               run: |
                   set -euxo pipefail
 
-                  RANDOM_ID="$(openssl rand -hex 3)"
+                  # TODO: revert to random ID once debugging is done
+                  # RANDOM_ID="$(openssl rand -hex 3)"
+                  RANDOM_ID="debug1"
 
                   BACKUP_NAME=${RANDOM_ID}
                   CLUSTER_1_NAMESPACE="${NAMESPACE_PREFIX}${CLUSTER_1_NAMESPACE}-${RANDOM_ID}"
@@ -173,6 +177,34 @@ jobs:
               with:
                   namespace: ${{ env.CLUSTER_1_NAMESPACE }}
                   elasticsearch-cluster-file: elasticsearch-cluster-dual-region-teleport.yml
+
+            ############# Cross-region ES password sync ##############
+            - name: Sync Elasticsearch passwords across namespaces
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+
+                  # Fetch password from cluster-0
+                  CLUSTER_0_ES_PASSWORD=$(kubectl get secret elasticsearch-es-elastic-user \
+                    -n ${{ env.CLUSTER_0_NAMESPACE }} \
+                    -o go-template='{{ index .data "elastic" | base64decode }}')
+
+                  # Fetch password from cluster-1
+                  CLUSTER_1_ES_PASSWORD=$(kubectl get secret elasticsearch-es-elastic-user \
+                    -n ${{ env.CLUSTER_1_NAMESPACE }} \
+                    -o go-template='{{ index .data "elastic" | base64decode }}')
+
+                  # Create remote ES secret on cluster-0 (containing cluster-1 password)
+                  kubectl create secret generic elasticsearch-es-elastic-user-remote \
+                    -n ${{ env.CLUSTER_0_NAMESPACE }} \
+                    --from-literal=elastic="$CLUSTER_1_ES_PASSWORD" \
+                    --dry-run=client -o yaml | kubectl apply -f -
+
+                  # Create remote ES secret on cluster-1 (containing cluster-0 password)
+                  kubectl create secret generic elasticsearch-es-elastic-user-remote \
+                    -n ${{ env.CLUSTER_1_NAMESPACE }} \
+                    --from-literal=elastic="$CLUSTER_0_ES_PASSWORD" \
+                    --dry-run=client -o yaml | kubectl apply -f -
 
             - name: Label and annotate namespaces and secrets
               working-directory: ./aws/kubernetes/eks-dual-region/test
