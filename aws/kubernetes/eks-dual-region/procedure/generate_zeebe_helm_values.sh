@@ -94,12 +94,8 @@ echo "Please use the following to change the existing environment variable CAMUN
 echo
 echo "- name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL"
 echo "  value: $elastic0"
-echo "- name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL"
-echo "  value: $elastic0"
 echo
 echo "Please use the following to change the existing environment variable CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
 echo
-echo "- name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL"
-echo "  value: $elastic1"
 echo "- name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL"
 echo "  value: $elastic1"

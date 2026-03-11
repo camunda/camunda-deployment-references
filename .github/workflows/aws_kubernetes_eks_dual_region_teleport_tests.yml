@@ -148,6 +148,17 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY | S3_BACKUP_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY | S3_BACKUP_SECRET_KEY;
 
+            - name: Clean up namespaces before creation
+              run: |
+                  set -euo pipefail
+
+                  for ns in ${{ env.CLUSTER_0_NAMESPACE }} ${{ env.CLUSTER_1_NAMESPACE }}; do
+                    if kubectl get namespace "$ns" &>/dev/null; then
+                      echo "Deleting namespace $ns..."
+                      kubectl delete namespace "$ns" --wait --timeout=120s
+                      echo "✓ Namespace $ns deleted"
+                    fi
+                  done
             - name: Create namespaces and secrets
               id: create-namespaces
               env:
