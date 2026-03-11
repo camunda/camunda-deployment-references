@@ -148,14 +148,26 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY | S3_BACKUP_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY | S3_BACKUP_SECRET_KEY;
 
-            - name: Clean up namespaces before creation
+            - name: Clean up Helm releases and ECK resources
+              run: |
+                  set -euo pipefail
+
+                  for ns in ${{ env.CLUSTER_0_NAMESPACE }} ${{ env.CLUSTER_1_NAMESPACE }}; do
+                    if kubectl get namespace "$ns" &>/dev/null; then
+                      echo "Cleaning up resources in $ns..."
+                      helm delete camunda -n "$ns" 2>/dev/null || true
+                      kubectl delete elasticsearch --all -n "$ns" --timeout=120s 2>/dev/null || true
+                    fi
+                  done
+
+            - name: Delete namespaces
               run: |
                   set -euo pipefail
 
                   for ns in ${{ env.CLUSTER_0_NAMESPACE }} ${{ env.CLUSTER_1_NAMESPACE }}; do
                     if kubectl get namespace "$ns" &>/dev/null; then
                       echo "Deleting namespace $ns..."
-                      kubectl delete namespace "$ns" --wait --timeout=120s
+                      kubectl delete namespace "$ns" --wait --timeout=300s
                       echo "✓ Namespace $ns deleted"
                     fi
                   done

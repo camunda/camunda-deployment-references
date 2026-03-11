@@ -306,7 +306,21 @@ jobs:
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             ############# Clean up and recreate namespaces + secrets ##############
-            - name: Clean up namespaces
+            - name: Clean up Helm releases and ECK resources
+              run: |
+                  set -euo pipefail
+
+                  for ctx in "${{ env.CLUSTER_NAME }}-london" "${{ env.CLUSTER_NAME }}-paris"; do
+                    for ns in ${{ env.CAMUNDA_NAMESPACE_0 }} ${{ env.CAMUNDA_NAMESPACE_1 }}; do
+                      if kubectl --context "$ctx" get namespace "$ns" &>/dev/null; then
+                        echo "Cleaning up resources in $ns on $ctx..."
+                        helm delete camunda --kubeconfig <(kubectl config view --raw) --kube-context "$ctx" -n "$ns" 2>/dev/null || true
+                        kubectl --context "$ctx" delete elasticsearch --all -n "$ns" --timeout=120s 2>/dev/null || true
+                      fi
+                    done
+                  done
+
+            - name: Delete namespaces
               run: |
                   set -euo pipefail
 
@@ -314,7 +328,7 @@ jobs:
                     for ns in ${{ env.CAMUNDA_NAMESPACE_0 }} ${{ env.CAMUNDA_NAMESPACE_1 }}; do
                       if kubectl --context "$ctx" get namespace "$ns" &>/dev/null; then
                         echo "Deleting namespace $ns on context $ctx..."
-                        kubectl --context "$ctx" delete namespace "$ns" --wait --timeout=120s
+                        kubectl --context "$ctx" delete namespace "$ns" --wait --timeout=300s
                         echo "✓ Namespace $ns deleted on $ctx"
                       fi
                     done
