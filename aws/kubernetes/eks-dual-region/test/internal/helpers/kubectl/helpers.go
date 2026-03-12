@@ -308,7 +308,7 @@ func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size
 	expectedTotal := fmt.Sprintf("\"totalItems\":%d", size)
 
 	var bodyString string
-	for i := 0; i < 8; i++ {
+	for i := 0; i < 20; i++ {
 		// fresh request each iteration to avoid reusing consumed body
 		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-instances/search", endpoint), strings.NewReader(instanceRequestBody))
 		if err != nil {
