@@ -1,0 +1,161 @@
+---
+# PostgreSQL Restore Job (generic, parameterized by COMPONENT)
+# Required env vars: COMPONENT, JOB_NAME, TARGET_PG_HOST, TARGET_PG_PORT,
+#   TARGET_PG_DATABASE, TARGET_PG_USER, DB_SECRET_NAME, PG_IMAGE,
+#   BACKUP_PVC, BACKUP_FILE, NAMESPACE, TIMESTAMP
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: ${JOB_NAME}
+    namespace: ${NAMESPACE}
+    labels:
+        app: ${COMPONENT}-migration
+        migration.camunda.io/type: restore
+        migration.camunda.io/component: ${COMPONENT}
+spec:
+    ttlSecondsAfterFinished: 3600
+    backoffLimit: 2
+    template:
+        metadata:
+            labels:
+                app: ${COMPONENT}-migration
+                migration.camunda.io/type: restore
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: restore
+                  image: ${PG_IMAGE}
+                  command:
+                      - /bin/bash
+                      - -c
+                      - |
+                        set -euo pipefail
+                        echo "=== PG Restore: ${COMPONENT} ==="
+                        echo "Target: ${TARGET_PG_HOST}:${TARGET_PG_PORT}/${TARGET_PG_DATABASE}"
+
+                        MAX_RETRIES=60; RETRY=0
+                        until pg_isready -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" -U "${TARGET_PG_USER}"; do
+                          RETRY=$((RETRY + 1))
+                          if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
+                            echo "ERROR: Target PostgreSQL not ready after $MAX_RETRIES attempts"; exit 1
+                          fi
+                          echo "Waiting for target PostgreSQL ($RETRY/$MAX_RETRIES)..."; sleep 5
+                        done
+
+                        # Locate backup file
+                        if [ -f "/backup/${COMPONENT}/${BACKUP_FILE}" ]; then
+                          DUMP="/backup/${COMPONENT}/${BACKUP_FILE}"
+                        elif [ -f "/backup/${COMPONENT}/${COMPONENT}-db-final.dump" ]; then
+                          DUMP="/backup/${COMPONENT}/${COMPONENT}-db-final.dump"
+                        else
+                          DUMP=$(ls -t /backup/${COMPONENT}/${COMPONENT}-db-*.dump 2>/dev/null | head -1)
+                        fi
+
+                        [ -f "$DUMP" ] || { echo "ERROR: no backup found"; exit 1; }
+                        echo "Restoring from: $DUMP"
+
+                        # Safety check: refuse to restore into a non-empty database
+                        # unless FORCE_RESTORE is set (used by migration scripts where the
+                        # operator pre-creates the schema before restore).
+                        TABLE_COUNT=$(psql -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" \
+                          -U "${TARGET_PG_USER}" -d "${TARGET_PG_DATABASE}" -tAc \
+                          "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" 2>/dev/null || echo "0")
+
+                        if [ "$TABLE_COUNT" -gt 0 ]; then
+                          if [ "${FORCE_RESTORE:-false}" = "true" ]; then
+                            echo "WARN: Target database contains $TABLE_COUNT table(s) — cleaning (FORCE_RESTORE=true)"
+                            psql -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" \
+                              -U "${TARGET_PG_USER}" -d "${TARGET_PG_DATABASE}" \
+                              -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" || {
+                              echo "ERROR: failed to clean target database"; exit 1
+                            }
+                          else
+                            echo ""
+                            echo "ERROR: Target database '${TARGET_PG_DATABASE}' already contains $TABLE_COUNT table(s)."
+                            echo ""
+                            echo "Restoring would drop and recreate all objects, destroying existing data."
+                            echo ""
+                            echo "  ⚠  THIS IS A DESTRUCTIVE OPERATION"
+                            echo ""
+                            echo "To proceed, either:"
+                            echo "  - Set FORCE_RESTORE=true in env.sh (migration will clean automatically)"
+                            echo "  - Or manually clean the target database:"
+                            echo ""
+                            echo "    psql -h ${TARGET_PG_HOST} -p ${TARGET_PG_PORT} -U ${TARGET_PG_USER} -d ${TARGET_PG_DATABASE}"
+                            echo "    DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+                            echo ""
+                            echo "Then re-run the migration."
+                            exit 1
+                          fi
+                        fi
+
+                        # pg_restore with --clean --if-exists emits warnings for
+                        # objects that don't exist yet (exit code 1). Real failures
+                        # produce exit code 2+. Capture and distinguish.
+                        set +e
+                        pg_restore -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" \
+                          -U "${TARGET_PG_USER}" -d "${TARGET_PG_DATABASE}" \
+                          --clean --if-exists --no-owner --no-privileges \
+                          --verbose "$DUMP" 2>&1 | tee /tmp/pg_restore.log
+                        PG_RC=${PIPESTATUS[0]}
+                        set -e
+
+                        if [ "$PG_RC" -eq 0 ]; then
+                          echo "pg_restore completed successfully"
+                        elif [ "$PG_RC" -eq 1 ]; then
+                          # Exit code 1 = warnings only (e.g. "does not exist" from --clean --if-exists)
+                          if grep -qiE 'fatal|could not|connection refused|out of memory' /tmp/pg_restore.log; then
+                            echo "ERROR: pg_restore exited with warnings but log contains critical errors:"
+                            grep -iE 'fatal|could not|connection refused|out of memory' /tmp/pg_restore.log
+                            exit 1
+                          fi
+                          echo "pg_restore completed with warnings (normal with --clean --if-exists)"
+                        else
+                          echo "ERROR: pg_restore failed with exit code $PG_RC"
+                          tail -50 /tmp/pg_restore.log
+                          exit 1
+                        fi
+
+                        echo ""
+                        echo "Tables restored:"
+                        psql -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" \
+                          -U "${TARGET_PG_USER}" -d "${TARGET_PG_DATABASE}" \
+                          -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY 1"
+
+                        # ── Post-restore metrics ──
+                        echo ""
+                        PG_CONN="-h ${TARGET_PG_HOST} -p ${TARGET_PG_PORT} -U ${TARGET_PG_USER} -d ${TARGET_PG_DATABASE}"
+                        echo "Database size: $(psql $PG_CONN -tAc \
+                          "SELECT pg_size_pretty(pg_database_size(current_database()))")"
+                        echo ""
+                        echo "Row counts per table:"
+                        TOTAL_ROWS=0
+                        for tbl in $(psql $PG_CONN -tAc \
+                          "SELECT table_name FROM information_schema.tables \
+                           WHERE table_schema='public' ORDER BY 1"); do
+                          CNT=$(psql $PG_CONN -tAc \
+                            "SELECT count(*) FROM \"$tbl\"" 2>/dev/null || echo 0)
+                          echo "  $tbl: $CNT"
+                          TOTAL_ROWS=$((TOTAL_ROWS + CNT))
+                        done
+                        echo "Total rows: $TOTAL_ROWS"
+
+                        echo ""
+                        echo "Restore complete"
+                  env:
+                      - name: PGPASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: ${DB_SECRET_NAME}
+                                key: password
+                      - name: FORCE_RESTORE
+                        value: '${FORCE_RESTORE}'
+                  resources:
+                      requests: {memory: 256Mi, cpu: 100m}
+                      limits: {memory: 512Mi, cpu: 500m}
+                  volumeMounts:
+                      - {name: backup, mountPath: /backup}
+            volumes:
+                - name: backup
+                  persistentVolumeClaim:
+                      claimName: ${BACKUP_PVC}
