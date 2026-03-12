@@ -101,7 +101,7 @@ if [[ "${MIGRATE_IDENTITY}" == "true" || "${MIGRATE_KEYCLOAK}" == "true" || "${M
 
     for component in identity keycloak webmodeler; do
         migrate_var="MIGRATE_${component^^}"
-        if [[ "${!migrate_var}" != "true" ]]; then continue; fi
+        if [[ "${!migrate_var:-false}" != "true" ]]; then continue; fi
 
         sts_name=$(detect_pg_sts "$component" 2>/dev/null || true)
         if [[ -n "$sts_name" ]]; then

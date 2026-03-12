@@ -695,13 +695,13 @@ validate_external_pg_config() {
         return 1
     fi
 
-    if ! kubectl get secret "${!secret_var}" -n "${NAMESPACE}" &>/dev/null; then
-        log_error "Secret '${!secret_var}' not found in namespace ${NAMESPACE}"
-        log_error "  Create it with: kubectl create secret generic ${!secret_var} -n ${NAMESPACE} --from-literal=password=<password>"
+    if ! kubectl get secret "${!secret_var:-}" -n "${NAMESPACE}" &>/dev/null; then
+        log_error "Secret '${!secret_var:-}' not found in namespace ${NAMESPACE}"
+        log_error "  Create it with: kubectl create secret generic ${!secret_var:-} -n ${NAMESPACE} --from-literal=password=<password>"
         return 1
     fi
 
-    log_success "  ${component}: external PG OK (${!host_var}:${!port_var:-5432})"
+    log_success "  ${component}: external PG OK (${!host_var:-}:${!port_var:-5432})"
     return 0
 }
 

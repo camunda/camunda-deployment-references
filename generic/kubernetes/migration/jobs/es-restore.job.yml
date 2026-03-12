@@ -40,9 +40,9 @@ spec:
                         echo "Target: $TARGET"
 
                         TARGET_AUTH=()
-                        [ -n "$TARGET_ES_PASSWORD" ] && TARGET_AUTH=(-u "elastic:$TARGET_ES_PASSWORD")
+                        [ -n "${TARGET_ES_PASSWORD:-}" ] && TARGET_AUTH=(-u "elastic:$TARGET_ES_PASSWORD")
                         SOURCE_AUTH=()
-                        [ -n "$SOURCE_ES_PASSWORD" ] && SOURCE_AUTH=(-u "elastic:$SOURCE_ES_PASSWORD")
+                        [ -n "${SOURCE_ES_PASSWORD:-}" ] && SOURCE_AUTH=(-u "elastic:$SOURCE_ES_PASSWORD")
 
                         # Wait for target ES
                         MAX_RETRIES=60; RETRY=0
@@ -131,7 +131,7 @@ spec:
 
                         # Build remote source auth fragment
                         REMOTE_AUTH=""
-                        if [ -n "$SOURCE_ES_PASSWORD" ]; then
+                        if [ -n "${SOURCE_ES_PASSWORD:-}" ]; then
                           # Escape special JSON characters in password to prevent injection
                           ESCAPED_PW=$(printf '%s' "$SOURCE_ES_PASSWORD" | sed 's/\\/\\\\/g; s/"/\\"/g')
                           REMOTE_AUTH=",\"username\":\"elastic\",\"password\":\"$ESCAPED_PW\""

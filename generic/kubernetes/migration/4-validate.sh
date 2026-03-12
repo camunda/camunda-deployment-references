@@ -80,7 +80,7 @@ if [[ "${MIGRATE_IDENTITY}" == "true" || "${MIGRATE_KEYCLOAK}" == "true" || "${M
             comp="${pair%%:*}"
             prefix="${pair##*:}"
             migrate_var="MIGRATE_${comp^^}"
-            if [[ "${!migrate_var}" != "true" ]]; then continue; fi
+            if [[ "${!migrate_var:-false}" != "true" ]]; then continue; fi
 
             host_var="${prefix}_HOST"
             port_var="${prefix}_PORT"

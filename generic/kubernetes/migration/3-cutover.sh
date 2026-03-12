@@ -190,14 +190,14 @@ do_pg_restore() {
         local port_var="EXTERNAL_PG_${component^^}_PORT"
         local secret_var="EXTERNAL_PG_${component^^}_SECRET"
 
-        log_info "Restoring ${component} → external PG (${!host_var})"
+        log_info "Restoring ${component} → external PG (${!host_var:-})"
 
         export COMPONENT="$component"
-        export TARGET_PG_HOST="${!host_var}"
+        export TARGET_PG_HOST="${!host_var:-}"
         export TARGET_PG_PORT="${!port_var:-5432}"
         export TARGET_PG_DATABASE="$db_name"
         export TARGET_PG_USER="$db_user"
-        export DB_SECRET_NAME="${!secret_var}"
+        export DB_SECRET_NAME="${!secret_var:-}"
     else
         log_info "Restoring ${component} → CNPG ${cluster_name}"
 
