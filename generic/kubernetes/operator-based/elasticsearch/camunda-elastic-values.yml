@@ -18,5 +18,18 @@ orchestration:
                         existingSecret: elasticsearch-es-elastic-user
                         existingSecretKey: elastic
 
+optimize:
+    database:
+        elasticsearch:
+            enabled: true
+            url:
+                host: elasticsearch-es-http
+                port: 9200
+            auth:
+                username: elastic
+                secret:
+                    existingSecret: elasticsearch-es-elastic-user
+                    existingSecretKey: elastic
+
 elasticsearch:
     enabled: false
