@@ -266,9 +266,12 @@ else
 fi
 
 run_hooks "post-phase-4"
-complete_phase 4
 
-# Exit with failure if any checks failed so CI/CD pipelines detect the issue.
+# Only mark phase 4 complete if all checks passed — phase 5 is destructive
+# and must not run after a failed validation.
 if [[ $ERRORS -gt 0 ]]; then
+    log_error "${ERRORS} validation check(s) failed — phase 4 NOT marked complete."
     exit 1
 fi
+
+complete_phase 4

@@ -71,7 +71,7 @@ delete_sts_and_pvcs() {
     # convention: <volumeName>-<sts-name>-<ordinal>
     local pvcs
     pvcs=$(kubectl get pvc -n "${NAMESPACE}" -o name 2>/dev/null \
-        | grep -E "${sts_name}-[0-9]+" || true)
+        | grep -E "(^|/).*${sts_name}-[0-9]+$" || true)
 
     if [[ -n "$pvcs" ]]; then
         log_info "Deleting PVCs for ${sts_name} ..."

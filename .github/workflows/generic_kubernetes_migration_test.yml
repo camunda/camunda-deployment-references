@@ -356,7 +356,7 @@ jobs:
                       WAIT_TIMEOUT=600s
                   fi
                   kubectl wait --for=condition=failed job/migration-benchmark \
-                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout="$WAIT_TIMEOUT" || true
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout="$WAIT_TIMEOUT"
 
                   [[ -n "$LOGS_PID" ]] && kill "$LOGS_PID" 2>/dev/null || true
 

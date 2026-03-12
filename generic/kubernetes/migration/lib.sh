@@ -87,8 +87,8 @@ CURRENT_SCRIPT="${CURRENT_SCRIPT:-}"
 # Falls back to a static list when the cluster is unreachable.
 discover_camunda_deployments() {
     local all_deploys
-    all_deploys=$(kubectl get deployments -n "${NAMESPACE}" \
-        -l "app.kubernetes.io/instance=${CAMUNDA_RELEASE_NAME}" \
+    all_deploys=$(kubectl get deployments -n "${NAMESPACE:-default}" \
+        -l "app.kubernetes.io/instance=${CAMUNDA_RELEASE_NAME:-camunda}" \
         -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
 
     if [[ -z "$all_deploys" ]]; then
@@ -102,7 +102,7 @@ discover_camunda_deployments() {
     CAMUNDA_WEBMODELER_COMPONENTS=()
 
     for deploy in $all_deploys; do
-        local short="${deploy#"${CAMUNDA_RELEASE_NAME}-"}"
+        local short="${deploy#"${CAMUNDA_RELEASE_NAME:-camunda}-"}"
         # WebModeler: camunda-web-modeler-restapi or camunda-webmodeler-restapi
         if [[ "$short" =~ ^web-?modeler-(.+)$ ]]; then
             CAMUNDA_WEBMODELER_COMPONENTS+=("${BASH_REMATCH[1]}")
