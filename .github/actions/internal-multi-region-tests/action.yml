@@ -136,6 +136,18 @@ runs:
 
               go test --count=1 -v -timeout 30m -failfast -run TestAWSDeployDualRegCamunda
 
+        - name: 🔍 Check for Helm deprecation warnings (region 0)
+          uses: ./.github/actions/internal-helm-deprecation-check
+          with:
+              namespace: ${{ inputs.cluster-0-namespace }}
+              kube-context: ${{ inputs.cluster-0-name }}
+
+        - name: 🔍 Check for Helm deprecation warnings (region 1)
+          uses: ./.github/actions/internal-helm-deprecation-check
+          with:
+              namespace: ${{ inputs.cluster-1-namespace }}
+              kube-context: ${{ inputs.cluster-1-name }}
+
         - name: Set start timestamp for Failover
           shell: bash
           id: failover-start

@@ -15,6 +15,10 @@ inputs:
         description: The Kubernetes namespace where the release is deployed
         required: false
         default: camunda
+    kube-context:
+        description: The Kubernetes context to use (optional, defaults to current context)
+        required: false
+        default: ''
 
 runs:
     using: composite
@@ -26,11 +30,18 @@ runs:
 
               RELEASE_NAME="${{ inputs.release-name }}"
               NAMESPACE="${{ inputs.namespace }}"
+              KUBE_CONTEXT="${{ inputs.kube-context }}"
 
-              echo "Checking Helm release '${RELEASE_NAME}' in namespace '${NAMESPACE}' for deprecation warnings..."
+              CONTEXT_ARGS=()
+              if [[ -n "${KUBE_CONTEXT}" ]]; then
+                  CONTEXT_ARGS+=(--kube-context "${KUBE_CONTEXT}")
+                  echo "Checking Helm release '${RELEASE_NAME}' in namespace '${NAMESPACE}' (context: '${KUBE_CONTEXT}') for deprecation warnings..."
+              else
+                  echo "Checking Helm release '${RELEASE_NAME}' in namespace '${NAMESPACE}' for deprecation warnings..."
+              fi
 
               # Retrieve the release notes from the deployed chart
-              NOTES=$(helm get notes "${RELEASE_NAME}" --namespace "${NAMESPACE}" 2>&1) || {
+              NOTES=$(helm get notes "${RELEASE_NAME}" --namespace "${NAMESPACE}" "${CONTEXT_ARGS[@]}" 2>&1) || {
                   echo "::error::Failed to retrieve Helm release notes for '${RELEASE_NAME}' in namespace '${NAMESPACE}'"
                   exit 1
               }

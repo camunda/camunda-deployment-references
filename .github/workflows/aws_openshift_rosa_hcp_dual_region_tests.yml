@@ -640,12 +640,14 @@ jobs:
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  kube-context: ${{ env.CLUSTER_1_NAME }}
 
             - name: 🔍 Check for Helm deprecation warnings (region 2)
               uses: ./.github/actions/internal-helm-deprecation-check
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_2 }}
+                  kube-context: ${{ env.CLUSTER_2_NAME }}
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/openshift/dual-region
               timeout-minutes: 10

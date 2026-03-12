@@ -14,6 +14,7 @@ Fails the pipeline if any deprecation warnings are found.
 | --- | --- | --- | --- |
 | `release-name` | <p>The Helm release name to check</p> | `false` | `camunda` |
 | `namespace` | <p>The Kubernetes namespace where the release is deployed</p> | `false` | `camunda` |
+| `kube-context` | <p>The Kubernetes context to use (optional, defaults to current context)</p> | `false` | `""` |
 
 
 ## Runs
@@ -36,4 +37,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: camunda
+
+    kube-context:
+    # The Kubernetes context to use (optional, defaults to current context)
+    #
+    # Required: false
+    # Default: ""
 ```
