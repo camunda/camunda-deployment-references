@@ -316,12 +316,20 @@ spec:
                                 key: password
                                 optional: true
                       # Test client credentials for OIDC token acquisition.
-                      # Injected via envsubst by the CI workflow.
-                      # If empty, the job falls back to basic auth (demo/demo).
+                      # Sourced from the Secret created by Identity.
+                      # If missing, the job falls back to basic auth (demo/demo).
                       - name: TEST_CLIENT_ID
-                        value: ${TEST_CLIENT_ID}
+                        valueFrom:
+                            secretKeyRef:
+                                name: identity-secret-for-components-integration
+                                key: identity-admin-client-id
+                                optional: true
                       - name: TEST_CLIENT_SECRET
-                        value: ${TEST_CLIENT_SECRET}
+                        valueFrom:
+                            secretKeyRef:
+                                name: identity-secret-for-components-integration
+                                key: identity-admin-client-secret
+                                optional: true
                   resources:
                       requests:
                           cpu: 100m

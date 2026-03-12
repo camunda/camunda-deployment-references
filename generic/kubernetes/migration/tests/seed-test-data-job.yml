@@ -189,16 +189,12 @@ spec:
 
                         # Deploy the process
                         log "Deploying BPMN process '${PROCESS_ID}'..."
-                        DEPLOY_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
+                        DEPLOY_RESP=$(curl -s --fail-with-body --connect-timeout 5 --max-time 30 \
                             -X POST "${ZEEBE_URL}/v2/deployments" \
                             -H "Authorization: Bearer ${ZEEBE_TOKEN}" \
                             -H "Accept: application/json" \
                             -F "resources=@/tmp/process.bpmn") \
-                            || { log "Deploy response: $(curl -s --connect-timeout 5 --max-time 30 \
-                                -X POST "${ZEEBE_URL}/v2/deployments" \
-                                -H "Authorization: Bearer ${ZEEBE_TOKEN}" \
-                                -H "Accept: application/json" \
-                                -F "resources=@/tmp/process.bpmn")"; fail "Failed to deploy process"; }
+                            || { log "Deploy failed — response: ${DEPLOY_RESP}"; fail "Failed to deploy process"; }
 
                         PROC_DEF_KEY=$(echo "${DEPLOY_RESP}" | grep -o '"processDefinitionKey":"[^"]*"' | head -1 | cut -d'"' -f4)
                         ok "Deployed process, processDefinitionKey=${PROC_DEF_KEY}"
