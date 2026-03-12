@@ -305,6 +305,8 @@ func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size
 		instanceRequestBody = `{}`
 	}
 
+	expectedTotal := fmt.Sprintf("\"totalItems\":%d", size)
+
 	var bodyString string
 	for i := 0; i < 8; i++ {
 		// fresh request each iteration to avoid reusing consumed body
@@ -336,11 +338,11 @@ func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size
 		bodyString = string(body)
 
 		t.Logf("[C8 Process INSTANCES] %s", bodyString)
-		if !strings.Contains(bodyString, "\"totalItems\":0") {
-			t.Log("[C8 PROCESS INSTANCES] processes are present, breaking and asserting")
+		if strings.Contains(bodyString, expectedTotal) {
+			t.Logf("[C8 PROCESS INSTANCES] expected %d instances found, breaking", size)
 			break
 		}
-		t.Log("[C8 PROCESS INSTANCES] not imported yet, waiting...")
+		t.Logf("[C8 PROCESS INSTANCES] expected %d instances not yet reached, waiting...", size)
 		time.Sleep(15 * time.Second)
 	}
 
