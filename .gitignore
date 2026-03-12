@@ -123,3 +123,5 @@ terraform.tfstate.backup
 trivyreport.txt
 
 camunda-docs/
+debug/
+camunda-platform-helm/

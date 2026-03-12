@@ -1,0 +1,338 @@
+---
+# Kubernetes Job to verify seeded test data after migration.
+#
+# Validates that data created by seed-test-data-job.yml survived migration:
+#   - Zeebe: process instances exist for migration-seed-process
+#   - Keycloak: test user and M2M client exist in camunda-platform realm
+#   - WebModeler: project exists (optional, skipped if WebModeler is unavailable)
+#
+# Usage:
+#   envsubst < verify-test-data-job.yml | kubectl apply -n "$NAMESPACE" -f -
+#   kubectl wait --for=condition=complete job/verify-test-data -n "$NAMESPACE" --timeout=300s
+#   kubectl logs job/verify-test-data -n "$NAMESPACE"
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: verify-test-data
+    labels:
+        app: migration-test-data
+spec:
+    ttlSecondsAfterFinished: 3600
+    backoffLimit: 3
+    template:
+        metadata:
+            labels:
+                app: migration-test-data
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: verify
+                  image: alpine/curl:latest
+                  command: [/bin/sh, -c]
+                  args:
+                      - |
+                        #!/bin/sh
+                        set -eu
+
+                        log()  { echo "[$(date -u +%H:%M:%S)] $*"; }
+                        pass() { echo "[$(date -u +%H:%M:%S)] PASS: $*"; }
+                        fail_test() { echo "[$(date -u +%H:%M:%S)] FAIL: $*"; FAILURES=$((FAILURES + 1)); }
+
+                        retry() {
+                            local max=$1; shift; local delay=$1; shift
+                            local attempt=1
+                            while [ "$attempt" -le "$max" ]; do
+                                if "$@"; then return 0; fi
+                                sleep "$delay"; attempt=$((attempt + 1))
+                            done
+                            return 1
+                        }
+
+                        FAILURES=0
+
+                        ZEEBE_URL="http://camunda-zeebe-gateway:8080"
+                        ZEEBE_MGMT_URL="http://camunda-zeebe-gateway:9600"
+                        WM_URL="http://camunda-web-modeler-restapi:80"
+                        WM_MGMT_URL="http://camunda-web-modeler-restapi:8091"
+
+                        DEMO_USER="demo"
+                        DEMO_PASS="demo"
+                        KC_REALM="camunda-platform"
+
+                        # Determine KC admin credentials:
+                        # - Bitnami Keycloak: admin / identity-keycloak-admin-password
+                        # - After migration the Bitnami admin user is preserved in the DB
+                        # - Operator Keycloak may use temp-admin / keycloak-initial-admin
+                        KC_ADMIN_USER="admin"
+                        KC_ADMIN_PASS="${KC_BITNAMI_ADMIN_PASSWORD:-}"
+                        if [ -z "${KC_ADMIN_PASS}" ]; then
+                            # Try operator secret (user is usually temp-admin)
+                            KC_ADMIN_USER="temp-admin"
+                            KC_ADMIN_PASS="${KC_OPERATOR_ADMIN_PASSWORD:-}"
+                        fi
+
+                        # Post-migration: Keycloak Operator service is keycloak-service:18080
+                        # Pre-migration (Bitnami): camunda-keycloak:80
+                        # Try operator service first, fall back to Bitnami
+                        KC_URL=""
+                        KC_OP="http://keycloak-service:18080/auth"
+                        KC_BN="http://camunda-keycloak:80/auth"
+                        KC_OIDC="realms/${KC_REALM}/.well-known/openid-configuration"
+                        if retry 3 5 curl -sf --connect-timeout 5 --max-time 10 \
+                            -o /dev/null "${KC_OP}/${KC_OIDC}" 2>/dev/null; then
+                            KC_URL="${KC_OP}"
+                            log "Using Keycloak Operator service (keycloak-service:18080)"
+                        elif retry 3 5 curl -sf --connect-timeout 5 --max-time 10 \
+                            -o /dev/null "${KC_BN}/${KC_OIDC}" 2>/dev/null; then
+                            KC_URL="${KC_BN}"
+                            log "Using Bitnami Keycloak service (camunda-keycloak:80)"
+                        fi
+
+                        PROCESS_ID="migration-seed-process"
+                        EXPECTED_INSTANCES=5
+                        TEST_USER="migration-test-user"
+                        TEST_M2M_CLIENT="migration-test-m2m"
+
+                        # ── Wait for services ──
+                        log "=== Waiting for services ==="
+                        # Stage 1: management API liveness (available earliest)
+                        retry 60 10 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${ZEEBE_MGMT_URL}/actuator/health/liveness" \
+                            || log "WARN: Zeebe management API not reachable (continuing)"
+                        # Stage 2: management API readiness (partitions healthy → REST API on 8080 is ready)
+                        # Uses management port (9600) because /v2/topology requires auth when
+                        # global.identity.auth.enabled=true.
+                        retry 60 10 curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${ZEEBE_MGMT_URL}/actuator/health/readiness" \
+                            || { fail_test "Zeebe Gateway not reachable"; }
+
+                        if [ -z "${KC_URL}" ]; then
+                            # Retry discovery with longer timeout
+                            retry 30 10 curl -sf --connect-timeout 5 --max-time 10 \
+                                -o /dev/null "${KC_OP}/${KC_OIDC}" 2>/dev/null \
+                                && KC_URL="${KC_OP}"
+                        fi
+                        if [ -z "${KC_URL}" ]; then
+                            log "WARN: Keycloak not reachable — skipping OIDC and Keycloak checks"
+                        fi
+
+                        # ── Obtain OIDC token for REST API access ──
+                        # Uses the venom test client registered by Identity with admin role
+                        # and full permissions on all resource servers.
+                        AUTH_MODE="basic"
+                        ZEEBE_AUTH_HEADER=""
+                        KC_ADMIN_TOKEN=""
+                        if [ -n "${KC_URL}" ]; then
+                            # Get Keycloak admin token for user/client checks later
+                            KC_ADMIN_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
+                                "${KC_URL}/realms/master/protocol/openid-connect/token" \
+                                -H "Content-Type: application/x-www-form-urlencoded" \
+                                -d "grant_type=password&client_id=admin-cli&username=${KC_ADMIN_USER}&password=${KC_ADMIN_PASS}" \
+                                2>/dev/null | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
+
+                            # Obtain OIDC token via test client (only if credentials are available)
+                            if [ -n "${TEST_CLIENT_ID:-}" ] && [ -n "${TEST_CLIENT_SECRET:-}" ]; then
+                                TOKEN_URL="${KC_URL}/realms/${KC_REALM}/protocol/openid-connect/token"
+
+                                log "Obtaining OIDC token via test client '${TEST_CLIENT_ID}'..."
+                                ZEEBE_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
+                                    "${TOKEN_URL}" \
+                                    -H "Content-Type: application/x-www-form-urlencoded" \
+                                    -d "grant_type=client_credentials" \
+                                    -d "client_id=${TEST_CLIENT_ID}" \
+                                    -d "client_secret=${TEST_CLIENT_SECRET}" \
+                                    2>/dev/null | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
+
+                                if [ -n "${ZEEBE_TOKEN}" ]; then
+                                    log "Obtained OIDC token (client=${TEST_CLIENT_ID})"
+                                    AUTH_MODE="oidc"
+                                    ZEEBE_AUTH_HEADER="Authorization: Bearer ${ZEEBE_TOKEN}"
+                                else
+                                    log "WARN: client_credentials grant failed for '${TEST_CLIENT_ID}'"
+                                fi
+                            else
+                                log "WARN: TEST_CLIENT_ID/TEST_CLIENT_SECRET not set, skipping OIDC token"
+                            fi
+
+                            if [ "${AUTH_MODE}" = "basic" ]; then
+                                log "WARN: Could not obtain OIDC token, falling back to basic auth"
+                            fi
+                        fi
+                        log "Auth mode: ${AUTH_MODE}"
+
+                        # ── Verify Zeebe process instances ──
+                        log ""
+                        log "=== Verifying Zeebe data ==="
+
+                        # Retry search up to 12 times (2 min total) to allow ES indexing
+                        FOUND=0
+                        SEARCH_ATTEMPT=1
+                        SEARCH_MAX=12
+                        while [ "$SEARCH_ATTEMPT" -le "$SEARCH_MAX" ]; do
+                            if [ "${AUTH_MODE}" = "oidc" ]; then
+                                SEARCH_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
+                                    -H "${ZEEBE_AUTH_HEADER}" \
+                                    -X POST "${ZEEBE_URL}/v2/process-instances/search" \
+                                    -H "Content-Type: application/json" \
+                                    -H "Accept: application/json" \
+                                    -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" 2>/dev/null || echo '{}')
+                            else
+                                SEARCH_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
+                                    -u "${DEMO_USER}:${DEMO_PASS}" \
+                                    -X POST "${ZEEBE_URL}/v2/process-instances/search" \
+                                    -H "Content-Type: application/json" \
+                                    -H "Accept: application/json" \
+                                    -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" 2>/dev/null || echo '{}')
+                            fi
+
+                            FOUND=$(echo "${SEARCH_RESP}" | grep -o '"totalItems":[0-9]*' | head -1 | cut -d: -f2)
+                            FOUND=${FOUND:-0}
+
+                            if [ "$FOUND" -ge "$EXPECTED_INSTANCES" ]; then
+                                break
+                            fi
+                            log "  Search attempt ${SEARCH_ATTEMPT}/${SEARCH_MAX}: found ${FOUND} (need >= ${EXPECTED_INSTANCES}), waiting 10s for ES indexing..."
+                            sleep 10
+                            SEARCH_ATTEMPT=$((SEARCH_ATTEMPT + 1))
+                        done
+
+                        if [ "$FOUND" -ge "$EXPECTED_INSTANCES" ]; then
+                            pass "Zeebe: found ${FOUND} instances for '${PROCESS_ID}' (expected >= ${EXPECTED_INSTANCES})"
+                        else
+                            fail_test "Zeebe: found ${FOUND} instances for '${PROCESS_ID}' (expected >= ${EXPECTED_INSTANCES})"
+                        fi
+
+                        # ── Verify Keycloak user (only when Keycloak is available) ──
+                        if [ -n "${KC_URL}" ]; then
+                        log ""
+                        log "=== Verifying Keycloak data ==="
+
+                        KC_TOKEN="${KC_ADMIN_TOKEN:-}"
+                        if [ -z "${KC_TOKEN}" ]; then
+                            KC_TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
+                                "${KC_URL}/realms/master/protocol/openid-connect/token" \
+                                -H "Content-Type: application/x-www-form-urlencoded" \
+                                -d "grant_type=password&client_id=admin-cli&username=${KC_ADMIN_USER}&password=${KC_ADMIN_PASS}" \
+                                | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
+                        fi
+
+                        if [ -z "${KC_TOKEN}" ]; then
+                            fail_test "Keycloak: could not get admin token"
+                        else
+                            # Check user
+                            USER_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
+                                "${KC_URL}/admin/realms/${KC_REALM}/users?username=${TEST_USER}" \
+                                -H "Authorization: Bearer ${KC_TOKEN}" 2>/dev/null || echo '[]')
+
+                            if echo "${USER_RESP}" | grep -q "${TEST_USER}"; then
+                                pass "Keycloak: user '${TEST_USER}' exists"
+                            else
+                                fail_test "Keycloak: user '${TEST_USER}' NOT found"
+                            fi
+
+                            # Check M2M client
+                            CLIENT_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
+                                "${KC_URL}/admin/realms/${KC_REALM}/clients?clientId=${TEST_M2M_CLIENT}" \
+                                -H "Authorization: Bearer ${KC_TOKEN}" 2>/dev/null || echo '[]')
+
+                            if echo "${CLIENT_RESP}" | grep -q "${TEST_M2M_CLIENT}"; then
+                                pass "Keycloak: M2M client '${TEST_M2M_CLIENT}' exists"
+                            else
+                                fail_test "Keycloak: M2M client '${TEST_M2M_CLIENT}' NOT found"
+                            fi
+                        fi
+                        else
+                            log "SKIP: Keycloak not available — skipping Keycloak checks"
+                        fi
+
+                        # ── Verify WebModeler (optional) ──
+                        # Try both bare and context-path prefixed readiness endpoints
+                        WM_CONTEXT_PATH=""
+                        wm_readiness_check() {
+                            if curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${WM_MGMT_URL}/health/readiness" 2>/dev/null; then
+                                WM_CONTEXT_PATH=""
+                                return 0
+                            elif curl -sf --connect-timeout 5 --max-time 10 -o /dev/null "${WM_MGMT_URL}/modeler/health/readiness" 2>/dev/null; then
+                                WM_CONTEXT_PATH="/modeler"
+                                return 0
+                            fi
+                            return 1
+                        }
+                        if retry 30 10 wm_readiness_check; then
+                            log ""
+                            log "=== Verifying WebModeler data (contextPath='${WM_CONTEXT_PATH}') ==="
+
+                            # Reuse the venom test client token (has write:* on web-modeler-api)
+                            WM_TOKEN="${ZEEBE_TOKEN:-}"
+
+                            if [ -n "${WM_TOKEN}" ]; then
+                                WM_HTTP=$(curl -s --connect-timeout 5 --max-time 30 -o /tmp/wm_verify.json -w '%{http_code}' \
+                                    -X POST "${WM_URL}${WM_CONTEXT_PATH}/api/v1/projects/search" \
+                                    -H "Authorization: Bearer ${WM_TOKEN}" \
+                                    -H "Content-Type: application/json" \
+                                    -d '{}' 2>/dev/null || echo "000")
+                                PROJECTS_RESP=$(cat /tmp/wm_verify.json 2>/dev/null || echo '{}')
+
+                                if [ "$WM_HTTP" != "200" ] && [ "$WM_HTTP" != "201" ]; then
+                                    log "WebModeler API returned HTTP ${WM_HTTP}: ${PROJECTS_RESP}"
+                                fi
+
+                                if echo "${PROJECTS_RESP}" | grep -q "Migration Test Project"; then
+                                    pass "WebModeler: project 'Migration Test Project' exists"
+                                else
+                                    fail_test "WebModeler: project 'Migration Test Project' NOT found"
+                                fi
+                            else
+                                log "SKIP: Could not get WebModeler token"
+                            fi
+                        else
+                            log "SKIP: WebModeler not available"
+                        fi
+
+                        # ── Final result ──
+                        log ""
+                        log "=========================================="
+                        if [ "$FAILURES" -eq 0 ]; then
+                            log "  ALL CHECKS PASSED"
+                        else
+                            log "  ${FAILURES} CHECK(S) FAILED"
+                        fi
+                        log "=========================================="
+
+                        exit "$FAILURES"
+                  env:
+                      # Bitnami Keycloak admin password (from Helm-managed secret)
+                      - name: KC_BITNAMI_ADMIN_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: camunda-credentials
+                                key: identity-keycloak-admin-password
+                                optional: true
+                      # Keycloak Operator initial admin password
+                      - name: KC_OPERATOR_ADMIN_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: keycloak-initial-admin
+                                key: password
+                                optional: true
+                      # Test client credentials for OIDC token acquisition.
+                      # Sourced from the Secret created by Identity.
+                      # If missing, the job falls back to basic auth (demo/demo).
+                      - name: TEST_CLIENT_ID
+                        valueFrom:
+                            secretKeyRef:
+                                name: identity-secret-for-components-integration
+                                key: identity-admin-client-id
+                                optional: true
+                      - name: TEST_CLIENT_SECRET
+                        valueFrom:
+                            secretKeyRef:
+                                name: identity-secret-for-components-integration
+                                key: identity-admin-client-secret
+                                optional: true
+                  resources:
+                      requests:
+                          cpu: 100m
+                          memory: 128Mi
+                      limits:
+                          cpu: 500m
+                          memory: 256Mi

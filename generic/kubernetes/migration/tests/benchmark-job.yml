@@ -1,0 +1,254 @@
+---
+# Benchmark job to generate realistic Zeebe data for migration validation.
+#
+# Uses camunda-8-benchmark to create process instances via gRPC, producing
+# real exporter data in Elasticsearch (operate, tasklist indices).
+# Runs for 5 minutes at 5 PI/s (~1500 process instances), then the Job
+# is terminated by activeDeadlineSeconds.
+#
+# Authentication: uses the venom test client registered by Identity with
+# admin role and full permissions (via bitnami-values-identity-test.yml).
+#
+# Prerequisites:
+#   - Camunda 8.8+ deployed with bitnami-values.yml + bitnami-values-identity-test.yml
+#   - identity-secret-for-components-integration secret created before helm install
+#
+# Usage:
+#   kubectl apply -n camunda -f benchmark-job.yml
+#   kubectl wait --for=condition=complete job/migration-benchmark -n camunda --timeout=600s
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: benchmark-bpmn
+    labels:
+        app: migration-test-data
+data:
+    benchmark.bpmn: |
+        <?xml version="1.0" encoding="UTF-8"?>
+        <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                          xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                          xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                          xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                          xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                          id="Definitions_1"
+                          targetNamespace="http://bpmn.io/schema/bpmn">
+          <bpmn:process id="benchmark" name="Benchmark Process" isExecutable="true">
+            <!-- Start -->
+            <bpmn:startEvent id="start" name="Start">
+              <bpmn:outgoing>toValidation</bpmn:outgoing>
+            </bpmn:startEvent>
+
+            <!-- Task 1: Validate input -->
+            <bpmn:serviceTask id="validate" name="Validate Input">
+              <bpmn:extensionElements>
+                <zeebe:taskDefinition type="benchmark-task-1"/>
+              </bpmn:extensionElements>
+              <bpmn:incoming>toValidation</bpmn:incoming>
+              <bpmn:outgoing>toGateway</bpmn:outgoing>
+            </bpmn:serviceTask>
+
+            <!-- Exclusive gateway: branch based on orderType -->
+            <bpmn:exclusiveGateway id="typeGateway" name="Order Type?">
+              <bpmn:incoming>toGateway</bpmn:incoming>
+              <bpmn:outgoing>toStandard</bpmn:outgoing>
+              <bpmn:outgoing>toExpress</bpmn:outgoing>
+            </bpmn:exclusiveGateway>
+
+            <!-- Branch A: standard processing -->
+            <bpmn:serviceTask id="standardProcess" name="Standard Processing">
+              <bpmn:extensionElements>
+                <zeebe:taskDefinition type="benchmark-task-2"/>
+              </bpmn:extensionElements>
+              <bpmn:incoming>toStandard</bpmn:incoming>
+              <bpmn:outgoing>fromStandard</bpmn:outgoing>
+            </bpmn:serviceTask>
+
+            <!-- Branch B: express processing -->
+            <bpmn:serviceTask id="expressProcess" name="Express Processing">
+              <bpmn:extensionElements>
+                <zeebe:taskDefinition type="benchmark-task-3"/>
+              </bpmn:extensionElements>
+              <bpmn:incoming>toExpress</bpmn:incoming>
+              <bpmn:outgoing>fromExpress</bpmn:outgoing>
+            </bpmn:serviceTask>
+
+            <!-- Merge gateway -->
+            <bpmn:exclusiveGateway id="mergeGateway" name="Merge">
+              <bpmn:incoming>fromStandard</bpmn:incoming>
+              <bpmn:incoming>fromExpress</bpmn:incoming>
+              <bpmn:outgoing>toParallel</bpmn:outgoing>
+            </bpmn:exclusiveGateway>
+
+            <!-- Parallel gateway: concurrent enrichment -->
+            <bpmn:parallelGateway id="parallelSplit" name="Enrich">
+              <bpmn:incoming>toParallel</bpmn:incoming>
+              <bpmn:outgoing>toEnrich1</bpmn:outgoing>
+              <bpmn:outgoing>toEnrich2</bpmn:outgoing>
+            </bpmn:parallelGateway>
+
+            <bpmn:serviceTask id="enrichData" name="Enrich Data">
+              <bpmn:extensionElements>
+                <zeebe:taskDefinition type="benchmark-task-4"/>
+              </bpmn:extensionElements>
+              <bpmn:incoming>toEnrich1</bpmn:incoming>
+              <bpmn:outgoing>fromEnrich1</bpmn:outgoing>
+            </bpmn:serviceTask>
+
+            <bpmn:serviceTask id="calculateScore" name="Calculate Score">
+              <bpmn:extensionElements>
+                <zeebe:taskDefinition type="benchmark-task-5"/>
+              </bpmn:extensionElements>
+              <bpmn:incoming>toEnrich2</bpmn:incoming>
+              <bpmn:outgoing>fromEnrich2</bpmn:outgoing>
+            </bpmn:serviceTask>
+
+            <!-- Parallel join -->
+            <bpmn:parallelGateway id="parallelJoin" name="Join">
+              <bpmn:incoming>fromEnrich1</bpmn:incoming>
+              <bpmn:incoming>fromEnrich2</bpmn:incoming>
+              <bpmn:outgoing>toFinalize</bpmn:outgoing>
+            </bpmn:parallelGateway>
+
+            <!-- Task 6: Finalize -->
+            <bpmn:serviceTask id="finalize" name="Finalize">
+              <bpmn:extensionElements>
+                <zeebe:taskDefinition type="benchmark-task-6"/>
+              </bpmn:extensionElements>
+              <bpmn:incoming>toFinalize</bpmn:incoming>
+              <bpmn:outgoing>toEnd</bpmn:outgoing>
+            </bpmn:serviceTask>
+
+            <!-- End -->
+            <bpmn:endEvent id="end" name="End">
+              <bpmn:incoming>toEnd</bpmn:incoming>
+            </bpmn:endEvent>
+
+            <!-- Sequence flows -->
+            <bpmn:sequenceFlow id="toValidation" sourceRef="start" targetRef="validate"/>
+            <bpmn:sequenceFlow id="toGateway" sourceRef="validate" targetRef="typeGateway"/>
+            <bpmn:sequenceFlow id="toStandard" sourceRef="typeGateway" targetRef="standardProcess" name="standard">
+              <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=orderType = "standard"</bpmn:conditionExpression>
+            </bpmn:sequenceFlow>
+            <bpmn:sequenceFlow id="toExpress" sourceRef="typeGateway" targetRef="expressProcess" name="express">
+              <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=orderType = "express"</bpmn:conditionExpression>
+            </bpmn:sequenceFlow>
+            <bpmn:sequenceFlow id="fromStandard" sourceRef="standardProcess" targetRef="mergeGateway"/>
+            <bpmn:sequenceFlow id="fromExpress" sourceRef="expressProcess" targetRef="mergeGateway"/>
+            <bpmn:sequenceFlow id="toParallel" sourceRef="mergeGateway" targetRef="parallelSplit"/>
+            <bpmn:sequenceFlow id="toEnrich1" sourceRef="parallelSplit" targetRef="enrichData"/>
+            <bpmn:sequenceFlow id="toEnrich2" sourceRef="parallelSplit" targetRef="calculateScore"/>
+            <bpmn:sequenceFlow id="fromEnrich1" sourceRef="enrichData" targetRef="parallelJoin"/>
+            <bpmn:sequenceFlow id="fromEnrich2" sourceRef="calculateScore" targetRef="parallelJoin"/>
+            <bpmn:sequenceFlow id="toFinalize" sourceRef="parallelJoin" targetRef="finalize"/>
+            <bpmn:sequenceFlow id="toEnd" sourceRef="finalize" targetRef="end"/>
+          </bpmn:process>
+        </bpmn:definitions>
+    payload.json: |
+        {
+          "orderId": "ORD-${RANDOM_UUID}",
+          "orderType": "standard",
+          "customer": {
+            "id": "CUST-${RANDOM_UUID}",
+            "name": "Test Customer",
+            "email": "customer@example.com",
+            "tier": "gold"
+          },
+          "amount": 1250.99,
+          "currency": "EUR",
+          "priority": 3,
+          "approved": true,
+          "tags": ["migration", "benchmark", "test-data"],
+          "items": [
+            {"sku": "ITEM-001", "quantity": 2, "price": 500.00},
+            {"sku": "ITEM-002", "quantity": 1, "price": 250.99}
+          ],
+          "metadata": {
+            "source": "benchmark",
+            "region": "eu-west-1",
+            "version": "8.8",
+            "timestamp": "${RANDOM_UUID}"
+          },
+          "notes": "Benchmark-generated instance for migration validation"
+        }
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: migration-benchmark
+    labels:
+        app: migration-test-data
+spec:
+    ttlSecondsAfterFinished: 3600
+    activeDeadlineSeconds: 300
+    backoffLimit: 0
+    template:
+        metadata:
+            labels:
+                app: migration-test-data
+        spec:
+            restartPolicy: Never
+            volumes:
+                - name: bpmn
+                  configMap:
+                      name: benchmark-bpmn
+            containers:
+                - name: benchmark
+                  image: camundacommunityhub/camunda-8-benchmark:main
+                  volumeMounts:
+                      - name: bpmn
+                        mountPath: /bpmn
+                        readOnly: true
+                  env:
+                      - name: CAMUNDA_CLIENT_MODE
+                        value: self-managed
+                      - name: CAMUNDA_CLIENT_ZEEBE_GRPC_ADDRESS
+                        value: http://camunda-zeebe-gateway:26500
+                      - name: CAMUNDA_CLIENT_ZEEBE_REST_ADDRESS
+                        value: http://camunda-zeebe-gateway:8080/rest
+                      - name: CAMUNDA_CLIENT_ZEEBE_PREFER_REST_OVER_GRPC
+                        value: 'false'
+                      - name: CAMUNDA_CLIENT_AUTH_ISSUER
+                        value: http://camunda-keycloak:80/auth/realms/camunda-platform/protocol/openid-connect/token
+                      - name: CAMUNDA_CLIENT_AUTH_CLIENT_ID
+                        valueFrom:
+                            secretKeyRef:
+                                name: identity-secret-for-components-integration
+                                key: identity-admin-client-id
+                      - name: CAMUNDA_CLIENT_AUTH_CLIENT_SECRET
+                        valueFrom:
+                            secretKeyRef:
+                                name: identity-secret-for-components-integration
+                                key: identity-admin-client-secret
+                      - name: BENCHMARK_BPMN_RESOURCE
+                        value: file:/bpmn/benchmark.bpmn
+                      - name: BENCHMARK_PAYLOADPATH
+                        value: file:/bpmn/payload.json
+                      - name: BENCHMARK_START_PROCESSES
+                        value: 'true'
+                      - name: BENCHMARK_START_PI_PER_SECOND
+                        value: '5'
+                      - name: BENCHMARK_AUTO_DEPLOY_PROCESS
+                        value: 'true'
+                      - name: BENCHMARK_BPMN_PROCESS_ID
+                        value: benchmark
+                      - name: BENCHMARK_START_WORKERS
+                        value: 'true'
+                      - name: BENCHMARK_JOBTYPE
+                        value: benchmark-task
+                      - name: BENCHMARK_MULTIPLEJOBTYPES
+                        value: '6'
+                      - name: BENCHMARK_TASK_COMPLETION_DELAY
+                        value: '100'
+                      - name: BENCHMARK_WARMUP_PHASE_DURATION_MILLIS
+                        value: '10000'
+                      - name: BENCHMARK_START_RATE_ADJUSTMENT_STRATEGY
+                        value: none
+                  resources:
+                      requests:
+                          cpu: 500m
+                          memory: 512Mi
+                      limits:
+                          cpu: 1
+                          memory: 1Gi

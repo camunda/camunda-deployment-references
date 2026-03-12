@@ -3,3 +3,4 @@ self-hosted-runner:
     # Labels of self-hosted runner in array of string
     labels:
         - aws-core-8-default
+        - aws-core-16-default
