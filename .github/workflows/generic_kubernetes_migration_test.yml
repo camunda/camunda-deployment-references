@@ -525,8 +525,8 @@ jobs:
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ''
                   webmodeler-enabled: 'true'
-                  console-enabled: 'false'
-                  optimize-enabled: 'false'
+                  console-enabled: 'true'
+                  optimize-enabled: 'true'
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: kubernetes
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
@@ -608,8 +608,8 @@ jobs:
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ''
                   webmodeler-enabled: 'true'
-                  console-enabled: 'false'
-                  optimize-enabled: 'false'
+                  console-enabled: 'true'
+                  optimize-enabled: 'true'
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: kubernetes
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}

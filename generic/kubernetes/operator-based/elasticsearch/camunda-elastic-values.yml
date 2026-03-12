@@ -5,25 +5,39 @@
 #
 # Authentication Secrets:
 # - elasticsearch-es-elastic-user: Contains 'elastic' user password for Elasticsearch
+#
+# Uses per-component ES config (optimize.database.elasticsearch + orchestration.data.secondaryStorage.elasticsearch)
+# instead of the deprecated global.elasticsearch.
 
-# Global configuration
-global:
-    # Elasticsearch configuration
-    elasticsearch:
-        enabled: true
-        external: true
-        # URL configuration
-        url:
-            protocol: http
-            host: elasticsearch-es-http
-            port: 9200
-        # Authentication using ECK-generated secret
-        auth:
-            username: elastic
-            secret:
-                existingSecret: elasticsearch-es-elastic-user
-                existingSecretKey: elastic
+# Orchestration secondary storage configuration
+orchestration:
+    data:
+        secondaryStorage:
+            type: elasticsearch
+            elasticsearch:
+                url: http://elasticsearch-es-http:9200
+                auth:
+                    username: elastic
+                    secret:
+                        existingSecret: elasticsearch-es-elastic-user
+                        existingSecretKey: elastic
 
+# Optimize database configuration
+optimize:
+    database:
+        elasticsearch:
+            enabled: true
+            external: true
+            url:
+                protocol: http
+                host: elasticsearch-es-http
+                port: 9200
+            auth:
+                username: elastic
+                secret:
+                    existingSecret: elasticsearch-es-elastic-user
+                    existingSecretKey: elastic
 
+# Disable bundled Elasticsearch sub-chart (using ECK-managed instance)
 elasticsearch:
     enabled: false
