@@ -190,6 +190,35 @@ check_env() {
         exit 1
     fi
 
+    # Verify that the deployed Camunda version matches the version expected by this repo.
+    # .camunda-version at the repo root defines the expected major.minor (e.g. "8.9").
+    # The deployed version is read from the Helm release's appVersion (e.g. "8.8.5").
+    local version_file="${MIGRATION_DIR}/../../../.camunda-version"
+    if [[ -f "$version_file" ]]; then
+        local expected_version
+        expected_version="$(< "$version_file")"
+        expected_version="${expected_version%%[[:space:]]}"  # trim trailing whitespace
+
+        local deployed_app_version
+        deployed_app_version=$(helm list -n "${NAMESPACE}" -f "^${CAMUNDA_RELEASE_NAME}$" -o json \
+            | jq -r '.[0].app_version // empty' 2>/dev/null || true)
+
+        if [[ -z "$deployed_app_version" ]]; then
+            log_warn "Could not detect deployed Camunda version (Helm release '${CAMUNDA_RELEASE_NAME}' not found in namespace '${NAMESPACE}')"
+        else
+            # Compare major.minor of deployed version against expected version
+            local deployed_major_minor="${deployed_app_version%.*}"
+            if [[ "$deployed_major_minor" != "$expected_version" ]]; then
+                log_error "Deployed Camunda version ${deployed_app_version} (${deployed_major_minor}) does not match expected version ${expected_version} from .camunda-version"
+                log_error "These migration scripts are designed for Camunda ${expected_version}. Check that you are using the correct branch."
+                exit 1
+            fi
+            log_info "Deployed Camunda version ${deployed_app_version} matches expected ${expected_version}"
+        fi
+    else
+        log_warn ".camunda-version file not found at ${version_file} — skipping version pre-check"
+    fi
+
 }
 
 # Verify that a prerequisite tool is available.
