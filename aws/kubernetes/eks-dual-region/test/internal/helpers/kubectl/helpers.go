@@ -392,6 +392,9 @@ func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName strin
 
 	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
 
+	// Delete any pre-existing snapshot with the same name to avoid snapshot_name_already_in_use_exception
+	k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "DELETE", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s", backupName))
+
 	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
