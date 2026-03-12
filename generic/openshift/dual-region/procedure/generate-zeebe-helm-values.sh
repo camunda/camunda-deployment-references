@@ -23,9 +23,9 @@ generate_initial_contact() {
 generate_exporter_elasticsearch_url() {
   local cluster_id=$1
   local namespace=$2
-  local release=$3
-  local port_number=${4:-9200}
-  echo "http://${cluster_id}.${release}-elasticsearch-master-hl.${namespace}.svc.clusterset.local:${port_number}"
+  local service_name=${ELASTICSEARCH_SERVICE_NAME:-elasticsearch-es-masters}
+  local port_number=${3:-9200}
+  echo "http://${cluster_id}.${service_name}.${namespace}.svc.clusterset.local:${port_number}"
 }
 
 # Main script
@@ -112,16 +112,16 @@ fi
 
 # Generate values
 initial_contact=$(generate_initial_contact "$cluster_0" "$namespace_0" "$cluster_1" "$namespace_1" "$helm_release_name" "$cluster_size")
-elastic0=$(generate_exporter_elasticsearch_url "$cluster_0" "$namespace_0" "$helm_release_name")
-elastic1=$(generate_exporter_elasticsearch_url "$cluster_1" "$namespace_1" "$helm_release_name")
+elastic0=$(generate_exporter_elasticsearch_url "$cluster_0" "$namespace_0")
+elastic1=$(generate_exporter_elasticsearch_url "$cluster_1" "$namespace_1")
 
 if [[ "$mode" == "failover" ]]; then
   if [[ "$lost_region" == "0" ]]; then
-    elastic0=$(generate_exporter_elasticsearch_url "$cluster_1" "$namespace_1_failover" "$helm_release_name")
-    elastic1=$(generate_exporter_elasticsearch_url "$cluster_1" "$namespace_1" "$helm_release_name")
+    elastic0=$(generate_exporter_elasticsearch_url "$cluster_1" "$namespace_1_failover")
+    elastic1=$(generate_exporter_elasticsearch_url "$cluster_1" "$namespace_1")
   else
-    elastic0=$(generate_exporter_elasticsearch_url "$cluster_0" "$namespace_0" "$helm_release_name")
-    elastic1=$(generate_exporter_elasticsearch_url "$cluster_0" "$namespace_0_failover" "$helm_release_name")
+    elastic0=$(generate_exporter_elasticsearch_url "$cluster_0" "$namespace_0")
+    elastic1=$(generate_exporter_elasticsearch_url "$cluster_0" "$namespace_0_failover")
   fi
 fi
 
@@ -132,28 +132,28 @@ echo "  value: $initial_contact"
 
 export CAMUNDA_CLUSTER_INITIALCONTACTPOINTS="$initial_contact"
 
-echo -e "\nPlease use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
-echo "- name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL"
+echo -e "\nPlease use the following to change the existing environment variable CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
+echo "- name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL"
 echo "  value: $elastic0"
 
-export ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL="$elastic0"
+export CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL="$elastic0"
 
-echo -e "\nPlease use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
-echo "- name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL"
+echo -e "\nPlease use the following to change the existing environment variable CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
+echo "- name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL"
 echo "  value: $elastic1"
 
-export ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL="$elastic1"
+export CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL="$elastic1"
 
 # Define the broker name of Zeebe Service
 export REGION_0_ZEEBE_SERVICE_NAME="${cluster_0}.${helm_release_name}-zeebe.${namespace_0}.svc.clusterset.local"
 export REGION_1_ZEEBE_SERVICE_NAME="${cluster_1}.${helm_release_name}-zeebe.${namespace_1}.svc.clusterset.local"
 
-echo -e "\nPlease use the following to change the existing environment variable ZEEBE_BROKER_NETWORK_ADVERTISEDHOST $target_text. It's part of the 'zeebe.env' path."
+echo -e "\nPlease use the following to change the existing environment variable CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST $target_text. It's part of the 'zeebe.env' path."
 echo ""
 echo "For region 0 (cluster $cluster_0):"
-echo "- name: ZEEBE_BROKER_NETWORK_ADVERTISEDHOST"
+echo "- name: CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST"
 echo "  value: $REGION_0_ZEEBE_SERVICE_NAME"
 echo ""
 echo "For region 1 (cluster $cluster_1):"
-echo "- name: ZEEBE_BROKER_NETWORK_ADVERTISEDHOST"
+echo "- name: CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST"
 echo "  value: $REGION_1_ZEEBE_SERVICE_NAME"

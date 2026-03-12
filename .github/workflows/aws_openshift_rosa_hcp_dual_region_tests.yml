@@ -27,6 +27,8 @@ on:
             - .github/actions/internal-terraform-drift-detect/**
             - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/internal-multi-region-tests/**
+            - .github/actions/kubernetes-eck-operator/**
+            - generic/kubernetes/operator-based/elasticsearch/**
 
     workflow_dispatch:
         inputs:
@@ -550,6 +552,38 @@ jobs:
 
                   echo "Setup namespaces and initial secrets"
                   source ./generic/openshift/dual-region/procedure/setup-namespaces-secrets.sh
+
+            ############# ECK Elasticsearch Deployment ##############
+            - name: Set kubectl context to Cluster 1
+              run: kubectl config use-context ${{ env.CLUSTER_1_NAME }}
+
+            - name: Deploy Elasticsearch via ECK on Cluster 1
+              timeout-minutes: 15
+              uses: ./.github/actions/kubernetes-eck-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region.yml
+
+            - name: Set kubectl context to Cluster 2
+              run: kubectl config use-context ${{ env.CLUSTER_2_NAME }}
+
+            - name: Deploy Elasticsearch via ECK on Cluster 2
+              timeout-minutes: 15
+              uses: ./.github/actions/kubernetes-eck-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_2 }}
+                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region.yml
+
+            - name: Sync Elasticsearch passwords across regions
+              run: |
+                  set -euo pipefail
+
+                  bash ./generic/openshift/dual-region/procedure/sync-elasticsearch-passwords.sh
+
+            - name: 🏗️📝 Generate dual-region variables
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
 
                   echo "Generate dual-region variables"
                   CLUSTER_1_NAME='local-cluster' ZEEBE_CLUSTER_SIZE=8 source ./generic/openshift/dual-region/procedure/generate-zeebe-helm-values.sh
