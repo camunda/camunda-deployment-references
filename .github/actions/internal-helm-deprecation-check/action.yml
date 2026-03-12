@@ -47,10 +47,11 @@ runs:
               fi
 
               # Retrieve the release notes from the deployed chart
-              NOTES=$(helm get notes "${RELEASE_NAME}" --namespace "${NAMESPACE}" "${CONTEXT_ARGS[@]}" 2>&1) || {
-                  echo "::error::Failed to retrieve Helm release notes for '${RELEASE_NAME}' in namespace '${NAMESPACE}'"
+              if ! NOTES=$(helm get notes "${RELEASE_NAME}" --namespace "${NAMESPACE}" "${CONTEXT_ARGS[@]}" 2>&1); then
+                  echo "::error::Failed to retrieve Helm release notes for '${RELEASE_NAME}' in namespace '${NAMESPACE}'. Helm output:"
+                  echo "${NOTES}"
                   exit 1
-              }
+              fi
 
               # Extract deprecation warnings (pattern used by the Camunda Helm chart)
               WARNINGS=$(echo "${NOTES}" | grep -i '\[camunda\]\[warning\]' || true)
@@ -60,7 +61,7 @@ runs:
               if [[ -n "${EXCLUDE_PATTERNS}" && -n "${WARNINGS}" ]]; then
                   while IFS= read -r pattern; do
                       [[ -z "${pattern}" ]] && continue
-                      WARNINGS=$(echo "${WARNINGS}" | grep -v "${pattern}" || true)
+                      WARNINGS=$(echo "${WARNINGS}" | grep -v -e "${pattern}" || true)
                   done <<< "${EXCLUDE_PATTERNS}"
               fi
 
