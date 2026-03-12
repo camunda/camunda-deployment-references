@@ -55,6 +55,12 @@ inputs:
         description: Distribution to test on, e.g., EKS or OpenShift. Mainly for disabling certain tests.
         required: false
         default: EKS
+    exclude-deprecation-patterns:
+        description: |
+            Newline-separated list of grep patterns to exclude from deprecation warnings.
+            Passed through to internal-helm-deprecation-check.
+        required: false
+        default: ''
 runs:
     using: composite
     steps:
@@ -141,12 +147,14 @@ runs:
           with:
               namespace: ${{ inputs.cluster-0-namespace }}
               kube-context: ${{ inputs.cluster-0-name }}
+              exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
 
         - name: 🔍 Check for Helm deprecation warnings (region 1)
           uses: ./.github/actions/internal-helm-deprecation-check
           with:
               namespace: ${{ inputs.cluster-1-namespace }}
               kube-context: ${{ inputs.cluster-1-name }}
+              exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
 
         - name: Set start timestamp for Failover
           shell: bash

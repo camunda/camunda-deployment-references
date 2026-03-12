@@ -19,6 +19,12 @@ inputs:
         description: The Kubernetes context to use (optional, defaults to current context)
         required: false
         default: ''
+    exclude-patterns:
+        description: |
+            Newline-separated list of grep patterns to exclude from warnings.
+            Warnings matching any of these patterns will be ignored.
+        required: false
+        default: ''
 
 runs:
     using: composite
@@ -48,6 +54,15 @@ runs:
 
               # Extract deprecation warnings (pattern used by the Camunda Helm chart)
               WARNINGS=$(echo "${NOTES}" | grep -i '\[camunda\]\[warning\]' || true)
+
+              # Exclude warnings matching provided patterns
+              EXCLUDE_PATTERNS="${{ inputs.exclude-patterns }}"
+              if [[ -n "${EXCLUDE_PATTERNS}" && -n "${WARNINGS}" ]]; then
+                  while IFS= read -r pattern; do
+                      [[ -z "${pattern}" ]] && continue
+                      WARNINGS=$(echo "${WARNINGS}" | grep -v "${pattern}" || true)
+                  done <<< "${EXCLUDE_PATTERNS}"
+              fi
 
               if [[ -n "${WARNINGS}" ]]; then
                   echo "::error::Deprecation warnings detected in Helm release '${RELEASE_NAME}'"
