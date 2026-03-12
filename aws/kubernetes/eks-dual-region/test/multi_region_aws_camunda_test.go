@@ -293,6 +293,10 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "wait", "--for=jsonpath='{.status.phase}'=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 
+	// Wait for the gateway to be able to authenticate (CamundaExporter must finish creating ES indices)
+	kubectlHelpers.WaitForGatewayAuthReady(t, &primary.KubectlNamespace, 30, 10*time.Second)
+	kubectlHelpers.WaitForGatewayAuthReady(t, &secondary.KubectlNamespace, 30, 10*time.Second)
+
 	// connectors last as they depend on the Orchestration Cluster
 	err := k8s.WaitUntilDeploymentAvailableE(t, &primary.KubectlNamespace, "camunda-connectors", retries, 20*time.Second)
 	if err != nil {

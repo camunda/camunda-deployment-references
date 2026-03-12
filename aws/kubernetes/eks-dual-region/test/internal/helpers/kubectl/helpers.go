@@ -1097,6 +1097,46 @@ func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
 	t.Fatalf("[ELASTICSEARCH HEALTH] Cluster did not reach green status after 10 attempts. Last output: %s", output)
 }
 
+// WaitForGatewayAuthReady polls the Zeebe gateway /v2/topology endpoint with basic auth
+// until it returns 200. This ensures that the CamundaExporter has finished creating ES
+// indices (including camunda-user) so the gateway can authenticate requests.
+func WaitForGatewayAuthReady(t *testing.T, kubectlOptions *k8s.KubectlOptions, maxRetries int, interval time.Duration) {
+	t.Helper()
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, kubectlOptions, "camunda-zeebe-gateway", 0, 8080, 5, 15*time.Second)
+	defer closeFn()
+
+	url := fmt.Sprintf("http://%s/v2/topology", endpoint)
+
+	for i := 0; i < maxRetries; i++ {
+		client := &http.Client{Timeout: 10 * time.Second}
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			t.Logf("[GATEWAY AUTH] request creation failed (attempt %d/%d): %v", i+1, maxRetries, err)
+			time.Sleep(interval)
+			continue
+		}
+		req.Header.Set("Authorization", basicAuthDemoHeader)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Logf("[GATEWAY AUTH] request failed (attempt %d/%d): %v", i+1, maxRetries, err)
+			time.Sleep(interval)
+			continue
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode == 200 {
+			t.Logf("[GATEWAY AUTH] Zeebe gateway auth is ready (attempt %d/%d)", i+1, maxRetries)
+			return
+		}
+		t.Logf("[GATEWAY AUTH] not ready yet (status %d, attempt %d/%d)", resp.StatusCode, i+1, maxRetries)
+		time.Sleep(interval)
+	}
+
+	t.Fatalf("[GATEWAY AUTH] Zeebe gateway auth did not become ready after %d attempts", maxRetries)
+}
+
 // GetClusterTopology retrieves the current cluster topology information from the Zeebe gateway
 func GetClusterTopology(t *testing.T, kubectlOptions *k8s.KubectlOptions) ClusterInfo {
 	t.Helper()
