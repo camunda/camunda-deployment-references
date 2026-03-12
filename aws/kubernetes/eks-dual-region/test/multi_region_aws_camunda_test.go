@@ -287,10 +287,10 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "get", "pods")
 
 	// Wait for ECK-managed Elasticsearch to be ready in both regions
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "wait", "--for=jsonpath='{.status.phase}'=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "wait", "--for=jsonpath='{.status.phase}'=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 
 	// connectors last as they depend on the Orchestration Cluster
@@ -460,7 +460,7 @@ func deployElasticsearchCR(t *testing.T, cluster helpers.Cluster) {
 func waitForElasticsearchReady(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[ECK] Waiting for Elasticsearch to be Ready in %s ⏳", cluster.ClusterName)
 
-	k8s.RunKubectl(t, &cluster.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
+	k8s.RunKubectl(t, &cluster.KubectlNamespace, "wait", "--for=jsonpath='{.status.phase}'=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
 }
 
 // syncElasticsearchPasswords reads ECK-generated passwords from both regions and creates
@@ -536,7 +536,7 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 	kubectlHelpers.InstallUpgradeC8Helm(t, &cluster.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, valuesYamlFiles, region, helpers.CombineMaps(baseHelmVars, setValues), setStringValues)
 
 	// Wait for ECK-managed Elasticsearch to be ready
-	k8s.RunKubectl(t, &cluster.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
+	k8s.RunKubectl(t, &cluster.KubectlNamespace, "wait", "--for=jsonpath='{.status.phase}'=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
 
 	// We can't wait for Zeebe to become ready as it's not part of the cluster, therefore out of service 503
 	// We are using instead elastic to become ready as the next steps depend on it, additionally as direct next step we check that the brokers have joined in again.

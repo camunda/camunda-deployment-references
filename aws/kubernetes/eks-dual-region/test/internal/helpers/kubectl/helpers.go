@@ -988,7 +988,6 @@ func CheckTenantExists(t *testing.T, cluster helpers.Cluster, tenantId string) {
 	require.Contains(t, bodyString, tenantId)
 }
 
-// CheckElasticsearchClusterHealth verifies that the Elasticsearch cluster health is green
 // VerifyExporterStatus checks exporter status and exporting state via the Zeebe actuator API.
 // It logs the full exporter list and asserts that both exporters are ENABLED and exporting is not globally paused.
 func VerifyExporterStatus(t *testing.T, cluster helpers.Cluster) {
@@ -1000,10 +999,7 @@ func VerifyExporterStatus(t *testing.T, cluster helpers.Cluster) {
 
 	// Check individual exporter status
 	res, body := helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", endpoint), nil)
-	if res == nil {
-		t.Log("[EXPORTER STATUS] Failed to get exporter status")
-		return
-	}
+	require.NotNil(t, res, "[EXPORTER STATUS] Failed to get exporter status - HTTP request returned nil")
 	t.Logf("[EXPORTER STATUS] Exporters: %s", body)
 	require.Equal(t, 200, res.StatusCode)
 	require.Contains(t, body, "\"status\":\"ENABLED\"", "Expected at least one enabled exporter")
