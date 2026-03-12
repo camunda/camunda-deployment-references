@@ -28,7 +28,7 @@ spec:
                       - /bin/bash
                       - -c
                       - |
-                        set -e
+                        set -euo pipefail
                         echo "=== PG Backup: ${COMPONENT} ==="
                         echo "Source: ${PG_HOST}:${PG_PORT}/${PG_DATABASE}"
 

@@ -27,19 +27,19 @@ spec:
                 - name: backup
                   image: ${ES_IMAGE}
                   command:
-                      - /bin/sh
+                      - /bin/bash
                       - -c
                       - |
-                        set -e
+                        set -euo pipefail
                         echo "=== ES Backup Verification ==="
                         echo "Source: ${ES_HOST}:${ES_PORT}"
 
-                        AUTH=""
-                        [ -n "$ES_PASSWORD" ] && AUTH="-u elastic:$ES_PASSWORD"
+                        AUTH=()
+                        [ -n "$ES_PASSWORD" ] && AUTH=(-u "elastic:$ES_PASSWORD")
 
                         # Wait for ES
                         MAX_RETRIES=60; RETRY=0
-                        until curl -sf $AUTH "http://${ES_HOST}:${ES_PORT}/_cluster/health" >/dev/null; do
+                        until curl -sf "${AUTH[@]}" "http://${ES_HOST}:${ES_PORT}/_cluster/health" >/dev/null; do
                           RETRY=$((RETRY + 1))
                           if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
                             echo "ERROR: Elasticsearch not ready after $MAX_RETRIES attempts"; exit 1
@@ -48,12 +48,12 @@ spec:
                         done
 
                         echo "Cluster health:"
-                        curl -sf $AUTH "http://${ES_HOST}:${ES_PORT}/_cluster/health?pretty"
+                        curl -sf "${AUTH[@]}" "http://${ES_HOST}:${ES_PORT}/_cluster/health?pretty"
                         echo ""
 
                         # List Camunda indices
                         echo "Camunda indices:"
-                        INDEX_INFO=$(curl -sf $AUTH "http://${ES_HOST}:${ES_PORT}/_cat/indices?h=index,docs.count,store.size&v" \
+                        INDEX_INFO=$(curl -sf "${AUTH[@]}" "http://${ES_HOST}:${ES_PORT}/_cat/indices?h=index,docs.count,store.size&v" \
                           | grep -E "^(index|zeebe|operate|tasklist|optimize|connectors)" || echo "(none found)")
                         echo "$INDEX_INFO"
                         echo ""

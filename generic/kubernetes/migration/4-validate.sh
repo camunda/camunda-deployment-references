@@ -146,8 +146,9 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
             ES_HAS_CREDS=false
             # Disable xtrace to avoid leaking credentials in logs
             { _xtrace=$(set +o | grep xtrace); set +x; } 2>/dev/null
-            if kubectl get secret "${EXTERNAL_ES_SECRET:-external-es}" -n "${NAMESPACE}" &>/dev/null; then
-                ES_PWD=$(kubectl get secret "${EXTERNAL_ES_SECRET}" -n "${NAMESPACE}" \
+            es_secret="${EXTERNAL_ES_SECRET:-external-es}"
+            if kubectl get secret "${es_secret}" -n "${NAMESPACE}" &>/dev/null; then
+                ES_PWD=$(kubectl get secret "${es_secret}" -n "${NAMESPACE}" \
                     -o jsonpath='{.data.elastic}' 2>/dev/null | base64 -d || echo "")
                 if [[ -n "$ES_PWD" ]]; then
                     ES_CURL_ARGS+=(-u "elastic:${ES_PWD}")

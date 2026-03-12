@@ -267,7 +267,7 @@ spec:
                                 \"enabled\": true,
                                 \"credentials\": [{
                                     \"type\": \"password\",
-                                    \"value\": \"testpassword123\",
+                                    \"value\": \"disposable-$(head -c8 /dev/urandom | od -An -tx1 | tr -d ' ')\",
                                     \"temporary\": false
                                 }]
                             }" 2>/dev/null || echo "000")
@@ -296,7 +296,7 @@ spec:
                                 \"enabled\": true,
                                 \"serviceAccountsEnabled\": true,
                                 \"clientAuthenticatorType\": \"client-secret\",
-                                \"secret\": \"migration-test-secret\",
+                                \"secret\": \"migration-test-disposable-$(head -c8 /dev/urandom | od -An -tx1 | tr -d ' ')\",
                                 \"directAccessGrantsEnabled\": false,
                                 \"publicClient\": false,
                                 \"protocol\": \"openid-connect\"

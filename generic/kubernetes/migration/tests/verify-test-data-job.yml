@@ -7,15 +7,14 @@
 #   - WebModeler: project exists (optional, skipped if WebModeler is unavailable)
 #
 # Usage:
-#   kubectl apply -n camunda -f verify-test-data-job.yml
-#   kubectl wait --for=condition=complete job/verify-test-data -n camunda --timeout=300s
-#   kubectl logs job/verify-test-data -n camunda
+#   envsubst < verify-test-data-job.yml | kubectl apply -n "$NAMESPACE" -f -
+#   kubectl wait --for=condition=complete job/verify-test-data -n "$NAMESPACE" --timeout=300s
+#   kubectl logs job/verify-test-data -n "$NAMESPACE"
 
 apiVersion: batch/v1
 kind: Job
 metadata:
     name: verify-test-data
-    namespace: ${NAMESPACE}
     labels:
         app: migration-test-data
 spec:

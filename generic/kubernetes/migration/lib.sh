@@ -190,6 +190,11 @@ check_env() {
         exit 1
     fi
 
+    # Verify prerequisite tools are available.
+    for _tool in kubectl helm jq yq envsubst base64 openssl; do
+        require_tool "$_tool"
+    done
+
     # Verify that the deployed Camunda version matches the version expected by this repo.
     # .camunda-version at the repo root defines the expected major.minor (e.g. "8.9").
     # The deployed version is read from the Helm release's appVersion (e.g. "8.8.5").
@@ -1753,14 +1758,22 @@ freeze_components() {
         local replicas
         replicas=$(kubectl get "$kind" "$deploy" -n "${NAMESPACE}" \
             -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "0")
-        echo "export SAVED_${deploy//-/_}=${replicas}" >> "$state_file"
+        local safe_name="${deploy//[^a-zA-Z0-9_]/_}"
+        echo "export SAVED_${safe_name}=${replicas}" >> "$state_file"
 
         log_info "Scaling ${kind} ${deploy} to 0 (was ${replicas})"
         kubectl scale "$kind" "$deploy" -n "${NAMESPACE}" --replicas=0
     done
 
     # Wait for pods to terminate
-    sleep 5
+    for deploy in "$@"; do
+        local wkind="deployment"
+        if [[ "$deploy" == sts/* ]]; then
+            wkind="statefulset"
+            deploy="${deploy#sts/}"
+        fi
+        kubectl rollout status "$wkind" "$deploy" -n "${NAMESPACE}" --timeout=120s 2>/dev/null || true
+    done
     log_success "All components frozen"
 }
 
@@ -1782,7 +1795,7 @@ unfreeze_components() {
             deploy="${deploy#sts/}"
         fi
 
-        local var_name="SAVED_${deploy//-/_}"
+        local var_name="SAVED_${deploy//[^a-zA-Z0-9_]/_}"
         local replicas="${!var_name:-1}"
 
         log_info "Scaling ${kind} ${deploy} to ${replicas}"
@@ -1896,12 +1909,11 @@ save_state() {
     local entry="export ${key}=\"${value}\""
 
     if [[ -f "$state_file" ]] && grep -q "^export ${key}=" "$state_file"; then
-        # Upsert: replace existing entry in-place.
-        sed -i.bak "s|^export ${key}=.*|${entry}|" "$state_file"
-        rm -f "${state_file}.bak"
-    else
-        echo "$entry" >> "$state_file"
+        # Upsert: delete old entry then append new one (avoids sed delimiter collisions).
+        grep -v "^export ${key}=" "$state_file" > "${state_file}.tmp" || true
+        mv "${state_file}.tmp" "$state_file"
     fi
+    echo "$entry" >> "$state_file"
     log_verbose "State saved: ${key}=${value}"
 }
 

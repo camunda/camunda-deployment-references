@@ -29,7 +29,7 @@ spec:
                       - /bin/bash
                       - -c
                       - |
-                        set -e
+                        set -euo pipefail
                         echo "=== PG Restore: ${COMPONENT} ==="
                         echo "Target: ${TARGET_PG_HOST}:${TARGET_PG_PORT}/${TARGET_PG_DATABASE}"
 
