@@ -223,7 +223,7 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 	pvcs := k8s.ListPersistentVolumeClaims(t, kubectlOptions, metav1.ListOptions{})
 
 	for _, pvc := range pvcs {
-		k8s.RunKubectl(t, kubectlOptions, "delete", "pvc", pvc.Name)
+		k8s.RunKubectl(t, kubectlOptions, "delete", "pvc", pvc.Name, "--ignore-not-found=true")
 	}
 }
 
