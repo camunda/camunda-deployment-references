@@ -1,0 +1,57 @@
+---
+name: Internal Helm Deprecation Check
+description: |
+    Check for deprecation warnings in the deployed Camunda Helm chart.
+    Uses `helm get notes` to retrieve the release notes and scans for
+    `[camunda][warning]` messages indicating deprecated configuration.
+    Fails the pipeline if any deprecation warnings are found.
+
+inputs:
+    release-name:
+        description: The Helm release name to check
+        required: false
+        default: camunda
+    namespace:
+        description: The Kubernetes namespace where the release is deployed
+        required: false
+        default: camunda
+
+runs:
+    using: composite
+    steps:
+        - name: 🔍 Check for Helm deprecation warnings
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              RELEASE_NAME="${{ inputs.release-name }}"
+              NAMESPACE="${{ inputs.namespace }}"
+
+              echo "Checking Helm release '${RELEASE_NAME}' in namespace '${NAMESPACE}' for deprecation warnings..."
+
+              # Retrieve the release notes from the deployed chart
+              NOTES=$(helm get notes "${RELEASE_NAME}" --namespace "${NAMESPACE}" 2>&1) || {
+                  echo "::error::Failed to retrieve Helm release notes for '${RELEASE_NAME}' in namespace '${NAMESPACE}'"
+                  exit 1
+              }
+
+              # Extract deprecation warnings (pattern used by the Camunda Helm chart)
+              WARNINGS=$(echo "${NOTES}" | grep -i '\[camunda\]\[warning\]' || true)
+
+              if [[ -n "${WARNINGS}" ]]; then
+                  echo "::error::Deprecation warnings detected in Helm release '${RELEASE_NAME}'"
+                  echo ""
+                  echo "=========================================="
+                  echo "  DEPRECATION WARNINGS DETECTED"
+                  echo "=========================================="
+                  echo ""
+                  echo "${WARNINGS}"
+                  echo ""
+                  echo "=========================================="
+                  echo ""
+                  echo "Please update the Helm values to use the new configuration format."
+                  echo "See: https://docs.camunda.io/docs/self-managed/deployment/helm/upgrade/"
+                  exit 1
+              fi
+
+              echo "✅ No deprecation warnings found in Helm release '${RELEASE_NAME}'"
