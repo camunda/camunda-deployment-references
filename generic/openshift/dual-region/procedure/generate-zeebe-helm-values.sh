@@ -29,13 +29,13 @@ generate_exporter_elasticsearch_url() {
 }
 
 # Main script
-cluster_0=${CLUSTER_1_NAME:-""}
-cluster_1=${CLUSTER_2_NAME:-""}
+cluster_0=${CLUSTER_0:-""}
+cluster_1=${CLUSTER_1:-""}
 
-namespace_0=${CAMUNDA_NAMESPACE_1:-""}
-namespace_1=${CAMUNDA_NAMESPACE_2:-""}
-namespace_0_failover=${CAMUNDA_NAMESPACE_1_FAILOVER:-""}
-namespace_1_failover=${CAMUNDA_NAMESPACE_2_FAILOVER:-""}
+namespace_0=${CAMUNDA_NAMESPACE_0:-""}
+namespace_1=${CAMUNDA_NAMESPACE_1:-""}
+namespace_0_failover=${CAMUNDA_NAMESPACE_0_FAILOVER:-""}
+namespace_1_failover=${CAMUNDA_NAMESPACE_1_FAILOVER:-""}
 helm_release_name=${CAMUNDA_RELEASE_NAME:-""}
 
 mode="normal"
