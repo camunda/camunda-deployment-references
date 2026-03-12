@@ -6,27 +6,6 @@
 # Authentication Secrets:
 # - elasticsearch-es-elastic-user: Contains 'elastic' user password for Elasticsearch
 
-# Global configuration
-global:
-    # Elasticsearch configuration
-    elasticsearch:
-        enabled: true
-        external: true
-        # URL configuration
-        url:
-            protocol: http
-            host: elasticsearch-es-http
-            port: 9200
-        # Authentication using ECK-generated secret
-        auth:
-            username: elastic
-            secret:
-                existingSecret: elasticsearch-es-elastic-user
-                existingSecretKey: elastic
-
-
-# Orchestration secondary storage — required in addition to global.elasticsearch.auth
-# for the Orchestration cluster data layer (chart 8.9+)
 orchestration:
     data:
         secondaryStorage:
