@@ -31,17 +31,6 @@ create_secret() {
         --dry-run=client -o yaml | kubectl --context "$context" apply -f -
 }
 
-create_elastic_user_secret() {
-    local context=$1
-    local namespace=$2
-    local secret_name=$3
-    local secret_value=$4
-
-    kubectl --context "$context" -n "$namespace" create secret generic "$secret_name" \
-        --from-literal=elastic="$secret_value" \
-        --dry-run=client -o yaml | kubectl --context "$context" apply -f -
-}
-
 if [ -z "${AWS_ACCESS_KEY_ES:-}" ]; then
     echo "Error: AWS_ACCESS_KEY_ES environment variable is not set."
     exit 1
@@ -60,31 +49,4 @@ SECRET_NAME="elasticsearch-env-secret"
 echo "Creating ECK secure settings secret '$SECRET_NAME' in both regions..."
 create_secret "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0" "$SECRET_NAME"
 create_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1" "$SECRET_NAME"
-
-elastic_user_secretname="elasticsearch-es-elastic-user"
-
-# Reuse existing password if the secret already exists on either cluster to avoid
-# desync between ES (which picks up the new password via ECK rolling restart) and
-# Camunda pods (which keep the old password baked into their env vars).
-elastic_user_pass=""
-for ctx_ns in "$CLUSTER_0:$CAMUNDA_NAMESPACE_0" "$CLUSTER_1:$CAMUNDA_NAMESPACE_1"; do
-    ctx="${ctx_ns%%:*}"
-    ns="${ctx_ns##*:}"
-    existing=$(kubectl --context "$ctx" -n "$ns" get secret "$elastic_user_secretname" \
-        -o jsonpath='{.data.elastic}' 2>/dev/null | base64 -d) || true
-    if [ -n "$existing" ]; then
-        elastic_user_pass="$existing"
-        echo "Reusing existing elastic user password from $ns on $ctx"
-        break
-    fi
-done
-
-if [ -z "$elastic_user_pass" ]; then
-    elastic_user_pass=$(openssl rand -base64 32)
-    echo "Generated new elastic user password"
-fi
-
-echo "Creating Elasticsearch user secret '$elastic_user_secretname' in both regions..."
-create_elastic_user_secret "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0" "$elastic_user_secretname" "$elastic_user_pass"
-create_elastic_user_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1" "$elastic_user_secretname" "$elastic_user_pass"
 echo "Done."

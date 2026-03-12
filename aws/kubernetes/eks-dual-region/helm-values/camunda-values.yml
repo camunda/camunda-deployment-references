@@ -74,7 +74,7 @@ orchestration:
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_PASSWORD
           valueFrom:
               secretKeyRef:
-                  name: elasticsearch-es-elastic-user
+                  name: elasticsearch-es-password-region-0
                   key: elastic
         # Region 1 exporter config
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_CLASSNAME
@@ -86,7 +86,7 @@ orchestration:
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_PASSWORD
           valueFrom:
               secretKeyRef:
-                  name: elasticsearch-es-elastic-user
+                  name: elasticsearch-es-password-region-1
                   key: elastic
         # Zeebe cluster tuning
         - name: CAMUNDA_DATA_SNAPSHOTPERIOD

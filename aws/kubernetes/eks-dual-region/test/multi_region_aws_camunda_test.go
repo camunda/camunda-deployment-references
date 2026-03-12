@@ -3,6 +3,7 @@ package test
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	kubectlHelpers "multiregiontests/internal/helpers/kubectl"
 
 	"github.com/gruntwork-io/terratest/modules/k8s"
+	"github.com/gruntwork-io/terratest/modules/shell"
 	"github.com/stretchr/testify/require"
 )
 
@@ -136,6 +138,8 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		// Failback
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestDeployElasticsearchCRSecondary", func(t *testing.T) { deployElasticsearchCR(t, secondary) }},
+		{"TestWaitForElasticsearchReady", func(t *testing.T) { waitForElasticsearchReady(t, secondary) }},
+		{"TestSyncElasticsearchPasswords", syncElasticsearchPasswords},
 		{"TestRecreateCamundaInSecondary", func(t *testing.T) { redeployWithoutOperateTasklist(t, secondary, true) }},
 		{"TestRedeployCamundaInPrimary", func(t *testing.T) { redeployWithoutOperateTasklist(t, primary, false) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
@@ -450,6 +454,37 @@ func deployElasticsearchCR(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[ECK] Deploying Elasticsearch CR in %s 🚀", cluster.ClusterName)
 
 	k8s.KubectlApply(t, &cluster.KubectlNamespace, eckElasticClusterYaml)
+}
+
+// waitForElasticsearchReady waits for the ECK-managed Elasticsearch cluster to reach Ready state.
+func waitForElasticsearchReady(t *testing.T, cluster helpers.Cluster) {
+	t.Logf("[ECK] Waiting for Elasticsearch to be Ready in %s ⏳", cluster.ClusterName)
+
+	k8s.RunKubectl(t, &cluster.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
+}
+
+// syncElasticsearchPasswords reads ECK-generated passwords from both regions and creates
+// cross-region password secrets (elasticsearch-es-password-region-0, elasticsearch-es-password-region-1)
+// in both namespaces so that Zeebe exporters can authenticate against the remote region's Elasticsearch.
+func syncElasticsearchPasswords(t *testing.T) {
+	t.Log("[ES PASSWORDS] Syncing Elasticsearch passwords across regions 🔑")
+
+	if helpers.IsTeleportEnabled() {
+		os.Setenv("KUBECONFIG", "./kubeconfig")
+		os.Setenv("CLUSTER_0", primary.ClusterName)
+		os.Setenv("CLUSTER_1", primary.ClusterName)
+	} else {
+		os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
+		os.Setenv("CLUSTER_0", primary.ClusterName)
+		os.Setenv("CLUSTER_1", secondary.ClusterName)
+	}
+	os.Setenv("CAMUNDA_NAMESPACE_0", primaryNamespace)
+	os.Setenv("CAMUNDA_NAMESPACE_1", secondaryNamespace)
+
+	shell.RunCommand(t, shell.Command{
+		Command: "bash",
+		Args:    []string{"../procedure/sync_elasticsearch_passwords.sh"},
+	})
 }
 
 // redeployWithoutOperateTasklist redeploys Camunda in the specified cluster with Operate and Tasklist disabled.

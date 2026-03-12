@@ -343,19 +343,11 @@ jobs:
                   export AWS_SECRET_ACCESS_KEY_ES=$(yq eval '.["s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml")
                   echo "::add-mask::$AWS_SECRET_ACCESS_KEY_ES"
 
-                  export CLUSTER_0="${{ env.CLUSTER_NAME }}-london"
-                  export CLUSTER_1="${{ env.CLUSTER_NAME }}-paris"
-                  export CAMUNDA_NAMESPACE_0="${{ env.CAMUNDA_NAMESPACE_0 }}"
-                  export CAMUNDA_NAMESPACE_1="${{ env.CAMUNDA_NAMESPACE_1 }}"
-
                   bash ./aws/kubernetes/eks-dual-region/procedure/create_elasticsearch_secrets.sh
 
             - name: Configure storage classes
               run: |
                   set -euo pipefail
-
-                  export CLUSTER_0="${{ env.CLUSTER_NAME }}-london"
-                  export CLUSTER_1="${{ env.CLUSTER_NAME }}-paris"
 
                   cd ./aws/kubernetes/eks-dual-region/procedure
                   ./storageclass-configure.sh
@@ -383,6 +375,12 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   elasticsearch-cluster-file: elasticsearch-cluster-dual-region.yml
 
+            - name: Sync Elasticsearch passwords across regions
+              run: |
+                  set -euo pipefail
+
+                  bash ./aws/kubernetes/eks-dual-region/procedure/sync_elasticsearch_passwords.sh
+
             - name: Helm registry login
               uses: ./.github/actions/internal-helm-registry-login
               with:
@@ -396,8 +394,8 @@ jobs:
               timeout-minutes: 60
               uses: ./.github/actions/internal-multi-region-tests
               with:
-                  cluster-0-name: ${{ env.CLUSTER_NAME }}-london
-                  cluster-1-name: ${{ env.CLUSTER_NAME }}-paris
+                  cluster-0-name: ${{ env.CLUSTER_0 }}
+                  cluster-1-name: ${{ env.CLUSTER_1 }}
                   cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
                   cluster-1-namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   helm-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}

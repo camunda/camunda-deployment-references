@@ -130,6 +130,8 @@ jobs:
                     echo "BACKUP_NAME=${BACKUP_NAME}"
                     echo "CLUSTER_1_NAMESPACE=${CLUSTER_1_NAMESPACE}"
                     echo "CLUSTER_0_NAMESPACE=${CLUSTER_0_NAMESPACE}"
+                    echo "CLUSTER_0=${CLUSTER_0_NAME}"
+                    echo "CLUSTER_1=${CLUSTER_1_NAME}"
                     echo "CAMUNDA_NAMESPACE_0=${CLUSTER_0_NAMESPACE}"
                     echo "CAMUNDA_NAMESPACE_1=${CLUSTER_1_NAMESPACE}"
                     echo "CLUSTER_0_NAMESPACE_ARR=${CLUSTER_0_NAMESPACE}"
@@ -227,6 +229,12 @@ jobs:
               with:
                   namespace: ${{ env.CLUSTER_1_NAMESPACE }}
                   elasticsearch-cluster-file: elasticsearch-cluster-dual-region-teleport.yml
+
+            - name: Sync Elasticsearch passwords across regions
+              run: |
+                  set -euo pipefail
+
+                  bash ./aws/kubernetes/eks-dual-region/procedure/sync_elasticsearch_passwords.sh
 
             - name: Label and annotate namespaces and secrets
               working-directory: ./aws/kubernetes/eks-dual-region/test
