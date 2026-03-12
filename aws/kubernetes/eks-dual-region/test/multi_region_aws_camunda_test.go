@@ -46,8 +46,8 @@ var (
 	secondary helpers.Cluster
 
 	// Allows setting namespaces via GHA
-	primaryNamespace   = helpers.GetEnv("CLUSTER_0_NAMESPACE", "c8-snap-cluster-0")
-	secondaryNamespace = helpers.GetEnv("CLUSTER_1_NAMESPACE", "c8-snap-cluster-1")
+	primaryNamespace   = helpers.GetEnv("CAMUNDA_NAMESPACE_0", "c8-snap-cluster-0")
+	secondaryNamespace = helpers.GetEnv("CAMUNDA_NAMESPACE_1", "c8-snap-cluster-1")
 
 	baseHelmVars = map[string]string{}
 	timeout      = "600s"
