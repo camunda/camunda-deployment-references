@@ -403,11 +403,11 @@ spec:
                             IDX_NAME=$(echo "$line" | awk '{print $2}')
                             IS_WRITE=$(echo "$line" | awk '{print $3}')
                             if [ "$IS_WRITE" = "true" ]; then
-                              RESP=$(curl -s -X POST "${TARGET_AUTH[@]}" "$TARGET/$IDX_NAME/_alias/$ALIAS_NAME" \
+                              RESP=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$IDX_NAME/_alias/$ALIAS_NAME" \
                                 -H 'Content-Type: application/json' \
                                 -d '{"is_write_index":true}' 2>&1)
                             else
-                              RESP=$(curl -s -X POST "${TARGET_AUTH[@]}" "$TARGET/$IDX_NAME/_alias/$ALIAS_NAME" 2>&1)
+                              RESP=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$IDX_NAME/_alias/$ALIAS_NAME" 2>&1)
                             fi
                             if echo "$RESP" | grep -q '"acknowledged":true'; then
                               echo "  $ALIAS_NAME -> $IDX_NAME"

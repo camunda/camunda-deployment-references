@@ -189,6 +189,7 @@ spec:
 
                         # Deploy the process
                         log "Deploying BPMN process '${PROCESS_ID}'..."
+                        DEPLOY_RESP=""
                         DEPLOY_RESP=$(curl -s --fail-with-body --connect-timeout 5 --max-time 30 \
                             -X POST "${ZEEBE_URL}/v2/deployments" \
                             -H "Authorization: Bearer ${ZEEBE_TOKEN}" \
