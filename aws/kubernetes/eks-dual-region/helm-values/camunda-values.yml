@@ -47,6 +47,11 @@ connectors:
     enabled: true
 
 orchestration:
+    # TODO: recheck with https://github.com/camunda/camunda-deployment-references/pull/1964
+    # the data storage is handled by the operator
+    data:
+        secondaryStorage:
+            type: elasticsearch
     clusterSize: '8'
     partitionCount: '8'
     replicationFactor: '4'

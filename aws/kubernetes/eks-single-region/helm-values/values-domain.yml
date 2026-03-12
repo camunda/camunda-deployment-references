@@ -11,21 +11,6 @@
 #   - OPENSEARCH_HOST: OpenSearch endpoint
 
 global:
-    elasticsearch:
-        enabled: false
-    opensearch:
-        enabled: true
-        aws:
-            enabled: false # we rely on anonymous auth, not irsa, basic auth is not supported on managed OpenSearch
-        auth:
-            username:
-            password:
-        url:
-            protocol: https
-            host: ${OPENSEARCH_HOST}
-            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
-            port: 443
-
     security:
         authentication:
             method: oidc
@@ -89,12 +74,24 @@ optimize:
     migration:
         enabled: false
 
+    database:
+        opensearch:
+            enabled: true
+            aws:
+                enabled: false
+            url:
+                protocol: https
+                host: ${OPENSEARCH_HOST}
+                port: 443
+
 orchestration:
     contextPath: /
 
     data:
         secondaryStorage:
             type: opensearch
+            opensearch:
+                url: https://${OPENSEARCH_HOST}:443
 
     security:
         initialization:
