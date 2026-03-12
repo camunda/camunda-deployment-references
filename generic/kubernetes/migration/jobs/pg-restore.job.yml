@@ -89,10 +89,32 @@ spec:
                           fi
                         fi
 
+                        # pg_restore with --clean --if-exists emits warnings for
+                        # objects that don't exist yet (exit code 1). Real failures
+                        # produce exit code 2+. Capture and distinguish.
+                        set +e
                         pg_restore -h "${TARGET_PG_HOST}" -p "${TARGET_PG_PORT}" \
                           -U "${TARGET_PG_USER}" -d "${TARGET_PG_DATABASE}" \
                           --clean --if-exists --no-owner --no-privileges \
-                          "$DUMP" || echo "(pg_restore warnings are normal with --clean --if-exists)"
+                          --verbose "$DUMP" 2>&1 | tee /tmp/pg_restore.log
+                        PG_RC=${PIPESTATUS[0]}
+                        set -e
+
+                        if [ "$PG_RC" -eq 0 ]; then
+                          echo "pg_restore completed successfully"
+                        elif [ "$PG_RC" -eq 1 ]; then
+                          # Exit code 1 = warnings only (e.g. "does not exist" from --clean --if-exists)
+                          if grep -qiE 'fatal|could not|connection refused|out of memory' /tmp/pg_restore.log; then
+                            echo "ERROR: pg_restore exited with warnings but log contains critical errors:"
+                            grep -iE 'fatal|could not|connection refused|out of memory' /tmp/pg_restore.log
+                            exit 1
+                          fi
+                          echo "pg_restore completed with warnings (normal with --clean --if-exists)"
+                        else
+                          echo "ERROR: pg_restore failed with exit code $PG_RC"
+                          tail -50 /tmp/pg_restore.log
+                          exit 1
+                        fi
 
                         echo ""
                         echo "Tables restored:"

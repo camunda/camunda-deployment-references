@@ -1226,8 +1226,11 @@ deploy_elasticsearch() {
     # Deep-merge the migration patch (name + reindex whitelist) onto the
     # base reference manifest, then update the affinity selector to match.
     export ECK_CLUSTER_NAME
+    # Derive the source (Bitnami) ES service DNS for the reindex whitelist.
+    # Bitnami convention: service is "{release}-elasticsearch".
+    export SOURCE_ES_REINDEX_HOST="${CAMUNDA_RELEASE_NAME}-elasticsearch.${NAMESPACE}.svc.cluster.local"
     # shellcheck disable=SC2016
-    envsubst '${ECK_CLUSTER_NAME}' < "$migration_patch" \
+    envsubst '${ECK_CLUSTER_NAME} ${SOURCE_ES_REINDEX_HOST}' < "$migration_patch" \
         | yq eval-all 'select(fileIndex == 0) *d select(fileIndex == 1)' "$ref_eck" - \
         > "$rendered_eck"
 

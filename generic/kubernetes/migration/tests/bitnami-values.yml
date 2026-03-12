@@ -16,6 +16,8 @@
 # update these values accordingly.
 
 global:
+    elasticsearch:
+        enabled: true
     security:
         # Required for vendor-ee images (not signed by Bitnami)
         allowInsecureImages: true

@@ -262,6 +262,13 @@ if [[ $ERRORS -eq 0 ]]; then
     echo ""
     echo "The migration is fully complete. Old Bitnami resources have been removed"
     echo "and Camunda is running entirely on operator-managed infrastructure."
+    if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]] && ! is_external_es; then
+        echo ""
+        log_warn "⚠ Remove the reindex.remote.whitelist from ECK now that migration is done:"
+        echo "    kubectl get elasticsearch ${ECK_CLUSTER_NAME} -n ${NAMESPACE} -o yaml \\"
+        echo "      | yq 'del(.spec.nodeSets[0].config.\"reindex.remote.whitelist\")' \\"
+        echo "      | kubectl apply -f -"
+    fi
 else
     log_error "${ERRORS} re-verification check(s) failed after cleanup."
     echo ""
