@@ -183,6 +183,37 @@ jobs:
                   go test --count=1 -v -timeout 9m -failfast -run TestClusterPrerequisites
 
             ############# ECK Elasticsearch Deployment ##############
+            - name: Generate Teleport Elasticsearch manifest
+              run: |
+                  set -euo pipefail
+
+                  BASE="generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster-dual-region.yml"
+                  OUT="generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster-dual-region-teleport.yml"
+
+                  cp "$BASE" "$OUT"
+
+                  # Reduce replica count
+                  yq -i '.spec.nodeSets[0].count = 2' "$OUT"
+
+                  # Add Teleport tolerations
+                  yq -i '.spec.nodeSets[0].podTemplate.spec.tolerations = [
+                    {"key": "t-core-8-unstable", "operator": "Exists", "effect": "NoSchedule"},
+                    {"key": "t-core-16-unstable", "operator": "Exists", "effect": "NoSchedule"}
+                  ]' "$OUT"
+
+                  # Add nodeAffinity for unstable node groups
+                  yq -i '.spec.nodeSets[0].podTemplate.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms = [
+                    {"matchExpressions": [{"key": "nodegroup", "operator": "In", "values": ["t-core-8-unstable", "t-core-16-unstable"]}]}
+                  ]' "$OUT"
+
+                  # Reduce resource requests for Teleport runners
+                  yq -i '.spec.nodeSets[0].podTemplate.spec.containers[0].resources.requests.cpu = "100m"' "$OUT"
+                  yq -i '.spec.nodeSets[0].podTemplate.spec.containers[0].resources.requests.memory = "512Mi"' "$OUT"
+                  yq -i '.spec.nodeSets[0].podTemplate.spec.containers[0].resources.limits.cpu = 1' "$OUT"
+
+                  # Reduce storage request
+                  yq -i '.spec.nodeSets[0].volumeClaimTemplates[0].spec.resources.requests.storage = "30Gi"' "$OUT"
+
             - name: Deploy Elasticsearch via ECK on cluster-0 namespace
               timeout-minutes: 10
               uses: ./.github/actions/kubernetes-eck-operator
