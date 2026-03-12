@@ -35,7 +35,7 @@ spec:
                         echo "Source: ${ES_HOST}:${ES_PORT}"
 
                         AUTH=()
-                        [ -n "$ES_PASSWORD" ] && AUTH=(-u "elastic:$ES_PASSWORD")
+                        [ -n "${ES_PASSWORD:-}" ] && AUTH=(-u "elastic:$ES_PASSWORD")
 
                         # Wait for ES
                         MAX_RETRIES=60; RETRY=0
