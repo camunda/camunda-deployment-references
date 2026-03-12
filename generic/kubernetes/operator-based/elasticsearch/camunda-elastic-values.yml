@@ -9,6 +9,7 @@
 orchestration:
     data:
         secondaryStorage:
+            type: elasticsearch
             elasticsearch:
                 url: http://elasticsearch-es-http:9200
                 auth:
