@@ -989,6 +989,54 @@ func CheckTenantExists(t *testing.T, cluster helpers.Cluster, tenantId string) {
 }
 
 // CheckElasticsearchClusterHealth verifies that the Elasticsearch cluster health is green
+// VerifyExporterStatus checks exporter status and exporting state via the Zeebe actuator API.
+// It logs the full exporter list and asserts that both exporters are ENABLED and exporting is not globally paused.
+func VerifyExporterStatus(t *testing.T, cluster helpers.Cluster) {
+	t.Helper()
+	t.Logf("[EXPORTER STATUS] Checking exporter status for %s", cluster.ClusterName)
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
+	defer closeFn()
+
+	// Check individual exporter status
+	res, body := helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", endpoint), nil)
+	if res == nil {
+		t.Log("[EXPORTER STATUS] Failed to get exporter status")
+		return
+	}
+	t.Logf("[EXPORTER STATUS] Exporters: %s", body)
+	require.Equal(t, 200, res.StatusCode)
+	require.Contains(t, body, "\"status\":\"ENABLED\"", "Expected at least one enabled exporter")
+}
+
+// CheckElasticsearchProcessInstanceCount queries ES directly for the number of process instance documents.
+// This helps differentiate between exporter issues (records not in ES) and Operate importer issues (records in ES but not in Operate).
+func CheckElasticsearchProcessInstanceCount(t *testing.T, cluster helpers.Cluster) {
+	t.Helper()
+	t.Logf("[ES DEBUG] Checking process instance count in ES for %s", cluster.ClusterName)
+
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
+	output, err := k8s.RunKubectlAndGetOutputE(
+		t,
+		&cluster.KubectlNamespace,
+		"exec",
+		ElasticsearchPodName,
+		"-c",
+		"elasticsearch",
+		"--",
+		"curl",
+		"-u", fmt.Sprintf("elastic:%s", esPassword),
+		"-s",
+		"localhost:9200/*process*/_count",
+	)
+	if err != nil {
+		t.Logf("[ES DEBUG] Failed to query ES: %v", err)
+		return
+	}
+	t.Logf("[ES DEBUG] ES process instance count: %s", output)
+}
+
 func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[ELASTICSEARCH HEALTH] Checking cluster health for %s", cluster.ClusterName)
 

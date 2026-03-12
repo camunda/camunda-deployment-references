@@ -152,7 +152,9 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		{"TestAddSecondaryBrokers", addSecondaryBrokers},
 		{"TestRedeployC8ToEnableOperateTasklist", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
+		{"TestVerifyExporterStatus", func(t *testing.T) { verifyExporterStatus(t) }},
 		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 18, "default", "") }},
+		{"TestCheckElasticsearchProcessInstanceCount", func(t *testing.T) { checkElasticsearchProcessInstanceCount(t) }},
 		{"TestCheckElasticsearchClusterHealthAfterProcessDeploy", checkElasticsearchClusterHealth},
 		{"TestCheckTheMath", checkTheMath},
 	} {
@@ -423,6 +425,17 @@ func checkElasticsearchClusterHealth(t *testing.T) {
 
 	kubectlHelpers.CheckElasticsearchClusterHealth(t, primary)
 	kubectlHelpers.CheckElasticsearchClusterHealth(t, secondary)
+}
+
+func verifyExporterStatus(t *testing.T) {
+	t.Log("[EXPORTER STATUS] Verifying exporter status after failback 🔍")
+	kubectlHelpers.VerifyExporterStatus(t, primary)
+}
+
+func checkElasticsearchProcessInstanceCount(t *testing.T) {
+	t.Log("[ES DEBUG] Checking ES process instance count in both regions 🔍")
+	kubectlHelpers.CheckElasticsearchProcessInstanceCount(t, primary)
+	kubectlHelpers.CheckElasticsearchProcessInstanceCount(t, secondary)
 }
 
 func deleteSecondaryRegion(t *testing.T) {
