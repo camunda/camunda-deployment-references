@@ -21,8 +21,8 @@ inputs:
         default: ''
     exclude-patterns:
         description: |
-            Newline-separated list of grep patterns to exclude from warnings.
-            Warnings matching any of these patterns will be ignored.
+            Newline-separated list of fixed strings to exclude from warnings.
+            Warnings containing any of these strings will be ignored.
         required: false
         default: ''
 
@@ -56,12 +56,23 @@ runs:
               # Extract deprecation warnings (pattern used by the Camunda Helm chart)
               WARNINGS=$(echo "${NOTES}" | grep -i '\[camunda\]\[warning\]' || true)
 
-              # Exclude warnings matching provided patterns
+              # Exclude warnings matching provided patterns (fixed-string match)
               EXCLUDE_PATTERNS="${{ inputs.exclude-patterns }}"
               if [[ -n "${EXCLUDE_PATTERNS}" && -n "${WARNINGS}" ]]; then
                   while IFS= read -r pattern; do
                       [[ -z "${pattern}" ]] && continue
-                      WARNINGS=$(echo "${WARNINGS}" | grep -v -e "${pattern}" || true)
+                      FILTERED=$(echo "${WARNINGS}" | grep -F -v -- "${pattern}") || rc=$?
+                      if [[ ${rc:-0} -eq 1 ]]; then
+                          # All warnings matched the exclude pattern
+                          WARNINGS=""
+                          break
+                      elif [[ ${rc:-0} -gt 1 ]]; then
+                          echo "::error::grep failed (exit ${rc}) while applying exclude pattern: ${pattern}"
+                          exit 1
+                      else
+                          WARNINGS="${FILTERED}"
+                      fi
+                      unset rc
                   done <<< "${EXCLUDE_PATTERNS}"
               fi
 

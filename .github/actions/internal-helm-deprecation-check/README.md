@@ -15,7 +15,7 @@ Fails the pipeline if any deprecation warnings are found.
 | `release-name` | <p>The Helm release name to check</p> | `false` | `camunda` |
 | `namespace` | <p>The Kubernetes namespace where the release is deployed</p> | `false` | `camunda` |
 | `kube-context` | <p>The Kubernetes context to use (optional, defaults to current context)</p> | `false` | `""` |
-| `exclude-patterns` | <p>Newline-separated list of grep patterns to exclude from warnings. Warnings matching any of these patterns will be ignored.</p> | `false` | `""` |
+| `exclude-patterns` | <p>Newline-separated list of fixed strings to exclude from warnings. Warnings containing any of these strings will be ignored.</p> | `false` | `""` |
 
 
 ## Runs
@@ -46,8 +46,8 @@ This action is a `composite` action.
     # Default: ""
 
     exclude-patterns:
-    # Newline-separated list of grep patterns to exclude from warnings.
-    # Warnings matching any of these patterns will be ignored.
+    # Newline-separated list of fixed strings to exclude from warnings.
+    # Warnings containing any of these strings will be ignored.
     #
     # Required: false
     # Default: ""
