@@ -68,6 +68,7 @@ spec:
                         echo "Getting indices from source..."
                         INDEX_DATA=$(curl -sf "${SOURCE_AUTH[@]}" \
                           "$SOURCE/_cat/indices?h=index,docs.count&format=text" \
+                          | tr -d '\r' \
                           | grep -E "^(zeebe|operate|tasklist|optimize|connectors|camunda-)" | sort)
 
                         if [ -z "$INDEX_DATA" ]; then
@@ -276,45 +277,11 @@ spec:
                         echo "  Duration: ${REINDEX_MIN}m${REINDEX_SEC}s | Avg throughput: ${AVG_RATE} docs/s"
                         echo ""
 
-                        # ── Migrate index templates from source to target ──
-                        # The _reindex API does NOT copy index templates or component
-                        # templates. Camunda's SchemaManager detects existing indices
-                        # and goes into "update" mode — if the corresponding index
-                        # template is missing (404), init schema retries forever.
-                        echo "=== Migrating index templates ==="
-                        TMPL_NAMES=$(curl -sf "${SOURCE_AUTH[@]}" \
-                          "$SOURCE/_index_template?filter_path=index_templates.name" \
-                          | sed 's/[{}":]/ /g' \
-                          | tr ',' '\n' \
-                          | grep -oE '(zeebe|operate|tasklist|optimize|connectors|camunda)[^ ]*' \
-                          | sort -u || true)
-
-                        if [ -n "$TMPL_NAMES" ]; then
-                          TMPL_COUNT=$(echo "$TMPL_NAMES" | wc -l | tr -d ' ')
-                          echo "Found $TMPL_COUNT Camunda index template(s) to migrate"
-                          for tname in $TMPL_NAMES; do
-                            TMPL_DEF=$(curl -sf "${SOURCE_AUTH[@]}" "$SOURCE/_index_template/$tname") || { echo "  WARN: Could not fetch template $tname"; continue; }
-                            if [ -n "$TMPL_DEF" ] && [ "$TMPL_DEF" != "{}" ]; then
-                              # Extract just the template body (strip the outer wrapper)
-                              # Response: {"index_templates":[{"name":"...","index_template":{...}}]}
-                              # Strip everything before the body, then remove the trailing }]}
-                              # (array-element close + array close + response close)
-                              TMPL_BODY=$(echo "$TMPL_DEF" | sed 's/.*"index_template"://' | sed 's/}]}$//')
-                              PUT_TMPL=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/_index_template/$tname" \
-                                -H 'Content-Type: application/json' \
-                                -d "$TMPL_BODY" 2>&1)
-                              if echo "$PUT_TMPL" | grep -q '"acknowledged":true'; then
-                                echo "  $tname"
-                              else
-                                echo "  WARN: Failed to migrate index template $tname: $PUT_TMPL"
-                              fi
-                            fi
-                          done
-                        else
-                          echo "No Camunda index templates found on source"
-                        fi
-
-                        # Also migrate component templates (used by composable index templates)
+                        # ── Migrate component templates first (used by index templates) ──
+                        # Component templates must be created before index templates that
+                        # reference them, otherwise the PUT _index_template call fails with
+                        # "component templates [...] that do not exist".
+                        TMPL_FAILED=0
                         COMP_NAMES=$(curl -sf "${SOURCE_AUTH[@]}" \
                           "$SOURCE/_component_template?filter_path=component_templates.name" \
                           | sed 's/[{}":]/ /g' \
@@ -338,13 +305,59 @@ spec:
                               if echo "$PUT_COMP" | grep -q '"acknowledged":true'; then
                                 echo "  $cname"
                               else
-                                echo "  WARN: Failed to migrate component template $cname: $PUT_COMP"
+                                echo "  ERROR: Failed to migrate component template $cname: $PUT_COMP"
+                                TMPL_FAILED=$((TMPL_FAILED + 1))
                               fi
                             fi
                           done
                         else
                           echo "No Camunda component templates found on source"
                         fi
+
+                        # ── Migrate index templates from source to target ──
+                        # The _reindex API does NOT copy index templates or component
+                        # templates. Camunda's SchemaManager detects existing indices
+                        # and goes into "update" mode — if the corresponding index
+                        # template is missing (404), init schema retries forever.
+                        echo "=== Migrating index templates ==="
+                        TMPL_NAMES=$(curl -sf "${SOURCE_AUTH[@]}" \
+                          "$SOURCE/_index_template?filter_path=index_templates.name" \
+                          | sed 's/[{}":]/ /g' \
+                          | tr ',' '\n' \
+                          | grep -oE '(zeebe|operate|tasklist|optimize|connectors|camunda)[^ ]*' \
+                          | sort -u || true)
+
+                        if [ -n "$TMPL_NAMES" ]; then
+                          TMPL_COUNT=$(echo "$TMPL_NAMES" | wc -l | tr -d ' ')
+                          echo "Found $TMPL_COUNT Camunda index template(s) to migrate"
+                          for tname in $TMPL_NAMES; do
+                            TMPL_DEF=$(curl -sf "${SOURCE_AUTH[@]}" \
+                              "$SOURCE/_index_template/$tname") || {
+                              echo "  ERROR: Could not fetch template $tname"
+                              TMPL_FAILED=$((TMPL_FAILED + 1))
+                              continue
+                            }
+                            if [ -n "$TMPL_DEF" ] && [ "$TMPL_DEF" != "{}" ]; then
+                              # Extract just the template body (strip the outer wrapper)
+                              # Response: {"index_templates":[{"name":"...","index_template":{...}}]}
+                              # Strip everything before the body, then remove the trailing }]}
+                              # (array-element close + array close + response close)
+                              TMPL_BODY=$(echo "$TMPL_DEF" | sed 's/.*"index_template"://' | sed 's/}]}$//')
+                              PUT_TMPL=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/_index_template/$tname" \
+                                -H 'Content-Type: application/json' \
+                                -d "$TMPL_BODY" 2>&1)
+                              if echo "$PUT_TMPL" | grep -q '"acknowledged":true'; then
+                                echo "  $tname"
+                              else
+                                echo "  ERROR: Failed to migrate index template $tname: $PUT_TMPL"
+                                TMPL_FAILED=$((TMPL_FAILED + 1))
+                              fi
+                            fi
+                          done
+                        else
+                          echo "No Camunda index templates found on source"
+                        fi
+
                         echo ""
 
                         # ── Migrate aliases from source to target ──
@@ -395,6 +408,7 @@ spec:
                           "$SOURCE/_cat/aliases?h=alias,index,is_write_index&format=text" \
                           | grep -E "[[:space:]](zeebe|operate|tasklist|optimize|connectors|camunda-)" || true)
 
+                        ALIAS_FAILED=0
                         if [ -n "$ALIAS_DATA" ]; then
                           ALIAS_COUNT=$(echo "$ALIAS_DATA" | wc -l | tr -d ' ')
                           echo "Found $ALIAS_COUNT alias(es) to migrate"
@@ -412,7 +426,8 @@ spec:
                             if echo "$RESP" | grep -q '"acknowledged":true'; then
                               echo "  $ALIAS_NAME -> $IDX_NAME"
                             else
-                              echo "  WARN: Failed alias $ALIAS_NAME -> $IDX_NAME: $RESP"
+                              echo "  ERROR: Failed alias $ALIAS_NAME -> $IDX_NAME: $RESP"
+                              ALIAS_FAILED=$((ALIAS_FAILED + 1))
                             fi
                           done <<< "$ALIAS_DATA"
                           echo "Alias migration complete"
@@ -429,6 +444,17 @@ spec:
 
                         if [ "$FAILED" -gt 0 ]; then
                           echo "ERROR: $FAILED out of $DATA_COUNT indices with data failed to reindex"
+                          exit 1
+                        fi
+
+                        if [ "$TMPL_FAILED" -gt 0 ]; then
+                          echo "ERROR: $TMPL_FAILED template(s) failed to migrate (component + index templates)"
+                          echo "Camunda components may fail to start without these templates."
+                          exit 1
+                        fi
+
+                        if [ "$ALIAS_FAILED" -gt 0 ]; then
+                          echo "ERROR: $ALIAS_FAILED alias(es) failed to migrate"
                           exit 1
                         fi
 

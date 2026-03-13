@@ -102,7 +102,7 @@ jobs:
             - clusters-info
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: aws-core-16-default
-        timeout-minutes: ${{ matrix.distro.benchmark_scenario == 'heavy' && 120 || 60 }}
+        timeout-minutes: ${{ (matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light') == 'heavy' && 150 || 60 }}
         strategy:
             fail-fast: false
             matrix:
@@ -307,13 +307,13 @@ jobs:
                   echo "Seeding completed"
 
             - name: Run benchmark to generate Zeebe data
-              timeout-minutes: ${{ matrix.distro.benchmark_scenario == 'heavy' && 25 || 15 }}
+              timeout-minutes: ${{ env.BENCHMARK_SCENARIO == 'heavy' && 45 || 15 }}
               run: |
                   set -euo pipefail
 
                   if [ "${{ env.BENCHMARK_SCENARIO }}" = "heavy" ]; then
                       BENCHMARK_FILE="generic/kubernetes/migration/tests/benchmark-job-heavy.yml"
-                      echo "Running HEAVY benchmark: 150 PI/s for 10 min (~20 GB)..."
+                      echo "Running HEAVY benchmark: 150 PI/s for 30 min (~20 GB)..."
                   else
                       BENCHMARK_FILE="generic/kubernetes/migration/tests/benchmark-job.yml"
                       echo "Running LIGHT benchmark: 5 PI/s for 5 min (~32 MB)..."
@@ -350,9 +350,9 @@ jobs:
                   fi
 
                   # Wait for the job to finish (either DeadlineExceeded or failed).
-                  # Light: 5 min + buffer = 600s. Heavy: 10 min + buffer = 900s.
+                  # Light: 5 min + buffer = 600s. Heavy: 30 min + buffer = 2100s.
                   if [ "${{ env.BENCHMARK_SCENARIO }}" = "heavy" ]; then
-                      WAIT_TIMEOUT=900s
+                      WAIT_TIMEOUT=2100s
                   else
                       WAIT_TIMEOUT=600s
                   fi
@@ -369,7 +369,7 @@ jobs:
                   echo "Benchmark finished"
 
             - name: Wait for data to propagate to Elasticsearch
-              timeout-minutes: ${{ matrix.distro.benchmark_scenario == 'heavy' && 15 || 5 }}
+              timeout-minutes: ${{ env.BENCHMARK_SCENARIO == 'heavy' && 15 || 5 }}
               run: |
                   set -euo pipefail
 
@@ -377,7 +377,8 @@ jobs:
                   sleep 60
 
                   ES_POD=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                      -l "app=elasticsearch" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+                      -l "app.kubernetes.io/name=elasticsearch,app.kubernetes.io/instance=${{ env.CAMUNDA_RELEASE_NAME }}" \
+                      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
 
                   if [[ -n "$ES_POD" ]]; then
                       echo "Checking Elasticsearch indices..."
@@ -422,7 +423,7 @@ jobs:
 
             # --- Phase 2: Backup (no downtime) ---
             - name: Phase 2 - Initial backup (warm, no downtime)
-              timeout-minutes: ${{ matrix.distro.benchmark_scenario == 'heavy' && 30 || 15 }}
+              timeout-minutes: ${{ env.BENCHMARK_SCENARIO == 'heavy' && 30 || 15 }}
               working-directory: ./generic/kubernetes/migration/
               run: |
                   set -euo pipefail
@@ -431,7 +432,7 @@ jobs:
 
             # --- Phase 3: Cutover (downtime window) ---
             - name: Phase 3 - Cutover (freeze, backup, restore, switch)
-              timeout-minutes: ${{ matrix.distro.benchmark_scenario == 'heavy' && 40 || 20 }}
+              timeout-minutes: ${{ env.BENCHMARK_SCENARIO == 'heavy' && 40 || 20 }}
               working-directory: ./generic/kubernetes/migration/
               run: |
                   set -euo pipefail

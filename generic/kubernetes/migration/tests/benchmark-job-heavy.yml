@@ -3,7 +3,7 @@
 #
 # Uses camunda-8-benchmark to create process instances via gRPC, producing
 # real exporter data in Elasticsearch (operate, tasklist indices).
-# Runs for 10 minutes at 150 PI/s (~90,000 process instances) with a ~7 KB
+# Runs for 30 minutes at 150 PI/s (~270,000 process instances) with a ~20 KB
 # payload per PI, targeting ~20 GB of Elasticsearch data. The Job is
 # terminated by activeDeadlineSeconds.
 #
@@ -301,7 +301,105 @@ data:
             "arbitration": "ICC International Court of Arbitration, Frankfurt",
             "liabilityCapPercentage": 100,
             "intellectualPropertyClause": "All pre-existing IP remains with respective party. Jointly developed IP shared equally."
-          }
+          },
+          "riskAssessment": {
+            "overallScore": 0.12,
+            "category": "low",
+            "factors": [
+              {
+                "name": "credit-risk", "score": 0.08, "weight": 0.3,
+                "details": "Customer has excellent credit history with 15 years of on-time payments across 47 accounts"
+              },
+              {
+                "name": "fraud-risk", "score": 0.05, "weight": 0.25,
+                "details": "No suspicious activity detected. Identity verification passed all checks including biometric validation"
+              },
+              {
+                "name": "operational-risk", "score": 0.15, "weight": 0.2,
+                "details": "Standard operational procedures apply. No elevated risk from geographic or industry factors"
+              },
+              {
+                "name": "compliance-risk", "score": 0.10, "weight": 0.15,
+                "details": "All regulatory requirements met. KYC/AML checks passed. PEP screening negative"
+              },
+              {
+                "name": "market-risk", "score": 0.20, "weight": 0.1,
+                "details": "Currency exposure within acceptable limits. Hedging strategy in place for EUR/USD pair"
+              }
+            ],
+            "approvedBy": "automated-risk-engine-v3.2",
+            "reviewDate": "2026-01-15T10:30:12Z",
+            "nextReviewDate": "2026-07-15T00:00:00Z",
+            "exemptions": []
+          },
+          "fulfillmentPlan": {
+            "stages": [
+              {
+                "stage": 1, "name": "License Provisioning",
+                "estimatedDuration": "2h", "status": "pending",
+                "assignee": "provisioning-service", "dependencies": [],
+                "description": "Generate and activate enterprise license keys for all purchased modules"
+              },
+              {
+                "stage": 2, "name": "Environment Setup",
+                "estimatedDuration": "4h", "status": "pending",
+                "assignee": "infra-team", "dependencies": [1],
+                "description": "Provision cloud infrastructure including compute, storage, networking, and security groups"
+              },
+              {
+                "stage": 3, "name": "Data Migration",
+                "estimatedDuration": "8h", "status": "pending",
+                "assignee": "migration-team", "dependencies": [2],
+                "description": "Execute data migration runbook with validation checkpoints at each phase boundary"
+              },
+              {
+                "stage": 4, "name": "Integration Testing",
+                "estimatedDuration": "12h", "status": "pending",
+                "assignee": "qa-team", "dependencies": [3],
+                "description": "Run full integration test suite covering all API endpoints and workflow scenarios"
+              },
+              {
+                "stage": 5, "name": "UAT Sign-off",
+                "estimatedDuration": "24h", "status": "pending",
+                "assignee": "customer-success", "dependencies": [4],
+                "description": "Customer acceptance testing with dedicated support engineer for issue resolution"
+              },
+              {
+                "stage": 6, "name": "Go-Live",
+                "estimatedDuration": "2h", "status": "pending",
+                "assignee": "platform-team", "dependencies": [5],
+                "description": "Production cutover with blue-green deployment strategy and automated rollback capability"
+              }
+            ],
+            "estimatedCompletionDate": "2026-02-05T18:00:00Z",
+            "escalationContacts": [
+              {"level": 1, "name": "Support Engineer", "email": "l1-support@example.com", "responseTime": "1h"},
+              {"level": 2, "name": "Technical Lead", "email": "l2-escalation@example.com", "responseTime": "30m"},
+              {"level": 3, "name": "VP Engineering", "email": "l3-escalation@example.com", "responseTime": "15m"}
+            ]
+          },
+          "historicalOrders": [
+            {
+              "orderId": "ORD-HIST-001", "date": "2025-06-15",
+              "amount": 8500.00, "status": "completed", "satisfaction": 4.8,
+              "notes": "Initial platform deployment with custom integration layer for legacy ERP system"
+            },
+            {
+              "orderId": "ORD-HIST-002", "date": "2025-09-20",
+              "amount": 3200.00, "status": "completed", "satisfaction": 4.9,
+              "notes": "Additional connector licenses and professional services for Salesforce integration"
+            },
+            {
+              "orderId": "ORD-HIST-003", "date": "2025-11-10",
+              "amount": 12750.00, "status": "completed", "satisfaction": 5.0,
+              "notes": "Enterprise upgrade with advanced analytics, custom dashboards, and dedicated infrastructure"
+            },
+            {
+              "orderId": "ORD-HIST-004", "date": "2026-01-05",
+              "amount": 950.00, "status": "completed", "satisfaction": 4.7,
+              "notes": "Training and certification program for 15 developers on process orchestration best practices"
+            }
+          ]
         }
 ---
 apiVersion: batch/v1
@@ -312,7 +410,7 @@ metadata:
         app: migration-test-data
 spec:
     ttlSecondsAfterFinished: 3600
-    activeDeadlineSeconds: 600
+    activeDeadlineSeconds: 1800
     backoffLimit: 0
     template:
         metadata:
