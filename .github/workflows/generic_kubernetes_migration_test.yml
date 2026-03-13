@@ -34,8 +34,7 @@ on:
                 options:
                     - light
                     - heavy
-                # TODO: revert to light before merge
-                default: heavy
+                default: light
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
