@@ -72,8 +72,8 @@ env:
     S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-dual-region/ # keep it synced with the name of the module for simplicity
     TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
 
-    CLUSTER_1_AWS_REGION: eu-west-2
-    CLUSTER_2_AWS_REGION: eu-west-3
+    CLUSTER_0_AWS_REGION: eu-west-2
+    CLUSTER_1_AWS_REGION: eu-west-3
 
     # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
     # TODO : revert before merge
@@ -174,7 +174,7 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
-                  aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
+                  aws-region: ${{ env.CLUSTER_0_AWS_REGION }}
 
             - name: Set current target branch
               id: target-branch
@@ -191,19 +191,19 @@ jobs:
               if: always() && success()
               with:
                   rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+                  cluster-name-0: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-0
                   cluster-name-1: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1
-                  cluster-name-2: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-2
+                  admin-username-cluster-0: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
                   admin-username-cluster-1: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
-                  admin-username-cluster-2: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
+                  admin-password-cluster-0: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
                   admin-password-cluster-1: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
-                  admin-password-cluster-2: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
+                  aws-region-cluster-0: ${{ env.CLUSTER_0_AWS_REGION }}
                   aws-region-cluster-1: ${{ env.CLUSTER_1_AWS_REGION }}
-                  aws-region-cluster-2: ${{ env.CLUSTER_2_AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  openshift-version-cluster-0: ${{ matrix.distro.version }}
                   openshift-version-cluster-1: ${{ matrix.distro.version }}
-                  openshift-version-cluster-2: ${{ matrix.distro.version }}
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_DIRECTORY }}
                   cleanup-tf-modules-path: 'false'
@@ -270,12 +270,12 @@ jobs:
                   source ../../procedure/gather-cluster-login-id.sh
                   cd -
 
-                  if [[ -z "$CLUSTER_1_NAME" || -z "$CLUSTER_1_API_URL" || -z "$CLUSTER_1_ADMIN_USERNAME" || -z "$CLUSTER_1_ADMIN_PASSWORD" ]]; then
-                    echo "❌ ERROR: One or more Cluster 1 environment variables are empty."
+                  if [[ -z "$CLUSTER_0_NAME" || -z "$CLUSTER_0_API_URL" || -z "$CLUSTER_0_ADMIN_USERNAME" || -z "$CLUSTER_0_ADMIN_PASSWORD" ]]; then
+                    echo "❌ ERROR: One or more Cluster 0 environment variables are empty."
                     exit 1
                   fi
-                  if [[ -z "$CLUSTER_2_NAME" || -z "$CLUSTER_2_API_URL" || -z "$CLUSTER_2_ADMIN_USERNAME" || -z "$CLUSTER_2_ADMIN_PASSWORD" ]]; then
-                    echo "❌ ERROR: One or more Cluster 2 environment variables are empty."
+                  if [[ -z "$CLUSTER_1_NAME" || -z "$CLUSTER_1_API_URL" || -z "$CLUSTER_1_ADMIN_USERNAME" || -z "$CLUSTER_1_ADMIN_PASSWORD" ]]; then
+                    echo "❌ ERROR: One or more Cluster 1 environment variables are empty."
                     exit 1
                   fi
 
@@ -365,8 +365,8 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  sed -i -e 's/^export CLUSTER_0=".*"/export CLUSTER_0="${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1"/' \
-                         -e 's/^export CLUSTER_1=".*"/export CLUSTER_1="${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-2"/' \
+                  sed -i -e 's/^export CLUSTER_0=".*"/export CLUSTER_0="${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-0"/' \
+                         -e 's/^export CLUSTER_1=".*"/export CLUSTER_1="${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1"/' \
                         generic/openshift/dual-region/procedure/set-cluster-names.sh
 
                   source ./generic/openshift/dual-region/procedure/set-cluster-names.sh
@@ -523,14 +523,14 @@ jobs:
 
                   echo "Setup environment values"
                   sed -i \
-                    -e "s#^export CLUSTER_0=\".*\"#export CLUSTER_0=\"${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1\"#" \
-                    -e "s#^export CLUSTER_1=\".*\"#export CLUSTER_1=\"${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-2\"#" \
-                    -e "s#^export REGION_0=\".*\"#export REGION_0=\"${{ env.CLUSTER_1_AWS_REGION }}\"#" \
-                    -e "s#^export REGION_1=\".*\"#export REGION_1=\"${{ env.CLUSTER_2_AWS_REGION }}\"#" \
+                    -e "s#^export CLUSTER_0=\".*\"#export CLUSTER_0=\"${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-0\"#" \
+                    -e "s#^export CLUSTER_1=\".*\"#export CLUSTER_1=\"${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1\"#" \
+                    -e "s#^export REGION_0=\".*\"#export REGION_0=\"${{ env.CLUSTER_0_AWS_REGION }}\"#" \
+                    -e "s#^export REGION_1=\".*\"#export REGION_1=\"${{ env.CLUSTER_1_AWS_REGION }}\"#" \
                     -e "s#^export AWS_ACCESS_KEY_ES=\".*\"#export AWS_ACCESS_KEY_ES=\"${BACKUP_BUCKET_S3_AWS_ACCESS_KEY}\"#" \
                     -e "s#^export AWS_SECRET_ACCESS_KEY_ES=\".*\"#export AWS_SECRET_ACCESS_KEY_ES=\"${BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY}\"#" \
                     -e "s#^export AWS_ES_BUCKET_NAME=\".*\"#export AWS_ES_BUCKET_NAME=\"${BACKUP_BUCKET_S3_BUCKET_NAME}\"#" \
-                    -e "s#^export AWS_ES_BUCKET_REGION=\".*\"#export AWS_ES_BUCKET_REGION=\"${{ env.CLUSTER_1_AWS_REGION }}\"#" \
+                    -e "s#^export AWS_ES_BUCKET_REGION=\".*\"#export AWS_ES_BUCKET_REGION=\"${{ env.CLUSTER_0_AWS_REGION }}\"#" \
                     generic/openshift/dual-region/procedure/chart-env.sh
 
                   # the chart env should be loaded by the client at the very first step of his installation
@@ -609,6 +609,10 @@ jobs:
                   # This should be documented in the procedure for production deployments.
                   # See: azure_kubernetes_aks_single_region_tests.yml for reference implementation.
                   cp -f generic/openshift/dual-region/helm-values/values-base.yml ./values.yml
+
+                  echo "Apply ECK Elasticsearch overlay (secondaryStorage + optimize config):"
+                  yq '. *+ load("generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml")' values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
 
                   echo "Region 0:"
                   yq '. *+ load("generic/openshift/dual-region/helm-values/values-region-0.yml")' values.yml > values-region-0-result.yml
@@ -704,9 +708,9 @@ jobs:
                   zeebe-authenticated: 'false'
                   zeebe-topology-check-script: ./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh
                   zeebe-topology-golden-file: ./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology-output.json
-                  camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE_0 }}
-                  cluster-2-name: ${{ env.CLUSTER_1 }}
-                  camunda-namespace-2: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  camunda-namespace-0: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  cluster-1-name: ${{ env.CLUSTER_1 }}
+                  camunda-namespace-1: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
@@ -794,7 +798,7 @@ jobs:
                     echo "::endgroup::"
                   done
 
-                  echo "::group::Cross-cluster connectivity test (Cluster 2 → Cluster 1)"
+                  echo "::group::Cross-cluster connectivity test (Cluster 1 → Cluster 0)"
                   kubectl --context="$CLUSTER_1" -n "$CAMUNDA_NAMESPACE_1" run connectivity-test --image=busybox:1.28 --rm -it --restart=Never --command -- sh -c "
                     echo 'Testing DNS for cluster 0 zeebe...'
                     nslookup local-cluster.${CAMUNDA_RELEASE_NAME:-camunda}-zeebe.${CAMUNDA_NAMESPACE_0}.svc.clusterset.local || echo 'DNS resolution failed'
@@ -867,7 +871,7 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
-                  aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
+                  aws-region: ${{ env.CLUSTER_0_AWS_REGION }}
 
             - name: Set current target branch
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -883,6 +887,9 @@ jobs:
               timeout-minutes: 125
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+                  # Map 0-indexed env vars to 1-indexed names expected by the shared cleanup script
+                  CLUSTER_1_AWS_REGION: ${{ env.CLUSTER_0_AWS_REGION }}
+                  CLUSTER_2_AWS_REGION: ${{ env.CLUSTER_1_AWS_REGION }}
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}

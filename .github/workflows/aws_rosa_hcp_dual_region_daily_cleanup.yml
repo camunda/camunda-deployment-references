@@ -36,8 +36,8 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-dual-region/ # keep it synced with the name of the module for simplicity
     S3_BUCKET_REGION: eu-central-1
-    CLUSTER_1_AWS_REGION: eu-west-2
-    CLUSTER_2_AWS_REGION: eu-west-3
+    CLUSTER_0_AWS_REGION: eu-west-2
+    CLUSTER_1_AWS_REGION: eu-west-3
 
 
 jobs:
@@ -96,7 +96,7 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
-                  aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
+                  aws-region: ${{ env.CLUSTER_0_AWS_REGION }}
 
             - name: Delete clusters
               id: delete_clusters
@@ -105,6 +105,9 @@ jobs:
               uses: ./.github/actions/aws-generic-terraform-cleanup
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+                  # Map 0-indexed env vars to 1-indexed names expected by the shared cleanup script
+                  CLUSTER_1_AWS_REGION: ${{ env.CLUSTER_0_AWS_REGION }}
+                  CLUSTER_2_AWS_REGION: ${{ env.CLUSTER_1_AWS_REGION }}
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -126,6 +129,9 @@ jobs:
               uses: ./.github/actions/aws-generic-terraform-cleanup
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+                  # Map 0-indexed env vars to 1-indexed names expected by the shared cleanup script
+                  CLUSTER_1_AWS_REGION: ${{ env.CLUSTER_0_AWS_REGION }}
+                  CLUSTER_2_AWS_REGION: ${{ env.CLUSTER_1_AWS_REGION }}
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}

@@ -76,14 +76,14 @@ inputs:
     enable-zeebe-client-tests:
         description: Whether the Zeebe Client tests should be run
         default: 'true'
-    cluster-2-name:
-        description: Optional cluster 2 name for sed replacement (dual-region only)
-        required: false
-    camunda-namespace-2:
-        description: Optional namespace for region 2 (dual-region only)
+    cluster-1-name:
+        description: Optional cluster 1 name for sed replacement (dual-region only)
         required: false
     camunda-namespace-1:
         description: Optional namespace for region 1 (dual-region only)
+        required: false
+    camunda-namespace-0:
+        description: Optional namespace for region 0 (dual-region only)
         required: false
     keycloak-service-name:
         description: Name of the Keycloak service with optional port (e.g. keycloak-service:8080)
@@ -389,9 +389,9 @@ runs:
           shell: bash
           env:
               CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
-              CLUSTER_2_NAME: ${{ inputs.cluster-2-name || '' }}
-              CAMUNDA_NAMESPACE_2: ${{ inputs.camunda-namespace-2 || '' }}
+              CLUSTER_1_NAME: ${{ inputs.cluster-1-name || '' }}
               CAMUNDA_NAMESPACE_1: ${{ inputs.camunda-namespace-1 || '' }}
+              CAMUNDA_NAMESPACE_0: ${{ inputs.camunda-namespace-0 || '' }}
               CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name || '' }}
           run: |
               set -euo pipefail
@@ -431,7 +431,7 @@ runs:
               PORT_FORWARD_PIDS=()
 
               # Dual-Region includes the portforwarding itself, therefore skipping it here
-              if [[ -z "$CAMUNDA_DOMAIN" && -z "$CLUSTER_2_NAME" ]]; then
+              if [[ -z "$CAMUNDA_DOMAIN" && -z "$CLUSTER_1_NAME" ]]; then
                 # Without domain:
                 source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-local.sh
 
@@ -506,11 +506,11 @@ runs:
               yq e '.clusterId = "zzzzzz-xxxxx-yyyy-dddd-cccc"' -i "$reference_file"
 
               # Replace namespace names with cluster names if env vars are set
-              if [[ -n "${CLUSTER_2_NAME:-}" && -n "${CAMUNDA_NAMESPACE_2:-}" && -n "${CAMUNDA_NAMESPACE_1:-}" ]]; then
+              if [[ -n "${CLUSTER_1_NAME:-}" && -n "${CAMUNDA_NAMESPACE_1:-}" && -n "${CAMUNDA_NAMESPACE_0:-}" ]]; then
                 echo "Replacing namespace values in golden file..."
-                sed -e "s/cluster-region-2/$CLUSTER_2_NAME/g" \
-                    -e "s/camunda-cluster-region-2\.svc/$CAMUNDA_NAMESPACE_2\.svc/g" \
+                sed -e "s/cluster-region-1/$CLUSTER_1_NAME/g" \
                     -e "s/camunda-cluster-region-1\.svc/$CAMUNDA_NAMESPACE_1\.svc/g" \
+                    -e "s/camunda-cluster-region-0\.svc/$CAMUNDA_NAMESPACE_0\.svc/g" \
                     -i "$reference_file"
               fi
 
