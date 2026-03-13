@@ -174,20 +174,25 @@ runs:
           shell: bash
           run: |
               go test --count=1 -v -timeout 4m -failfast -run TestAWSKubeConfigCreation
+        ########### Namespace and DNS setup #########
         - name: Export GHA for namespace setup
           shell: bash
           run: |
               echo "CLUSTER_1_NAMESPACE_ARR=c8-snap-cluster-1" >> "$GITHUB_ENV"
               echo "CLUSTER_0_NAMESPACE_ARR=c8-snap-cluster-0" >> "$GITHUB_ENV"
-        - name: Create all required namespaces and secrets
+        - name: Create namespaces for DNS chaining tests
           shell: bash
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/test/
           env:
-              AWS_ACCESS_KEY_ES: ${{ steps.s3-credentials.outputs.AWS_ACCESS_KEY_ES }}
-              AWS_SECRET_ACCESS_KEY_ES: ${{ steps.s3-credentials.outputs.AWS_SECRET_ACCESS_KEY_ES }}
+              KUBECONFIG: kubeconfig-london:kubeconfig-paris
           run: |
-              go test --count=1 -v -timeout 9m -failfast -run TestClusterPrerequisites
-        ########### Namespace and DNS setup #########
+              set -euo pipefail
+
+              for ctx in "${{ env.CLUSTER_NAME }}-london" "${{ env.CLUSTER_NAME }}-paris"; do
+                for ns in ${{ env.CLUSTER_0_NAMESPACE_ARR }} ${{ env.CLUSTER_1_NAMESPACE_ARR }}; do
+                  kubectl --context "$ctx" create namespace "$ns" --dry-run=client -o yaml | kubectl --context "$ctx" apply -f -
+                done
+              done
         - name: Do the DNS chaining for all required namespaces
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/test/
           shell: bash
