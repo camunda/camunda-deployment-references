@@ -3117,7 +3117,7 @@
                 "enabled": true
               }
             ],
-            "engine_version": "OpenSearch_2.19",
+            "engine_version": "OpenSearch_3.3",
             "identity_center_options": [],
             "ip_address_type": "ipv4",
             "log_publishing_options": [],
