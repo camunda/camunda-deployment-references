@@ -555,7 +555,8 @@ jobs:
                   fi
 
                   echo "Setup namespaces and initial secrets"
-                  source ./generic/openshift/dual-region/procedure/setup-namespaces-secrets.sh
+                  source ./generic/openshift/dual-region/procedure/setup-namespaces.sh
+                  source ./generic/openshift/dual-region/procedure/create-elasticsearch-secrets.sh
 
             ############# ECK Elasticsearch Deployment ##############
             - name: Set kubectl context to Cluster 0
