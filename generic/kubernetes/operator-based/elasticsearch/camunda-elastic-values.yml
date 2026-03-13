@@ -9,6 +9,7 @@
 # Uses per-component ES config (optimize.database.elasticsearch + orchestration.data.secondaryStorage.elasticsearch)
 # instead of the deprecated global.elasticsearch.
 
+# Orchestration secondary storage configuration
 orchestration:
     data:
         secondaryStorage:
@@ -21,6 +22,7 @@ orchestration:
                         existingSecret: elasticsearch-es-elastic-user
                         existingSecretKey: elastic
 
+# Optimize database configuration
 optimize:
     database:
         elasticsearch:
