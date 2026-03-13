@@ -1,0 +1,36 @@
+---
+# Migration-specific ECK cluster overrides.
+# Deep-merged onto operator-based/elasticsearch/elasticsearch-cluster.yml
+# by lib.sh deploy_elasticsearch().
+#
+# Variables (substituted via envsubst at runtime):
+#   ECK_CLUSTER_NAME          — name of the migration ECK cluster
+#   SOURCE_ES_REINDEX_HOST    — source (Bitnami) ES service DNS for reindex whitelist
+#
+# ⚠  POST-MIGRATION: the reindex.remote.whitelist setting should be removed
+#    after the migration is complete. Either re-apply the base
+#    elasticsearch-cluster.yml without this patch, or remove the setting
+#    manually:
+#      kubectl get elasticsearch ${ECK_CLUSTER_NAME} -o yaml \
+#        | yq 'del(.spec.nodeSets[0].config."reindex.remote.whitelist")' \
+#        | kubectl apply -f -
+metadata:
+    name: ${ECK_CLUSTER_NAME}
+spec:
+    nodeSets:
+        - name: masters
+          config:
+              # Allow _reindex only from the source (Bitnami) Elasticsearch service
+              # yamllint disable-line
+              reindex.remote.whitelist: ${SOURCE_ES_REINDEX_HOST}:9200
+          podTemplate:
+              spec:
+                  affinity:
+                      podAntiAffinity:
+                          requiredDuringSchedulingIgnoredDuringExecution:
+                              - labelSelector:
+                                    matchExpressions:
+                                        - key: elasticsearch.k8s.elastic.co/cluster-name
+                                          operator: In
+                                          values:
+                                              - ${ECK_CLUSTER_NAME}
