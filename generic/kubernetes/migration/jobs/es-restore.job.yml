@@ -281,12 +281,22 @@ spec:
                         # Component templates must be created before index templates that
                         # reference them, otherwise the PUT _index_template call fails with
                         # "component templates [...] that do not exist".
+                        #
+                        # NOTE: Connectors templates (connectors-*, connectors-sync-jobs-*)
+                        # are intentionally excluded from the filter below.
+                        # Connectors creates its own ES component and index templates
+                        # dynamically at application startup. When components are frozen
+                        # (scaled to 0) before the ES backup, Connectors is not running
+                        # and these templates are no longer fetchable via the ES API (404).
+                        # They will be recreated automatically when Connectors restarts
+                        # after migration — no manual migration is needed.
+                        # Connectors data indices are still migrated (reindex + aliases).
                         TMPL_FAILED=0
                         COMP_NAMES=$(curl -sf "${SOURCE_AUTH[@]}" \
                           "$SOURCE/_component_template?filter_path=component_templates.name" \
                           | sed 's/[{}":]/ /g' \
                           | tr ',' '\n' \
-                          | grep -oE '(zeebe|operate|tasklist|optimize|connectors|camunda)[^ ]*' \
+                          | grep -oE '(zeebe|operate|tasklist|optimize|camunda)[^ ]*' \
                           | sort -u || true)
 
                         if [ -n "$COMP_NAMES" ]; then
@@ -324,7 +334,7 @@ spec:
                           "$SOURCE/_index_template?filter_path=index_templates.name" \
                           | sed 's/[{}":]/ /g' \
                           | tr ',' '\n' \
-                          | grep -oE '(zeebe|operate|tasklist|optimize|connectors|camunda)[^ ]*' \
+                          | grep -oE '(zeebe|operate|tasklist|optimize|camunda)[^ ]*' \
                           | sort -u || true)
 
                         if [ -n "$TMPL_NAMES" ]; then
