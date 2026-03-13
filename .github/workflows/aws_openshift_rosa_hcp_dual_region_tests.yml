@@ -610,26 +610,26 @@ jobs:
                   # See: azure_kubernetes_aks_single_region_tests.yml for reference implementation.
                   cp -f generic/openshift/dual-region/helm-values/values-base.yml ./values.yml
 
+                  echo "Region 0:"
+                  yq '. *+ load("generic/openshift/dual-region/helm-values/values-region-0.yml")' values.yml > values-region-0-result.yml
+                  cat values-region-0-result.yml && mv values-region-0-result.yml values-region-0.yml
+
                   echo "Region 1:"
                   yq '. *+ load("generic/openshift/dual-region/helm-values/values-region-1.yml")' values.yml > values-region-1-result.yml
                   cat values-region-1-result.yml && mv values-region-1-result.yml values-region-1.yml
-
-                  echo "Region 2:"
-                  yq '. *+ load("generic/openshift/dual-region/helm-values/values-region-2.yml")' values.yml > values-region-2-result.yml
-                  cat values-region-2-result.yml && mv values-region-2-result.yml values-region-2.yml
 
                   # Add integration tests values
                   if [ "$TESTS_ENABLED" == "true" ]; then
                     echo "Enabling test files"
                     for file in registry.yml; do
 
+                      echo "Region 0:"
+                      yq ". *+ load(\"generic/kubernetes/dual-region/tests/helm-values/$file\")" values-region-0.yml > values-region-0-result.yml
+                      cat values-region-0-result.yml && mv values-region-0-result.yml values-region-0.yml
+
                       echo "Region 1:"
                       yq ". *+ load(\"generic/kubernetes/dual-region/tests/helm-values/$file\")" values-region-1.yml > values-region-1-result.yml
                       cat values-region-1-result.yml && mv values-region-1-result.yml values-region-1.yml
-
-                      echo "Region 2:"
-                      yq ". *+ load(\"generic/kubernetes/dual-region/tests/helm-values/$file\")" values-region-2.yml > values-region-2-result.yml
-                      cat values-region-2-result.yml && mv values-region-2-result.yml values-region-2.yml
 
                     done
                   fi
@@ -738,8 +738,8 @@ jobs:
                   backup-name: ${{ env.CAMUNDA_RELEASE_NAME }}-backup-${{ github.run_attempt }}
                   backup-bucket: ${{ env.BACKUP_BUCKET_S3_BUCKET_NAME }}
                   default-values-yaml: ${{ github.workspace }}/openshift.yml
-                  region-0-values-yaml: ${{ github.workspace }}/generated-values-region-1.yml
-                  region-1-values-yaml: ${{ github.workspace }}/generated-values-region-2.yml
+                  region-0-values-yaml: ${{ github.workspace }}/generated-values-region-0.yml
+                  region-1-values-yaml: ${{ github.workspace }}/generated-values-region-1.yml
                   # Skip cleanup since OpenShift deployment is already done with Submariner ServiceExports
                   # Deploy will use helm upgrade --install which preserves existing resources
                   skip-cleanup: 'true'
