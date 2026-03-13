@@ -66,7 +66,7 @@ sudo chown -R "${USERNAME}:${USERNAME}" "${MNT_DIR}/"
 
 if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
     echo "[INFO] Fetching the latest snapshot version of Camunda ${CAMUNDA_VERSION}."
-    CAMUNDA_SNAPSHOT_VERSION=$(curl -s "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>tar.gz</extension>" | \
+    CAMUNDA_SNAPSHOT_VERSION=$(curl -sfL "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>tar.gz</extension>" | \
         grep "<value>" | \
         sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//')
     echo "[INFO] Latest snapshot version is ${CAMUNDA_SNAPSHOT_VERSION}."
@@ -74,7 +74,7 @@ fi
 
 if [[ "${CAMUNDA_CONNECTORS_VERSION}" =~ "SNAPSHOT" ]]; then
     echo "[INFO] Fetching the latest snapshot version of Camunda Connectors ${CAMUNDA_CONNECTORS_VERSION}."
-    CONNECTORS_SNAPSHOT_VERSION=$(curl -s "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>pom</extension>" | \
+    CONNECTORS_SNAPSHOT_VERSION=$(curl -sfL "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>pom</extension>" | \
         grep "<value>" | \
         sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//')
     echo "[INFO] Latest snapshot version is ${CONNECTORS_SNAPSHOT_VERSION}."
@@ -94,9 +94,9 @@ fi
 # Install Camunda 8
 
 if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
-    curl -L "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_SNAPSHOT_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
+    curl -fL "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_SNAPSHOT_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
 else
-    curl -L "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
+    curl -fL "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
 fi
 
 mkdir -p "${MNT_DIR}/camunda"
@@ -108,12 +108,12 @@ rm -rf "${MNT_DIR}/camunda.tar.gz"
 mkdir -p "${MNT_DIR}/connectors/"
 
 if [[ "${CAMUNDA_CONNECTORS_VERSION}" =~ "SNAPSHOT" ]]; then
-    curl -L "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CONNECTORS_SNAPSHOT_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
+    curl -fL "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CONNECTORS_SNAPSHOT_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
 else
-    curl -L "https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CAMUNDA_CONNECTORS_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
+    curl -fL "https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CAMUNDA_CONNECTORS_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
 fi
 
-curl -L https://raw.githubusercontent.com/camunda/connectors/main/bundle/default-bundle/start.sh -o "${MNT_DIR}/connectors/start.sh"
+curl -fL https://raw.githubusercontent.com/camunda/connectors/main/bundle/default-bundle/start.sh -o "${MNT_DIR}/connectors/start.sh"
 chmod +x "${MNT_DIR}/connectors/start.sh"
 
 # shellcheck disable=SC2016
