@@ -102,4 +102,4 @@ repos:
             # yamlfmt removes quotes around YAML values like "OFF" or "false" which
             # breaks ES config and envsubst job templates (boolean/string confusion).
             # yamllint disable-line rule:line-length
-            exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.yml|local/kubernetes/kind-single-region/configs/elasticsearch-cluster.yml|generic/kubernetes/migration/jobs/.*\.yml)
+            exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.*\.yml|local/kubernetes/kind-single-region/configs/elasticsearch-cluster.yml|generic/kubernetes/migration/jobs/.*\.yml)

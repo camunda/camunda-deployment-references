@@ -107,8 +107,8 @@ runs:
               touch "${{ inputs.default-values-yaml }}"
 
               {
-                echo "CLUSTER_0_NAMESPACE=${{ inputs.cluster-0-namespace }}"
-                echo "CLUSTER_1_NAMESPACE=${{ inputs.cluster-1-namespace }}"
+                echo "CAMUNDA_NAMESPACE_0=${{ inputs.cluster-0-namespace }}"
+                echo "CAMUNDA_NAMESPACE_1=${{ inputs.cluster-1-namespace }}"
                 echo "HELM_CHART_VERSION=${{ inputs.helm-version }}"
                 echo "BACKUP_NAME=${{ inputs.backup-name }}"
                 echo "BACKUP_BUCKET=${{ inputs.backup-bucket }}"

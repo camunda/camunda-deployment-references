@@ -1,6 +1,18 @@
 #!/bin/bash
+# Creates the ECK secure settings secret for Elasticsearch S3 snapshot/backup.
+#
+# ECK injects these keys into the Elasticsearch keystore at startup.
+# The secret name must match the secureSettings reference in the Elasticsearch CRD.
+#
+# Required environment variables:
+#   AWS_ACCESS_KEY_ES        - AWS access key for the S3 backup bucket
+#   AWS_SECRET_ACCESS_KEY_ES - AWS secret access key for the S3 backup bucket
+#   CLUSTER_0                - kubectl context for region 0
+#   CLUSTER_1                - kubectl context for region 1
+#   CAMUNDA_NAMESPACE_0      - namespace for region 0
+#   CAMUNDA_NAMESPACE_1      - namespace for region 1
 
-set -e
+set -euo pipefail
 
 create_namespace() {
     local context=$1
@@ -12,20 +24,19 @@ create_secret() {
     local context=$1
     local namespace=$2
     local secret_name=$3
-    local access_key=$4
-    local secret_access_key=$5
-    kubectl --context "$context" -n "$namespace" delete secret "$secret_name" --ignore-not-found
+
     kubectl --context "$context" -n "$namespace" create secret generic "$secret_name" \
-        --from-literal=S3_ACCESS_KEY="$access_key" \
-        --from-literal=S3_SECRET_KEY="$secret_access_key"
+        --from-literal=s3.client.camunda.access_key="$AWS_ACCESS_KEY_ES" \
+        --from-literal=s3.client.camunda.secret_key="$AWS_SECRET_ACCESS_KEY_ES" \
+        --dry-run=client -o yaml | kubectl --context "$context" apply -f -
 }
 
-if [ -z "$AWS_ACCESS_KEY_ES" ]; then
+if [ -z "${AWS_ACCESS_KEY_ES:-}" ]; then
     echo "Error: AWS_ACCESS_KEY_ES environment variable is not set."
     exit 1
 fi
 
-if [ -z "$AWS_SECRET_ACCESS_KEY_ES" ]; then
+if [ -z "${AWS_SECRET_ACCESS_KEY_ES:-}" ]; then
     echo "Error: AWS_SECRET_ACCESS_KEY_ES environment variable is not set."
     exit 1
 fi
@@ -33,5 +44,9 @@ fi
 create_namespace "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0"
 create_namespace "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1"
 
-create_secret "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0" "elasticsearch-env-secret" "$AWS_ACCESS_KEY_ES" "$AWS_SECRET_ACCESS_KEY_ES"
-create_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1" "elasticsearch-env-secret" "$AWS_ACCESS_KEY_ES" "$AWS_SECRET_ACCESS_KEY_ES"
+SECRET_NAME="elasticsearch-env-secret"
+
+echo "Creating ECK secure settings secret '$SECRET_NAME' in both regions..."
+create_secret "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0" "$SECRET_NAME"
+create_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1" "$SECRET_NAME"
+echo "Done."

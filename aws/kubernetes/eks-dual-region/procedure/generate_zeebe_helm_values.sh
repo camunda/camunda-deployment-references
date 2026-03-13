@@ -19,9 +19,9 @@ generate_initial_contact() {
 
 generate_exporter_elasticsearch_url() {
     local ns=$1
-    local release=$2
+    local service_name=${ELASTICSEARCH_SERVICE_NAME:-elasticsearch-es-masters}
     local port_number=9200
-    echo "http://${release}-elasticsearch-master-hl.${ns}.svc.cluster.local:${port_number}"
+    echo "http://${service_name}.${ns}.svc.cluster.local:${port_number}"
 }
 
 namespace_0=${CAMUNDA_NAMESPACE_0:-""}
@@ -82,8 +82,8 @@ fi
 
 # Generating and printing the string
 initial_contact=$(generate_initial_contact "$namespace_0" "$namespace_1" "$helm_release_name" "$cluster_size")
-elastic0=$(generate_exporter_elasticsearch_url "$namespace_0" "$helm_release_name")
-elastic1=$(generate_exporter_elasticsearch_url "$namespace_1" "$helm_release_name")
+elastic0=$(generate_exporter_elasticsearch_url "$namespace_0")
+elastic1=$(generate_exporter_elasticsearch_url "$namespace_1")
 
 echo
 echo "Please use the following to change the existing environment variable CAMUNDA_CLUSTER_INITIALCONTACTPOINTS $target_text. It's part of the 'zeebe.env' path."
@@ -91,12 +91,12 @@ echo
 echo "- name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS"
 echo "  value: $initial_contact"
 echo
-echo "Please use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
+echo "Please use the following to change the existing environment variable CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
 echo
-echo "- name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL"
+echo "- name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL"
 echo "  value: $elastic0"
 echo
-echo "Please use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
+echo "Please use the following to change the existing environment variable CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
 echo
-echo "- name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL"
+echo "- name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL"
 echo "  value: $elastic1"

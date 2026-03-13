@@ -122,6 +122,6 @@ terraform.tfstate.backup
 .terraform.lock.hcl
 trivyreport.txt
 
-camunda-docs/
-debug/
-camunda-platform-helm/
+camunda-docs/**
+debug/**
+camunda-platform-helm/**
