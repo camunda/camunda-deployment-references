@@ -34,7 +34,8 @@ on:
                 options:
                     - light
                     - heavy
-                default: light
+                # TODO: revert to light before merge
+                default: heavy
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -102,7 +103,7 @@ jobs:
             - clusters-info
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: aws-core-16-default
-        timeout-minutes: 60
+        timeout-minutes: ${{ matrix.distro.benchmark_scenario == 'heavy' && 120 || 60 }}
         strategy:
             fail-fast: false
             matrix:
@@ -115,6 +116,7 @@ jobs:
             CAMUNDA_NAMESPACE: camunda
             CAMUNDA_RELEASE_NAME: camunda
             REF_ARCH_PATH: local/kubernetes/kind-single-region
+            BENCHMARK_SCENARIO: ${{ matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light' }}
         steps:
             - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
@@ -306,7 +308,7 @@ jobs:
                   echo "Seeding completed"
 
             - name: Run benchmark to generate Zeebe data
-              timeout-minutes: 15
+              timeout-minutes: ${{ matrix.distro.benchmark_scenario == 'heavy' && 25 || 15 }}
               run: |
                   set -euo pipefail
 
@@ -368,7 +370,7 @@ jobs:
                   echo "Benchmark finished"
 
             - name: Wait for data to propagate to Elasticsearch
-              timeout-minutes: 5
+              timeout-minutes: ${{ matrix.distro.benchmark_scenario == 'heavy' && 15 || 5 }}
               run: |
                   set -euo pipefail
 
@@ -421,7 +423,7 @@ jobs:
 
             # --- Phase 2: Backup (no downtime) ---
             - name: Phase 2 - Initial backup (warm, no downtime)
-              timeout-minutes: 15
+              timeout-minutes: ${{ matrix.distro.benchmark_scenario == 'heavy' && 30 || 15 }}
               working-directory: ./generic/kubernetes/migration/
               run: |
                   set -euo pipefail
@@ -430,7 +432,7 @@ jobs:
 
             # --- Phase 3: Cutover (downtime window) ---
             - name: Phase 3 - Cutover (freeze, backup, restore, switch)
-              timeout-minutes: 20
+              timeout-minutes: ${{ matrix.distro.benchmark_scenario == 'heavy' && 40 || 20 }}
               working-directory: ./generic/kubernetes/migration/
               run: |
                   set -euo pipefail
