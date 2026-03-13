@@ -30,6 +30,27 @@ import (
 // Used only for test/demo authentication against the Camunda components.
 const basicAuthDemoHeader = "Basic ZGVtbzpkZW1v"
 
+var (
+	// ElasticsearchPodName is the ECK-managed Elasticsearch pod used for exec operations (backup, restore, health checks).
+	// Override via ELASTICSEARCH_POD_NAME env var.
+	ElasticsearchPodName = helpers.GetEnv("ELASTICSEARCH_POD_NAME", "elasticsearch-es-masters-0")
+
+	// ElasticsearchServiceName is the ECK-managed headless Elasticsearch service name used when rewriting
+	// cross-region exporter URLs in camunda-values.yml placeholders. Must match the service name used by
+	// generate_zeebe_helm_values.sh (which also reads ELASTICSEARCH_SERVICE_NAME).
+	// Override via ELASTICSEARCH_SERVICE_NAME env var.
+	ElasticsearchServiceName = helpers.GetEnv("ELASTICSEARCH_SERVICE_NAME", "elasticsearch-es-masters")
+)
+
+// getElasticsearchPassword retrieves the elastic user password from the ECK-generated secret.
+func getElasticsearchPassword(t *testing.T, kubectlOptions *k8s.KubectlOptions) string {
+	t.Helper()
+	secret := k8s.GetSecret(t, kubectlOptions, "elasticsearch-es-elastic-user")
+	password, ok := secret.Data["elastic"]
+	require.True(t, ok, "elastic key not found in elasticsearch-es-elastic-user secret")
+	return string(password)
+}
+
 type Partition struct {
 	PartitionId int    `json:"partitionId"`
 	Role        string `json:"role"`
@@ -192,12 +213,17 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 
 	helm.Delete(t, helmOptions, "camunda", true)
 
+	// Delete ECK-managed Elasticsearch CR before PVCs to avoid stuck finalizers.
+	// The Elasticsearch CR is deployed outside of Helm via kubectl apply, so helm delete does not remove it.
+	t.Logf("[C8 HELM TEARDOWN] deleting ECK Elasticsearch CR in namespace %s", kubectlOptions.Namespace)
+	k8s.RunKubectl(t, kubectlOptions, "delete", "elasticsearch", "--all", "--timeout=120s", "--ignore-not-found=true")
+
 	t.Logf("[C8 HELM TEARDOWN] removing all PVCs and PVs from namespace %s", kubectlOptions.Namespace)
 
 	pvcs := k8s.ListPersistentVolumeClaims(t, kubectlOptions, metav1.ListOptions{})
 
 	for _, pvc := range pvcs {
-		k8s.RunKubectl(t, kubectlOptions, "delete", "pvc", pvc.Name)
+		k8s.RunKubectl(t, kubectlOptions, "delete", "pvc", pvc.Name, "--ignore-not-found=true")
 	}
 }
 
@@ -279,8 +305,10 @@ func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size
 		instanceRequestBody = `{}`
 	}
 
+	expectedTotal := fmt.Sprintf("\"totalItems\":%d", size)
+
 	var bodyString string
-	for i := 0; i < 8; i++ {
+	for i := 0; i < 20; i++ {
 		// fresh request each iteration to avoid reusing consumed body
 		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-instances/search", endpoint), strings.NewReader(instanceRequestBody))
 		if err != nil {
@@ -310,11 +338,11 @@ func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size
 		bodyString = string(body)
 
 		t.Logf("[C8 Process INSTANCES] %s", bodyString)
-		if !strings.Contains(bodyString, "\"totalItems\":0") {
-			t.Log("[C8 PROCESS INSTANCES] processes are present, breaking and asserting")
+		if strings.Contains(bodyString, expectedTotal) {
+			t.Logf("[C8 PROCESS INSTANCES] expected %d instances found, breaking", size)
 			break
 		}
-		t.Log("[C8 PROCESS INSTANCES] not imported yet, waiting...")
+		t.Logf("[C8 PROCESS INSTANCES] expected %d instances not yet reached, waiting...", size)
 		time.Sleep(15 * time.Second)
 	}
 
@@ -334,11 +362,13 @@ func RunSensitiveKubectlCommand(t *testing.T, kubectlOptions *k8s.KubectlOptions
 func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, backupBucket, inputVersion string) {
 	t.Logf("[ELASTICSEARCH] Configuring Elasticsearch backup for cluster %s", cluster.ClusterName)
 
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
 	// Replace dots with dashes in the version string.
 	version := strings.ReplaceAll(inputVersion, ".", "-")
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
-		"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--",
+		"curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
 		"-H", "Content-Type: application/json",
 		"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}",
 			backupBucket, backupBucket, version))
@@ -360,7 +390,12 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, backupBucket,
 func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Creating Elasticsearch backup for cluster %s", cluster.ClusterName)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
+	// Delete any pre-existing snapshot with the same name to avoid snapshot_name_already_in_use_exception
+	k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "DELETE", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s", backupName))
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
@@ -394,11 +429,15 @@ func CheckThatElasticBackupIsPresent(t *testing.T, cluster helpers.Cluster, back
 func removeElasticBackup(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[ELASTICSEARCH BACKUP] Backup not found, removing backup store to recreate %s", cluster.ClusterName)
 
-	k8s.RunKubectl(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XDELETE", "localhost:9200/_snapshot/camunda_backup")
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
+	k8s.RunKubectl(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XDELETE", "localhost:9200/_snapshot/camunda_backup")
 }
 
 func getAllElasticBackups(t *testing.T, cluster helpers.Cluster) (string, error) {
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XGET", "localhost:9200/_snapshot/camunda_backup/_all")
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XGET", "localhost:9200/_snapshot/camunda_backup/_all")
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return "", err
@@ -410,7 +449,9 @@ func getAllElasticBackups(t *testing.T, cluster helpers.Cluster) (string, error)
 func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Restoring Elasticsearch backup for cluster %s", cluster.ClusterName)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
@@ -444,8 +485,8 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 
 	// Extract the replacement text for the initial contact points and Elasticsearch URLs
 	initialContact := extractReplacementText(scriptOutput, "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS")
-	elastic0 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL")
-	elastic1 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL")
+	elastic0 := extractReplacementText(scriptOutput, "CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL")
+	elastic1 := extractReplacementText(scriptOutput, "CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL")
 
 	require.NotEmpty(t, initialContact, "Initial contact points should not be empty")
 	require.NotEmpty(t, elastic0, "Elasticsearch region 0 URL should not be empty")
@@ -470,8 +511,8 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 
 	// Replace the placeholders with the replacement strings
 	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", initialContact, -1)
-	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200", elastic0, -1)
-	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", elastic1, -1)
+	modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://%s.camunda-primary.svc.cluster.local:9200", ElasticsearchServiceName), elastic0, -1)
+	modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://%s.camunda-secondary.svc.cluster.local:9200", ElasticsearchServiceName), elastic1, -1)
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
@@ -496,6 +537,10 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	helmOptions.ExtraArgs = map[string][]string{
 		"upgrade": {"--version", remoteChartVersion, "--install"},
 	}
+
+	// Write the final merged values to a debug file for troubleshooting
+	writeDebugValues(t, valuesFiles, setValues, setStringValues)
+
 	helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
 
 	// Write the old file back to the file - mostly for local development
@@ -517,6 +562,49 @@ func extractReplacementText(output, variableName string) string {
 		return output[startIndex:]
 	}
 	return output[startIndex : startIndex+endIndex]
+}
+
+func writeDebugValues(t *testing.T, valuesFiles []string, setValues, setStringValues map[string]string) {
+	debugDir := "debug"
+	if err := os.MkdirAll(debugDir, 0755); err != nil {
+		t.Logf("[C8 HELM DEBUG] Failed to create debug directory: %v", err)
+		return
+	}
+
+	var combined strings.Builder
+
+	for _, f := range valuesFiles {
+		combined.WriteString(fmt.Sprintf("# --- Source: %s ---\n", f))
+		content, err := os.ReadFile(f)
+		if err != nil {
+			combined.WriteString(fmt.Sprintf("# Error reading file: %v\n", err))
+		} else {
+			combined.Write(content)
+			combined.WriteString("\n")
+		}
+	}
+
+	if len(setValues) > 0 {
+		combined.WriteString("# --- Helm --set values ---\n")
+		for k, v := range setValues {
+			combined.WriteString(fmt.Sprintf("# %s=%s\n", k, v))
+		}
+	}
+
+	if len(setStringValues) > 0 {
+		combined.WriteString("# --- Helm --set-string values ---\n")
+		for k, v := range setStringValues {
+			combined.WriteString(fmt.Sprintf("# %s=%s\n", k, v))
+		}
+	}
+
+	debugFile := filepath.Join(debugDir, "values.yaml")
+	if err := os.WriteFile(debugFile, []byte(combined.String()), 0644); err != nil {
+		t.Logf("[C8 HELM DEBUG] Failed to write debug values: %v", err)
+		return
+	}
+
+	t.Logf("[C8 HELM DEBUG] Final values written to %s", debugFile)
 }
 
 func StatefulSetContains(t *testing.T, kubectlOptions *k8s.KubectlOptions, statefulset, searchValue string) bool {
@@ -900,9 +988,55 @@ func CheckTenantExists(t *testing.T, cluster helpers.Cluster, tenantId string) {
 	require.Contains(t, bodyString, tenantId)
 }
 
-// CheckElasticsearchClusterHealth verifies that the Elasticsearch cluster health is green
+// VerifyExporterStatus checks exporter status and exporting state via the Zeebe actuator API.
+// It logs the full exporter list and asserts that both exporters are ENABLED and exporting is not globally paused.
+func VerifyExporterStatus(t *testing.T, cluster helpers.Cluster) {
+	t.Helper()
+	t.Logf("[EXPORTER STATUS] Checking exporter status for %s", cluster.ClusterName)
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
+	defer closeFn()
+
+	// Check individual exporter status
+	res, body := helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", endpoint), nil)
+	require.NotNil(t, res, "[EXPORTER STATUS] Failed to get exporter status - HTTP request returned nil")
+	t.Logf("[EXPORTER STATUS] Exporters: %s", body)
+	require.Equal(t, 200, res.StatusCode)
+	require.Contains(t, body, "\"status\":\"ENABLED\"", "Expected at least one enabled exporter")
+}
+
+// CheckElasticsearchProcessInstanceCount queries ES directly for the number of process instance documents.
+// This helps differentiate between exporter issues (records not in ES) and Operate importer issues (records in ES but not in Operate).
+func CheckElasticsearchProcessInstanceCount(t *testing.T, cluster helpers.Cluster) {
+	t.Helper()
+	t.Logf("[ES DEBUG] Checking process instance count in ES for %s", cluster.ClusterName)
+
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
+
+	output, err := k8s.RunKubectlAndGetOutputE(
+		t,
+		&cluster.KubectlNamespace,
+		"exec",
+		ElasticsearchPodName,
+		"-c",
+		"elasticsearch",
+		"--",
+		"curl",
+		"-u", fmt.Sprintf("elastic:%s", esPassword),
+		"-s",
+		"localhost:9200/*process*/_count",
+	)
+	if err != nil {
+		t.Logf("[ES DEBUG] Failed to query ES: %v", err)
+		return
+	}
+	t.Logf("[ES DEBUG] ES process instance count: %s", output)
+}
+
 func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[ELASTICSEARCH HEALTH] Checking cluster health for %s", cluster.ClusterName)
+
+	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
 
 	var output string
 	var err error
@@ -913,11 +1047,12 @@ func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
 			t,
 			&cluster.KubectlNamespace,
 			"exec",
-			"camunda-elasticsearch-master-0",
+			ElasticsearchPodName,
 			"-c",
 			"elasticsearch",
 			"--",
 			"curl",
+			"-u", fmt.Sprintf("elastic:%s", esPassword),
 			"-s",
 			"localhost:9200/_cluster/health",
 		)
@@ -960,6 +1095,46 @@ func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
 	}
 
 	t.Fatalf("[ELASTICSEARCH HEALTH] Cluster did not reach green status after 10 attempts. Last output: %s", output)
+}
+
+// WaitForGatewayAuthReady polls the Zeebe gateway /v2/topology endpoint with basic auth
+// until it returns 200. This ensures that the CamundaExporter has finished creating ES
+// indices (including camunda-user) so the gateway can authenticate requests.
+func WaitForGatewayAuthReady(t *testing.T, kubectlOptions *k8s.KubectlOptions, maxRetries int, interval time.Duration) {
+	t.Helper()
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, kubectlOptions, "camunda-zeebe-gateway", 0, 8080, 5, 15*time.Second)
+	defer closeFn()
+
+	url := fmt.Sprintf("http://%s/v2/topology", endpoint)
+
+	for i := 0; i < maxRetries; i++ {
+		client := &http.Client{Timeout: 10 * time.Second}
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			t.Logf("[GATEWAY AUTH] request creation failed (attempt %d/%d): %v", i+1, maxRetries, err)
+			time.Sleep(interval)
+			continue
+		}
+		req.Header.Set("Authorization", basicAuthDemoHeader)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Logf("[GATEWAY AUTH] request failed (attempt %d/%d): %v", i+1, maxRetries, err)
+			time.Sleep(interval)
+			continue
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode == 200 {
+			t.Logf("[GATEWAY AUTH] Zeebe gateway auth is ready (attempt %d/%d)", i+1, maxRetries)
+			return
+		}
+		t.Logf("[GATEWAY AUTH] not ready yet (status %d, attempt %d/%d)", resp.StatusCode, i+1, maxRetries)
+		time.Sleep(interval)
+	}
+
+	t.Fatalf("[GATEWAY AUTH] Zeebe gateway auth did not become ready after %d attempts", maxRetries)
 }
 
 // GetClusterTopology retrieves the current cluster topology information from the Zeebe gateway

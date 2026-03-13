@@ -1,12 +1,18 @@
 ---
-# TODO: [release-duty] when release update the link with the related Camunda version of the release
-# keep it synced with https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform-8.9/test/integration/scenarios/common/values-integration-test.yaml
-# it generates the CI user used to connect to the platform
+# Test client (venom) registered in Identity with full permissions.
+# Mirrors the pattern used by other reference architectures
+# (generic/kubernetes/single-region/tests/helm-values/identity.yml).
+#
+# Prerequisites:
+#   kubectl create secret generic identity-secret-for-components-integration \
+#       --from-literal=identity-admin-client-id=venom \
+#       --from-literal=identity-admin-client-secret=<secret-from-vault-or-random> \
+#       --namespace=camunda
+
 identity:
     clients:
         - id: venom
           name: Venom
-          # adjusted to align with our tests
           secret:
               existingSecret: identity-secret-for-components-integration
               existingSecretKey: identity-admin-client-secret

@@ -28,6 +28,9 @@ on:
             - aws/kubernetes/eks-dual-region/test/**
             - .tools-versions
             - .github/actions/internal-multi-region-tests/**
+            - .github/actions/kubernetes-eck-operator/**
+            - .github/actions/kubernetes-eck-operator-cleanup/**
+            - generic/kubernetes/operator-based/elasticsearch/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -53,10 +56,10 @@ env:
     ZEEBE_CLUSTER_SIZE: 8 # default size of Zeebe cluster for tests - used by scripts
     CAMUNDA_RELEASE_NAME: camunda
     CLUSTER_NAME: camunda-ci-eks
-    CLUSTER_0_NAME: camunda.teleport.sh-camunda-ci-eks
-    CLUSTER_1_NAME: camunda.teleport.sh-camunda-ci-eks
-    CLUSTER_1_NAMESPACE: c8-multiregion-test-cluster-1
-    CLUSTER_0_NAMESPACE: c8-multiregion-test-cluster-0
+    CLUSTER_0: camunda.teleport.sh-camunda-ci-eks
+    CLUSTER_1: camunda.teleport.sh-camunda-ci-eks
+    CAMUNDA_NAMESPACE_0: c8-multiregion-test-cluster-0
+    CAMUNDA_NAMESPACE_1: c8-multiregion-test-cluster-1
     NAMESPACE_PREFIX: infraex-
     TELEPORT: true
 
@@ -119,16 +122,16 @@ jobs:
                   RANDOM_ID="$(openssl rand -hex 3)"
 
                   BACKUP_NAME=${RANDOM_ID}
-                  CLUSTER_1_NAMESPACE="${NAMESPACE_PREFIX}${CLUSTER_1_NAMESPACE}-${RANDOM_ID}"
-                  CLUSTER_0_NAMESPACE="${NAMESPACE_PREFIX}${CLUSTER_0_NAMESPACE}-${RANDOM_ID}"
+                  CAMUNDA_NAMESPACE_0="${NAMESPACE_PREFIX}${CAMUNDA_NAMESPACE_0}-${RANDOM_ID}"
+                  CAMUNDA_NAMESPACE_1="${NAMESPACE_PREFIX}${CAMUNDA_NAMESPACE_1}-${RANDOM_ID}"
 
                   # Write the updated values to the GitHub Actions environment for subsequent steps.
                   {
                     echo "BACKUP_NAME=${BACKUP_NAME}"
-                    echo "CLUSTER_1_NAMESPACE=${CLUSTER_1_NAMESPACE}"
-                    echo "CLUSTER_0_NAMESPACE=${CLUSTER_0_NAMESPACE}"
-                    echo "CAMUNDA_NAMESPACE_0=${CLUSTER_0_NAMESPACE}"
-                    echo "CAMUNDA_NAMESPACE_1=${CLUSTER_1_NAMESPACE}"
+                    echo "CAMUNDA_NAMESPACE_0=${CAMUNDA_NAMESPACE_0}"
+                    echo "CAMUNDA_NAMESPACE_1=${CAMUNDA_NAMESPACE_1}"
+                    echo "CLUSTER_0_NAMESPACE_ARR=${CAMUNDA_NAMESPACE_0}"
+                    echo "CLUSTER_1_NAMESPACE_ARR=${CAMUNDA_NAMESPACE_1}"
                   } | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
             - name: Import Secrets
@@ -143,6 +146,29 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY | S3_BACKUP_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY | S3_BACKUP_SECRET_KEY;
 
+            - name: Clean up Helm releases and ECK resources
+              run: |
+                  set -euo pipefail
+
+                  for ns in ${{ env.CAMUNDA_NAMESPACE_0 }} ${{ env.CAMUNDA_NAMESPACE_1 }}; do
+                    if kubectl get namespace "$ns" &>/dev/null; then
+                      echo "Cleaning up resources in $ns..."
+                      helm delete camunda -n "$ns" 2>/dev/null || true
+                      kubectl delete elasticsearch --all -n "$ns" --timeout=120s 2>/dev/null || true
+                    fi
+                  done
+
+            - name: Delete namespaces
+              run: |
+                  set -euo pipefail
+
+                  for ns in ${{ env.CAMUNDA_NAMESPACE_0 }} ${{ env.CAMUNDA_NAMESPACE_1 }}; do
+                    if kubectl get namespace "$ns" &>/dev/null; then
+                      echo "Deleting namespace $ns..."
+                      kubectl delete namespace "$ns" --wait --timeout=300s
+                      echo "✓ Namespace $ns deleted"
+                    fi
+                  done
             - name: Create namespaces and secrets
               id: create-namespaces
               env:
@@ -153,6 +179,58 @@ jobs:
                   set -euo pipefail
 
                   go test --count=1 -v -timeout 9m -failfast -run TestClusterPrerequisites
+
+            ############# ECK Elasticsearch Deployment ##############
+            - name: Generate Teleport Elasticsearch manifest
+              run: |
+                  set -euo pipefail
+
+                  BASE="generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster-dual-region.yml"
+                  OUT="generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster-dual-region-teleport.yml"
+
+                  cp "$BASE" "$OUT"
+
+                  # Reduce replica count
+                  yq -i '.spec.nodeSets[0].count = 2' "$OUT"
+
+                  # Add Teleport tolerations
+                  yq -i '.spec.nodeSets[0].podTemplate.spec.tolerations = [
+                    {"key": "t-core-8-unstable", "operator": "Exists", "effect": "NoSchedule"},
+                    {"key": "t-core-16-unstable", "operator": "Exists", "effect": "NoSchedule"}
+                  ]' "$OUT"
+
+                  # Add nodeAffinity for unstable node groups
+                  yq -i '.spec.nodeSets[0].podTemplate.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms = [
+                    {"matchExpressions": [{"key": "nodegroup", "operator": "In", "values": ["t-core-8-unstable", "t-core-16-unstable"]}]}
+                  ]' "$OUT"
+
+                  # Reduce resource requests for Teleport runners
+                  yq -i '.spec.nodeSets[0].podTemplate.spec.containers[0].resources.requests.cpu = "100m"' "$OUT"
+                  yq -i '.spec.nodeSets[0].podTemplate.spec.containers[0].resources.requests.memory = "512Mi"' "$OUT"
+                  yq -i '.spec.nodeSets[0].podTemplate.spec.containers[0].resources.limits.cpu = 1' "$OUT"
+
+                  # Reduce storage request
+                  yq -i '.spec.nodeSets[0].volumeClaimTemplates[0].spec.resources.requests.storage = "30Gi"' "$OUT"
+
+            - name: Deploy Elasticsearch via ECK on cluster-0 namespace
+              timeout-minutes: 10
+              uses: ./.github/actions/kubernetes-eck-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region-teleport.yml
+
+            - name: Deploy Elasticsearch via ECK on cluster-1 namespace
+              timeout-minutes: 10
+              uses: ./.github/actions/kubernetes-eck-operator
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region-teleport.yml
+
+            - name: Sync Elasticsearch passwords across regions
+              run: |
+                  set -euo pipefail
+
+                  bash ./aws/kubernetes/eks-dual-region/procedure/sync_elasticsearch_passwords.sh
 
             - name: Label and annotate namespaces and secrets
               working-directory: ./aws/kubernetes/eks-dual-region/test
@@ -193,7 +271,7 @@ jobs:
                   }
 
                   # Combine cluster-0 and cluster-1 arrays into one comma-separated list
-                  IFS=',' read -r -a ALL_NAMESPACES <<< "${CLUSTER_0_NAMESPACE},${CLUSTER_1_NAMESPACE}"
+                  IFS=',' read -r -a ALL_NAMESPACES <<< "${CAMUNDA_NAMESPACE_0},${CAMUNDA_NAMESPACE_1}"
                   for namespace in "${ALL_NAMESPACES[@]}"; do
                     apply_labels_and_annotations "$namespace"
                   done
@@ -211,10 +289,10 @@ jobs:
               timeout-minutes: 60
               uses: ./.github/actions/internal-multi-region-tests
               with:
-                  cluster-0-name: ${{ env.CLUSTER_0_NAME }}
-                  cluster-1-name: ${{ env.CLUSTER_1_NAME }}
-                  cluster-0-namespace: ${{ env.CLUSTER_0_NAMESPACE }}
-                  cluster-1-namespace: ${{ env.CLUSTER_1_NAMESPACE }}
+                  cluster-0-name: ${{ env.CLUSTER_0 }}
+                  cluster-1-name: ${{ env.CLUSTER_1 }}
+                  cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  cluster-1-namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   helm-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
                   backup-name: ${{ env.BACKUP_NAME }}
                   backup-bucket: ${{ env.BACKUP_BUCKET }}
@@ -223,14 +301,49 @@ jobs:
                   region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
                   skip-cleanup: 'true'
 
+            ############# Debug failed pods ##############
+            - name: Debug failed pods on cluster-0
+              if: failure()
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  artifact-suffix: cluster-0
+
+            - name: Debug failed pods on cluster-1
+              if: failure()
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  artifact-suffix: cluster-1
+
+            ############# ECK Elasticsearch Cleanup ##############
+            - name: Cleanup ECK Elasticsearch on cluster-0 namespace
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+
+            - name: Cleanup ECK Elasticsearch on cluster-1 namespace
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+
+            - name: 🧹 Uninstall ECK Operator
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  skip-operator-uninstall: 'false'
+
             - name: Delete namespaces
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               working-directory: ./aws/kubernetes/eks-dual-region/test
               run: |
                   set -euo pipefail
 
-                  kubectl delete namespace "${CLUSTER_0_NAMESPACE}" || true
-                  kubectl delete namespace "${CLUSTER_1_NAMESPACE}" || true
+                  kubectl delete namespace "${CAMUNDA_NAMESPACE_0}" || true
+                  kubectl delete namespace "${CAMUNDA_NAMESPACE_1}" || true
 
     report-success:
         name: Report success

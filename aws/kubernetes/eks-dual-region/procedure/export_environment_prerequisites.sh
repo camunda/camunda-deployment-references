@@ -9,23 +9,23 @@
 # to export the environment variables to the current shell
 
 # The AWS regions of your Kubernetes cluster 0 and 1
-export REGION_0=eu-west-2
-export REGION_1=eu-west-3
+export REGION_0=${REGION_0:-eu-west-2}
+export REGION_1=${REGION_1:-eu-west-3}
 
 # The names of your Kubernetes clusters in regions 0 and 1
 # default based on the tutorial is the following
-export CLUSTER_0=cluster-london
-export CLUSTER_1=cluster-paris
+export CLUSTER_0=${CLUSTER_0:-cluster-london}
+export CLUSTER_1=${CLUSTER_1:-cluster-paris}
 
 # The Kubernetes namespaces for each region where Camunda 8 should be running
 # Namespace names must be unique to route the traffic
-export CAMUNDA_NAMESPACE_0=camunda-london
-export CAMUNDA_NAMESPACE_1=camunda-paris
+export CAMUNDA_NAMESPACE_0=${CAMUNDA_NAMESPACE_0:-camunda-london}
+export CAMUNDA_NAMESPACE_1=${CAMUNDA_NAMESPACE_1:-camunda-paris}
 
 # The Helm release name used for installing Camunda 8 in both Kubernetes clusters
-export CAMUNDA_RELEASE_NAME=camunda
+export CAMUNDA_RELEASE_NAME=${CAMUNDA_RELEASE_NAME:-camunda}
 
 # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-export HELM_CHART_VERSION="14-dev-latest"
-export HELM_CHART_REF="oci://registry.camunda.cloud/team-distribution/camunda-platform"
+export HELM_CHART_VERSION=${HELM_CHART_VERSION:-"14-dev-latest"}
+export HELM_CHART_REF=${HELM_CHART_REF:-"oci://registry.camunda.cloud/team-distribution/camunda-platform"}
 # TODO: [release-duty] before the release, update this!

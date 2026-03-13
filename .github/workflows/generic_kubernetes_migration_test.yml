@@ -1,0 +1,677 @@
+---
+name: Tests - Integration - Generic Migration from Bitnami
+
+permissions:
+    contents: read
+    pull-requests: write
+
+on:
+    schedule:
+        - cron: 0 3 * * 2 # Runs at 3 AM on Tuesday (after operator-based tests on Monday)
+    pull_request:
+        paths:
+            - .github/workflows/generic_kubernetes_migration_test.yml
+            - .github/workflows-config/generic-kubernetes-migration-from-bitnami/test_matrix.yml
+            - .tool-versions
+            - generic/kubernetes/migration/**
+            - generic/kubernetes/operator-based/**
+            - local/kubernetes/kind-single-region/**
+            - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-tests-matrix/**
+            - .github/actions/internal-clean-namespace/**
+
+    workflow_dispatch:
+        inputs:
+            enable_tests:
+                description: Whether to enable the tests.
+                type: boolean
+                default: true
+            benchmark_scenario:
+                description: |
+                    Benchmark data volume scenario.
+                    'light' = 5 PI/s for 5 min (~32 MB), 'heavy' = 150 PI/s for 10 min (~20 GB).
+                type: choice
+                options:
+                    - light
+                    - heavy
+                default: light
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: false
+
+env:
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
+    IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
+
+    CI_MATRIX_FILE: .github/workflows-config/generic-kubernetes-migration-from-bitnami/test_matrix.yml
+
+    TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+    BENCHMARK_SCENARIO: ${{ github.event.inputs.benchmark_scenario || 'light' }}
+
+    # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+    CAMUNDA_HELM_CHART_VERSION: 14-dev-latest
+    # TODO: [release-duty] before the release, update this!
+    # TODO: [release-duty] adjust renovate comment to bump the major version
+
+    # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: main
+    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    clusters-info:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        name: Define Matrix
+        runs-on: ubuntu-latest
+        outputs:
+            platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+
+            - name: Define tests matrix
+              uses: ./.github/actions/internal-tests-matrix
+              id: matrix
+              with:
+                  ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
+                  cluster_prefix: kind-migr
+                  ref_arch: migration-from-bitnami
+                  is_schedule: ${{ env.IS_SCHEDULE }}
+                  is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
+
+    migration-tests:
+        name: Run migration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
+        needs:
+            - triage
+            - clusters-info
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: aws-core-16-default
+        timeout-minutes: 60
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
+        env:
+            CLUSTER_NAME: camunda-platform-local
+            NAMESPACE: camunda
+            CAMUNDA_NAMESPACE: camunda
+            CAMUNDA_RELEASE_NAME: camunda
+            REF_ARCH_PATH: local/kubernetes/kind-single-region
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+            - name: Install build dependencies
+              run: |
+                  sudo apt-get update -qq
+                  sudo apt-get install -y -qq build-essential libssl-dev zlib1g-dev libffi-dev gettext-base
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
+                      secret/data/products/infrastructure-experience/ci/common MACHINE_USR;
+                      secret/data/products/infrastructure-experience/ci/common MACHINE_PWD;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
+
+            # =================================================================
+            # Create Kind cluster
+            # =================================================================
+            - name: Create Kind cluster
+              run: |
+                  set -euo pipefail
+                  kind create cluster --config generic/kubernetes/migration/tests/kind-cluster-config.yaml
+                  kubectl cluster-info --context kind-camunda-platform-local
+                  kubectl wait --for=condition=Ready nodes --all --timeout=300s
+                  kubectl get nodes -o wide
+                  kubectl create namespace camunda --dry-run=client -o yaml | kubectl apply -f -
+
+            - name: Create pull secrets
+              run: |
+                  set -euo pipefail
+                  kubectl create namespace "${{ env.CAMUNDA_NAMESPACE }}" --dry-run=client -o yaml | kubectl apply -f -
+                  kubectl create secret docker-registry index-docker-io \
+                      --docker-server=index.docker.io \
+                      --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
+                      --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
+                      --namespace="${{ env.CAMUNDA_NAMESPACE }}"
+                  kubectl create secret docker-registry registry-camunda-cloud \
+                      --docker-server=registry.camunda.cloud \
+                      --docker-username="${{ steps.secrets.outputs.MACHINE_USR }}" \
+                      --docker-password="${{ steps.secrets.outputs.MACHINE_PWD }}" \
+                      --namespace="${{ env.CAMUNDA_NAMESPACE }}"
+
+                  kubectl create secret generic identity-secret-for-components-integration \
+                      --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
+                      --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
+                      --namespace="${{ env.CAMUNDA_NAMESPACE }}"
+
+            # =================================================================
+            # Domain mode setup (ingress, TLS, DNS)
+            # =================================================================
+            - name: Deploy Ingress NGINX
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/ingress-nginx-deploy.sh
+
+            - name: Configure CoreDNS for domain resolution
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/coredns-config.sh
+
+            - name: Generate TLS certificates
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/certs-generate.sh
+
+            - name: Create TLS secret
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/certs-create-secret.sh
+
+            - name: Create CA ConfigMap
+              if: matrix.declination.use_tls
+              working-directory: ${{ env.REF_ARCH_PATH }}
+              run: ./procedure/certs-create-ca-configmap.sh
+
+            - name: Set domain environment
+              run: |
+                  set -euo pipefail
+                  if [[ "${{ matrix.declination.use_tls }}" == "true" ]]; then
+                      echo "CAMUNDA_DOMAIN=camunda.example.com" | tee -a "$GITHUB_ENV"
+                  else
+                      echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
+                  fi
+
+            - name: Create identity secrets
+              run: |
+                  set -euo pipefail
+                  CAMUNDA_NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}" \
+                      generic/kubernetes/migration/tests/create-identity-secrets.sh
+
+            # =================================================================
+            # STEP 1: Deploy Camunda with Bitnami sub-charts (SOURCE)
+            # =================================================================
+            - name: Helm registry login
+              uses: ./.github/actions/internal-helm-registry-login
+              with:
+                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+            - name: Deploy Camunda with Bitnami sub-charts
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  echo "Adding Camunda Helm repository..."
+                  helm repo add camunda https://helm.camunda.io
+                  helm repo update
+
+                  HELM_ARGS=(
+                      --namespace "${{ env.CAMUNDA_NAMESPACE }}"
+                      --values generic/kubernetes/migration/tests/bitnami-values.yml
+                      --values generic/kubernetes/migration/tests/bitnami-values-identity-test.yml
+                      --timeout 20m
+                      --wait
+                  )
+
+                  # Add domain overlay values for TLS/Ingress mode
+                  if [[ "${{ matrix.declination.use_tls }}" == "true" ]]; then
+                      echo "Installing Camunda Platform with Bitnami sub-charts (domain mode)..."
+                      HELM_ARGS+=(--values generic/kubernetes/migration/tests/bitnami-values-domain.yml)
+                  else
+                      echo "Installing Camunda Platform with Bitnami sub-charts (no-domain mode)..."
+                  fi
+
+                  CHART_VERSION="${{ env.CAMUNDA_HELM_CHART_VERSION }}"
+                  if [[ "${CHART_VERSION}" == *dev-latest* ]]; then
+                      echo "Using OCI registry for dev version ${CHART_VERSION}..."
+                      CHART_REF="oci://registry.camunda.cloud/team-distribution/camunda-platform"
+                  else
+                      CHART_REF="camunda/camunda-platform"
+                  fi
+
+                  helm install camunda "${CHART_REF}" \
+                      --version "${CHART_VERSION}" \
+                      "${HELM_ARGS[@]}"
+
+                  echo "Camunda with Bitnami sub-charts deployed successfully"
+
+            - name: Wait for Bitnami deployment to be ready
+              timeout-minutes: 15
+              run: generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+
+            # =================================================================
+            # STEP 1.5: Generate Test Data for Migration Validation
+            # =================================================================
+            - name: Seed test data (Zeebe processes, Keycloak user/client, WebModeler project)
+              timeout-minutes: 15
+              run: |
+                  set -euo pipefail
+
+                  echo "Seeding migration test data across all components..."
+
+                  kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -f generic/kubernetes/migration/tests/seed-test-data-job.yml
+
+                  echo "Waiting for seed pod to be scheduled..."
+                  kubectl wait --for=condition=Ready pod \
+                      -l job-name=seed-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=120s 2>/dev/null || true
+
+                  echo "Streaming seed job logs..."
+                  kubectl logs job/seed-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --follow --tail=-1 &
+                  LOGS_PID=$!
+
+                  kubectl wait --for=condition=complete job/seed-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || {
+                      echo "Seed job did not complete in time."
+                      kill "$LOGS_PID" 2>/dev/null || true
+                      exit 1
+                  }
+                  kill "$LOGS_PID" 2>/dev/null || true
+
+                  echo "Seeding completed"
+
+            - name: Run benchmark to generate Zeebe data
+              timeout-minutes: 15
+              run: |
+                  set -euo pipefail
+
+                  if [ "${{ env.BENCHMARK_SCENARIO }}" = "heavy" ]; then
+                      BENCHMARK_FILE="generic/kubernetes/migration/tests/benchmark-job-heavy.yml"
+                      echo "Running HEAVY benchmark: 150 PI/s for 10 min (~20 GB)..."
+                  else
+                      BENCHMARK_FILE="generic/kubernetes/migration/tests/benchmark-job.yml"
+                      echo "Running LIGHT benchmark: 5 PI/s for 5 min (~32 MB)..."
+                  fi
+
+                  kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -f "$BENCHMARK_FILE"
+
+                  # Wait for the benchmark pod to be running before streaming logs
+                  echo "Waiting for benchmark pod to start..."
+                  BENCHMARK_STARTED=false
+                  for _ in $(seq 1 60); do
+                      PHASE=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                          -l job-name=migration-benchmark \
+                          -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Pending")
+                      if [ "$PHASE" = "Running" ] || [ "$PHASE" = "Succeeded" ]; then
+                          echo "Pod phase: $PHASE"
+                          BENCHMARK_STARTED=true
+                          break
+                      elif [ "$PHASE" = "Failed" ]; then
+                          echo "Pod phase: $PHASE (init container likely failed)"
+                          break
+                      fi
+                      echo "  pod phase: $PHASE (waiting...)"
+                      sleep 5
+                  done
+
+                  LOGS_PID=""
+                  if [ "$BENCHMARK_STARTED" = "true" ]; then
+                      echo "Streaming benchmark logs..."
+                      kubectl logs job/migration-benchmark \
+                          -n "${{ env.CAMUNDA_NAMESPACE }}" --follow --tail=-1 &
+                      LOGS_PID=$!
+                  fi
+
+                  # Wait for the job to finish (either DeadlineExceeded or failed).
+                  # Light: 5 min + buffer = 600s. Heavy: 10 min + buffer = 900s.
+                  if [ "${{ env.BENCHMARK_SCENARIO }}" = "heavy" ]; then
+                      WAIT_TIMEOUT=900s
+                  else
+                      WAIT_TIMEOUT=600s
+                  fi
+                  kubectl wait --for=condition=failed job/migration-benchmark \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout="$WAIT_TIMEOUT"
+
+                  [[ -n "$LOGS_PID" ]] && kill "$LOGS_PID" 2>/dev/null || true
+
+                  if [ "$BENCHMARK_STARTED" != "true" ]; then
+                      echo "::error::Benchmark pod never reached Running phase — init container failed"
+                      exit 1
+                  fi
+
+                  echo "Benchmark finished"
+
+            - name: Wait for data to propagate to Elasticsearch
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+
+                  echo "Waiting for data to propagate to Elasticsearch..."
+                  sleep 60
+
+                  ES_POD=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -l "app=elasticsearch" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+
+                  if [[ -n "$ES_POD" ]]; then
+                      echo "Checking Elasticsearch indices..."
+                      kubectl exec -n "${{ env.CAMUNDA_NAMESPACE }}" "$ES_POD" -- \
+                          curl -s "localhost:9200/_cat/indices?v" | grep -E "(operate|tasklist|optimize|connectors)" || true
+
+                      INSTANCE_COUNT=$(kubectl exec -n "${{ env.CAMUNDA_NAMESPACE }}" "$ES_POD" -- \
+                          curl -s "localhost:9200/operate-list-view-*/_count" 2>/dev/null | jq -r '.count // 0' || echo "0")
+                      echo "Found ${INSTANCE_COUNT} process instances in Elasticsearch"
+                  fi
+
+                  echo "Data propagation complete"
+
+            # =================================================================
+            # STEP 2: Run Migration (4 phases)
+            # =================================================================
+            - name: Set migration environment variables
+              run: |
+                  set -euo pipefail
+
+                  {
+                    echo "NAMESPACE=${{ env.CAMUNDA_NAMESPACE }}"
+                    echo "CAMUNDA_RELEASE_NAME=camunda"
+                    echo "BACKUP_PVC=migration-backup-pvc"
+                    echo "BACKUP_STORAGE_SIZE=10Gi"
+                    echo "MIGRATE_IDENTITY=true"
+                    echo "MIGRATE_KEYCLOAK=true"
+                    echo "MIGRATE_WEBMODELER=true"
+                    echo "MIGRATE_ELASTICSEARCH=true"
+                    echo "PG_TARGET_MODE=operator"
+                    echo "ES_TARGET_MODE=operator"
+                  } >> "$GITHUB_ENV"
+
+            # --- Phase 1: Deploy Targets (no downtime) ---
+            - name: Phase 1 - Deploy target infrastructure
+              timeout-minutes: 20
+              working-directory: ./generic/kubernetes/migration/
+              run: |
+                  set -euo pipefail
+                  source ./env.sh
+                  ./1-deploy-targets.sh --yes
+
+            # --- Phase 2: Backup (no downtime) ---
+            - name: Phase 2 - Initial backup (warm, no downtime)
+              timeout-minutes: 15
+              working-directory: ./generic/kubernetes/migration/
+              run: |
+                  set -euo pipefail
+                  source ./env.sh
+                  ./2-backup.sh
+
+            # --- Phase 3: Cutover (downtime window) ---
+            - name: Phase 3 - Cutover (freeze, backup, restore, switch)
+              timeout-minutes: 20
+              working-directory: ./generic/kubernetes/migration/
+              run: |
+                  set -euo pipefail
+                  source ./env.sh
+
+                  # In Kind with mkcert self-signed TLS certs, Java components need the
+                  # CA imported into their truststore for HTTPS OIDC discovery to work.
+                  if [[ -n "${CAMUNDA_DOMAIN:-}" ]]; then
+                      export CUSTOM_HELM_VALUES_FILE="${GITHUB_WORKSPACE}/local/kubernetes/kind-single-region/helm-values/values-mkcert.yml"
+                  fi
+
+                  ./3-cutover.sh --yes
+
+            # --- Phase 4: Validate ---
+            - name: Phase 4 - Validate migration
+              timeout-minutes: 10
+              working-directory: ./generic/kubernetes/migration/
+              run: |
+                  set -euo pipefail
+                  source ./env.sh
+                  ./4-validate.sh
+
+            - name: Verify test data after migration
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  export NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
+                  export TEST_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
+                  export TEST_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+
+                  # shellcheck disable=SC2016
+                  envsubst '${NAMESPACE} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET}' \
+                      < generic/kubernetes/migration/tests/verify-test-data-job.yml \
+                      | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
+
+                  echo "Waiting for verify pod to be scheduled..."
+                  kubectl wait --for=condition=Ready pod \
+                      -l job-name=verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=120s 2>/dev/null || true
+
+                  echo "Streaming verify job logs..."
+                  kubectl logs job/verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --follow --tail=-1 &
+                  LOGS_PID=$!
+
+                  kubectl wait --for=condition=complete job/verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || {
+                      echo "Verify job did not complete in time."
+                      kill "$LOGS_PID" 2>/dev/null || true
+                      kubectl logs job/verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" 2>/dev/null || true
+                      exit 1
+                  }
+                  kill "$LOGS_PID" 2>/dev/null || true
+
+                  echo "Data verification passed"
+
+            # =================================================================
+            # STEP 5: Post-migration integration tests
+            # =================================================================
+            - name: Set current Camunda version
+              id: camunda-version
+              run: |
+                  set -euo pipefail
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Extract test client credentials
+              id: local-credentials
+              run: |
+                  set -euo pipefail
+
+                  # The venom test client was registered by Identity during Helm install
+                  # (via bitnami-values-identity-test.yml). Its secret is stored in the
+                  # identity-secret-for-components-integration K8s secret that we created
+                  # before helm install. This secret persists through migration.
+                  LOCAL_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
+                  LOCAL_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+
+                  echo "✅ Using test client '${LOCAL_CLIENT_ID}'"
+                  echo "LOCAL_CLIENT_ID=$LOCAL_CLIENT_ID" | tee -a "$GITHUB_OUTPUT"
+                  # Don't print secret to logs
+                  echo "LOCAL_CLIENT_SECRET=$LOCAL_CLIENT_SECRET" >> "$GITHUB_OUTPUT"
+
+            - name: 🧪 Run C8-SM-CHECKS deployment and connectivity tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 15
+              uses: ./.github/actions/internal-camunda-chart-tests
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
+                  camunda-domain-grpc: ''
+                  webmodeler-enabled: 'true'
+                  console-enabled: 'true'
+                  optimize-enabled: 'true'
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  test-cluster-type: kubernetes
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
+                  test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
+                  # Disable Venom/Helm chart tests, only run C8-SM-CHECKS
+                  enable-helm-chart-tests: 'false'
+                  enable-zeebe-client-tests: 'false'
+                  keycloak-service-name: keycloak-service:18080
+                  elasticsearch-service-name: elasticsearch-es-http:9200
+                  # Enable C8-SM-CHECKS
+                  enable-c8sm-deployment-check: 'true'
+                  enable-c8sm-connectivity-check: 'true'
+                  skip-c8sm-connectivity-ingress-class-check: 'true'
+                  enable-c8sm-irsa-check: 'false'
+                  # Zeebe token/connectivity checks require domain + credentials
+                  enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
+                      'false' }}
+                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
+                      || 'false' }}
+                  local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+
+            # =================================================================
+            # STEP 6: Clean up old Bitnami resources and re-verify
+            # =================================================================
+            - name: Phase 5 - Clean up old Bitnami resources
+              timeout-minutes: 10
+              working-directory: ./generic/kubernetes/migration/
+              run: |
+                  set -euo pipefail
+                  source ./env.sh
+                  ./5-cleanup-bitnami.sh --yes
+
+            - name: Verify test data after cleanup
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+
+                  export NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
+                  export TEST_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
+                  export TEST_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+
+                  # Delete previous verify job from Phase 4
+                  kubectl delete job verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --ignore-not-found=true
+
+                  # shellcheck disable=SC2016
+                  envsubst '${NAMESPACE} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET}' \
+                      < generic/kubernetes/migration/tests/verify-test-data-job.yml \
+                      | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
+
+                  echo "Waiting for verify pod to be scheduled..."
+                  kubectl wait --for=condition=Ready pod \
+                      -l job-name=verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=120s 2>/dev/null || true
+
+                  echo "Streaming verify job logs..."
+                  kubectl logs job/verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --follow --tail=-1 &
+                  LOGS_PID=$!
+
+                  kubectl wait --for=condition=complete job/verify-test-data \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s || {
+                      echo "Verify job did not complete in time."
+                      kill "$LOGS_PID" 2>/dev/null || true
+                      kubectl logs job/verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" 2>/dev/null || true
+                      exit 1
+                  }
+                  kill "$LOGS_PID" 2>/dev/null || true
+
+                  echo "Data verification passed after cleanup"
+
+            - name: 🧪 Re-run C8-SM-CHECKS after Bitnami cleanup
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 15
+              uses: ./.github/actions/internal-camunda-chart-tests
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
+                  camunda-domain-grpc: ''
+                  webmodeler-enabled: 'true'
+                  console-enabled: 'true'
+                  optimize-enabled: 'true'
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  test-cluster-type: kubernetes
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
+                  test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
+                  enable-helm-chart-tests: 'false'
+                  enable-zeebe-client-tests: 'false'
+                  keycloak-service-name: keycloak-service:18080
+                  elasticsearch-service-name: elasticsearch-es-http:9200
+                  enable-c8sm-deployment-check: 'true'
+                  enable-c8sm-connectivity-check: 'true'
+                  skip-c8sm-connectivity-ingress-class-check: 'true'
+                  enable-c8sm-irsa-check: 'false'
+                  enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
+                      'false' }}
+                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
+                      || 'false' }}
+                  local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+
+            # =================================================================
+            # Debug & Cleanup
+            # =================================================================
+            - name: Get failed Pods info
+              if: failure()
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+
+            - name: Cleanup Kind cluster
+              if: always()
+              run: |
+                  set -euo pipefail
+                  echo "Cleaning up Kind cluster: ${{ env.CLUSTER_NAME }}"
+                  kind delete cluster --name "${{ env.CLUSTER_NAME }}" || true
+
+    report-success:
+        name: Report success
+        runs-on: ubuntu-latest
+        needs:
+            - migration-tests
+        steps:
+            - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+            - name: Prevent other runs for renovate
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
+    report-failures:
+        name: Report failures
+        if: failure()
+        runs-on: ubuntu-latest
+        needs:
+            - report-success
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: ${{ env.IS_SCHEDULE == 'true' }}
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b52f5bb65b5bb9e0b0458c46b8671bf1fe9a907f # 1.5.7
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

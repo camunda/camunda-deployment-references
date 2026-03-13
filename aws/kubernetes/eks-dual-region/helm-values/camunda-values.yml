@@ -5,6 +5,10 @@
 # https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform/values.yaml
 
 # This is an example values.yml for a dual-region setup and might require resource tuning from your side
+#
+# Elasticsearch is managed via the ECK operator and configured through a separate overlay file:
+# - Elasticsearch: generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml
+#
 
 global:
     # Multiregion options for the Orchestration Cluster
@@ -19,13 +23,16 @@ global:
     multiregion:
         # number of regions that this Camunda Platform instance is stretched across
         regions: 2
+    security:
+        authentication:
+            # Use basic auth for inter-component communication (demo/demo)
+            # since Management Identity (Keycloak) is not deployed in dual-region
+            method: basic
     identity:
         auth:
             # Disable the Identity authentication
             # it will fall back to basic-auth: demo/demo as default user
             enabled: false
-    elasticsearch:
-        enabled: true
 
 identity:
     enabled: false
@@ -58,15 +65,29 @@ orchestration:
         - name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS
           value: PLACEHOLDER
         # Region 0 exporter config
-        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_CLASSNAME
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
-        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL
-          value: http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL
+          value: http://elasticsearch-es-masters.camunda-primary.svc.cluster.local:9200
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_USERNAME
+          value: elastic
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: elasticsearch-es-password-region-0
+                  key: elastic
         # Region 1 exporter config
-        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_CLASSNAME
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
-        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL
-          value: http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL
+          value: http://elasticsearch-es-masters.camunda-secondary.svc.cluster.local:9200
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_USERNAME
+          value: elastic
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: elasticsearch-es-password-region-1
+                  key: elastic
         # Zeebe cluster tuning
         - name: CAMUNDA_DATA_SNAPSHOTPERIOD
           value: 5m
@@ -88,28 +109,3 @@ orchestration:
         limits:
             cpu: 1512m
             memory: 3Gi
-
-elasticsearch:
-    enabled: true
-    master:
-        replicaCount: 2
-        resources:
-            requests:
-                cpu: 0.1
-                memory: 512M
-            limits:
-                cpu: 1
-                memory: 2Gi
-        persistence:
-            size: 30Gi
-    initScripts:
-        init-keystore.sh: |
-            #!/bin/bash
-            set -e
-
-            echo "Adding S3 access keys to Elasticsearch keystore..."
-
-            # Add S3 client camunda keys to the keystore
-            echo "$S3_SECRET_KEY" | elasticsearch-keystore add -x s3.client.camunda.secret_key
-            echo "$S3_ACCESS_KEY" | elasticsearch-keystore add -x s3.client.camunda.access_key
-    extraEnvVarsSecret: elasticsearch-env-secret
