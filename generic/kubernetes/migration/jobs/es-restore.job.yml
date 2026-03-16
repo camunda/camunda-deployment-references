@@ -305,7 +305,7 @@ spec:
                           for cname in $COMP_NAMES; do
                             COMP_DEF=$(curl -sf "${SOURCE_AUTH[@]}" \
                               "$SOURCE/_component_template/$cname") \
-                              || { echo "  WARN: Could not fetch component template $cname"; continue; }
+                              || { echo "  ERROR: Could not fetch component template $cname"; TMPL_FAILED=$((TMPL_FAILED + 1)); continue; }
                             if [ -n "$COMP_DEF" ] && [ "$COMP_DEF" != "{}" ]; then
                               # Response: {"component_templates":[{"name":"...","component_template":{...}}]}
                               COMP_BODY=$(echo "$COMP_DEF" | sed 's/.*"component_template"://' | sed 's/}]}$//')
