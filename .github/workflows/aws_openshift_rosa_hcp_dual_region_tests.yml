@@ -75,9 +75,7 @@ env:
     CLUSTER_0_AWS_REGION: eu-west-2
     CLUSTER_1_AWS_REGION: eu-west-3
 
-    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-    # TODO : revert before merge
-    CLEANUP_CLUSTERS: 'false'
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
@@ -125,9 +123,7 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  # cluster_name: ${{ inputs.cluster_name }}
-                  # TODO : revert before merge
-                  cluster_name: debg3
+                  cluster_name: ${{ inputs.cluster_name }}
                   ref_arch: ${{ inputs.ref-arch }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
