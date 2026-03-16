@@ -434,7 +434,7 @@ jobs:
 
             # --- Phase 3: Cutover (downtime window) ---
             - name: Phase 3 - Cutover (freeze, backup, restore, switch)
-              timeout-minutes: ${{ env.BENCHMARK_SCENARIO == 'heavy' && 40 || 20 }}
+              timeout-minutes: ${{ env.BENCHMARK_SCENARIO == 'heavy' && 60 || 20 }}
               working-directory: ./generic/kubernetes/migration/
               run: |
                   set -euo pipefail
