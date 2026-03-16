@@ -1660,7 +1660,7 @@ backup_es() {
 #          ES_IMAGE, NAMESPACE, TIMESTAMP
 restore_es() {
     export JOB_NAME="es-restore-${TIMESTAMP}"
-    run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}"
+    run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-1800}"
 }
 
 # =============================================================================

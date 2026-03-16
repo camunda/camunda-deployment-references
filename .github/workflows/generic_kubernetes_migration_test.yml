@@ -116,6 +116,8 @@ jobs:
             CAMUNDA_RELEASE_NAME: camunda
             REF_ARCH_PATH: local/kubernetes/kind-single-region
             BENCHMARK_SCENARIO: ${{ matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light' }}
+            ES_RESTORE_TIMEOUT: ${{ (matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light') == 'heavy' && '5400' || '1800'
+                }}
         steps:
             - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
