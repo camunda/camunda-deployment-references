@@ -520,6 +520,8 @@ jobs:
                   echo "::add-mask::$BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY"
                   # shellcheck disable=SC2086
                   export BACKUP_BUCKET_S3_BUCKET_NAME=$(yq eval '.["backup-bucket-s3-bucket-name"]' "${{ runner.temp }}/sensitive.yaml")
+                  # Persist for multi-region test step (backup-bucket input)
+                  echo "BACKUP_BUCKET_S3_BUCKET_NAME=$BACKUP_BUCKET_S3_BUCKET_NAME" >> "$GITHUB_ENV"
 
                   echo "Setup environment values"
                   sed -i \
