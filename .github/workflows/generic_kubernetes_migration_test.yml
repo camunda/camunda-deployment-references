@@ -29,7 +29,7 @@ on:
             benchmark_scenario:
                 description: |
                     Benchmark data volume scenario.
-                    'light' = 5 PI/s for 5 min (~32 MB), 'heavy' = 150 PI/s for 10 min (~20 GB).
+                    'light' = 5 PI/s for 5 min (~32 MB), 'heavy' = 150 PI/s for 30 min (~20 GB).
                 type: choice
                 options:
                     - light
