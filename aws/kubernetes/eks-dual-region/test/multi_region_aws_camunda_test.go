@@ -35,13 +35,13 @@ var (
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
 	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "14.0.0")
 	// TODO: [release-duty] before the release, switch back to "camunda/camunda-platform" (non-OCI)
-	remoteChartName = helpers.GetEnv("HELM_CHART_NAME", "oci://registry.camunda.cloud/team-distribution/camunda-platform") // OCI registry
-	globalImageTag  = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                                               // allows overwriting the image tag via GHA of every Camunda image
-	clusterName     = helpers.GetEnv("CLUSTER_NAME", "nightly")                                                            // allows supplying random cluster name via GHA
-	cluster0Name    = helpers.GetEnv("CLUSTER_0_NAME", "")                                                                 // kubectl context name for cluster 0
-	cluster1Name    = helpers.GetEnv("CLUSTER_1_NAME", "")                                                                 // kubectl context name for cluster 1
-	backupName      = helpers.GetEnv("BACKUP_NAME", "nightly")                                                             // allows supplying random backup name via GHA
-	backupBucket    = helpers.GetEnv("BACKUP_BUCKET", fmt.Sprintf("%s-elastic-backup", clusterName))                       // allows supplying backup bucket name via GHA
+	remoteChartName = helpers.GetEnv("HELM_CHART_NAME", "oci://registry.camunda.cloud/team-distribution/camunda-platform")  // OCI registry
+	globalImageTag  = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                                                // allows overwriting the image tag via GHA of every Camunda image
+	clusterName     = helpers.GetEnv("CLUSTER_NAME", "nightly")                                                             // allows supplying random cluster name via GHA
+	cluster0Name    = helpers.GetEnv("CLUSTER_0_NAME", fmt.Sprintf("%s-london", helpers.GetEnv("CLUSTER_NAME", "nightly"))) // kubectl context name for cluster 0
+	cluster1Name    = helpers.GetEnv("CLUSTER_1_NAME", fmt.Sprintf("%s-paris", helpers.GetEnv("CLUSTER_NAME", "nightly")))  // kubectl context name for cluster 1
+	backupName      = helpers.GetEnv("BACKUP_NAME", "nightly")                                                              // allows supplying random backup name via GHA
+	backupBucket    = helpers.GetEnv("BACKUP_BUCKET", fmt.Sprintf("%s-elastic-backup", clusterName))                        // allows supplying backup bucket name via GHA
 	awsProfile      = helpers.GetEnv("AWS_PROFILE", "infraex")
 
 	primary   helpers.Cluster

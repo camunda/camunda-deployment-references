@@ -885,9 +885,8 @@ jobs:
               timeout-minutes: 125
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
-                  # Map 0-indexed env vars to 1-indexed names expected by the shared cleanup script
-                  CLUSTER_1_AWS_REGION: ${{ env.CLUSTER_0_AWS_REGION }}
-                  CLUSTER_2_AWS_REGION: ${{ env.CLUSTER_1_AWS_REGION }}
+                  CLUSTER_0_AWS_REGION: ${{ env.CLUSTER_0_AWS_REGION }}
+                  CLUSTER_1_AWS_REGION: ${{ env.CLUSTER_1_AWS_REGION }}
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
