@@ -11,6 +11,7 @@ set -euo pipefail
 
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 CAMUNDA_MODE=${CAMUNDA_MODE:-no-domain}
+SKIP_ELASTICSEARCH=${SKIP_ELASTICSEARCH:-false}
 
 export CAMUNDA_NAMESPACE
 
@@ -20,14 +21,19 @@ KIND_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 
 echo "Deploying operators for Kind ($CAMUNDA_MODE mode)..."
 
-# 1. Deploy Elasticsearch via ECK operator
+# 1. Deploy Elasticsearch via ECK operator (unless skipped for PG-only mode)
 # Uses Kind-specific elasticsearch config (2 replicas, soft anti-affinity)
 # instead of the generic one (3 replicas, hard anti-affinity)
-echo ""
-echo "=== Deploying Elasticsearch (ECK) ==="
-pushd "$OPERATOR_BASE/elasticsearch" > /dev/null
-ELASTICSEARCH_CLUSTER_FILE="$KIND_CONFIGS_DIR/elasticsearch-cluster.yml" ./deploy.sh
-popd > /dev/null
+if [[ "$SKIP_ELASTICSEARCH" == "true" ]]; then
+    echo ""
+    echo "=== Skipping Elasticsearch (ECK) — SKIP_ELASTICSEARCH=true ==="
+else
+    echo ""
+    echo "=== Deploying Elasticsearch (ECK) ==="
+    pushd "$OPERATOR_BASE/elasticsearch" > /dev/null
+    ELASTICSEARCH_CLUSTER_FILE="$KIND_CONFIGS_DIR/elasticsearch-cluster.yml" ./deploy.sh
+    popd > /dev/null
+fi
 
 # 2. Deploy PostgreSQL via CloudNativePG operator
 echo ""

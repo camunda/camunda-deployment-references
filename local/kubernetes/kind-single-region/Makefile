@@ -31,15 +31,23 @@ PROCEDURE_DIR := ./procedure
 help:
 	@echo "Camunda 8 on Kind - Local Development"
 	@echo ""
-	@echo "Quick start:"
+	@echo "Quick start (PG-only — recommended, lighter, no Elasticsearch):"
+	@echo "  make pg-only.domain.init     # Full setup with TLS (requires mkcert)"
+	@echo "  make pg-only.no-domain.init  # Full setup without TLS (port-forward)"
+	@echo ""
+	@echo "Quick start (with Elasticsearch):"
 	@echo "  make domain.init        # Full setup with TLS (requires mkcert)"
 	@echo "  make no-domain.init     # Full setup without TLS (port-forward)"
 	@echo ""
-	@echo "Domain mode (TLS):"
+	@echo "PG-only mode (RDBMS secondary storage, no Elasticsearch, no Optimize):"
+	@echo "  make pg-only.domain.init     Full initialization with TLS"
+	@echo "  make pg-only.no-domain.init  Full initialization with port-forward"
+	@echo "  make pg-only.domain.clean    Full cleanup (domain)"
+	@echo "  make pg-only.no-domain.clean Full cleanup (no-domain)"
+	@echo ""
+	@echo "ES mode (Elasticsearch secondary storage, full platform):"
 	@echo "  make domain.init        Full initialization"
 	@echo "  make domain.clean       Full cleanup"
-	@echo ""
-	@echo "No-domain mode (port-forward):"
 	@echo "  make no-domain.init     Full initialization"
 	@echo "  make no-domain.clean    Full cleanup"
 	@echo ""
@@ -47,16 +55,20 @@ help:
 	@echo "  make cluster.create     Create Kind cluster"
 	@echo "  make cluster.delete     Delete Kind cluster"
 	@echo "  make ingress.deploy     Deploy Ingress NGINX"
-	@echo "  make operators.deploy-domain   Deploy operators (domain)"
-	@echo "  make operators.deploy-no-domain Deploy operators (no-domain)"
+	@echo "  make operators.deploy-domain        Deploy operators (domain, with ES)"
+	@echo "  make operators.deploy-no-domain     Deploy operators (no-domain, with ES)"
+	@echo "  make operators.deploy-pg-only-domain     Deploy operators (domain, PG-only)"
+	@echo "  make operators.deploy-pg-only-no-domain  Deploy operators (no-domain, PG-only)"
 	@echo "  make hosts.add               Add /etc/hosts entries (domain mode)"
 	@echo "  make hosts.add-keycloak       Add Keycloak host entry (no-domain mode)"
 	@echo "  make hosts.remove             Remove /etc/hosts entries (domain mode)"
 	@echo "  make hosts.remove-keycloak    Remove Keycloak host entry"
 	@echo "  make certs.generate     Generate TLS certificates"
 	@echo "  make identity-secrets.create   Create identity secrets"
-	@echo "  make camunda.deploy-domain     Deploy Camunda (domain)"
-	@echo "  make camunda.deploy-no-domain  Deploy Camunda (no-domain)"
+	@echo "  make camunda.deploy-domain              Deploy Camunda (domain, ES)"
+	@echo "  make camunda.deploy-no-domain           Deploy Camunda (no-domain, ES)"
+	@echo "  make camunda.deploy-pg-only-domain      Deploy Camunda (domain, PG-only)"
+	@echo "  make camunda.deploy-pg-only-no-domain   Deploy Camunda (no-domain, PG-only)"
 	@echo "  make camunda.wait       Wait for Camunda pods to be ready"
 	@echo "  make camunda.uninstall  Uninstall Camunda"
 	@echo ""
@@ -105,6 +117,46 @@ no-domain.clean: camunda.uninstall cluster.delete hosts.remove-keycloak
 	@echo "✓ No-domain cleanup complete!"
 
 # =============================================================================
+# PG-only workflows (RDBMS secondary storage, no Elasticsearch, no Optimize)
+# =============================================================================
+
+.PHONY: pg-only.domain.init
+pg-only.domain.init: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap operators.deploy-pg-only-domain identity-secrets.create camunda.deploy-pg-only-domain camunda.wait
+	@( \
+		PASSWORD=$$($(PROCEDURE_DIR)/get-password.sh); \
+		echo ""; \
+		echo "✓ PG-only domain setup complete!"; \
+		echo "  Access: https://camunda.example.com"; \
+		echo "  Credentials: admin / $$PASSWORD"; \
+		echo "  Note: Optimize is disabled in PG-only mode"; \
+		echo ""; \
+		echo "  Keycloak admin credentials: make get-keycloak-password"; \
+	)
+
+.PHONY: pg-only.domain.clean
+pg-only.domain.clean: camunda.uninstall cluster.delete hosts.remove certs.clean
+	@echo ""
+	@echo "✓ PG-only domain cleanup complete!"
+
+.PHONY: pg-only.no-domain.init
+pg-only.no-domain.init: cluster.create hosts.add-keycloak operators.deploy-pg-only-no-domain identity-secrets.create camunda.deploy-pg-only-no-domain camunda.wait
+	@( \
+		PASSWORD=$$($(PROCEDURE_DIR)/get-password.sh); \
+		echo ""; \
+		echo "✓ PG-only no-domain setup complete!"; \
+		echo "  Run: make port-forward"; \
+		echo "  Credentials: admin / $$PASSWORD"; \
+		echo "  Note: Optimize is disabled in PG-only mode"; \
+		echo ""; \
+		echo "  Keycloak admin credentials: make get-keycloak-password"; \
+	)
+
+.PHONY: pg-only.no-domain.clean
+pg-only.no-domain.clean: camunda.uninstall cluster.delete hosts.remove-keycloak
+	@echo ""
+	@echo "✓ PG-only no-domain cleanup complete!"
+
+# =============================================================================
 # Cluster
 # =============================================================================
 
@@ -127,6 +179,14 @@ operators.deploy-domain:
 .PHONY: operators.deploy-no-domain
 operators.deploy-no-domain:
 	@CAMUNDA_MODE=no-domain $(PROCEDURE_DIR)/operators-deploy.sh
+
+.PHONY: operators.deploy-pg-only-domain
+operators.deploy-pg-only-domain:
+	@SKIP_ELASTICSEARCH=true CAMUNDA_MODE=domain $(PROCEDURE_DIR)/operators-deploy.sh
+
+.PHONY: operators.deploy-pg-only-no-domain
+operators.deploy-pg-only-no-domain:
+	@SKIP_ELASTICSEARCH=true CAMUNDA_MODE=no-domain $(PROCEDURE_DIR)/operators-deploy.sh
 
 # =============================================================================
 # Infrastructure
@@ -223,6 +283,14 @@ camunda.deploy-domain:
 .PHONY: camunda.deploy-no-domain
 camunda.deploy-no-domain:
 	@$(PROCEDURE_DIR)/camunda-deploy-no-domain.sh
+
+.PHONY: camunda.deploy-pg-only-domain
+camunda.deploy-pg-only-domain:
+	@$(PROCEDURE_DIR)/camunda-deploy-pg-only-domain.sh
+
+.PHONY: camunda.deploy-pg-only-no-domain
+camunda.deploy-pg-only-no-domain:
+	@$(PROCEDURE_DIR)/camunda-deploy-pg-only-no-domain.sh
 
 .PHONY: camunda.uninstall
 camunda.uninstall:
