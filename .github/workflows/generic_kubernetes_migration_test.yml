@@ -116,6 +116,7 @@ jobs:
             CAMUNDA_RELEASE_NAME: camunda
             REF_ARCH_PATH: local/kubernetes/kind-single-region
             BENCHMARK_SCENARIO: ${{ matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light' }}
+            ES_WARM_REINDEX: ${{ matrix.distro.es_warm_reindex || 'false' }}
             ES_RESTORE_TIMEOUT: ${{ (matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light') == 'heavy' && '5400' || '1800'
                 }}
         steps:
@@ -425,7 +426,7 @@ jobs:
 
             # --- Phase 2: Backup (no downtime) ---
             - name: Phase 2 - Initial backup (warm, no downtime)
-              timeout-minutes: ${{ env.BENCHMARK_SCENARIO == 'heavy' && 30 || 15 }}
+              timeout-minutes: ${{ env.ES_WARM_REINDEX == 'true' && 120 || (env.BENCHMARK_SCENARIO == 'heavy' && 30 || 15) }}
               working-directory: ./generic/kubernetes/migration/
               run: |
                   set -euo pipefail

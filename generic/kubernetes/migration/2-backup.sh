@@ -103,6 +103,39 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
     save_state "ES_STS" "$ES_STS_NAME"
     save_state "ES_SERVICE" "$ES_SERVICE"
     save_state "ES_IMAGE" "$ES_IMAGE"
+
+    # ── Warm reindex (optional) ──────────────────────────────────────────
+    # When ES_WARM_REINDEX=true, perform a full reindex from source to
+    # target ES while the application is still running. This pre-populates
+    # the target so Phase 3 only needs a fast delta reindex.
+    if [[ "${ES_WARM_REINDEX:-false}" == "true" ]]; then
+        section "  Warm Reindex: Elasticsearch (no downtime)"
+        log_info "Performing warm reindex from source to target ES..."
+        log_info "This runs while the app is still active. Phase 3 will only sync the delta."
+
+        # Source ES (Bitnami)
+        es_svc="${ES_SERVICE}"
+        export SOURCE_ES_HOST="${es_svc}.${NAMESPACE}.svc.cluster.local"
+        export SOURCE_ES_PORT="9200"
+        export SOURCE_ES_SECRET_NAME="${CAMUNDA_RELEASE_NAME}-elasticsearch"
+
+        if is_external_es; then
+            # External target — user must have configured reindex.remote.whitelist
+            log_warn "ES_TARGET_MODE=external: ensure the target ES has reindex.remote.whitelist"
+            log_warn "  configured to allow pulling data from the source (${SOURCE_ES_HOST}:9200)."
+            export TARGET_ES_HOST="${EXTERNAL_ES_HOST}"
+            export TARGET_ES_PORT="${EXTERNAL_ES_PORT:-443}"
+            export TARGET_ES_SECRET_NAME="${EXTERNAL_ES_SECRET:-external-es}"
+        else
+            # Operator target (ECK) — whitelist is patched automatically
+            export TARGET_ES_HOST="${ECK_CLUSTER_NAME}-es-http.${NAMESPACE}.svc.cluster.local"
+            export TARGET_ES_PORT="9200"
+            export TARGET_ES_SECRET_NAME="${ECK_CLUSTER_NAME}-es-elastic-user"
+        fi
+
+        warm_reindex_es
+        save_state "ES_WARM_REINDEX_DONE" "true"
+    fi
 fi
 
 section "Phase 2 Complete ($(timer_elapsed))"

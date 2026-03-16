@@ -5,6 +5,10 @@
 # Required env vars: JOB_NAME, ES_IMAGE, SOURCE_ES_HOST, SOURCE_ES_PORT,
 #   TARGET_ES_HOST, TARGET_ES_PORT, SOURCE_ES_SECRET_NAME,
 #   TARGET_ES_SECRET_NAME, NAMESPACE, TIMESTAMP
+# Optional: REINDEX_MODE (full|delta, default: full)
+#   full  — refuses if target already has Camunda indices (safe for initial migration)
+#   delta — skips existing-index check, uses version_type=external + conflicts=proceed
+#           to only copy new/updated docs (for warm-reindex catch-up)
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -33,6 +37,7 @@ spec:
                       - |
                         set -euo pipefail
                         echo "=== ES Restore (Reindex from Remote) ==="
+                        echo "Mode: ${REINDEX_MODE:-full}"
 
                         SOURCE="http://${SOURCE_ES_HOST}:${SOURCE_ES_PORT}"
                         TARGET="http://${TARGET_ES_HOST}:${TARGET_ES_PORT}"
@@ -98,8 +103,11 @@ spec:
                           exit 0
                         fi
 
-                        # Check if target already has Camunda indices — refuse to
+                        # In full mode, check if target already has Camunda indices — refuse to
                         # overwrite to avoid accidental data loss.
+                        # In delta mode, skip this check — we expect indices to exist from
+                        # the warm reindex and will only sync new/updated documents.
+                        if [ "${REINDEX_MODE:-full}" = "full" ]; then
                         EXISTING=""
                         for pattern in "zeebe-*" "operate-*" "tasklist-*" "optimize-*" "connectors-*" "camunda-*"; do
                           MATCH=$(curl -sf "${TARGET_AUTH[@]}" "$TARGET/_cat/indices/$pattern?h=index" 2>/dev/null || true)
@@ -128,6 +136,9 @@ spec:
                           echo ""
                           echo "Then re-run the migration."
                           exit 1
+                        fi
+                        else
+                          echo "Delta mode: skipping existing-index check (warm reindex data expected)"
                         fi
 
                         # Build remote source auth fragment
@@ -222,7 +233,14 @@ spec:
                             fi
                           fi
 
-                          BODY="{\"source\":{\"remote\":{\"host\":\"$SOURCE\"$REMOTE_AUTH},\"index\":\"$idx\"},\"dest\":{\"index\":\"$idx\"}}"
+                          # Build reindex body. In delta mode, use version_type=external
+                          # so ES only copies docs whose _version on source > target,
+                          # and conflicts=proceed to skip already-up-to-date docs.
+                          if [ "${REINDEX_MODE:-full}" = "delta" ]; then
+                            BODY="{\"conflicts\":\"proceed\",\"source\":{\"remote\":{\"host\":\"$SOURCE\"$REMOTE_AUTH},\"index\":\"$idx\"},\"dest\":{\"index\":\"$idx\",\"version_type\":\"external\"}}"
+                          else
+                            BODY="{\"source\":{\"remote\":{\"host\":\"$SOURCE\"$REMOTE_AUTH},\"index\":\"$idx\"},\"dest\":{\"index\":\"$idx\"}}"
+                          fi
 
                           RESPONSE=$(curl -s -X POST "${TARGET_AUTH[@]}" \
                             "$TARGET/_reindex?wait_for_completion=true&timeout=10m" \
@@ -231,13 +249,17 @@ spec:
 
                           # Extract stats from reindex response
                           IDX_CREATED=$(echo "$RESPONSE" | sed -n 's/.*"created":\([0-9]*\).*/\1/p')
+                          IDX_UPDATED=$(echo "$RESPONSE" | sed -n 's/.*"updated":\([0-9]*\).*/\1/p')
+                          IDX_NOOPS=$(echo "$RESPONSE" | sed -n 's/.*"noops":\([0-9]*\).*/\1/p')
                           IDX_TOTAL=$(echo "$RESPONSE" | sed -n 's/.*"total":\([0-9]*\).*/\1/p')
                           IDX_TIME=$(echo "$RESPONSE" | sed -n 's/.*"took":\([0-9]*\).*/\1/p')
                           IDX_CREATED=${IDX_CREATED:-0}
+                          IDX_UPDATED=${IDX_UPDATED:-0}
+                          IDX_NOOPS=${IDX_NOOPS:-0}
                           IDX_TOTAL=${IDX_TOTAL:-0}
                           IDX_TIME_S=$(( ${IDX_TIME:-0} / 1000 ))
 
-                          MIGRATED_DOCS=$((MIGRATED_DOCS + IDX_CREATED))
+                          MIGRATED_DOCS=$((MIGRATED_DOCS + IDX_CREATED + IDX_UPDATED))
                           ELAPSED=$(($(date +%s) - REINDEX_START))
 
                           # Calculate throughput and ETA
@@ -253,9 +275,15 @@ spec:
                             fi
                           fi
 
-                          echo "  -> ${IDX_CREATED} docs (${IDX_TIME_S}s)" \
-                            "| Progress: ${MIGRATED_DOCS}/${TOTAL_DOCS}" \
-                            "(${DOCS_PER_SEC:-?} docs/s)${ETA_MSG}"
+                          if [ "${REINDEX_MODE:-full}" = "delta" ]; then
+                            echo "  -> created=${IDX_CREATED} updated=${IDX_UPDATED} noops=${IDX_NOOPS} (${IDX_TIME_S}s)" \
+                              "| Progress: ${MIGRATED_DOCS}/${TOTAL_DOCS}" \
+                              "(${DOCS_PER_SEC:-?} docs/s)${ETA_MSG}"
+                          else
+                            echo "  -> ${IDX_CREATED} docs (${IDX_TIME_S}s)" \
+                              "| Progress: ${MIGRATED_DOCS}/${TOTAL_DOCS}" \
+                              "(${DOCS_PER_SEC:-?} docs/s)${ETA_MSG}"
+                          fi
 
                           # Detect API errors or document-level failures
                           if echo "$RESPONSE" | grep -qE '"error"|"failures":\[\{'; then
@@ -470,6 +498,8 @@ spec:
 
                         echo "Restore complete: $DATA_COUNT indices migrated ($SKIPPED empty indices skipped)"
                   env:
+                      - name: REINDEX_MODE
+                        value: "${REINDEX_MODE}"
                       - name: TARGET_ES_PASSWORD
                         valueFrom:
                             secretKeyRef:

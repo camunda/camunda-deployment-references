@@ -15,6 +15,13 @@ matrix:
           weekly_schedule_only: false
           type: kind
           benchmark_scenario: heavy
+        - name: Kind-Heavy-WarmReindex
+          # TODO: revert to schedule_only + weekly_schedule_only before merging
+          schedule_only: false
+          weekly_schedule_only: false
+          type: kind
+          benchmark_scenario: heavy
+          es_warm_reindex: true
 
     scenario:
         # Test the full migration workflow

@@ -154,6 +154,7 @@ Edit `env.sh` before starting. The file is organized into 4 sections — see com
 | `MIGRATE_KEYCLOAK`           | `true`          | Migrate Keycloak + its PostgreSQL            |
 | `MIGRATE_WEBMODELER`         | `true`          | Migrate WebModeler PostgreSQL                |
 | `MIGRATE_ELASTICSEARCH`      | `true`          | Migrate Elasticsearch                        |
+| `ES_WARM_REINDEX`            | `false`         | When `true`, Phase 2 pre-copies ES data to the target (no downtime). Phase 3 then runs a fast delta reindex, reducing cutover from O(data-size) to ~5 min. For external targets, you must configure `reindex.remote.whitelist` on the target ES |
 
 Set any `MIGRATE_*` to `false` to skip a component (e.g. if it's not deployed or already uses an external service).
 
@@ -227,18 +228,19 @@ All targets are created empty and idle — no traffic is routed to them yet.
 Creates Kubernetes Jobs that:
 - Run `pg_dump` against each Bitnami PostgreSQL instance
 - Create an Elasticsearch snapshot of all indices
+- _(optional)_ When `ES_WARM_REINDEX=true`, run a full reindex from source to target ES while the app is still running. This pre-populates the target so Phase 3 only needs a fast delta reindex.
 
 These "warm" backups reduce the cutover window. A final consistent backup is taken in Phase 3 after the application is frozen.
 
 ### Phase 3: Cutover (`3-cutover.sh`)
 
-**Downtime: YES** — Typically 5–40 minutes depending on Elasticsearch data volume (see [Downtime Estimation](#downtime-estimation)).
+**Downtime: YES** — Typically 5–60 minutes depending on Elasticsearch data volume (see [Downtime Estimation](#downtime-estimation)). With `ES_WARM_REINDEX=true`, downtime is reduced to ~5 minutes regardless of data volume.
 
 Sequence:
 1. **Save** current Helm values (for rollback)
 2. **Freeze** all Camunda deployments (scale to 0)
 3. **Final backup** with no active connections (consistent state)
-4. **Restore** data to new operator-managed targets
+4. **Restore** data to new operator-managed targets (delta reindex if warm reindex was done in Phase 2)
 5. **Sync Keycloak admin credentials** — copies the restored admin password to the operator secret so Keycloak and Identity stay in sync
 6. **Helm upgrade** to point Camunda at the new backends and restart all components
 

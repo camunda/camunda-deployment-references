@@ -241,15 +241,40 @@ fi
 
 if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
     if is_external_es; then
-        log_warn "ES_TARGET_MODE=external — automated ES data migration is not supported"
-        log_warn "  Data transfer options:"
-        log_warn "    • Reindex API: configure reindex.remote.whitelist on target"
-        log_warn "    • elasticdump (npm tool): reads from source, writes to target API"
-        log_warn "    • S3 snapshot repo: configure on both source and target ES"
-        log_warn "    • Fresh start: Camunda rebuilds ES indices from Zeebe on next export"
-        log_warn "  Helm will be reconfigured to point to the external ES endpoint."
+        if [[ "${ES_WARM_REINDEX_DONE:-}" == "true" ]]; then
+            # Warm reindex was done in Phase 2 — run a delta reindex to catch up
+            log_info "Restoring Elasticsearch → external ES (DELTA reindex — warm reindex detected)"
+            export REINDEX_MODE="delta"
+
+            es_svc="${ES_SERVICE:-${ES_STS%-master}}"
+            export SOURCE_ES_HOST="${es_svc}.${NAMESPACE}.svc.cluster.local"
+            export SOURCE_ES_PORT="9200"
+            export SOURCE_ES_SECRET_NAME="${RELEASE}-elasticsearch"
+            export TARGET_ES_HOST="${EXTERNAL_ES_HOST}"
+            export TARGET_ES_PORT="${EXTERNAL_ES_PORT:-443}"
+            export TARGET_ES_SECRET_NAME="${EXTERNAL_ES_SECRET:-external-es}"
+
+            restore_es
+        else
+            log_warn "ES_TARGET_MODE=external — automated ES data migration is not supported"
+            log_warn "  Data transfer options:"
+            log_warn "    • Reindex API: configure reindex.remote.whitelist on target"
+            log_warn "    • elasticdump (npm tool): reads from source, writes to target API"
+            log_warn "    • S3 snapshot repo: configure on both source and target ES"
+            log_warn "    • Fresh start: Camunda rebuilds ES indices from Zeebe on next export"
+            log_warn "  Helm will be reconfigured to point to the external ES endpoint."
+            log_warn "  Tip: set ES_WARM_REINDEX=true in env.sh to automate ES data migration."
+        fi
     else
-        log_info "Restoring Elasticsearch → ECK ${ECK_CLUSTER_NAME} (reindex from remote)"
+        # If a warm reindex was done in Phase 2, use delta mode to only sync
+        # documents written between Phase 2 and the freeze — dramatically faster.
+        if [[ "${ES_WARM_REINDEX_DONE:-}" == "true" ]]; then
+            log_info "Restoring Elasticsearch → ECK ${ECK_CLUSTER_NAME} (DELTA reindex — warm reindex detected)"
+            export REINDEX_MODE="delta"
+        else
+            log_info "Restoring Elasticsearch → ECK ${ECK_CLUSTER_NAME} (reindex from remote)"
+            export REINDEX_MODE="full"
+        fi
 
         # Source ES (Bitnami) — still running, data will be pulled via _reindex API
         es_svc="${ES_SERVICE:-${ES_STS%-master}}"
