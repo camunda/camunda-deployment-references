@@ -101,7 +101,8 @@ jobs:
             - triage
             - clusters-info
         if: needs.triage.outputs.should_skip == 'false'
-        runs-on: aws-core-16-default
+        runs-on: ${{ (matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light') == 'heavy' && 'aws-core-16-longrunning' ||
+            'aws-core-16-default' }}
         timeout-minutes: ${{ (matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light') == 'heavy' && 150 || 60 }}
         strategy:
             fail-fast: false
