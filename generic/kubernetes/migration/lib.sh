@@ -1666,13 +1666,15 @@ restore_es() {
     run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-1800}"
 }
 
-# Run a warm reindex (full copy) from source to target while the app is running.
+# Run a warm reindex from source to target while the app is running.
 # This pre-populates the target ES so the cutover delta reindex is fast.
+# Uses delta mode because the target ES may already have empty Camunda indices
+# created by schema initialization after ECK deployment.
 # Expects: SOURCE_ES_HOST, SOURCE_ES_PORT, SOURCE_ES_SECRET_NAME,
 #          TARGET_ES_HOST, TARGET_ES_PORT, TARGET_ES_SECRET_NAME,
 #          ES_IMAGE, NAMESPACE, TIMESTAMP
 warm_reindex_es() {
-    export REINDEX_MODE="full"
+    export REINDEX_MODE="delta"
     export JOB_NAME="es-warm-reindex-${TIMESTAMP}"
     run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-5400}"
 }
