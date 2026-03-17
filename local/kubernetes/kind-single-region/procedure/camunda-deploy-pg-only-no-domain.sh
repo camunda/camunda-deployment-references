@@ -20,12 +20,11 @@ echo "Installing Camunda Platform (PG-only, no-domain mode)..."
 helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/camunda-platform \
     --version "$CAMUNDA_HELM_CHART_VERSION" \
     --namespace "camunda" \
-    --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml" \
     --values "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-no-domain-values.yml" \
     --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
     --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
     --values helm-values/values-no-domain.yml \
-    --values helm-values/values-pg-only-override.yml
+    --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml"
 
 # TODO: [release-duty] before the release, update this by removing the oci pull above
 # and uncomment the installation instruction below

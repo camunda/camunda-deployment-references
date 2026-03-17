@@ -21,11 +21,11 @@ echo "Installing Camunda Platform (PG-only, domain mode)..."
 helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/camunda-platform \
     --version "$CAMUNDA_HELM_CHART_VERSION" \
     --namespace "camunda" \
-    --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml" \
     --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
     --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
     --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
     --values helm-values/values-domain.yml \
+    --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml" \
     --values helm-values/values-mkcert.yml
 
 # TODO: [release-duty] before the release, update this by removing the oci pull above
