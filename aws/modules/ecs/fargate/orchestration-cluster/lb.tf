@@ -2,6 +2,18 @@
 #                      WebApps                                 #
 ################################################################
 
+locals {
+  health_check = {
+    path                = "/actuator/health/readiness"
+    port                = "9600"
+    protocol            = "HTTP"
+    timeout             = 5
+    interval            = 30
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+}
+
 resource "aws_lb_target_group" "main" {
   # target groups are limited to 32 characters, truncating to less to not clash
   name        = "${substr(var.prefix, 0, 17)}-orc-tg-8080"
@@ -14,13 +26,13 @@ resource "aws_lb_target_group" "main" {
   deregistration_delay = 30
 
   health_check {
-    path                = "/actuator/health"
-    port                = "9600"
-    protocol            = "HTTP"
-    timeout             = 5
-    interval            = 30
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
+    path                = local.health_check.path
+    port                = local.health_check.port
+    protocol            = local.health_check.protocol
+    timeout             = local.health_check.timeout
+    interval            = local.health_check.interval
+    healthy_threshold   = local.health_check.healthy_threshold
+    unhealthy_threshold = local.health_check.unhealthy_threshold
   }
 
   # Stickiness for 12 hours
@@ -43,13 +55,13 @@ resource "aws_lb_target_group" "main_9600" {
   deregistration_delay = 30
 
   health_check {
-    path                = "/actuator/health"
-    port                = "9600"
-    protocol            = "HTTP"
-    timeout             = 5
-    interval            = 30
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
+    path                = local.health_check.path
+    port                = local.health_check.port
+    protocol            = local.health_check.protocol
+    timeout             = local.health_check.timeout
+    interval            = local.health_check.interval
+    healthy_threshold   = local.health_check.healthy_threshold
+    unhealthy_threshold = local.health_check.unhealthy_threshold
   }
 }
 
@@ -110,13 +122,13 @@ resource "aws_lb_target_group" "main_26500" {
   deregistration_delay = 30
 
   health_check {
-    path                = "/actuator/health"
-    port                = "9600"
-    protocol            = "HTTP"
-    timeout             = 5
-    interval            = 30
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
+    path                = local.health_check.path
+    port                = local.health_check.port
+    protocol            = local.health_check.protocol
+    timeout             = local.health_check.timeout
+    interval            = local.health_check.interval
+    healthy_threshold   = local.health_check.healthy_threshold
+    unhealthy_threshold = local.health_check.unhealthy_threshold
   }
 }
 
