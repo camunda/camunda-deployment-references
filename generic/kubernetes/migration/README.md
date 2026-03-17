@@ -29,7 +29,7 @@ This migration is designed to align your setup with the [operator-based referenc
 │  Phase 2 ✦ Initial Backup     ─── no downtime ──────────────────── │
 │    Backup all data while the application is still running            │
 │                                                                      │
-│  Phase 3 ✦ Cutover            ─── DOWNTIME (5-30 min) ──────────── │
+│  Phase 3 ✦ Cutover            ─── DOWNTIME (5–40 min typical) ────── │
 │    Freeze → Final backup → Restore → Helm upgrade → Unfreeze        │
 │                                                                      │
 │  Phase 4 ✦ Validate           ─── no downtime ──────────────────── │
@@ -232,7 +232,7 @@ These "warm" backups reduce the cutover window. A final consistent backup is tak
 
 ### Phase 3: Cutover (`3-cutover.sh`)
 
-**Downtime: YES** — Typically 5–30 minutes depending on data volume.
+**Downtime: YES** — Typically 5–40 minutes depending on Elasticsearch data volume (see [Downtime Estimation](#downtime-estimation)).
 
 Sequence:
 1. **Save** current Helm values (for rollback)
@@ -281,14 +281,43 @@ Restores the pre-cutover Helm values, re-enabling Bitnami sub-charts. The operat
 
 ## Downtime Estimation
 
-| Data Volume | Estimated Downtime |
-| ----------- | ------------------ |
-| < 1 GB      | ~5 minutes         |
-| 1-10 GB     | ~10-15 minutes     |
-| 10-50 GB    | ~15-30 minutes     |
-| > 50 GB     | 30+ minutes        |
+Only Phase 3 (cutover) causes downtime. The following estimates are derived from CI benchmarks run on GitHub Actions with Kind clusters.
 
-The main factor is the `pg_restore` and ES reindex duration.
+### Benchmarked scenarios
+
+| Scenario | ES Documents | ES Data Size | PG Data (total) | Phase 3 (downtime) |
+| -------- | ------------ | ------------ | --------------- | ------------------ |
+| Normal   | ~0           | ~0           | ~31 MB          | **~4 min**         |
+| Heavy    | ~6.5M        | ~8.9 GB      | ~31 MB          | **~40 min**        |
+
+### Phase 3 breakdown (heavy scenario — ~8.9 GB ES)
+
+| Step                          | Duration  | Notes                                         |
+| ----------------------------- | --------- | --------------------------------------------- |
+| Freeze components (scale → 0) | ~10s      | Scale down all deployments and StatefulSets    |
+| PG backup (3 databases)       | ~16s      | `pg_dump` Identity + Keycloak + WebModeler     |
+| ES backup verification        | ~5s       | Snapshot verification of 50 indices            |
+| PG restore (3 databases)      | ~24s      | `pg_restore` to CNPG clusters                 |
+| **ES reindex (from remote)**  | **~38 min** | **Dominant factor** — reindex 6.5M docs via `_reindex` API |
+| Helm upgrade + restart        | ~2 min    | Reconfigure backends, restart all components   |
+| **Total**                     | **~40 min** |                                              |
+
+### Downtime estimation by data volume
+
+| ES Data Volume | Estimated Downtime | Bottleneck                     |
+| -------------- | ------------------ | ------------------------------ |
+| < 1 GB         | ~5 minutes         | Helm upgrade + pod startup     |
+| 1–10 GB        | ~10–40 minutes     | ES reindex-from-remote         |
+| 10–50 GB       | ~40 min–2 hours    | ES reindex-from-remote         |
+| > 50 GB        | 2+ hours           | ES reindex-from-remote         |
+
+### Key observations
+
+- **Elasticsearch reindex is the dominant factor.** In the heavy scenario, ES reindex accounts for ~95% of the total downtime (~38 min out of ~40 min).
+- **PostgreSQL migration is negligible.** Even with 3 databases totaling ~31 MB (Identity 7 MB, Keycloak 13 MB / 1806 rows, WebModeler 11 MB / 102 rows), backup + restore completes in under 40 seconds.
+- **Observed ES throughput:** ~2,870 docs/s or ~3.9 MB/s on Kind (GitHub Actions runners). Production clusters with faster storage and network will achieve higher throughput.
+- **Largest single index:** `optimize-process-instance-benchmark` (897K docs, 6.8 GB) accounted for ~76% of the ES data volume. Real-world deployments with large Optimize history will see similar patterns.
+- **Scaling guideline:** Downtime scales roughly linearly with ES data size. Measure during a staging rehearsal with representative data volumes to get an accurate estimate for your environment.
 
 ## Precautions
 
