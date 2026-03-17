@@ -201,7 +201,7 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             # Deploy Camunda
-            - name: Deploy Camunda (domain mode)
+            - name: Deploy Camunda (domain mode, ES)
               if: matrix.declination.use_tls && matrix.declination.storage_backend == 'elasticsearch'
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: |
@@ -214,7 +214,7 @@ jobs:
 
                   ./procedure/camunda-deploy-domain.sh
 
-            - name: Deploy Camunda (no-domain mode)
+            - name: Deploy Camunda (no-domain mode, ES)
               if: ${{ !matrix.declination.use_tls && matrix.declination.storage_backend == 'elasticsearch' }}
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: |
@@ -345,6 +345,9 @@ jobs:
                   camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
                   webmodeler-enabled: 'true'
                   console-enabled: 'true'
+                  # Optimize requires Elasticsearch, so it's disabled in RDBMS-only mode
+                  optimize-enabled: ${{ matrix.declination.storage_backend != 'rdbms' && 'true' || 'false' }}
+                  elasticsearch-enabled: ${{ matrix.declination.storage_backend != 'rdbms' && 'true' || 'false' }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}

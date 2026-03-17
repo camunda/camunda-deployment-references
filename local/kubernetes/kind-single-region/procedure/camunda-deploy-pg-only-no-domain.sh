@@ -33,12 +33,11 @@ helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/
 #     --repo https://helm.camunda.io \
 #     --version "$CAMUNDA_HELM_CHART_VERSION" \
 #     --namespace "camunda" \
-#     --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml" \
 #     --values "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-no-domain-values.yml" \
 #     --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
 #     --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
 #     --values helm-values/values-no-domain.yml \
-#     --values helm-values/values-pg-only-override.yml
+#     --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml"
 
 echo ""
 echo "Camunda Platform deployed (PG-only mode — Optimize disabled)"
