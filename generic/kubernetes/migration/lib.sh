@@ -1295,9 +1295,9 @@ sync_keycloak_admin_credentials() {
         -o jsonpath="{.data.${bitnami_key}}" 2>/dev/null | base64 -d 2>/dev/null || true)
     if [[ -z "$admin_pass" ]]; then
         eval "$_xtrace" 2>/dev/null
-        log_warn "Could not read Bitnami admin password from ${bitnami_secret}/${bitnami_key}"
-        log_warn "Keycloak admin authentication may fail after migration"
-        return 0
+        log_error "Could not read Bitnami admin password from ${bitnami_secret}/${bitnami_key}"
+        log_error "Keycloak admin authentication will fail after migration"
+        return 1
     fi
 
     # The Bitnami Keycloak chart default admin user is "admin"
@@ -1660,7 +1660,7 @@ backup_es() {
 #          ES_IMAGE, NAMESPACE, TIMESTAMP
 restore_es() {
     export JOB_NAME="es-restore-${TIMESTAMP}"
-    run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}"
+    run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-1800}"
 }
 
 # =============================================================================
@@ -1736,7 +1736,8 @@ zeebe_exporting_resume() {
     if [[ "$http_code" == "204" ]]; then
         log_success "Zeebe exporting resumed (HTTP 204)"
     else
-        log_warn "Zeebe exporting resume returned HTTP ${http_code}"
+        log_error "Zeebe exporting resume returned HTTP ${http_code}"
+        return 1
     fi
 }
 
@@ -1784,8 +1785,8 @@ freeze_components() {
 unfreeze_components() {
     local state_file="${STATE_DIR}/replica-counts.env"
     if [[ ! -f "$state_file" ]]; then
-        log_warn "No saved replica counts found"
-        return 0
+        log_error "No saved replica counts found — components may be stuck at 0 replicas"
+        return 1
     fi
 
     # shellcheck source=/dev/null
