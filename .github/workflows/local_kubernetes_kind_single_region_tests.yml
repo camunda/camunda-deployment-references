@@ -188,7 +188,7 @@ jobs:
               id: chart-version
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: |
-                  SCRIPT=${{ matrix.declination.use_tls && 'procedure/camunda-deploy-domain.sh' || 'procedure/camunda-deploy-no-domain.sh' }}
+                  SCRIPT=${{ matrix.declination.use_tls && 'procedure/camunda-deploy-es-domain.sh' || 'procedure/camunda-deploy-es-no-domain.sh' }}
                   VERSION=$(grep -oP 'CAMUNDA_HELM_CHART_VERSION="\K[^"]+' "$SCRIPT")
                   echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -212,7 +212,7 @@ jobs:
                     helm-values/values-domain.yml > helm-values/values-domain.yml.tmp
                   mv helm-values/values-domain.yml.tmp helm-values/values-domain.yml
 
-                  ./procedure/camunda-deploy-domain.sh
+                  ./procedure/camunda-deploy-es-domain.sh
 
             - name: Deploy Camunda (no-domain mode, ES)
               if: ${{ !matrix.declination.use_tls && matrix.declination.storage_backend == 'elasticsearch' }}
@@ -225,7 +225,7 @@ jobs:
                     helm-values/values-no-domain.yml > helm-values/values-no-domain.yml.tmp
                   mv helm-values/values-no-domain.yml.tmp helm-values/values-no-domain.yml
 
-                  ./procedure/camunda-deploy-no-domain.sh
+                  ./procedure/camunda-deploy-es-no-domain.sh
 
             - name: Deploy Camunda (domain mode, PG-only)
               if: matrix.declination.use_tls && matrix.declination.storage_backend == 'rdbms'
