@@ -71,10 +71,11 @@ optimize:
         opensearch:
             enabled: true
             aws:
-                enabled: true
+                enabled: true # enable IRSA auth
             url:
                 protocol: https
                 host: ${OPENSEARCH_HOST}
+                # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
                 port: 443
 
 orchestration:

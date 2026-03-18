@@ -53,10 +53,11 @@ optimize:
         opensearch:
             enabled: true
             aws:
-                enabled: false
+                enabled: false #  we rely on anonymous auth, not irsa, basic auth is not supported on managed OpenSearch
             url:
                 protocol: https
                 host: ${OPENSEARCH_HOST}
+                # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
                 port: 443
 
 console:

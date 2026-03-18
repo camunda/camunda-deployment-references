@@ -635,6 +635,8 @@ jobs:
                   ./generic/openshift/dual-region/procedure/export-services-submariner.sh
                   ./generic/openshift/dual-region/procedure/verify-exported-services.sh
 
+            # TODO : re-align with https://github.com/camunda/camunda-deployment-references/pull/2037
+            # as the region 1-2 will be move to 0-1
             - name: 🔍 Check for Helm deprecation warnings (region 1)
               uses: ./.github/actions/internal-helm-deprecation-check
               with:
