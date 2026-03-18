@@ -10,9 +10,8 @@ matrix:
           schedule_only: false
           type: kind
         - name: Kind-Heavy
-          # TODO: revert to schedule_only + weekly_schedule_only before merging
-          schedule_only: false
-          weekly_schedule_only: false
+          schedule_only: true
+          weekly_schedule_only: true
           type: kind
           benchmark_scenario: heavy
 
