@@ -22,7 +22,7 @@ Run tests across multiple regions
 | `skip-cleanup` | <p>Skip cleanup step only (keep deploy to ensure test process is created). Use this when deployment already exists with platform-specific config like OpenShift ServiceExports.</p> | `false` | `false` |
 | `post-failback-script` | <p>Script to run after Failback to re-export services (e.g., for OpenShift Submariner ServiceExports)</p> | `false` | `""` |
 | `distribution` | <p>Distribution to test on, e.g., EKS or OpenShift. Mainly for disabling certain tests.</p> | `false` | `EKS` |
-| `exclude-deprecation-patterns` | <p>Newline-separated list of grep patterns to exclude from deprecation warnings. Passed through to internal-helm-deprecation-check.</p> | `false` | `""` |
+| `exclude-deprecation-patterns` | <p>Newline-separated list of fixed strings to exclude from deprecation warnings. Passed through to internal-helm-deprecation-check using grep -F (fixed-string) semantics.</p> | `false` | `""` |
 
 
 ## Runs
@@ -119,8 +119,8 @@ This action is a `composite` action.
     # Default: EKS
 
     exclude-deprecation-patterns:
-    # Newline-separated list of grep patterns to exclude from deprecation warnings.
-    # Passed through to internal-helm-deprecation-check.
+    # Newline-separated list of fixed strings to exclude from deprecation warnings.
+    # Passed through to internal-helm-deprecation-check using grep -F (fixed-string) semantics.
     #
     # Required: false
     # Default: ""
