@@ -55,6 +55,10 @@ inputs:
         description: Distribution to test on, e.g., EKS or OpenShift. Mainly for disabling certain tests.
         required: false
         default: EKS
+    release-name:
+        description: The Helm release name to check for deprecation warnings
+        required: false
+        default: camunda
     exclude-deprecation-patterns:
         description: |
             Newline-separated list of fixed strings to exclude from deprecation warnings.
@@ -145,6 +149,7 @@ runs:
         - name: 🔍 Check for Helm deprecation warnings (region 0)
           uses: ./.github/actions/internal-helm-deprecation-check
           with:
+              release-name: ${{ inputs.release-name }}
               namespace: ${{ inputs.cluster-0-namespace }}
               kube-context: ${{ inputs.cluster-0-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
@@ -152,6 +157,7 @@ runs:
         - name: 🔍 Check for Helm deprecation warnings (region 1)
           uses: ./.github/actions/internal-helm-deprecation-check
           with:
+              release-name: ${{ inputs.release-name }}
               namespace: ${{ inputs.cluster-1-namespace }}
               kube-context: ${{ inputs.cluster-1-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
