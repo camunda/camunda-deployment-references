@@ -300,11 +300,6 @@ jobs:
                   region-0-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
                   region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
                   skip-cleanup: 'true'
-                  # TODO: fix these deprecations and remove exclusions
-                  #   https://github.com/camunda/team-infrastructure-experience/issues/1052
-                  exclude-deprecation-patterns: |
-                      Bitnami-based subcharts are deprecated
-                      legacy option 'global.elasticsearch.enabled'
 
             ############# Debug failed pods ##############
             - name: Debug failed pods on cluster-0

@@ -40,6 +40,9 @@ identity:
 identityKeycloak:
     enabled: false
 
+console:
+    enabled: false # by default, console is not enabled
+
 optimize:
     enabled: false
 
@@ -47,14 +50,12 @@ connectors:
     enabled: true
 
 orchestration:
-    # TODO: recheck with https://github.com/camunda/camunda-deployment-references/pull/1964
-    # the data storage is handled by the operator
-    data:
-        secondaryStorage:
-            type: elasticsearch
     clusterSize: '8'
     partitionCount: '8'
     replicationFactor: '4'
+    data:
+        secondaryStorage:
+            type: elasticsearch
     # Disable the Camunda and Zeebe exporters as we use region specific ones below
     exporters:
         camunda:
