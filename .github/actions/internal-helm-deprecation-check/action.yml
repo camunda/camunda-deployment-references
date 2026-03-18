@@ -22,8 +22,8 @@ inputs:
         default: ''
     exclude-patterns:
         description: |
-            Newline-separated list of fixed strings to exclude from warnings.
-            Warnings containing any of these strings will be ignored.
+            Newline-separated list of fixed strings to exclude from warnings and errors.
+            Messages containing any of these strings will be ignored.
         required: false
         default: ''
 
