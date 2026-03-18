@@ -112,7 +112,7 @@ domain.infra: cluster.create ingress.deploy coredns.config hosts.add certs.gener
 	@echo "  Before installing Camunda, create the required credentials secret (camunda-credentials):"
 	@echo "    make identity-secrets.create"
 	@echo "  Deploy Camunda with your own values:"
-	@echo "    helm upgrade --install $(CAMUNDA_RELEASE_NAME) oci://registry.camunda.cloud/team-distribution/camunda-platform --version <CHART_VERSION> -n $(CAMUNDA_NAMESPACE) --create-namespace -f your-values.yaml"
+	@echo "    helm upgrade --install camunda oci://registry.camunda.cloud/team-distribution/camunda-platform --version <CHART_VERSION> -n camunda --create-namespace -f your-values.yaml"
 	@echo ""
 
 .PHONY: no-domain.infra
@@ -122,7 +122,7 @@ no-domain.infra: cluster.create hosts.add-keycloak operators.deploy-no-domain
 	@echo "  Before installing Camunda, create the required credentials secret (camunda-credentials):"
 	@echo "    make identity-secrets.create"
 	@echo "  Deploy Camunda with your own values:"
-	@echo "    helm upgrade --install $(CAMUNDA_RELEASE_NAME) oci://registry.camunda.cloud/team-distribution/camunda-platform --version <CHART_VERSION> -n $(CAMUNDA_NAMESPACE) --create-namespace -f your-values.yaml"
+	@echo "    helm upgrade --install camunda oci://registry.camunda.cloud/team-distribution/camunda-platform --version <CHART_VERSION> -n camunda --create-namespace -f your-values.yaml"
 	@echo ""
 
 .PHONY: no-domain.clean
