@@ -81,7 +81,6 @@ jobs:
                   REPO_PATTERNS=(
                     "camunda/camunda-deployment-references"
                     "camunda-deployment-references"
-                    "camunda/keycloak"
                     "camunda/c8-sm-checks"
                     "c8-sm-checks"
                   )
@@ -158,8 +157,9 @@ jobs:
                     # any of the monitored repos (links, snippets, etc.)
                     ###########################################################
                     while IFS= read -r file; do
-                      # Only inspect markdown files
+                      # Only inspect markdown files, skip release notes
                       case "$file" in
+                        *release-notes*|*announcements*) continue ;;
                         *.md|*.mdx) ;;
                         *) continue ;;
                       esac
@@ -190,6 +190,28 @@ jobs:
                               repo_name="${BASH_REMATCH[1]}"
                               ref="${BASH_REMATCH[3]}"
                               path="${BASH_REMATCH[4]}"
+                              path="${path%%#*}"
+                              if ! gh api \
+                                "repos/camunda/${repo_name}/contents/${path}?ref=${ref}" \
+                                --silent > /dev/null 2>&1; then
+                                broken_links+=("$file -> $url")
+                                echo "    ❌ Broken link in $file: $url"
+                              fi
+                            elif [[ "$url" =~ raw\.githubusercontent\.com/camunda/([^/]+)/refs/heads/([^/]+)/(.*) ]]; then
+                              repo_name="${BASH_REMATCH[1]}"
+                              ref="${BASH_REMATCH[2]}"
+                              path="${BASH_REMATCH[3]}"
+                              path="${path%%#*}"
+                              if ! gh api \
+                                "repos/camunda/${repo_name}/contents/${path}?ref=${ref}" \
+                                --silent > /dev/null 2>&1; then
+                                broken_links+=("$file -> $url")
+                                echo "    ❌ Broken link in $file: $url"
+                              fi
+                            elif [[ "$url" =~ raw\.githubusercontent\.com/camunda/([^/]+)/refs/tags/([^/]+)/(.*) ]]; then
+                              repo_name="${BASH_REMATCH[1]}"
+                              ref="${BASH_REMATCH[2]}"
+                              path="${BASH_REMATCH[3]}"
                               path="${path%%#*}"
                               if ! gh api \
                                 "repos/camunda/${repo_name}/contents/${path}?ref=${ref}" \
