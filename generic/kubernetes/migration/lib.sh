@@ -616,6 +616,38 @@ run_job() {
         echo "--- Job output ---"
         cat "${STATE_DIR}/${job_name}.log"
         echo "--- End of job output ---"
+
+        # ── Defensive log audit ──
+        # Scan job output for silent errors that don't trigger exit 1
+        # inside the container but indicate data corruption or script bugs.
+        # Each pattern is paired with a human-readable explanation.
+        local -a audit_patterns=(
+            'integer expression expected:Bash arithmetic failed on an empty variable (likely envsubst clobbered a runtime var)'
+            'unbound variable:A required variable was not set (script bug or template rendering issue)'
+            'syntax error:Shell syntax error in the job script'
+            'bad substitution:Broken variable expansion in bash'
+        )
+        local audit_failed=0
+        for entry in "${audit_patterns[@]}"; do
+            local pattern="${entry%%:*}"
+            local reason="${entry#*:}"
+            if grep -qi "$pattern" "${STATE_DIR}/${job_name}.log"; then
+                if [[ "$audit_failed" -eq 0 ]]; then
+                    echo ""
+                    log_error "Job ${job_name} completed but log audit found errors:"
+                fi
+                local count
+                count=$(grep -ci "$pattern" "${STATE_DIR}/${job_name}.log")
+                echo "  - '${pattern}' (${count}x): ${reason}"
+                audit_failed=1
+            fi
+        done
+        if [[ "$audit_failed" -eq 1 ]]; then
+            echo ""
+            log_error "Aborting migration — fix the errors above before retrying."
+            log_error "Job log saved at: ${STATE_DIR}/${job_name}.log"
+            return 1
+        fi
     fi
 }
 
@@ -1627,7 +1659,9 @@ backup_pg() {
     ensure_backup_pvc
     # shellcheck disable=SC2153
     export JOB_NAME="${COMPONENT}-pg-backup-${TIMESTAMP}"
-    run_job "${JOBS_DIR}/pg-backup.job.yml" "${JOB_NAME}"
+    # shellcheck disable=SC2016
+    local pg_varlist='${JOB_NAME} ${NAMESPACE} ${COMPONENT} ${PG_IMAGE} ${PG_HOST} ${PG_PORT} ${PG_DATABASE} ${PG_USERNAME} ${PG_SECRET_NAME} ${PG_SECRET_KEY} ${BACKUP_PVC} ${TIMESTAMP}'
+    run_job "${JOBS_DIR}/pg-backup.job.yml" "${JOB_NAME}" 1800 "$pg_varlist"
 }
 
 # Run a PG restore job.
@@ -1636,7 +1670,9 @@ backup_pg() {
 #                  BACKUP_FILE, NAMESPACE, TIMESTAMP
 restore_pg() {
     export JOB_NAME="${COMPONENT}-pg-restore-${TIMESTAMP}"
-    run_job "${JOBS_DIR}/pg-restore.job.yml" "${JOB_NAME}"
+    # shellcheck disable=SC2016
+    local pg_varlist='${JOB_NAME} ${NAMESPACE} ${COMPONENT} ${PG_IMAGE} ${TARGET_PG_HOST} ${TARGET_PG_PORT} ${TARGET_PG_DATABASE} ${TARGET_PG_USER} ${DB_SECRET_NAME} ${BACKUP_PVC} ${BACKUP_FILE} ${FORCE_RESTORE}'
+    run_job "${JOBS_DIR}/pg-restore.job.yml" "${JOB_NAME}" 1800 "$pg_varlist"
 }
 
 # =============================================================================
@@ -1650,7 +1686,9 @@ restore_pg() {
 backup_es() {
     ensure_backup_pvc
     export JOB_NAME="es-backup-${TIMESTAMP}"
-    run_job "${JOBS_DIR}/es-backup.job.yml" "${JOB_NAME}"
+    # shellcheck disable=SC2016
+    local es_varlist='${JOB_NAME} ${NAMESPACE} ${ES_IMAGE} ${ES_HOST} ${ES_PORT} ${ES_SECRET_NAME}'
+    run_job "${JOBS_DIR}/es-backup.job.yml" "${JOB_NAME}" 1800 "$es_varlist"
 }
 
 # Run an ES restore job using the _reindex API (reindex from remote).
@@ -1663,7 +1701,9 @@ backup_es() {
 restore_es() {
     export REINDEX_MODE="${REINDEX_MODE:-full}"
     export JOB_NAME="es-restore-${TIMESTAMP}"
-    run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-1800}"
+    # shellcheck disable=SC2016
+    local es_varlist='${ES_IMAGE} ${JOB_NAME} ${NAMESPACE} ${REINDEX_MODE} ${SOURCE_ES_HOST} ${SOURCE_ES_PORT} ${SOURCE_ES_SECRET_NAME} ${TARGET_ES_HOST} ${TARGET_ES_PORT} ${TARGET_ES_SECRET_NAME}'
+    run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-1800}" "$es_varlist"
 }
 
 # Run a warm reindex from source to target while the app is running.
@@ -1676,7 +1716,9 @@ restore_es() {
 warm_reindex_es() {
     export REINDEX_MODE="delta"
     export JOB_NAME="es-warm-reindex-${TIMESTAMP}"
-    run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-5400}"
+    # shellcheck disable=SC2016
+    local es_varlist='${ES_IMAGE} ${JOB_NAME} ${NAMESPACE} ${REINDEX_MODE} ${SOURCE_ES_HOST} ${SOURCE_ES_PORT} ${SOURCE_ES_SECRET_NAME} ${TARGET_ES_HOST} ${TARGET_ES_PORT} ${TARGET_ES_SECRET_NAME}'
+    run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-5400}" "$es_varlist"
 }
 
 # =============================================================================

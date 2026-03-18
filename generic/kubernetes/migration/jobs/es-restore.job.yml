@@ -301,13 +301,13 @@ spec:
                           fi
 
                           if [ "${REINDEX_MODE:-full}" = "delta" ]; then
-                            echo "  -> created=${IDX_CREATED} updated=${IDX_UPDATED} noops=${IDX_NOOPS} (${IDX_TIME_S}s)" \
-                              "| Progress: ${MIGRATED_DOCS}/${TOTAL_DOCS}" \
-                              "(${DOCS_PER_SEC:-?} docs/s)${ETA_MSG}"
+                            echo "  -> created=$IDX_CREATED updated=$IDX_UPDATED noops=$IDX_NOOPS (${IDX_TIME_S}s)" \
+                              "| Progress: $MIGRATED_DOCS/$TOTAL_DOCS" \
+                              "(${DOCS_PER_SEC:-?} docs/s)$ETA_MSG"
                           else
-                            echo "  -> ${IDX_CREATED} docs (${IDX_TIME_S}s)" \
-                              "| Progress: ${MIGRATED_DOCS}/${TOTAL_DOCS}" \
-                              "(${DOCS_PER_SEC:-?} docs/s)${ETA_MSG}"
+                            echo "  -> $IDX_CREATED docs (${IDX_TIME_S}s)" \
+                              "| Progress: $MIGRATED_DOCS/$TOTAL_DOCS" \
+                              "(${DOCS_PER_SEC:-?} docs/s)$ETA_MSG"
                           fi
 
                           # Detect API errors or document-level failures
@@ -327,7 +327,7 @@ spec:
                         [ "$REINDEX_ELAPSED" -gt 0 ] && AVG_RATE=$((MIGRATED_DOCS / REINDEX_ELAPSED))
                         echo "=== Reindex Summary ==="
                         echo "  Indices: $DATA_COUNT | Documents: $MIGRATED_DOCS/$TOTAL_DOCS"
-                        echo "  Duration: ${REINDEX_MIN}m${REINDEX_SEC}s | Avg throughput: ${AVG_RATE} docs/s"
+                        echo "  Duration: ${REINDEX_MIN}m${REINDEX_SEC}s | Avg throughput: $AVG_RATE docs/s"
                         echo ""
 
                         # ── Migrate component templates first (used by index templates) ──
