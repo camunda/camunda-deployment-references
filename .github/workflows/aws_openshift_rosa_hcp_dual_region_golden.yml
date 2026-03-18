@@ -24,8 +24,8 @@ env:
 
     # keep this synced with other workflows
     AWS_PROFILE: infex
-    CLUSTER_1_AWS_REGION: eu-west-2
-    CLUSTER_2_AWS_REGION: eu-west-3
+    CLUSTER_0_AWS_REGION: eu-west-2
+    CLUSTER_1_AWS_REGION: eu-west-3
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     S3_BUCKET_KEY: golden.tfstate
@@ -78,7 +78,7 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
-                  aws-region: ${{ env.CLUSTER_1_AWS_REGION }}
+                  aws-region: ${{ env.CLUSTER_0_AWS_REGION }}
 
             - name: Run Terraform Golden Plan Comparison - Clusters
               uses: ./.github/actions/internal-terraform-golden-plan

@@ -278,24 +278,24 @@ destroy_module() {
   # Handle dual-region (we may need a better way to abstract this)
   local tf_config_file="$SCRIPT_DIR/config"
   if [[ "$module_name" =~ ^(clusters|peering)$ ]]; then
-    [[ -z "$CLUSTER_1_AWS_REGION" || -z "$CLUSTER_2_AWS_REGION" ]] && {
-      echo "Error: CLUSTER_1_AWS_REGION and CLUSTER_2_AWS_REGION must be set"
+    [[ -z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION" ]] && {
+      echo "Error: CLUSTER_0_AWS_REGION and CLUSTER_1_AWS_REGION must be set"
       exit 1
     }
 
-    local cluster_1_name cluster_2_name
+    local cluster_0_name cluster_1_name
     if [[ "$group_id" == *"-oOo-"* ]]; then
       # ROSA-style: two distinct cluster names separated by -oOo-
-      cluster_1_name=$(echo "$group_id" | awk -F"-oOo-" '{print $1}')
-      cluster_2_name=$(echo "$group_id" | awk -F"-oOo-" '{print $2}')
+      cluster_0_name=$(echo "$group_id" | awk -F"-oOo-" '{print $1}')
+      cluster_1_name=$(echo "$group_id" | awk -F"-oOo-" '{print $2}')
     else
       # EKS-style: single prefix used for both clusters (suffixed with region names)
+      cluster_0_name="$group_id"
       cluster_1_name="$group_id"
-      cluster_2_name="$group_id"
     fi
 
     # Validate that both cluster names are non-empty to avoid overly broad regex patterns
-    if [[ -z "$cluster_1_name" || -z "$cluster_2_name" ]]; then
+    if [[ -z "$cluster_0_name" || -z "$cluster_1_name" ]]; then
       echo "Error: Failed to parse dual-region cluster names from group_id '$group_id' (expected format: name1-oOo-name2)"
       exit 1
     fi
@@ -305,17 +305,17 @@ destroy_module() {
     # Pre-cleanup for dual-region: same rationale as single-cluster above.
     if [[ "$module_name" == "clusters" ]]; then
       local vpc1_check vpc2_check
-      vpc1_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_1_name}*" \
+      vpc1_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_0_name}*" \
+                   --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_0_AWS_REGION" 2>/dev/null)
+      vpc2_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_1_name}*" \
                    --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_1_AWS_REGION" 2>/dev/null)
-      vpc2_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_2_name}*" \
-                   --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_2_AWS_REGION" 2>/dev/null)
       if [[ -n "$vpc1_check" && "$vpc1_check" != "None" ]]; then
-        echo "[$group_id][$module_name] Pre-cleanup: removing orphan resources in VPC $vpc1_check (region 1)..."
-        cleanup_vpc_dependencies "$vpc1_check" "$CLUSTER_1_AWS_REGION"
+        echo "[$group_id][$module_name] Pre-cleanup: removing orphan resources in VPC $vpc1_check (region 0)..."
+        cleanup_vpc_dependencies "$vpc1_check" "$CLUSTER_0_AWS_REGION"
       fi
       if [[ -n "$vpc2_check" && "$vpc2_check" != "None" ]]; then
-        echo "[$group_id][$module_name] Pre-cleanup: removing orphan resources in VPC $vpc2_check (region 2)..."
-        cleanup_vpc_dependencies "$vpc2_check" "$CLUSTER_2_AWS_REGION"
+        echo "[$group_id][$module_name] Pre-cleanup: removing orphan resources in VPC $vpc2_check (region 1)..."
+        cleanup_vpc_dependencies "$vpc2_check" "$CLUSTER_1_AWS_REGION"
       fi
 
       # On retry, use cloud-nuke as a last resort for dual-region VPCs.
@@ -325,14 +325,14 @@ destroy_module() {
         mkdir -p "$temp_dir"
         cp "$SCRIPT_DIR/matching-vpc.yml" "$nuke_config"
         local safe_c1 safe_c2
-        safe_c1=$(printf '%s' "$cluster_1_name" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
-        safe_c2=$(printf '%s' "$cluster_2_name" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
+        safe_c1=$(printf '%s' "$cluster_0_name" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
+        safe_c2=$(printf '%s' "$cluster_1_name" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
         NAME_REGEX_1="^${safe_c1}.*" NAME_REGEX_2="^${safe_c2}.*" \
           yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX_1), strenv(NAME_REGEX_2)]' -i "$nuke_config"
         [[ -n "$vpc1_check" && "$vpc1_check" != "None" ]] && \
-          cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$CLUSTER_1_AWS_REGION" --force
+          cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$CLUSTER_0_AWS_REGION" --force
         [[ -n "$vpc2_check" && "$vpc2_check" != "None" ]] && \
-          cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$CLUSTER_2_AWS_REGION" --force
+          cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$CLUSTER_1_AWS_REGION" --force
       fi
     fi
 
@@ -340,10 +340,10 @@ destroy_module() {
     # that will fail if either VPC is not found. In this case, we directly clean up the state.
     if [[ "$module_name" == "peering" ]]; then
       local vpc1 vpc2
-      vpc1=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_1_name}*" \
+      vpc1=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_0_name}*" \
+             --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_0_AWS_REGION")
+      vpc2=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_1_name}*" \
              --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_1_AWS_REGION")
-      vpc2=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_2_name}*" \
-             --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_2_AWS_REGION")
 
       if [[ "$vpc1" == "None" || -z "$vpc1" || "$vpc2" == "None" || -z "$vpc2" ]]; then
         echo "Error: Missing VPCs ($vpc1 / $vpc2), assuming nuked."
@@ -361,19 +361,22 @@ destroy_module() {
   if [[ "$tf_config_file" == *"config-dual-region" ]]; then
 
     # For non-OpenShift (EKS) dual-region, adjust provider aliases to match the terraform config
-    # EKS uses "accepter" alias instead of "cluster_2", and doesn't need "cluster_1" alias
+    # EKS uses "accepter" alias instead of "cluster_1", and doesn't need "cluster_0" alias
     if [[ "${OPENSHIFT:-false}" == "false" ]]; then
       echo "[$group_id][$module_name] Adjusting provider aliases for EKS dual-region"
-      sed -i 's/alias  = "cluster_2"/alias  = "accepter"/' "$temp_dir/config.tf"
-      sed -i '/alias  = "cluster_1"/d' "$temp_dir/config.tf"
+      sed -i 's/alias  = "cluster_1"/alias  = "accepter"/' "$temp_dir/config.tf"
+      sed -i '/alias  = "cluster_0"/d' "$temp_dir/config.tf"
     fi
+
+    cat > "$temp_dir/terraform.tfvars" <<EOF
+cluster_0_region = "$CLUSTER_0_AWS_REGION"
+cluster_1_region = "$CLUSTER_1_AWS_REGION"
+EOF
 
     terraform init \
       -backend-config="bucket=$BUCKET" \
       -backend-config="key=$key" \
-      -backend-config="region=$AWS_S3_REGION" \
-      -var="cluster_1_region=$CLUSTER_1_AWS_REGION" \
-      -var="cluster_2_region=$CLUSTER_2_AWS_REGION" || return 1
+      -backend-config="region=$AWS_S3_REGION" || return 1
   else
     terraform init \
       -backend-config="bucket=$BUCKET" \
@@ -475,8 +478,8 @@ destroy_module() {
           cleanup_vpc_dependencies "$retry_vpc" "$AWS_REGION"
         fi
       elif [[ "$module_name" == "clusters" ]]; then
-        if [[ -z "$CLUSTER_1_AWS_REGION" || -z "$CLUSTER_2_AWS_REGION" ]]; then
-          echo "[$group_id][$module_name] Warning: CLUSTER_1_AWS_REGION or CLUSTER_2_AWS_REGION not set, skipping VPC cleanup retry"
+        if [[ -z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION" ]]; then
+          echo "[$group_id][$module_name] Warning: CLUSTER_0_AWS_REGION or CLUSTER_1_AWS_REGION not set, skipping VPC cleanup retry"
         else
           local retry_vpc1 retry_vpc2
           local retry_c1 retry_c2
@@ -488,11 +491,11 @@ destroy_module() {
             retry_c2="$group_id"
           fi
           retry_vpc1=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${retry_c1}*" \
-                       --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_1_AWS_REGION" 2>/dev/null)
+                       --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_0_AWS_REGION" 2>/dev/null)
           retry_vpc2=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${retry_c2}*" \
-                       --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_2_AWS_REGION" 2>/dev/null)
-          [[ -n "$retry_vpc1" && "$retry_vpc1" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc1" "$CLUSTER_1_AWS_REGION"
-          [[ -n "$retry_vpc2" && "$retry_vpc2" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc2" "$CLUSTER_2_AWS_REGION"
+                       --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_1_AWS_REGION" 2>/dev/null)
+          [[ -n "$retry_vpc1" && "$retry_vpc1" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc1" "$CLUSTER_0_AWS_REGION"
+          [[ -n "$retry_vpc2" && "$retry_vpc2" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc2" "$CLUSTER_1_AWS_REGION"
         fi
       fi
 

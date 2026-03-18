@@ -13,18 +13,6 @@
 #   - Various IRSA role ARNs and service account names (from Terraform outputs)
 
 global:
-    elasticsearch:
-        enabled: false
-    opensearch:
-        enabled: true
-        aws:
-            enabled: true # enable IRSA auth
-        url:
-            protocol: https
-            host: ${OPENSEARCH_HOST}
-            # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
-            port: 443
-
     security:
         authentication:
             method: oidc
@@ -79,6 +67,17 @@ optimize:
     migration:
         enabled: false
 
+    database:
+        opensearch:
+            enabled: true
+            aws:
+                enabled: true # enable IRSA auth
+            url:
+                protocol: https
+                host: ${OPENSEARCH_HOST}
+                # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
+                port: 443
+
 orchestration:
     serviceAccount:
         name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
@@ -88,6 +87,10 @@ orchestration:
     data:
         secondaryStorage:
             type: opensearch
+            opensearch:
+                aws:
+                    enabled: true # enable IRSA auth
+                url: https://${OPENSEARCH_HOST}:443
 
     security:
         initialization:

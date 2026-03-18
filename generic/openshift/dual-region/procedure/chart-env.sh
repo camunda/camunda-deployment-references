@@ -8,18 +8,18 @@
 # . ./export_environment_prerequisites.sh
 # to export the environment variables to the current shell
 
-# The AWS regions of your OpenShift cluster 1 and 2
-export CLUSTER_1_REGION="us-east-1"
-export CLUSTER_2_REGION="us-east-2"
+# The AWS regions of your OpenShift cluster 0 and 1
+export REGION_0="us-east-1"
+export REGION_1="us-east-2"
 
-# The names of your OpenShift clusters in regions 1 and 2
-export CLUSTER_1_NAME=""
-export CLUSTER_2_NAME=""
+# The names of your OpenShift clusters in regions 0 and 1
+export CLUSTER_0=""
+export CLUSTER_1=""
 
 # The OpenShift namespaces for each region where Camunda 8 should be running
 # Namespace names must be unique to route the traffic
-export CAMUNDA_NAMESPACE_1="camunda-$CLUSTER_1_NAME"
-export CAMUNDA_NAMESPACE_2="camunda-$CLUSTER_2_NAME"
+export CAMUNDA_NAMESPACE_0="camunda-$CLUSTER_0"
+export CAMUNDA_NAMESPACE_1="camunda-$CLUSTER_1"
 
 # The backup bucket access variables
 export AWS_ACCESS_KEY_ES=""

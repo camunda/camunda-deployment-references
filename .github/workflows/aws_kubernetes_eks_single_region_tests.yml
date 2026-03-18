@@ -864,6 +864,12 @@ jobs:
 
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
 
+            - name: 🔍 Check for Helm deprecation warnings
+              uses: ./.github/actions/internal-helm-deprecation-check
+              with:
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
               run: |

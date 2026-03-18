@@ -1,7 +1,7 @@
 #!/bin/bash
 
 while true; do
-    STATUS=$(oc --context "$CLUSTER_1_NAME" --namespace open-cluster-management get csv)
+    STATUS=$(oc --context "$CLUSTER_0" --namespace open-cluster-management get csv)
     echo "$STATUS"
 
     if echo "$STATUS" | grep -q "Succeeded"; then

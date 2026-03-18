@@ -5,16 +5,16 @@ set -euo pipefail
 # Timeout for DNS propagation wait (in seconds)
 DNS_WAIT_TIMEOUT=${DNS_WAIT_TIMEOUT:-300}
 
-echo "Exporting services from $CLUSTER_1_NAME in $CAMUNDA_NAMESPACE_1 using subctl"
+echo "Exporting services from $CLUSTER_0 in $CAMUNDA_NAMESPACE_0 using subctl"
 
-for svc in $(oc --context "$CLUSTER_1_NAME" get svc -n "$CAMUNDA_NAMESPACE_1" -o jsonpath='{.items[*].metadata.name}'); do
-    subctl --context "$CLUSTER_1_NAME" export service --namespace "$CAMUNDA_NAMESPACE_1" "$svc"
+for svc in $(oc --context "$CLUSTER_0" get svc -n "$CAMUNDA_NAMESPACE_0" -o jsonpath='{.items[*].metadata.name}'); do
+    subctl --context "$CLUSTER_0" export service --namespace "$CAMUNDA_NAMESPACE_0" "$svc"
 done
 
-echo "Exporting services from $CLUSTER_2_NAME in $CAMUNDA_NAMESPACE_2 using subctl"
+echo "Exporting services from $CLUSTER_1 in $CAMUNDA_NAMESPACE_1 using subctl"
 
-for svc in $(oc --context "$CLUSTER_2_NAME" get svc -n "$CAMUNDA_NAMESPACE_2" -o jsonpath='{.items[*].metadata.name}'); do
-    subctl --context "$CLUSTER_2_NAME" export service --namespace "$CAMUNDA_NAMESPACE_2" "$svc"
+for svc in $(oc --context "$CLUSTER_1" get svc -n "$CAMUNDA_NAMESPACE_1" -o jsonpath='{.items[*].metadata.name}'); do
+    subctl --context "$CLUSTER_1" export service --namespace "$CAMUNDA_NAMESPACE_1" "$svc"
 done
 
 # Wait for Submariner cross-cluster DNS readiness.
@@ -40,8 +40,8 @@ wait_for_service_import() {
 
 echo ""
 echo "Waiting for Submariner ServiceImport propagation (timeout: ${DNS_WAIT_TIMEOUT}s)..."
-wait_for_service_import "$CLUSTER_1_NAME" "$CAMUNDA_NAMESPACE_1"
-wait_for_service_import "$CLUSTER_2_NAME" "$CAMUNDA_NAMESPACE_2"
+wait_for_service_import "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0"
+wait_for_service_import "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1"
 
 # Allow time for Lighthouse DNS records to propagate after ServiceImport creation
 echo "  Waiting 15s for Lighthouse DNS propagation..."
