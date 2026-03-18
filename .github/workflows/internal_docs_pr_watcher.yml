@@ -2,19 +2,23 @@
 name: Internal - Docs PR Watcher
 
 # This workflow monitors PRs on camunda/camunda-docs for changes to files
-# that reference camunda-deployment-references or are in the static watchlist.
+# that reference InfraEx-owned repos or are in the static watchlist.
+# Monitored repos:
+#   - camunda/camunda-deployment-references
+#   - camunda/keycloak
+#   - camunda/c8-sm-checks
 # When such changes are detected, it:
 # 1. Comments on the PR to flag InfraEx-owned content
 # 2. Requests review from the infraex-medic team
-# 3. Validates that links to camunda-deployment-references point to existing files
+# 3. Validates that links to monitored repos point to existing files
 # 4. Adds component:infraex and component:self-managed labels
 #
 # This ensures technical consistency between deployment references and documentation.
 
 on:
     schedule:
-        # Run every hour during business hours (UTC)
-        - cron: 0 6-18 * * 1-5
+        # Run every hour on weekdays (UTC)
+        - cron: 0 * * * 1-5
     workflow_dispatch:
         inputs:
             dry_run:
@@ -70,34 +74,33 @@ jobs:
                   set -euo pipefail
 
                   ###############################################################
-                  # Patterns to detect references to our repo in file content.
-                  # Used for dynamic detection: instead of maintaining a static
-                  # list of files, we fetch each changed file's content and
-                  # check whether it references camunda-deployment-references.
+                  # Patterns to detect references to monitored repos in file
+                  # content. We fetch each changed file and check whether it
+                  # references any of our repos.
                   ###############################################################
                   REPO_PATTERNS=(
                     "camunda/camunda-deployment-references"
                     "camunda-deployment-references"
+                    "camunda/keycloak"
+                    "camunda/c8-sm-checks"
+                    "c8-sm-checks"
                   )
+
+                  # Repos for which we validate GitHub links
+                  MONITORED_REPOS=(
+                    "camunda-deployment-references"
+                    "keycloak"
+                    "c8-sm-checks"
+                  )
+                  # Build alternation for grep
+                  REPO_ALT=$(IFS='|'; echo "${MONITORED_REPOS[*]}")
 
                   ###############################################################
                   # STATIC WATCHLIST - critical pages to always monitor
-                  # (reference architecture, supported environments, etc.)
                   ###############################################################
                   WATCHLIST_PATTERNS=(
                     "docs/self-managed/reference-architecture/"
                     "versioned_docs/*/self-managed/reference-architecture/"
-                    "docs/reference/supported-environments.md"
-                    "versioned_docs/*/reference/supported-environments.md"
-                    "docs/self-managed/deployment/index.md"
-                    "docs/self-managed/deployment/helm/index.md"
-                    "versioned_docs/*/self-managed/deployment/index.md"
-                    "versioned_docs/*/self-managed/deployment/helm/index.md"
-                    "docs/self-managed/deployment/helm/chart-parameters.md"
-                    "versioned_docs/*/self-managed/deployment/helm/chart-parameters.md"
-                    "docs/self-managed/operational-guides/update-guide/"
-                    "versioned_docs/*/self-managed/operational-guides/update-guide/"
-                    "versioned_docs/*/self-managed/setup/"
                   )
 
                   ###############################################################
@@ -152,7 +155,7 @@ jobs:
                     ###########################################################
                     # Dynamic detection: for each changed file, fetch its
                     # content from the PR branch and check if it references
-                    # camunda-deployment-references (links, snippets, etc.)
+                    # any of the monitored repos (links, snippets, etc.)
                     ###########################################################
                     while IFS= read -r file; do
                       # Only inspect markdown files
@@ -175,30 +178,32 @@ jobs:
                           linked_matches+=("$file")
                           echo "    📎 $file contains reference to $pattern"
 
-                          # Validate links to camunda-deployment-references
-                          urls=$(grep -oE 'https://github\.com/camunda/camunda-deployment-references/(blob|tree)/[^)"[:space:]]+' <<< "$file_content" || true)
+                          # Validate links to monitored repos
+                          urls=$(grep -oE "https://github\.com/camunda/(${REPO_ALT})/(blob|tree)/[^)\"[:space:]]+" <<< "$file_content" || true)
                           urls+=$'\n'
-                          urls+=$(grep -oE 'https://raw\.githubusercontent\.com/camunda/camunda-deployment-references/[^)"[:space:]]+' <<< "$file_content" || true)
+                          urls+=$(grep -oE "https://raw\.githubusercontent\.com/camunda/(${REPO_ALT})/[^)\"[:space:]]+" <<< "$file_content" || true)
 
                           while IFS= read -r url; do
                             [[ -z "$url" ]] && continue
 
-                            if [[ "$url" =~ github\.com/camunda/camunda-deployment-references/(blob|tree)/([^/]+)/(.*) ]]; then
-                              ref="${BASH_REMATCH[2]}"
-                              path="${BASH_REMATCH[3]}"
+                            if [[ "$url" =~ github\.com/camunda/([^/]+)/(blob|tree)/([^/]+)/(.*) ]]; then
+                              repo_name="${BASH_REMATCH[1]}"
+                              ref="${BASH_REMATCH[3]}"
+                              path="${BASH_REMATCH[4]}"
                               path="${path%%#*}"
                               if ! gh api \
-                                "repos/camunda/camunda-deployment-references/contents/${path}?ref=${ref}" \
+                                "repos/camunda/${repo_name}/contents/${path}?ref=${ref}" \
                                 --silent > /dev/null 2>&1; then
                                 broken_links+=("$file -> $url")
                                 echo "    ❌ Broken link in $file: $url"
                               fi
-                            elif [[ "$url" =~ raw\.githubusercontent\.com/camunda/camunda-deployment-references/([^/]+)/(.*) ]]; then
-                              ref="${BASH_REMATCH[1]}"
-                              path="${BASH_REMATCH[2]}"
+                            elif [[ "$url" =~ raw\.githubusercontent\.com/camunda/([^/]+)/([^/]+)/(.*) ]]; then
+                              repo_name="${BASH_REMATCH[1]}"
+                              ref="${BASH_REMATCH[2]}"
+                              path="${BASH_REMATCH[3]}"
                               path="${path%%#*}"
                               if ! gh api \
-                                "repos/camunda/camunda-deployment-references/contents/${path}?ref=${ref}" \
+                                "repos/camunda/${repo_name}/contents/${path}?ref=${ref}" \
                                 --silent > /dev/null 2>&1; then
                                 broken_links+=("$file -> $url")
                                 echo "    ❌ Broken link in $file: $url"
@@ -276,13 +281,12 @@ jobs:
                     comment_body="${COMMENT_MARKER}${NL}"
                     comment_body+="## 🔍 InfraEx Content Detected${NL}${NL}"
                     comment_body+="This PR modifies documentation pages owned or referenced by the "
-                    comment_body+="**Infrastructure Experience** team "
-                    comment_body+="([camunda-deployment-references](https://github.com/camunda/camunda-deployment-references)).${NL}${NL}"
+                    comment_body+="**Infrastructure Experience** team.${NL}${NL}"
                     comment_body+="A review from **@${REVIEWER_TEAM}** has been requested "
                     comment_body+="to ensure **technical consistency**.${NL}"
 
                     if [[ ${#linked_matches[@]} -gt 0 ]]; then
-                      comment_body+="${NL}### 📎 Files referencing \`camunda-deployment-references\`${NL}${NL}"
+                      comment_body+="${NL}### 📎 Files referencing monitored repos${NL}${NL}"
                       comment_body+="| File |${NL}|------|${NL}"
                       for f in "${linked_matches[@]}"; do
                         comment_body+="| \`$f\` |${NL}"
@@ -302,17 +306,9 @@ jobs:
 
                     if [[ ${#watchlist_matches[@]} -gt 0 ]]; then
                       comment_body+="${NL}### 📋 Watchlist matches${NL}${NL}"
-                      comment_body+="| File | Reason |${NL}|------|--------|${NL}"
+                      comment_body+="| File |${NL}|------|${NL}"
                       for f in "${watchlist_matches[@]}"; do
-                        reason="Critical infrastructure page"
-                        case "$f" in
-                          *reference-architecture*) reason="Reference architecture" ;;
-                          *supported-environments*) reason="Supported environments" ;;
-                          *update-guide*) reason="Upgrade guide" ;;
-                          *chart-parameters*) reason="Helm chart parameters" ;;
-                          *index.md) reason="Deployment overview" ;;
-                        esac
-                        comment_body+="| \`$f\` | $reason |${NL}"
+                        comment_body+="| \`$f\` |${NL}"
                       done
                     fi
 
