@@ -119,6 +119,8 @@ runs:
               {
                 echo "CAMUNDA_NAMESPACE_0=${{ inputs.cluster-0-namespace }}"
                 echo "CAMUNDA_NAMESPACE_1=${{ inputs.cluster-1-namespace }}"
+                echo "CLUSTER_0_NAME=${{ inputs.cluster-0-name }}"
+                echo "CLUSTER_1_NAME=${{ inputs.cluster-1-name }}"
                 echo "HELM_CHART_VERSION=${{ inputs.helm-version }}"
                 echo "BACKUP_NAME=${{ inputs.backup-name }}"
                 echo "BACKUP_BUCKET=${{ inputs.backup-bucket }}"

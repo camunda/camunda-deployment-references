@@ -1,7 +1,7 @@
 #!/bin/bash
 
 while true; do
-    STATUS=$(oc --context "$CLUSTER_1_NAME" get mch -n open-cluster-management multiclusterhub)
+    STATUS=$(oc --context "$CLUSTER_0" get mch -n open-cluster-management multiclusterhub)
     echo "$STATUS"
 
     if echo "$STATUS" | grep -q "Running"; then

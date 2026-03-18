@@ -2,7 +2,7 @@ apiVersion: addon.open-cluster-management.io/v1alpha1
 kind: ManagedClusterAddOn
 metadata:
   name: submariner
-  namespace: $CLUSTER_2_NAME
+  namespace: $CLUSTER_1
 spec:
   installNamespace: submariner-operator
 ---
@@ -10,7 +10,7 @@ apiVersion: submarineraddon.open-cluster-management.io/v1alpha1
 kind: SubmarinerConfig
 metadata:
   name: submariner
-  namespace: $CLUSTER_2_NAME
+  namespace: $CLUSTER_1
 spec:
   gatewayConfig: {}
   IPSecNATTPort: 4500
