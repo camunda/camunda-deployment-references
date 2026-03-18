@@ -2,8 +2,8 @@
 # ======================================
 #
 # Quick start:
-#   make es-domain.init        # Full setup with TLS (requires mkcert)
-#   make es-no-domain.init     # Full setup without TLS (port-forward)
+#   make domain.init        # Full setup with TLS (requires mkcert)
+#   make no-domain.init     # Full setup without TLS (port-forward)
 #
 # Scripts in ./procedure/ can be run independently after sourcing environment.
 #
@@ -36,8 +36,8 @@ help:
 	@echo "  make pg-only.no-domain.init  # Full setup without TLS (port-forward)"
 	@echo ""
 	@echo "Quick start (with Elasticsearch):"
-	@echo "  make es-domain.init        # Full setup with TLS (requires mkcert)"
-	@echo "  make es-no-domain.init     # Full setup without TLS (port-forward)"
+	@echo "  make domain.init        # Full setup with TLS (requires mkcert)"
+	@echo "  make no-domain.init     # Full setup without TLS (port-forward)"
 	@echo ""
 	@echo "PG-only mode (RDBMS secondary storage, no Elasticsearch, no Optimize):"
 	@echo "  make pg-only.domain.init     Full initialization with TLS"
@@ -46,10 +46,10 @@ help:
 	@echo "  make pg-only.no-domain.clean Full cleanup (no-domain)"
 	@echo ""
 	@echo "ES mode (Elasticsearch secondary storage, full platform):"
-	@echo "  make es-domain.init        Full initialization"
-	@echo "  make es-domain.clean       Full cleanup"
-	@echo "  make es-no-domain.init     Full initialization"
-	@echo "  make es-no-domain.clean    Full cleanup"
+	@echo "  make domain.init        Full initialization"
+	@echo "  make domain.clean       Full cleanup"
+	@echo "  make no-domain.init     Full initialization"
+	@echo "  make no-domain.clean    Full cleanup"
 	@echo ""
 	@echo "Individual commands:"
 	@echo "  make cluster.create     Create Kind cluster"
@@ -82,39 +82,39 @@ help:
 # Full workflows
 # =============================================================================
 
-.PHONY: es-domain.init
-es-domain.init: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap operators.deploy-domain identity-secrets.create camunda.deploy-es-domain camunda.wait
+.PHONY: domain.init
+domain.init: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap operators.deploy-domain identity-secrets.create camunda.deploy-es-domain camunda.wait
 	@( \
 		PASSWORD=$$($(PROCEDURE_DIR)/get-password.sh); \
 		echo ""; \
-		echo "✓ ES domain setup complete!"; \
+		echo "✓ Domain setup complete!"; \
 		echo "  Access: https://camunda.example.com"; \
 		echo "  Credentials: admin / $$PASSWORD"; \
 		echo ""; \
 		echo "  Keycloak admin credentials: make get-keycloak-password"; \
 	)
 
-.PHONY: es-domain.clean
-es-domain.clean: camunda.uninstall cluster.delete hosts.remove certs.clean
+.PHONY: domain.clean
+domain.clean: camunda.uninstall cluster.delete hosts.remove certs.clean
 	@echo ""
-	@echo "✓ ES domain cleanup complete!"
+	@echo "✓ Domain cleanup complete!"
 
-.PHONY: es-no-domain.init
-es-no-domain.init: cluster.create hosts.add-keycloak operators.deploy-no-domain identity-secrets.create camunda.deploy-es-no-domain camunda.wait
+.PHONY: no-domain.init
+no-domain.init: cluster.create hosts.add-keycloak operators.deploy-no-domain identity-secrets.create camunda.deploy-es-no-domain camunda.wait
 	@( \
 		PASSWORD=$$($(PROCEDURE_DIR)/get-password.sh); \
 		echo ""; \
-		echo "✓ ES no-domain setup complete!"; \
+		echo "✓ No-domain setup complete!"; \
 		echo "  Run: make port-forward"; \
 		echo "  Credentials: admin / $$PASSWORD"; \
 		echo ""; \
 		echo "  Keycloak admin credentials: make get-keycloak-password"; \
 	)
 
-.PHONY: es-no-domain.clean
-es-no-domain.clean: camunda.uninstall cluster.delete hosts.remove-keycloak
+.PHONY: no-domain.clean
+no-domain.clean: camunda.uninstall cluster.delete hosts.remove-keycloak
 	@echo ""
-	@echo "✓ ES no-domain cleanup complete!"
+	@echo "✓ No-domain cleanup complete!"
 
 # =============================================================================
 # PG-only workflows (RDBMS secondary storage, no Elasticsearch, no Optimize)

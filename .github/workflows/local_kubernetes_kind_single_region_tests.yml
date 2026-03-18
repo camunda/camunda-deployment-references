@@ -173,8 +173,9 @@ jobs:
             - name: Deploy operators (Elasticsearch, PostgreSQL, Keycloak)
               working-directory: ${{ env.REF_ARCH_PATH }}
               env:
-                  SKIP_ELASTICSEARCH: ${{ matrix.declination.storage_backend == 'rdbms' && 'true' || 'false' }}
+                  SECONDARY_STORAGE: ${{ matrix.declination.secondary_storage == 'rdbms' && 'postgres' || 'elasticsearch' }}
                   CAMUNDA_MODE: ${{ matrix.declination.use_tls && 'domain' || 'no-domain' }}
+                  CLUSTER_FILTER: ${{ matrix.declination.secondary_storage == 'elasticsearch' && 'pg-keycloak,pg-identity,pg-webmodeler' || '' }}
               run: |
                   set -euo pipefail
                   ./procedure/operators-deploy.sh
@@ -201,9 +202,11 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             # Deploy Camunda
-            - name: Deploy Camunda (domain mode, ES)
-              if: matrix.declination.use_tls && matrix.declination.storage_backend == 'elasticsearch'
+            - name: Deploy Camunda (domain mode)
+              if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
+              env:
+                  SECONDARY_STORAGE: ${{ matrix.declination.secondary_storage == 'rdbms' && 'postgres' || 'elasticsearch' }}
               run: |
                   set -euo pipefail
 
@@ -212,11 +215,13 @@ jobs:
                     helm-values/values-domain.yml > helm-values/values-domain.yml.tmp
                   mv helm-values/values-domain.yml.tmp helm-values/values-domain.yml
 
-                  ./procedure/camunda-deploy-es-domain.sh
+                  ./procedure/camunda-deploy-domain.sh
 
-            - name: Deploy Camunda (no-domain mode, ES)
-              if: ${{ !matrix.declination.use_tls && matrix.declination.storage_backend == 'elasticsearch' }}
+            - name: Deploy Camunda (no-domain mode)
+              if: ${{ !matrix.declination.use_tls }}
               working-directory: ${{ env.REF_ARCH_PATH }}
+              env:
+                  SECONDARY_STORAGE: ${{ matrix.declination.secondary_storage == 'rdbms' && 'postgres' || 'elasticsearch' }}
               run: |
                   set -euo pipefail
 
@@ -225,33 +230,7 @@ jobs:
                     helm-values/values-no-domain.yml > helm-values/values-no-domain.yml.tmp
                   mv helm-values/values-no-domain.yml.tmp helm-values/values-no-domain.yml
 
-                  ./procedure/camunda-deploy-es-no-domain.sh
-
-            - name: Deploy Camunda (domain mode, PG-only)
-              if: matrix.declination.use_tls && matrix.declination.storage_backend == 'rdbms'
-              working-directory: ${{ env.REF_ARCH_PATH }}
-              run: |
-                  set -euo pipefail
-
-                  # Apply registry configuration to avoid Docker Hub rate limit
-                  yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/registry.yml\")" \
-                    helm-values/values-domain.yml > helm-values/values-domain.yml.tmp
-                  mv helm-values/values-domain.yml.tmp helm-values/values-domain.yml
-
-                  ./procedure/camunda-deploy-pg-only-domain.sh
-
-            - name: Deploy Camunda (no-domain mode, PG-only)
-              if: ${{ !matrix.declination.use_tls && matrix.declination.storage_backend == 'rdbms' }}
-              working-directory: ${{ env.REF_ARCH_PATH }}
-              run: |
-                  set -euo pipefail
-
-                  # Apply registry configuration to avoid Docker Hub rate limit
-                  yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/registry.yml\")" \
-                    helm-values/values-no-domain.yml > helm-values/values-no-domain.yml.tmp
-                  mv helm-values/values-no-domain.yml.tmp helm-values/values-no-domain.yml
-
-                  ./procedure/camunda-deploy-pg-only-no-domain.sh
+                  ./procedure/camunda-deploy-no-domain.sh
 
             - name: Wait for Camunda deployment
               timeout-minutes: 10
@@ -346,8 +325,8 @@ jobs:
                   webmodeler-enabled: 'true'
                   console-enabled: 'true'
                   # Optimize requires Elasticsearch, so it's disabled in RDBMS-only mode
-                  optimize-enabled: ${{ matrix.declination.storage_backend != 'rdbms' && 'true' || 'false' }}
-                  elasticsearch-enabled: ${{ matrix.declination.storage_backend != 'rdbms' && 'true' || 'false' }}
+                  optimize-enabled: ${{ matrix.declination.secondary_storage == 'rdbms' && 'false' || 'true' }}
+                  elasticsearch-enabled: ${{ matrix.declination.secondary_storage == 'rdbms' && 'false' || 'true' }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
@@ -358,7 +337,7 @@ jobs:
                   enable-helm-chart-tests: 'false'
                   enable-zeebe-client-tests: 'false'
                   keycloak-service-name: keycloak-service:18080
-                  elasticsearch-service-name: elasticsearch-es-http:9200
+                  elasticsearch-service-name: elasticsearch-es-masters:9200
                   # Enable C8-SM-CHECKS
                   enable-c8sm-deployment-check: 'true'
                   enable-c8sm-connectivity-check: 'true'
