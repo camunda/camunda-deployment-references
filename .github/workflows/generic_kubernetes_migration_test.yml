@@ -435,12 +435,14 @@ jobs:
                   ./2-backup.sh
 
             # --- Generate delta data (simulates app still running) ---
-            # After the warm reindex, generate new data so the delta reindex
-            # during cutover has real work to do. This validates the warm→delta
-            # flow end-to-end. Also exercises the case of date-suffixed indices
-            # created after the warm reindex.
-            - name: Generate delta data (post warm-reindex)
-              if: env.ES_WARM_REINDEX == 'true'
+            # Generate new data between backup and cutover to simulate the app
+            # continuing to run. This ensures:
+            # - With warm reindex: the delta reindex has real work to do
+            # - Without warm reindex: the full reindex includes recent data
+            # Both scenarios get the same data volume for fair timing comparison.
+            # Also exercises the case of date-suffixed indices created after
+            # the initial benchmark.
+            - name: Generate delta data (simulates continued usage)
               timeout-minutes: ${{ env.BENCHMARK_SCENARIO == 'heavy' && 15 || 10 }}
               run: |
                   set -euo pipefail
