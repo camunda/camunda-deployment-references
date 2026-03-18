@@ -249,6 +249,13 @@ spec:
                                 fi
                               fi
                             fi
+                          else
+                            # No filtered settings/mappings from source — create
+                            # an empty index so _reindex has a target even if 0 docs
+                            # match (e.g. date-suffixed indices like *_2026-03-18).
+                            # Without this, aliases pointing to these indices fail.
+                            curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
+                              -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
                           fi
 
                           # Build reindex body. In delta mode, use version_type=external
@@ -483,6 +490,12 @@ spec:
                             ALIAS_NAME=$(echo "$line" | awk '{print $1}')
                             IDX_NAME=$(echo "$line" | awk '{print $2}')
                             IS_WRITE=$(echo "$line" | awk '{print $3}')
+                            # Ensure target index exists (it may not if it was
+                            # created after warm reindex and had 0 docs at delta time)
+                            if ! curl -sf -o /dev/null "${TARGET_AUTH[@]}" "$TARGET/$IDX_NAME"; then
+                              curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$IDX_NAME" \
+                                -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                            fi
                             if [ "$IS_WRITE" = "true" ]; then
                               RESP=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$IDX_NAME/_alias/$ALIAS_NAME" \
                                 -H 'Content-Type: application/json' \
