@@ -62,8 +62,8 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
       error_message = "When init_container_enabled is true, init_container_image must be set."
     }
     precondition {
-      condition     = var.restore_backup_id == "" || var.restore_container_image != ""
-      error_message = "When restore_backup_id is set, restore_container_image must be provided."
+      condition     = !var.restore_enabled || var.restore_container_image != ""
+      error_message = "When restore_enabled is true, restore_container_image must be provided."
     }
   }
 
@@ -110,7 +110,7 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
       length(var.init_container_secrets) > 0 ? { secrets = var.init_container_secrets } : {}
     ))
 
-    restore_container_enabled = var.restore_backup_id != ""
+    restore_container_enabled = var.restore_enabled
     restore_container_name    = "restore"
     restore_container_json = jsonencode(merge(
       {
@@ -138,12 +138,15 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
           credentialsParameter = var.registry_credentials_arn
         }
       } : {},
+      # Use entrypoint from variable (defaults to "/usr/local/camunda/bin/restore $RESTORE_ARGS")
       length(var.restore_container_entrypoint) > 0 ? { entryPoint = var.restore_container_entrypoint } : {},
-      # Include same environment variables as main container plus BACKUP_ID
+      # Include same environment variables as main container plus RESTORE_ARGS derived from restore_backup_id
       {
         environment = concat(
           [
-            { name = "BACKUP_ID", value = var.restore_backup_id },
+            # This module currently sets RESTORE_ARGS only to the backupId flag. For other supported restore options, see:
+            # https://docs.camunda.io/docs/next/self-managed/operational-guides/backup-restore/rdbms/rdbms-restore/#restore-options
+            { name = "RESTORE_ARGS", value = var.restore_backup_id != "" ? "--backupId=${var.restore_backup_id}" : "" }
           ],
           local.base_environment_variables,
           var.environment_variables
