@@ -1,0 +1,135 @@
+---
+name: Internal Helm Deprecation Check
+description: |
+    Check for deprecation warnings and errors in the deployed Camunda Helm chart.
+    Uses `helm get notes` to retrieve the release notes and scans for
+    `[camunda][warning]` (deprecated configuration) and `[camunda][error]`
+    (removed configuration) messages.
+    Fails the pipeline if any deprecation warnings or errors are found.
+
+inputs:
+    release-name:
+        description: The Helm release name to check
+        required: false
+        default: camunda
+    namespace:
+        description: The Kubernetes namespace where the release is deployed
+        required: false
+        default: camunda
+    kube-context:
+        description: The Kubernetes context to use (optional, defaults to current context)
+        required: false
+        default: ''
+    exclude-patterns:
+        description: |
+            Newline-separated list of fixed strings to exclude from warnings and errors.
+            Messages containing any of these strings will be ignored.
+        required: false
+        default: ''
+
+runs:
+    using: composite
+    steps:
+        - name: 🔍 Check for Helm deprecation warnings
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              RELEASE_NAME="${{ inputs.release-name }}"
+              NAMESPACE="${{ inputs.namespace }}"
+              KUBE_CONTEXT="${{ inputs.kube-context }}"
+
+              CONTEXT_ARGS=()
+              if [[ -n "${KUBE_CONTEXT}" ]]; then
+                  CONTEXT_ARGS+=(--kube-context "${KUBE_CONTEXT}")
+                  echo "Checking Helm release '${RELEASE_NAME}' in namespace '${NAMESPACE}' (context: '${KUBE_CONTEXT}') for deprecation warnings..."
+              else
+                  echo "Checking Helm release '${RELEASE_NAME}' in namespace '${NAMESPACE}' for deprecation warnings..."
+              fi
+
+              # Retrieve the release notes from the deployed chart
+              if ! NOTES=$(helm get notes "${RELEASE_NAME}" --namespace "${NAMESPACE}" "${CONTEXT_ARGS[@]}" 2>&1); then
+                  echo "::error::Failed to retrieve Helm release notes for '${RELEASE_NAME}' in namespace '${NAMESPACE}'. Helm output:"
+                  echo "${NOTES}"
+                  exit 1
+              fi
+
+              # Extract deprecation warnings (pattern used by the Camunda Helm chart)
+              WARNINGS=$(echo "${NOTES}" | grep -i '\[camunda\]\[warning\]' || true)
+
+              # Extract errors for removed configuration keys
+              ERRORS=$(echo "${NOTES}" | grep -i '\[camunda\]\[error\]' || true)
+
+              # Exclude warnings matching provided patterns (fixed-string match)
+              EXCLUDE_PATTERNS="${{ inputs.exclude-patterns }}"
+              if [[ -n "${EXCLUDE_PATTERNS}" && -n "${WARNINGS}" ]]; then
+                  while IFS= read -r pattern; do
+                      [[ -z "${pattern}" ]] && continue
+                      FILTERED=$(echo "${WARNINGS}" | grep -F -v -- "${pattern}") || rc=$?
+                      if [[ ${rc:-0} -eq 1 ]]; then
+                          # All warnings matched the exclude pattern
+                          WARNINGS=""
+                          break
+                      elif [[ ${rc:-0} -gt 1 ]]; then
+                          echo "::error::grep failed (exit ${rc}) while applying exclude pattern: ${pattern}"
+                          exit 1
+                      else
+                          WARNINGS="${FILTERED}"
+                      fi
+                      unset rc
+                  done <<< "${EXCLUDE_PATTERNS}"
+              fi
+              if [[ -n "${EXCLUDE_PATTERNS}" && -n "${ERRORS}" ]]; then
+                  while IFS= read -r pattern; do
+                      [[ -z "${pattern}" ]] && continue
+                      FILTERED=$(echo "${ERRORS}" | grep -F -v -- "${pattern}") || rc=$?
+                      if [[ ${rc:-0} -eq 1 ]]; then
+                          ERRORS=""
+                          break
+                      elif [[ ${rc:-0} -gt 1 ]]; then
+                          echo "::error::grep failed (exit ${rc}) while applying exclude pattern: ${pattern}"
+                          exit 1
+                      else
+                          ERRORS="${FILTERED}"
+                      fi
+                      unset rc
+                  done <<< "${EXCLUDE_PATTERNS}"
+              fi
+
+              HAS_ISSUES=false
+
+              if [[ -n "${ERRORS}" ]]; then
+                  echo "::error::Removed configuration keys detected in Helm release '${RELEASE_NAME}'"
+                  echo ""
+                  echo "=========================================="
+                  echo "  REMOVED CONFIGURATION KEYS (ERRORS)"
+                  echo "=========================================="
+                  echo ""
+                  echo "${ERRORS}"
+                  echo ""
+                  echo "=========================================="
+                  echo ""
+                  HAS_ISSUES=true
+              fi
+
+              if [[ -n "${WARNINGS}" ]]; then
+                  echo "::error::Deprecation warnings detected in Helm release '${RELEASE_NAME}'"
+                  echo ""
+                  echo "=========================================="
+                  echo "  DEPRECATION WARNINGS"
+                  echo "=========================================="
+                  echo ""
+                  echo "${WARNINGS}"
+                  echo ""
+                  echo "=========================================="
+                  echo ""
+                  HAS_ISSUES=true
+              fi
+
+              if [[ "${HAS_ISSUES}" == "true" ]]; then
+                  echo "Please update the Helm values to use the new configuration format."
+                  echo "See: https://docs.camunda.io/docs/self-managed/deployment/helm/upgrade/"
+                  exit 1
+              fi
+
+              echo "✅ No deprecation warnings or errors found in Helm release '${RELEASE_NAME}'"

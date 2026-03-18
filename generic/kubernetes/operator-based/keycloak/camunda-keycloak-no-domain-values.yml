@@ -39,9 +39,10 @@ global:
             auth:
                 # Configuration for accessing external Keycloak instance
                 # For operator-managed Keycloak, use the generated admin secret
-                existingSecret: keycloak-initial-admin
-                existingSecretKey: password
                 adminUser: temp-admin
+                secret:
+                    existingSecret: keycloak-initial-admin
+                    existingSecretKey: password
 
 orchestration:
     security:
