@@ -1,5 +1,5 @@
 ---
-name: Internal - Docs PR Watcher
+name: Internal - Global - Docs PR Watcher
 
 # This workflow monitors PRs on camunda/camunda-docs for changes to files
 # that reference InfraEx-owned repos or are in the static watchlist.
