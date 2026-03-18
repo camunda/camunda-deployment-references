@@ -16,6 +16,7 @@ on:
             - aws/kubernetes/eks-single-region*/**
             - '!aws/kubernetes/eks-single-region/terraform/*/test/golden/**'
             - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
+            - '!aws/kubernetes/eks-single-region-rdbms/terraform/*/test/golden/**'
             - .github/actions/aws-kubernetes-eks-single-region-create/**
             - .github/actions/aws-cognito-create/**
             - aws/common/cognito/**
@@ -207,6 +208,7 @@ jobs:
                   ref-arch: ${{ matrix.scenario.name }}
                   private-vpc: ${{ matrix.scenario.private_vpc }}
                   vpn-enabled: ${{ matrix.scenario.private_vpc }}
+                  deploy-opensearch: ${{ !contains(matrix.scenario.name, 'rdbms') }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -566,12 +568,14 @@ jobs:
 
                   if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
                       ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-os-secret.sh
-                  else
+                  elif [[ -n "${OPENSEARCH_HOST:-}" ]]; then
                     # for non irsa, we don't need credentials but want to reuse the same job
                     kubectl create secret generic setup-os-secret --namespace "$CAMUNDA_NAMESPACE" \
                     --from-literal=OPENSEARCH_HOST="$OPENSEARCH_HOST" \
                     --from-literal=OPENSEARCH_MASTER_USERNAME="" \
                     --from-literal=OPENSEARCH_MASTER_PASSWORD=""
+                  else
+                    echo "No OpenSearch configured (RDBMS variant), skipping setup-os-secret creation"
                   fi
 
                   # Reset PostgreSQL
@@ -595,26 +599,30 @@ jobs:
 
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
 
-                  # Reset OpenSearch
-                  kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/test/reset-opensearch.yml --namespace "$CAMUNDA_NAMESPACE"
+                  # Reset OpenSearch (skip for RDBMS variant which has no OpenSearch)
+                  if [[ -n "${OPENSEARCH_HOST:-}" ]]; then
+                    kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/test/reset-opensearch.yml --namespace "$CAMUNDA_NAMESPACE"
 
-                  # Wait for the job to complete
-                  while true; do
-                      STATUS=$(kubectl get job reset-opensearch --namespace "$CAMUNDA_NAMESPACE" -o jsonpath='{.status.succeeded}')
+                    # Wait for the job to complete
+                    while true; do
+                        STATUS=$(kubectl get job reset-opensearch --namespace "$CAMUNDA_NAMESPACE" -o jsonpath='{.status.succeeded}')
 
-                      if [[ "$STATUS" == "1" ]]; then
-                          echo "Job completed successfully."
-                          break
-                      fi
+                        if [[ "$STATUS" == "1" ]]; then
+                            echo "Job completed successfully."
+                            break
+                        fi
 
-                      echo "Waiting for job to complete..."
-                      sleep 5
-                  done
-                  echo "[DEBUG] Job log:"
-                  kubectl logs job/reset-opensearch --namespace "$CAMUNDA_NAMESPACE"
-                  kubectl delete job reset-opensearch --namespace "$CAMUNDA_NAMESPACE"
+                        echo "Waiting for job to complete..."
+                        sleep 5
+                    done
+                    echo "[DEBUG] Job log:"
+                    kubectl logs job/reset-opensearch --namespace "$CAMUNDA_NAMESPACE"
+                    kubectl delete job reset-opensearch --namespace "$CAMUNDA_NAMESPACE"
 
-                  kubectl delete secret setup-os-secret --namespace "$CAMUNDA_NAMESPACE"
+                    kubectl delete secret setup-os-secret --namespace "$CAMUNDA_NAMESPACE"
+                  else
+                    echo "No OpenSearch configured (RDBMS variant), skipping OpenSearch reset"
+                  fi
 
             # Use wildcard certificates from Vault instead of ACME/Let's Encrypt
             # This is useful during testing phase to avoid Let's Encrypt rate limits (max 50 certificates per week)
