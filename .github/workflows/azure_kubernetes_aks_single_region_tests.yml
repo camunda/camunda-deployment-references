@@ -664,7 +664,7 @@ jobs:
               uses: ./.github/actions/kubernetes-keycloak-operator
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  keycloak-mode: ${{ (matrix.declination.name == 'domain') && 'domain' || 'no-domain' }}
+                  keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain' || 'no-domain' }}
                   domain-name: ${{ env.CAMUNDA_DOMAIN }}
 
             - name: Helm registry login

@@ -58,7 +58,7 @@ connectors:
     contextPath: /connectors
 
 optimize:
-    enabled: false # Optimize does not support RDBMS secondary storage
+    enabled: false # Optimize requires Elasticsearch and does not support RDBMS secondary storage
 
 orchestration:
     data:
