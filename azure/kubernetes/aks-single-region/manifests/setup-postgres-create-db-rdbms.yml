@@ -1,0 +1,101 @@
+---
+# This manifest creates the databases for Camunda 8 RDBMS mode.
+# It provisions:
+#   - Identity database and user (required by all deployments)
+#   - RDBMS secondary storage database and user (replaces Elasticsearch)
+# WebModeler database is not created as WebModeler is disabled in RDBMS mode.
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: create-setup-user-db
+    labels:
+        app: create-setup-user-db
+spec:
+    backoffLimit: 0
+    template:
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: create-setup-user-db
+                  image: alpine/psql:15.5
+                  command:
+                      - sh
+                      - -c
+                      - |
+                        /bin/sh <<'EOF'
+                        set -o pipefail
+                        set -e  # Exit on error
+
+                        echo "Creating databases and users for Camunda Platform (RDBMS mode)..."
+
+                        echo "Creating Identity database and user..."
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "dbname=postgres user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "CREATE DATABASE \"${DB_IDENTITY_NAME}\";"
+
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "dbname=$DB_IDENTITY_NAME user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "CREATE USER \"${DB_IDENTITY_USERNAME}\" WITH PASSWORD '${DB_IDENTITY_PASSWORD}' NOSUPERUSER CREATEDB CREATEROLE INHERIT;" \
+                          -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_IDENTITY_NAME}\" TO \"${DB_IDENTITY_USERNAME}\";" \
+                          -c "GRANT ALL ON SCHEMA public TO \"${DB_IDENTITY_USERNAME}\";"
+
+                        echo "Creating RDBMS secondary storage database and user..."
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "dbname=postgres user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "CREATE DATABASE \"${RDBMS_SECONDARY_DATABASE}\";"
+
+                        PGPASSWORD=$POSTGRES_ADMIN_PASSWORD psql -h $DB_HOST -p $DB_PORT "dbname=$RDBMS_SECONDARY_DATABASE user=$POSTGRES_ADMIN_USERNAME" \
+                          -c "CREATE USER \"${RDBMS_SECONDARY_USERNAME}\" WITH PASSWORD '${RDBMS_SECONDARY_PASSWORD}' NOSUPERUSER CREATEDB CREATEROLE INHERIT;" \
+                          -c "GRANT ALL PRIVILEGES ON DATABASE \"${RDBMS_SECONDARY_DATABASE}\" TO \"${RDBMS_SECONDARY_USERNAME}\";" \
+                          -c "GRANT ALL ON SCHEMA public TO \"${RDBMS_SECONDARY_USERNAME}\";"
+
+                        echo "Database setup completed successfully!"
+                        EOF
+                  env:
+                      - name: DB_HOST
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_HOST
+                      - name: DB_PORT
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_PORT
+                      - name: POSTGRES_ADMIN_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: POSTGRES_ADMIN_USERNAME
+                      - name: POSTGRES_ADMIN_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: POSTGRES_ADMIN_PASSWORD
+                      - name: DB_IDENTITY_NAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_IDENTITY_NAME
+                      - name: DB_IDENTITY_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_IDENTITY_USERNAME
+                      - name: DB_IDENTITY_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: DB_IDENTITY_PASSWORD
+                      - name: RDBMS_SECONDARY_DATABASE
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: RDBMS_SECONDARY_DATABASE
+                      - name: RDBMS_SECONDARY_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: RDBMS_SECONDARY_USERNAME
+                      - name: RDBMS_SECONDARY_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: RDBMS_SECONDARY_PASSWORD

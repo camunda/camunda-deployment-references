@@ -12,6 +12,11 @@ locals {
 
   camunda_identity_db_password   = "secretvalue%25" # Replace with a password that will be used for connection to the DB on Identity db
   camunda_webmodeler_db_password = "secretvalue%26" # Replace with a password that will be used for connection to the DB on WebModeler db
+
+  # RDBMS secondary storage (alternative to Elasticsearch for Camunda 8.9+)
+  camunda_database_secondary    = "camunda_secondary" # Name of the database used as RDBMS secondary storage
+  camunda_secondary_db_username = "secondary_db"      # Username for connection to the RDBMS secondary storage DB
+  camunda_secondary_db_password = "secretvalue%27"    # Replace with a password for the RDBMS secondary storage DB
 }
 
 # PostgreSQL database
@@ -52,5 +57,21 @@ output "postgres_admin_username" {
 output "postgres_admin_password" {
   description = "PostgreSQL admin password"
   value       = local.db_admin_password
+  sensitive   = true
+}
+
+output "camunda_database_secondary" {
+  description = "Name of the PostgreSQL database used as RDBMS secondary storage"
+  value       = local.camunda_database_secondary
+}
+
+output "camunda_secondary_db_username" {
+  description = "Username for the RDBMS secondary storage database"
+  value       = local.camunda_secondary_db_username
+}
+
+output "camunda_secondary_db_password" {
+  description = "Password for the RDBMS secondary storage database"
+  value       = local.camunda_secondary_db_password
   sensitive   = true
 }

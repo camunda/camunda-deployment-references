@@ -17,3 +17,6 @@ matrix:
           desc: Setup chart in production-like setup without Ingress and TLS.
         - name: domain
           desc: Setup chart in production-like setup with Ingress and TLS.
+        - name: rdbms
+          desc: Setup chart with Azure Database for PostgreSQL - Flexible Server as RDBMS secondary storage instead of Elasticsearch.
+          secondary_storage: rdbms

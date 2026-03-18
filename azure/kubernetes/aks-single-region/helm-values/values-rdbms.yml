@@ -1,0 +1,94 @@
+---
+# Azure AKS RDBMS Configuration for Camunda Platform
+#
+# This values file configures Camunda to use Azure Database for PostgreSQL -
+# Flexible Server as the secondary datastore instead of Elasticsearch/OpenSearch.
+# This is supported from Camunda 8.9+ with RDBMS as alternative secondary storage.
+#
+# Auth provider configs are applied via overlays:
+# - Keycloak Operator: generic/kubernetes/operator-based/keycloak/camunda-keycloak-no-domain-values.yml
+#
+# Required environment variables (exported by vars-create-db.sh):
+#   - DB_HOST: PostgreSQL Flexible Server FQDN
+#   - DB_PORT: PostgreSQL port (5432)
+#   - DB_IDENTITY_NAME: Identity database name
+#   - DB_IDENTITY_USERNAME: Identity database username
+#   - RDBMS_SECONDARY_DATABASE: RDBMS secondary storage database name
+#   - RDBMS_SECONDARY_USERNAME: RDBMS secondary storage database username
+#
+
+global:
+    elasticsearch:
+        enabled: false
+
+    identity:
+        auth:
+            enabled: true
+
+    security:
+        authentication:
+            method: oidc
+
+identity:
+    enabled: true
+    contextPath: /managementidentity
+    fullURL: http://localhost:8080/managementidentity # replace with port-forward URL when accessing locally
+
+    firstUser:
+        enabled: true
+        username: admin
+        email: admin@camunda.local
+        firstName: Admin
+        lastName: User
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: identity-first-user-password
+
+    externalDatabase:
+        enabled: true
+        host: ${DB_HOST}
+        port: ${DB_PORT}
+        username: ${DB_IDENTITY_USERNAME}
+        database: ${DB_IDENTITY_NAME}
+        secret:
+            existingSecret: identity-postgres-secret
+            existingSecretKey: password
+
+connectors:
+    contextPath: /connectors
+
+optimize:
+    enabled: false # Optimize does not support RDBMS secondary storage
+
+orchestration:
+    data:
+        secondaryStorage:
+            type: rdbms
+    env:
+        - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL
+          value: "jdbc:postgresql://${DB_HOST}:${DB_PORT}/${RDBMS_SECONDARY_DATABASE}?sslmode=require"
+        - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_USERNAME
+          value: "${RDBMS_SECONDARY_USERNAME}"
+        - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_AUTODDL
+          value: "true"
+        - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: rdbms-secondary-secret
+                  key: password
+
+    security:
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
+
+webModeler:
+    enabled: false # WebModeler is not enabled in RDBMS mode by default
+
+webModelerPostgresql:
+    enabled: false
+
+console:
+    enabled: false # by default, console is not enabled

@@ -20,3 +20,8 @@ export DB_IDENTITY_PASSWORD=$(echo "$outputs_json" | jq -r .camunda_identity_db_
 export DB_WEBMODELER_NAME=$(echo "$outputs_json" | jq -r .camunda_database_webmodeler.value)
 export DB_WEBMODELER_USERNAME=$(echo "$outputs_json" | jq -r .camunda_webmodeler_db_username.value)
 export DB_WEBMODELER_PASSWORD=$(echo "$outputs_json" | jq -r .camunda_webmodeler_db_password.value)
+
+# RDBMS secondary storage DB (used when Elasticsearch is replaced by PostgreSQL)
+export RDBMS_SECONDARY_DATABASE=$(echo "$outputs_json" | jq -r .camunda_database_secondary.value)
+export RDBMS_SECONDARY_USERNAME=$(echo "$outputs_json" | jq -r .camunda_secondary_db_username.value)
+export RDBMS_SECONDARY_PASSWORD=$(echo "$outputs_json" | jq -r .camunda_secondary_db_password.value)
