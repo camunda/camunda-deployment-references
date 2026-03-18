@@ -196,13 +196,31 @@ spec:
                                   echo "  Settings-only also failed, trying mappings only"
                                 else
                                   echo "  Settings-only succeeded (analyzers preserved)"
-                                  # Disable date/numeric detection to prevent auto-mapping
-                                  # conflicts during reindex (e.g. variables.value being
-                                  # mapped as date from first doc, then failing on text docs)
-                                  curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx/_mapping" \
-                                    -H 'Content-Type: application/json' \
-                                    -d '{"date_detection":false,"numeric_detection":false}' \
-                                    >/dev/null 2>&1 || true
+                                  # Apply source mappings via _mapping API so field types
+                                  # are preserved. Without this, reindex uses dynamic mapping
+                                  # which can map fields incorrectly (e.g. lastModified as
+                                  # text instead of date), causing Optimize upgrade to fail.
+                                  SRC_MAPPING=$(curl -sf "${SOURCE_AUTH[@]}" \
+                                    "$SOURCE/$idx/_mapping?filter_path=*.mappings")
+                                  if [ -n "$SRC_MAPPING" ] && [ "$SRC_MAPPING" != "{}" ]; then
+                                    # Extract just the mappings object: {"idx":{"mappings":{...}}}
+                                    SRC_M_BODY=$(echo "$SRC_MAPPING" | sed 's/^{[^:]*:{"mappings"://' | sed 's/}}$//')
+                                    PUT_M_RESP=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx/_mapping" \
+                                      -H 'Content-Type: application/json' \
+                                      -d "$SRC_M_BODY" 2>&1)
+                                    if echo "$PUT_M_RESP" | grep -q '"acknowledged":true'; then
+                                      echo "  Source mappings applied"
+                                    else
+                                      echo "  Source mappings failed, using date_detection fallback"
+                                      # Disable date/numeric detection to prevent auto-mapping
+                                      # conflicts during reindex (e.g. variables.value being
+                                      # mapped as date from first doc, then failing on text docs)
+                                      curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx/_mapping" \
+                                        -H 'Content-Type: application/json' \
+                                        -d '{"date_detection":false,"numeric_detection":false}' \
+                                        >/dev/null 2>&1 || true
+                                    fi
+                                  fi
                                   # Settings created; skip further fallbacks
                                   PUT_S=""
                                 fi
@@ -424,11 +442,22 @@ spec:
                               if [ -n "$S_ONLY" ] && [ "$S_ONLY" != "{}" ]; then
                                 S_BODY="${S_ONLY#*:}"
                                 S_BODY="${S_BODY%\}}"
-                                curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
+                                if curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
                                   -H 'Content-Type: application/json' \
-                                  -d "$S_BODY" >/dev/null 2>&1 || \
-                                curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
-                                  -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                                  -d "$S_BODY" >/dev/null 2>&1; then
+                                  # Apply source mappings to preserve field types
+                                  SRC_MAPPING=$(curl -sf "${SOURCE_AUTH[@]}" \
+                                    "$SOURCE/$idx/_mapping?filter_path=*.mappings")
+                                  if [ -n "$SRC_MAPPING" ] && [ "$SRC_MAPPING" != "{}" ]; then
+                                    SRC_M_BODY=$(echo "$SRC_MAPPING" | sed 's/^{[^:]*:{"mappings"://' | sed 's/}}$//')
+                                    curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx/_mapping" \
+                                      -H 'Content-Type: application/json' \
+                                      -d "$SRC_M_BODY" >/dev/null 2>&1 || true
+                                  fi
+                                else
+                                  curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
+                                    -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                                fi
                               else
                                 curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
                                   -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
