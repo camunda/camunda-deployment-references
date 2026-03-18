@@ -113,7 +113,7 @@ variable "cloudwatch_retention_days" {
 variable "efs_throughput_mode" {
   description = "The throughput mode for the EFS file system"
   type        = string
-  default     = "provisioned"
+  default     = "elastic"
 }
 
 variable "efs_provisioned_throughput_in_mibps" {
