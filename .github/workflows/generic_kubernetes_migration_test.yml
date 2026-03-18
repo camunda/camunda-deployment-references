@@ -96,7 +96,7 @@ jobs:
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
     migration-tests:
-        name: Run migration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
+        name: Run migration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }}
         needs:
             - triage
             - clusters-info
@@ -109,7 +109,6 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         env:
             CLUSTER_NAME: camunda-platform-local
             NAMESPACE: camunda
@@ -184,34 +183,34 @@ jobs:
             # Domain mode setup (ingress, TLS, DNS)
             # =================================================================
             - name: Deploy Ingress NGINX
-              if: matrix.declination.use_tls
+              if: matrix.distro.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/ingress-nginx-deploy.sh
 
             - name: Configure CoreDNS for domain resolution
-              if: matrix.declination.use_tls
+              if: matrix.distro.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/coredns-config.sh
 
             - name: Generate TLS certificates
-              if: matrix.declination.use_tls
+              if: matrix.distro.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/certs-generate.sh
 
             - name: Create TLS secret
-              if: matrix.declination.use_tls
+              if: matrix.distro.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/certs-create-secret.sh
 
             - name: Create CA ConfigMap
-              if: matrix.declination.use_tls
+              if: matrix.distro.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/certs-create-ca-configmap.sh
 
             - name: Set domain environment
               run: |
                   set -euo pipefail
-                  if [[ "${{ matrix.declination.use_tls }}" == "true" ]]; then
+                  if [[ "${{ matrix.distro.use_tls }}" == "true" ]]; then
                       echo "CAMUNDA_DOMAIN=camunda.example.com" | tee -a "$GITHUB_ENV"
                   else
                       echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
@@ -252,7 +251,7 @@ jobs:
                   )
 
                   # Add domain overlay values for TLS/Ingress mode
-                  if [[ "${{ matrix.declination.use_tls }}" == "true" ]]; then
+                  if [[ "${{ matrix.distro.use_tls }}" == "true" ]]; then
                       echo "Installing Camunda Platform with Bitnami sub-charts (domain mode)..."
                       HELM_ARGS+=(--values generic/kubernetes/migration/tests/bitnami-values-domain.yml)
                   else
@@ -598,11 +597,11 @@ jobs:
                   skip-c8sm-connectivity-ingress-class-check: 'true'
                   enable-c8sm-irsa-check: 'false'
                   # Zeebe token/connectivity checks require domain + credentials
-                  enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
-                      'false' }}
-                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
+                  enable-c8sm-zeebe-token-check: ${{ matrix.distro.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' || 'false'
+                      }}
+                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.distro.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
                       || 'false' }}
-                  local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+                  local-domain-mode: ${{ matrix.distro.use_tls && 'true' || 'false' }}
 
             # =================================================================
             # STEP 6: Clean up old Bitnami resources and re-verify
@@ -678,11 +677,11 @@ jobs:
                   enable-c8sm-connectivity-check: 'true'
                   skip-c8sm-connectivity-ingress-class-check: 'true'
                   enable-c8sm-irsa-check: 'false'
-                  enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
-                      'false' }}
-                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
+                  enable-c8sm-zeebe-token-check: ${{ matrix.distro.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' || 'false'
+                      }}
+                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.distro.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
                       || 'false' }}
-                  local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+                  local-domain-mode: ${{ matrix.distro.use_tls && 'true' || 'false' }}
 
             # =================================================================
             # Debug & Cleanup
@@ -692,7 +691,7 @@ jobs:
               uses: ./.github/actions/internal-debug-failed-pods
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
 
             - name: Cleanup Kind cluster
               if: always()

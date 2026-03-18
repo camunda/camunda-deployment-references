@@ -4,41 +4,49 @@
 # to Kubernetes operators (ECK, CNPG, Keycloak Operator)
 
 matrix:
+    # WARNING: Unlike other ref archs, this matrix does not use a separate `declination` dimension.
+    # The declination (domain/no-domain) is inlined directly into each distro entry via `use_tls`
+    # to avoid unnecessary heavy job combinations (heavy is only tested with domain mode).
     distro:
         # Kind is used for migration tests — no cloud infra needed
-        - name: Kind
+        - name: Kind-NoDomain
           schedule_only: false
           type: kind
-        - name: Kind-WarmReindex
+          use_tls: false
+        - name: Kind-Domain
+          schedule_only: false
+          type: kind
+          use_tls: true
+        - name: Kind-WarmReindex-NoDomain
           schedule_only: false
           type: kind
           es_warm_reindex: true
-        - name: Kind-Heavy
+          use_tls: false
+        - name: Kind-WarmReindex-Domain
+          schedule_only: false
+          type: kind
+          es_warm_reindex: true
+          use_tls: true
+        - name: Kind-Heavy-Domain
           # TODO: revert to schedule_only + weekly_schedule_only before merging
           schedule_only: false
           weekly_schedule_only: false
           type: kind
           benchmark_scenario: heavy
-        - name: Kind-Heavy-WarmReindex
+          use_tls: true
+        - name: Kind-Heavy-WarmReindex-Domain
           # TODO: revert to schedule_only + weekly_schedule_only before merging
           schedule_only: false
           weekly_schedule_only: false
           type: kind
           benchmark_scenario: heavy
           es_warm_reindex: true
+          use_tls: true
 
     scenario:
         # Test the full migration workflow
         - name: migration-from-bitnami
           shortName: mfb
-
-    declination:
-        - name: no-domain
-          use_tls: false
-          desc: Test migration from Bitnami to operators without domain configuration.
-        - name: domain
-          use_tls: true
-          desc: Test migration from Bitnami to operators with Ingress and TLS (camunda.example.com).
 
     # Components to test migration for
     # Each component can be tested independently
