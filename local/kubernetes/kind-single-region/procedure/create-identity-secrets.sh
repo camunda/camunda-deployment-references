@@ -20,6 +20,8 @@ ORCHESTRATION_SECRET="$(openssl rand -hex 16)"
 OPTIMIZE_SECRET="$(openssl rand -hex 16)"
 ADMIN_PASSWORD="$(openssl rand -hex 16)"
 FIRST_USER_PASSWORD="$(openssl rand -hex 16)"
+PUSHER_APP_SECRET="$(openssl rand -hex 16)"
+PUSHER_APP_KEY="$(openssl rand -hex 16)"
 
 kubectl create secret generic camunda-credentials \
     --namespace "$NAMESPACE" \
@@ -30,6 +32,8 @@ kubectl create secret generic camunda-credentials \
     --from-literal=identity-optimize-client-token="$OPTIMIZE_SECRET" \
     --from-literal=identity-admin-client-token="$ADMIN_PASSWORD" \
     --from-literal=identity-first-user-password="$FIRST_USER_PASSWORD" \
+    --from-literal=webmodeler-pusher-app-secret="$PUSHER_APP_SECRET" \
+    --from-literal=webmodeler-pusher-app-key="$PUSHER_APP_KEY" \
     --dry-run=client -o yaml | kubectl apply -f -
 
 echo "✅ camunda-credentials created"

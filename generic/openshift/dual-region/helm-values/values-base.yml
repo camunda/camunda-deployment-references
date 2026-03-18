@@ -42,6 +42,9 @@ connectors:
     enabled: true
 
 orchestration:
+    data:
+        secondaryStorage:
+            type: elasticsearch
     clusterSize: '8'
     partitionCount: '8'
     replicationFactor: '4'
@@ -111,6 +114,9 @@ identity:
 
 identityKeycloak:
     enabled: false
+
+console:
+    enabled: false # by default, console is not enabled
 
 optimize:
     enabled: false

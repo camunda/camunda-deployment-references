@@ -676,13 +676,28 @@ jobs:
                   ./generic/openshift/dual-region/procedure/export-services-submariner.sh
                   ./generic/openshift/dual-region/procedure/verify-exported-services.sh
 
+            # TODO : re-align with https://github.com/camunda/camunda-deployment-references/pull/2037
+            # as the region 1-2 will be move to 0-1
+            - name: 🔍 Check for Helm deprecation warnings (region 1)
+              uses: ./.github/actions/internal-helm-deprecation-check
+              with:
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  kube-context: ${{ env.CLUSTER_1_NAME }}
+
+            - name: 🔍 Check for Helm deprecation warnings (region 2)
+              uses: ./.github/actions/internal-helm-deprecation-check
+              with:
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_2 }}
+                  kube-context: ${{ env.CLUSTER_2_NAME }}
+
             - name: 👀⏳ Wait for the deployment to be healthy using generic/openshift/dual-region
               timeout-minutes: 10
               run: |
                   set -euo pipefail
 
                   ./generic/openshift/dual-region/procedure/check-deployment-ready.sh
-
 
             - name: Set current Camunda version
               id: camunda-version
