@@ -112,6 +112,8 @@ orchestration:
         secondaryStorage:
             type: opensearch
             opensearch:
+                aws:
+                    enabled: true # enable IRSA auth
                 url: https://${OPENSEARCH_HOST}:443
 
     security:
