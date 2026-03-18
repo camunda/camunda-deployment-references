@@ -43,6 +43,10 @@ help:
 	@echo "  make no-domain.init     Full initialization"
 	@echo "  make no-domain.clean    Full cleanup"
 	@echo ""
+	@echo "Infrastructure only (bring your own Camunda values):"
+	@echo "  make domain.infra       Setup infra with TLS (no Camunda)"
+	@echo "  make no-domain.infra    Setup infra without TLS (no Camunda)"
+	@echo ""
 	@echo "Individual commands:"
 	@echo "  make cluster.create     Create Kind cluster"
 	@echo "  make cluster.delete     Delete Kind cluster"
@@ -98,6 +102,24 @@ no-domain.init: cluster.create hosts.add-keycloak operators.deploy-no-domain ide
 		echo ""; \
 		echo "  Keycloak admin credentials: make get-keycloak-password"; \
 	)
+
+# Infrastructure only (no Camunda) — bring your own values.yaml
+
+.PHONY: domain.infra
+domain.infra: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap operators.deploy-domain
+	@echo ""
+	@echo "✓ Domain infrastructure ready!"
+	@echo "  Deploy Camunda with your own values:"
+	@echo "    helm install $(CAMUNDA_RELEASE_NAME) camunda/camunda-platform -n $(CAMUNDA_NAMESPACE) -f your-values.yaml"
+	@echo ""
+
+.PHONY: no-domain.infra
+no-domain.infra: cluster.create hosts.add-keycloak operators.deploy-no-domain
+	@echo ""
+	@echo "✓ No-domain infrastructure ready!"
+	@echo "  Deploy Camunda with your own values:"
+	@echo "    helm install $(CAMUNDA_RELEASE_NAME) camunda/camunda-platform -n $(CAMUNDA_NAMESPACE) -f your-values.yaml"
+	@echo ""
 
 .PHONY: no-domain.clean
 no-domain.clean: camunda.uninstall cluster.delete hosts.remove-keycloak
