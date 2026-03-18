@@ -153,24 +153,21 @@ spec:
                         CURRENT=0
                         FAILED=0
                         MIGRATED_DOCS=0
+                        SKIPPED_DOCS=0
                         REINDEX_START=$(date +%s)
                         for idx in $INDICES; do
                           CURRENT=$((CURRENT + 1))
                           echo "[$CURRENT/$DATA_COUNT] Reindexing: $idx"
 
                           # ── Pre-create target index with source settings + mappings ──
-                          # Use filter_path to get ONLY analysis settings + mappings from
-                          # the source index. This excludes read-only settings (uuid,
-                          # creation_date, version, etc.) that would cause PUT to fail.
-                          # We also include max_ngram_diff / max_shingle_diff because
-                          # ES 8.19 defaults max_ngram_diff=1 which rejects NGram
-                          # tokenizers with larger diffs (Optimize uses min=1,max=10).
-                          # The response format is:
-                          #   {"idx":{"mappings":{...},"settings":{"index":{"analysis":{...}}}}}
-                          # We strip the outer {"idx": ... } wrapper to get a valid PUT body.
-                          FILTERED=$(curl -sf "${SOURCE_AUTH[@]}" \
-                            "$SOURCE/$idx?filter_path=*.mappings,*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
-                          if [ -n "$FILTERED" ] && [ "$FILTERED" != "{}" ]; then
+                          # In delta mode, the target index already exists from the warm
+                          # reindex — skip the pre-create to avoid noisy fallback messages.
+                          if [ "${REINDEX_MODE:-full}" = "delta" ] \
+                             && curl -sf -o /dev/null "${TARGET_AUTH[@]}" "$TARGET/$idx"; then
+                            echo "  Index exists on target (warm reindex)"
+                          elif FILTERED=$(curl -sf "${SOURCE_AUTH[@]}" \
+                            "$SOURCE/$idx?filter_path=*.mappings,*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff"); \
+                          [ -n "$FILTERED" ] && [ "$FILTERED" != "{}" ]; then
                             # Strip outer {"index_name": and trailing }
                             CREATE_BODY="${FILTERED#*:}"
                             CREATE_BODY="${CREATE_BODY%\}}"
@@ -278,20 +275,24 @@ spec:
                           IDX_NOOPS=$(echo "$RESPONSE" | sed -n 's/.*"noops":\([0-9]*\).*/\1/p')
                           IDX_TOTAL=$(echo "$RESPONSE" | sed -n 's/.*"total":\([0-9]*\).*/\1/p')
                           IDX_TIME=$(echo "$RESPONSE" | sed -n 's/.*"took":\([0-9]*\).*/\1/p')
+                          IDX_CONFLICTS=$(echo "$RESPONSE" | sed -n 's/.*"version_conflicts":\([0-9]*\).*/\1/p')
                           IDX_CREATED=${IDX_CREATED:-0}
                           IDX_UPDATED=${IDX_UPDATED:-0}
                           IDX_NOOPS=${IDX_NOOPS:-0}
                           IDX_TOTAL=${IDX_TOTAL:-0}
+                          IDX_CONFLICTS=${IDX_CONFLICTS:-0}
                           IDX_TIME_S=$(( ${IDX_TIME:-0} / 1000 ))
 
                           MIGRATED_DOCS=$((MIGRATED_DOCS + IDX_CREATED + IDX_UPDATED))
+                          SKIPPED_DOCS=$((SKIPPED_DOCS + IDX_CONFLICTS))
                           ELAPSED=$(($(date +%s) - REINDEX_START))
 
                           # Calculate throughput and ETA
+                          PROCESSED_DOCS=$((MIGRATED_DOCS + SKIPPED_DOCS))
                           ETA_MSG=""
-                          if [ "$ELAPSED" -gt 0 ] && [ "$MIGRATED_DOCS" -gt 0 ]; then
-                            DOCS_PER_SEC=$((MIGRATED_DOCS / ELAPSED))
-                            REMAINING_DOCS=$((TOTAL_DOCS - MIGRATED_DOCS))
+                          if [ "$ELAPSED" -gt 0 ] && [ "$PROCESSED_DOCS" -gt 0 ]; then
+                            DOCS_PER_SEC=$((PROCESSED_DOCS / ELAPSED))
+                            REMAINING_DOCS=$((TOTAL_DOCS - PROCESSED_DOCS))
                             if [ "$DOCS_PER_SEC" -gt 0 ]; then
                               ETA_SECS=$((REMAINING_DOCS / DOCS_PER_SEC))
                               ETA_MIN=$((ETA_SECS / 60))
@@ -301,8 +302,8 @@ spec:
                           fi
 
                           if [ "${REINDEX_MODE:-full}" = "delta" ]; then
-                            echo "  -> created=$IDX_CREATED updated=$IDX_UPDATED noops=$IDX_NOOPS (${IDX_TIME_S}s)" \
-                              "| Progress: $MIGRATED_DOCS/$TOTAL_DOCS" \
+                            echo "  -> created=$IDX_CREATED updated=$IDX_UPDATED skipped=$IDX_CONFLICTS (${IDX_TIME_S}s)" \
+                              "| Progress: $PROCESSED_DOCS/$TOTAL_DOCS" \
                               "(${DOCS_PER_SEC:-?} docs/s)$ETA_MSG"
                           else
                             echo "  -> $IDX_CREATED docs (${IDX_TIME_S}s)" \
@@ -324,9 +325,14 @@ spec:
                         REINDEX_MIN=$((REINDEX_ELAPSED / 60))
                         REINDEX_SEC=$((REINDEX_ELAPSED % 60))
                         AVG_RATE=0
-                        [ "$REINDEX_ELAPSED" -gt 0 ] && AVG_RATE=$((MIGRATED_DOCS / REINDEX_ELAPSED))
+                        PROCESSED_TOTAL=$((MIGRATED_DOCS + SKIPPED_DOCS))
+                        [ "$REINDEX_ELAPSED" -gt 0 ] && AVG_RATE=$((PROCESSED_TOTAL / REINDEX_ELAPSED))
                         echo "=== Reindex Summary ==="
-                        echo "  Indices: $DATA_COUNT | Documents: $MIGRATED_DOCS/$TOTAL_DOCS"
+                        if [ "${REINDEX_MODE:-full}" = "delta" ]; then
+                          echo "  Indices: $DATA_COUNT | Created: $MIGRATED_DOCS | Skipped (up-to-date): $SKIPPED_DOCS | Total: $PROCESSED_TOTAL/$TOTAL_DOCS"
+                        else
+                          echo "  Indices: $DATA_COUNT | Documents: $MIGRATED_DOCS/$TOTAL_DOCS"
+                        fi
                         echo "  Duration: ${REINDEX_MIN}m${REINDEX_SEC}s | Avg throughput: $AVG_RATE docs/s"
                         echo ""
 
