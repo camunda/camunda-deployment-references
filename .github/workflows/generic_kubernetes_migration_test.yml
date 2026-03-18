@@ -434,6 +434,53 @@ jobs:
                   source ./env.sh
                   ./2-backup.sh
 
+            # --- Generate delta data (simulates app still running) ---
+            # After the warm reindex, generate new data so the delta reindex
+            # during cutover has real work to do. This validates the warm→delta
+            # flow end-to-end. Also exercises the case of date-suffixed indices
+            # created after the warm reindex.
+            - name: Generate delta data (post warm-reindex)
+              if: env.ES_WARM_REINDEX == 'true'
+              timeout-minutes: ${{ env.BENCHMARK_SCENARIO == 'heavy' && 15 || 10 }}
+              run: |
+                  set -euo pipefail
+
+                  if [ "${{ env.BENCHMARK_SCENARIO }}" = "heavy" ]; then
+                      BENCHMARK_FILE="generic/kubernetes/migration/tests/benchmark-job-heavy.yml"
+                      echo "Running HEAVY delta benchmark: 150 PI/s for 30 min..."
+                  else
+                      BENCHMARK_FILE="generic/kubernetes/migration/tests/benchmark-job.yml"
+                      echo "Running LIGHT delta benchmark: 5 PI/s for 5 min..."
+                  fi
+
+                  # Delete previous benchmark job if it exists
+                  kubectl delete job/migration-benchmark \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --ignore-not-found=true
+
+                  kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -f "$BENCHMARK_FILE"
+
+                  echo "Waiting for delta benchmark to start..."
+                  for _ in $(seq 1 60); do
+                      PHASE=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                          -l job-name=migration-benchmark \
+                          -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Pending")
+                      if [ "$PHASE" = "Running" ] || [ "$PHASE" = "Succeeded" ]; then
+                          break
+                      fi
+                      sleep 5
+                  done
+
+                  if [ "${{ env.BENCHMARK_SCENARIO }}" = "heavy" ]; then
+                      WAIT_TIMEOUT=2100s
+                  else
+                      WAIT_TIMEOUT=600s
+                  fi
+                  kubectl wait --for=condition=failed job/migration-benchmark \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout="$WAIT_TIMEOUT"
+
+                  echo "Delta data generation complete"
+
             # --- Phase 3: Cutover (downtime window) ---
             - name: Phase 3 - Cutover (freeze, backup, restore, switch)
               timeout-minutes: ${{ env.BENCHMARK_SCENARIO == 'heavy' && 60 || 20 }}

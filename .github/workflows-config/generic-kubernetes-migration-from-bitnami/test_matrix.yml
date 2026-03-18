@@ -9,6 +9,10 @@ matrix:
         - name: Kind
           schedule_only: false
           type: kind
+        - name: Kind-WarmReindex
+          schedule_only: false
+          type: kind
+          es_warm_reindex: true
         - name: Kind-Heavy
           # TODO: revert to schedule_only + weekly_schedule_only before merging
           schedule_only: false
