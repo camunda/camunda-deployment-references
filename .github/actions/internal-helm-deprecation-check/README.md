@@ -2,10 +2,11 @@
 
 ## Description
 
-Check for deprecation warnings in the deployed Camunda Helm chart.
+Check for deprecation warnings and errors in the deployed Camunda Helm chart.
 Uses `helm get notes` to retrieve the release notes and scans for
-`[camunda][warning]` messages indicating deprecated configuration.
-Fails the pipeline if any deprecation warnings are found.
+`[camunda][warning]` (deprecated configuration) and `[camunda][error]`
+(removed configuration) messages.
+Fails the pipeline if any deprecation warnings or errors are found.
 
 
 ## Inputs
