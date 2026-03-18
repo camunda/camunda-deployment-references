@@ -64,6 +64,7 @@ jobs:
                   vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   vault-url: ${{ secrets.VAULT_ADDR }}
+                  repositories: camunda-deployment-references,camunda-docs
 
             - name: Scan docs PRs and flag InfraEx content
               env:
