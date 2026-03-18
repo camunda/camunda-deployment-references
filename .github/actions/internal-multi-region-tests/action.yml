@@ -57,8 +57,8 @@ inputs:
         default: EKS
     exclude-deprecation-patterns:
         description: |
-            Newline-separated list of grep patterns to exclude from deprecation warnings.
-            Passed through to internal-helm-deprecation-check.
+            Newline-separated list of fixed strings to exclude from deprecation warnings.
+            Passed through to internal-helm-deprecation-check using grep -F (fixed-string) semantics.
         required: false
         default: ''
 runs:
