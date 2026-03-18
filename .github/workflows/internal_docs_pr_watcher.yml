@@ -185,51 +185,11 @@ jobs:
 
                           while IFS= read -r url; do
                             [[ -z "$url" ]] && continue
-
-                            if [[ "$url" =~ github\.com/camunda/([^/]+)/(blob|tree)/([^/]+)/(.*) ]]; then
-                              repo_name="${BASH_REMATCH[1]}"
-                              ref="${BASH_REMATCH[3]}"
-                              path="${BASH_REMATCH[4]}"
-                              path="${path%%#*}"
-                              if ! gh api \
-                                "repos/camunda/${repo_name}/contents/${path}?ref=${ref}" \
-                                --silent > /dev/null 2>&1; then
-                                broken_links+=("$file -> $url")
-                                echo "    ❌ Broken link in $file: $url"
-                              fi
-                            elif [[ "$url" =~ raw\.githubusercontent\.com/camunda/([^/]+)/refs/heads/([^/]+)/(.*) ]]; then
-                              repo_name="${BASH_REMATCH[1]}"
-                              ref="${BASH_REMATCH[2]}"
-                              path="${BASH_REMATCH[3]}"
-                              path="${path%%#*}"
-                              if ! gh api \
-                                "repos/camunda/${repo_name}/contents/${path}?ref=${ref}" \
-                                --silent > /dev/null 2>&1; then
-                                broken_links+=("$file -> $url")
-                                echo "    ❌ Broken link in $file: $url"
-                              fi
-                            elif [[ "$url" =~ raw\.githubusercontent\.com/camunda/([^/]+)/refs/tags/([^/]+)/(.*) ]]; then
-                              repo_name="${BASH_REMATCH[1]}"
-                              ref="${BASH_REMATCH[2]}"
-                              path="${BASH_REMATCH[3]}"
-                              path="${path%%#*}"
-                              if ! gh api \
-                                "repos/camunda/${repo_name}/contents/${path}?ref=${ref}" \
-                                --silent > /dev/null 2>&1; then
-                                broken_links+=("$file -> $url")
-                                echo "    ❌ Broken link in $file: $url"
-                              fi
-                            elif [[ "$url" =~ raw\.githubusercontent\.com/camunda/([^/]+)/([^/]+)/(.*) ]]; then
-                              repo_name="${BASH_REMATCH[1]}"
-                              ref="${BASH_REMATCH[2]}"
-                              path="${BASH_REMATCH[3]}"
-                              path="${path%%#*}"
-                              if ! gh api \
-                                "repos/camunda/${repo_name}/contents/${path}?ref=${ref}" \
-                                --silent > /dev/null 2>&1; then
-                                broken_links+=("$file -> $url")
-                                echo "    ❌ Broken link in $file: $url"
-                              fi
+                            # Strip anchor fragments
+                            clean_url="${url%%#*}"
+                            if ! curl -sfL -o /dev/null "$clean_url"; then
+                              broken_links+=("$file -> $url")
+                              echo "    ❌ Broken link in $file: $url"
                             fi
                           done <<< "$urls"
 
