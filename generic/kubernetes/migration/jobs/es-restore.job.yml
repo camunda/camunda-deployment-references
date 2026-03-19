@@ -370,6 +370,26 @@ spec:
                           curl -sf -X POST "${TARGET_AUTH[@]}" "$TARGET/$IDX_LIST/_refresh" >/dev/null 2>&1 || true
                         fi
 
+                        # ── Wait for cluster to become green ──
+                        echo ""
+                        NODE_COUNT=$(curl -sf "${TARGET_AUTH[@]}" "$TARGET/_cat/nodes?h=name" 2>/dev/null | wc -l | tr -d ' ')
+                        if [ "${NODE_COUNT:-0}" -le 1 ]; then
+                          echo "Single-node cluster detected — skipping wait-for-green (yellow is expected with replicas)."
+                        else
+                          echo "Waiting for target cluster to reach green status (timeout 120s)..."
+                          HEALTH_RESP=$(curl -sf "${TARGET_AUTH[@]}" \
+                            "$TARGET/_cluster/health?wait_for_status=green&timeout=120s&pretty" 2>/dev/null || true)
+                          HEALTH_STATUS=$(echo "$HEALTH_RESP" | sed -n 's/.*"status" *: *"\([^"]*\)".*/\1/p')
+                          HEALTH_TIMED_OUT=$(echo "$HEALTH_RESP" | sed -n 's/.*"timed_out" *: *\([a-z]*\).*/\1/p')
+                          if [ "$HEALTH_STATUS" = "green" ]; then
+                            echo "Cluster is green."
+                          elif [ "$HEALTH_TIMED_OUT" = "true" ]; then
+                            echo "Cluster did not reach green within 120s (status: ${HEALTH_STATUS:-unknown})."
+                          else
+                            echo "Cluster status: ${HEALTH_STATUS:-unknown}"
+                          fi
+                        fi
+
                         # (index pre-creation and reindex are now handled above)
 
                         # Reindex summary

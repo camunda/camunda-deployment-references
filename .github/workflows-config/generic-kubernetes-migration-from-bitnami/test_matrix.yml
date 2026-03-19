@@ -30,18 +30,19 @@ matrix:
         #   type: kind
         #   benchmark_scenario: heavy
         #   use_tls: true
-        # - name: Kind-Heavy-WarmReindex-Domain
-        #   # TODO: revert to schedule_only + weekly_schedule_only before merging
+
+        # - name: Kind-WarmReindex-Domain
         #   schedule_only: false
-        #   weekly_schedule_only: false
         #   type: kind
-        #   benchmark_scenario: heavy
         #   es_warm_reindex: true
         #   use_tls: true
 
-        - name: Kind-WarmReindex-Domain
+        - name: Kind-Heavy-WarmReindex-Domain
+          # TODO: revert to schedule_only + weekly_schedule_only before merging
           schedule_only: false
+          weekly_schedule_only: false
           type: kind
+          benchmark_scenario: heavy
           es_warm_reindex: true
           use_tls: true
 
