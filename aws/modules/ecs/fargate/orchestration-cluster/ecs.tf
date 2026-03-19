@@ -65,6 +65,10 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
       condition     = !var.restore_enabled || var.restore_container_image != ""
       error_message = "When restore_enabled is true, restore_container_image must be provided."
     }
+    precondition {
+      condition     = var.restore_backup_id == "" || var.restore_enabled
+      error_message = "restore_backup_id is set but restore_enabled is false. Set restore_enabled = true to use it."
+    }
   }
 
   container_definitions = templatefile("${path.module}/templates/orchestration-cluster.json.tpl", {

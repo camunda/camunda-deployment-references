@@ -272,6 +272,11 @@ variable "restore_backup_id" {
   description = "The backup ID to restore from. When non-empty and restore_enabled is true, the restore command will include the --backupId flag."
   type        = string
   default     = ""
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9,_-]*$", var.restore_backup_id))
+    error_message = "restore_backup_id must only contain alphanumeric characters, commas, hyphens, and underscores."
+  }
 }
 
 variable "restore_container_image" {
