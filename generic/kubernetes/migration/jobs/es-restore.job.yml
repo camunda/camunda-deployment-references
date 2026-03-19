@@ -277,7 +277,7 @@ spec:
                           fi
 
                           RESPONSE=$(curl -s -X POST "${TARGET_AUTH[@]}" \
-                            "$TARGET/_reindex?wait_for_completion=true&timeout=30m&slices=auto&requests_per_second=-1" \
+                            "$TARGET/_reindex?wait_for_completion=true&timeout=30m&requests_per_second=-1" \
                             -H 'Content-Type: application/json' \
                             -d "$BODY")
 
@@ -307,7 +307,7 @@ spec:
                           echo "$IDX_CREATED $IDX_UPDATED $IDX_CONFLICTS $HAS_ERROR" > "$result_file"
                         }
 
-                        echo "Reindexing $DATA_COUNT indices (parallelism=$MAX_PARALLEL, slices=auto)..."
+                        echo "Reindexing $DATA_COUNT indices (parallelism=$MAX_PARALLEL)..."
                         CURRENT=0
                         RUNNING_PIDS=""
                         for idx in $INDICES; do
