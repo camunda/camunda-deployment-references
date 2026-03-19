@@ -16,9 +16,9 @@ name: Internal - Global - Docs PR Watcher
 # This ensures technical consistency between deployment references and documentation.
 
 on:
-    schedule:
-        # Run every hour on weekdays (UTC)
-        - cron: 0 * * * 1-5
+    # schedule:
+    #     # Run every hour on weekdays (UTC)
+    #     - cron: 0 * * * 1-5
     workflow_dispatch:
         inputs:
             dry_run:
