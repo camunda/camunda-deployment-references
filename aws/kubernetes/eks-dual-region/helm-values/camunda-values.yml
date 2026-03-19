@@ -74,7 +74,7 @@ orchestration:
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL
-          value: http://elasticsearch-es-masters.camunda-primary.svc.cluster.local:9200
+          value: http://elasticsearch-es-http.camunda-primary.svc.cluster.local:9200
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_USERNAME
           value: elastic
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_PASSWORD
@@ -86,7 +86,7 @@ orchestration:
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL
-          value: http://elasticsearch-es-masters.camunda-secondary.svc.cluster.local:9200
+          value: http://elasticsearch-es-http.camunda-secondary.svc.cluster.local:9200
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_USERNAME
           value: elastic
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_PASSWORD

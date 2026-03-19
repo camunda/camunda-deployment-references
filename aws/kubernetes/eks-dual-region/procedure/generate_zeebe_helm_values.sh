@@ -19,7 +19,7 @@ generate_initial_contact() {
 
 generate_exporter_elasticsearch_url() {
     local ns=$1
-    local service_name=${ELASTICSEARCH_SERVICE_NAME:-elasticsearch-es-masters}
+    local service_name=${ELASTICSEARCH_SERVICE_NAME:-elasticsearch-es-http}
     local port_number=9200
     echo "http://${service_name}.${ns}.svc.cluster.local:${port_number}"
 }

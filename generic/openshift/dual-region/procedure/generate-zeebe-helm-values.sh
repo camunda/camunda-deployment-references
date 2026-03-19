@@ -20,8 +20,8 @@ generate_initial_contact() {
 }
 
 # Function to generate Elasticsearch URL
-# Note: defaults to elasticsearch-es-http (ClusterIP service) unlike EKS which uses
-# elasticsearch-es-masters (headless). On OpenShift with Submariner, the ClusterIP service
+# Note: defaults to elasticsearch-es-http (ClusterIP service), consistent with EKS and single-region setups.
+# On OpenShift with Submariner, the ClusterIP service
 # gets a stable ClusterSetIP for cross-cluster traffic, whereas the headless service
 # relies on individual pod DNS records that are unreliable across cluster boundaries.
 generate_exporter_elasticsearch_url() {
