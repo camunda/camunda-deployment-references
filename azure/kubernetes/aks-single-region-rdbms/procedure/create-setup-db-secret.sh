@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# Create the secret with database credentials for Camunda 8 components (RDBMS mode)
-# This variant includes the RDBMS secondary storage database credentials in addition
-# to the Identity database credentials used by all deployments.
+# Create the secret with database credentials for Camunda 8 RDBMS mode.
+# Includes Identity and RDBMS secondary storage credentials.
 kubectl create secret generic setup-db-secret --namespace "$CAMUNDA_NAMESPACE" \
   --from-literal=DB_HOST="$DB_HOST" \
   --from-literal=DB_PORT="$DB_PORT" \

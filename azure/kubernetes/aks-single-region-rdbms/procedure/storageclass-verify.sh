@@ -1,0 +1,1 @@
+../../aks-single-region/procedure/storageclass-verify.sh

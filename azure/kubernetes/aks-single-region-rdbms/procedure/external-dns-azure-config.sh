@@ -1,0 +1,1 @@
+../../aks-single-region/procedure/external-dns-azure-config.sh

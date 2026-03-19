@@ -1,17 +1,20 @@
-# DB locals
+# DB locals for RDBMS secondary storage variant
+# This variant uses PostgreSQL as both the primary database (Identity)
+# and as the secondary datastore (replacing Elasticsearch/OpenSearch).
 locals {
-  db_admin_username = "secret_user"    # Replace with your Aurora username
-  db_admin_password = "secretvalue%23" # Replace with your Aurora password, password must contain at least one letter, one number, and one special character.
+  db_admin_username = "secret_user"    # Replace with your admin username
+  db_admin_password = "secretvalue%23" # Replace with your admin password, password must contain at least one letter, one number, and one special character.
 
-  camunda_database_identity   = "camunda_identity"   # Name of your camunda database for Identity
-  camunda_database_webmodeler = "camunda_webmodeler" # Name of your camunda database for WebModeler
+  camunda_database_identity = "camunda_identity" # Name of your camunda database for Identity
 
   # Connection configuration
-  camunda_identity_db_username   = "identity_db"   # This is the username that will be used for connection to the DB on Identity db
-  camunda_webmodeler_db_username = "webmodeler_db" # This is the username that will be used for connection to the DB on WebModeler db
+  camunda_identity_db_username = "identity_db" # Username for connection to the Identity db
+  camunda_identity_db_password = "secretvalue%25" # Replace with a password for the Identity db
 
-  camunda_identity_db_password   = "secretvalue%25" # Replace with a password that will be used for connection to the DB on Identity db
-  camunda_webmodeler_db_password = "secretvalue%26" # Replace with a password that will be used for connection to the DB on WebModeler db
+  # RDBMS secondary storage database (replaces Elasticsearch/OpenSearch)
+  camunda_database_secondary    = "camunda_secondary" # Name of the database used as RDBMS secondary storage
+  camunda_secondary_db_username = "secondary_db"      # Username for connection to the RDBMS secondary storage DB
+  camunda_secondary_db_password = "secretvalue%27"    # Replace with a password for the RDBMS secondary storage DB
 }
 
 # PostgreSQL database

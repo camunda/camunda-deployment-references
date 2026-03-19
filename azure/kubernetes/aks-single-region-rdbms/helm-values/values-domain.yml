@@ -1,38 +1,51 @@
 ---
-# Azure AKS RDBMS Configuration for Camunda Platform
+# Azure AKS RDBMS Domain Configuration for Camunda Platform
 #
 # This values file configures Camunda to use Azure Database for PostgreSQL -
 # Flexible Server as the secondary datastore instead of Elasticsearch/OpenSearch.
 # This is supported from Camunda 8.9+ with RDBMS as alternative secondary storage.
 #
 # Auth provider configs are applied via overlays:
-# - Keycloak Operator: generic/kubernetes/operator-based/keycloak/camunda-keycloak-no-domain-values.yml
+# - Keycloak Operator: generic/kubernetes/operator-based/keycloak/camunda-keycloak-domain-values.yml
+# - OIDC: generic/kubernetes/single-region/helm-values/values-oidc.yml + values-oidc-domain.yml
 #
 # Required environment variables (exported by vars-create-db.sh):
+#   - CAMUNDA_DOMAIN: Your domain name
 #   - DB_HOST: PostgreSQL Flexible Server FQDN
 #   - DB_PORT: PostgreSQL port (5432)
-#   - DB_IDENTITY_NAME: Identity database name
-#   - DB_IDENTITY_USERNAME: Identity database username
-#   - RDBMS_SECONDARY_DATABASE: RDBMS secondary storage database name
-#   - RDBMS_SECONDARY_USERNAME: RDBMS secondary storage database username
+#   - DB_IDENTITY_NAME / DB_IDENTITY_USERNAME
+#   - RDBMS_SECONDARY_DATABASE / RDBMS_SECONDARY_USERNAME
 #
 
 global:
     elasticsearch:
         enabled: false
 
-    identity:
-        auth:
+    ingress:
+        enabled: true
+        host: ${CAMUNDA_DOMAIN}
+        tls:
             enabled: true
+            secretName: camunda-c8-tls
+        annotations:
+            kubernetes.io/tls-acme: 'true'
 
     security:
         authentication:
             method: oidc
 
+    identity:
+        auth:
+            enabled: true
+            identity:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
+            console:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/console
+
 identity:
     enabled: true
     contextPath: /managementidentity
-    fullURL: http://localhost:8080/managementidentity # replace with port-forward URL when accessing locally
+    fullURL: https://${CAMUNDA_DOMAIN}/managementidentity
 
     firstUser:
         enabled: true
@@ -61,6 +74,8 @@ optimize:
     enabled: false # Optimize requires Elasticsearch and does not support RDBMS secondary storage
 
 orchestration:
+    contextPath: /
+
     data:
         secondaryStorage:
             type: rdbms
@@ -84,11 +99,22 @@ orchestration:
                     users:
                         - admin
 
+    ingress:
+        grpc:
+            enabled: true
+            host: zeebe-${CAMUNDA_DOMAIN}
+            tls:
+                enabled: true
+                secretName: zeebe-c8-tls-grpc
+            annotations:
+                kubernetes.io/tls-acme: 'true'
+
 webModeler:
-    enabled: false # WebModeler is not enabled in RDBMS mode by default
+    enabled: false
 
 webModelerPostgresql:
     enabled: false
 
 console:
     enabled: false # by default, console is not enabled
+    contextPath: /console

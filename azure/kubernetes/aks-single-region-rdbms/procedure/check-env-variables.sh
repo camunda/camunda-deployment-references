@@ -1,0 +1,1 @@
+../../aks-single-region/procedure/check-env-variables.sh

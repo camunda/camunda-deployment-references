@@ -1,9 +1,8 @@
 ---
 # This manifest creates the databases for Camunda 8 RDBMS mode.
 # It provisions:
-#   - Identity database and user (required by all deployments)
+#   - Identity database and user
 #   - RDBMS secondary storage database and user (replaces Elasticsearch)
-# WebModeler database is not created as WebModeler is disabled in RDBMS mode.
 apiVersion: batch/v1
 kind: Job
 metadata:

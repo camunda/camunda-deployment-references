@@ -12,11 +12,14 @@ matrix:
           # TODO: Add 'oidc' support with Azure EntraID
           auth_provider: keycloak-operator
 
+        - name: aks-single-region-rdbms
+          # RDBMS secondary storage variant: uses Azure Database for PostgreSQL - Flexible Server
+          # as secondary datastore instead of Elasticsearch/OpenSearch (Camunda 8.9+).
+          auth_provider: keycloak-operator
+          secondary_storage: rdbms
+
     declination:
         - name: no-domain
           desc: Setup chart in production-like setup without Ingress and TLS.
         - name: domain
           desc: Setup chart in production-like setup with Ingress and TLS.
-        - name: rdbms
-          desc: Setup chart with Azure Database for PostgreSQL - Flexible Server as RDBMS secondary storage instead of Elasticsearch.
-          secondary_storage: rdbms
