@@ -2,7 +2,7 @@
   "brokers": [
     {
       "nodeId": 6,
-      "host": "camunda-zeebe-3.local-cluster.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
+      "host": "camunda-zeebe-3.local-cluster.camunda-zeebe.camunda-cluster-region-0.svc.clusterset.local",
       "port": 26501,
       "partitions": [
         { "partitionId": 4, "role": "follower", "health": "healthy" },
@@ -14,7 +14,7 @@
     },
     {
       "nodeId": 3,
-      "host": "camunda-zeebe-1.cluster-region-2.camunda-zeebe.camunda-cluster-region-2.svc.clusterset.local",
+      "host": "camunda-zeebe-1.cluster-region-1.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
       "port": 26501,
       "partitions": [
         { "partitionId": 4, "role": "leader", "health": "healthy" },
@@ -26,7 +26,7 @@
     },
     {
       "nodeId": 2,
-      "host": "camunda-zeebe-1.local-cluster.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
+      "host": "camunda-zeebe-1.local-cluster.camunda-zeebe.camunda-cluster-region-0.svc.clusterset.local",
       "port": 26501,
       "partitions": [
         { "partitionId": 3, "role": "leader", "health": "healthy" },
@@ -38,7 +38,7 @@
     },
     {
       "nodeId": 4,
-      "host": "camunda-zeebe-2.local-cluster.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
+      "host": "camunda-zeebe-2.local-cluster.camunda-zeebe.camunda-cluster-region-0.svc.clusterset.local",
       "port": 26501,
       "partitions": [
         { "partitionId": 4, "role": "follower", "health": "healthy" },
@@ -50,7 +50,7 @@
     },
     {
       "nodeId": 1,
-      "host": "camunda-zeebe-0.cluster-region-2.camunda-zeebe.camunda-cluster-region-2.svc.clusterset.local",
+      "host": "camunda-zeebe-0.cluster-region-1.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
       "port": 26501,
       "partitions": [
         { "partitionId": 7, "role": "follower", "health": "healthy" },
@@ -62,7 +62,7 @@
     },
     {
       "nodeId": 0,
-      "host": "camunda-zeebe-0.local-cluster.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
+      "host": "camunda-zeebe-0.local-cluster.camunda-zeebe.camunda-cluster-region-0.svc.clusterset.local",
       "port": 26501,
       "partitions": [
         { "partitionId": 6, "role": "follower", "health": "healthy" },
@@ -74,7 +74,7 @@
     },
     {
       "nodeId": 5,
-      "host": "camunda-zeebe-2.cluster-region-2.camunda-zeebe.camunda-cluster-region-2.svc.clusterset.local",
+      "host": "camunda-zeebe-2.cluster-region-1.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
       "port": 26501,
       "partitions": [
         { "partitionId": 4, "role": "follower", "health": "healthy" },
@@ -86,7 +86,7 @@
     },
     {
       "nodeId": 7,
-      "host": "camunda-zeebe-3.cluster-region-2.camunda-zeebe.camunda-cluster-region-2.svc.clusterset.local",
+      "host": "camunda-zeebe-3.cluster-region-1.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
       "port": 26501,
       "partitions": [
         { "partitionId": 5, "role": "follower", "health": "healthy" },

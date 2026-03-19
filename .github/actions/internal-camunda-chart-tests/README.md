@@ -36,9 +36,9 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | `zeebe-authenticated` | <p>Use the authentication layer to interact with zeebe</p> | `false` | `true` |
 | `enable-helm-chart-tests` | <p>Whether the Helm Chart tests should be run</p> | `false` | `true` |
 | `enable-zeebe-client-tests` | <p>Whether the Zeebe Client tests should be run</p> | `false` | `true` |
-| `cluster-2-name` | <p>Optional cluster 2 name for sed replacement (dual-region only)</p> | `false` | `""` |
-| `camunda-namespace-2` | <p>Optional namespace for region 2 (dual-region only)</p> | `false` | `""` |
+| `cluster-1-name` | <p>Optional cluster 1 name for sed replacement (dual-region only)</p> | `false` | `""` |
 | `camunda-namespace-1` | <p>Optional namespace for region 1 (dual-region only)</p> | `false` | `""` |
+| `camunda-namespace-0` | <p>Optional namespace for region 0 (dual-region only)</p> | `false` | `""` |
 | `keycloak-service-name` | <p>Name of the Keycloak service with optional port (e.g. keycloak-service:8080)</p> | `false` | `""` |
 | `elasticsearch-service-name` | <p>Name of the Elasticsearch service with optional port (e.g. elasticsearch-es-http:9200)</p> | `false` | `""` |
 | `test-client-id` | <p>Client ID for Camunda authentication tests</p> | `true` | `""` |
@@ -182,20 +182,20 @@ This action is a `composite` action.
     # Required: false
     # Default: true
 
-    cluster-2-name:
-    # Optional cluster 2 name for sed replacement (dual-region only)
-    #
-    # Required: false
-    # Default: ""
-
-    camunda-namespace-2:
-    # Optional namespace for region 2 (dual-region only)
+    cluster-1-name:
+    # Optional cluster 1 name for sed replacement (dual-region only)
     #
     # Required: false
     # Default: ""
 
     camunda-namespace-1:
     # Optional namespace for region 1 (dual-region only)
+    #
+    # Required: false
+    # Default: ""
+
+    camunda-namespace-0:
+    # Optional namespace for region 0 (dual-region only)
     #
     # Required: false
     # Default: ""

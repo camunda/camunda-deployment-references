@@ -1,7 +1,7 @@
 #!/bin/bash
 
 while true; do
-    STATUS=$(oc --context "$CLUSTER_1_NAME" get managedclusters)
+    STATUS=$(oc --context "$CLUSTER_0" get managedclusters)
     echo "$STATUS"
 
     if echo "$STATUS" | awk 'NR>1 {if ($2=="true" && $4=="True" && $5=="True") next; else exit 1}'; then

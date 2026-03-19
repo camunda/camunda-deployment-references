@@ -6,10 +6,10 @@ locals {
   rosa_cluster_1_admin_username = "kubeadmin"
   rosa_cluster_1_admin_password = "CHANGEME1234r!" # Change the password of your admin password
 
-  rosa_cluster_1_vpc_cidr_block     = "10.0.0.0/16"
-  rosa_cluster_1_machine_cidr_block = "10.0.0.0/18"
-  rosa_cluster_1_service_cidr_block = "10.0.128.0/18"
-  rosa_cluster_1_pod_cidr_block     = "10.0.64.0/18"
+  rosa_cluster_1_vpc_cidr_block     = "10.1.0.0/16"
+  rosa_cluster_1_machine_cidr_block = "10.1.0.0/18"
+  rosa_cluster_1_service_cidr_block = "10.1.128.0/18"
+  rosa_cluster_1_pod_cidr_block     = "10.1.64.0/18"
 
   rosa_cluster_1_tags = {} # additional tags that you may want to apply to the resources
 }
@@ -53,6 +53,7 @@ output "cluster_1_private_subnet_ids" {
   value       = module.rosa_cluster_1.private_subnet_ids
   description = "A comma-separated list of private subnet IDs in the VPC. These subnets are typically used for internal resources that do not require direct internet access."
 }
+
 output "cluster_1_vpc_id" {
   value       = module.rosa_cluster_1.vpc_id
   description = "The VPC ID of the cluster."

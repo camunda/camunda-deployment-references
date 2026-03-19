@@ -135,6 +135,14 @@ webModeler:
             limits:
                 cpu: 1000m
                 memory: 1Gi
+        pusher:
+            secret:
+                existingSecret: camunda-credentials
+                existingSecretKey: webmodeler-pusher-app-secret
+            client:
+                secret:
+                    existingSecret: camunda-credentials
+                    existingSecretKey: webmodeler-pusher-app-key
     webapp:
         resources:
             requests:
