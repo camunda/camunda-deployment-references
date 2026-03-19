@@ -69,6 +69,17 @@ elasticsearch:
         tag: 8.19.12
         pullSecrets:
             - name: registry-camunda-cloud
+    master:
+        masterOnly: false
+        replicaCount: 1
+        heapSize: 1g
+        resources:
+            requests:
+                cpu: 1
+                memory: 2Gi
+            limits:
+                cpu: 2
+                memory: 2Gi
 
 # PostgreSQL for Identity (renamed from postgresql to identityPostgresql in 8.8)
 identityPostgresql:

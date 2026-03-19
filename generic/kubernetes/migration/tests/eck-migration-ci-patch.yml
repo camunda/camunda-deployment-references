@@ -1,0 +1,41 @@
+---
+# CI-only ECK overrides — deep-merged on top of eck-migration-patch.yml
+# by lib.sh deploy_elasticsearch() when CUSTOM_ECK_MIGRATION_PATCH_FILE is set.
+#
+# These settings optimise for Kind clusters running on a single CI runner
+# (16 vCPU, ~50 GB RAM) where source (Bitnami) and target (ECK) ES share
+# the same nodes.  DO NOT use in production.
+metadata:
+    name: ${ECK_CLUSTER_NAME}
+spec:
+    nodeSets:
+        - name: masters
+          # Single node — source and target ES must fit on the same Kind cluster.
+          count: 1
+          podTemplate:
+              spec:
+                  # Relax anti-affinity for single-node / Kind compatibility
+                  affinity:
+                      podAntiAffinity:
+                          preferredDuringSchedulingIgnoredDuringExecution:
+                              - weight: 100
+                                podAffinityTerm:
+                                    labelSelector:
+                                        matchExpressions:
+                                            - key: elasticsearch.k8s.elastic.co/cluster-name
+                                              operator: In
+                                              values:
+                                                  - ${ECK_CLUSTER_NAME}
+                                    topologyKey: kubernetes.io/hostname
+                  containers:
+                      - name: elasticsearch
+                        env:
+                            - name: ES_JAVA_OPTS
+                              value: -Xms2g -Xmx2g
+                        resources:
+                            requests:
+                                cpu: 2
+                                memory: 4Gi
+                            limits:
+                                cpu: 4
+                                memory: 4Gi

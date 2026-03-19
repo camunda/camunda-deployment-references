@@ -415,6 +415,19 @@ jobs:
                     echo "ES_TARGET_MODE=operator"
                   } >> "$GITHUB_ENV"
 
+            # CI-only ECK overlay: single node, relaxed anti-affinity, boosted resources.
+            # Deep-merged onto the production eck-migration-patch.yml so that
+            # deploy_elasticsearch() picks up CI-tuned values transparently.
+            - name: Apply CI ECK overlay
+              working-directory: ./generic/kubernetes/migration/
+              run: |
+                  set -euo pipefail
+                  PATCH=manifests/eck-migration-patch.yml
+                  CI_OVERLAY=tests/eck-migration-ci-patch.yml
+                  yq eval-all 'select(fileIndex == 0) *d select(fileIndex == 1)' \
+                      "$PATCH" "$CI_OVERLAY" > "${PATCH}.tmp"
+                  mv "${PATCH}.tmp" "$PATCH"
+
             # --- Phase 1: Deploy Targets (no downtime) ---
             - name: Phase 1 - Deploy target infrastructure
               timeout-minutes: 20
