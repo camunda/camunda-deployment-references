@@ -448,24 +448,18 @@ jobs:
 
             # --- Generate delta data (simulates app still running) ---
             # Generate new data between backup and cutover to simulate the app
-            # continuing to run. This ensures:
-            # - With warm reindex: the delta reindex has real work to do
-            # - Without warm reindex: the full reindex includes recent data
-            # Both scenarios get the same data volume for fair timing comparison.
-            # Also exercises the case of date-suffixed indices created after
-            # the initial benchmark.
+            # continuing to run — the delta reindex must have real work to do.
+            # Delta only needs a small amount of new data to exercise the
+            # delta reindex — always use the light benchmark (5 PI/s, 5 min).
+            # Running the heavy benchmark here would starve the runner (2 ES
+            # clusters + Camunda already consume most CPU/RAM).
             - name: Generate delta data (simulates continued usage)
-              timeout-minutes: ${{ env.BENCHMARK_SCENARIO == 'heavy' && 15 || 10 }}
+              timeout-minutes: 10
               run: |
                   set -euo pipefail
 
-                  if [ "${{ env.BENCHMARK_SCENARIO }}" = "heavy" ]; then
-                      BENCHMARK_FILE="generic/kubernetes/migration/tests/benchmark-job-heavy.yml"
-                      echo "Running HEAVY delta benchmark: 150 PI/s for 30 min..."
-                  else
-                      BENCHMARK_FILE="generic/kubernetes/migration/tests/benchmark-job.yml"
-                      echo "Running LIGHT delta benchmark: 5 PI/s for 5 min..."
-                  fi
+                  BENCHMARK_FILE="generic/kubernetes/migration/tests/benchmark-job.yml"
+                  echo "Running delta benchmark: 5 PI/s for 5 min (light, regardless of scenario)..."
 
                   # Delete previous benchmark job if it exists
                   kubectl delete job/migration-benchmark \
@@ -485,13 +479,10 @@ jobs:
                       sleep 5
                   done
 
-                  if [ "${{ env.BENCHMARK_SCENARIO }}" = "heavy" ]; then
-                      WAIT_TIMEOUT=2100s
-                  else
-                      WAIT_TIMEOUT=600s
-                  fi
-                  kubectl wait --for=condition=failed job/migration-benchmark \
-                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout="$WAIT_TIMEOUT"
+                  kubectl wait --for=condition=complete job/migration-benchmark \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s \
+                  || kubectl wait --for=condition=failed job/migration-benchmark \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s
 
                   echo "Delta data generation complete"
 
