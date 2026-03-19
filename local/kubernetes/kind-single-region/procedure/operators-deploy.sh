@@ -12,13 +12,8 @@ set -euo pipefail
 # Environment variables:
 #   SECONDARY_STORAGE  - Required: "elasticsearch" or "postgres"
 #   CAMUNDA_MODE       - "domain" (TLS) or "no-domain" (port-forward), default: no-domain
-#   CLUSTER_FILTER     - Optional: deploy only specific clusters, comma-separated (e.g., "pg-keycloak" or "pg-identity,pg-webmodeler")
 
-CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
-CAMUNDA_MODE=${CAMUNDA_MODE:-no-domain}
-CLUSTER_FILTER=${CLUSTER_FILTER:-}
-
-# Validate SECONDARY_STORAGE is set
+# Validate SECONDARY_STORAGE is set (must be first check)
 if [[ -z "${SECONDARY_STORAGE:-}" ]]; then
     echo "ERROR: SECONDARY_STORAGE environment variable is required."
     echo "       Valid values: elasticsearch, postgres"
@@ -29,6 +24,18 @@ if [[ "$SECONDARY_STORAGE" != "elasticsearch" && "$SECONDARY_STORAGE" != "postgr
     echo "ERROR: Invalid SECONDARY_STORAGE value: $SECONDARY_STORAGE"
     echo "       Valid values: elasticsearch, postgres"
     exit 1
+fi
+
+CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
+CAMUNDA_MODE=${CAMUNDA_MODE:-no-domain}
+
+# Set CLUSTER_FILTER based on SECONDARY_STORAGE
+# When using Elasticsearch, only deploy PG clusters for Keycloak, Identity, and WebModeler
+# When using PostgreSQL (RDBMS mode), deploy all PG clusters including the Camunda database
+if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
+    CLUSTER_FILTER="pg-keycloak,pg-identity,pg-webmodeler"
+else
+    CLUSTER_FILTER=""
 fi
 
 export CAMUNDA_NAMESPACE

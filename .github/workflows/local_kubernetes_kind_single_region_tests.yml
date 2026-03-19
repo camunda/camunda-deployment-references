@@ -189,7 +189,7 @@ jobs:
               id: chart-version
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: |
-                  SCRIPT=${{ matrix.declination.use_tls && 'procedure/camunda-deploy-es-domain.sh' || 'procedure/camunda-deploy-es-no-domain.sh' }}
+                  SCRIPT=${{ matrix.declination.use_tls && 'procedure/camunda-deploy-domain.sh' || 'procedure/camunda-deploy-no-domain.sh' }}
                   VERSION=$(grep -oP 'CAMUNDA_HELM_CHART_VERSION="\K[^"]+' "$SCRIPT")
                   echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
