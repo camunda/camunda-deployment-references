@@ -5,11 +5,11 @@
 
 kubectl create secret generic identity-postgres-secret \
   --namespace "$CAMUNDA_NAMESPACE" \
-  --from-literal=****** \
+  --from-literal=password="$DB_IDENTITY_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Secret for RDBMS secondary storage password (referenced by values-*.yml)
 kubectl create secret generic rdbms-secondary-secret \
   --namespace "$CAMUNDA_NAMESPACE" \
-  --from-literal=****** \
+  --from-literal=password="$RDBMS_SECONDARY_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
