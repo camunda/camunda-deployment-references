@@ -1,5 +1,5 @@
 ---
-name: Internal - Docs PR Watcher
+name: Internal - Global - Docs PR Watcher
 
 # This workflow monitors PRs on camunda/camunda-docs for changes to files
 # that reference InfraEx-owned repos or are in the static watchlist.
@@ -64,6 +64,7 @@ jobs:
                   vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   vault-url: ${{ secrets.VAULT_ADDR }}
+                  repositories: camunda-deployment-references,camunda-docs
 
             - name: Scan docs PRs and flag InfraEx content
               env:
@@ -313,26 +314,32 @@ jobs:
                       echo "  Comment preview:"
                       echo "$comment_body"
                     else
-                      # Post the comment
-                      gh pr comment "$pr_number" \
-                        --repo "$DOCS_REPO" \
-                        --body "$comment_body"
-                      echo "  ✅ Comment posted on PR #$pr_number"
+                      # Post the comment (REST API — avoids GraphQL permission issues)
+                      if gh api "repos/$DOCS_REPO/issues/$pr_number/comments" \
+                        --method POST \
+                        --raw-field body="$comment_body" \
+                        --silent 2>/dev/null; then
+                        echo "  ✅ Comment posted on PR #$pr_number"
+                      else
+                        echo "  ⚠️ Could not post comment on PR #$pr_number"
+                      fi
 
-                      # Request team review
-                      if gh pr edit "$pr_number" \
-                        --repo "$DOCS_REPO" \
-                        --add-reviewer "$REVIEWER_TEAM" 2>/dev/null; then
+                      # Request team review (REST API)
+                      if gh api "repos/$DOCS_REPO/pulls/$pr_number/requested_reviewers" \
+                        --method POST \
+                        -f 'team_reviewers[]=infraex-medic' \
+                        --silent 2>/dev/null; then
                         echo "  ✅ Review requested from $REVIEWER_TEAM"
                       else
                         echo "  ⚠️ Could not request review from $REVIEWER_TEAM"
                       fi
 
-                      # Add labels for filtering/dashboards
-                      if gh pr edit "$pr_number" \
-                        --repo "$DOCS_REPO" \
-                        --add-label "component:infraex" \
-                        --add-label "component:self-managed" 2>/dev/null; then
+                      # Add labels (REST API)
+                      if gh api "repos/$DOCS_REPO/issues/$pr_number/labels" \
+                        --method POST \
+                        -f 'labels[]=component:infraex' \
+                        -f 'labels[]=component:self-managed' \
+                        --silent 2>/dev/null; then
                         echo "  ✅ Labels added"
                       else
                         echo "  ⚠️ Could not add labels"
