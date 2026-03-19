@@ -327,18 +327,30 @@ jobs:
                       reviewers=$(gh api "orgs/$team_org/teams/$team_slug/members" \
                         --jq '.[].login' 2>/dev/null || echo "")
 
+                      # Exclude the PR author (cannot request review from self)
+                      pr_author=$(gh pr view "$pr_number" \
+                        --repo "$DOCS_REPO" \
+                        --json author --jq '.author.login')
+
                       if [[ -n "$reviewers" ]]; then
                         reviewer_args=()
+                        requested=()
                         while IFS= read -r user; do
                           [[ -z "$user" ]] && continue
+                          [[ "$user" == "$pr_author" ]] && continue
                           reviewer_args+=(-f "reviewers[]=$user")
+                          requested+=("$user")
                         done <<< "$reviewers"
 
-                        gh api "repos/$DOCS_REPO/pulls/$pr_number/requested_reviewers" \
-                          --method POST \
-                          "${reviewer_args[@]}" \
-                          --silent
-                        echo "  ✅ Review requested from: $(echo "$reviewers" | tr '\n' ' ')"
+                        if [[ ${#reviewer_args[@]} -gt 0 ]]; then
+                          gh api "repos/$DOCS_REPO/pulls/$pr_number/requested_reviewers" \
+                            --method POST \
+                            "${reviewer_args[@]}" \
+                            --silent
+                          echo "  ✅ Review requested from: ${requested[*]}"
+                        else
+                          echo "  ℹ️ All team members are PR author, skipping review request"
+                        fi
                       else
                         echo "  ❌ Could not resolve members of $REVIEWER_TEAM"
                         exit 1
