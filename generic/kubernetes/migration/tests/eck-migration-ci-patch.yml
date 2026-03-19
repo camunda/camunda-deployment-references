@@ -1,6 +1,6 @@
 ---
 # CI-only ECK overrides — deep-merged on top of eck-migration-patch.yml
-# by lib.sh deploy_elasticsearch() when CUSTOM_ECK_MIGRATION_PATCH_FILE is set.
+# by the "Apply CI ECK overlay" step in the migration workflow.
 #
 # These settings optimise for Kind clusters running on a single CI runner
 # (16 vCPU, ~50 GB RAM) where source (Bitnami) and target (ECK) ES share
@@ -14,9 +14,12 @@ spec:
           count: 1
           podTemplate:
               spec:
-                  # Relax anti-affinity for single-node / Kind compatibility
+                  # Relax anti-affinity for single-node / Kind compatibility.
+                  # requiredDuringScheduling is set to null so that yq *d
+                  # replaces the base value (empty arrays are ignored by *d).
                   affinity:
                       podAntiAffinity:
+                          requiredDuringSchedulingIgnoredDuringExecution:
                           preferredDuringSchedulingIgnoredDuringExecution:
                               - weight: 100
                                 podAffinityTerm:

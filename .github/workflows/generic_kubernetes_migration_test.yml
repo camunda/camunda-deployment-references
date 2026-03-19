@@ -705,6 +705,7 @@ jobs:
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
+                  log-tail-lines: 500
 
             - name: Cleanup Kind cluster
               if: always()

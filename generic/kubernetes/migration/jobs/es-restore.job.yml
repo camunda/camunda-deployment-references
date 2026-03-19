@@ -296,6 +296,7 @@ spec:
                             HAS_ERROR=1
                             echo "[$seqno/$DATA_COUNT] WARN $idx: reindex failed"
                             echo "$RESPONSE"
+                            echo "$idx: $RESPONSE" > "${result_file}.err"
                           else
                             if [ "${REINDEX_MODE:-full}" = "delta" ]; then
                               echo "[$seqno/$DATA_COUNT] $idx: created=$IDX_CREATED updated=$IDX_UPDATED skipped=$IDX_CONFLICTS (${IDX_TIME_S}s)"
@@ -339,10 +340,18 @@ spec:
                         SKIPPED_DOCS=0
                         for f in "$REINDEX_RESULTS_DIR"/*; do
                           [ -f "$f" ] || continue
+                          case "$f" in *.err) continue ;; esac
                           read -r C U S E < "$f"
                           MIGRATED_DOCS=$((MIGRATED_DOCS + ${C:-0} + ${U:-0}))
                           SKIPPED_DOCS=$((SKIPPED_DOCS + ${S:-0}))
                           FAILED=$((FAILED + ${E:-0}))
+                        done
+                        # Save first error response for tail-visible debugging
+                        FIRST_REINDEX_ERROR=""
+                        for f in "$REINDEX_RESULTS_DIR"/*.err; do
+                          [ -f "$f" ] || continue
+                          FIRST_REINDEX_ERROR=$(cat "$f")
+                          break
                         done
                         rm -rf "$REINDEX_RESULTS_DIR"
 
@@ -618,6 +627,11 @@ spec:
 
                         if [ "$FAILED" -gt 0 ]; then
                           echo "ERROR: $FAILED out of $DATA_COUNT indices with data failed to reindex"
+                          if [ -n "$FIRST_REINDEX_ERROR" ]; then
+                            echo ""
+                            echo "=== First reindex error response ==="
+                            echo "$FIRST_REINDEX_ERROR"
+                          fi
                           exit 1
                         fi
 

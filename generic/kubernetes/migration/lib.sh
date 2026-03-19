@@ -598,8 +598,8 @@ run_job() {
         kubectl get events -n "${NAMESPACE}" --sort-by='.lastTimestamp' \
             --field-selector "involvedObject.name=${job_name}" 2>/dev/null | tail -20 || true
         echo ""
-        echo "--- Job logs (last 80 lines) ---"
-        kubectl logs -n "${NAMESPACE}" "job/${job_name}" --tail=80 2>/dev/null || true
+        echo "--- Job logs (last 500 lines) ---"
+        kubectl logs -n "${NAMESPACE}" "job/${job_name}" --tail=500 2>/dev/null || true
         _log_to_file "ERROR Job ${job_name} failed — see console output above"
         return 1
     fi
