@@ -115,3 +115,21 @@ cookie.txt
 ca-authority.pem
 ca-authority.key
 camunda-environment.tmp
+<<<<<<< HEAD
+=======
+connectors-environment.tmp
+.vscode
+.idea
+terraform.tfstate
+terraform.tfstate.backup
+.terraform
+.terraform.lock.hcl
+trivyreport.txt
+
+camunda-docs/**
+debug/**
+camunda-platform-helm/**
+
+# Exclude actionlint binary
+actionlint
+>>>>>>> 3e7028a (chore: Remove actionlint binary from repo (#2095))
