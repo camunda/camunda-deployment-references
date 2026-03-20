@@ -1,0 +1,1 @@
+../../../../aks-single-region/test/fixtures/ci/fixture_config_override.tf
