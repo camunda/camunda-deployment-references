@@ -270,6 +270,8 @@ spec:
                         reindex_one() {
                           local idx="$1" seqno="$2" result_file="$3"
                           local BODY RESPONSE
+                          # scroll=15m: keep scroll context alive for 15 min per batch to
+                          # avoid search_context_missing_exception on large indices under load.
                           if [ "${REINDEX_MODE:-full}" = "delta" ]; then
                             BODY="{\"conflicts\":\"proceed\",\"source\":{\"remote\":{\"host\":\"$SOURCE\"$REMOTE_AUTH},\"index\":\"$idx\",\"size\":5000},\"dest\":{\"index\":\"$idx\",\"version_type\":\"external\"}}"
                           else
@@ -277,7 +279,7 @@ spec:
                           fi
 
                           RESPONSE=$(curl -s -X POST "${TARGET_AUTH[@]}" \
-                            "$TARGET/_reindex?wait_for_completion=true&timeout=30m&requests_per_second=-1" \
+                            "$TARGET/_reindex?wait_for_completion=true&timeout=30m&requests_per_second=-1&scroll=15m" \
                             -H 'Content-Type: application/json' \
                             -d "$BODY")
 
@@ -295,6 +297,11 @@ spec:
                           if echo "$RESPONSE" | grep -qE '"error"|"failures":\[\{'; then
                             HAS_ERROR=1
                             echo "[$seqno/$DATA_COUNT] WARN $idx: reindex failed"
+                            if echo "$RESPONSE" | grep -q 'search_context_missing_exception'; then
+                              echo "  Cause: scroll context expired — the source ES took too long to serve a batch of 5000 docs."
+                              echo "  This happens when the source ES is under heavy load (e.g. app still writing during warm reindex)."
+                              echo "  The scroll keepalive is 15m per batch. If this keeps failing, reduce REINDEX_PARALLELISM or increase scroll time."
+                            fi
                             echo "$RESPONSE"
                             echo "$idx: $RESPONSE" > "${result_file}.err"
                           else

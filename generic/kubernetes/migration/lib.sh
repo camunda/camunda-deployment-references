@@ -77,6 +77,7 @@ log_verbose() {
 # Global flags — set by parse_common_args.
 AUTO_CONFIRM="false"
 DRY_RUN="false"
+export ESTIMATE_MODE="false"
 
 # The current script name — set by each script before calling parse_common_args.
 CURRENT_SCRIPT="${CURRENT_SCRIPT:-}"
@@ -126,6 +127,7 @@ Usage: ${script} [options]
 Options:
   --yes, -y          Auto-confirm all prompts (non-interactive mode)
   --dry-run          Show what would be done without making any changes
+  --estimate         Run Phase 3 data operations without downtime to estimate cutover duration
   --verbose, -v      Enable verbose output (show commands before execution)
   --no-color         Disable colored output
   --status           Show current migration status and exit
@@ -141,6 +143,7 @@ parse_common_args() {
         case "$1" in
             --yes|-y)      AUTO_CONFIRM="true" ;;
             --dry-run)     DRY_RUN="true"; AUTO_CONFIRM="true" ;;
+            --estimate)    ESTIMATE_MODE="true"; AUTO_CONFIRM="true" ;;
             --verbose|-v)  VERBOSE="true"; set -x ;;
             --no-color)    _RED='' _GREEN='' _YELLOW='' _BLUE='' _BOLD='' _NC='' ;;
             --status)      show_migration_status; exit 0 ;;
@@ -1704,6 +1707,7 @@ restore_es() {
     # shellcheck disable=SC2016
     local es_varlist='${ES_IMAGE} ${JOB_NAME} ${NAMESPACE} ${REINDEX_MODE} ${SOURCE_ES_HOST} ${SOURCE_ES_PORT} ${SOURCE_ES_SECRET_NAME} ${TARGET_ES_HOST} ${TARGET_ES_PORT} ${TARGET_ES_SECRET_NAME}'
     run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-1800}" "$es_varlist"
+    _parse_es_reindex_metrics "${STATE_DIR}/${JOB_NAME}.log" "CUTOVER"
 }
 
 # Run a warm reindex from source to target while the app is running.
@@ -1719,6 +1723,41 @@ warm_reindex_es() {
     # shellcheck disable=SC2016
     local es_varlist='${ES_IMAGE} ${JOB_NAME} ${NAMESPACE} ${REINDEX_MODE} ${SOURCE_ES_HOST} ${SOURCE_ES_PORT} ${SOURCE_ES_SECRET_NAME} ${TARGET_ES_HOST} ${TARGET_ES_PORT} ${TARGET_ES_SECRET_NAME}'
     run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-5400}" "$es_varlist"
+    _parse_es_reindex_metrics "${STATE_DIR}/${JOB_NAME}.log" "WARM"
+}
+
+# Parse reindex summary from an ES restore job log and save metrics to state.
+# $1: log file path
+# $2: prefix — "WARM" or "CUTOVER"
+_parse_es_reindex_metrics() {
+    local log_file="$1" prefix="$2"
+    [[ -f "$log_file" ]] || return 0
+
+    # Duration line:  "  Duration: 10m34s | Avg throughput: 2975 docs/s"
+    local duration
+    duration=$(grep -oP 'Duration: \K[0-9]+m[0-9]+s' "$log_file" 2>/dev/null | tail -1 || true)
+    [[ -n "$duration" ]] && save_state "ES_${prefix}_REINDEX_DURATION" "$duration"
+
+    # Summary line (delta mode):
+    #   "  Indices: 27 | Created: 990931 | Skipped (up-to-date): 1882549 | Total: 2873480/4193222"
+    local summary_line
+    summary_line=$(grep 'Created:.*Skipped' "$log_file" 2>/dev/null | tail -1 || true)
+    if [[ -n "$summary_line" ]]; then
+        local created skipped total
+        created=$(echo "$summary_line" | grep -oP 'Created: \K[0-9]+' || true)
+        skipped=$(echo "$summary_line" | grep -oP 'Skipped \(up-to-date\): \K[0-9]+' || true)
+        total=$(echo "$summary_line" | grep -oP 'Total: [0-9]+/\K[0-9]+' || true)
+        [[ -n "$created" ]] && save_state "ES_${prefix}_REINDEX_CREATED" "$created"
+        [[ -n "$skipped" ]] && save_state "ES_${prefix}_REINDEX_SKIPPED" "$skipped"
+        [[ -n "$total" ]] && save_state "ES_${prefix}_REINDEX_TOTAL" "$total"
+    fi
+
+    # For warm reindex, also save the total doc count pre-migrated
+    if [[ "$prefix" == "WARM" ]]; then
+        local docs
+        docs=$(echo "$summary_line" | grep -oP 'Created: \K[0-9]+' || true)
+        [[ -n "$docs" ]] && save_state "ES_WARM_REINDEX_DOCS" "$docs"
+    fi
 }
 
 # =============================================================================

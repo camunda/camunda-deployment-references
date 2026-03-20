@@ -9,38 +9,39 @@ matrix:
     # to avoid unnecessary heavy job combinations (heavy is only tested with domain mode).
     distro:
         # Kind is used for migration tests — no cloud infra needed
-        # TODO: uncomment all distros once warm reindex is validated
-        # - name: Kind-NoDomain
-        #   schedule_only: false
-        #   type: kind
-        #   use_tls: false
-        # - name: Kind-Domain
-        #   schedule_only: false
-        #   type: kind
-        #   use_tls: true
-        # - name: Kind-WarmReindex-NoDomain
-        #   schedule_only: false
-        #   type: kind
-        #   es_warm_reindex: true
-        #   use_tls: false
-        # - name: Kind-Heavy-Domain
-        #   # TODO: revert to schedule_only + weekly_schedule_only before merging
-        #   schedule_only: false
-        #   weekly_schedule_only: false
-        #   type: kind
-        #   benchmark_scenario: heavy
-        #   use_tls: true
+        # Coverage strategy:
+        #   - light NoDomain: basic regression (no TLS, no warm reindex)
+        #   - light Domain:   TLS/Ingress path coverage
+        #   - heavy Domain:   large-data migration WITHOUT warm reindex (baseline)
+        #   - heavy WarmReindex Domain: large-data migration WITH warm reindex
+        # The heavy pair enables the meta-analysis job to compare cutover times.
 
-        # - name: Kind-WarmReindex-Domain
-        #   schedule_only: false
-        #   type: kind
-        #   es_warm_reindex: true
-        #   use_tls: true
+        - name: Kind-NoDomain
+          schedule_only: false
+          type: kind
+          use_tls: false
 
-        - name: Kind-Heavy-WarmReindex-Domain
-          # TODO: revert to schedule_only + weekly_schedule_only before merging
+        - name: Kind-Domain
+          schedule_only: false
+          type: kind
+          use_tls: true
+
+        - name: Kind-Heavy-Domain
           schedule_only: false
           weekly_schedule_only: false
+          # TODO: revert before merge
+          # schedule_only: true
+          # weekly_schedule_only: true
+          type: kind
+          benchmark_scenario: heavy
+          use_tls: true
+
+        - name: Kind-Heavy-WarmReindex-Domain
+          schedule_only: false
+          weekly_schedule_only: false
+          # TODO: revert before merge
+          # schedule_only: true
+          # weekly_schedule_only: true
           type: kind
           benchmark_scenario: heavy
           es_warm_reindex: true

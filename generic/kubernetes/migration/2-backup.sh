@@ -138,6 +138,7 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
     fi
 fi
 
+save_state "PHASE_2_DURATION" "$(timer_elapsed)"
 section "Phase 2 Complete ($(timer_elapsed))"
 echo "All initial backups are done. The application is still fully operational."
 echo ""

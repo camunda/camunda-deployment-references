@@ -32,14 +32,34 @@ section "Phase 3: Cutover (downtime window)"
 show_plan 3
 run_hooks "pre-phase-3"
 
-echo "This will:"
-echo "  1. Stop all Camunda components"
-echo "  2. Take a final consistent backup"
-echo "  3. Restore data to the new operator-managed infrastructure"
-echo "  4. Switch Helm configuration to use the new backends"
-echo "  5. Restart all components"
-echo ""
-confirm "Start the cutover? This will cause downtime"
+if [[ "${ESTIMATE_MODE}" == "true" ]]; then
+    echo "╔══════════════════════════════════════════════════════════════════╗"
+    echo "║  ESTIMATE MODE — no downtime, no cutover                       ║"
+    echo "╚══════════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "This will run the data restore/reindex operations WITHOUT downtime"
+    echo "to measure how long the real cutover would take."
+    echo ""
+    echo "What will happen:"
+    echo "  ✓ Final PG backups (to measure backup timing)"
+    echo "  ✓ Restore PG data to targets (to measure restore timing)"
+    echo "  ✓ ES reindex-from-remote (to measure reindex timing)"
+    echo "  ✗ Components will NOT be stopped (no downtime)"
+    echo "  ✗ Helm will NOT be upgraded (no backend switch)"
+    echo ""
+    echo "The application remains fully operational throughout."
+    echo ""
+    confirm "Run cutover estimate?"
+else
+    echo "This will:"
+    echo "  1. Stop all Camunda components"
+    echo "  2. Take a final consistent backup"
+    echo "  3. Restore data to the new operator-managed infrastructure"
+    echo "  4. Switch Helm configuration to use the new backends"
+    echo "  5. Restart all components"
+    echo ""
+    confirm "Start the cutover? This will cause downtime"
+fi
 
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 export TIMESTAMP
@@ -54,6 +74,9 @@ helm_backup
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 2: Freeze all Camunda components
 # ─────────────────────────────────────────────────────────────────────────────
+if [[ "${ESTIMATE_MODE}" == "true" ]]; then
+    section "Step 2/5: Freeze components — SKIPPED (estimate mode)"
+else
 section "Step 2/5: Freeze components"
 
 DEPLOYMENTS_TO_FREEZE=()
@@ -90,6 +113,7 @@ if [[ ${#DEPLOYMENTS_TO_FREEZE[@]} -gt 0 ]]; then
     freeze_components "${DEPLOYMENTS_TO_FREEZE[@]}"
 else
     log_warn "No deployments found to freeze"
+fi
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -294,6 +318,24 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 5: Helm upgrade — switch Camunda to the new backends
 # ─────────────────────────────────────────────────────────────────────────────
+if [[ "${ESTIMATE_MODE}" == "true" ]]; then
+    section "Step 5/5: Helm upgrade — SKIPPED (estimate mode)"
+
+    save_state "PHASE_3_ESTIMATE_DURATION" "$(timer_elapsed)"
+    section "Cutover Estimate Complete ($(timer_elapsed))"
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════════╗"
+    echo "║  ESTIMATE RESULTS                                              ║"
+    echo "╚══════════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Estimated cutover duration: $(timer_elapsed)"
+    echo ""
+    echo "This estimate includes PG backup/restore and ES reindex timing."
+    echo "The real cutover will add ~30s for freeze + ~2 min for helm upgrade."
+    echo ""
+    echo "No changes were made to the running application."
+    echo "You can run the real cutover with:  ./3-cutover.sh"
+else
 section "Step 5/5: Helm upgrade"
 
 HELM_VALUES_ARGS=()
@@ -349,6 +391,7 @@ sleep 10
 kubectl rollout status deployment -n "${NAMESPACE}" -l "app.kubernetes.io/instance=${RELEASE}" \
     --timeout=600s 2>/dev/null || true
 
+save_state "PHASE_3_DURATION" "$(timer_elapsed)"
 section "Phase 3 Complete — Cutover Done ($(timer_elapsed))"
 if is_external_pg || is_external_es; then
     echo "Camunda is now running on the new infrastructure."
@@ -363,3 +406,4 @@ echo "Next: ./4-validate.sh  (validate infrastructure health)"
 
 run_hooks "post-phase-3"
 complete_phase 3
+fi

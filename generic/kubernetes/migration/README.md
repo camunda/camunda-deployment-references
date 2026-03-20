@@ -321,6 +321,27 @@ Only Phase 3 (cutover) causes downtime. The following estimates are derived from
 - **Largest single index:** `optimize-process-instance-benchmark` (897K docs, 6.8 GB) accounted for ~76% of the ES data volume. Real-world deployments with large Optimize history will see similar patterns.
 - **Scaling guideline:** Downtime scales roughly linearly with ES data size. Measure during a staging rehearsal with representative data volumes to get an accurate estimate for your environment.
 
+### Measure with `--estimate`
+
+You can measure the actual cutover duration on your environment **without causing any downtime**:
+
+```bash
+# After completing Phases 1 and 2:
+./3-cutover.sh --estimate
+```
+
+This runs the real PG backup/restore and ES reindex operations against the target infrastructure but **skips** freezing the application and the Helm upgrade. The application remains fully operational throughout.
+
+Use this to:
+
+- **Measure real timing** with your actual data volumes before scheduling a maintenance window.
+- **Validate ES reindex throughput** on your cluster hardware (storage, network, CPU).
+- **Compare warm reindex vs. standard** — run once without warm reindex (Phase 2 without `ES_WARM_REINDEX`), then once with it, and compare the Phase 3 estimate duration.
+
+The estimate does not mark Phase 3 as complete, so you can run the real cutover afterwards with `./3-cutover.sh`.
+
+> **Note:** The estimate restores data to the target backends (CNPG, ECK). This is harmless — the real cutover will overwrite with the final consistent backup taken after freezing the application.
+
 ## Precautions
 
 1. **Test in staging first** — Run the full migration on a non-production environment
