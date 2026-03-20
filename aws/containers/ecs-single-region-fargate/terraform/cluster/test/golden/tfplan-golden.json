@@ -2377,10 +2377,10 @@
             "encrypted": true,
             "lifecycle_policy": [],
             "performance_mode": "generalPurpose",
-            "provisioned_throughput_in_mibps": 50,
+            "provisioned_throughput_in_mibps": null,
             "region": "eu-west-2",
             "tags": null,
-            "throughput_mode": "provisioned"
+            "throughput_mode": "elastic"
           }
         },
         "module.orchestration_cluster.aws_efs_mount_target.efs_mounts[0]": {
