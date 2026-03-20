@@ -9,6 +9,9 @@
 # Elasticsearch is managed via the ECK operator and configured through a separate overlay file:
 # - Elasticsearch: generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml
 #
+# Ingress is provided via Contour ingress controller.
+# To enable external access, configure ingress settings with your domain.
+#
 
 global:
     # Multiregion options for the Orchestration Cluster
@@ -23,6 +26,17 @@ global:
     multiregion:
         # number of regions that this Camunda Platform instance is stretched across
         regions: 2
+
+    # Ingress configuration for external access via Contour
+    # Uncomment and configure to enable external access to Camunda Platform
+    # ingress:
+    #     enabled: true
+    #     className: contour
+    #     host: camunda.example.com
+    #     tls:
+    #         enabled: true
+    #         secretName: camunda-tls
+
     security:
         authentication:
             # Use basic auth for inter-component communication (demo/demo)
@@ -62,6 +76,18 @@ orchestration:
             enabled: false
         zeebe:
             enabled: false
+
+    # gRPC ingress configuration for external Zeebe Gateway access via Contour
+    # Uncomment and configure to enable external gRPC access to Zeebe
+    # ingress:
+    #     grpc:
+    #         enabled: true
+    #         className: contour
+    #         host: zeebe-camunda.example.com
+    #         tls:
+    #             enabled: true
+    #             secretName: zeebe-tls-grpc
+
     env:
         # Config
         - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
