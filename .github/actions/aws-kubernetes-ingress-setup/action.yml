@@ -1,6 +1,6 @@
 ---
 name: AWS Kubernetes Ingress Setup
-description: Install and configure ingress-nginx, external-dns, and cert-manager for AWS EKS clusters
+description: Install and configure Contour, external-dns, and cert-manager for AWS EKS clusters
 
 inputs:
     cluster-name:
@@ -63,10 +63,10 @@ runs:
           with:
               namespace: external-dns
 
-        - name: 🏗️ Clean ingress-nginx operator namespace
+        - name: 🏗️ Clean projectcontour namespace
           uses: ./.github/actions/internal-clean-namespace
           with:
-              namespace: ingress-nginx
+              namespace: projectcontour
 
         - name: Setup ingress components for EKS cluster
           shell: bash
@@ -106,9 +106,9 @@ runs:
               fi
               echo "✅ Found cert-manager IRSA ARN: $CERT_MANAGER_IRSA_ARN"
 
-              # Install ingress-nginx
-              echo "Installing ingress-nginx..."
-              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-ingress-nginx.sh
+              # Install Contour
+              echo "Installing Contour..."
+              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-contour.sh
 
               # Install external-dns
               echo "Installing external-dns..."
