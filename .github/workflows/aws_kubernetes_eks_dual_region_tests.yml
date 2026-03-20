@@ -332,6 +332,13 @@ jobs:
                         kubectl --context "$ctx" delete elasticsearch --all -n "$ns" --timeout=120s 2>/dev/null || true
                       fi
                     done
+
+                    # Clean up Contour if it exists
+                    if kubectl --context "$ctx" get namespace projectcontour &>/dev/null; then
+                      echo "Cleaning up Contour on $ctx..."
+                      helm uninstall contour --kubeconfig <(kubectl config view --raw) --kube-context "$ctx" --namespace projectcontour 2>/dev/null || true
+                      kubectl --context "$ctx" delete namespace projectcontour --wait --timeout=120s 2>/dev/null || true
+                    fi
                   done
 
             - name: Delete namespaces
@@ -367,6 +374,31 @@ jobs:
                   ./storageclass-configure.sh
                   cd -
                   bash ./aws/kubernetes/eks-dual-region/procedure/storageclass-verify.sh
+
+            ############# Contour Ingress Controller Installation ##############
+            - name: Set kubectl context to London for Contour installation
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-london
+
+            - name: Install Contour ingress controller on London cluster
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+
+                  # Set INGRESS_HELM_CHART_VERSION for renovate compatibility
+                  export INGRESS_HELM_CHART_VERSION="20.3.0"
+                  bash ./aws/kubernetes/eks-dual-region/procedure/install-contour.sh
+
+            - name: Set kubectl context to Paris for Contour installation
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-paris
+
+            - name: Install Contour ingress controller on Paris cluster
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+
+                  # Set INGRESS_HELM_CHART_VERSION for renovate compatibility
+                  export INGRESS_HELM_CHART_VERSION="20.3.0"
+                  bash ./aws/kubernetes/eks-dual-region/procedure/install-contour.sh
 
             ############# ECK Elasticsearch Deployment ##############
             - name: Set kubectl context to London
@@ -536,6 +568,32 @@ jobs:
                   aws eks update-kubeconfig --region ${{ env.CLUSTER_0_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
                   aws eks update-kubeconfig --region ${{ env.CLUSTER_1_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
 
+            ############# Contour Cleanup ##############
+            - name: Set kubectl context to London for Contour cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-london
+
+            - name: 🧹 Cleanup Contour ingress controller on London cluster
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+                  helm uninstall contour --namespace projectcontour --wait || true
+                  kubectl delete namespace projectcontour --wait --timeout=120s || true
+
+            - name: Set kubectl context to Paris for Contour cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-paris
+
+            - name: 🧹 Cleanup Contour ingress controller on Paris cluster
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+                  helm uninstall contour --namespace projectcontour --wait || true
+                  kubectl delete namespace projectcontour --wait --timeout=120s || true
+
+            ############# ECK Elasticsearch Cleanup ##############
             - name: Set kubectl context to London for ECK cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               run: kubectl config use-context ${{ env.CLUSTER_NAME }}-london
