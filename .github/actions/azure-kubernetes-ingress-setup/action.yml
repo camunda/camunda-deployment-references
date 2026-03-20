@@ -1,6 +1,6 @@
 ---
 name: Azure Kubernetes Ingress Setup
-description: Install and configure ingress-nginx, external-dns, and cert-manager for Azure AKS clusters
+description: Install and configure Contour, external-dns, and cert-manager for Azure AKS clusters
 
 inputs:
     cluster-name:
@@ -68,6 +68,11 @@ runs:
           with:
               namespace: ingress-nginx
 
+        - name: 🏗️ Clean projectcontour operator namespace
+          uses: ./.github/actions/internal-clean-namespace
+          with:
+              namespace: projectcontour
+
         - name: Setup ingress components for AKS cluster
           shell: bash
           run: |
@@ -88,9 +93,9 @@ runs:
               # Source ingress setup variables
               source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
 
-              # Install ingress-nginx
-              echo "Installing ingress-nginx..."
-              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-ingress-nginx.sh
+              # Install Contour
+              echo "Installing Contour..."
+              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-contour.sh
 
               # Install external-dns
               echo "Installing external-dns..."
