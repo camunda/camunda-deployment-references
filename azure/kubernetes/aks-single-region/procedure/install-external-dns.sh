@@ -7,6 +7,9 @@ helm upgrade --install external-dns external-dns \
   --set provider.name=azure \
   --set policy=sync \
   --set txtOwnerId=external-dns-"$CLUSTER_NAME" \
+  --set "sources[0]=service" \
+  --set "sources[1]=ingress" \
+  --set "sources[2]=contour-httpproxy" \
   --set "extraVolumes[0].name=azure-config-file" \
   --set "extraVolumes[0].secret.secretName=azure-config-file" \
   --set "extraVolumeMounts[0].name=azure-config-file" \

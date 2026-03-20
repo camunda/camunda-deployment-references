@@ -9,5 +9,8 @@ helm upgrade --install \
   --set txtOwnerId="${EXTERNAL_DNS_OWNER_ID:-external-dns}" \
   --set policy=sync \
   --set "serviceAccount.annotations.eks\.amazonaws\.com\/role-arn=$EXTERNAL_DNS_IRSA_ARN" \
+  --set "sources[0]=service" \
+  --set "sources[1]=ingress" \
+  --set "sources[2]=contour-httpproxy" \
   --namespace external-dns \
   --create-namespace
