@@ -17,6 +17,7 @@ global:
 
     ingress:
         enabled: true
+        className: contour
         host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
@@ -104,6 +105,7 @@ orchestration:
     ingress:
         grpc:
             enabled: true
+            className: contour
             host: zeebe-${CAMUNDA_DOMAIN}
             tls:
                 enabled: true
