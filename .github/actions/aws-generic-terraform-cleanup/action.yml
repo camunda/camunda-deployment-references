@@ -116,7 +116,7 @@ runs:
               else
                   echo "⚠️  First attempt failed, retrying with cloud-nuke..."
                   # RETRY_DESTROY enables cloud-nuke to clean up resources created outside of Terraform
-                  # such as Load Balancers created by ingress-nginx, EBS volumes, etc.
+                  # such as Load Balancers created by Contour, EBS volumes, etc.
                   export RETRY_DESTROY='true'
                   ${{ github.action_path }}/scripts/destroy-resources.sh "${{ inputs.tf-bucket }}" \
                     ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.modules-order }} ${{ inputs.tf-bucket-key-prefix }} \

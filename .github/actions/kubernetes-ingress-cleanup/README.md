@@ -2,7 +2,7 @@
 
 ## Description
 
-Clean up ingress-nginx, external-dns, and cert-manager components from Kubernetes clusters
+Clean up Contour, external-dns, and cert-manager components from Kubernetes clusters
 
 ## Inputs
 

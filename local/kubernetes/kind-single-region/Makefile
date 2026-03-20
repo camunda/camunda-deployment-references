@@ -160,7 +160,7 @@ operators.deploy-no-domain:
 
 .PHONY: ingress.deploy
 ingress.deploy:
-	@$(PROCEDURE_DIR)/ingress-nginx-deploy.sh
+	@$(PROCEDURE_DIR)/contour-deploy.sh
 
 .PHONY: coredns.config
 coredns.config:
