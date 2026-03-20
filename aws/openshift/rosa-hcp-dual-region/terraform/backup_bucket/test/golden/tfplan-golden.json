@@ -59,6 +59,11 @@
       }
     },
     "aws_iam_user.service_account": {
+      "identity": {
+        "account_id": null,
+        "name": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "service_account",
       "provider_name": "registry.terraform.io/hashicorp/aws",
