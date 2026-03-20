@@ -43,4 +43,8 @@ create_or_get_secret "pg-keycloak-secret" "keycloak" "KEYCLOAK_BOOT_PASS"
 create_or_get_secret "pg-webmodeler-superuser-secret" "root" "WEBM_SUPER_PASS"
 create_or_get_secret "pg-webmodeler-secret" "webmodeler" "WEBM_BOOT_PASS"
 
+# Camunda orchestration superuser (username=root) and bootstrap (username=camunda)
+create_or_get_secret "pg-camunda-superuser-secret" "root" "CAMUNDA_SUPER_PASS"
+create_or_get_secret "pg-camunda-secret" "camunda" "CAMUNDA_BOOT_PASS"
+
 echo "PostgreSQL secrets created successfully!"

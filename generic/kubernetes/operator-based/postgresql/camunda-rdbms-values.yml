@@ -1,0 +1,34 @@
+---
+# Camunda Platform 8 Values - RDBMS Secondary Storage Snippet
+# This configuration replaces Elasticsearch with PostgreSQL (RDBMS) for secondary storage.
+# Requires a CloudNativePG cluster named 'pg-camunda' with database 'camunda' and owner 'camunda'.
+#
+# Authentication Secrets:
+# - pg-camunda-secret: Contains PostgreSQL user credentials for orchestration secondary storage
+#
+# Note: Optimize requires Elasticsearch and is disabled in RDBMS mode.
+
+# Orchestration secondary storage configuration (RDBMS instead of Elasticsearch)
+orchestration:
+    exporters:
+        camunda:
+            enabled: false
+        rdbms:
+            enabled: true
+    data:
+        secondaryStorage:
+            type: rdbms
+            rdbms:
+                url: jdbc:postgresql://pg-camunda-rw:5432/camunda
+                username: camunda
+                secret:
+                    existingSecret: pg-camunda-secret
+                    existingSecretKey: password
+
+# Disable Elasticsearch (not needed in RDBMS mode)
+elasticsearch:
+    enabled: false
+
+# Disable Optimize (requires Elasticsearch, not available in RDBMS mode)
+optimize:
+    enabled: false
