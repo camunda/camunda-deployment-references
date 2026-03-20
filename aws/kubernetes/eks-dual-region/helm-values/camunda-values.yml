@@ -26,11 +26,11 @@ global:
     security:
         authentication:
             # Use basic auth for inter-component communication (demo/demo)
-            # since Management Identity (Keycloak) is not deployed in dual-region
+            # since Management Identity (Keycloak, for Web Modeler/Console) is not deployed in dual-region
             method: basic
     identity:
         auth:
-            # Disable the Identity authentication
+            # Disable the Admin (Orchestration Cluster Admin) authentication
             # it will fall back to basic-auth: demo/demo as default user
             enabled: false
 
