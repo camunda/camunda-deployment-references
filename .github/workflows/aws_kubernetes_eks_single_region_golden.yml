@@ -12,6 +12,7 @@ on:
             - aws/modules/opensearch/**
             - aws/kubernetes/eks-single-region/terraform/**
             - aws/kubernetes/eks-single-region-irsa/terraform/**
+            - aws/kubernetes/eks-single-region-rdbms/terraform/**
             - .github/actions/aws-configure-cli/**
 
 # limit to a single execution per actor of this workflow
@@ -54,6 +55,9 @@ jobs:
 
                     - eks-single-region-irsa/terraform/cluster/
                     - eks-single-region-irsa/terraform/vpn/
+
+                    - eks-single-region-rdbms/terraform/cluster/
+                    - eks-single-region-rdbms/terraform/vpn/
         permissions:
             contents: write
             pull-requests: write
