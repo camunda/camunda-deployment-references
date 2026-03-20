@@ -110,6 +110,8 @@ runs:
               OPTIMIZE_SECRET="$(openssl rand -hex 16)"
               ADMIN_PASSWORD="$(openssl rand -hex 16)"
               FIRST_USER_PASSWORD="$(openssl rand -hex 16)"
+              PUSHER_APP_SECRET="$(openssl rand -hex 16)"
+              PUSHER_APP_KEY="$(openssl rand -hex 16)"
 
               # Key names must match generic/kubernetes/operator-based/tests/utils/camunda-values-identity-secrets.yml
               kubectl create secret generic identity-secret-for-components \
@@ -121,6 +123,8 @@ runs:
                   --from-literal=identity-optimize-client-token="$OPTIMIZE_SECRET" \
                   --from-literal=identity-admin-client-token="$ADMIN_PASSWORD" \
                   --from-literal=identity-first-user-password="$FIRST_USER_PASSWORD" \
+                  --from-literal=webmodeler-pusher-app-secret="$PUSHER_APP_SECRET" \
+                  --from-literal=webmodeler-pusher-app-key="$PUSHER_APP_KEY" \
                   --dry-run=client -o yaml | kubectl apply -f -
 
               echo "✓ identity-secret-for-components created"

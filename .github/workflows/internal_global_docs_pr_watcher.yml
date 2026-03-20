@@ -1,0 +1,383 @@
+---
+name: Internal - Global - Docs PR Watcher
+
+# This workflow monitors PRs on camunda/camunda-docs for changes to files
+# that reference InfraEx-owned repos or are in the static watchlist.
+# Monitored repos:
+#   - camunda/camunda-deployment-references
+#   - camunda/keycloak
+#   - camunda/c8-sm-checks
+# When such changes are detected, it:
+# 1. Comments on the PR to flag InfraEx-owned content
+# 2. Requests review from the infraex-medic team
+# 3. Validates that links to monitored repos point to existing files
+# 4. Adds component:infraex and component:self-managed labels
+#
+# This ensures technical consistency between deployment references and documentation.
+
+on:
+    schedule:
+        # Run every hour on weekdays (UTC)
+        - cron: 0 * * * 1-5
+    workflow_dispatch:
+        inputs:
+            dry_run:
+                description: Dry run mode (no comment/review request)
+                required: false
+                type: boolean
+                default: false
+    pull_request:
+        paths:
+            - .github/workflows/internal_global_docs_pr_watcher.yml
+
+concurrency:
+    group: ${{ github.workflow }}
+    cancel-in-progress: true
+
+env:
+    DOCS_REPO: camunda/camunda-docs
+    # Team to request review from
+    REVIEWER_TEAM: camunda/infraex-medic
+    # Marker to identify comments left by this workflow (prevents duplicates)
+    COMMENT_MARKER: <!-- infraex-docs-pr-watcher -->
+
+jobs:
+    scan-docs-prs:
+        name: Scan camunda-docs PRs
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Generate token for GitHub
+              id: generate-github-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@7386ec9e5f8dbe82f719c1ff3a3d74a0668276ac # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+                  repositories: camunda-deployment-references,camunda-docs
+
+            - name: Scan docs PRs and flag InfraEx content
+              env:
+                  GH_TOKEN: ${{ steps.generate-github-token.outputs.token }}
+                  DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || inputs.dry_run || 'false' }}
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  ###############################################################
+                  # Patterns to detect references to monitored repos in file
+                  # content. We fetch each changed file and check whether it
+                  # references any of our repos.
+                  ###############################################################
+                  REPO_PATTERNS=(
+                    "camunda/camunda-deployment-references"
+                    "camunda-deployment-references"
+                    "camunda/c8-sm-checks"
+                    "c8-sm-checks"
+                  )
+
+                  # Repos for which we validate GitHub links
+                  MONITORED_REPOS=(
+                    "camunda-deployment-references"
+                    "keycloak"
+                    "c8-sm-checks"
+                  )
+                  # Build alternation for grep
+                  REPO_ALT=$(IFS='|'; echo "${MONITORED_REPOS[*]}")
+
+                  ###############################################################
+                  # STATIC WATCHLIST - critical pages to always monitor
+                  ###############################################################
+                  WATCHLIST_PATTERNS=(
+                    "docs/self-managed/reference-architecture/"
+                    "versioned_docs/*/self-managed/reference-architecture/"
+                  )
+
+                  ###############################################################
+                  # Fetch open PRs from camunda-docs
+                  ###############################################################
+                  echo "::group::Fetching open PRs from $DOCS_REPO"
+                  prs_json=$(gh pr list \
+                    --repo "$DOCS_REPO" \
+                    --state open \
+                    --limit 100 \
+                    --json number,title \
+                    --jq '.')
+
+                  pr_count=$(echo "$prs_json" | jq 'length')
+                  echo "Found $pr_count open PRs"
+                  echo "::endgroup::"
+
+                  if [[ "$pr_count" -eq 0 ]]; then
+                    echo "No open PRs found. Exiting."
+                    exit 0
+                  fi
+
+                  flagged_count=0
+
+                  for pr in $(echo "$prs_json" | jq -r '.[].number'); do
+                    pr_number="$pr"
+                    pr_title=$(echo "$prs_json" | jq -r ".[] | select(.number == $pr_number) | .title")
+
+                    echo "::group::PR #$pr_number - $pr_title"
+
+                    # Get changed files for this PR
+                    changed_files=$(gh pr diff "$pr_number" \
+                      --repo "$DOCS_REPO" \
+                      --name-only 2>/dev/null || echo "")
+
+                    if [[ -z "$changed_files" ]]; then
+                      echo "  Could not fetch diff, skipping."
+                      echo "::endgroup::"
+                      continue
+                    fi
+
+                    linked_matches=()
+                    watchlist_matches=()
+                    broken_links=()
+
+                    # Use headRefOid (commit SHA) so fork PRs resolve correctly
+                    pr_head=$(gh pr view "$pr_number" \
+                      --repo "$DOCS_REPO" \
+                      --json headRefOid \
+                      --jq '.headRefOid')
+
+                    ###########################################################
+                    # Dynamic detection: for each changed file, fetch its
+                    # content from the PR branch and check if it references
+                    # any of the monitored repos (links, snippets, etc.)
+                    ###########################################################
+                    while IFS= read -r file; do
+                      # Only inspect markdown files, skip release notes
+                      case "$file" in
+                        *release-notes*|*announcements*) continue ;;
+                        *.md|*.mdx) ;;
+                        *) continue ;;
+                      esac
+
+                      file_content=$(gh api \
+                        "repos/$DOCS_REPO/contents/$file?ref=$pr_head" \
+                        --jq '.content' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+
+                      if [[ -z "$file_content" ]]; then
+                        continue
+                      fi
+
+                      # Check if file content references our repo
+                      for pattern in "${REPO_PATTERNS[@]}"; do
+                        if grep -q "$pattern" <<< "$file_content"; then
+                          linked_matches+=("$file")
+                          echo "    📎 $file contains reference to $pattern"
+
+                          # Validate links to monitored repos
+                          urls=$(grep -oE "https://github\.com/camunda/(${REPO_ALT})/(blob|tree)/[^)\"[:space:]]+" <<< "$file_content" || true)
+                          urls+=$'\n'
+                          urls+=$(grep -oE "https://raw\.githubusercontent\.com/camunda/(${REPO_ALT})/[^)\"[:space:]]+" <<< "$file_content" || true)
+
+                          while IFS= read -r url; do
+                            [[ -z "$url" ]] && continue
+                            # Strip anchor fragments
+                            clean_url="${url%%#*}"
+                            if ! curl -sfL -o /dev/null "$clean_url"; then
+                              broken_links+=("$file -> $url")
+                              echo "    ❌ Broken link in $file: $url"
+                            fi
+                          done <<< "$urls"
+
+                          break  # no need to check other patterns once matched
+                        fi
+                      done
+                    done <<< "$changed_files"
+
+                    # Check against watchlist patterns (glob match)
+                    while IFS= read -r file; do
+                      for pattern in "${WATCHLIST_PATTERNS[@]}"; do
+                        # shellcheck disable=SC2254
+                        case "$file" in
+                          $pattern*)
+                            watchlist_matches+=("$file")
+                            ;;
+                        esac
+                      done
+                    done <<< "$changed_files"
+
+                    # Deduplicate each list
+                    if [[ ${#linked_matches[@]} -gt 0 ]]; then
+                      mapfile -t linked_matches < <(printf '%s\n' "${linked_matches[@]}" | sort -u)
+                    fi
+                    if [[ ${#watchlist_matches[@]} -gt 0 ]]; then
+                      mapfile -t watchlist_matches < <(printf '%s\n' "${watchlist_matches[@]}" | sort -u)
+                    fi
+                    if [[ ${#broken_links[@]} -gt 0 ]]; then
+                      mapfile -t broken_links < <(printf '%s\n' "${broken_links[@]}" | sort -u)
+                    fi
+
+                    # Remove watchlist entries already in linked_matches
+                    if [[ ${#watchlist_matches[@]} -gt 0 && ${#linked_matches[@]} -gt 0 ]]; then
+                      filtered=()
+                      for w in "${watchlist_matches[@]}"; do
+                        is_dup=false
+                        for l in "${linked_matches[@]}"; do
+                          [[ "$w" == "$l" ]] && is_dup=true && break
+                        done
+                        [[ "$is_dup" == "false" ]] && filtered+=("$w")
+                      done
+                      watchlist_matches=("${filtered[@]+"${filtered[@]}"}")
+                    fi
+
+                    total_matches=$(( ${#linked_matches[@]} + ${#watchlist_matches[@]} ))
+
+                    if [[ "$total_matches" -eq 0 ]]; then
+                      echo "  No InfraEx-related files changed."
+                      echo "::endgroup::"
+                      continue
+                    fi
+
+                    echo "  Found $total_matches matching file(s)!"
+                    flagged_count=$((flagged_count + 1))
+
+                    # Check if we already commented on this PR
+                    existing_comment=$(gh pr view "$pr_number" \
+                      --repo "$DOCS_REPO" \
+                      --json comments \
+                      --jq ".comments[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id" \
+                      2>/dev/null | head -1 || echo "")
+
+                    if [[ -n "$existing_comment" ]]; then
+                      echo "  Already commented on this PR, skipping."
+                      echo "::endgroup::"
+                      continue
+                    fi
+
+                    # Build the comment body (lines must start at column 0 for GH Markdown)
+                    NL=$'\n'
+                    comment_body="${COMMENT_MARKER}${NL}"
+                    comment_body+="## 🔍 InfraEx Content Detected${NL}${NL}"
+                    comment_body+="This PR modifies documentation pages owned or referenced by the "
+                    comment_body+="**Infrastructure Experience** team.${NL}${NL}"
+                    comment_body+="A review from **@${REVIEWER_TEAM}** has been requested "
+                    comment_body+="to ensure **technical consistency**.${NL}"
+
+                    if [[ ${#linked_matches[@]} -gt 0 ]]; then
+                      comment_body+="${NL}### 📎 Files referencing monitored repos${NL}${NL}"
+                      comment_body+="| File |${NL}|------|${NL}"
+                      for f in "${linked_matches[@]}"; do
+                        comment_body+="| \`$f\` |${NL}"
+                      done
+                    fi
+
+                    if [[ ${#broken_links[@]} -gt 0 ]]; then
+                      comment_body+="${NL}### ❌ Broken links${NL}${NL}"
+                      comment_body+="| Source file | Broken URL |${NL}"
+                      comment_body+="|-------------|------------|${NL}"
+                      for bl in "${broken_links[@]}"; do
+                        bl_file="${bl%% -> *}"
+                        bl_url="${bl#* -> }"
+                        comment_body+="| \`$bl_file\` | \`$bl_url\` |${NL}"
+                      done
+                    fi
+
+                    if [[ ${#watchlist_matches[@]} -gt 0 ]]; then
+                      comment_body+="${NL}### 📋 Watchlist matches${NL}${NL}"
+                      comment_body+="| File |${NL}|------|${NL}"
+                      for f in "${watchlist_matches[@]}"; do
+                        comment_body+="| \`$f\` |${NL}"
+                      done
+                    fi
+
+                    comment_body+="${NL}---${NL}"
+                    comment_body+="<details><summary>ℹ️ What to check</summary>${NL}${NL}"
+                    comment_body+="- **Link validity**: Do links still point to existing files/branches?${NL}"
+                    comment_body+="- **Technical accuracy**: Are references consistent with the deployment repo?${NL}"
+                    comment_body+="- **Version alignment**: Do version-specific docs match the release branch?${NL}"
+                    comment_body+="- **Architecture consistency**: Do changes align with the reference architecture?${NL}"
+                    comment_body+="</details>${NL}${NL}"
+                    comment_body+="> _Auto-generated by [InfraEx Docs PR Watcher]"
+                    comment_body+="(https://github.com/camunda/camunda-deployment-references"
+                    comment_body+="/blob/main/.github/workflows/internal_global_docs_pr_watcher.yml)._${NL}"
+
+                    if [[ "$DRY_RUN" == "true" ]]; then
+                      echo "  [DRY RUN] Would comment on PR #$pr_number, request review from $REVIEWER_TEAM members, and add labels component:infraex + component:self-managed"
+                      if [[ ${#broken_links[@]} -gt 0 ]]; then
+                        echo "  [DRY RUN] Found ${#broken_links[@]} broken link(s)!"
+                      fi
+                      echo "  Comment preview:"
+                      echo "$comment_body"
+                    else
+                      # Post the comment (REST API)
+                      gh api "repos/$DOCS_REPO/issues/$pr_number/comments" \
+                        --method POST \
+                        --raw-field body="$comment_body" \
+                        --silent
+                      echo "  ✅ Comment posted on PR #$pr_number"
+
+                      # Resolve team members and request individual reviews
+                      team_slug="${REVIEWER_TEAM#*/}"
+                      team_org="${REVIEWER_TEAM%%/*}"
+                      reviewers=$(gh api "orgs/$team_org/teams/$team_slug/members" \
+                        --jq '.[].login' 2>/dev/null || echo "")
+
+                      # Exclude the PR author (cannot request review from self)
+                      pr_author=$(gh pr view "$pr_number" \
+                        --repo "$DOCS_REPO" \
+                        --json author --jq '.author.login')
+
+                      if [[ -n "$reviewers" ]]; then
+                        reviewer_args=()
+                        requested=()
+                        while IFS= read -r user; do
+                          [[ -z "$user" ]] && continue
+                          [[ "$user" == "$pr_author" ]] && continue
+                          reviewer_args+=(-f "reviewers[]=$user")
+                          requested+=("$user")
+                        done <<< "$reviewers"
+
+                        if [[ ${#reviewer_args[@]} -gt 0 ]]; then
+                          gh api "repos/$DOCS_REPO/pulls/$pr_number/requested_reviewers" \
+                            --method POST \
+                            "${reviewer_args[@]}" \
+                            --silent
+                          echo "  ✅ Review requested from: ${requested[*]}"
+                        else
+                          echo "  ℹ️ All team members are PR author, skipping review request"
+                        fi
+                      else
+                        echo "  ❌ Could not resolve members of $REVIEWER_TEAM"
+                        exit 1
+                      fi
+
+                      # Add labels (REST API)
+                      gh api "repos/$DOCS_REPO/issues/$pr_number/labels" \
+                        --method POST \
+                        -f 'labels[]=component:infraex' \
+                        -f 'labels[]=component:self-managed' \
+                        --silent
+                      echo "  ✅ Labels added"
+                    fi
+
+                    echo "::endgroup::"
+                  done
+
+                  echo ""
+                  echo "========================================="
+                  echo "Scan complete. Flagged PRs: $flagged_count"
+                  echo "========================================="
+
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: failure() && github.event_name == 'schedule'
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

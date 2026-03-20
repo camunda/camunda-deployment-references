@@ -262,14 +262,25 @@ variable "init_container_secrets" {
 #                 Restore Init Container                       #
 ################################################################
 
+variable "restore_enabled" {
+  description = "Whether to enable the restore init container that runs before the main container. When true, the restore container will run with the restore command."
+  type        = bool
+  default     = false
+}
+
 variable "restore_backup_id" {
-  description = "The backup ID to restore from. When set, enables the restore init container that runs before the main container."
+  description = "The backup ID to restore from. When non-empty and restore_enabled is true, the restore command will include the --backupId flag."
   type        = string
   default     = ""
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9,_-]*$", var.restore_backup_id))
+    error_message = "restore_backup_id must only contain alphanumeric characters, commas, hyphens, and underscores."
+  }
 }
 
 variable "restore_container_image" {
-  description = "Container image for the restore init container. Required when restore_backup_id is set."
+  description = "Container image for the restore init container. Required when restore_enabled is true."
   type        = string
   # TODO: [release-duty] before the release, update the below versions to the stable release!
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
@@ -278,12 +289,12 @@ variable "restore_container_image" {
 }
 
 variable "restore_container_entrypoint" {
-  description = "Entrypoint for the restore init container (Docker ENTRYPOINT). Defaults to the restore application."
+  description = "Entrypoint for the restore init container (Docker ENTRYPOINT). The RESTORE_ARGS environment variable is computed automatically based on restore_backup_id."
   type        = list(string)
   default = [
     "bash",
     "-c",
-    "/usr/local/camunda/bin/restore --backupId=$BACKUP_ID"
+    "/usr/local/camunda/bin/restore $RESTORE_ARGS"
   ]
 }
 

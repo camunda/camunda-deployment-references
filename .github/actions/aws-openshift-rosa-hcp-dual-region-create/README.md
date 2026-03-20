@@ -13,21 +13,21 @@ Each cluster will be added to the kube config with the name of the cluster as co
 | name | description | required | default |
 | --- | --- | --- | --- |
 | `rh-token` | <p>Red Hat Hybrid Cloud Console Token</p> | `true` | `""` |
+| `cluster-name-0` | <p>Name of the ROSA cluster 0 to deploy</p> | `true` | `""` |
 | `cluster-name-1` | <p>Name of the ROSA cluster 1 to deploy</p> | `true` | `""` |
-| `cluster-name-2` | <p>Name of the ROSA cluster 2 to deploy</p> | `true` | `""` |
+| `admin-password-cluster-0` | <p>Admin password for the ROSA cluster 0</p> | `true` | `""` |
+| `admin-username-cluster-0` | <p>Admin username for the ROSA cluster 0</p> | `false` | `kube-admin` |
 | `admin-password-cluster-1` | <p>Admin password for the ROSA cluster 1</p> | `true` | `""` |
 | `admin-username-cluster-1` | <p>Admin username for the ROSA cluster 1</p> | `false` | `kube-admin` |
-| `admin-password-cluster-2` | <p>Admin password for the ROSA cluster 2</p> | `true` | `""` |
-| `admin-username-cluster-2` | <p>Admin username for the ROSA cluster 2</p> | `false` | `kube-admin` |
+| `aws-region-cluster-0` | <p>AWS region where the ROSA cluster 0 will be deployed</p> | `true` | `""` |
 | `aws-region-cluster-1` | <p>AWS region where the ROSA cluster 1 will be deployed</p> | `true` | `""` |
-| `aws-region-cluster-2` | <p>AWS region where the ROSA cluster 2 will be deployed</p> | `true` | `""` |
+| `availability-zones-cluster-0` | <p>Comma separated list of availability zones for cluster 0 (letters only, e.g., a,b,c)</p> | `false` | `a,b,c` |
 | `availability-zones-cluster-1` | <p>Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)</p> | `false` | `a,b,c` |
-| `availability-zones-cluster-2` | <p>Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)</p> | `false` | `a,b,c` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
+| `openshift-version-cluster-0` | <p>Version of the OpenShift to install</p> | `false` | `4.20.3` |
 | `openshift-version-cluster-1` | <p>Version of the OpenShift to install</p> | `false` | `4.20.3` |
-| `openshift-version-cluster-2` | <p>Version of the OpenShift to install</p> | `false` | `4.20.3` |
+| `replicas-cluster-0` | <p>Number of replicas for the ROSA cluster 0 (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `replicas-cluster-1` | <p>Number of replicas for the ROSA cluster 1 (empty will fallback on default value of the module)</p> | `false` | `""` |
-| `replicas-cluster-2` | <p>Number of replicas for the ROSA cluster 2 (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states.</p> | `true` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
@@ -44,12 +44,12 @@ Each cluster will be added to the kube config with the name of the cluster as co
 
 | name | description |
 | --- | --- |
+| `openshift-server-api-cluster-0` | <p>The server API URL of the deployed ROSA cluster 0</p> |
 | `openshift-server-api-cluster-1` | <p>The server API URL of the deployed ROSA cluster 1</p> |
-| `openshift-server-api-cluster-2` | <p>The server API URL of the deployed ROSA cluster 2</p> |
+| `openshift-cluster-id-cluster-0` | <p>The ID of the deployed ROSA cluster 0</p> |
 | `openshift-cluster-id-cluster-1` | <p>The ID of the deployed ROSA cluster 1</p> |
-| `openshift-cluster-id-cluster-2` | <p>The ID of the deployed ROSA cluster 2</p> |
+| `openshift-cluster-vpc-id-cluster-0` | <p>The VPC ID of the deployed ROSA cluster 0</p> |
 | `openshift-cluster-vpc-id-cluster-1` | <p>The VPC ID of the deployed ROSA cluster 1</p> |
-| `openshift-cluster-vpc-id-cluster-2` | <p>The VPC ID of the deployed ROSA cluster 2</p> |
 | `backup-bucket-s3-aws-access-key` | <p>The AWS Access Key of the S3 Backup bucket used by Camunda</p> |
 | `backup-bucket-s3-aws-secret-access-key` | <p>The AWS Secret Access Key of the S3 Backup bucket used by Camunda</p> |
 | `backup-bucket-s3-bucket-name` | <p>The name of the S3 Backup bucket used by Camunda</p> |
@@ -73,17 +73,29 @@ This action is a `composite` action.
     # Required: true
     # Default: ""
 
+    cluster-name-0:
+    # Name of the ROSA cluster 0 to deploy
+    #
+    # Required: true
+    # Default: ""
+
     cluster-name-1:
     # Name of the ROSA cluster 1 to deploy
     #
     # Required: true
     # Default: ""
 
-    cluster-name-2:
-    # Name of the ROSA cluster 2 to deploy
+    admin-password-cluster-0:
+    # Admin password for the ROSA cluster 0
     #
     # Required: true
     # Default: ""
+
+    admin-username-cluster-0:
+    # Admin username for the ROSA cluster 0
+    #
+    # Required: false
+    # Default: kube-admin
 
     admin-password-cluster-1:
     # Admin password for the ROSA cluster 1
@@ -97,17 +109,11 @@ This action is a `composite` action.
     # Required: false
     # Default: kube-admin
 
-    admin-password-cluster-2:
-    # Admin password for the ROSA cluster 2
+    aws-region-cluster-0:
+    # AWS region where the ROSA cluster 0 will be deployed
     #
     # Required: true
     # Default: ""
-
-    admin-username-cluster-2:
-    # Admin username for the ROSA cluster 2
-    #
-    # Required: false
-    # Default: kube-admin
 
     aws-region-cluster-1:
     # AWS region where the ROSA cluster 1 will be deployed
@@ -115,20 +121,14 @@ This action is a `composite` action.
     # Required: true
     # Default: ""
 
-    aws-region-cluster-2:
-    # AWS region where the ROSA cluster 2 will be deployed
-    #
-    # Required: true
-    # Default: ""
-
-    availability-zones-cluster-1:
-    # Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)
+    availability-zones-cluster-0:
+    # Comma separated list of availability zones for cluster 0 (letters only, e.g., a,b,c)
     #
     # Required: false
     # Default: a,b,c
 
-    availability-zones-cluster-2:
-    # Comma separated list of availability zones for cluster 2 (letters only, e.g., a,b,c)
+    availability-zones-cluster-1:
+    # Comma separated list of availability zones for cluster 1 (letters only, e.g., a,b,c)
     #
     # Required: false
     # Default: a,b,c
@@ -139,26 +139,26 @@ This action is a `composite` action.
     # Required: false
     # Default: latest
 
+    openshift-version-cluster-0:
+    # Version of the OpenShift to install
+    #
+    # Required: false
+    # Default: 4.20.3
+
     openshift-version-cluster-1:
     # Version of the OpenShift to install
     #
     # Required: false
     # Default: 4.20.3
 
-    openshift-version-cluster-2:
-    # Version of the OpenShift to install
-    #
-    # Required: false
-    # Default: 4.20.3
-
-    replicas-cluster-1:
-    # Number of replicas for the ROSA cluster 1 (empty will fallback on default value of the module)
+    replicas-cluster-0:
+    # Number of replicas for the ROSA cluster 0 (empty will fallback on default value of the module)
     #
     # Required: false
     # Default: ""
 
-    replicas-cluster-2:
-    # Number of replicas for the ROSA cluster 2 (empty will fallback on default value of the module)
+    replicas-cluster-1:
+    # Number of replicas for the ROSA cluster 1 (empty will fallback on default value of the module)
     #
     # Required: false
     # Default: ""

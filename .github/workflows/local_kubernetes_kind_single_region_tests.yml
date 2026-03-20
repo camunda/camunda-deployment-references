@@ -227,6 +227,12 @@ jobs:
 
                   ./procedure/camunda-deploy-no-domain.sh
 
+            - name: 🔍 Check for Helm deprecation warnings
+              uses: ./.github/actions/internal-helm-deprecation-check
+              with:
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
             - name: Wait for Camunda deployment
               timeout-minutes: 10
               env:

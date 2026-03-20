@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CLUSTERS=("$CLUSTER_1_NAME" "$CLUSTER_2_NAME")
+CLUSTERS=("$CLUSTER_0" "$CLUSTER_1")
 
 # Check the status of both clusters
 while true; do

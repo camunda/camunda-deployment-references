@@ -138,6 +138,10 @@ module "orchestration_cluster" {
     aws_iam_policy.s3_backup_access_policy.arn,
   ]
 
+  # Restore configuration (uncomment to enable restore from backup)
+  # restore_enabled   = true
+  # restore_backup_id = "my-backup-id"
+
 }
 
 module "connectors" {
