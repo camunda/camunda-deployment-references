@@ -454,7 +454,7 @@ jobs:
             # Running the heavy benchmark here would starve the runner (2 ES
             # clusters + Camunda already consume most CPU/RAM).
             - name: Generate delta data (simulates continued usage)
-              timeout-minutes: 10
+              timeout-minutes: 8
               run: |
                   set -euo pipefail
 
@@ -479,10 +479,10 @@ jobs:
                       sleep 5
                   done
 
-                  kubectl wait --for=condition=complete job/migration-benchmark \
-                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s \
-                  || kubectl wait --for=condition=failed job/migration-benchmark \
-                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=600s
+                  # The benchmark runs until killed by activeDeadlineSeconds,
+                  # so the job condition is always "failed" (DeadlineExceeded).
+                  kubectl wait --for=condition=failed job/migration-benchmark \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=420s
 
                   echo "Delta data generation complete"
 
