@@ -121,3 +121,13 @@ terraform.tfstate.backup
 .terraform
 .terraform.lock.hcl
 trivyreport.txt
+<<<<<<< HEAD
+=======
+
+camunda-docs/**
+debug/**
+camunda-platform-helm/**
+
+# Exclude actionlint binary
+actionlint
+>>>>>>> 3e7028a (chore: Remove actionlint binary from repo (#2095))
