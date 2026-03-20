@@ -32,6 +32,14 @@ matrix:
           # TODO: Add 'oidc' support with AWS Cognito
           auth_provider: keycloak-operator
 
+        - name: rosa-hcp-single-region-rdbms
+          # RDBMS variant: uses CloudNativePG PostgreSQL as secondary storage
+          # instead of Elasticsearch/OpenSearch (Camunda 8.9+).
+          # Optimize is disabled as it does not support RDBMS.
+          auth_provider: keycloak-operator
+          secondary_storage: rdbms
+          ref_arch_dir: rosa-hcp-single-region # reuse the same ROSA cluster infrastructure
+
     declination:
         - name: no-domain
           desc: Setup chart in production-like setup with Ingress and TLS.
