@@ -4,7 +4,7 @@
 #
 # Variables substituted by envsubst:
 # - CAMUNDA_DOMAIN: Domain for Camunda components (e.g., lei-standard.camunda.ie)
-# - INGRESS_CLASS_NAME: Ingress controller class (nginx for EKS, openshift-default for OpenShift)
+# - INGRESS_CLASS_NAME: Ingress controller class (contour for generic Kubernetes, openshift-default for OpenShift)
 
 global:
     # Ingress configuration for external access

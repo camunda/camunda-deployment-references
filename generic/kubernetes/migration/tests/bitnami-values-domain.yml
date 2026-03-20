@@ -29,10 +29,8 @@ global:
                 redirectUrl: https://camunda.example.com/modeler
     ingress:
         enabled: true
-        className: nginx
+        className: contour
         host: camunda.example.com
-        annotations:
-            nginx.ingress.kubernetes.io/proxy-buffer-size: 128k
         tls:
             enabled: true
             secretName: camunda-platform
@@ -44,11 +42,9 @@ identity:
 identityKeycloak:
     ingress:
         enabled: true
-        ingressClassName: nginx
+        ingressClassName: contour
         hostname: camunda.example.com
         path: /auth
-        annotations:
-            nginx.ingress.kubernetes.io/proxy-buffer-size: 128k
         tls: true
         extraTls:
             - hosts:
@@ -67,7 +63,7 @@ orchestration:
     ingress:
         grpc:
             enabled: true
-            className: nginx
+            className: contour
             host: zeebe-camunda.example.com
             tls:
                 enabled: true
