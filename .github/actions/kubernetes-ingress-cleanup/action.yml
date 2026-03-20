@@ -1,6 +1,6 @@
 ---
 name: Kubernetes Ingress Cleanup
-description: Clean up ingress-nginx, external-dns, and cert-manager components from Kubernetes clusters
+description: Clean up ingress-nginx, Contour, external-dns, and cert-manager components from Kubernetes clusters
 
 inputs:
     wait-for-dns-cleanup:
@@ -34,6 +34,9 @@ runs:
               echo "Uninstalling ingress-nginx..."
               helm uninstall ingress-nginx --namespace ingress-nginx --wait || echo "ingress-nginx not found, skipping..."
 
+              echo "Uninstalling Contour..."
+              helm uninstall contour --namespace projectcontour --wait || echo "Contour not found, skipping..."
+
               echo "Uninstalling external-dns..."
               helm uninstall external-dns --namespace external-dns --wait || echo "external-dns not found, skipping..."
 
@@ -43,6 +46,9 @@ runs:
               # Delete namespaces (ignore errors if not present)
               echo "Deleting ingress-nginx namespace..."
               kubectl delete namespace ingress-nginx --wait --timeout=60s || echo "ingress-nginx namespace not found, skipping..."
+
+              echo "Deleting projectcontour namespace..."
+              kubectl delete namespace projectcontour --wait --timeout=60s || echo "projectcontour namespace not found, skipping..."
 
               echo "Deleting external-dns namespace..."
               kubectl delete namespace external-dns --wait --timeout=60s || echo "external-dns namespace not found, skipping..."
