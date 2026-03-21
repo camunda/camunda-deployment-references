@@ -181,10 +181,10 @@ jobs:
             # =================================================================
             # Domain mode setup (ingress, TLS, DNS)
             # =================================================================
-            - name: Deploy Ingress NGINX
+            - name: Deploy Contour ingress
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: ./procedure/ingress-nginx-deploy.sh
+              run: ./procedure/contour-deploy.sh
 
             - name: Configure CoreDNS for domain resolution
               if: matrix.declination.use_tls

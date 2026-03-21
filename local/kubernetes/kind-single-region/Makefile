@@ -50,7 +50,7 @@ help:
 	@echo "Individual commands:"
 	@echo "  make cluster.create     Create Kind cluster"
 	@echo "  make cluster.delete     Delete Kind cluster"
-	@echo "  make ingress.deploy     Deploy Ingress NGINX"
+	@echo "  make ingress.deploy     Deploy Contour ingress"
 	@echo "  make operators.deploy-domain   Deploy operators (domain)"
 	@echo "  make operators.deploy-no-domain Deploy operators (no-domain)"
 	@echo "  make hosts.add               Add /etc/hosts entries (domain mode)"
@@ -160,7 +160,7 @@ operators.deploy-no-domain:
 
 .PHONY: ingress.deploy
 ingress.deploy:
-	@$(PROCEDURE_DIR)/ingress-nginx-deploy.sh
+	@$(PROCEDURE_DIR)/contour-deploy.sh
 
 .PHONY: coredns.config
 coredns.config:

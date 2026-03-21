@@ -15,8 +15,8 @@ data:
                lameduck 5s
             }
             ready
-            rewrite name substring zeebe-camunda.example.com ingress-nginx-controller.ingress-nginx.svc.cluster.local answer auto
-            rewrite name substring camunda.example.com ingress-nginx-controller.ingress-nginx.svc.cluster.local answer auto
+            rewrite name substring zeebe-camunda.example.com contour-envoy.projectcontour.svc.cluster.local answer auto
+            rewrite name substring camunda.example.com contour-envoy.projectcontour.svc.cluster.local answer auto
             kubernetes cluster.local in-addr.arpa ip6.arpa {
                pods insecure
                fallthrough in-addr.arpa ip6.arpa
