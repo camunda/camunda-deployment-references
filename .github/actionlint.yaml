@@ -4,3 +4,4 @@ self-hosted-runner:
     labels:
         - aws-core-8-default
         - aws-core-16-default
+        - aws-core-16-longrunning

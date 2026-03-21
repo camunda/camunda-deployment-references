@@ -34,3 +34,4 @@ spec:
                                           operator: In
                                           values:
                                               - ${ECK_CLUSTER_NAME}
+                                topologyKey: kubernetes.io/hostname

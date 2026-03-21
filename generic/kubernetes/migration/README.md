@@ -154,6 +154,7 @@ Edit `env.sh` before starting. The file is organized into 4 sections — see com
 | `MIGRATE_KEYCLOAK`           | `true`          | Migrate Keycloak + its PostgreSQL            |
 | `MIGRATE_WEBMODELER`         | `true`          | Migrate WebModeler PostgreSQL                |
 | `MIGRATE_ELASTICSEARCH`      | `true`          | Migrate Elasticsearch                        |
+| `ES_WARM_REINDEX`            | `false`         | When `true`, Phase 2 pre-copies ES data to the target (no downtime). Phase 3 then runs a fast delta reindex, reducing cutover from O(data-size) to ~5 min. For external targets, you must configure `reindex.remote.whitelist` on the target ES |
 
 Set any `MIGRATE_*` to `false` to skip a component (e.g. if it's not deployed or already uses an external service).
 
@@ -227,18 +228,19 @@ All targets are created empty and idle — no traffic is routed to them yet.
 Creates Kubernetes Jobs that:
 - Run `pg_dump` against each Bitnami PostgreSQL instance
 - Create an Elasticsearch snapshot of all indices
+- _(optional)_ When `ES_WARM_REINDEX=true`, run a full reindex from source to target ES while the app is still running. This pre-populates the target so Phase 3 only needs a fast delta reindex.
 
 These "warm" backups reduce the cutover window. A final consistent backup is taken in Phase 3 after the application is frozen.
 
 ### Phase 3: Cutover (`3-cutover.sh`)
 
-**Downtime: YES** — Typically 5–40 minutes depending on Elasticsearch data volume (see [Downtime Estimation](#downtime-estimation)).
+**Downtime: YES** — Typically 5–60 minutes depending on Elasticsearch data volume (see [Downtime Estimation](#downtime-estimation)). With `ES_WARM_REINDEX=true`, downtime is reduced to ~5 minutes regardless of data volume.
 
 Sequence:
 1. **Save** current Helm values (for rollback)
 2. **Freeze** all Camunda deployments (scale to 0)
 3. **Final backup** with no active connections (consistent state)
-4. **Restore** data to new operator-managed targets
+4. **Restore** data to new operator-managed targets (delta reindex if warm reindex was done in Phase 2)
 5. **Sync Keycloak admin credentials** — copies the restored admin password to the operator secret so Keycloak and Identity stay in sync
 6. **Helm upgrade** to point Camunda at the new backends and restart all components
 
@@ -318,6 +320,27 @@ Only Phase 3 (cutover) causes downtime. The following estimates are derived from
 - **Observed ES throughput:** ~2,870 docs/s or ~3.9 MB/s on Kind (GitHub Actions runners). Production clusters with faster storage and network will achieve higher throughput.
 - **Largest single index:** `optimize-process-instance-benchmark` (897K docs, 6.8 GB) accounted for ~76% of the ES data volume. Real-world deployments with large Optimize history will see similar patterns.
 - **Scaling guideline:** Downtime scales roughly linearly with ES data size. Measure during a staging rehearsal with representative data volumes to get an accurate estimate for your environment.
+
+### Measure with `--estimate`
+
+You can measure the actual cutover duration on your environment **without causing any downtime**:
+
+```bash
+# After completing Phases 1 and 2:
+./3-cutover.sh --estimate
+```
+
+This runs the real PG backup/restore and ES reindex operations against the target infrastructure but **skips** freezing the application and the Helm upgrade. The application remains fully operational throughout.
+
+Use this to:
+
+- **Measure real timing** with your actual data volumes before scheduling a maintenance window.
+- **Validate ES reindex throughput** on your cluster hardware (storage, network, CPU).
+- **Compare warm reindex vs. standard** — run once without warm reindex (Phase 2 without `ES_WARM_REINDEX`), then once with it, and compare the Phase 3 estimate duration.
+
+The estimate does not mark Phase 3 as complete, so you can run the real cutover afterwards with `./3-cutover.sh`.
+
+> **Note:** The estimate restores data to the target backends (CNPG, ECK). This is harmless — the real cutover will overwrite with the final consistent backup taken after freezing the application.
 
 ## Precautions
 

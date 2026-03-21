@@ -96,19 +96,19 @@ jobs:
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
     migration-tests:
-        name: Run migration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
+        name: Run migration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }}
         needs:
             - triage
             - clusters-info
         if: needs.triage.outputs.should_skip == 'false'
-        runs-on: aws-core-16-default
+        runs-on: ${{ (matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light') == 'heavy' && 'aws-core-16-longrunning' ||
+            'aws-core-16-default' }}
         timeout-minutes: ${{ (matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light') == 'heavy' && 150 || 60 }}
         strategy:
             fail-fast: false
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         env:
             CLUSTER_NAME: camunda-platform-local
             NAMESPACE: camunda
@@ -116,6 +116,7 @@ jobs:
             CAMUNDA_RELEASE_NAME: camunda
             REF_ARCH_PATH: local/kubernetes/kind-single-region
             BENCHMARK_SCENARIO: ${{ matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light' }}
+            ES_WARM_REINDEX: ${{ matrix.distro.es_warm_reindex || 'false' }}
             ES_RESTORE_TIMEOUT: ${{ (matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light') == 'heavy' && '5400' || '1800'
                 }}
         steps:
@@ -182,34 +183,34 @@ jobs:
             # Domain mode setup (ingress, TLS, DNS)
             # =================================================================
             - name: Deploy Ingress NGINX
-              if: matrix.declination.use_tls
+              if: matrix.distro.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/ingress-nginx-deploy.sh
 
             - name: Configure CoreDNS for domain resolution
-              if: matrix.declination.use_tls
+              if: matrix.distro.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/coredns-config.sh
 
             - name: Generate TLS certificates
-              if: matrix.declination.use_tls
+              if: matrix.distro.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/certs-generate.sh
 
             - name: Create TLS secret
-              if: matrix.declination.use_tls
+              if: matrix.distro.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/certs-create-secret.sh
 
             - name: Create CA ConfigMap
-              if: matrix.declination.use_tls
+              if: matrix.distro.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/certs-create-ca-configmap.sh
 
             - name: Set domain environment
               run: |
                   set -euo pipefail
-                  if [[ "${{ matrix.declination.use_tls }}" == "true" ]]; then
+                  if [[ "${{ matrix.distro.use_tls }}" == "true" ]]; then
                       echo "CAMUNDA_DOMAIN=camunda.example.com" | tee -a "$GITHUB_ENV"
                   else
                       echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
@@ -250,7 +251,7 @@ jobs:
                   )
 
                   # Add domain overlay values for TLS/Ingress mode
-                  if [[ "${{ matrix.declination.use_tls }}" == "true" ]]; then
+                  if [[ "${{ matrix.distro.use_tls }}" == "true" ]]; then
                       echo "Installing Camunda Platform with Bitnami sub-charts (domain mode)..."
                       HELM_ARGS+=(--values generic/kubernetes/migration/tests/bitnami-values-domain.yml)
                   else
@@ -414,6 +415,19 @@ jobs:
                     echo "ES_TARGET_MODE=operator"
                   } >> "$GITHUB_ENV"
 
+            # CI-only ECK overlay: single node, relaxed anti-affinity, boosted resources.
+            # Deep-merged onto the production eck-migration-patch.yml so that
+            # deploy_elasticsearch() picks up CI-tuned values transparently.
+            - name: Apply CI ECK overlay
+              working-directory: ./generic/kubernetes/migration/
+              run: |
+                  set -euo pipefail
+                  PATCH=manifests/eck-migration-patch.yml
+                  CI_OVERLAY=tests/eck-migration-ci-patch.yml
+                  yq eval-all 'select(fileIndex == 0) *d select(fileIndex == 1)' \
+                      "$PATCH" "$CI_OVERLAY" > "${PATCH}.tmp"
+                  mv "${PATCH}.tmp" "$PATCH"
+
             # --- Phase 1: Deploy Targets (no downtime) ---
             - name: Phase 1 - Deploy target infrastructure
               timeout-minutes: 20
@@ -425,12 +439,52 @@ jobs:
 
             # --- Phase 2: Backup (no downtime) ---
             - name: Phase 2 - Initial backup (warm, no downtime)
-              timeout-minutes: ${{ env.BENCHMARK_SCENARIO == 'heavy' && 30 || 15 }}
+              timeout-minutes: ${{ env.ES_WARM_REINDEX == 'true' && 120 || (env.BENCHMARK_SCENARIO == 'heavy' && 30 || 15) }}
               working-directory: ./generic/kubernetes/migration/
               run: |
                   set -euo pipefail
                   source ./env.sh
                   ./2-backup.sh
+
+            # --- Generate delta data (simulates app still running) ---
+            # Generate new data between backup and cutover to simulate the app
+            # continuing to run — the delta reindex must have real work to do.
+            # Delta only needs a small amount of new data to exercise the
+            # delta reindex — always use the light benchmark (5 PI/s, 5 min).
+            # Running the heavy benchmark here would starve the runner (2 ES
+            # clusters + Camunda already consume most CPU/RAM).
+            - name: Generate delta data (simulates continued usage)
+              timeout-minutes: 8
+              run: |
+                  set -euo pipefail
+
+                  BENCHMARK_FILE="generic/kubernetes/migration/tests/benchmark-job.yml"
+                  echo "Running delta benchmark: 5 PI/s for 5 min (light, regardless of scenario)..."
+
+                  # Delete previous benchmark job if it exists
+                  kubectl delete job/migration-benchmark \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --ignore-not-found=true
+
+                  kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -f "$BENCHMARK_FILE"
+
+                  echo "Waiting for delta benchmark to start..."
+                  for _ in $(seq 1 60); do
+                      PHASE=$(kubectl get pods -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                          -l job-name=migration-benchmark \
+                          -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Pending")
+                      if [ "$PHASE" = "Running" ] || [ "$PHASE" = "Succeeded" ]; then
+                          break
+                      fi
+                      sleep 5
+                  done
+
+                  # The benchmark runs until killed by activeDeadlineSeconds,
+                  # so the job condition is always "failed" (DeadlineExceeded).
+                  kubectl wait --for=condition=failed job/migration-benchmark \
+                      -n "${{ env.CAMUNDA_NAMESPACE }}" --timeout=420s
+
+                  echo "Delta data generation complete"
 
             # --- Phase 3: Cutover (downtime window) ---
             - name: Phase 3 - Cutover (freeze, backup, restore, switch)
@@ -519,6 +573,16 @@ jobs:
                   # Don't print secret to logs
                   echo "LOCAL_CLIENT_SECRET=$LOCAL_CLIENT_SECRET" >> "$GITHUB_OUTPUT"
 
+            - name: Clean up failed migration job pods
+              if: always()
+              run: |
+                  # Remove Error pods left by Job retries (backoffLimit > 0) so they
+                  # don't trip the c8-sm-checks deployment health check.
+                  kubectl delete pods -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                      -l migration.camunda.io/type=restore \
+                      --field-selector=status.phase=Failed \
+                      --ignore-not-found=true 2>/dev/null || true
+
             - name: 🧪 Run C8-SM-CHECKS deployment and connectivity tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 15
@@ -547,11 +611,11 @@ jobs:
                   skip-c8sm-connectivity-ingress-class-check: 'true'
                   enable-c8sm-irsa-check: 'false'
                   # Zeebe token/connectivity checks require domain + credentials
-                  enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
-                      'false' }}
-                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
+                  enable-c8sm-zeebe-token-check: ${{ matrix.distro.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' || 'false'
+                      }}
+                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.distro.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
                       || 'false' }}
-                  local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+                  local-domain-mode: ${{ matrix.distro.use_tls && 'true' || 'false' }}
 
             # =================================================================
             # STEP 6: Clean up old Bitnami resources and re-verify
@@ -627,11 +691,69 @@ jobs:
                   enable-c8sm-connectivity-check: 'true'
                   skip-c8sm-connectivity-ingress-class-check: 'true'
                   enable-c8sm-irsa-check: 'false'
-                  enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
-                      'false' }}
-                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
+                  enable-c8sm-zeebe-token-check: ${{ matrix.distro.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' || 'false'
+                      }}
+                  enable-c8sm-zeebe-connectivity-check: ${{ matrix.distro.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
                       || 'false' }}
-                  local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+                  local-domain-mode: ${{ matrix.distro.use_tls && 'true' || 'false' }}
+
+            # =================================================================
+            # Export migration timing metrics (for meta-analysis)
+            # =================================================================
+            - name: Export migration timing metrics
+              if: always()
+              run: |
+                  set -euo pipefail
+
+                  STATE_DIR="./generic/kubernetes/migration/.state"
+                  METRICS_FILE="/tmp/migration-metrics.json"
+
+                  # Source the migration state file (save_state writes export KEY=VALUE)
+                  if [[ -f "${STATE_DIR}/migration.env" ]]; then
+                      # shellcheck source=/dev/null
+                      source "${STATE_DIR}/migration.env"
+                  fi
+
+                  jq -n \
+                      --arg distro "${{ matrix.distro.name }}" \
+                      --arg scenario "${{ env.BENCHMARK_SCENARIO }}" \
+                      --arg warm_reindex "${{ env.ES_WARM_REINDEX }}" \
+                      --arg phase1 "${PHASE_1_DURATION:-}" \
+                      --arg phase2 "${PHASE_2_DURATION:-}" \
+                      --arg phase3 "${PHASE_3_DURATION:-}" \
+                      --arg warm_duration "${ES_WARM_REINDEX_DURATION:-}" \
+                      --arg cutover_reindex_duration "${ES_CUTOVER_REINDEX_DURATION:-}" \
+                      --arg cutover_reindex_created "${ES_CUTOVER_REINDEX_CREATED:-}" \
+                      --arg cutover_reindex_skipped "${ES_CUTOVER_REINDEX_SKIPPED:-}" \
+                      --arg cutover_reindex_total "${ES_CUTOVER_REINDEX_TOTAL:-}" \
+                      --arg warm_reindex_docs "${ES_WARM_REINDEX_DOCS:-}" \
+                      --arg job_status "${{ job.status }}" \
+                      '{
+                          distro: $distro,
+                          benchmark_scenario: $scenario,
+                          es_warm_reindex: ($warm_reindex == "true"),
+                          phase1_duration: $phase1,
+                          phase2_duration: $phase2,
+                          phase3_duration: $phase3,
+                          warm_reindex_duration: $warm_duration,
+                          cutover_reindex_duration: $cutover_reindex_duration,
+                          cutover_reindex_created: (if $cutover_reindex_created != "" then ($cutover_reindex_created | tonumber) else null end),
+                          cutover_reindex_skipped: (if $cutover_reindex_skipped != "" then ($cutover_reindex_skipped | tonumber) else null end),
+                          cutover_reindex_total: (if $cutover_reindex_total != "" then ($cutover_reindex_total | tonumber) else null end),
+                          warm_reindex_docs: (if $warm_reindex_docs != "" then ($warm_reindex_docs | tonumber) else null end),
+                          job_status: $job_status
+                      }' > "$METRICS_FILE"
+
+                  echo "Migration metrics:"
+                  cat "$METRICS_FILE"
+
+            - name: Upload migration metrics
+              if: always()
+              uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+              with:
+                  name: migration-metrics-${{ matrix.distro.name }}
+                  path: /tmp/migration-metrics.json
+                  retention-days: 90
 
             # =================================================================
             # Debug & Cleanup
@@ -641,7 +763,8 @@ jobs:
               uses: ./.github/actions/internal-debug-failed-pods
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
+                  log-tail-lines: 500
 
             - name: Cleanup Kind cluster
               if: always()
@@ -663,6 +786,108 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               uses: ./.github/actions/internal-apply-skip-label
+
+    # =================================================================
+    # Meta-analysis: compare warm reindex vs standard cutover
+    # =================================================================
+    compare-warm-reindex:
+        name: Compare warm reindex effectiveness
+        runs-on: ubuntu-latest
+        if: always()
+        needs:
+            - migration-tests
+        steps:
+            - name: Download all migration metrics
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+              with:
+                  pattern: migration-metrics-*
+                  merge-multiple: false
+                  path: metrics
+
+            - name: Analyze warm reindex effectiveness
+              run: |
+                  set -euo pipefail
+
+                  {
+                      echo "## Migration Timing Meta-Analysis"
+                      echo ""
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+                  # Collect all metrics files
+                  METRICS_FILES=$(find metrics/ -name 'migration-metrics.json' 2>/dev/null || true)
+                  if [[ -z "$METRICS_FILES" ]]; then
+                      echo "No migration metrics found — skipping analysis." >> "$GITHUB_STEP_SUMMARY"
+                      exit 0
+                  fi
+
+                  {
+                      echo "### Per-job metrics"
+                      echo ""
+                      echo "| Distro | Scenario | Warm Reindex | Phase 1 | Phase 2 | Phase 3 (downtime) | Cutover ES Reindex | Status |"
+                      echo "|--------|----------|--------------|---------|---------|--------------------|-------------------|--------|"
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+                  for f in $METRICS_FILES; do
+                      DISTRO=$(jq -r '.distro' "$f")
+                      SCENARIO=$(jq -r '.benchmark_scenario' "$f")
+                      WARM=$(jq -r '.es_warm_reindex' "$f")
+                      P1=$(jq -r '.phase1_duration // "-"' "$f")
+                      P2=$(jq -r '.phase2_duration // "-"' "$f")
+                      P3=$(jq -r '.phase3_duration // "-"' "$f")
+                      CUT_DUR=$(jq -r '.cutover_reindex_duration // "-"' "$f")
+                      STATUS=$(jq -r '.job_status' "$f")
+                      echo "| $DISTRO | $SCENARIO | $WARM | $P1 | $P2 | $P3 | $CUT_DUR | $STATUS |" >> "$GITHUB_STEP_SUMMARY"
+                  done
+
+                  echo "" >> "$GITHUB_STEP_SUMMARY"
+
+                  # Compare heavy-with-warm vs heavy-without-warm if both exist
+                  HEAVY_STD=$(find metrics/ -path '*/Kind-Heavy-Domain/*' -name 'migration-metrics.json' 2>/dev/null | head -1)
+                  HEAVY_WARM=$(find metrics/ -path '*/Kind-Heavy-WarmReindex-Domain/*' -name 'migration-metrics.json' 2>/dev/null | head -1)
+
+                  if [[ -n "$HEAVY_STD" && -n "$HEAVY_WARM" ]]; then
+                      STD_P3=$(jq -r '.phase3_duration // ""' "$HEAVY_STD")
+                      WARM_P3=$(jq -r '.phase3_duration // ""' "$HEAVY_WARM")
+                      STD_CUT=$(jq -r '.cutover_reindex_duration // ""' "$HEAVY_STD")
+                      WARM_CUT=$(jq -r '.cutover_reindex_duration // ""' "$HEAVY_WARM")
+                      WARM_CREATED=$(jq -r '.cutover_reindex_created // 0' "$HEAVY_WARM")
+                      WARM_SKIPPED=$(jq -r '.cutover_reindex_skipped // 0' "$HEAVY_WARM")
+                      WARM_TOTAL=$(jq -r '.cutover_reindex_total // 0' "$HEAVY_WARM")
+                      WARM_DOCS_PRE=$(jq -r '.warm_reindex_docs // 0' "$HEAVY_WARM")
+
+                      {
+                          echo "### Warm Reindex Effectiveness (Heavy scenario)"
+                          echo ""
+                          echo "| Metric | Without Warm Reindex | With Warm Reindex |"
+                          echo "|--------|---------------------|-------------------|"
+                          echo "| Phase 3 (downtime window) | $STD_P3 | $WARM_P3 |"
+                          echo "| ES cutover reindex duration | $STD_CUT | $WARM_CUT |"
+                          echo "| Docs created during cutover | - | $WARM_CREATED |"
+                          echo "| Docs skipped (warm pre-migrated) | - | $WARM_SKIPPED |"
+                          echo "| Total docs | - | $WARM_TOTAL |"
+                          echo "| Docs pre-migrated (Phase 2) | - | $WARM_DOCS_PRE |"
+                          echo ""
+                      } >> "$GITHUB_STEP_SUMMARY"
+
+                      # Compute skip ratio as a scale factor indicator
+                      if [[ "$WARM_TOTAL" -gt 0 && "$WARM_SKIPPED" -gt 0 ]]; then
+                          SKIP_PCT=$(( WARM_SKIPPED * 100 / WARM_TOTAL ))
+                          {
+                              echo "**Skip ratio**: ${SKIP_PCT}% of docs were pre-migrated by warm reindex and skipped during cutover."
+                              echo ""
+                              echo "> The warm reindex effectiveness scales with data volume: the larger the dataset,"
+                              echo "> the higher the skip ratio and the greater the downtime reduction."
+                              echo "> With a delta window of ~5 min (light benchmark), the skip ratio is a conservative lower bound."
+                          } >> "$GITHUB_STEP_SUMMARY"
+                      fi
+                  else
+                      {
+                          echo "### Warm Reindex Comparison"
+                          echo ""
+                          echo "> Both \`Kind-Heavy-Domain\` and \`Kind-Heavy-WarmReindex-Domain\` must run"
+                          echo "> to produce a comparison. This typically happens on scheduled runs only."
+                      } >> "$GITHUB_STEP_SUMMARY"
+                  fi
 
     report-failures:
         name: Report failures

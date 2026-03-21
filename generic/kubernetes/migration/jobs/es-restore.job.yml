@@ -5,6 +5,10 @@
 # Required env vars: JOB_NAME, ES_IMAGE, SOURCE_ES_HOST, SOURCE_ES_PORT,
 #   TARGET_ES_HOST, TARGET_ES_PORT, SOURCE_ES_SECRET_NAME,
 #   TARGET_ES_SECRET_NAME, NAMESPACE, TIMESTAMP
+# Optional: REINDEX_MODE (full|delta, default: full)
+#   full  — refuses if target already has Camunda indices (safe for initial migration)
+#   delta — skips existing-index check, uses version_type=external + conflicts=proceed
+#           to only copy new/updated docs (for warm-reindex catch-up)
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -33,6 +37,7 @@ spec:
                       - |
                         set -euo pipefail
                         echo "=== ES Restore (Reindex from Remote) ==="
+                        echo "Mode: ${REINDEX_MODE:-full}"
 
                         SOURCE="http://${SOURCE_ES_HOST}:${SOURCE_ES_PORT}"
                         TARGET="http://${TARGET_ES_HOST}:${TARGET_ES_PORT}"
@@ -63,6 +68,14 @@ spec:
                           fi
                           echo "Waiting for source ES ($RETRY/$MAX_RETRIES)..."; sleep 5
                         done
+
+                        # ── Tune target ES for bulk reindex throughput ──
+                        # Disable replicas and refresh during reindex to reduce I/O.
+                        # These are restored after the reindex loop completes.
+                        echo "Tuning target ES settings for reindex throughput..."
+                        curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/_cluster/settings" \
+                          -H 'Content-Type: application/json' \
+                          -d '{"transient":{"indices.reindex.remote.per_request_timeout":"5m"}}' >/dev/null 2>&1 || true
 
                         # Get Camunda indices with doc counts in one call
                         echo "Getting indices from source..."
@@ -98,8 +111,11 @@ spec:
                           exit 0
                         fi
 
-                        # Check if target already has Camunda indices — refuse to
+                        # In full mode, check if target already has Camunda indices — refuse to
                         # overwrite to avoid accidental data loss.
+                        # In delta mode, skip this check — we expect indices to exist from
+                        # the warm reindex and will only sync new/updated documents.
+                        if [ "${REINDEX_MODE:-full}" = "full" ]; then
                         EXISTING=""
                         for pattern in "zeebe-*" "operate-*" "tasklist-*" "optimize-*" "connectors-*" "camunda-*"; do
                           MATCH=$(curl -sf "${TARGET_AUTH[@]}" "$TARGET/_cat/indices/$pattern?h=index" 2>/dev/null || true)
@@ -129,6 +145,9 @@ spec:
                           echo "Then re-run the migration."
                           exit 1
                         fi
+                        else
+                          echo "Delta mode: skipping existing-index check (warm reindex data expected)"
+                        fi
 
                         # Build remote source auth fragment
                         REMOTE_AUTH=""
@@ -138,143 +157,262 @@ spec:
                           REMOTE_AUTH=",\"username\":\"elastic\",\"password\":\"$ESCAPED_PW\""
                         fi
 
-                        # Reindex each non-empty index from source to target
-                        CURRENT=0
-                        FAILED=0
-                        MIGRATED_DOCS=0
-                        REINDEX_START=$(date +%s)
-                        for idx in $INDICES; do
-                          CURRENT=$((CURRENT + 1))
-                          echo "[$CURRENT/$DATA_COUNT] Reindexing: $idx"
-
-                          # ── Pre-create target index with source settings + mappings ──
-                          # Use filter_path to get ONLY analysis settings + mappings from
-                          # the source index. This excludes read-only settings (uuid,
-                          # creation_date, version, etc.) that would cause PUT to fail.
-                          # We also include max_ngram_diff / max_shingle_diff because
-                          # ES 8.19 defaults max_ngram_diff=1 which rejects NGram
-                          # tokenizers with larger diffs (Optimize uses min=1,max=10).
-                          # The response format is:
-                          #   {"idx":{"mappings":{...},"settings":{"index":{"analysis":{...}}}}}
-                          # We strip the outer {"idx": ... } wrapper to get a valid PUT body.
+                        # ── Pre-create target indices (parallelized) ──
+                        echo "Pre-creating target indices..."
+                        PRECREATE_PIDS=""
+                        PRECREATE_FAIL=0
+                        precreate_index() {
+                          local idx="$1"
+                          if [ "${REINDEX_MODE:-full}" = "delta" ] \
+                             && curl -sf -o /dev/null "${TARGET_AUTH[@]}" "$TARGET/$idx"; then
+                            echo "  $idx: exists (warm reindex)"
+                            return 0
+                          fi
+                          local FILTERED
                           FILTERED=$(curl -sf "${SOURCE_AUTH[@]}" \
                             "$SOURCE/$idx?filter_path=*.mappings,*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
                           if [ -n "$FILTERED" ] && [ "$FILTERED" != "{}" ]; then
-                            # Strip outer {"index_name": and trailing }
-                            CREATE_BODY="${FILTERED#*:}"
+                            local CREATE_BODY="${FILTERED#*:}"
                             CREATE_BODY="${CREATE_BODY%\}}"
-
+                            local PUT_RESP
                             PUT_RESP=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
                               -H 'Content-Type: application/json' \
                               -d "$CREATE_BODY" 2>&1)
                             if echo "$PUT_RESP" | grep -q '"error"'; then
-                              echo "  Settings+mappings copy failed, trying settings only (analysis)"
                               curl -s -X DELETE "${TARGET_AUTH[@]}" "$TARGET/$idx" >/dev/null 2>&1 || true
-                              # Retry with settings only (analysis + ngram diff), no mappings.
-                              # This preserves custom analyzers so Optimize mappings can
-                              # reference them later via put_mapping.
+                              local S_ONLY
                               S_ONLY=$(curl -sf "${SOURCE_AUTH[@]}" \
                                 "$SOURCE/$idx?filter_path=*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
                               if [ -n "$S_ONLY" ] && [ "$S_ONLY" != "{}" ]; then
-                                S_BODY="${S_ONLY#*:}"
+                                local S_BODY="${S_ONLY#*:}"
                                 S_BODY="${S_BODY%\}}"
+                                local PUT_S
                                 PUT_S=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
                                   -H 'Content-Type: application/json' \
                                   -d "$S_BODY" 2>&1)
                                 if echo "$PUT_S" | grep -q '"error"'; then
-                                  echo "  Settings-only also failed, trying mappings only"
+                                  echo "  $idx: settings failed, trying mappings"
                                 else
-                                  echo "  Settings-only succeeded (analyzers preserved)"
-                                  # Disable date/numeric detection to prevent auto-mapping
-                                  # conflicts during reindex (e.g. variables.value being
-                                  # mapped as date from first doc, then failing on text docs)
-                                  curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx/_mapping" \
-                                    -H 'Content-Type: application/json' \
-                                    -d '{"date_detection":false,"numeric_detection":false}' \
-                                    >/dev/null 2>&1 || true
-                                  # Settings created; skip further fallbacks
-                                  PUT_S=""
-                                fi
-                              else
-                                PUT_S="no_settings"
-                              fi
-                              # If settings-only didn't work, try mappings only
-                              if [ -n "$PUT_S" ]; then
-                                curl -s -X DELETE "${TARGET_AUTH[@]}" "$TARGET/$idx" >/dev/null 2>&1 || true
-                                MAPPING_ONLY=$(curl -sf "${SOURCE_AUTH[@]}" \
-                                  "$SOURCE/$idx/_mapping?filter_path=*.mappings")
-                                if [ -n "$MAPPING_ONLY" ] && [ "$MAPPING_ONLY" != "{}" ]; then
-                                  M_BODY="${MAPPING_ONLY#*:}"
-                                  M_BODY="${M_BODY%\}}"
-                                  PUT_RESP2=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
-                                    -H 'Content-Type: application/json' \
-                                    -d "$M_BODY" 2>&1)
-                                  if echo "$PUT_RESP2" | grep -q '"error"'; then
-                                    echo "  Mappings-only also failed, using date_detection fallback"
-                                    curl -s -X DELETE "${TARGET_AUTH[@]}" "$TARGET/$idx" >/dev/null 2>&1 || true
-                                    curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
+                                  local SRC_MAPPING
+                                  SRC_MAPPING=$(curl -sf "${SOURCE_AUTH[@]}" \
+                                    "$SOURCE/$idx/_mapping?filter_path=*.mappings")
+                                  if [ -n "$SRC_MAPPING" ] && [ "$SRC_MAPPING" != "{}" ]; then
+                                    local SRC_M_BODY
+                                    SRC_M_BODY=$(echo "$SRC_MAPPING" | sed 's/^{[^:]*:{"mappings"://' | sed 's/}}$//')
+                                    local PUT_M_RESP
+                                    PUT_M_RESP=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx/_mapping" \
                                       -H 'Content-Type: application/json' \
-                                      -d '{"mappings":{"date_detection":false,"numeric_detection":false}}' \
-                                      >/dev/null 2>&1 || echo "  Note: fallback index creation also failed"
+                                      -d "$SRC_M_BODY" 2>&1)
+                                    if ! echo "$PUT_M_RESP" | grep -q '"acknowledged":true'; then
+                                      curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx/_mapping" \
+                                        -H 'Content-Type: application/json' \
+                                        -d '{"date_detection":false,"numeric_detection":false}' \
+                                        >/dev/null 2>&1 || true
+                                    fi
                                   fi
+                                  return 0
+                                fi
+                              fi
+                              curl -s -X DELETE "${TARGET_AUTH[@]}" "$TARGET/$idx" >/dev/null 2>&1 || true
+                              local MAPPING_ONLY
+                              MAPPING_ONLY=$(curl -sf "${SOURCE_AUTH[@]}" \
+                                "$SOURCE/$idx/_mapping?filter_path=*.mappings")
+                              if [ -n "$MAPPING_ONLY" ] && [ "$MAPPING_ONLY" != "{}" ]; then
+                                local M_BODY="${MAPPING_ONLY#*:}"
+                                M_BODY="${M_BODY%\}}"
+                                local PUT_RESP2
+                                PUT_RESP2=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
+                                  -H 'Content-Type: application/json' \
+                                  -d "$M_BODY" 2>&1)
+                                if echo "$PUT_RESP2" | grep -q '"error"'; then
+                                  curl -s -X DELETE "${TARGET_AUTH[@]}" "$TARGET/$idx" >/dev/null 2>&1 || true
+                                  curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
+                                    -H 'Content-Type: application/json' \
+                                    -d '{"mappings":{"date_detection":false,"numeric_detection":false}}' \
+                                    >/dev/null 2>&1 || true
                                 fi
                               fi
                             fi
+                          else
+                            curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
+                              -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                          fi
+                        }
+                        for idx in $INDICES; do
+                          precreate_index "$idx" &
+                          PRECREATE_PIDS="$PRECREATE_PIDS $!"
+                        done
+                        for pid in $PRECREATE_PIDS; do
+                          wait "$pid" || PRECREATE_FAIL=$((PRECREATE_FAIL + 1))
+                        done
+                        echo "Pre-creation done ($PRECREATE_FAIL failures)"
+                        echo ""
+
+                        # ── Tune target indices for bulk reindex ──
+                        # Disable refresh + set replicas to 0 on all pre-created target indices.
+                        echo "Disabling refresh and replicas on target indices..."
+                        TARGET_INDICES=$(curl -sf "${TARGET_AUTH[@]}" \
+                          "$TARGET/_cat/indices?h=index&format=text" \
+                          | grep -E "^(zeebe|operate|tasklist|optimize|connectors|camunda-)" || true)
+                        if [ -n "$TARGET_INDICES" ]; then
+                          IDX_LIST=$(echo "$TARGET_INDICES" | paste -sd ',' -)
+                          curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$IDX_LIST/_settings" \
+                            -H 'Content-Type: application/json' \
+                            -d '{"index":{"refresh_interval":"-1","number_of_replicas":0,"translog.durability":"async"}}' >/dev/null 2>&1 || true
+                        fi
+                        echo ""
+
+                        # ── Reindex indices from source to target (parallelized) ──
+                        MAX_PARALLEL=${REINDEX_PARALLELISM:-4}
+                        REINDEX_RESULTS_DIR=$(mktemp -d)
+                        REINDEX_START=$(date +%s)
+
+                        reindex_one() {
+                          local idx="$1" seqno="$2" result_file="$3"
+                          local BODY RESPONSE
+                          # scroll=15m: keep scroll context alive for 15 min per batch to
+                          # avoid search_context_missing_exception on large indices under load.
+                          if [ "${REINDEX_MODE:-full}" = "delta" ]; then
+                            BODY="{\"conflicts\":\"proceed\",\"source\":{\"remote\":{\"host\":\"$SOURCE\"$REMOTE_AUTH},\"index\":\"$idx\",\"size\":5000},\"dest\":{\"index\":\"$idx\",\"version_type\":\"external\"}}"
+                          else
+                            BODY="{\"source\":{\"remote\":{\"host\":\"$SOURCE\"$REMOTE_AUTH},\"index\":\"$idx\",\"size\":5000},\"dest\":{\"index\":\"$idx\"}}"
                           fi
 
-                          BODY="{\"source\":{\"remote\":{\"host\":\"$SOURCE\"$REMOTE_AUTH},\"index\":\"$idx\"},\"dest\":{\"index\":\"$idx\"}}"
-
                           RESPONSE=$(curl -s -X POST "${TARGET_AUTH[@]}" \
-                            "$TARGET/_reindex?wait_for_completion=true&timeout=10m" \
+                            "$TARGET/_reindex?wait_for_completion=true&timeout=30m&requests_per_second=-1&scroll=15m" \
                             -H 'Content-Type: application/json' \
                             -d "$BODY")
 
-                          # Extract stats from reindex response
+                          local IDX_CREATED IDX_UPDATED IDX_CONFLICTS IDX_TIME HAS_ERROR
                           IDX_CREATED=$(echo "$RESPONSE" | sed -n 's/.*"created":\([0-9]*\).*/\1/p')
-                          IDX_TOTAL=$(echo "$RESPONSE" | sed -n 's/.*"total":\([0-9]*\).*/\1/p')
+                          IDX_UPDATED=$(echo "$RESPONSE" | sed -n 's/.*"updated":\([0-9]*\).*/\1/p')
+                          IDX_CONFLICTS=$(echo "$RESPONSE" | sed -n 's/.*"version_conflicts":\([0-9]*\).*/\1/p')
                           IDX_TIME=$(echo "$RESPONSE" | sed -n 's/.*"took":\([0-9]*\).*/\1/p')
                           IDX_CREATED=${IDX_CREATED:-0}
-                          IDX_TOTAL=${IDX_TOTAL:-0}
-                          IDX_TIME_S=$(( ${IDX_TIME:-0} / 1000 ))
+                          IDX_UPDATED=${IDX_UPDATED:-0}
+                          IDX_CONFLICTS=${IDX_CONFLICTS:-0}
+                          local IDX_TIME_S=$(( ${IDX_TIME:-0} / 1000 ))
 
-                          MIGRATED_DOCS=$((MIGRATED_DOCS + IDX_CREATED))
-                          ELAPSED=$(($(date +%s) - REINDEX_START))
-
-                          # Calculate throughput and ETA
-                          ETA_MSG=""
-                          if [ "$ELAPSED" -gt 0 ] && [ "$MIGRATED_DOCS" -gt 0 ]; then
-                            DOCS_PER_SEC=$((MIGRATED_DOCS / ELAPSED))
-                            REMAINING_DOCS=$((TOTAL_DOCS - MIGRATED_DOCS))
-                            if [ "$DOCS_PER_SEC" -gt 0 ]; then
-                              ETA_SECS=$((REMAINING_DOCS / DOCS_PER_SEC))
-                              ETA_MIN=$((ETA_SECS / 60))
-                              ETA_SEC=$((ETA_SECS % 60))
-                              ETA_MSG=" | ETA: ${ETA_MIN}m${ETA_SEC}s"
+                          HAS_ERROR=0
+                          if echo "$RESPONSE" | grep -qE '"error"|"failures":\[\{'; then
+                            HAS_ERROR=1
+                            echo "[$seqno/$DATA_COUNT] WARN $idx: reindex failed"
+                            if echo "$RESPONSE" | grep -q 'search_context_missing_exception'; then
+                              echo "  Cause: scroll context expired — the source ES took too long to serve a batch of 5000 docs."
+                              echo "  This happens when the source ES is under heavy load (e.g. app still writing during warm reindex)."
+                              echo "  The scroll keepalive is 15m per batch. If this keeps failing, reduce REINDEX_PARALLELISM or increase scroll time."
+                            fi
+                            echo "$RESPONSE"
+                            echo "$idx: $RESPONSE" > "${result_file}.err"
+                          else
+                            if [ "${REINDEX_MODE:-full}" = "delta" ]; then
+                              echo "[$seqno/$DATA_COUNT] $idx: created=$IDX_CREATED updated=$IDX_UPDATED skipped=$IDX_CONFLICTS (${IDX_TIME_S}s)"
+                            else
+                              echo "[$seqno/$DATA_COUNT] $idx: $IDX_CREATED docs (${IDX_TIME_S}s)"
                             fi
                           fi
+                          echo "$IDX_CREATED $IDX_UPDATED $IDX_CONFLICTS $HAS_ERROR" > "$result_file"
+                        }
 
-                          echo "  -> ${IDX_CREATED} docs (${IDX_TIME_S}s)" \
-                            "| Progress: ${MIGRATED_DOCS}/${TOTAL_DOCS}" \
-                            "(${DOCS_PER_SEC:-?} docs/s)${ETA_MSG}"
-
-                          # Detect API errors or document-level failures
-                          if echo "$RESPONSE" | grep -qE '"error"|"failures":\[\{'; then
-                            echo "  WARN: Failed to reindex $idx"
-                            echo "$RESPONSE"
-                            FAILED=$((FAILED + 1))
+                        echo "Reindexing $DATA_COUNT indices (parallelism=$MAX_PARALLEL)..."
+                        CURRENT=0
+                        RUNNING_PIDS=""
+                        for idx in $INDICES; do
+                          CURRENT=$((CURRENT + 1))
+                          reindex_one "$idx" "$CURRENT" "$REINDEX_RESULTS_DIR/$CURRENT" &
+                          RUNNING_PIDS="$RUNNING_PIDS $!"
+                          # Throttle: wait if we hit max parallel
+                          RUNNING=$(echo "$RUNNING_PIDS" | wc -w)
+                          if [ "$RUNNING" -ge "$MAX_PARALLEL" ]; then
+                            # Wait for any one to finish
+                            wait -n 2>/dev/null || true
+                            # Clean up finished PIDs
+                            NEW_PIDS=""
+                            for p in $RUNNING_PIDS; do
+                              if kill -0 "$p" 2>/dev/null; then
+                                NEW_PIDS="$NEW_PIDS $p"
+                              fi
+                            done
+                            RUNNING_PIDS="$NEW_PIDS"
                           fi
-                          echo ""
                         done
+                        # Wait for remaining
+                        for p in $RUNNING_PIDS; do
+                          wait "$p" 2>/dev/null || true
+                        done
+
+                        # Aggregate results
+                        FAILED=0
+                        MIGRATED_DOCS=0
+                        SKIPPED_DOCS=0
+                        for f in "$REINDEX_RESULTS_DIR"/*; do
+                          [ -f "$f" ] || continue
+                          case "$f" in *.err) continue ;; esac
+                          read -r C U S E < "$f"
+                          MIGRATED_DOCS=$((MIGRATED_DOCS + ${C:-0} + ${U:-0}))
+                          SKIPPED_DOCS=$((SKIPPED_DOCS + ${S:-0}))
+                          FAILED=$((FAILED + ${E:-0}))
+                        done
+                        # Save first error response for tail-visible debugging
+                        FIRST_REINDEX_ERROR=""
+                        for f in "$REINDEX_RESULTS_DIR"/*.err; do
+                          [ -f "$f" ] || continue
+                          FIRST_REINDEX_ERROR=$(cat "$f")
+                          break
+                        done
+                        rm -rf "$REINDEX_RESULTS_DIR"
+
+                        # ── Restore target ES settings ──
+                        echo ""
+                        echo "Restoring target ES index settings..."
+                        TARGET_INDICES=$(curl -sf "${TARGET_AUTH[@]}" \
+                          "$TARGET/_cat/indices?h=index&format=text" \
+                          | grep -E "^(zeebe|operate|tasklist|optimize|connectors|camunda-)" || true)
+                        if [ -n "$TARGET_INDICES" ]; then
+                          IDX_LIST=$(echo "$TARGET_INDICES" | paste -sd ',' -)
+                          curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$IDX_LIST/_settings" \
+                            -H 'Content-Type: application/json' \
+                            -d '{"index":{"refresh_interval":"1s","number_of_replicas":1,"translog.durability":"request"}}' >/dev/null 2>&1 || true
+                          # Force a refresh so all reindexed docs are searchable
+                          curl -sf -X POST "${TARGET_AUTH[@]}" "$TARGET/$IDX_LIST/_refresh" >/dev/null 2>&1 || true
+                        fi
+
+                        # ── Wait for cluster to become green ──
+                        echo ""
+                        NODE_COUNT=$(curl -sf "${TARGET_AUTH[@]}" "$TARGET/_cat/nodes?h=name" 2>/dev/null | wc -l | tr -d ' ')
+                        if [ "${NODE_COUNT:-0}" -le 1 ]; then
+                          echo "Single-node cluster detected — skipping wait-for-green (yellow is expected with replicas)."
+                        else
+                          echo "Waiting for target cluster to reach green status (timeout 120s)..."
+                          HEALTH_RESP=$(curl -sf "${TARGET_AUTH[@]}" \
+                            "$TARGET/_cluster/health?wait_for_status=green&timeout=120s&pretty" 2>/dev/null || true)
+                          HEALTH_STATUS=$(echo "$HEALTH_RESP" | sed -n 's/.*"status" *: *"\([^"]*\)".*/\1/p')
+                          HEALTH_TIMED_OUT=$(echo "$HEALTH_RESP" | sed -n 's/.*"timed_out" *: *\([a-z]*\).*/\1/p')
+                          if [ "$HEALTH_STATUS" = "green" ]; then
+                            echo "Cluster is green."
+                          elif [ "$HEALTH_TIMED_OUT" = "true" ]; then
+                            echo "Cluster did not reach green within 120s (status: ${HEALTH_STATUS:-unknown})."
+                          else
+                            echo "Cluster status: ${HEALTH_STATUS:-unknown}"
+                          fi
+                        fi
+
+                        # (index pre-creation and reindex are now handled above)
 
                         # Reindex summary
                         REINDEX_ELAPSED=$(($(date +%s) - REINDEX_START))
                         REINDEX_MIN=$((REINDEX_ELAPSED / 60))
                         REINDEX_SEC=$((REINDEX_ELAPSED % 60))
                         AVG_RATE=0
-                        [ "$REINDEX_ELAPSED" -gt 0 ] && AVG_RATE=$((MIGRATED_DOCS / REINDEX_ELAPSED))
+                        PROCESSED_TOTAL=$((MIGRATED_DOCS + SKIPPED_DOCS))
+                        [ "$REINDEX_ELAPSED" -gt 0 ] && AVG_RATE=$((PROCESSED_TOTAL / REINDEX_ELAPSED))
                         echo "=== Reindex Summary ==="
-                        echo "  Indices: $DATA_COUNT | Documents: $MIGRATED_DOCS/$TOTAL_DOCS"
-                        echo "  Duration: ${REINDEX_MIN}m${REINDEX_SEC}s | Avg throughput: ${AVG_RATE} docs/s"
+                        if [ "${REINDEX_MODE:-full}" = "delta" ]; then
+                          echo "  Indices: $DATA_COUNT | Created: $MIGRATED_DOCS | Skipped (up-to-date): $SKIPPED_DOCS | Total: $PROCESSED_TOTAL/$TOTAL_DOCS"
+                        else
+                          echo "  Indices: $DATA_COUNT | Documents: $MIGRATED_DOCS/$TOTAL_DOCS"
+                        fi
+                        echo "  Duration: ${REINDEX_MIN}m${REINDEX_SEC}s | Avg throughput: $AVG_RATE docs/s"
                         echo ""
 
                         # ── Migrate component templates first (used by index templates) ──
@@ -302,24 +440,38 @@ spec:
                         if [ -n "$COMP_NAMES" ]; then
                           COMP_COUNT=$(echo "$COMP_NAMES" | wc -l | tr -d ' ')
                           echo "Found $COMP_COUNT Camunda component template(s) to migrate"
-                          for cname in $COMP_NAMES; do
+                          COMP_RESULTS_DIR=$(mktemp -d)
+                          migrate_comp_template() {
+                            local cname="$1" result_file="$2"
+                            local COMP_DEF COMP_BODY PUT_COMP
                             COMP_DEF=$(curl -sf "${SOURCE_AUTH[@]}" \
                               "$SOURCE/_component_template/$cname") \
-                              || { echo "  ERROR: Could not fetch component template $cname"; TMPL_FAILED=$((TMPL_FAILED + 1)); continue; }
+                              || { echo "  ERROR: Could not fetch component template $cname"; echo 1 > "$result_file"; return; }
                             if [ -n "$COMP_DEF" ] && [ "$COMP_DEF" != "{}" ]; then
-                              # Response: {"component_templates":[{"name":"...","component_template":{...}}]}
                               COMP_BODY=$(echo "$COMP_DEF" | sed 's/.*"component_template"://' | sed 's/}]}$//')
                               PUT_COMP=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/_component_template/$cname" \
                                 -H 'Content-Type: application/json' \
                                 -d "$COMP_BODY" 2>&1)
                               if echo "$PUT_COMP" | grep -q '"acknowledged":true'; then
                                 echo "  $cname"
+                                echo 0 > "$result_file"
                               else
                                 echo "  ERROR: Failed to migrate component template $cname: $PUT_COMP"
-                                TMPL_FAILED=$((TMPL_FAILED + 1))
+                                echo 1 > "$result_file"
                               fi
+                            else
+                              echo 0 > "$result_file"
                             fi
+                          }
+                          for cname in $COMP_NAMES; do
+                            migrate_comp_template "$cname" "$COMP_RESULTS_DIR/$cname" &
                           done
+                          wait
+                          for f in "$COMP_RESULTS_DIR"/*; do
+                            [ -f "$f" ] || continue
+                            TMPL_FAILED=$((TMPL_FAILED + $(cat "$f")))
+                          done
+                          rm -rf "$COMP_RESULTS_DIR"
                         else
                           echo "No Camunda component templates found on source"
                         fi
@@ -340,30 +492,41 @@ spec:
                         if [ -n "$TMPL_NAMES" ]; then
                           TMPL_COUNT=$(echo "$TMPL_NAMES" | wc -l | tr -d ' ')
                           echo "Found $TMPL_COUNT Camunda index template(s) to migrate"
-                          for tname in $TMPL_NAMES; do
+                          IDX_TMPL_RESULTS_DIR=$(mktemp -d)
+                          migrate_idx_template() {
+                            local tname="$1" result_file="$2"
+                            local TMPL_DEF TMPL_BODY PUT_TMPL
                             TMPL_DEF=$(curl -sf "${SOURCE_AUTH[@]}" \
                               "$SOURCE/_index_template/$tname") || {
                               echo "  ERROR: Could not fetch template $tname"
-                              TMPL_FAILED=$((TMPL_FAILED + 1))
-                              continue
+                              echo 1 > "$result_file"; return
                             }
                             if [ -n "$TMPL_DEF" ] && [ "$TMPL_DEF" != "{}" ]; then
-                              # Extract just the template body (strip the outer wrapper)
-                              # Response: {"index_templates":[{"name":"...","index_template":{...}}]}
-                              # Strip everything before the body, then remove the trailing }]}
-                              # (array-element close + array close + response close)
                               TMPL_BODY=$(echo "$TMPL_DEF" | sed 's/.*"index_template"://' | sed 's/}]}$//')
                               PUT_TMPL=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/_index_template/$tname" \
                                 -H 'Content-Type: application/json' \
                                 -d "$TMPL_BODY" 2>&1)
                               if echo "$PUT_TMPL" | grep -q '"acknowledged":true'; then
                                 echo "  $tname"
+                                echo 0 > "$result_file"
                               else
                                 echo "  ERROR: Failed to migrate index template $tname: $PUT_TMPL"
-                                TMPL_FAILED=$((TMPL_FAILED + 1))
+                                echo 1 > "$result_file"
                               fi
+                            else
+                              echo 0 > "$result_file"
                             fi
+                          }
+                          # Component templates must be created first (sync), then index templates can be parallelized
+                          for tname in $TMPL_NAMES; do
+                            migrate_idx_template "$tname" "$IDX_TMPL_RESULTS_DIR/$tname" &
                           done
+                          wait
+                          for f in "$IDX_TMPL_RESULTS_DIR"/*; do
+                            [ -f "$f" ] || continue
+                            TMPL_FAILED=$((TMPL_FAILED + $(cat "$f")))
+                          done
+                          rm -rf "$IDX_TMPL_RESULTS_DIR"
                         else
                           echo "No Camunda index templates found on source"
                         fi
@@ -379,28 +542,40 @@ spec:
 
                         # Create empty indices on target (skipped during reindex) so aliases work
                         EMPTY_INDICES=$(echo "$INDEX_DATA" | awk '$2+0 == 0 {print $1}')
-                        for idx in $EMPTY_INDICES; do
-                          # Pre-create with settings+mappings from source
+                        create_empty_index() {
+                          local idx="$1"
+                          local FILTERED
                           FILTERED=$(curl -sf "${SOURCE_AUTH[@]}" \
                             "$SOURCE/$idx?filter_path=*.mappings,*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
                           if [ -n "$FILTERED" ] && [ "$FILTERED" != "{}" ]; then
-                            CREATE_BODY="${FILTERED#*:}"
+                            local CREATE_BODY="${FILTERED#*:}"
                             CREATE_BODY="${CREATE_BODY%\}}"
-                            # Try full settings+mappings first, then settings-only, then empty
                             if ! curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
                               -H 'Content-Type: application/json' \
                               -d "$CREATE_BODY" >/dev/null 2>&1; then
-                              # Settings+mappings failed; try settings only (preserves analyzers)
+                              local S_ONLY
                               S_ONLY=$(curl -sf "${SOURCE_AUTH[@]}" \
                                 "$SOURCE/$idx?filter_path=*.settings.index.analysis,*.settings.index.max_ngram_diff,*.settings.index.max_shingle_diff")
                               if [ -n "$S_ONLY" ] && [ "$S_ONLY" != "{}" ]; then
-                                S_BODY="${S_ONLY#*:}"
+                                local S_BODY="${S_ONLY#*:}"
                                 S_BODY="${S_BODY%\}}"
-                                curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
+                                if curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
                                   -H 'Content-Type: application/json' \
-                                  -d "$S_BODY" >/dev/null 2>&1 || \
-                                curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
-                                  -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                                  -d "$S_BODY" >/dev/null 2>&1; then
+                                  local SRC_MAPPING
+                                  SRC_MAPPING=$(curl -sf "${SOURCE_AUTH[@]}" \
+                                    "$SOURCE/$idx/_mapping?filter_path=*.mappings")
+                                  if [ -n "$SRC_MAPPING" ] && [ "$SRC_MAPPING" != "{}" ]; then
+                                    local SRC_M_BODY
+                                    SRC_M_BODY=$(echo "$SRC_MAPPING" | sed 's/^{[^:]*:{"mappings"://' | sed 's/}}$//')
+                                    curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx/_mapping" \
+                                      -H 'Content-Type: application/json' \
+                                      -d "$SRC_M_BODY" >/dev/null 2>&1 || true
+                                  fi
+                                else
+                                  curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
+                                    -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                                fi
                               else
                                 curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
                                   -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
@@ -410,7 +585,13 @@ spec:
                             curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$idx" \
                               -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
                           fi
-                        done
+                        }
+                        if [ -n "$EMPTY_INDICES" ]; then
+                          for idx in $EMPTY_INDICES; do
+                            create_empty_index "$idx" &
+                          done
+                          wait
+                        fi
 
                         # Use _cat/aliases to get alias→index mappings in plain text
                         # Format: alias  index  filter  routing.search  routing.index  is_write_index
@@ -422,10 +603,17 @@ spec:
                         if [ -n "$ALIAS_DATA" ]; then
                           ALIAS_COUNT=$(echo "$ALIAS_DATA" | wc -l | tr -d ' ')
                           echo "Found $ALIAS_COUNT alias(es) to migrate"
-                          while IFS= read -r line; do
+                          ALIAS_RESULTS_DIR=$(mktemp -d)
+                          migrate_alias() {
+                            local line="$1" result_file="$2"
+                            local ALIAS_NAME IDX_NAME IS_WRITE RESP
                             ALIAS_NAME=$(echo "$line" | awk '{print $1}')
                             IDX_NAME=$(echo "$line" | awk '{print $2}')
                             IS_WRITE=$(echo "$line" | awk '{print $3}')
+                            if ! curl -sf -o /dev/null "${TARGET_AUTH[@]}" "$TARGET/$IDX_NAME"; then
+                              curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$IDX_NAME" \
+                                -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
+                            fi
                             if [ "$IS_WRITE" = "true" ]; then
                               RESP=$(curl -s -X PUT "${TARGET_AUTH[@]}" "$TARGET/$IDX_NAME/_alias/$ALIAS_NAME" \
                                 -H 'Content-Type: application/json' \
@@ -435,11 +623,23 @@ spec:
                             fi
                             if echo "$RESP" | grep -q '"acknowledged":true'; then
                               echo "  $ALIAS_NAME -> $IDX_NAME"
+                              echo 0 > "$result_file"
                             else
                               echo "  ERROR: Failed alias $ALIAS_NAME -> $IDX_NAME: $RESP"
-                              ALIAS_FAILED=$((ALIAS_FAILED + 1))
+                              echo 1 > "$result_file"
                             fi
+                          }
+                          ALIAS_SEQ=0
+                          while IFS= read -r line; do
+                            ALIAS_SEQ=$((ALIAS_SEQ + 1))
+                            migrate_alias "$line" "$ALIAS_RESULTS_DIR/$ALIAS_SEQ" &
                           done <<< "$ALIAS_DATA"
+                          wait
+                          for f in "$ALIAS_RESULTS_DIR"/*; do
+                            [ -f "$f" ] || continue
+                            ALIAS_FAILED=$((ALIAS_FAILED + $(cat "$f")))
+                          done
+                          rm -rf "$ALIAS_RESULTS_DIR"
                           echo "Alias migration complete"
                         else
                           echo "No Camunda aliases found on source"
@@ -454,6 +654,11 @@ spec:
 
                         if [ "$FAILED" -gt 0 ]; then
                           echo "ERROR: $FAILED out of $DATA_COUNT indices with data failed to reindex"
+                          if [ -n "$FIRST_REINDEX_ERROR" ]; then
+                            echo ""
+                            echo "=== First reindex error response ==="
+                            echo "$FIRST_REINDEX_ERROR"
+                          fi
                           exit 1
                         fi
 
@@ -470,6 +675,8 @@ spec:
 
                         echo "Restore complete: $DATA_COUNT indices migrated ($SKIPPED empty indices skipped)"
                   env:
+                      - name: REINDEX_MODE
+                        value: "${REINDEX_MODE}"
                       - name: TARGET_ES_PASSWORD
                         valueFrom:
                             secretKeyRef:
@@ -483,5 +690,5 @@ spec:
                                 key: elasticsearch-password
                                 optional: true
                   resources:
-                      requests: {memory: 128Mi, cpu: 50m}
-                      limits: {memory: 256Mi, cpu: 200m}
+                      requests: {memory: 256Mi, cpu: 200m}
+                      limits: {memory: 512Mi, cpu: 500m}
