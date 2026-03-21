@@ -125,3 +125,6 @@ trivyreport.txt
 camunda-docs/**
 debug/**
 camunda-platform-helm/**
+
+# Exclude actionlint binary
+actionlint
