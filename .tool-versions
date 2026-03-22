@@ -39,7 +39,7 @@ just 1.43.1
 # renovate: datasource=github-tags depName=kubernetes-sigs/kind
 kind 0.30.0
 
-kubectl 1.35.2
+kubectl 1.35.3
 
 kustomize 5.7.1 # used by the tests
 
