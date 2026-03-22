@@ -4,7 +4,7 @@ set -euo pipefail
 # Deploy Ingress NGINX controller
 
 # renovate: datasource=helm depName=ingress-nginx registryUrl=https://kubernetes.github.io/ingress-nginx
-INGRESS_HELM_CHART_VERSION="4.15.0"
+INGRESS_HELM_CHART_VERSION="4.15.1"
 
 echo "Installing Ingress NGINX controller..."
 
