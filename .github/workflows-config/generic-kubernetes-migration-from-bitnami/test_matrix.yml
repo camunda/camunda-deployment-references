@@ -27,21 +27,15 @@ matrix:
           use_tls: true
 
         - name: Kind-Heavy-Domain
-          schedule_only: false
-          weekly_schedule_only: false
-          # TODO: revert before merge
-          # schedule_only: true
-          # weekly_schedule_only: true
+          schedule_only: true
+          weekly_schedule_only: true
           type: kind
           benchmark_scenario: heavy
           use_tls: true
 
         - name: Kind-Heavy-WarmReindex-Domain
-          schedule_only: false
-          weekly_schedule_only: false
-          # TODO: revert before merge
-          # schedule_only: true
-          # weekly_schedule_only: true
+          schedule_only: true
+          weekly_schedule_only: true
           type: kind
           benchmark_scenario: heavy
           es_warm_reindex: true
