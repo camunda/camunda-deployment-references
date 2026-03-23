@@ -618,8 +618,8 @@ jobs:
                           echo "Using OpenShift route configuration"
                           KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-openshift.yml"
                       else
-                          echo "Using nginx ingress configuration"
-                          KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-nginx.yml"
+                          echo "Using ingress configuration"
+                          KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-ingress.yml"
                       fi
                   else
                       echo "Using no-domain localhost configuration"

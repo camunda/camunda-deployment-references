@@ -6,6 +6,8 @@ set -euo pipefail
 # Variables
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 KEYCLOAK_CONFIG_FILE=${KEYCLOAK_CONFIG_FILE:-"keycloak-instance-no-domain.yml"}
+# Default to contour if not specified. If set to empty string, cluster default will be used.
+INGRESS_CLASS_NAME=${INGRESS_CLASS_NAME:-contour}
 
 # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
 KEYCLOAK_VERSION="26.3.2"
@@ -31,6 +33,7 @@ if ! command -v envsubst >/dev/null 2>&1; then
   echo "Error: 'envsubst' command not found. Please install 'gettext' (which provides envsubst) and ensure it is on your PATH." >&2
   exit 1
 fi
+export INGRESS_CLASS_NAME
 envsubst < "$KEYCLOAK_CONFIG_FILE" | kubectl apply -f - -n "$CAMUNDA_NAMESPACE"
 
 # Wait for Keycloak instance to be ready

@@ -1050,7 +1050,7 @@ validate_keycloak_version() {
     if [[ -n "${CUSTOM_KEYCLOAK_CONFIG_FILE:-}" ]]; then
         kc_config="${CUSTOM_KEYCLOAK_CONFIG_FILE}"
     elif [[ -n "${CAMUNDA_DOMAIN:-}" && "${CAMUNDA_DOMAIN}" != "localhost" ]]; then
-        kc_config="${OPERATOR_BASED_DIR}/keycloak/keycloak-instance-domain-nginx.yml"
+        kc_config="${OPERATOR_BASED_DIR}/keycloak/keycloak-instance-domain-ingress.yml"
     else
         kc_config="${OPERATOR_BASED_DIR}/keycloak/keycloak-instance-no-domain.yml"
     fi
@@ -1254,7 +1254,7 @@ deploy_keycloak() {
         kc_config="${CUSTOM_KEYCLOAK_CONFIG_FILE}"
         log_info "  Using custom Keycloak CR: ${kc_config}"
     elif [[ -n "${CAMUNDA_DOMAIN:-}" && "${CAMUNDA_DOMAIN}" != "localhost" ]]; then
-        kc_config="${OPERATOR_BASED_DIR}/keycloak/keycloak-instance-domain-nginx.yml"
+        kc_config="${OPERATOR_BASED_DIR}/keycloak/keycloak-instance-domain-ingress.yml"
         log_info "  Using domain configuration: ${CAMUNDA_DOMAIN}"
     else
         kc_config="${OPERATOR_BASED_DIR}/keycloak/keycloak-instance-no-domain.yml"
