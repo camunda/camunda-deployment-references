@@ -121,3 +121,6 @@ terraform.tfstate.backup
 .terraform
 .terraform.lock.hcl
 trivyreport.txt
+
+# Exclude actionlint binary
+actionlint
