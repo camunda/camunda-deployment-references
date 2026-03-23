@@ -31,6 +31,12 @@ CURRENT_TIME=$($date_command +%s)
 
 rosa login --token="$RHCS_TOKEN"
 
+# Ensure account-level OCM roles exist (prerequisites for cluster operations)
+echo "📦 Ensuring account-roles exist..."
+rosa create account-roles --mode auto --yes
+echo "📦 Ensuring ocm-role exists..."
+rosa create ocm-role --mode auto --yes
+
 # Fetch clusters matching the criteria (if no node pool and error reported)
 raw_clusters=$(rosa list cluster --output json | jq '[.[] | select((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1)]')
 
@@ -74,8 +80,13 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   echo "💣 Deleting cluster: $cluster_name"
   AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --watch
 
-
+  echo "🧹 Deleting operator roles with prefix ${cluster_name}-operator"
   AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto
+
+  echo "🧹 Deleting account roles with prefix ${cluster_name}-account"
+  AWS_REGION="$region_id" rosa delete account-roles --prefix "${cluster_name}-account" --yes --mode auto
+
+  echo "🧹 Deleting OIDC provider ${oidc_config_id}"
   AWS_REGION="$region_id" rosa delete oidc-provider --oidc-config-id "${oidc_config_id}" --yes --mode auto
 
 done
