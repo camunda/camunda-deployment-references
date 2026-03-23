@@ -38,7 +38,7 @@ echo "📦 Ensuring ocm-role exists..."
 rosa create ocm-role --mode auto --yes
 
 # Fetch clusters matching the criteria (if no node pool and error reported)
-raw_clusters=$(rosa list cluster --output json | jq '[.[] | select((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1)]')
+raw_clusters=$(rosa list cluster --output json | jq '[.[] | select((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1 or .status.state == "error")]')
 
 # Check if there are any clusters
 cluster_count=$(echo "$raw_clusters" | jq 'length')
