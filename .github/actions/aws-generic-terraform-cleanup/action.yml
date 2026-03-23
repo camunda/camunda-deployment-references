@@ -97,6 +97,7 @@ runs:
           shell: bash
           env:
               OPENSHIFT: ${{ inputs.openshift }}   # as an indicator in the script whether EKS vs ROSA
+              DISABLE_TELEMETRY: true # Disable telemetry for cloud-nuke
           run: |
               set -euo pipefail
 
