@@ -129,12 +129,13 @@ runs:
               TEST_INGRESS_HOST: ${{ inputs.ingress-host }}
               NODE_TLS_REJECT_UNAUTHORIZED: ${{ inputs.ignore-tls-errors == 'true' && '0' || '' }}
               PLAYWRIGHT_JUNIT_OUTPUT_NAME: ${{ steps.chart-path.outputs.test-suite-path }}/test-results/junit.xml
+              CHART_DIR: ${{ steps.chart-path.outputs.chart-dir }}
+              HELM_REPO_PATH: ${{ inputs.camunda-helm-repo-path }}
+              NAMESPACE: ${{ inputs.test-namespace }}
+              TEST_PROJECT: ${{ inputs.test-project }}
+              TEST_EXCLUDE: ${{ inputs.test-exclude }}
           run: |
               set -euo pipefail
-
-              CHART_DIR="${{ steps.chart-path.outputs.chart-dir }}"
-              HELM_REPO_PATH="${{ inputs.camunda-helm-repo-path }}"
-              NAMESPACE="${{ inputs.test-namespace }}"
 
               # Build script arguments
               ARGS=(
@@ -144,13 +145,13 @@ runs:
               )
 
               # Add smoke tests flag if requested
-              if [[ "${{ inputs.test-project }}" == "smoke-tests" ]]; then
+              if [[ "$TEST_PROJECT" == "smoke-tests" ]]; then
                 ARGS+=(--run-smoke-tests)
               fi
 
               # Add test exclusions
-              if [[ -n "${{ inputs.test-exclude }}" ]]; then
-                ARGS+=(--test-exclude "${{ inputs.test-exclude }}")
+              if [[ -n "$TEST_EXCLUDE" ]]; then
+                ARGS+=(--test-exclude "$TEST_EXCLUDE")
               fi
 
               echo "Running: ${HELM_REPO_PATH}/scripts/run-e2e-tests.sh ${ARGS[*]}"
