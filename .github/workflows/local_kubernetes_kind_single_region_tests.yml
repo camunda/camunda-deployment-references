@@ -285,10 +285,34 @@ jobs:
 
             - name: Set current Camunda version
               id: camunda-version
+              env:
+                  CAMUNDA_NAMESPACE: ${{ env.CAMUNDA_NAMESPACE }}
+                  CAMUNDA_RELEASE_NAME: ${{ env.CAMUNDA_RELEASE_NAME }}
               run: |
                   set -euo pipefail
 
-                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  CAMUNDA_APP_VERSION=$(helm list -n "$CAMUNDA_NAMESPACE" -f "^${CAMUNDA_RELEASE_NAME}$" -o json \
+                    | jq -r '.[0].app_version // empty')
+
+                  if [[ -z "$CAMUNDA_APP_VERSION" ]]; then
+                      CAMUNDA_APP_VERSION=$(helm status "$CAMUNDA_RELEASE_NAME" -n "$CAMUNDA_NAMESPACE" \
+                        | sed -n 's/^# (Chart version: .* - Camunda compatibility version: \([^)]*\))$/\1/p' \
+                        | head -n 1)
+                  fi
+
+                  if [[ -z "$CAMUNDA_APP_VERSION" ]]; then
+                      echo "::error::Could not detect Camunda app version from Helm release ${CAMUNDA_RELEASE_NAME} in namespace ${CAMUNDA_NAMESPACE}"
+                      exit 1
+                  fi
+
+                  if [[ "$CAMUNDA_APP_VERSION" =~ ^([0-9]+\.[0-9]+)(\..+)?$ ]]; then
+                      CAMUNDA_VERSION="${BASH_REMATCH[1]}"
+                  else
+                      echo "::error::Unexpected Camunda app version format: $CAMUNDA_APP_VERSION"
+                      exit 1
+                  fi
+
+                  echo "Detected Camunda app version: $CAMUNDA_APP_VERSION"
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
             - name: Extract auto-generated credentials from Helm deployment
@@ -356,7 +380,7 @@ jobs:
               uses: ./.github/actions/internal-camunda-playwright-tests
               with:
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
-                  camunda-helm-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
+                  camunda-helm-repo-ref: main
                   camunda-helm-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-project: smoke-tests
