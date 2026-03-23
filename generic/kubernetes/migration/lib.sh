@@ -1735,7 +1735,7 @@ _parse_es_reindex_metrics() {
 
     # Duration line:  "  Duration: 10m34s | Avg throughput: 2975 docs/s"
     local duration
-    duration=$(grep -oP 'Duration: \K[0-9]+m[0-9]+s' "$log_file" 2>/dev/null | tail -1 || true)
+    duration=$(sed -n 's/.*Duration: \([0-9]*m[0-9]*s\).*/\1/p' "$log_file" 2>/dev/null | tail -1 || true)
     [[ -n "$duration" ]] && save_state "ES_${prefix}_REINDEX_DURATION" "$duration"
 
     # Summary line (delta mode):
@@ -1744,9 +1744,9 @@ _parse_es_reindex_metrics() {
     summary_line=$(grep 'Created:.*Skipped' "$log_file" 2>/dev/null | tail -1 || true)
     if [[ -n "$summary_line" ]]; then
         local created skipped total
-        created=$(echo "$summary_line" | grep -oP 'Created: \K[0-9]+' || true)
-        skipped=$(echo "$summary_line" | grep -oP 'Skipped \(up-to-date\): \K[0-9]+' || true)
-        total=$(echo "$summary_line" | grep -oP 'Total: [0-9]+/\K[0-9]+' || true)
+        created=$(echo "$summary_line" | sed -n 's/.*Created: \([0-9]*\).*/\1/p' || true)
+        skipped=$(echo "$summary_line" | sed -n 's/.*Skipped (up-to-date): \([0-9]*\).*/\1/p' || true)
+        total=$(echo "$summary_line" | sed -n 's/.*Total: [0-9]*\/\([0-9]*\).*/\1/p' || true)
         [[ -n "$created" ]] && save_state "ES_${prefix}_REINDEX_CREATED" "$created"
         [[ -n "$skipped" ]] && save_state "ES_${prefix}_REINDEX_SKIPPED" "$skipped"
         [[ -n "$total" ]] && save_state "ES_${prefix}_REINDEX_TOTAL" "$total"
@@ -1755,7 +1755,7 @@ _parse_es_reindex_metrics() {
     # For warm reindex, also save the total doc count pre-migrated
     if [[ "$prefix" == "WARM" ]]; then
         local docs
-        docs=$(echo "$summary_line" | grep -oP 'Created: \K[0-9]+' || true)
+        docs=$(echo "$summary_line" | sed -n 's/.*Created: \([0-9]*\).*/\1/p' || true)
         [[ -n "$docs" ]] && save_state "ES_WARM_REINDEX_DOCS" "$docs"
     fi
 }

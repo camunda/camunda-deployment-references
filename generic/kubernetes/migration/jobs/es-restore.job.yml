@@ -246,16 +246,31 @@ spec:
                           wait "$pid" || PRECREATE_FAIL=$((PRECREATE_FAIL + 1))
                         done
                         echo "Pre-creation done ($PRECREATE_FAIL failures)"
+                        if [ "$PRECREATE_FAIL" -gt 0 ] && [ "${REINDEX_MODE:-full}" = "full" ]; then
+                          echo "ERROR: $PRECREATE_FAIL index pre-creation(s) failed in full mode."
+                          echo "Aborting to prevent reindexing into indices with dynamic mappings."
+                          exit 1
+                        fi
                         echo ""
 
                         # ── Tune target indices for bulk reindex ──
                         # Disable refresh + set replicas to 0 on all pre-created target indices.
+                        # Save original per-index replica counts so we can restore them later.
                         echo "Disabling refresh and replicas on target indices..."
                         TARGET_INDICES=$(curl -sf "${TARGET_AUTH[@]}" \
                           "$TARGET/_cat/indices?h=index&format=text" \
                           | grep -E "^(zeebe|operate|tasklist|optimize|connectors|camunda-)" || true)
+                        SAVED_REPLICAS_DIR=$(mktemp -d)
                         if [ -n "$TARGET_INDICES" ]; then
                           IDX_LIST=$(echo "$TARGET_INDICES" | paste -sd ',' -)
+                          # Save current number_of_replicas per index
+                          curl -sf "${TARGET_AUTH[@]}" \
+                            "$TARGET/$IDX_LIST/_settings?filter_path=*.settings.index.number_of_replicas&flat_settings=true&format=json" \
+                            | sed 's/[{}]/ /g' | tr ',' '\n' \
+                            | sed -n 's/.*"\([^"]*\)".*"index.number_of_replicas".*"\([0-9]*\)".*/\1 \2/p' \
+                            | while read -r idx_name replica_count; do
+                                echo "$replica_count" > "$SAVED_REPLICAS_DIR/$idx_name"
+                              done
                           curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$IDX_LIST/_settings" \
                             -H 'Content-Type: application/json' \
                             -d '{"index":{"refresh_interval":"-1","number_of_replicas":0,"translog.durability":"async"}}' >/dev/null 2>&1 || true
@@ -360,7 +375,7 @@ spec:
                           FIRST_REINDEX_ERROR=$(cat "$f")
                           break
                         done
-                        rm -rf "$REINDEX_RESULTS_DIR"
+                        [ -d "$REINDEX_RESULTS_DIR" ] && rm -rf "$REINDEX_RESULTS_DIR"
 
                         # ── Restore target ES settings ──
                         echo ""
@@ -370,12 +385,37 @@ spec:
                           | grep -E "^(zeebe|operate|tasklist|optimize|connectors|camunda-)" || true)
                         if [ -n "$TARGET_INDICES" ]; then
                           IDX_LIST=$(echo "$TARGET_INDICES" | paste -sd ',' -)
+                          # Restore refresh_interval and translog durability for all indices
                           curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$IDX_LIST/_settings" \
                             -H 'Content-Type: application/json' \
-                            -d '{"index":{"refresh_interval":"1s","number_of_replicas":1,"translog.durability":"request"}}' >/dev/null 2>&1 || true
+                            -d '{"index":{"refresh_interval":"1s","translog.durability":"request"}}' >/dev/null 2>&1 || true
+                          # Restore per-index replica counts saved before reindex
+                          REPLICA_RESTORE_FAIL=0
+                          for idx_file in "$SAVED_REPLICAS_DIR"/*; do
+                            [ -f "$idx_file" ] || continue
+                            local_idx=$(basename "$idx_file")
+                            local_replicas=$(cat "$idx_file")
+                            if ! curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/$local_idx/_settings" \
+                              -H 'Content-Type: application/json' \
+                              -d "{\"index\":{\"number_of_replicas\":$local_replicas}}" >/dev/null 2>&1; then
+                              echo "  WARNING: Failed to restore number_of_replicas=$local_replicas on $local_idx"
+                              REPLICA_RESTORE_FAIL=$((REPLICA_RESTORE_FAIL + 1))
+                            fi
+                          done
+                          if [ "$REPLICA_RESTORE_FAIL" -gt 0 ]; then
+                            echo "WARNING: $REPLICA_RESTORE_FAIL index(es) failed to restore replica count"
+                          fi
                           # Force a refresh so all reindexed docs are searchable
                           curl -sf -X POST "${TARGET_AUTH[@]}" "$TARGET/$IDX_LIST/_refresh" >/dev/null 2>&1 || true
                         fi
+                        # Always clean up the temp dir (even if TARGET_INDICES was empty)
+                        [ -d "$SAVED_REPLICAS_DIR" ] && rm -rf "$SAVED_REPLICAS_DIR"
+
+                        # ── Reset transient cluster setting ──
+                        echo "Resetting transient reindex timeout..."
+                        curl -sf -X PUT "${TARGET_AUTH[@]}" "$TARGET/_cluster/settings" \
+                          -H 'Content-Type: application/json' \
+                          -d '{"transient":{"indices.reindex.remote.per_request_timeout":null}}' >/dev/null 2>&1 || true
 
                         # ── Wait for cluster to become green ──
                         echo ""
@@ -471,7 +511,7 @@ spec:
                             [ -f "$f" ] || continue
                             TMPL_FAILED=$((TMPL_FAILED + $(cat "$f")))
                           done
-                          rm -rf "$COMP_RESULTS_DIR"
+                          [ -d "$COMP_RESULTS_DIR" ] && rm -rf "$COMP_RESULTS_DIR"
                         else
                           echo "No Camunda component templates found on source"
                         fi
@@ -526,7 +566,7 @@ spec:
                             [ -f "$f" ] || continue
                             TMPL_FAILED=$((TMPL_FAILED + $(cat "$f")))
                           done
-                          rm -rf "$IDX_TMPL_RESULTS_DIR"
+                          [ -d "$IDX_TMPL_RESULTS_DIR" ] && rm -rf "$IDX_TMPL_RESULTS_DIR"
                         else
                           echo "No Camunda index templates found on source"
                         fi
@@ -639,7 +679,7 @@ spec:
                             [ -f "$f" ] || continue
                             ALIAS_FAILED=$((ALIAS_FAILED + $(cat "$f")))
                           done
-                          rm -rf "$ALIAS_RESULTS_DIR"
+                          [ -d "$ALIAS_RESULTS_DIR" ] && rm -rf "$ALIAS_RESULTS_DIR"
                           echo "Alias migration complete"
                         else
                           echo "No Camunda aliases found on source"

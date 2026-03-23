@@ -27,14 +27,14 @@ matrix:
           use_tls: true
 
         - name: Kind-Heavy-Domain
-          schedule_only: true
+          schedule_only: false
           weekly_schedule_only: true
           type: kind
           benchmark_scenario: heavy
           use_tls: true
 
         - name: Kind-Heavy-WarmReindex-Domain
-          schedule_only: true
+          schedule_only: false
           weekly_schedule_only: true
           type: kind
           benchmark_scenario: heavy
