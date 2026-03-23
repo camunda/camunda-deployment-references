@@ -115,3 +115,6 @@ cookie.txt
 ca-authority.pem
 ca-authority.key
 camunda-environment.tmp
+
+# Exclude actionlint binary
+actionlint
