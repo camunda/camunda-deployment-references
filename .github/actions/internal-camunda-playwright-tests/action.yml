@@ -42,8 +42,9 @@ inputs:
         default: ''
     ignore-tls-errors:
         description: >
-            Set to 'true' to disable TLS certificate verification (NODE_TLS_REJECT_UNAUTHORIZED=0).
-            Required for Kind clusters using self-signed certificates.
+            Set to 'true' to disable TLS certificate verification for both Node.js requests
+            and Playwright browser navigation. Required for Kind clusters using self-signed
+            certificates.
         default: 'false'
     upload-artifacts:
         description: Whether to upload Playwright test artifacts (report + results)
@@ -120,6 +121,37 @@ runs:
               echo "::group::Install Chromium"
               npx playwright install --with-deps chromium
               echo "::endgroup::"
+
+        - name: Patch Playwright config to ignore HTTPS errors
+          if: ${{ inputs.ignore-tls-errors == 'true' }}
+          shell: bash
+          working-directory: ${{ steps.chart-path.outputs.test-suite-path }}
+          run: |
+              set -euo pipefail
+
+              node - <<'EOF'
+              const fs = require('fs');
+              const path = 'playwright.config.ts';
+              const config = fs.readFileSync(path, 'utf8');
+
+              if (config.includes('ignoreHTTPSErrors: true')) {
+                console.log('playwright.config.ts already ignores HTTPS errors');
+                process.exit(0);
+              }
+
+              const updated = config.replace(
+                /(\n\s*use:\s*\{)/,
+                '$1\n    ignoreHTTPSErrors: true,'
+              );
+
+              if (updated === config) {
+                console.error('Failed to patch playwright.config.ts: could not find use block');
+                process.exit(1);
+              }
+
+              fs.writeFileSync(path, updated);
+              console.log('Patched playwright.config.ts to ignore HTTPS errors');
+              EOF
 
         - name: Run Playwright E2E tests
           id: run-tests
