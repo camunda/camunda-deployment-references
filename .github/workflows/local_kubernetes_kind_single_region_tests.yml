@@ -16,6 +16,7 @@ on:
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-camunda-chart-tests/**
+            - .github/actions/internal-camunda-playwright-tests/**
             - .tool-versions
             - local/kubernetes/kind-single-region/**
     workflow_dispatch:
@@ -348,6 +349,21 @@ jobs:
                       || 'false' }}
                   # Enable local domain mode for Kind - configures /etc/hosts for domain resolution
                   local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+
+            - name: 🎭 Run Playwright E2E smoke tests
+              if: env.TESTS_ENABLED == 'true' && matrix.declination.use_tls == true
+              timeout-minutes: 20
+              uses: ./.github/actions/internal-camunda-playwright-tests
+              with:
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
+                  camunda-helm-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
+                  camunda-helm-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  test-project: smoke-tests
+                  test-auth-type: keycloak
+                  ingress-host: ${{ env.CAMUNDA_DOMAIN }}
+                  ignore-tls-errors: 'true'
+                  artifact-name-suffix: kind-${{ matrix.declination.name }}-${{ github.run_id }}
 
             - name: 🔬🚨 Debug - Show pod details on failure
               if: failure()
