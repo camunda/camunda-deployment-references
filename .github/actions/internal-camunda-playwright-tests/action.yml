@@ -167,7 +167,7 @@ runs:
 
         - name: Generate test summary
           if: ${{ !cancelled() }}
-          uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69571f8f # v2
+          uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2
           with:
               paths: ${{ steps.chart-path.outputs.test-suite-path }}/test-results/**/junit.xml
               show: fail, skip
