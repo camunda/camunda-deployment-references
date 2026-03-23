@@ -59,7 +59,7 @@ runs:
                       export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-no-domain.yml"
                       ;;
                   "domain")
-                      export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-nginx.yml"
+                      export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-ingress.yml"
                       ;;
                   "domain-openshift")
                       export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-openshift.yml"

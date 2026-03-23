@@ -43,7 +43,7 @@ pushd "$OPERATOR_BASE/keycloak" > /dev/null
 
 if [[ "$CAMUNDA_MODE" == "domain" ]]; then
     export CAMUNDA_DOMAIN="camunda.example.com"
-    KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-contour.yml" ./deploy.sh
+    KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-ingress.yml" ./deploy.sh
 else
     KEYCLOAK_CONFIG_FILE="keycloak-instance-no-domain.yml" ./deploy.sh
 fi
