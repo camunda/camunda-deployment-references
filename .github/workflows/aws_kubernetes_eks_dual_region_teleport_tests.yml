@@ -20,18 +20,20 @@ on:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
-    pull_request:
-        # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
-        paths:
-            - .github/workflows/aws_kubernetes_eks_dual_region_teleport_tests.yml
-            - aws/kubernetes/eks-dual-region/helm-values/**
-            - aws/kubernetes/eks-dual-region/procedure/**
-            - aws/kubernetes/eks-dual-region/test/**
-            - .tools-versions
-            - .github/actions/internal-multi-region-tests/**
-            - .github/actions/kubernetes-eck-operator/**
-            - .github/actions/kubernetes-eck-operator-cleanup/**
-            - generic/kubernetes/operator-based/elasticsearch/**
+    # yamllint disable rule:comments-indentation
+    # Disabled: waiting for https://github.com/camunda/team-infrastructure-experience/issues/1052
+    # pull_request:
+    #     paths:
+    #         - .github/workflows/aws_kubernetes_eks_dual_region_teleport_tests.yml
+    #         - aws/kubernetes/eks-dual-region/helm-values/**
+    #         - aws/kubernetes/eks-dual-region/procedure/**
+    #         - aws/kubernetes/eks-dual-region/test/**
+    #         - .tools-versions
+    #         - .github/actions/internal-multi-region-tests/**
+    #         - .github/actions/kubernetes-eck-operator/**
+    #         - .github/actions/kubernetes-eck-operator-cleanup/**
+    #         - generic/kubernetes/operator-based/elasticsearch/**
+    # yamllint enable rule:comments-indentation
 
 # limit to a single execution per actor of this workflow
 concurrency:
