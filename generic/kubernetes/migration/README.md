@@ -239,7 +239,7 @@ Sequence:
 2. **Freeze** all Camunda deployments (scale to 0)
 3. **Final backup** with no active connections (consistent state)
 4. **Restore** data to new operator-managed targets
-5. **Sync Keycloak admin credentials** — copies the restored admin password to the operator secret so Keycloak and Admin stay in sync
+5. **Sync Keycloak admin credentials** — copies the restored admin password to the operator secret so Keycloak and Identity stay in sync
 6. **Helm upgrade** to point Camunda at the new backends and restart all components
 
 ### Phase 4: Validate (`4-validate.sh`)
@@ -295,7 +295,7 @@ Only Phase 3 (cutover) causes downtime. The following estimates are derived from
 | Step                          | Duration  | Notes                                         |
 | ----------------------------- | --------- | --------------------------------------------- |
 | Freeze components (scale → 0) | ~10s      | Scale down all deployments and StatefulSets    |
-| PG backup (3 databases)       | ~16s      | `pg_dump` Admin + Keycloak + WebModeler     |
+| PG backup (3 databases)       | ~16s      | `pg_dump` Identity + Keycloak + WebModeler     |
 | ES backup verification        | ~5s       | Snapshot verification of 50 indices            |
 | PG restore (3 databases)      | ~24s      | `pg_restore` to CNPG clusters                 |
 | **ES reindex (from remote)**  | **~38 min** | **Dominant factor** — reindex 6.5M docs via `_reindex` API |
@@ -314,7 +314,7 @@ Only Phase 3 (cutover) causes downtime. The following estimates are derived from
 ### Key observations
 
 - **Elasticsearch reindex is the dominant factor.** In the heavy scenario, ES reindex accounts for ~95% of the total downtime (~38 min out of ~40 min).
-- **PostgreSQL migration is negligible.** Even with 3 databases totaling ~31 MB (Admin 7 MB, Keycloak 13 MB / 1806 rows, WebModeler 11 MB / 102 rows), backup + restore completes in under 40 seconds.
+- **PostgreSQL migration is negligible.** Even with 3 databases totaling ~31 MB (Identity 7 MB, Keycloak 13 MB / 1806 rows, WebModeler 11 MB / 102 rows), backup + restore completes in under 40 seconds.
 - **Observed ES throughput:** ~2,870 docs/s or ~3.9 MB/s on Kind (GitHub Actions runners). Production clusters with faster storage and network will achieve higher throughput.
 - **Largest single index:** `optimize-process-instance-benchmark` (897K docs, 6.8 GB) accounted for ~76% of the ES data volume. Real-world deployments with large Optimize history will see similar patterns.
 - **Scaling guideline:** Downtime scales roughly linearly with ES data size. Measure during a staging rehearsal with representative data volumes to get an accurate estimate for your environment.
