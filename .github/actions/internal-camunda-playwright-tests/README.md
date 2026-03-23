@@ -19,7 +19,7 @@ Run Playwright-based E2E tests from the camunda-platform-helm repository. Requir
 | `identity-firstuser-username` | <p>Username exported as DISTRO<em>QA</em>E2E<em>TESTS</em>IDENTITY<em>FIRSTUSER</em>USERNAME for Playwright tests.</p> | `false` | `admin` |
 | `keycloak-username` | <p>Username exported as DISTRO<em>QA</em>E2E<em>TESTS</em>KEYCLOAK_USERNAME for Playwright tests.</p> | `false` | `temp-admin` |
 | `ingress-host` | <p>Override the ingress hostname detection. If set, this value is used instead of auto-detecting from cluster ingress resources. Required for Kind clusters where the domain is configured via /etc/hosts.</p> | `false` | `""` |
-| `ignore-tls-errors` | <p>Set to 'true' to disable TLS certificate verification for both Node.js requests and Playwright browser navigation. Required for Kind clusters using self-signed certificates.</p> | `false` | `false` |
+| `ignore-tls-errors` | <p>Set to 'true' to configure Playwright browser navigation to ignore HTTPS certificate errors. Required for Kind clusters using self-signed certificates.</p> | `false` | `false` |
 | `upload-artifacts` | <p>Whether to upload Playwright test artifacts (report + results)</p> | `false` | `true` |
 | `artifact-retention-days` | <p>Number of days to retain test artifacts</p> | `false` | `10` |
 | `artifact-name-suffix` | <p>Suffix appended to artifact names for uniqueness in matrix builds. Defaults to run-id and attempt.</p> | `false` | `""` |
@@ -95,7 +95,7 @@ This action is a `composite` action.
     # Default: ""
 
     ignore-tls-errors:
-    # Set to 'true' to disable TLS certificate verification for both Node.js requests and Playwright browser navigation. Required for Kind clusters using self-signed certificates.
+    # Set to 'true' to configure Playwright browser navigation to ignore HTTPS certificate errors. Required for Kind clusters using self-signed certificates.
     #
     # Required: false
     # Default: false

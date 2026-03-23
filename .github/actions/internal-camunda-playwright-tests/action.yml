@@ -52,8 +52,8 @@ inputs:
         default: ''
     ignore-tls-errors:
         description: >
-            Set to 'true' to disable TLS certificate verification for both Node.js requests
-            and Playwright browser navigation. Required for Kind clusters using self-signed
+            Set to 'true' to configure Playwright browser navigation to ignore HTTPS
+            certificate errors. Required for Kind clusters using self-signed
             certificates.
         default: 'false'
     upload-artifacts:
@@ -171,7 +171,6 @@ runs:
               DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME: ${{ inputs.identity-firstuser-username }}
               DISTRO_QA_E2E_TESTS_KEYCLOAK_USERNAME: ${{ inputs.keycloak-username }}
               TEST_INGRESS_HOST: ${{ inputs.ingress-host }}
-              NODE_TLS_REJECT_UNAUTHORIZED: ${{ inputs.ignore-tls-errors == 'true' && '0' || '' }}
               PLAYWRIGHT_JUNIT_OUTPUT_NAME: ${{ steps.chart-path.outputs.test-suite-path }}/test-results/junit.xml
               CHART_DIR: ${{ steps.chart-path.outputs.chart-dir }}
               HELM_REPO_PATH: ${{ inputs.camunda-helm-repo-path }}
