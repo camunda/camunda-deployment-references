@@ -75,7 +75,7 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   AWS_REGION="$region_id" rosa create account-roles --mode auto --yes --hosted-cp --prefix "${cluster_name}-account"
 
   echo "📦 Recreating operator roles with prefix ${cluster_name}-operator"
-  AWS_REGION="$region_id" rosa create operator-roles --mode auto --yes --hosted-cp --cluster "${cluster_name}"
+  AWS_REGION="$region_id" rosa create operator-roles --mode auto --yes --hosted-cp --prefix "${cluster_name}-operator" --cluster "${cluster_name}"
 
   echo "💣 Deleting cluster: $cluster_name"
   AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --watch
