@@ -171,6 +171,7 @@ jobs:
 
             # Deploy prerequisite operators (Elasticsearch, PostgreSQL, Keycloak)
             - name: Deploy operators (Elasticsearch, PostgreSQL, Keycloak)
+              timeout-minutes: 15
               working-directory: ${{ env.REF_ARCH_PATH }}
               env:
                   SECONDARY_STORAGE: ${{ matrix.declination.secondary_storage == 'rdbms' && 'postgres' || 'elasticsearch' }}
