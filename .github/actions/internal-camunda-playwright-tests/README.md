@@ -16,6 +16,8 @@ Run Playwright-based E2E tests from the camunda-platform-helm repository. Requir
 | `test-project` | <p>Playwright test project to run. Options: smoke-tests, full-suite</p> | `false` | `smoke-tests` |
 | `test-exclude` | <p>Tests to exclude (passed to --test-exclude flag). Example: 'identity.spec.ts' or 'console.spec.ts|identity.spec.ts'</p> | `false` | `""` |
 | `test-auth-type` | <p>Authentication type: keycloak, basic, hybrid. Passed as TEST<em>AUTH</em>TYPE env var.</p> | `false` | `keycloak` |
+| `identity-firstuser-username` | <p>Username exported as DISTRO<em>QA</em>E2E<em>TESTS</em>IDENTITY<em>FIRSTUSER</em>USERNAME for Playwright tests.</p> | `false` | `admin` |
+| `keycloak-username` | <p>Username exported as DISTRO<em>QA</em>E2E<em>TESTS</em>KEYCLOAK_USERNAME for Playwright tests.</p> | `false` | `temp-admin` |
 | `ingress-host` | <p>Override the ingress hostname detection. If set, this value is used instead of auto-detecting from cluster ingress resources. Required for Kind clusters where the domain is configured via /etc/hosts.</p> | `false` | `""` |
 | `ignore-tls-errors` | <p>Set to 'true' to disable TLS certificate verification for both Node.js requests and Playwright browser navigation. Required for Kind clusters using self-signed certificates.</p> | `false` | `false` |
 | `upload-artifacts` | <p>Whether to upload Playwright test artifacts (report + results)</p> | `false` | `true` |
@@ -73,6 +75,18 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: keycloak
+
+    identity-firstuser-username:
+    # Username exported as DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME for Playwright tests.
+    #
+    # Required: false
+    # Default: admin
+
+    keycloak-username:
+    # Username exported as DISTRO_QA_E2E_TESTS_KEYCLOAK_USERNAME for Playwright tests.
+    #
+    # Required: false
+    # Default: temp-admin
 
     ingress-host:
     # Override the ingress hostname detection. If set, this value is used instead of auto-detecting from cluster ingress resources. Required for Kind clusters where the domain is configured via /etc/hosts.

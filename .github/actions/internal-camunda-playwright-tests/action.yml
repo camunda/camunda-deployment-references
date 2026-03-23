@@ -34,6 +34,16 @@ inputs:
             Authentication type: keycloak, basic, hybrid.
             Passed as TEST_AUTH_TYPE env var.
         default: keycloak
+    identity-firstuser-username:
+        description: >
+            Username exported as DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME
+            for Playwright tests.
+        default: admin
+    keycloak-username:
+        description: >
+            Username exported as DISTRO_QA_E2E_TESTS_KEYCLOAK_USERNAME
+            for Playwright tests.
+        default: temp-admin
     ingress-host:
         description: >
             Override the ingress hostname detection. If set, this value is used
@@ -158,6 +168,8 @@ runs:
           shell: bash
           env:
               TEST_AUTH_TYPE: ${{ inputs.test-auth-type }}
+              DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME: ${{ inputs.identity-firstuser-username }}
+              DISTRO_QA_E2E_TESTS_KEYCLOAK_USERNAME: ${{ inputs.keycloak-username }}
               TEST_INGRESS_HOST: ${{ inputs.ingress-host }}
               NODE_TLS_REJECT_UNAUTHORIZED: ${{ inputs.ignore-tls-errors == 'true' && '0' || '' }}
               PLAYWRIGHT_JUNIT_OUTPUT_NAME: ${{ steps.chart-path.outputs.test-suite-path }}/test-results/junit.xml
