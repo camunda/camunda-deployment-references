@@ -445,6 +445,21 @@ destroy_module() {
       continue
     fi
 
+    # On "clusters using OIDC config" error: the ROSA cluster was already removed from the
+    # Terraform state (by a previous partial destroy) but still exists in RHCS.
+    # The OIDC config can't be deleted while clusters reference it.
+    # We remove the OIDC config from state to unblock the destroy of remaining resources.
+    # The orphaned cluster + OIDC config will be cleaned up by cleanup-ghost-rosa-clusters.sh.
+    if [[ "$output" == *"clusters using OIDC config"* && $attempt -lt $max_destroy_attempts ]]; then
+      echo "[$group_id][$module_name] OIDC config still in use by orphaned ROSA clusters (attempt $attempt/$max_destroy_attempts)"
+      echo "[$group_id][$module_name] Removing OIDC config resources from Terraform state to unblock destroy..."
+      terraform state list 2>/dev/null | grep "oidc_config" | while read -r resource; do
+        echo "[$group_id][$module_name] Removing from state: $resource"
+        terraform state rm "$resource" 2>/dev/null || true
+      done
+      continue
+    fi
+
     # For non-DependencyViolation errors we fail fast instead of retrying, since these
     # typically indicate configuration or logic issues (e.g. invalid Terraform, IAM),
     # not transient AWS conditions. Only DependencyViolation (and known special cases)
