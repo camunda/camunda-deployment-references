@@ -48,7 +48,7 @@ kubectl rollout status deployment \
 echo "CloudNativePG operator deployed in namespace: $OPERATOR_NAMESPACE"
 
 # Create PostgreSQL secrets
-CAMUNDA_NAMESPACE="$CAMUNDA_NAMESPACE" "./set-secrets.sh"
+CLUSTER_FILTER="$CLUSTER_FILTER" CAMUNDA_NAMESPACE="$CAMUNDA_NAMESPACE" "./set-secrets.sh"
 
 # Deploy PostgreSQL clusters
 echo "Deploying PostgreSQL clusters..."

@@ -73,27 +73,3 @@ spec:
                 name: pg-webmodeler-secret
     storage:
         size: 15Gi
----
-apiVersion: postgresql.cnpg.io/v1
-kind: Cluster
-metadata:
-    name: pg-camunda
-spec:
-    instances: 1
-    description: PostgreSQL cluster for Camunda orchestration secondary storage (RDBMS mode)
-    # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
-    imageName: ghcr.io/cloudnative-pg/postgresql:17.5
-    storage:
-        size: 15Gi
-    superuserSecret:
-        name: pg-camunda-superuser-secret
-    # OpenShift Security Context - let SCC manage the security context
-    seccompProfile:
-        type: RuntimeDefault
-    bootstrap:
-        initdb:
-            database: camunda
-            owner: camunda
-            dataChecksums: true
-            secret:
-                name: pg-camunda-secret

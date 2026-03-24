@@ -174,9 +174,8 @@ jobs:
               timeout-minutes: 15
               working-directory: ${{ env.REF_ARCH_PATH }}
               env:
-                  SECONDARY_STORAGE: ${{ matrix.declination.secondary_storage == 'rdbms' && 'postgres' || 'elasticsearch' }}
+                  SECONDARY_STORAGE: ${{ matrix.declination.secondary_storage }}
                   CAMUNDA_MODE: ${{ matrix.declination.use_tls && 'domain' || 'no-domain' }}
-                  CLUSTER_FILTER: ${{ matrix.declination.secondary_storage == 'elasticsearch' && 'pg-keycloak,pg-identity,pg-webmodeler' || '' }}
               run: |
                   set -euo pipefail
                   ./procedure/operators-deploy.sh
@@ -207,7 +206,7 @@ jobs:
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               env:
-                  SECONDARY_STORAGE: ${{ matrix.declination.secondary_storage == 'rdbms' && 'postgres' || 'elasticsearch' }}
+                  SECONDARY_STORAGE: ${{ matrix.declination.secondary_storage }}
               run: |
                   set -euo pipefail
 
@@ -222,7 +221,7 @@ jobs:
               if: ${{ !matrix.declination.use_tls }}
               working-directory: ${{ env.REF_ARCH_PATH }}
               env:
-                  SECONDARY_STORAGE: ${{ matrix.declination.secondary_storage == 'rdbms' && 'postgres' || 'elasticsearch' }}
+                  SECONDARY_STORAGE: ${{ matrix.declination.secondary_storage }}
               run: |
                   set -euo pipefail
 
@@ -326,8 +325,8 @@ jobs:
                   webmodeler-enabled: 'true'
                   console-enabled: 'true'
                   # Optimize requires Elasticsearch, so it's disabled in RDBMS-only mode
-                  optimize-enabled: ${{ matrix.declination.secondary_storage == 'rdbms' && 'false' || 'true' }}
-                  elasticsearch-enabled: ${{ matrix.declination.secondary_storage == 'rdbms' && 'false' || 'true' }}
+                  optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
+                  elasticsearch-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}

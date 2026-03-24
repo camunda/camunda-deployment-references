@@ -21,10 +21,10 @@ matrix:
         - name: pg-only-no-domain
           use_tls: false
           cluster_suffix: pgonlynodomain
-          secondary_storage: rdbms
+          secondary_storage: postgres
           desc: Setup chart without Ingress and TLS, using RDBMS secondary storage (no ES).
         - name: pg-only-domain
           use_tls: true
           cluster_suffix: pgonlydomain
-          secondary_storage: rdbms
+          secondary_storage: postgres
           desc: Setup chart with Ingress and TLS using mkcert, using RDBMS secondary storage (no ES).
