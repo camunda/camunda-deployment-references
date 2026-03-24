@@ -77,6 +77,7 @@ log_verbose() {
 # Global flags — set by parse_common_args.
 AUTO_CONFIRM="false"
 DRY_RUN="false"
+export ESTIMATE_MODE="false"
 
 # The current script name — set by each script before calling parse_common_args.
 CURRENT_SCRIPT="${CURRENT_SCRIPT:-}"
@@ -126,6 +127,7 @@ Usage: ${script} [options]
 Options:
   --yes, -y          Auto-confirm all prompts (non-interactive mode)
   --dry-run          Show what would be done without making any changes
+  --estimate         Run Phase 3 data operations without downtime to estimate cutover duration
   --verbose, -v      Enable verbose output (show commands before execution)
   --no-color         Disable colored output
   --status           Show current migration status and exit
@@ -141,6 +143,7 @@ parse_common_args() {
         case "$1" in
             --yes|-y)      AUTO_CONFIRM="true" ;;
             --dry-run)     DRY_RUN="true"; AUTO_CONFIRM="true" ;;
+            --estimate)    ESTIMATE_MODE="true"; AUTO_CONFIRM="true" ;;
             --verbose|-v)  VERBOSE="true"; set -x ;;
             --no-color)    _RED='' _GREEN='' _YELLOW='' _BLUE='' _BOLD='' _NC='' ;;
             --status)      show_migration_status; exit 0 ;;
@@ -598,8 +601,8 @@ run_job() {
         kubectl get events -n "${NAMESPACE}" --sort-by='.lastTimestamp' \
             --field-selector "involvedObject.name=${job_name}" 2>/dev/null | tail -20 || true
         echo ""
-        echo "--- Job logs (last 80 lines) ---"
-        kubectl logs -n "${NAMESPACE}" "job/${job_name}" --tail=80 2>/dev/null || true
+        echo "--- Job logs (last 500 lines) ---"
+        kubectl logs -n "${NAMESPACE}" "job/${job_name}" --tail=500 2>/dev/null || true
         _log_to_file "ERROR Job ${job_name} failed — see console output above"
         return 1
     fi
@@ -616,6 +619,38 @@ run_job() {
         echo "--- Job output ---"
         cat "${STATE_DIR}/${job_name}.log"
         echo "--- End of job output ---"
+
+        # ── Defensive log audit ──
+        # Scan job output for silent errors that don't trigger exit 1
+        # inside the container but indicate data corruption or script bugs.
+        # Each pattern is paired with a human-readable explanation.
+        local -a audit_patterns=(
+            'integer expression expected:Bash arithmetic failed on an empty variable (likely envsubst clobbered a runtime var)'
+            'unbound variable:A required variable was not set (script bug or template rendering issue)'
+            'syntax error:Shell syntax error in the job script'
+            'bad substitution:Broken variable expansion in bash'
+        )
+        local audit_failed=0
+        for entry in "${audit_patterns[@]}"; do
+            local pattern="${entry%%:*}"
+            local reason="${entry#*:}"
+            if grep -qi "$pattern" "${STATE_DIR}/${job_name}.log"; then
+                if [[ "$audit_failed" -eq 0 ]]; then
+                    echo ""
+                    log_error "Job ${job_name} completed but log audit found errors:"
+                fi
+                local count
+                count=$(grep -ci "$pattern" "${STATE_DIR}/${job_name}.log")
+                echo "  - '${pattern}' (${count}x): ${reason}"
+                audit_failed=1
+            fi
+        done
+        if [[ "$audit_failed" -eq 1 ]]; then
+            echo ""
+            log_error "Aborting migration — fix the errors above before retrying."
+            log_error "Job log saved at: ${STATE_DIR}/${job_name}.log"
+            return 1
+        fi
     fi
 }
 
@@ -1627,7 +1662,9 @@ backup_pg() {
     ensure_backup_pvc
     # shellcheck disable=SC2153
     export JOB_NAME="${COMPONENT}-pg-backup-${TIMESTAMP}"
-    run_job "${JOBS_DIR}/pg-backup.job.yml" "${JOB_NAME}"
+    # shellcheck disable=SC2016
+    local pg_varlist='${JOB_NAME} ${NAMESPACE} ${COMPONENT} ${PG_IMAGE} ${PG_HOST} ${PG_PORT} ${PG_DATABASE} ${PG_USERNAME} ${PG_SECRET_NAME} ${PG_SECRET_KEY} ${BACKUP_PVC} ${TIMESTAMP}'
+    run_job "${JOBS_DIR}/pg-backup.job.yml" "${JOB_NAME}" 1800 "$pg_varlist"
 }
 
 # Run a PG restore job.
@@ -1636,7 +1673,9 @@ backup_pg() {
 #                  BACKUP_FILE, NAMESPACE, TIMESTAMP
 restore_pg() {
     export JOB_NAME="${COMPONENT}-pg-restore-${TIMESTAMP}"
-    run_job "${JOBS_DIR}/pg-restore.job.yml" "${JOB_NAME}"
+    # shellcheck disable=SC2016
+    local pg_varlist='${JOB_NAME} ${NAMESPACE} ${COMPONENT} ${PG_IMAGE} ${TARGET_PG_HOST} ${TARGET_PG_PORT} ${TARGET_PG_DATABASE} ${TARGET_PG_USER} ${DB_SECRET_NAME} ${BACKUP_PVC} ${BACKUP_FILE} ${FORCE_RESTORE}'
+    run_job "${JOBS_DIR}/pg-restore.job.yml" "${JOB_NAME}" 1800 "$pg_varlist"
 }
 
 # =============================================================================
@@ -1650,17 +1689,75 @@ restore_pg() {
 backup_es() {
     ensure_backup_pvc
     export JOB_NAME="es-backup-${TIMESTAMP}"
-    run_job "${JOBS_DIR}/es-backup.job.yml" "${JOB_NAME}"
+    # shellcheck disable=SC2016
+    local es_varlist='${JOB_NAME} ${NAMESPACE} ${ES_IMAGE} ${ES_HOST} ${ES_PORT} ${ES_SECRET_NAME}'
+    run_job "${JOBS_DIR}/es-backup.job.yml" "${JOB_NAME}" 1800 "$es_varlist"
 }
 
 # Run an ES restore job using the _reindex API (reindex from remote).
 # Copies data from source ES to target ES over HTTP — no shared filesystem needed.
+# Set REINDEX_MODE=delta to use version_type=external + conflicts=proceed
+# (only copies new/updated docs — used after a warm reindex).
 # Expects: SOURCE_ES_HOST, SOURCE_ES_PORT, SOURCE_ES_SECRET_NAME,
 #          TARGET_ES_HOST, TARGET_ES_PORT, TARGET_ES_SECRET_NAME,
 #          ES_IMAGE, NAMESPACE, TIMESTAMP
 restore_es() {
+    export REINDEX_MODE="${REINDEX_MODE:-full}"
     export JOB_NAME="es-restore-${TIMESTAMP}"
-    run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-1800}"
+    # shellcheck disable=SC2016
+    local es_varlist='${ES_IMAGE} ${JOB_NAME} ${NAMESPACE} ${REINDEX_MODE} ${SOURCE_ES_HOST} ${SOURCE_ES_PORT} ${SOURCE_ES_SECRET_NAME} ${TARGET_ES_HOST} ${TARGET_ES_PORT} ${TARGET_ES_SECRET_NAME}'
+    run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-1800}" "$es_varlist"
+    _parse_es_reindex_metrics "${STATE_DIR}/${JOB_NAME}.log" "CUTOVER"
+}
+
+# Run a warm reindex from source to target while the app is running.
+# This pre-populates the target ES so the cutover delta reindex is fast.
+# Uses delta mode because the target ES may already have empty Camunda indices
+# created by schema initialization after ECK deployment.
+# Expects: SOURCE_ES_HOST, SOURCE_ES_PORT, SOURCE_ES_SECRET_NAME,
+#          TARGET_ES_HOST, TARGET_ES_PORT, TARGET_ES_SECRET_NAME,
+#          ES_IMAGE, NAMESPACE, TIMESTAMP
+warm_reindex_es() {
+    export REINDEX_MODE="delta"
+    export JOB_NAME="es-warm-reindex-${TIMESTAMP}"
+    # shellcheck disable=SC2016
+    local es_varlist='${ES_IMAGE} ${JOB_NAME} ${NAMESPACE} ${REINDEX_MODE} ${SOURCE_ES_HOST} ${SOURCE_ES_PORT} ${SOURCE_ES_SECRET_NAME} ${TARGET_ES_HOST} ${TARGET_ES_PORT} ${TARGET_ES_SECRET_NAME}'
+    run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-5400}" "$es_varlist"
+    _parse_es_reindex_metrics "${STATE_DIR}/${JOB_NAME}.log" "WARM"
+}
+
+# Parse reindex summary from an ES restore job log and save metrics to state.
+# $1: log file path
+# $2: prefix — "WARM" or "CUTOVER"
+_parse_es_reindex_metrics() {
+    local log_file="$1" prefix="$2"
+    [[ -f "$log_file" ]] || return 0
+
+    # Duration line:  "  Duration: 10m34s | Avg throughput: 2975 docs/s"
+    local duration
+    duration=$(sed -n 's/.*Duration: \([0-9]*m[0-9]*s\).*/\1/p' "$log_file" 2>/dev/null | tail -1 || true)
+    [[ -n "$duration" ]] && save_state "ES_${prefix}_REINDEX_DURATION" "$duration"
+
+    # Summary line (delta mode):
+    #   "  Indices: 27 | Created: 990931 | Skipped (up-to-date): 1882549 | Total: 2873480/4193222"
+    local summary_line
+    summary_line=$(grep 'Created:.*Skipped' "$log_file" 2>/dev/null | tail -1 || true)
+    if [[ -n "$summary_line" ]]; then
+        local created skipped total
+        created=$(echo "$summary_line" | sed -n 's/.*Created: \([0-9]*\).*/\1/p' || true)
+        skipped=$(echo "$summary_line" | sed -n 's/.*Skipped (up-to-date): \([0-9]*\).*/\1/p' || true)
+        total=$(echo "$summary_line" | sed -n 's/.*Total: [0-9]*\/\([0-9]*\).*/\1/p' || true)
+        [[ -n "$created" ]] && save_state "ES_${prefix}_REINDEX_CREATED" "$created"
+        [[ -n "$skipped" ]] && save_state "ES_${prefix}_REINDEX_SKIPPED" "$skipped"
+        [[ -n "$total" ]] && save_state "ES_${prefix}_REINDEX_TOTAL" "$total"
+    fi
+
+    # For warm reindex, also save the total doc count pre-migrated
+    if [[ "$prefix" == "WARM" ]]; then
+        local docs
+        docs=$(echo "$summary_line" | sed -n 's/.*Created: \([0-9]*\).*/\1/p' || true)
+        [[ -n "$docs" ]] && save_state "ES_WARM_REINDEX_DOCS" "$docs"
+    fi
 }
 
 # =============================================================================

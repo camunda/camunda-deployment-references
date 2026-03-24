@@ -3,6 +3,8 @@
 # Derived from: local/kubernetes/kind-single-region/configs/kind-cluster-config.yaml
 # with an extra worker node — migration requires more capacity (Bitnami source
 # deployment + operator-based target deployment running side-by-side).
+#
+# Target runner: aws-core-16-longrunning (16 vCPU, ~50 GB RAM)
 
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -24,12 +26,40 @@ nodes:
           - containerPort: 443
             hostPort: 443
             listenAddress: 0.0.0.0
+      kubeadmConfigPatches:
+          - |
+            kind: KubeletConfiguration
+            evictionHard:
+              memory.available: "200Mi"
+            systemReserved:
+              memory: "512Mi"
     - role: worker
       # renovate: datasource=docker depName=kindest/node
       image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
+      kubeadmConfigPatches:
+          - |
+            kind: KubeletConfiguration
+            evictionHard:
+              memory.available: "200Mi"
+            systemReserved:
+              memory: "512Mi"
     - role: worker
       # renovate: datasource=docker depName=kindest/node
       image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
+      kubeadmConfigPatches:
+          - |
+            kind: KubeletConfiguration
+            evictionHard:
+              memory.available: "200Mi"
+            systemReserved:
+              memory: "512Mi"
     - role: worker
       # renovate: datasource=docker depName=kindest/node
       image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
+      kubeadmConfigPatches:
+          - |
+            kind: KubeletConfiguration
+            evictionHard:
+              memory.available: "200Mi"
+            systemReserved:
+              memory: "512Mi"

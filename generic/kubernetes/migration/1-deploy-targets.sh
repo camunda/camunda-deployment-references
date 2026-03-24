@@ -133,6 +133,7 @@ if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
     fi
 fi
 
+save_state "PHASE_1_DURATION" "$(timer_elapsed)"
 section "Phase 1 Complete ($(timer_elapsed))"
 if is_external_pg || is_external_es; then
     echo "Target infrastructure configured (external targets will be used for data restore)."

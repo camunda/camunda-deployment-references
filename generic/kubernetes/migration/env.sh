@@ -45,6 +45,17 @@ export MIGRATE_KEYCLOAK="${MIGRATE_KEYCLOAK:-true}"
 export MIGRATE_WEBMODELER="${MIGRATE_WEBMODELER:-true}"
 export MIGRATE_ELASTICSEARCH="${MIGRATE_ELASTICSEARCH:-true}"
 
+# ---[ Elasticsearch warm reindex (optional) ]----------------------------------
+# When true, Phase 2 performs a full reindex from source to target ES while
+# the application is still running (no downtime). Phase 3 then only needs a
+# fast delta reindex (using version_type=external) to catch up on changes
+# written between Phase 2 and the freeze — reducing cutover downtime from
+# O(data-size) to O(delta-size).
+# Works with both ES_TARGET_MODE=operator and ES_TARGET_MODE=external.
+# For external targets, you must configure reindex.remote.whitelist on the
+# target ES to allow pulling data from the source Bitnami ES service.
+export ES_WARM_REINDEX="${ES_WARM_REINDEX:-false}"
+
 # ┌───────────────────────────────────────────────────────────────────────────┐
 # │                          TARGET MODE                                    │
 # │                                                                         │
