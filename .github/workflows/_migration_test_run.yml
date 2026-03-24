@@ -203,6 +203,12 @@ jobs:
               timeout-minutes: 15
               run: generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
+            - name: 🔍 Check for Helm deprecation warnings (source deployment)
+              uses: ./.github/actions/internal-helm-deprecation-check
+              with:
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
             # =================================================================
             # STEP 1.5: Generate Test Data for Migration Validation
             # =================================================================
@@ -429,6 +435,12 @@ jobs:
 
                   ./3-cutover.sh --yes
 
+            - name: 🔍 Check for Helm deprecation warnings (after cutover)
+              uses: ./.github/actions/internal-helm-deprecation-check
+              with:
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
             # --- Phase 4: Validate ---
             - name: Phase 4 - Validate migration
               timeout-minutes: 10
@@ -437,6 +449,18 @@ jobs:
                   set -euo pipefail
                   source ./env.sh
                   ./4-validate.sh
+
+            - name: 📋 Display migration report
+              if: always()
+              run: |
+                  set -euo pipefail
+                  REPORT="generic/kubernetes/migration/.state/migration-report.md"
+                  if [[ -f "$REPORT" ]]; then
+                      echo "Migration report: $(realpath "$REPORT")"
+                      cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+                  else
+                      echo "No migration report found at $REPORT"
+                  fi
 
             - name: Verify test data after migration
               timeout-minutes: 10
