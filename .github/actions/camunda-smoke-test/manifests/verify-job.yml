@@ -1,0 +1,190 @@
+---
+# Smoke test verification job.
+# Checks that benchmark process instances were created and processed.
+#
+# Variables substituted by the composite action via envsubst:
+#   SMOKE_NAMESPACE, SMOKE_ZEEBE_REST, SMOKE_ZEEBE_MGMT,
+#   SMOKE_KEYCLOAK_TOKEN_URL, SMOKE_MIN_EXPECTED, SMOKE_CLIENT_SECRET_NAME
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: smoke-test-verify
+    namespace: ${SMOKE_NAMESPACE}
+    labels:
+        app: camunda-smoke-test
+spec:
+    ttlSecondsAfterFinished: 3600
+    backoffLimit: 3
+    template:
+        metadata:
+            labels:
+                app: camunda-smoke-test
+        spec:
+            restartPolicy: Never
+            containers:
+                - name: verify
+                  image: alpine/curl:latest
+                  command: [/bin/sh, -c]
+                  args:
+                      - |
+                        #!/bin/sh
+                        set -eu
+
+                        apk add --no-cache jq >/dev/null 2>&1
+
+                        log()      { echo "[$(date -u +%H:%M:%S)] $*"; }
+                        pass()     { echo "[$(date -u +%H:%M:%S)] PASS: $*"; }
+                        fail_test(){ echo "[$(date -u +%H:%M:%S)] FAIL: $*"; FAILURES=$((FAILURES + 1)); }
+
+                        retry() {
+                            local max=$1; shift; local delay=$1; shift
+                            local attempt=1
+                            while [ "$attempt" -le "$max" ]; do
+                                if "$@"; then return 0; fi
+                                sleep "$delay"; attempt=$((attempt + 1))
+                            done
+                            return 1
+                        }
+
+                        FAILURES=0
+
+                        ZEEBE_REST="${SMOKE_ZEEBE_REST}"
+                        ZEEBE_MGMT="${SMOKE_ZEEBE_MGMT}"
+                        KC_TOKEN_URL="${SMOKE_KEYCLOAK_TOKEN_URL}"
+                        MIN_EXPECTED="${SMOKE_MIN_EXPECTED}"
+                        PROCESS_ID="smoke-test-benchmark"
+
+                        # ── Wait for Zeebe readiness ──
+                        log "=== Waiting for Zeebe readiness ==="
+                        retry 60 10 curl -sf --connect-timeout 5 --max-time 10 \
+                            -o /dev/null "${ZEEBE_MGMT}/actuator/health/liveness" \
+                            || log "WARN: Zeebe management API not reachable (continuing)"
+
+                        retry 60 10 curl -sf --connect-timeout 5 --max-time 10 \
+                            -o /dev/null "${ZEEBE_MGMT}/actuator/health/readiness" \
+                            || { fail_test "Zeebe Gateway not reachable"; }
+
+                        # ── Obtain OIDC token ──
+                        log ""
+                        log "=== Obtaining OIDC token ==="
+                        AUTH_HEADER=""
+
+                        if [ -n "${CLIENT_ID:-}" ] && [ -n "${CLIENT_SECRET:-}" ] && [ -n "${KC_TOKEN_URL}" ]; then
+                            TOKEN=$(curl -sf --connect-timeout 5 --max-time 30 -X POST \
+                                "${KC_TOKEN_URL}" \
+                                -H "Content-Type: application/x-www-form-urlencoded" \
+                                -d "grant_type=client_credentials" \
+                                -d "client_id=${CLIENT_ID}" \
+                                -d "client_secret=${CLIENT_SECRET}" \
+                                2>/dev/null | jq -r '.access_token // empty' || echo "")
+
+                            if [ -n "${TOKEN}" ]; then
+                                AUTH_HEADER="Authorization: Bearer ${TOKEN}"
+                                log "Got OIDC token (client=${CLIENT_ID})"
+                            else
+                                log "WARN: Failed to get OIDC token, trying without auth"
+                            fi
+                        else
+                            log "WARN: No client credentials available, trying without auth"
+                        fi
+
+                        # ── Search for process instances ──
+                        log ""
+                        log "=== Verifying Zeebe process instances ==="
+
+                        FOUND=0
+                        SEARCH_ATTEMPT=1
+                        SEARCH_MAX=18
+
+                        while [ "$SEARCH_ATTEMPT" -le "$SEARCH_MAX" ]; do
+                            if [ -n "${AUTH_HEADER}" ]; then
+                                SEARCH_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
+                                    -H "${AUTH_HEADER}" \
+                                    -X POST "${ZEEBE_REST}/v2/process-instances/search" \
+                                    -H "Content-Type: application/json" \
+                                    -H "Accept: application/json" \
+                                    -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" 2>/dev/null || echo '{}')
+                            else
+                                SEARCH_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
+                                    -X POST "${ZEEBE_REST}/v2/process-instances/search" \
+                                    -H "Content-Type: application/json" \
+                                    -H "Accept: application/json" \
+                                    -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" 2>/dev/null || echo '{}')
+                            fi
+
+                            FOUND=$(echo "${SEARCH_RESP}" | jq -r '.totalItems // 0' 2>/dev/null || echo "0")
+
+                            if [ "$FOUND" -ge "$MIN_EXPECTED" ]; then
+                                break
+                            fi
+                            log "  Attempt ${SEARCH_ATTEMPT}/${SEARCH_MAX}: found ${FOUND} instances (need >= ${MIN_EXPECTED}), waiting 10s..."
+                            sleep 10
+                            SEARCH_ATTEMPT=$((SEARCH_ATTEMPT + 1))
+                        done
+
+                        if [ "$FOUND" -ge "$MIN_EXPECTED" ]; then
+                            pass "Zeebe: found ${FOUND} process instances for '${PROCESS_ID}' (expected >= ${MIN_EXPECTED})"
+                        else
+                            fail_test "Zeebe: found ${FOUND} process instances for '${PROCESS_ID}' (expected >= ${MIN_EXPECTED})"
+                        fi
+
+                        # ── Check for completed instances ──
+                        log ""
+                        log "=== Checking for completed process instances ==="
+
+                        if [ -n "${AUTH_HEADER}" ]; then
+                            COMPLETED_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
+                                -H "${AUTH_HEADER}" \
+                                -X POST "${ZEEBE_REST}/v2/process-instances/search" \
+                                -H "Content-Type: application/json" \
+                                -H "Accept: application/json" \
+                                -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\",\"state\":\"COMPLETED\"}}" 2>/dev/null || echo '{}')
+                        else
+                            COMPLETED_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
+                                -X POST "${ZEEBE_REST}/v2/process-instances/search" \
+                                -H "Content-Type: application/json" \
+                                -H "Accept: application/json" \
+                                -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\",\"state\":\"COMPLETED\"}}" 2>/dev/null || echo '{}')
+                        fi
+
+                        COMPLETED=$(echo "${COMPLETED_RESP}" | jq -r '.totalItems // 0' 2>/dev/null || echo "0")
+
+                        if [ "$COMPLETED" -gt 0 ]; then
+                            pass "Zeebe: ${COMPLETED} process instances completed end-to-end"
+                        else
+                            fail_test "Zeebe: no completed process instances found (processes may not be executing through all tasks)"
+                        fi
+
+                        # ── Final result ──
+                        log ""
+                        log "=========================================="
+                        log "  Total instances:     ${FOUND}"
+                        log "  Completed instances: ${COMPLETED}"
+                        if [ "$FAILURES" -eq 0 ]; then
+                            log "  ALL CHECKS PASSED"
+                        else
+                            log "  ${FAILURES} CHECK(S) FAILED"
+                        fi
+                        log "=========================================="
+
+                        exit "$FAILURES"
+                  env:
+                      - name: CLIENT_ID
+                        valueFrom:
+                            secretKeyRef:
+                                name: ${SMOKE_CLIENT_SECRET_NAME}
+                                key: identity-admin-client-id
+                                optional: true
+                      - name: CLIENT_SECRET
+                        valueFrom:
+                            secretKeyRef:
+                                name: ${SMOKE_CLIENT_SECRET_NAME}
+                                key: identity-admin-client-secret
+                                optional: true
+                  resources:
+                      requests:
+                          cpu: 100m
+                          memory: 128Mi
+                      limits:
+                          cpu: 500m
+                          memory: 256Mi
