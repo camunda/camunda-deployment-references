@@ -208,6 +208,8 @@ jobs:
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  exclude-patterns: |
+                      Bitnami-based subcharts are deprecated
 
             # =================================================================
             # STEP 1.5: Generate Test Data for Migration Validation
