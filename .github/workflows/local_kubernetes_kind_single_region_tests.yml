@@ -77,7 +77,7 @@ jobs:
             - clusters-info
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: aws-core-8-default
-        timeout-minutes: 45
+        timeout-minutes: 50
         strategy:
             fail-fast: false
             matrix:
@@ -376,7 +376,7 @@ jobs:
 
             - name: 🎭 Run Playwright E2E smoke tests
               if: env.TESTS_ENABLED == 'true' && matrix.declination.use_tls == true
-              timeout-minutes: 20
+              timeout-minutes: 25
               uses: ./.github/actions/internal-camunda-playwright-tests
               with:
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
@@ -385,6 +385,7 @@ jobs:
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-project: smoke-tests
                   test-auth-type: keycloak
+                  test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
                   ingress-host: ${{ env.CAMUNDA_DOMAIN }}
                   ignore-tls-errors: 'true'
                   artifact-name-suffix: kind-${{ matrix.declination.name }}-${{ github.run_id }}

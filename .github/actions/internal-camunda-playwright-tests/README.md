@@ -16,6 +16,9 @@ Run Playwright-based E2E tests from the camunda-platform-helm repository. Requir
 | `test-project` | <p>Playwright test project to run. Options: smoke-tests, full-suite</p> | `false` | `smoke-tests` |
 | `test-exclude` | <p>Tests to exclude (passed to --test-exclude flag). Example: 'identity.spec.ts' or 'console.spec.ts|identity.spec.ts'</p> | `false` | `""` |
 | `test-auth-type` | <p>Authentication type: keycloak, basic, hybrid. Passed as TEST<em>AUTH</em>TYPE env var.</p> | `false` | `keycloak` |
+| `test-client-secret` | <p>Client secret exported as DISTRO<em>QA</em>E2E<em>TESTS</em>KEYCLOAK<em>CLIENTS</em>SECRET for Playwright tests.</p> | `false` | `""` |
+| `orchestration-context-path` | <p>Orchestration context path used by the Camunda deployment. Exported as ORCHESTRATION<em>CONTEXT</em>PATH for Playwright tests.</p> | `false` | `""` |
+| `management-identity-context-path` | <p>Management Identity context path used by the Camunda deployment. Exported as MANAGEMENT<em>IDENTITY</em>CONTEXT_PATH for Playwright tests.</p> | `false` | `/managementidentity` |
 | `identity-firstuser-username` | <p>Username exported as DISTRO<em>QA</em>E2E<em>TESTS</em>IDENTITY<em>FIRSTUSER</em>USERNAME for Playwright tests.</p> | `false` | `admin` |
 | `keycloak-username` | <p>Username exported as DISTRO<em>QA</em>E2E<em>TESTS</em>KEYCLOAK_USERNAME for Playwright tests.</p> | `false` | `temp-admin` |
 | `ingress-host` | <p>Override the ingress hostname detection. If set, this value is used instead of auto-detecting from cluster ingress resources. Required for Kind clusters where the domain is configured via /etc/hosts.</p> | `false` | `""` |
@@ -75,6 +78,24 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: keycloak
+
+    test-client-secret:
+    # Client secret exported as DISTRO_QA_E2E_TESTS_KEYCLOAK_CLIENTS_SECRET for Playwright tests.
+    #
+    # Required: false
+    # Default: ""
+
+    orchestration-context-path:
+    # Orchestration context path used by the Camunda deployment. Exported as ORCHESTRATION_CONTEXT_PATH for Playwright tests.
+    #
+    # Required: false
+    # Default: ""
+
+    management-identity-context-path:
+    # Management Identity context path used by the Camunda deployment. Exported as MANAGEMENT_IDENTITY_CONTEXT_PATH for Playwright tests.
+    #
+    # Required: false
+    # Default: /managementidentity
 
     identity-firstuser-username:
     # Username exported as DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME for Playwright tests.
