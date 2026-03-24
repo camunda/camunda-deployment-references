@@ -95,6 +95,12 @@ runs:
         - name: Delete Resources
           id: delete_resources
           shell: bash
+<<<<<<< HEAD
+=======
+          env:
+              OPENSHIFT: ${{ inputs.openshift }}   # as an indicator in the script whether EKS vs ROSA
+              DISABLE_TELEMETRY: true # Disable telemetry for cloud-nuke
+>>>>>>> f174693 (fix: disable cloud-nuke telemetry (#2135))
           run: |
               set -euo pipefail
 
