@@ -55,38 +55,37 @@ if [[ "$SECONDARY_STORAGE" == "postgres" ]]; then
 else
     echo ""
     echo "=== Deploying Elasticsearch (ECK) ==="
-    pushd "$OPERATOR_BASE/elasticsearch" > /dev/null
-    ELASTICSEARCH_CLUSTER_FILE="$KIND_CONFIGS_DIR/elasticsearch-cluster.yml" ./deploy.sh
-    popd > /dev/null
+    (cd "$OPERATOR_BASE/elasticsearch" && ELASTICSEARCH_CLUSTER_FILE="$KIND_CONFIGS_DIR/elasticsearch-cluster.yml" ./deploy.sh)
 fi
 
 # 2. Deploy PostgreSQL via CloudNativePG operator
 echo ""
 echo "=== Deploying PostgreSQL (CloudNativePG) ==="
-pushd "$OPERATOR_BASE/postgresql" > /dev/null
-CLUSTER_FILTER="$CLUSTER_FILTER" NAMESPACE="$CAMUNDA_NAMESPACE" ./deploy.sh
+(
+    cd "$OPERATOR_BASE/postgresql"
+    CLUSTER_FILTER="$CLUSTER_FILTER" NAMESPACE="$CAMUNDA_NAMESPACE" ./deploy.sh
 
-# Deploy orchestration PG cluster (only for RDBMS mode)
-if [[ "$SECONDARY_STORAGE" == "postgres" ]]; then
-    echo "Deploying orchestration PostgreSQL cluster (pg-camunda)..."
-    kubectl apply --server-side -f postgresql-orchestration-cluster.yml -n "$CAMUNDA_NAMESPACE"
-    kubectl wait --for=condition=Ready --timeout=600s cluster pg-camunda -n "$CAMUNDA_NAMESPACE"
-fi
-popd > /dev/null
+    # Deploy orchestration PG cluster (only for RDBMS mode)
+    if [[ "$SECONDARY_STORAGE" == "postgres" ]]; then
+        echo "Deploying orchestration PostgreSQL cluster (pg-camunda)..."
+        kubectl apply --server-side -f postgresql-orchestration-cluster.yml -n "$CAMUNDA_NAMESPACE"
+        kubectl wait --for=condition=Ready --timeout=600s cluster pg-camunda -n "$CAMUNDA_NAMESPACE"
+    fi
+)
 
 # 3. Deploy Keycloak via Keycloak operator
 echo ""
 echo "=== Deploying Keycloak ==="
-pushd "$OPERATOR_BASE/keycloak" > /dev/null
+(
+    cd "$OPERATOR_BASE/keycloak"
 
-if [[ "$CAMUNDA_MODE" == "domain" ]]; then
-    export CAMUNDA_DOMAIN="camunda.example.com"
-    KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-nginx.yml" ./deploy.sh
-else
-    KEYCLOAK_CONFIG_FILE="keycloak-instance-no-domain.yml" ./deploy.sh
-fi
-
-popd > /dev/null
+    if [[ "$CAMUNDA_MODE" == "domain" ]]; then
+        export CAMUNDA_DOMAIN="camunda.example.com"
+        KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-nginx.yml" ./deploy.sh
+    else
+        KEYCLOAK_CONFIG_FILE="keycloak-instance-no-domain.yml" ./deploy.sh
+    fi
+)
 
 echo ""
 echo "✓ All operators deployed successfully"

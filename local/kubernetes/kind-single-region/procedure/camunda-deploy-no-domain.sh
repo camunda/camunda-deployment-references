@@ -6,7 +6,7 @@ set -euo pipefail
 # Layers operator-based values from generic/kubernetes/operator-based/
 #
 # Environment variables:
-#   SECONDARY_STORAGE: "elasticsearch" (default) or "postgres"
+#   SECONDARY_STORAGE: "elasticsearch" or "postgres" (required, no default)
 #                      Controls the secondary storage backend.
 #                      - elasticsearch: Uses Elasticsearch (full platform with Optimize)
 #                      - postgres: Uses PostgreSQL RDBMS only (Optimize disabled)
