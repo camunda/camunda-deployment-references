@@ -2,34 +2,84 @@
 name: Camunda Smoke Test
 
 description: >
-    Generate benchmark process data and verify that processes executed successfully.
-    Deploys a Zeebe benchmark job (configurable duration/rate), waits for data
-    propagation, then verifies process instances exist via the Zeebe REST API.
+    Generate process data and verify that processes executed successfully.
 
-    This action runs in-cluster Kubernetes Jobs and requires kubectl access to
-    the target cluster. It uses the camunda-8-benchmark tool for data generation
-    and a lightweight alpine/curl job for verification.
+    Supports three modes:
+    - kubernetes: deploys in-cluster K8s Jobs (benchmark tool + verify)
+    - http-basic: calls Zeebe REST API directly from runner with basic auth
+    - http-oidc: calls Zeebe REST API with OIDC client_credentials token
+
+    For Kubernetes (EKS, AKS, ROSA, Kind, operator-based):
+      Uses camunda-8-benchmark K8s Job for data generation and a
+      lightweight verify Job for checking process instances.
+
+    For HTTP (ECS Fargate, EC2):
+      Deploys a BPMN process and creates instances via Zeebe REST API v2
+      directly from the GitHub Actions runner through ALB/NLB endpoints.
 
 inputs:
+    mode:
+        description: >
+            Execution mode.
+            - kubernetes: use in-cluster K8s Jobs (default)
+            - http-basic: use HTTP calls with basic auth (EC2)
+            - http-oidc: use HTTP calls with OIDC token (ECS with Identity)
+        required: false
+        default: kubernetes
+
+    # ── Kubernetes mode inputs ────────────────────────────────────
     namespace:
-        description: Kubernetes namespace where Camunda is deployed.
+        description: >
+            (kubernetes mode) Kubernetes namespace where Camunda is deployed.
         required: false
         default: camunda
     release-name:
-        description: Helm release name for Camunda.
+        description: >
+            (kubernetes mode) Helm release name for Camunda.
         required: false
         default: camunda
     keycloak-url:
         description: >
-            In-cluster Keycloak base URL.
-            Operator-based (default): http://keycloak-service:18080/auth
-            Bitnami sub-charts: http://<release-name>-keycloak:80/auth
+            (kubernetes mode) In-cluster Keycloak base URL.
+            Operator-based: http://keycloak-service:18080/auth
+            Bitnami: http://<release-name>-keycloak:80/auth
         required: false
         default: ''
+    client-secret-name:
+        description: >
+            (kubernetes mode) K8s Secret with identity-admin-client-id
+            and identity-admin-client-secret keys.
+        required: false
+        default: identity-secret-for-components-integration
+    zeebe-grpc-address:
+        description: >
+            (kubernetes mode) Zeebe gRPC address (in-cluster).
+        required: false
+        default: ''
+    zeebe-rest-address:
+        description: >
+            (kubernetes/http mode) Zeebe REST API address.
+            Kubernetes default: http://<release>-zeebe-gateway:8080
+            HTTP mode: must be set (e.g., http://<ALB_DNS>)
+        required: false
+        default: ''
+
+    # ── HTTP mode inputs ──────────────────────────────────────────
+    basic-auth-user:
+        description: >
+            (http-basic mode) Username for basic auth.
+        required: false
+        default: demo
+    basic-auth-password:
+        description: >
+            (http-basic mode) Password for basic auth.
+        required: false
+        default: demo
+
+    # ── Common inputs ─────────────────────────────────────────────
     benchmark-duration:
         description: >
-            Benchmark duration in seconds (the benchmark job runs until killed
-            by activeDeadlineSeconds). Default 300 = 5 minutes.
+            Benchmark duration in seconds. Default 300 = 5 minutes.
         required: false
         default: '300'
     benchmark-pi-per-second:
@@ -38,56 +88,45 @@ inputs:
         default: '5'
     min-expected-instances:
         description: >
-            Minimum number of process instances expected after the benchmark.
-            A low number (default 10) is sufficient for a smoke test —
-            it proves data generation and Zeebe processing work end-to-end.
+            Minimum process instances expected after the benchmark.
         required: false
         default: '10'
-    client-secret-name:
-        description: >
-            Kubernetes Secret name containing identity-admin-client-id and
-            identity-admin-client-secret keys for OIDC authentication.
-        required: false
-        default: identity-secret-for-components-integration
     propagation-wait-seconds:
-        description: Seconds to wait for data to propagate to search indices after the benchmark.
+        description: >
+            Seconds to wait for search index propagation.
         required: false
         default: '60'
-    zeebe-grpc-address:
-        description: >
-            Zeebe gRPC address (in-cluster). Defaults to http://<release-name>-zeebe-gateway:26500.
-        required: false
-        default: ''
-    zeebe-rest-address:
-        description: >
-            Zeebe REST API address (in-cluster). Defaults to http://<release-name>-zeebe-gateway:8080.
-        required: false
-        default: ''
 
 outputs:
     benchmark-status:
         description: "'success' or 'failed'"
-        value: ${{ steps.benchmark.outcome == 'success' && 'success' || 'failed' }}
+        value: >-
+            ${{ steps.benchmark.outcome == 'success'
+            && 'success' || 'failed' }}
     verify-status:
         description: "'success' or 'failed'"
-        value: ${{ steps.verify.outcome == 'success' && 'success' || 'failed' }}
+        value: >-
+            ${{ steps.verify.outcome == 'success'
+            && steps.http-verify.outcome != 'failure'
+            && 'success' || 'failed' }}
     total-instances:
-        description: Total process instances found after benchmark.
+        description: Total process instances found.
         value: ${{ steps.verify-result.outputs.total_instances }}
 
 runs:
     using: composite
     steps:
-        # ──────────────────────────────────────────────────────────────
+        # ==============================================================
         # Resolve defaults for optional inputs
-        # ──────────────────────────────────────────────────────────────
+        # ==============================================================
         - name: Set environment variables
           shell: bash
           run: |
               set -euo pipefail
               RELEASE="${{ inputs.release-name }}"
+              MODE="${{ inputs.mode }}"
 
-              # Keycloak URL
+              # Keycloak URL (kubernetes mode only)
               KC_URL="${{ inputs.keycloak-url }}"
               if [[ -z "$KC_URL" ]]; then
                   KC_URL="http://keycloak-service:18080/auth"
@@ -103,13 +142,12 @@ runs:
                   REST="http://${RELEASE}-zeebe-gateway:8080"
               fi
 
-              # Management API is always on port 9600
               MGMT="http://${RELEASE}-zeebe-gateway:9600"
 
-              # Token URL (full path for the benchmark tool)
               TOKEN_URL="${KC_URL}/realms/camunda-platform/protocol/openid-connect/token"
 
               {
+                  echo "SMOKE_MODE=${MODE}"
                   echo "SMOKE_NAMESPACE=${{ inputs.namespace }}"
                   echo "SMOKE_RELEASE_NAME=${RELEASE}"
                   echo "SMOKE_KEYCLOAK_TOKEN_URL=${TOKEN_URL}"
@@ -122,10 +160,11 @@ runs:
                   echo "SMOKE_CLIENT_SECRET_NAME=${{ inputs.client-secret-name }}"
               } >> "$GITHUB_ENV"
 
-        # ──────────────────────────────────────────────────────────────
-        # Clean up any previous smoke test resources
-        # ──────────────────────────────────────────────────────────────
-        - name: Clean up previous smoke test resources
+        # ==============================================================
+        # KUBERNETES MODE
+        # ==============================================================
+        - name: '[k8s] Clean up previous smoke test resources'
+          if: inputs.mode == 'kubernetes'
           shell: bash
           run: |
               set -euo pipefail
@@ -136,11 +175,9 @@ runs:
               kubectl delete configmap smoke-test-benchmark-bpmn \
                   -n "${{ inputs.namespace }}" --ignore-not-found=true
 
-        # ──────────────────────────────────────────────────────────────
-        # Deploy and run the benchmark
-        # ──────────────────────────────────────────────────────────────
-        - name: Apply benchmark job
+        - name: '[k8s] Run benchmark job'
           id: benchmark
+          if: inputs.mode == 'kubernetes'
           shell: bash
           run: |
               set -euo pipefail
@@ -160,16 +197,20 @@ runs:
               echo "Waiting for benchmark pod to start..."
               BENCHMARK_STARTED=false
               for _ in $(seq 1 60); do
-                  PHASE=$(kubectl get pods -n "${{ inputs.namespace }}" \
+                  PHASE=$(kubectl get pods \
+                      -n "${{ inputs.namespace }}" \
                       -l job-name=smoke-test-benchmark \
-                      -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Pending")
-                  if [ "$PHASE" = "Running" ] || [ "$PHASE" = "Succeeded" ]; then
+                      -o jsonpath='{.items[0].status.phase}' \
+                      2>/dev/null || echo "Pending")
+                  if [ "$PHASE" = "Running" ] \
+                      || [ "$PHASE" = "Succeeded" ]; then
                       echo "Pod phase: $PHASE"
                       BENCHMARK_STARTED=true
                       break
                   elif [ "$PHASE" = "Failed" ]; then
-                      echo "::error::Benchmark pod failed to start"
-                      kubectl logs job/smoke-test-benchmark -n "${{ inputs.namespace }}" 2>/dev/null || true
+                      echo "::error::Benchmark pod failed"
+                      kubectl logs job/smoke-test-benchmark \
+                          -n "${{ inputs.namespace }}" 2>/dev/null || true
                       exit 1
                   fi
                   echo "  pod phase: $PHASE (waiting...)"
@@ -177,7 +218,7 @@ runs:
               done
 
               if [ "$BENCHMARK_STARTED" != "true" ]; then
-                  echo "::error::Benchmark pod never reached Running phase"
+                  echo "::error::Benchmark pod never started"
                   exit 1
               fi
 
@@ -186,84 +227,109 @@ runs:
                   -n "${{ inputs.namespace }}" --follow --tail=-1 &
               LOGS_PID=$!
 
-              # The benchmark runs until activeDeadlineSeconds kills it,
-              # so the job condition is "failed" (DeadlineExceeded).
               WAIT_TIMEOUT=$(( ${{ inputs.benchmark-duration }} + 120 ))
-              kubectl wait --for=condition=failed job/smoke-test-benchmark \
-                  -n "${{ inputs.namespace }}" --timeout="${WAIT_TIMEOUT}s"
+              kubectl wait --for=condition=failed \
+                  job/smoke-test-benchmark \
+                  -n "${{ inputs.namespace }}" \
+                  --timeout="${WAIT_TIMEOUT}s"
 
               kill "$LOGS_PID" 2>/dev/null || true
+              echo "Benchmark finished"
 
-              echo "Benchmark finished (duration: ${{ inputs.benchmark-duration }}s, rate: ${{ inputs.benchmark-pi-per-second }} PI/s)"
-
-        # ──────────────────────────────────────────────────────────────
-        # Wait for data propagation to search indices
-        # ──────────────────────────────────────────────────────────────
-        - name: Wait for data propagation
+        - name: '[k8s] Wait for data propagation'
+          if: inputs.mode == 'kubernetes'
           shell: bash
           run: |
               set -euo pipefail
-              echo "Waiting ${{ inputs.propagation-wait-seconds }}s for data to propagate to search indices..."
+              echo "Waiting ${{ inputs.propagation-wait-seconds }}s..."
               sleep "${{ inputs.propagation-wait-seconds }}"
 
-        # ──────────────────────────────────────────────────────────────
-        # Deploy and run the verification job
-        # ──────────────────────────────────────────────────────────────
-        - name: Apply verify job
+        - name: '[k8s] Run verify job'
           id: verify
+          if: inputs.mode == 'kubernetes'
           shell: bash
           run: |
               set -euo pipefail
               ACTION_DIR="${{ github.action_path }}"
 
-              echo "Generating verify manifest..."
               # shellcheck disable=SC2016
-              envsubst '${SMOKE_NAMESPACE} ${SMOKE_ZEEBE_REST} ${SMOKE_ZEEBE_MGMT} ${SMOKE_KEYCLOAK_TOKEN_URL} ${SMOKE_MIN_EXPECTED} ${SMOKE_CLIENT_SECRET_NAME}' \
+              ENVSUBST_VARS='${SMOKE_NAMESPACE} ${SMOKE_ZEEBE_REST}'
+              ENVSUBST_VARS+=' ${SMOKE_ZEEBE_MGMT}'
+              ENVSUBST_VARS+=' ${SMOKE_KEYCLOAK_TOKEN_URL}'
+              ENVSUBST_VARS+=' ${SMOKE_MIN_EXPECTED}'
+              ENVSUBST_VARS+=' ${SMOKE_CLIENT_SECRET_NAME}'
+              envsubst "$ENVSUBST_VARS" \
                   < "${ACTION_DIR}/manifests/verify-job.yml" \
                   | kubectl apply -f -
 
-              echo "Waiting for verify pod to be scheduled..."
+              echo "Waiting for verify pod..."
               kubectl wait --for=condition=Ready pod \
                   -l job-name=smoke-test-verify \
-                  -n "${{ inputs.namespace }}" --timeout=120s 2>/dev/null || true
+                  -n "${{ inputs.namespace }}" \
+                  --timeout=120s 2>/dev/null || true
 
-              echo "Streaming verify job logs..."
+              echo "Streaming verify logs..."
               kubectl logs job/smoke-test-verify \
-                  -n "${{ inputs.namespace }}" --follow --tail=-1 &
+                  -n "${{ inputs.namespace }}" \
+                  --follow --tail=-1 &
               LOGS_PID=$!
 
-              kubectl wait --for=condition=complete job/smoke-test-verify \
-                  -n "${{ inputs.namespace }}" --timeout=300s || {
-                  echo "::error::Verify job did not complete in time"
+              kubectl wait --for=condition=complete \
+                  job/smoke-test-verify \
+                  -n "${{ inputs.namespace }}" \
+                  --timeout=300s || {
+                  echo "::error::Verify job timed out"
                   kill "$LOGS_PID" 2>/dev/null || true
-                  kubectl logs job/smoke-test-verify -n "${{ inputs.namespace }}" 2>/dev/null || true
+                  kubectl logs job/smoke-test-verify \
+                      -n "${{ inputs.namespace }}" 2>/dev/null || true
                   exit 1
               }
               kill "$LOGS_PID" 2>/dev/null || true
-
               echo "Smoke test verification passed"
 
-        - name: Extract verify results
+        - name: '[k8s] Extract verify results'
           id: verify-result
-          if: always()
+          if: always() && inputs.mode == 'kubernetes'
           shell: bash
           run: |
               set -euo pipefail
-              LOGS=$(kubectl logs job/smoke-test-verify -n "${{ inputs.namespace }}" 2>/dev/null || echo "")
-              TOTAL=$(echo "$LOGS" | grep -oP 'Total instances:\s+\K\d+' || echo "0")
+              NS="${{ inputs.namespace }}"
+              LOGS=$(kubectl logs job/smoke-test-verify \
+                  -n "$NS" 2>/dev/null || echo "")
+              TOTAL=$(echo "$LOGS" \
+                  | grep -oP 'Total instances:\s+\K\d+' || echo "0")
               echo "total_instances=${TOTAL}" >> "$GITHUB_OUTPUT"
 
-        # ──────────────────────────────────────────────────────────────
-        # Cleanup
-        # ──────────────────────────────────────────────────────────────
-        - name: Clean up smoke test resources
-          if: always()
+        - name: '[k8s] Clean up smoke test resources'
+          if: always() && inputs.mode == 'kubernetes'
           shell: bash
           run: |
               set -euo pipefail
+              NS="${{ inputs.namespace }}"
               kubectl delete job smoke-test-benchmark \
-                  -n "${{ inputs.namespace }}" --ignore-not-found=true
+                  -n "$NS" --ignore-not-found=true
               kubectl delete job smoke-test-verify \
-                  -n "${{ inputs.namespace }}" --ignore-not-found=true
+                  -n "$NS" --ignore-not-found=true
               kubectl delete configmap smoke-test-benchmark-bpmn \
-                  -n "${{ inputs.namespace }}" --ignore-not-found=true
+                  -n "$NS" --ignore-not-found=true
+
+        # ==============================================================
+        # HTTP MODE (ECS / EC2)
+        # ==============================================================
+        - name: '[http] Run smoke test'
+          id: http-verify
+          if: inputs.mode == 'http-basic' || inputs.mode == 'http-oidc'
+          shell: bash
+          run: |
+              set -euo pipefail
+              ACTION_DIR="${{ github.action_path }}"
+              bash "${ACTION_DIR}/scripts/http-smoke-test.sh"
+          env:
+              SMOKE_ZEEBE_REST_URL: ${{ inputs.zeebe-rest-address }}
+              SMOKE_AUTH_MODE: ${{ inputs.mode }}
+              SMOKE_BASIC_USER: ${{ inputs.basic-auth-user }}
+              SMOKE_BASIC_PASSWORD: ${{ inputs.basic-auth-password }}
+              SMOKE_DURATION: ${{ inputs.benchmark-duration }}
+              SMOKE_PI_PER_SECOND: ${{ inputs.benchmark-pi-per-second }}
+              SMOKE_MIN_EXPECTED: ${{ inputs.min-expected-instances }}
+              SMOKE_PROPAGATION_WAIT: ${{ inputs.propagation-wait-seconds }}
