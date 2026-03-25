@@ -16,8 +16,6 @@
 # update these values accordingly.
 
 global:
-    elasticsearch:
-        enabled: true
     security:
         # Required for vendor-ee images (not signed by Bitnami)
         allowInsecureImages: true
@@ -133,6 +131,12 @@ webModeler:
             fromAddress: noreply@example.com
             secret:
                 inlineSecret: placeholder
+        pusher:
+            secret:
+                inlineSecret: migration-test-pusher-secret
+            client:
+                secret:
+                    inlineSecret: migration-test-pusher-app-key
 
 # PostgreSQL for WebModeler — vendor-ee image
 webModelerPostgresql:
@@ -151,6 +155,9 @@ webModelerPostgresql:
 
 optimize:
     enabled: true
+    database:
+        elasticsearch:
+            enabled: true
 
 console:
     enabled: true
@@ -176,3 +183,5 @@ orchestration:
     data:
         secondaryStorage:
             type: elasticsearch
+            elasticsearch:
+                enabled: true

@@ -20,6 +20,7 @@ on:
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-clean-namespace/**
+            - .github/actions/internal-helm-deprecation-check/**
 
     workflow_dispatch:
         inputs:

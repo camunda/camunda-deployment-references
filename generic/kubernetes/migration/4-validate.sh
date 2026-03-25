@@ -243,6 +243,17 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 section "Validation Summary ($(timer_elapsed))"
 
+save_state "PHASE_4_DURATION" "$(timer_elapsed)"
+
+# Set completion vars in-memory so the report reflects Phase 4 status,
+# but do NOT persist to state yet — complete_phase is deferred until after
+# post hooks to prevent Phase 5 from running if a post hook fails.
+if [[ $ERRORS -eq 0 ]]; then
+    export PHASE_4_COMPLETED="true"
+    PHASE_4_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    export PHASE_4_TIMESTAMP
+fi
+
 # Generate migration report regardless of errors.
 generate_report
 
@@ -268,11 +279,12 @@ fi
 
 run_hooks "post-phase-4"
 
-# Only mark phase 4 complete if all checks passed — phase 5 is destructive
+# Only allow phase 5 if all checks passed — phase 5 is destructive
 # and must not run after a failed validation.
 if [[ $ERRORS -gt 0 ]]; then
     log_error "${ERRORS} validation check(s) failed — phase 4 NOT marked complete."
     exit 1
 fi
 
+# Persist phase 4 completion AFTER post hooks succeed.
 complete_phase 4
