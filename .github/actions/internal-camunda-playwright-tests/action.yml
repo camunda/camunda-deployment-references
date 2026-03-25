@@ -1,0 +1,249 @@
+---
+name: Camunda Playwright E2E Tests
+
+description: >
+    Run Playwright-based E2E tests from the camunda-platform-helm repository.
+    Requires the Helm chart to be deployed and cluster access granted.
+    Uses the helm chart's run-e2e-tests.sh script for environment setup and test execution.
+
+inputs:
+    camunda-helm-repo-ref:
+        description: Git ref for camunda-platform-helm checkout
+        default: main
+    camunda-helm-repo-path:
+        description: Path to clone the Helm chart repository
+        default: ./.camunda_helm_repo
+    camunda-version:
+        description: The Camunda version (e.g., 8.9). Used to locate the chart directory.
+        required: true
+    test-namespace:
+        description: Kubernetes namespace where Camunda is deployed
+        default: camunda
+    test-project:
+        description: >
+            Playwright test project to run.
+            Options: smoke-tests, full-suite
+        default: smoke-tests
+    test-exclude:
+        description: >
+            Tests to exclude (passed to --test-exclude flag).
+            Example: 'identity.spec.ts' or 'console.spec.ts|identity.spec.ts'
+        default: ''
+    test-auth-type:
+        description: >
+            Authentication type: keycloak, basic, hybrid.
+            Passed as TEST_AUTH_TYPE env var.
+        default: keycloak
+    test-client-secret:
+        description: >
+            Client secret exported as DISTRO_QA_E2E_TESTS_KEYCLOAK_CLIENTS_SECRET
+            for Playwright tests.
+        default: ''
+    orchestration-context-path:
+        description: >
+            Orchestration context path used by the Camunda deployment. Exported as
+            ORCHESTRATION_CONTEXT_PATH for Playwright tests.
+        default: ''
+    management-identity-context-path:
+        description: >
+            Management Identity context path used by the Camunda deployment.
+            Exported as MANAGEMENT_IDENTITY_CONTEXT_PATH for Playwright tests.
+        default: /managementidentity
+    identity-firstuser-username:
+        description: >
+            Username exported as DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME
+            for Playwright tests.
+        default: admin
+    keycloak-username:
+        description: >
+            Username exported as DISTRO_QA_E2E_TESTS_KEYCLOAK_USERNAME
+            for Playwright tests.
+        default: temp-admin
+    ingress-host:
+        description: >
+            Override the ingress hostname detection. If set, this value is used
+            instead of auto-detecting from cluster ingress resources.
+            Required for Kind clusters where the domain is configured via /etc/hosts.
+        default: ''
+    ignore-tls-errors:
+        description: >
+            Set to 'true' to configure Playwright browser navigation to ignore HTTPS
+            certificate errors. Required for Kind clusters using self-signed
+            certificates.
+        default: 'false'
+    upload-artifacts:
+        description: Whether to upload Playwright test artifacts (report + results)
+        default: 'true'
+    artifact-retention-days:
+        description: Number of days to retain test artifacts
+        default: '10'
+    artifact-name-suffix:
+        description: >
+            Suffix appended to artifact names for uniqueness in matrix builds.
+            Defaults to run-id and attempt.
+        default: ''
+
+runs:
+    using: composite
+    steps:
+        - name: Clone camunda/camunda-platform-helm
+          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+          with:
+              repository: camunda/camunda-platform-helm
+              ref: ${{ inputs.camunda-helm-repo-ref }}
+              path: ${{ inputs.camunda-helm-repo-path }}
+
+        - name: Resolve chart path
+          id: chart-path
+          shell: bash
+          env:
+              CAMUNDA_VERSION: ${{ inputs.camunda-version }}
+              HELM_REPO_PATH: ${{ inputs.camunda-helm-repo-path }}
+          run: |
+              set -euo pipefail
+
+              CHART_DIR="${HELM_REPO_PATH}/charts/camunda-platform-${CAMUNDA_VERSION}"
+              TEST_SUITE_PATH="${CHART_DIR}/test/e2e"
+
+              if [[ ! -d "$CHART_DIR" ]]; then
+                echo "::error::Chart directory not found: $CHART_DIR"
+                exit 1
+              fi
+
+              if [[ ! -d "$TEST_SUITE_PATH" ]]; then
+                echo "::error::Test suite path not found: $TEST_SUITE_PATH"
+                exit 1
+              fi
+
+              ABSOLUTE_CHART_DIR="$(cd "$CHART_DIR" && pwd)"
+              echo "chart-dir=$ABSOLUTE_CHART_DIR" >> "$GITHUB_OUTPUT"
+              echo "test-suite-path=$(cd "$TEST_SUITE_PATH" && pwd)" >> "$GITHUB_OUTPUT"
+
+              echo "Chart directory: $ABSOLUTE_CHART_DIR"
+              echo "Test suite: $TEST_SUITE_PATH"
+
+        - name: Setup Node.js
+          uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+          with:
+              node-version: '24'
+
+        - name: Install npm dependencies
+          shell: bash
+          working-directory: ${{ steps.chart-path.outputs.test-suite-path }}
+          run: |
+              set -euo pipefail
+
+              echo "::group::npm install"
+              npm install
+              echo "::endgroup::"
+
+        - name: Install Playwright browsers
+          shell: bash
+          working-directory: ${{ steps.chart-path.outputs.test-suite-path }}
+          env:
+              PLAYWRIGHT_BROWSERS_PATH: ${{ steps.chart-path.outputs.test-suite-path }}/.playwright-browsers
+          run: |
+              set -euo pipefail
+
+              echo "::group::Install Chromium"
+              npx playwright install --with-deps chromium
+              echo "::endgroup::"
+
+        - name: Patch Playwright config to ignore HTTPS errors
+          if: ${{ inputs.ignore-tls-errors == 'true' }}
+          shell: bash
+          working-directory: ${{ steps.chart-path.outputs.test-suite-path }}
+          run: |
+              set -euo pipefail
+
+              node - <<'EOF'
+              const fs = require('fs');
+              const path = 'playwright.config.ts';
+              const config = fs.readFileSync(path, 'utf8');
+
+              if (config.includes('ignoreHTTPSErrors: true')) {
+                console.log('playwright.config.ts already ignores HTTPS errors');
+                process.exit(0);
+              }
+
+              const updated = config.replace(
+                /(\n\s*use:\s*\{)/,
+                '$1\n    ignoreHTTPSErrors: true,'
+              );
+
+              if (updated === config) {
+                console.error('Failed to patch playwright.config.ts: could not find use block');
+                process.exit(1);
+              }
+
+              fs.writeFileSync(path, updated);
+              console.log('Patched playwright.config.ts to ignore HTTPS errors');
+              EOF
+
+        - name: Run Playwright E2E tests
+          id: run-tests
+          shell: bash
+          env:
+              PLAYWRIGHT_BROWSERS_PATH: ${{ steps.chart-path.outputs.test-suite-path }}/.playwright-browsers
+              ORCHESTRATION_CONTEXT_PATH: ${{ inputs.orchestration-context-path }}
+              MANAGEMENT_IDENTITY_CONTEXT_PATH: ${{ inputs.management-identity-context-path }}
+              TEST_AUTH_TYPE: ${{ inputs.test-auth-type }}
+              DISTRO_QA_E2E_TESTS_KEYCLOAK_CLIENTS_SECRET: ${{ inputs.test-client-secret }}
+              DISTRO_QA_E2E_TESTS_IDENTITY_FIRSTUSER_USERNAME: ${{ inputs.identity-firstuser-username }}
+              DISTRO_QA_E2E_TESTS_KEYCLOAK_USERNAME: ${{ inputs.keycloak-username }}
+              TEST_INGRESS_HOST: ${{ inputs.ingress-host }}
+              PLAYWRIGHT_JUNIT_OUTPUT_NAME: ${{ steps.chart-path.outputs.test-suite-path }}/test-results/junit.xml
+              CHART_DIR: ${{ steps.chart-path.outputs.chart-dir }}
+              HELM_REPO_PATH: ${{ inputs.camunda-helm-repo-path }}
+              NAMESPACE: ${{ inputs.test-namespace }}
+              TEST_PROJECT: ${{ inputs.test-project }}
+              TEST_EXCLUDE: ${{ inputs.test-exclude }}
+          run: |
+              set -euo pipefail
+
+              # Build script arguments
+              ARGS=(
+                --absolute-chart-path "$CHART_DIR"
+                --namespace "$NAMESPACE"
+                --retries 0
+                --verbose
+              )
+
+              # Add smoke tests flag if requested
+              if [[ "$TEST_PROJECT" == "smoke-tests" ]]; then
+                ARGS+=(--run-smoke-tests)
+              fi
+
+              # Add test exclusions
+              if [[ -n "$TEST_EXCLUDE" ]]; then
+                ARGS+=(--test-exclude "$TEST_EXCLUDE")
+              fi
+
+              echo "Running: ${HELM_REPO_PATH}/scripts/run-e2e-tests.sh ${ARGS[*]}"
+
+              if "${HELM_REPO_PATH}/scripts/run-e2e-tests.sh" "${ARGS[@]}"; then
+                echo "result=success" >> "$GITHUB_OUTPUT"
+                echo "All Playwright tests passed"
+              else
+                echo "result=failure" >> "$GITHUB_OUTPUT"
+                echo "::error::Some Playwright tests failed"
+                exit 1
+              fi
+
+        - name: Generate test summary
+          if: ${{ !cancelled() }}
+          uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2
+          with:
+              paths: ${{ steps.chart-path.outputs.test-suite-path }}/test-results/**/junit.xml
+              show: fail, skip
+          continue-on-error: true
+
+        - name: Upload Playwright report
+          if: ${{ !cancelled() && inputs.upload-artifacts == 'true' }}
+          uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4
+          with:
+              name: playwright-report-${{ inputs.artifact-name-suffix || format('{0}-{1}', github.run_id, github.run_attempt) }}
+              path: |
+                  ${{ steps.chart-path.outputs.test-suite-path }}/playwright-report
+                  ${{ steps.chart-path.outputs.test-suite-path }}/test-results
+              retention-days: ${{ inputs.artifact-retention-days }}
