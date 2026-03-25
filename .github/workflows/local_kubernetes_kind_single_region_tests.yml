@@ -17,6 +17,7 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/internal-helm-deprecation-check/**
+            - .github/actions/camunda-smoke-test/**
             - .tool-versions
             - generic/kubernetes/operator-based/postgresql/**
             - local/kubernetes/kind-single-region/**
@@ -319,6 +320,14 @@ jobs:
                     # Don't print secret to logs
                     echo "LOCAL_CLIENT_SECRET=$LOCAL_CLIENT_SECRET" >> "$GITHUB_OUTPUT"
                   fi
+
+            - name: 🔥 Run Camunda Smoke Test
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 15
+              uses: ./.github/actions/camunda-smoke-test
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
 
             - name: 🧪 Run C8-SM-CHECKS deployment and connectivity tests
               if: env.TESTS_ENABLED == 'true'
