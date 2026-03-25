@@ -43,4 +43,8 @@ create_or_get_secret "pg-keycloak-secret" "keycloak" "KEYCLOAK_BOOT_PASS"
 create_or_get_secret "pg-webmodeler-superuser-secret" "root" "WEBM_SUPER_PASS"
 create_or_get_secret "pg-webmodeler-secret" "webmodeler" "WEBM_BOOT_PASS"
 
+# Operate superuser (username=root) and bootstrap (username=operate)
+create_or_get_secret "pg-operate-superuser-secret" "root" "OPERATE_SUPER_PASS"
+create_or_get_secret "pg-operate-secret" "operate" "OPERATE_BOOT_PASS"
+
 echo "PostgreSQL secrets created successfully!"

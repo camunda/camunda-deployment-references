@@ -1,0 +1,32 @@
+---
+# Camunda Platform 8 Values - RDBMS (PostgreSQL) Secondary Storage Snippet
+# This configuration uses CloudNativePG as the secondary datastore for Operate and Tasklist,
+# replacing Elasticsearch/OpenSearch.
+#
+# Requirements:
+# - CNPG cluster pg-operate must be deployed (see postgresql-clusters.yml)
+# - pg-operate-secret: Contains PostgreSQL user credentials for Operate/Tasklist
+#
+# Note: Optimize is disabled because it does not support RDBMS secondary storage.
+
+# Disable Optimize - not supported with RDBMS secondary storage
+optimize:
+    enabled: false
+
+# Orchestration (Operate + Tasklist) RDBMS secondary storage configuration
+orchestration:
+    data:
+        secondaryStorage:
+            type: rdbms
+            rdbms:
+                host: pg-operate-rw
+                port: 5432
+                database: operate
+                username: '' # username is set by CNPG from the existingSecret (pg-operate-secret)
+                secret:
+                    existingSecret: pg-operate-secret
+                    existingSecretKey: password
+
+# Disable bundled Elasticsearch sub-chart (using RDBMS instead)
+elasticsearch:
+    enabled: false

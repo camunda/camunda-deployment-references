@@ -73,3 +73,27 @@ spec:
                 name: pg-webmodeler-secret
     storage:
         size: 15Gi
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+    name: pg-operate
+spec:
+    instances: 1
+    description: PostgreSQL cluster for Camunda Operate/Tasklist RDBMS secondary storage
+    # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
+    imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+    storage:
+        size: 15Gi
+    superuserSecret:
+        name: pg-operate-superuser-secret
+    # OpenShift Security Context - let SCC manage the security context
+    seccompProfile:
+        type: RuntimeDefault
+    bootstrap:
+        initdb:
+            database: operate
+            owner: operate
+            dataChecksums: true
+            secret:
+                name: pg-operate-secret
