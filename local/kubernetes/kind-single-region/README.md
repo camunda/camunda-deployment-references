@@ -4,16 +4,20 @@ Local Kubernetes development environment for Camunda 8 Self-Managed using Kind.
 
 ## Quick Start
 
-**Domain mode (with TLS):**
+**PG-only (lighter, no Elasticsearch, no Optimize):**
 ```bash
-make domain.init    # Full setup
-make domain.clean   # Full cleanup
+SECONDARY_STORAGE=postgres make domain.init       # Full setup with TLS
+SECONDARY_STORAGE=postgres make no-domain.init    # Full setup with port-forward
+SECONDARY_STORAGE=postgres make domain.clean      # Full cleanup (domain)
+SECONDARY_STORAGE=postgres make no-domain.clean   # Full cleanup (no-domain)
 ```
 
-**No-domain mode (port-forward):**
+**With Elasticsearch (full platform including Optimize):**
 ```bash
-make no-domain.init    # Full setup
-make no-domain.clean   # Full cleanup
+SECONDARY_STORAGE=elasticsearch make domain.init       # Full setup with TLS
+SECONDARY_STORAGE=elasticsearch make no-domain.init    # Full setup with port-forward
+SECONDARY_STORAGE=elasticsearch make domain.clean      # Full cleanup (domain)
+SECONDARY_STORAGE=elasticsearch make no-domain.clean   # Full cleanup (no-domain)
 ```
 
 ## Credentials

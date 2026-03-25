@@ -6,11 +6,37 @@ set -euo pipefail
 # using the shared operator-based configurations from generic/kubernetes/operator-based/
 #
 # Usage:
-#   CAMUNDA_MODE=domain ./operators-deploy.sh   # Domain mode (TLS, uses camunda.example.com)
-#   CAMUNDA_MODE=no-domain ./operators-deploy.sh # No-domain mode (port-forward)
+#   CLUSTER_FILTER="pg-keycloak,pg-identity,pg-webmodeler" SECONDARY_STORAGE=elasticsearch CAMUNDA_MODE=domain ./operators-deploy.sh
+#   SECONDARY_STORAGE=postgres CAMUNDA_MODE=no-domain ./operators-deploy.sh
+#
+# Environment variables:
+#   SECONDARY_STORAGE  - Required: "elasticsearch" or "postgres"
+#   CAMUNDA_MODE       - "domain" (TLS) or "no-domain" (port-forward), default: no-domain
+
+# Validate SECONDARY_STORAGE is set (must be first check)
+if [[ -z "${SECONDARY_STORAGE:-}" ]]; then
+    echo "ERROR: SECONDARY_STORAGE environment variable is required."
+    echo "       Valid values: elasticsearch, postgres"
+    exit 1
+fi
+
+if [[ "$SECONDARY_STORAGE" != "elasticsearch" && "$SECONDARY_STORAGE" != "postgres" ]]; then
+    echo "ERROR: Invalid SECONDARY_STORAGE value: $SECONDARY_STORAGE"
+    echo "       Valid values: elasticsearch, postgres"
+    exit 1
+fi
 
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 CAMUNDA_MODE=${CAMUNDA_MODE:-no-domain}
+
+# Set CLUSTER_FILTER based on SECONDARY_STORAGE
+# When using Elasticsearch, only deploy PG clusters for Keycloak, Identity, and WebModeler
+# When using PostgreSQL (RDBMS mode), deploy all PG clusters including the Camunda database
+if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
+    CLUSTER_FILTER="pg-keycloak,pg-identity,pg-webmodeler"
+else
+    CLUSTER_FILTER=""
+fi
 
 export CAMUNDA_NAMESPACE
 
@@ -18,37 +44,48 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OPERATOR_BASE="$SCRIPT_DIR/../../../../generic/kubernetes/operator-based"
 KIND_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 
-echo "Deploying operators for Kind ($CAMUNDA_MODE mode)..."
+echo "Deploying operators for Kind ($CAMUNDA_MODE mode, secondary storage: $SECONDARY_STORAGE)..."
 
-# 1. Deploy Elasticsearch via ECK operator
+# 1. Deploy Elasticsearch via ECK operator (only when using elasticsearch as secondary storage)
 # Uses Kind-specific elasticsearch config (2 replicas, soft anti-affinity)
 # instead of the generic one (3 replicas, hard anti-affinity)
-echo ""
-echo "=== Deploying Elasticsearch (ECK) ==="
-pushd "$OPERATOR_BASE/elasticsearch" > /dev/null
-ELASTICSEARCH_CLUSTER_FILE="$KIND_CONFIGS_DIR/elasticsearch-cluster.yml" ./deploy.sh
-popd > /dev/null
+if [[ "$SECONDARY_STORAGE" == "postgres" ]]; then
+    echo ""
+    echo "=== Skipping Elasticsearch (ECK) — SECONDARY_STORAGE=postgres ==="
+else
+    echo ""
+    echo "=== Deploying Elasticsearch (ECK) ==="
+    (cd "$OPERATOR_BASE/elasticsearch" && ELASTICSEARCH_CLUSTER_FILE="$KIND_CONFIGS_DIR/elasticsearch-cluster.yml" ./deploy.sh)
+fi
 
 # 2. Deploy PostgreSQL via CloudNativePG operator
 echo ""
 echo "=== Deploying PostgreSQL (CloudNativePG) ==="
-pushd "$OPERATOR_BASE/postgresql" > /dev/null
-NAMESPACE="$CAMUNDA_NAMESPACE" ./deploy.sh
-popd > /dev/null
+(
+    cd "$OPERATOR_BASE/postgresql"
+    CLUSTER_FILTER="$CLUSTER_FILTER" NAMESPACE="$CAMUNDA_NAMESPACE" ./deploy.sh
+
+    # Deploy orchestration PG cluster (only for RDBMS mode)
+    if [[ "$SECONDARY_STORAGE" == "postgres" ]]; then
+        echo "Deploying orchestration PostgreSQL cluster (pg-camunda)..."
+        kubectl apply --server-side -f postgresql-orchestration-cluster.yml -n "$CAMUNDA_NAMESPACE"
+        kubectl wait --for=condition=Ready --timeout=600s cluster pg-camunda -n "$CAMUNDA_NAMESPACE"
+    fi
+)
 
 # 3. Deploy Keycloak via Keycloak operator
 echo ""
 echo "=== Deploying Keycloak ==="
-pushd "$OPERATOR_BASE/keycloak" > /dev/null
+(
+    cd "$OPERATOR_BASE/keycloak"
 
-if [[ "$CAMUNDA_MODE" == "domain" ]]; then
-    export CAMUNDA_DOMAIN="camunda.example.com"
-    KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-nginx.yml" ./deploy.sh
-else
-    KEYCLOAK_CONFIG_FILE="keycloak-instance-no-domain.yml" ./deploy.sh
-fi
-
-popd > /dev/null
+    if [[ "$CAMUNDA_MODE" == "domain" ]]; then
+        export CAMUNDA_DOMAIN="camunda.example.com"
+        KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-nginx.yml" ./deploy.sh
+    else
+        KEYCLOAK_CONFIG_FILE="keycloak-instance-no-domain.yml" ./deploy.sh
+    fi
+)
 
 echo ""
 echo "✓ All operators deployed successfully"

@@ -11,8 +11,20 @@ matrix:
         - name: no-domain
           use_tls: false
           cluster_suffix: nodomain
+          secondary_storage: elasticsearch
           desc: Setup chart without Ingress and TLS, using port-forward.
         - name: domain
           use_tls: true
           cluster_suffix: domain
+          secondary_storage: elasticsearch
           desc: Setup chart with Ingress and TLS using mkcert.
+        - name: pg-only-no-domain
+          use_tls: false
+          cluster_suffix: pgonlynodomain
+          secondary_storage: postgres
+          desc: Setup chart without Ingress and TLS, using RDBMS secondary storage (no ES).
+        - name: pg-only-domain
+          use_tls: true
+          cluster_suffix: pgonlydomain
+          secondary_storage: postgres
+          desc: Setup chart with Ingress and TLS using mkcert, using RDBMS secondary storage (no ES).
