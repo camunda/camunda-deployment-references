@@ -263,7 +263,7 @@ jobs:
               timeout-minutes: 15
               uses: ./.github/actions/camunda-smoke-test
               with:
-                  mode: http-basic
+                  auth-mode: basic
                   zeebe-rest-address: >-
                       http://${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
                   basic-auth-user: demo

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # =============================================================================
-# HTTP Smoke Test for Camunda (ECS Fargate / EC2)
+# HTTP Smoke Test for Camunda
 #
 # Deploys a BPMN process, creates process instances via Zeebe REST API v2,
-# waits for propagation, then verifies instances exist and completed.
+# waits for propagation, then verifies instances completed.
 #
-# Runs directly from the GitHub Actions runner against ALB/NLB endpoints.
+# Supports basic auth, OIDC (client_credentials), and no auth.
+# Works for all deployment types (K8s via port-forward, ECS, EC2).
 # =============================================================================
 set -euo pipefail
 
@@ -17,26 +18,73 @@ FAILURES=0
 
 # ── Configuration from environment ──────────────────────────────────
 ZEEBE_URL="${SMOKE_ZEEBE_REST_URL:?SMOKE_ZEEBE_REST_URL is required}"
-AUTH_MODE="${SMOKE_AUTH_MODE:-http-basic}"
+AUTH_MODE="${SMOKE_AUTH_MODE:-basic}"
 BASIC_USER="${SMOKE_BASIC_USER:-demo}"
 BASIC_PASSWORD="${SMOKE_BASIC_PASSWORD:-demo}"
+TOKEN_URL="${SMOKE_OIDC_TOKEN_URL:-}"
+CLIENT_ID="${SMOKE_OIDC_CLIENT_ID:-}"
+CLIENT_SECRET="${SMOKE_OIDC_CLIENT_SECRET:-}"
 DURATION="${SMOKE_DURATION:-300}"
 PI_PER_SECOND="${SMOKE_PI_PER_SECOND:-5}"
 MIN_EXPECTED="${SMOKE_MIN_EXPECTED:-10}"
 PROPAGATION_WAIT="${SMOKE_PROPAGATION_WAIT:-60}"
 
-PROCESS_ID="smoke-test-http"
+PROCESS_ID="smoke-test"
 
 # Strip trailing slash from URL
 ZEEBE_URL="${ZEEBE_URL%/}"
 
-# ── Build auth arguments ────────────────────────────────────────────
+# ── Auth setup ──────────────────────────────────────────────────────
 AUTH_ARGS=()
-if [[ "$AUTH_MODE" == "http-basic" ]]; then
+LAST_TOKEN_TIME=0
+TOKEN_REFRESH_INTERVAL=240
+
+get_oidc_token() {
+    curl -sf --connect-timeout 10 --max-time 30 \
+        -X POST "$TOKEN_URL" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "grant_type=client_credentials" \
+        -d "client_id=${CLIENT_ID}" \
+        -d "client_secret=${CLIENT_SECRET}" 2>/dev/null \
+        | jq -r '.access_token // empty' 2>/dev/null || echo ""
+}
+
+refresh_auth() {
+    if [[ "$AUTH_MODE" != "oidc" ]]; then return; fi
+    local now
+    now=$(date +%s)
+    if [[ $((now - LAST_TOKEN_TIME)) -lt $TOKEN_REFRESH_INTERVAL ]]; then
+        return
+    fi
+    local token
+    token=$(get_oidc_token)
+    if [[ -n "$token" ]]; then
+        AUTH_ARGS=(-H "Authorization: Bearer ${token}")
+        LAST_TOKEN_TIME=$now
+        log "  OIDC token refreshed"
+    else
+        log "  WARN: Failed to refresh OIDC token"
+    fi
+}
+
+if [[ "$AUTH_MODE" == "basic" ]]; then
     AUTH_ARGS=(-u "${BASIC_USER}:${BASIC_PASSWORD}")
     log "Auth mode: basic (user=${BASIC_USER})"
+elif [[ "$AUTH_MODE" == "oidc" ]]; then
+    if [[ -z "$TOKEN_URL" || -z "$CLIENT_ID" ]]; then
+        fail_test "OIDC requires TOKEN_URL and CLIENT_ID"
+        exit 1
+    fi
+    OIDC_TOKEN=$(get_oidc_token)
+    if [[ -z "$OIDC_TOKEN" ]]; then
+        fail_test "Failed to obtain OIDC token from ${TOKEN_URL}"
+        exit 1
+    fi
+    AUTH_ARGS=(-H "Authorization: Bearer ${OIDC_TOKEN}")
+    LAST_TOKEN_TIME=$(date +%s)
+    log "Auth mode: OIDC (client=${CLIENT_ID})"
 else
-    log "Auth mode: none (http-oidc not yet implemented for HTTP mode)"
+    log "Auth mode: none"
 fi
 
 # ── Helper: curl with auth ──────────────────────────────────────────
@@ -75,28 +123,16 @@ BPMN_FILE=$(mktemp /tmp/smoke-test-XXXXXX.bpmn)
 cat > "$BPMN_FILE" <<'BPMN_EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
                   id="Definitions_1"
                   targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:process id="smoke-test-http" name="Smoke Test HTTP" isExecutable="true">
+  <bpmn:process id="smoke-test" name="Smoke Test" isExecutable="true">
     <bpmn:startEvent id="start" name="Start">
-      <bpmn:outgoing>toTask</bpmn:outgoing>
-    </bpmn:startEvent>
-    <bpmn:serviceTask id="task1" name="Process">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="smoke-http-task"/>
-        <zeebe:taskHeaders>
-          <zeebe:header key="autoComplete" value="true"/>
-        </zeebe:taskHeaders>
-      </bpmn:extensionElements>
-      <bpmn:incoming>toTask</bpmn:incoming>
       <bpmn:outgoing>toEnd</bpmn:outgoing>
-    </bpmn:serviceTask>
+    </bpmn:startEvent>
     <bpmn:endEvent id="end" name="End">
       <bpmn:incoming>toEnd</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="toTask" sourceRef="start" targetRef="task1"/>
-    <bpmn:sequenceFlow id="toEnd" sourceRef="task1" targetRef="end"/>
+    <bpmn:sequenceFlow id="toEnd" sourceRef="start" targetRef="end"/>
   </bpmn:process>
 </bpmn:definitions>
 BPMN_EOF
@@ -131,6 +167,7 @@ START_TIME=$(date +%s)
 END_TIME=$((START_TIME + DURATION))
 BATCH_SIZE=$((PI_PER_SECOND))
 while [[ $(date +%s) -lt $END_TIME ]]; do
+    refresh_auth
     BATCH_START=$(date +%s%3N)
 
     for _ in $(seq 1 "$BATCH_SIZE"); do
@@ -171,6 +208,8 @@ sleep "$PROPAGATION_WAIT"
 log ""
 log "=== Verifying process instances ==="
 
+refresh_auth
+
 FOUND=0
 for attempt in $(seq 1 18); do
     SEARCH_RESP=$(api_call -X POST \
@@ -199,6 +238,8 @@ fi
 log ""
 log "=== Checking for completed instances ==="
 
+refresh_auth
+
 COMPLETED_RESP=$(api_call -X POST \
     "${ZEEBE_URL}/v2/process-instances/search" \
     -H "Content-Type: application/json" \
@@ -211,7 +252,7 @@ COMPLETED=$(echo "$COMPLETED_RESP" | jq -r '.totalItems // 0' 2>/dev/null || ech
 if [[ "$COMPLETED" -gt 0 ]]; then
     pass "${COMPLETED} instances completed end-to-end"
 else
-    log "WARN: No completed instances found (service task workers may not be running — this is expected for ECS/EC2)"
+    fail_test "No completed instances found"
 fi
 
 # ── Cleanup: delete deployed process ────────────────────────────────
