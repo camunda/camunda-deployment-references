@@ -2174,10 +2174,12 @@ EOF
         } >> "$report"
     fi
 
-    if [[ "${ES_TARGET_MODE:-operator}" == "operator" ]]; then
-        echo "- **ECK Operator**: ${ECK_OPERATOR_NAMESPACE:-elastic-system} (cluster: \`${ECK_CLUSTER_NAME:-elasticsearch}\`)" >> "$report"
-    elif [[ -n "${EXTERNAL_ES_HOST:-}" ]]; then
-        echo "- **External ES**: ${EXTERNAL_ES_HOST}:${EXTERNAL_ES_PORT:-443}" >> "$report"
+    if [[ "${MIGRATE_ELASTICSEARCH:-true}" == "true" ]]; then
+        if [[ "${ES_TARGET_MODE:-operator}" == "operator" ]]; then
+            echo "- **ECK Operator**: ${ECK_OPERATOR_NAMESPACE:-elastic-system} (cluster: \`${ECK_CLUSTER_NAME:-elasticsearch}\`)" >> "$report"
+        elif [[ -n "${EXTERNAL_ES_HOST:-}" ]]; then
+            echo "- **External ES**: ${EXTERNAL_ES_HOST}:${EXTERNAL_ES_PORT:-443}" >> "$report"
+        fi
     fi
 
     if [[ "${MIGRATE_KEYCLOAK:-true}" == "true" ]]; then
@@ -2243,20 +2245,41 @@ EOF
         echo ""
     } >> "$report"
 
+    _pg_target() {
+        local comp="$1" cluster_var="$2" ext_host_var="$3" ext_port_var="$4"
+        if [[ "${PG_TARGET_MODE:-operator}" == "external" ]]; then
+            echo "${!ext_host_var:-external}:${!ext_port_var:-5432}"
+        else
+            echo "${!cluster_var:-operator}"
+        fi
+    }
+
     if [[ "${MIGRATE_IDENTITY:-false}" == "true" ]]; then
-        echo "- **Identity PostgreSQL**: \`${IDENTITY_PG_STS:-?}\` → \`${CNPG_IDENTITY_CLUSTER:-operator}\`" >> "$report"
+        local id_target
+        id_target=$(_pg_target identity CNPG_IDENTITY_CLUSTER EXTERNAL_PG_IDENTITY_HOST EXTERNAL_PG_IDENTITY_PORT)
+        echo "- **Identity PostgreSQL**: \`${IDENTITY_PG_STS:-?}\` → \`${id_target}\`" >> "$report"
     fi
     if [[ "${MIGRATE_KEYCLOAK:-false}" == "true" ]]; then
+        local kc_target
+        kc_target=$(_pg_target keycloak CNPG_KEYCLOAK_CLUSTER EXTERNAL_PG_KEYCLOAK_HOST EXTERNAL_PG_KEYCLOAK_PORT)
         {
-            echo "- **Keycloak PostgreSQL**: \`${KEYCLOAK_PG_STS:-?}\` → \`${CNPG_KEYCLOAK_CLUSTER:-operator}\`"
+            echo "- **Keycloak PostgreSQL**: \`${KEYCLOAK_PG_STS:-?}\` → \`${kc_target}\`"
             echo "- **Keycloak**: Bitnami chart → Keycloak Operator CR"
         } >> "$report"
     fi
     if [[ "${MIGRATE_WEBMODELER:-false}" == "true" ]]; then
-        echo "- **WebModeler PostgreSQL**: \`${WEBMODELER_PG_STS:-?}\` → \`${CNPG_WEBMODELER_CLUSTER:-operator}\`" >> "$report"
+        local wm_target
+        wm_target=$(_pg_target webmodeler CNPG_WEBMODELER_CLUSTER EXTERNAL_PG_WEBMODELER_HOST EXTERNAL_PG_WEBMODELER_PORT)
+        echo "- **WebModeler PostgreSQL**: \`${WEBMODELER_PG_STS:-?}\` → \`${wm_target}\`" >> "$report"
     fi
     if [[ "${MIGRATE_ELASTICSEARCH:-false}" == "true" ]]; then
-        echo "- **Elasticsearch**: \`${ES_STS:-?}\` → \`${ECK_CLUSTER_NAME:-eck}\`" >> "$report"
+        local es_target
+        if [[ "${ES_TARGET_MODE:-operator}" == "external" ]]; then
+            es_target="${EXTERNAL_ES_HOST:-external}:${EXTERNAL_ES_PORT:-443}"
+        else
+            es_target="${ECK_CLUSTER_NAME:-eck}"
+        fi
+        echo "- **Elasticsearch**: \`${ES_STS:-?}\` → \`${es_target}\`" >> "$report"
     fi
 
     cat >> "$report" <<EOF
