@@ -2131,34 +2131,132 @@ Generated: ${now}
 | Namespace | ${NAMESPACE} |
 | Release   | ${CAMUNDA_RELEASE_NAME} |
 | Chart     | camunda-platform ${CAMUNDA_HELM_CHART_VERSION} |
-| PG Mode   | ${PG_TARGET_MODE:-operator} |
-| ES Mode   | ${ES_TARGET_MODE:-operator} |
+| Domain    | ${CAMUNDA_DOMAIN:-_(none)_} |
+
+## Configuration
+
+| Option | Value |
+|--------|-------|
+| PostgreSQL target mode | ${PG_TARGET_MODE:-operator} |
+| Elasticsearch target mode | ${ES_TARGET_MODE:-operator} |
+| Warm reindex | ${ES_WARM_REINDEX:-false} |
+| Migrate Identity | ${MIGRATE_IDENTITY:-true} |
+| Migrate Keycloak | ${MIGRATE_KEYCLOAK:-true} |
+| Migrate WebModeler | ${MIGRATE_WEBMODELER:-true} |
+| Migrate Elasticsearch | ${MIGRATE_ELASTICSEARCH:-true} |
+| Backup storage size | ${BACKUP_STORAGE_SIZE:-50Gi} |
+EOF
+
+    if [[ -n "${CUSTOM_HELM_VALUES_FILE:-}" ]]; then
+        echo "| Custom Helm values | \`${CUSTOM_HELM_VALUES_FILE}\` |" >> "$report"
+    fi
+
+    # Operators deployed
+    {
+        echo ""
+        echo "## Infrastructure Deployed"
+        echo ""
+    } >> "$report"
+
+    if [[ "${PG_TARGET_MODE:-operator}" == "operator" ]]; then
+        {
+            echo "- **CNPG Operator**: ${CNPG_OPERATOR_NAMESPACE:-cnpg-system}"
+            echo "  - Identity cluster: \`${CNPG_IDENTITY_CLUSTER:-pg-identity}\`"
+            echo "  - Keycloak cluster: \`${CNPG_KEYCLOAK_CLUSTER:-pg-keycloak}\`"
+            echo "  - WebModeler cluster: \`${CNPG_WEBMODELER_CLUSTER:-pg-webmodeler}\`"
+        } >> "$report"
+    else
+        {
+            [[ -n "${EXTERNAL_PG_IDENTITY_HOST:-}" ]] && echo "- **External PG (Identity)**: ${EXTERNAL_PG_IDENTITY_HOST}:${EXTERNAL_PG_IDENTITY_PORT:-5432}"
+            [[ -n "${EXTERNAL_PG_KEYCLOAK_HOST:-}" ]] && echo "- **External PG (Keycloak)**: ${EXTERNAL_PG_KEYCLOAK_HOST}:${EXTERNAL_PG_KEYCLOAK_PORT:-5432}"
+            [[ -n "${EXTERNAL_PG_WEBMODELER_HOST:-}" ]] && echo "- **External PG (WebModeler)**: ${EXTERNAL_PG_WEBMODELER_HOST}:${EXTERNAL_PG_WEBMODELER_PORT:-5432}"
+            true  # ensure block succeeds even if all conditions are false
+        } >> "$report"
+    fi
+
+    if [[ "${ES_TARGET_MODE:-operator}" == "operator" ]]; then
+        echo "- **ECK Operator**: ${ECK_OPERATOR_NAMESPACE:-elastic-system} (cluster: \`${ECK_CLUSTER_NAME:-elasticsearch}\`)" >> "$report"
+    elif [[ -n "${EXTERNAL_ES_HOST:-}" ]]; then
+        echo "- **External ES**: ${EXTERNAL_ES_HOST}:${EXTERNAL_ES_PORT:-443}" >> "$report"
+    fi
+
+    if [[ "${MIGRATE_KEYCLOAK:-true}" == "true" ]]; then
+        echo "- **Keycloak Operator**" >> "$report"
+    fi
+
+    # Source versions (auto-detected during Phase 2)
+    if [[ -n "${IDENTITY_PG_IMAGE:-}${KEYCLOAK_PG_IMAGE:-}${WEBMODELER_PG_IMAGE:-}${ES_IMAGE:-}" ]]; then
+        {
+            echo ""
+            echo "## Source Versions (auto-detected)"
+            echo ""
+            echo "| Component | Image | Version |"
+            echo "|-----------|-------|---------|"
+        } >> "$report"
+
+        for comp in identity keycloak webmodeler; do
+            local img_var="${comp^^}_PG_IMAGE"
+            local img="${!img_var:-}"
+            if [[ -n "$img" ]]; then
+                local ver
+                ver=$(echo "$img" | grep -oE '[0-9]+\.[0-9]+' | head -1 || echo "—")
+                echo "| ${comp} (PostgreSQL) | \`${img##*/}\` | ${ver} |" >> "$report"
+            fi
+        done
+
+        if [[ -n "${ES_IMAGE:-}" ]]; then
+            local es_ver
+            es_ver=$(echo "$ES_IMAGE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "—")
+            echo "| Elasticsearch | \`${ES_IMAGE##*/}\` | ${es_ver} |" >> "$report"
+        fi
+    fi
+
+    # Phases table
+    cat >> "$report" <<EOF
 
 ## Phases
 
-| Phase | Status | Timestamp |
-|-------|--------|-----------|
-| 1 - Deploy Targets | ${PHASE_1_COMPLETED:-not run} | ${PHASE_1_TIMESTAMP:-—} |
-| 2 - Initial Backup | ${PHASE_2_COMPLETED:-not run} | ${PHASE_2_TIMESTAMP:-—} |
-| 3 - Cutover         | ${PHASE_3_COMPLETED:-not run} | ${PHASE_3_TIMESTAMP:-—} |
-| 4 - Validate        | ${PHASE_4_COMPLETED:-not run} | ${PHASE_4_TIMESTAMP:-—} |
-
-## Components Migrated
+| Phase | Status | Duration | Timestamp |
+|-------|--------|----------|-----------|
+| 1 - Deploy Targets | ${PHASE_1_COMPLETED:-not run} | ${PHASE_1_DURATION:-—} | ${PHASE_1_TIMESTAMP:-—} |
+| 2 - Initial Backup | ${PHASE_2_COMPLETED:-not run} | ${PHASE_2_DURATION:-—} | ${PHASE_2_TIMESTAMP:-—} |
+| 3 - Cutover         | ${PHASE_3_COMPLETED:-not run} | ${PHASE_3_DURATION:-—} | ${PHASE_3_TIMESTAMP:-—} |
+| 4 - Validate        | ${PHASE_4_COMPLETED:-not run} | ${PHASE_4_DURATION:-—} | ${PHASE_4_TIMESTAMP:-—} |
 
 EOF
 
+    # Estimate mode results
+    if [[ -n "${PHASE_3_ESTIMATE_DURATION:-}" ]]; then
+        echo "> **Estimate mode**: cutover estimated at **${PHASE_3_ESTIMATE_DURATION}** (no downtime was incurred)" >> "$report"
+        echo "" >> "$report"
+    fi
+
+    # Downtime window (Phase 3 duration = downtime)
+    if [[ -n "${PHASE_3_DURATION:-}" && "${PHASE_3_COMPLETED:-}" == "true" ]]; then
+        echo "> **Downtime window**: **${PHASE_3_DURATION}** (Phase 3 freeze → cutover complete)" >> "$report"
+        echo "" >> "$report"
+    fi
+
+    # Components migrated
+    {
+        echo "## Components Migrated"
+        echo ""
+    } >> "$report"
+
     if [[ "${MIGRATE_IDENTITY:-false}" == "true" ]]; then
-        echo "- **Identity PostgreSQL**: ${BITNAMI_PG_IDENTITY_STS:-?} → ${CNPG_IDENTITY_CLUSTER:-operator}" >> "$report"
+        echo "- **Identity PostgreSQL**: \`${IDENTITY_PG_STS:-?}\` → \`${CNPG_IDENTITY_CLUSTER:-operator}\`" >> "$report"
     fi
     if [[ "${MIGRATE_KEYCLOAK:-false}" == "true" ]]; then
-        echo "- **Keycloak PostgreSQL**: ${BITNAMI_PG_KEYCLOAK_STS:-?} → ${CNPG_KEYCLOAK_CLUSTER:-operator}" >> "$report"
-        echo "- **Keycloak**: Bitnami chart → Keycloak Operator CR" >> "$report"
+        {
+            echo "- **Keycloak PostgreSQL**: \`${KEYCLOAK_PG_STS:-?}\` → \`${CNPG_KEYCLOAK_CLUSTER:-operator}\`"
+            echo "- **Keycloak**: Bitnami chart → Keycloak Operator CR"
+        } >> "$report"
     fi
     if [[ "${MIGRATE_WEBMODELER:-false}" == "true" ]]; then
-        echo "- **WebModeler PostgreSQL**: ${BITNAMI_PG_WEBMODELER_STS:-?} → ${CNPG_WEBMODELER_CLUSTER:-operator}" >> "$report"
+        echo "- **WebModeler PostgreSQL**: \`${WEBMODELER_PG_STS:-?}\` → \`${CNPG_WEBMODELER_CLUSTER:-operator}\`" >> "$report"
     fi
     if [[ "${MIGRATE_ELASTICSEARCH:-false}" == "true" ]]; then
-        echo "- **Elasticsearch**: ${BITNAMI_ES_STS:-?} → ${ECK_CLUSTER_NAME:-eck}" >> "$report"
+        echo "- **Elasticsearch**: \`${ES_STS:-?}\` → \`${ECK_CLUSTER_NAME:-eck}\`" >> "$report"
     fi
 
     cat >> "$report" <<EOF
@@ -2211,7 +2309,7 @@ EOF
     if [[ -n "$es_restore_log" && -f "$es_restore_log" ]]; then
         has_metrics=true
         {
-            echo "### Elasticsearch"
+            echo "### Elasticsearch Cutover Reindex (Phase 3)"
             echo ""
         } >> "$report"
 
@@ -2225,6 +2323,21 @@ EOF
         fi
         if [[ -n "$es_duration" ]]; then
             echo "- ${es_duration}" >> "$report"
+        fi
+
+        # Cutover reindex state-based metrics (complement log-based metrics)
+        if [[ -n "${ES_CUTOVER_REINDEX_DURATION:-}" ]]; then
+            echo "- Cutover reindex duration: ${ES_CUTOVER_REINDEX_DURATION}" >> "$report"
+        fi
+        if [[ -n "${ES_CUTOVER_REINDEX_CREATED:-}" ]]; then
+            echo "- Created: ${ES_CUTOVER_REINDEX_CREATED} | Skipped: ${ES_CUTOVER_REINDEX_SKIPPED:-0} | Total: ${ES_CUTOVER_REINDEX_TOTAL:-—}" >> "$report"
+        fi
+
+        # Reindex mode indicator
+        if [[ "${ES_WARM_REINDEX_DONE:-}" == "true" ]]; then
+            echo "- Mode: **delta** (warm reindex pre-migrated data in Phase 2)" >> "$report"
+        else
+            echo "- Mode: **full** (no warm reindex)" >> "$report"
         fi
         echo "" >> "$report"
     fi
@@ -2246,9 +2359,44 @@ EOF
         fi
     fi
 
+    # Warm reindex metrics (Phase 2 pre-migration)
+    if [[ -n "${ES_WARM_REINDEX_DURATION:-}" ]]; then
+        has_metrics=true
+        {
+            echo "### Warm Reindex (Phase 2)"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Duration | ${ES_WARM_REINDEX_DURATION} |"
+            [[ -n "${ES_WARM_REINDEX_DOCS:-}" ]] && echo "| Docs pre-migrated | ${ES_WARM_REINDEX_DOCS} |"
+            [[ -n "${ES_WARM_REINDEX_CREATED:-}" ]] && echo "| Created | ${ES_WARM_REINDEX_CREATED} |"
+            [[ -n "${ES_WARM_REINDEX_SKIPPED:-}" ]] && echo "| Skipped (up-to-date) | ${ES_WARM_REINDEX_SKIPPED} |"
+            [[ -n "${ES_WARM_REINDEX_TOTAL:-}" ]] && echo "| Total docs | ${ES_WARM_REINDEX_TOTAL} |"
+            echo ""
+        } >> "$report"
+    fi
+
     if [[ "$has_metrics" == "false" ]]; then
         echo "_No data metrics available (jobs not yet run or logs not captured)._" >> "$report"
         echo "" >> "$report"
+    fi
+
+    # Warnings — extract from log file
+    if [[ -n "${LOG_FILE:-}" && -f "${LOG_FILE}" ]]; then
+        local warnings
+        warnings=$(grep '] WARN ' "${LOG_FILE}" 2>/dev/null | sed 's/.*] WARN  *//' | sort -u || true)
+        if [[ -n "$warnings" ]]; then
+            {
+                echo ""
+                echo "## Warnings"
+                echo ""
+                echo "The following warnings were logged during migration:"
+                echo ""
+                echo '```'
+                echo "$warnings"
+                echo '```'
+            } >> "$report"
+        fi
     fi
 
     cat >> "$report" <<EOF

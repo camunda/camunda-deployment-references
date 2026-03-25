@@ -243,6 +243,13 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 section "Validation Summary ($(timer_elapsed))"
 
+save_state "PHASE_4_DURATION" "$(timer_elapsed)"
+
+# Mark phase 4 status before generating the report so the report reflects it.
+if [[ $ERRORS -eq 0 ]]; then
+    complete_phase 4
+fi
+
 # Generate migration report regardless of errors.
 generate_report
 
@@ -268,11 +275,9 @@ fi
 
 run_hooks "post-phase-4"
 
-# Only mark phase 4 complete if all checks passed — phase 5 is destructive
+# Only allow phase 5 if all checks passed — phase 5 is destructive
 # and must not run after a failed validation.
 if [[ $ERRORS -gt 0 ]]; then
     log_error "${ERRORS} validation check(s) failed — phase 4 NOT marked complete."
     exit 1
 fi
-
-complete_phase 4
