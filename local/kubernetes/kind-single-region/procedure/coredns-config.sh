@@ -6,7 +6,7 @@ set -euo pipefail
 
 echo "Applying CoreDNS configuration for domain resolution..."
 
-kubectl apply -f configs/coredns-configmap.yaml
+kubectl apply -f configs/coredns-configmap-contour.yaml
 
 echo "Restarting CoreDNS..."
 kubectl delete pod -n kube-system -l k8s-app=kube-dns
