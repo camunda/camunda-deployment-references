@@ -23,7 +23,7 @@ echo "Starting port-forwards (Ctrl+C to stop)..."
 echo ""
 echo "Services available at:"
 echo "  - Zeebe gRPC API:    localhost:26500"
-echo "  - Zeebe REST API:    localhost:8080   (Operate, Tasklist, Identity)"
+echo "  - Zeebe REST API:    localhost:8080   (Operate, Tasklist, Admin)"
 if kubectl get svc camunda-optimize -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
 echo "  - Optimize:          localhost:8083"
 fi
