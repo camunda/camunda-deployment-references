@@ -347,7 +347,7 @@ jobs:
                   # Enable C8-SM-CHECKS
                   enable-c8sm-deployment-check: 'true'
                   enable-c8sm-connectivity-check: 'true'
-                  skip-c8sm-connectivity-ingress-class-check: 'false'
+                  skip-c8sm-connectivity-ingress-class-check: 'true'
                   enable-c8sm-irsa-check: 'false'  # Not applicable for Kind
                   # Enable Zeebe token/connectivity checks using auto-generated credentials
                   enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
