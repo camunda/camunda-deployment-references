@@ -1,0 +1,1 @@
+../../../../aks-single-region/test/fixtures/golden/README.md

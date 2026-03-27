@@ -1,0 +1,1 @@
+../aks-single-region/network.tf

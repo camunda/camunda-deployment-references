@@ -1,0 +1,1 @@
+../../../../aks-single-region/test/fixtures/golden/fixture_config_override.tf

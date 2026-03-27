@@ -1,0 +1,1 @@
+../../../aks-single-region/test/golden/golden.tfvars

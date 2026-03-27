@@ -15,9 +15,11 @@ on:
             - .tool-versions
             - generic/kubernetes/single-region/**
             - azure/kubernetes/aks-single-region/**
+            - azure/kubernetes/aks-single-region-rdbms/**
             - azure/modules/**
             - generic/kubernetes/single-region/procedure/**
             - '!azure/kubernetes/aks-single-region/test/golden/**'
+            - '!azure/kubernetes/aks-single-region-rdbms/test/golden/**'
             - .github/actions/azure-kubernetes-aks-single-region-create/**
             - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
             - .github/actions/azure-kubernetes-ingress-setup/**
@@ -508,11 +510,15 @@ jobs:
                   yq ". *+ load(\"azure/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml\")" values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
-                  # Merge ECK Elasticsearch operator overlay
-                  echo "Merging ECK Elasticsearch config"
-                  OPERATOR_ES_PATH="generic/kubernetes/operator-based/elasticsearch"
-                  yq ". *+ load(\"${OPERATOR_ES_PATH}/camunda-elastic-values.yml\")" values.yml > values-merged.yml
-                  cat values-merged.yml && mv values-merged.yml values.yml
+                  # Merge ECK Elasticsearch operator overlay (only for Elasticsearch scenarios)
+                  if [[ "${{ matrix.scenario.secondary_storage }}" != "rdbms" ]]; then
+                    echo "Merging ECK Elasticsearch config"
+                    OPERATOR_ES_PATH="generic/kubernetes/operator-based/elasticsearch"
+                    yq ". *+ load(\"${OPERATOR_ES_PATH}/camunda-elastic-values.yml\")" values.yml > values-merged.yml
+                    cat values-merged.yml && mv values-merged.yml values.yml
+                  else
+                    echo "Skipping ECK Elasticsearch config (RDBMS mode)"
+                  fi
 
                   # Merge auth provider specific overlays (keycloak-operator or OIDC)
                   AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
@@ -622,6 +628,7 @@ jobs:
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
 
             - name: Deploy Elasticsearch via ECK Operator
+              if: ${{ matrix.scenario.secondary_storage != 'rdbms' }}
               timeout-minutes: 10
               uses: ./.github/actions/kubernetes-eck-operator
               with:
@@ -729,7 +736,7 @@ jobs:
                   camunda-domain-grpc: ${{ env.CAMUNDA_DOMAIN_GRPC }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
-                  elasticsearch-enabled: 'true'
+                  elasticsearch-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
@@ -738,7 +745,7 @@ jobs:
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                   keycloak-service-name: ${{ matrix.scenario.auth_provider == 'keycloak-operator' && 'keycloak-service:18080' || '' }}
-                  elasticsearch-service-name: elasticsearch-es-http:9200
+                  elasticsearch-service-name: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'elasticsearch-es-http:9200' || '' }}
 
             - name: 🔬🚨 Get failed certificate info
               if: failure() && matrix.declination.name == 'domain'
@@ -756,7 +763,7 @@ jobs:
                   artifact-suffix: ${{ matrix.scenario.name }}-${{ matrix.declination.name }}
 
             - name: 🧹 Cleanup ECK Elasticsearch deployment
-              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.secondary_storage != 'rdbms'
               uses: ./.github/actions/kubernetes-eck-operator-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
@@ -768,7 +775,7 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
 
             - name: 🧹 Uninstall ECK Operator
-              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.secondary_storage != 'rdbms'
               uses: ./.github/actions/kubernetes-eck-operator-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}

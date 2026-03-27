@@ -1,0 +1,106 @@
+---
+# Azure AKS No-Domain Configuration for Camunda Platform (RDBMS variant)
+#
+# This is the base values file for Camunda components using RDBMS (PostgreSQL)
+# as the secondary storage instead of Elasticsearch.
+#
+# Auth provider configs are applied via overlays:
+# - Keycloak Operator: generic/kubernetes/operator-based/keycloak/camunda-keycloak-no-domain-values.yml
+# - OIDC: generic/kubernetes/single-region/helm-values/values-oidc.yml + values-oidc-no-domain.yml
+#
+# Differences from Elasticsearch variant:
+# - Elasticsearch is disabled
+# - Optimize is disabled (requires Elasticsearch)
+# - Orchestration uses RDBMS secondary storage with Azure Flexible Server PostgreSQL
+#
+
+global:
+    security:
+        authentication:
+            method: oidc
+
+    identity:
+        auth:
+            enabled: true
+
+identity:
+    enabled: true
+    contextPath: /managementidentity
+    fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
+
+    firstUser:
+        enabled: true
+        username: admin
+        email: admin@camunda.local
+        firstName: Admin
+        lastName: User
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: identity-first-user-password
+
+    externalDatabase:
+        enabled: true
+        host: ${DB_HOST}
+        port: ${DB_PORT}
+        username: ${DB_IDENTITY_USERNAME}
+        database: ${DB_IDENTITY_NAME}
+        secret:
+            existingSecret: identity-postgres-secret
+            existingSecretKey: password
+
+# Optimize requires Elasticsearch and is not available in RDBMS mode
+optimize:
+    enabled: false
+
+# RDBMS secondary storage configuration
+orchestration:
+    exporters:
+        camunda:
+            enabled: false
+        rdbms:
+            enabled: true
+
+    data:
+        secondaryStorage:
+            type: rdbms
+            rdbms:
+                url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_ORCHESTRATION_NAME}?sslmode=require
+                username: ${DB_ORCHESTRATION_USERNAME}
+                secret:
+                    existingSecret: orchestration-postgres-secret
+                    existingSecretKey: password
+
+    security:
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
+
+webModeler:
+    enabled: false # by default, webModeler is not enabled
+
+    restapi:
+        externalDatabase:
+            enabled: true
+            url: jdbc:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?sslmode=require
+            user: ${DB_WEBMODELER_USERNAME}
+            secret:
+                existingSecret: webmodeler-postgres-secret
+                existingSecretKey: password
+
+        mail:
+            secret:
+                existingSecret: webmodeler-secret
+                existingSecretKey: smtp-password
+            fromAddress: changeme@example.com
+
+webModelerPostgresql:
+    enabled: false
+
+# Disable Elasticsearch (not needed in RDBMS mode)
+elasticsearch:
+    enabled: false
+
+console:
+    enabled: false # by default, console is not enabled

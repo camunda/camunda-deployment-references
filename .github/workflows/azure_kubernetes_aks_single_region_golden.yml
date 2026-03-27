@@ -12,6 +12,7 @@ on:
             - azure/modules/network/**
             - azure/modules/postgres-db/**
             - azure/kubernetes/aks-single-region/**
+            - azure/kubernetes/aks-single-region-rdbms/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
