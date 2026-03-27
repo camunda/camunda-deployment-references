@@ -95,6 +95,8 @@ runs:
         - name: Delete Resources
           id: delete_resources
           shell: bash
+          env:
+              DISABLE_TELEMETRY: true # Disable telemetry for cloud-nuke
           run: |
               set -euo pipefail
 
