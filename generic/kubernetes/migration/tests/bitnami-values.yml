@@ -64,7 +64,7 @@ elasticsearch:
         registry: registry.camunda.cloud
         repository: vendor-ee/elasticsearch
         # renovate: datasource=docker depName=registry.camunda.cloud/vendor-ee/elasticsearch
-        tag: 8.19.12
+        tag: 8.19.13
         pullSecrets:
             - name: registry-camunda-cloud
     master:
@@ -86,7 +86,7 @@ identityPostgresql:
         registry: registry.camunda.cloud
         repository: vendor-ee/postgresql
         # renovate: datasource=docker depName=registry.camunda.cloud/vendor-ee/postgresql
-        tag: 15.15.0-debian-12-r2
+        tag: 15.17.0
         pullSecrets:
             - name: registry-camunda-cloud
     auth:
@@ -104,7 +104,7 @@ identityKeycloak:
         registry: registry.camunda.cloud
         repository: keycloak-ee/keycloak
         # renovate: datasource=docker depName=registry.camunda.cloud/keycloak-ee/keycloak
-        tag: 26.3.2
+        tag: 26.5.6
         pullSecrets:
             - name: registry-camunda-cloud
     postgresql:
@@ -113,7 +113,7 @@ identityKeycloak:
             registry: registry.camunda.cloud
             repository: vendor-ee/postgresql
             # renovate: datasource=docker depName=registry.camunda.cloud/vendor-ee/postgresql
-            tag: 15.15.0-debian-12-r2
+            tag: 15.17.0
             pullSecrets:
                 - name: registry-camunda-cloud
         auth:
@@ -145,7 +145,7 @@ webModelerPostgresql:
         registry: registry.camunda.cloud
         repository: vendor-ee/postgresql
         # renovate: datasource=docker depName=registry.camunda.cloud/vendor-ee/postgresql
-        tag: 15.15.0-debian-12-r2
+        tag: 15.17.0
         pullSecrets:
             - name: registry-camunda-cloud
     auth:

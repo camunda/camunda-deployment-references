@@ -17,7 +17,7 @@ inputs:
     engine-version:
         description: Version of the OpenSearch engine to deploy
         # renovate: datasource=custom.opensearch-camunda depName=opensearch versioning=loose
-        default: '2.19'
+        default: '3.5'
 
     vpc-id:
         description: VPC ID to create the domain in
@@ -113,7 +113,7 @@ runs:
     steps:
         - name: Use Utility Actions
           id: utility
-          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@8e750d9c3c0d1d255222794600a4681e44f0874d # main
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@b89d7bf1d556db17d74ebce88eeeca4416dedba4 # main
           with:
               awscli-version: ${{ inputs.awscli-version }}
               terraform-version: ${{ inputs.tf-terraform-version }}
