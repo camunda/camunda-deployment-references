@@ -253,22 +253,9 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  # Source the shell script that exports your DB-related variables
-                  # shellcheck disable=SC2086
-                  source ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
+                  source ${{ github.workspace }}/.github/scripts/gha-functions.sh
 
-                  {
-                    echo "DB_HOST=$DB_HOST"
-                    echo "DB_PORT=$DB_PORT"
-                    echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME"
-                    echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD"
-                    echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME"
-                    echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME"
-                    echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD"
-                    echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME"
-                    echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME"
-                    echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
-                  } > "${{ runner.temp }}/outputs_raw"
+                  export_new_env_vars_to_file ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
 
             - name: Export other secrets from the action
               id: encrypt_outputs
@@ -302,7 +289,7 @@ jobs:
                   matrix-step-name: prepare-clusters
 
     integration-tests:
-        name: Run integration tests
+        name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
         runs-on: ubuntu-latest
         concurrency:
             # instead of running sequentially in a matrix, we use concurrency to run the different scenarios
@@ -655,8 +642,6 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-
-                  source generic/kubernetes/single-region/procedure/chart-env.sh
 
                   AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
 
