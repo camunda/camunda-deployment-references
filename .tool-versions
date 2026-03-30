@@ -17,7 +17,7 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.11
 
-awscli 2.34.18
+awscli 2.34.19
 
 delta 0.18.2
 
@@ -34,7 +34,7 @@ helm 3.20.1
 
 jq 1.7.1
 
-just 1.48.0
+just 1.48.1
 
 # renovate: datasource=github-tags depName=kubernetes-sigs/kind
 kind 0.31.0
