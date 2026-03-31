@@ -573,12 +573,14 @@ jobs:
 
                   # Add integration tests specific values
                   if [ "$TESTS_ENABLED" == "true" ]; then
-                  if [[ "${{ matrix.scenario.secondary_storage }}" == "rdbms" ]]; then
-                    yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/identity-rdbms.yml\")" values.yml > values-result.yml
-                  else
                     yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/identity.yml\")" values.yml > values-result.yml
-                  fi
-                  cat values-result.yml && mv values-result.yml values.yml
+                    cat values-result.yml && mv values-result.yml values.yml
+
+                    # Remove optimize-api permissions when Optimize is disabled (e.g. RDBMS variant)
+                    if [[ "${{ matrix.scenario.secondary_storage }}" == "rdbms" ]]; then
+                      yq 'del(.identity.clients[].permissions[] | select(.resourceServerId == "optimize-api"))' values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
+                    fi
                   fi
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
