@@ -13,7 +13,7 @@ Supports conditional deployment of Aurora PostgreSQL and OpenSearch.
 | --- | --- | --- | --- |
 | `cluster-name` | <p>Name of the EKS cluster to deploy</p> | `true` | `""` |
 | `aws-region` | <p>AWS region where the EKS cluster will be deployed</p> | `true` | `""` |
-| `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.32` |
+| `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.35` |
 | `single-nat-gateway` | <p>Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.</p> | `false` | `true` |
 | `tags` | <p>Tags to apply to the cluster and related resources, in JSON format</p> | `false` | `{}` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
@@ -65,7 +65,7 @@ This action is a `composite` action.
     # Version of Kubernetes to install
     #
     # Required: false
-    # Default: 1.32
+    # Default: 1.35
 
     single-nat-gateway:
     # Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.
