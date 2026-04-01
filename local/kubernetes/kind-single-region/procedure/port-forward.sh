@@ -27,9 +27,6 @@ echo "  - Zeebe REST API:    localhost:8080   (Operate, Tasklist, Admin)"
 if kubectl get svc camunda-optimize -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
 echo "  - Optimize:          localhost:8083"
 fi
-if kubectl get svc camunda-web-modeler-webapp -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
-echo "  - Web Modeler:       localhost:8070"
-fi
 echo "  - Connectors:        localhost:8088"
 echo "  - Console:           localhost:8087"
 echo "  - Identity:          localhost:8085"
@@ -42,9 +39,6 @@ kubectl port-forward svc/camunda-zeebe-gateway 26500:26500 -n "$CAMUNDA_NAMESPAC
 kubectl port-forward svc/camunda-zeebe-gateway 8080:8080 -n "$CAMUNDA_NAMESPACE" &
 if kubectl get svc camunda-optimize -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
     kubectl port-forward svc/camunda-optimize 8083:80 -n "$CAMUNDA_NAMESPACE" &
-fi
-if kubectl get svc camunda-web-modeler-webapp -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
-    kubectl port-forward svc/camunda-web-modeler-webapp 8070:80 -n "$CAMUNDA_NAMESPACE" &
 fi
 kubectl port-forward svc/camunda-connectors 8088:8080 -n "$CAMUNDA_NAMESPACE" &
 kubectl port-forward svc/camunda-console 8087:80 -n "$CAMUNDA_NAMESPACE" &
