@@ -15,6 +15,11 @@ terraform {
       version = "~> 1.6"
       source  = "terraform-redhat/rhcs"
     }
+
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 
   backend "s3" {

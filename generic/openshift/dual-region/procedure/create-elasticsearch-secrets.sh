@@ -13,8 +13,6 @@ set -euo pipefail
 #   CAMUNDA_NAMESPACE_0      - namespace for region 0
 #   CAMUNDA_NAMESPACE_1      - namespace for region 1
 
-set -euo pipefail
-
 create_secret() {
     local context=$1
     local namespace=$2

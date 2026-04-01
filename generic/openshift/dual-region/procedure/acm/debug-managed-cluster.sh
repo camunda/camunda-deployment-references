@@ -4,8 +4,6 @@ set -euo pipefail
 # Debug script for troubleshooting ManagedCluster issues
 # Usage: ./debug-managed-cluster.sh <cluster-name>
 
-set -euo pipefail
-
 CLUSTER_NAME="${1:-}"
 
 if [ -z "$CLUSTER_NAME" ]; then

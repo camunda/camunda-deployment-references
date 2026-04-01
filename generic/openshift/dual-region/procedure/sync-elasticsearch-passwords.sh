@@ -23,8 +23,6 @@ set -euo pipefail
 #   CAMUNDA_NAMESPACE_0 - namespace for region 0
 #   CAMUNDA_NAMESPACE_1 - namespace for region 1
 
-set -euo pipefail
-
 echo "Reading Elasticsearch passwords from both regions..."
 
 PASS_0=$(oc --context "$CLUSTER_0" -n "$CAMUNDA_NAMESPACE_0" get secret elasticsearch-es-elastic-user \

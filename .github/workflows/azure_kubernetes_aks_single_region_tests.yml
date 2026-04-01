@@ -418,10 +418,8 @@ jobs:
                   "${GITHUB_WORKSPACE}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh"
 
                   # Reset PostgreSQL
-                  # shellcheck disable=SC2016
-                  envsubst '$POSTGRES_VERSION' \
-                    < ./azure/kubernetes/${{ matrix.scenario.name }}/manifests/reset-postgres.yml \
-                    | kubectl apply --namespace "$CAMUNDA_NAMESPACE" -f -
+                  kubectl apply --namespace "$CAMUNDA_NAMESPACE" \
+                    -f ./azure/kubernetes/${{ matrix.scenario.name }}/manifests/reset-postgres.yml
 
                   # Wait for the job to complete
                   while true; do
@@ -595,10 +593,8 @@ jobs:
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/check-env-variables.sh
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
 
-                  # shellcheck disable=SC2016
-                  envsubst '$POSTGRES_VERSION' \
-                    < ./azure/kubernetes/${{ matrix.scenario.name }}/manifests/setup-postgres-create-db.yml \
-                    | kubectl apply --namespace "$CAMUNDA_NAMESPACE" -f -
+                  kubectl apply --namespace "$CAMUNDA_NAMESPACE" \
+                    -f ./azure/kubernetes/${{ matrix.scenario.name }}/manifests/setup-postgres-create-db.yml
 
                   # Wait for the job to complete
                   while true; do
