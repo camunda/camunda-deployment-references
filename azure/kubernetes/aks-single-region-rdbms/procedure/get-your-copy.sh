@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Download a copy of the reference architecture (RDBMS variant)
 # TODO: [release-duty] before the release, update this!

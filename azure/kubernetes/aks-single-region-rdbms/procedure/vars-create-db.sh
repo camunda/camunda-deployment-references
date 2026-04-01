@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Retrieve all outputs as JSON
 outputs_json=$(terraform output -json)

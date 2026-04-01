@@ -894,8 +894,7 @@
           },
           "type": "azurerm_postgresql_flexible_server",
           "values": {
-            "administrator_login": "secret_user",
-            "administrator_password": "secretvalue%23",
+            "administrator_login": "pgadmin",
             "administrator_password_wo": null,
             "administrator_password_wo_version": null,
             "auto_grow_enabled": false,
@@ -985,6 +984,81 @@
             "timeouts": null
           }
         }
+      }
+    },
+    "random_password.db_admin": {
+      "mode": "managed",
+      "name": "db_admin",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.identity_db": {
+      "mode": "managed",
+      "name": "identity_db",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.webmodeler_db": {
+      "mode": "managed",
+      "name": "webmodeler_db",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
       }
     }
   }

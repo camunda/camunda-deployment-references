@@ -1,7 +1,7 @@
 # DB locals
 locals {
-  db_admin_username = "secret_user"    # Replace with your Aurora username
-  db_admin_password = "secretvalue%23" # Replace with your Aurora password, password must contain at least one letter, one number, and one special character.
+  db_admin_username = "c8admin" # Azure Database for PostgreSQL Flexible Server admin username
+  db_admin_password = random_password.db_admin.result
 
   camunda_database_identity   = "camunda_identity"   # Name of your camunda database for Identity
   camunda_database_webmodeler = "camunda_webmodeler" # Name of your camunda database for WebModeler
@@ -10,15 +10,41 @@ locals {
   camunda_database_orchestration = "camunda_orchestration" # Name of your camunda database for orchestration secondary storage
 
   # Connection configuration
-  camunda_identity_db_username   = "identity_db"   # This is the username that will be used for connection to the DB on Identity db
-  camunda_webmodeler_db_username = "webmodeler_db" # This is the username that will be used for connection to the DB on WebModeler db
+  camunda_identity_db_username   = "identity_db"   # Username for connection to the Identity DB
+  camunda_webmodeler_db_username = "webmodeler_db" # Username for connection to the WebModeler DB
 
   # RDBMS secondary storage: dedicated user for orchestration DB
-  camunda_orchestration_db_username = "orchestration_db" # This is the username that will be used for connection to the DB on orchestration db
+  camunda_orchestration_db_username = "orchestration_db" # Username for connection to the orchestration DB
 
-  camunda_identity_db_password      = "secretvalue%25" # Replace with a password that will be used for connection to the DB on Identity db
-  camunda_webmodeler_db_password    = "secretvalue%26" # Replace with a password that will be used for connection to the DB on WebModeler db
-  camunda_orchestration_db_password = "secretvalue%27" # Replace with a password that will be used for connection to the DB on orchestration db
+  camunda_identity_db_password      = random_password.identity_db.result
+  camunda_webmodeler_db_password    = random_password.webmodeler_db.result
+  camunda_orchestration_db_password = random_password.orchestration_db.result
+}
+
+# Generate random passwords for database credentials
+# To retrieve passwords after apply: terraform output -json | jq '.postgres_admin_password.value, .camunda_identity_db_password.value, .camunda_webmodeler_db_password.value, .camunda_orchestration_db_password.value'
+resource "random_password" "db_admin" {
+  length           = 24
+  special          = true
+  override_special = "!#%&*()-_=+[]{}:?"
+}
+
+resource "random_password" "identity_db" {
+  length           = 24
+  special          = true
+  override_special = "!#%&*()-_=+[]{}:?"
+}
+
+resource "random_password" "webmodeler_db" {
+  length           = 24
+  special          = true
+  override_special = "!#%&*()-_=+[]{}:?"
+}
+
+resource "random_password" "orchestration_db" {
+  length           = 24
+  special          = true
+  override_special = "!#%&*()-_=+[]{}:?"
 }
 
 # PostgreSQL database

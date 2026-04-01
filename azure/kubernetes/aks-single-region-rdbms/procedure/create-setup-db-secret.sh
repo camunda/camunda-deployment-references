@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Create the secret with database credentials for Camunda 8 components (RDBMS variant)
 # Includes orchestration DB credentials for RDBMS secondary storage

@@ -7,10 +7,14 @@
 required_vars=("DB_HOST" "DB_IDENTITY_NAME" "DB_IDENTITY_USERNAME" "DB_IDENTITY_PASSWORD" "DB_WEBMODELER_NAME" "DB_WEBMODELER_USERNAME" "DB_WEBMODELER_PASSWORD" "OPENSEARCH_HOST")
 
 # Loop through each variable and check if it is set and not empty
+missing_var=0
 for var in "${required_vars[@]}"; do
   if [[ -z "${!var}" ]]; then
     echo "Error: $var is not set or is empty"
+    missing_var=1
   else
-    echo "$var is set to '${!var}'"
+    echo "$var is set"
   fi
 done
+
+exit $missing_var
