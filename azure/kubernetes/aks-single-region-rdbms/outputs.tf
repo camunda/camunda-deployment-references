@@ -59,3 +59,8 @@ output "camunda_orchestration_db_password" {
   value     = local.camunda_orchestration_db_password
   sensitive = true
 }
+
+output "postgres_version" {
+  description = "PostgreSQL major version"
+  value       = var.postgres_version
+}
