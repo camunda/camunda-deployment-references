@@ -894,7 +894,7 @@
           },
           "type": "azurerm_postgresql_flexible_server",
           "values": {
-            "administrator_login": "pgadmin",
+            "administrator_login": "c8admin",
             "administrator_password_wo": null,
             "administrator_password_wo_version": null,
             "auto_grow_enabled": false,

@@ -49,10 +49,9 @@ export_new_env_vars_to_file() {
   env | sort > /tmp/env_before
 
   # Source the script to load environment variables
-  set -a
+  # (scripts use explicit 'export' — no set -a needed)
   # shellcheck source=/dev/null
   source "$script_path"
-  set +a
 
   # Save environment after sourcing
   env | sort > /tmp/env_after
