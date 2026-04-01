@@ -41,7 +41,7 @@ kubectl port-forward svc/camunda-zeebe-gateway 8080:8080 -n "$CAMUNDA_NAMESPACE"
 if kubectl get svc camunda-optimize -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
     kubectl port-forward svc/camunda-optimize 8083:80 -n "$CAMUNDA_NAMESPACE" &
 fi
-kubectl port-forward svc/camunda-web-modeler-restapi 8070:8091 -n "$CAMUNDA_NAMESPACE" &
+kubectl port-forward svc/camunda-web-modeler-restapi 8070:80 -n "$CAMUNDA_NAMESPACE" &
 kubectl port-forward svc/camunda-connectors 8088:8080 -n "$CAMUNDA_NAMESPACE" &
 kubectl port-forward svc/camunda-console 8087:80 -n "$CAMUNDA_NAMESPACE" &
 kubectl port-forward svc/camunda-identity 8085:80 -n "$CAMUNDA_NAMESPACE" &
