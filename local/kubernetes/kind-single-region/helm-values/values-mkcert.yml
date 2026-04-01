@@ -50,19 +50,6 @@ webModeler:
         env:
             - name: JAVA_TOOL_OPTIONS
               value: -Djavax.net.ssl.trustStore=/opt/java-truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit
-    # webapp is Node.js-based
-    webapp:
-        extraVolumes:
-            - name: mkcert-ca
-              configMap:
-                  name: mkcert-ca
-        extraVolumeMounts:
-            - name: mkcert-ca
-              mountPath: /mkcert-ca
-              readOnly: true
-        env:
-            - name: NODE_EXTRA_CA_CERTS
-              value: /mkcert-ca/ca.crt
     # websockets is Node.js-based
     websockets:
         extraVolumes:

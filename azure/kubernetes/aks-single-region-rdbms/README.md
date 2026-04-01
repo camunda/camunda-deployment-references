@@ -45,6 +45,10 @@ Refer to the [AKS single-region documentation](../aks-single-region/README.md) f
 | Name | Type |
 |------|------|
 | [azurerm_resource_group.app_rg](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
+| [random_password.db_admin](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_password.identity_db](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_password.orchestration_db](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_password.webmodeler_db](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 ## Inputs
 
 | Name | Description | Type | Default | Required |
@@ -96,5 +100,6 @@ Refer to the [AKS single-region documentation](../aks-single-region/README.md) f
 | <a name="output_postgres_admin_password"></a> [postgres\_admin\_password](#output\_postgres\_admin\_password) | PostgreSQL admin password |
 | <a name="output_postgres_admin_username"></a> [postgres\_admin\_username](#output\_postgres\_admin\_username) | PostgreSQL admin user |
 | <a name="output_postgres_fqdn"></a> [postgres\_fqdn](#output\_postgres\_fqdn) | The fully qualified domain name of the PostgreSQL Flexible Server |
+| <a name="output_postgres_version"></a> [postgres\_version](#output\_postgres\_version) | PostgreSQL major version |
 | <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name) | Name of the resource group |
 <!-- END_TF_DOCS -->

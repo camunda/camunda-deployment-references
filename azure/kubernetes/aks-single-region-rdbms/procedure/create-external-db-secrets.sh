@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Create secrets to reference external Postgres for each component of Camunda 8 (RDBMS variant)
 # Includes orchestration DB secret for RDBMS secondary storage

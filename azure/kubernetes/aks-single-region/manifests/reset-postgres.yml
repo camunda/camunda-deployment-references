@@ -12,16 +12,14 @@ spec:
             restartPolicy: Never
             containers:
                 - name: reset-azure-postgres
-                  image: amazonlinux:latest
+                  image: alpine/psql:${POSTGRES_VERSION}
                   command:
                       - sh
                       - -c
                       - |
-                        /bin/bash <<'EOF'
+                        /bin/sh <<'EOF'
+                        set -e
                         set -o pipefail
-
-                        echo "Installing dependencies..."
-                        yum install -y postgresql15 findutils
 
                         echo "Resetting Azure PostgreSQL Flexible Server databases..."
 

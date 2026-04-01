@@ -14,7 +14,7 @@ spec:
             restartPolicy: Never
             containers:
                 - name: create-setup-user-db
-                  image: alpine/psql:15.5
+                  image: alpine/psql:${POSTGRES_VERSION}
                   command:
                       - sh
                       - -c

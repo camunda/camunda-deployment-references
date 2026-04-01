@@ -7,6 +7,9 @@ outputs_json=$(terraform output -json)
 export DB_HOST=$(echo "$outputs_json" | jq -r .postgres_fqdn.value)
 export DB_PORT=5432
 
+# PostgreSQL version (e.g. 17)
+export POSTGRES_VERSION=$(echo "$outputs_json" | jq -r .postgres_version.value)
+
 # PostgreSQL Admin Credentials
 export POSTGRES_ADMIN_USERNAME=$(echo "$outputs_json" | jq -r .postgres_admin_username.value)
 export POSTGRES_ADMIN_PASSWORD=$(echo "$outputs_json" | jq -r .postgres_admin_password.value)

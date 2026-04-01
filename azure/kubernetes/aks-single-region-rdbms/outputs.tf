@@ -18,7 +18,7 @@ output "aks_cluster_name" {
   value       = module.aks.aks_cluster_name
 }
 
-## output locals to be able to retriave all at once for DB setup, preventing lock storm
+## output locals to be able to retrieve all at once for DB setup, preventing lock storm
 
 output "camunda_database_identity" {
   value = local.camunda_database_identity
@@ -58,4 +58,9 @@ output "camunda_orchestration_db_username" {
 output "camunda_orchestration_db_password" {
   value     = local.camunda_orchestration_db_password
   sensitive = true
+}
+
+output "postgres_version" {
+  description = "PostgreSQL major version"
+  value       = var.postgres_version
 }
