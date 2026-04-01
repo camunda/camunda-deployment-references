@@ -1,5 +1,5 @@
 {
-  "child_modules": {
+  "resources": {
     "module.rosa_cluster": {
       "child_modules": {
         "module.rosa_cluster.module.htpasswd_idp": {
@@ -23,7 +23,6 @@
                 "htpasswd": {
                   "users": [
                     {
-                      "password": "CHANGEME1234r!",
                       "username": "kubeadmin"
                     }
                   ]
@@ -2806,6 +2805,31 @@
             }
           }
         }
+      }
+    },
+    "random_password.rosa_admin": {
+      "mode": "managed",
+      "name": "rosa_admin",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 1,
+        "min_numeric": 1,
+        "min_special": 1,
+        "min_upper": 1,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
       }
     }
   }

@@ -1,5 +1,5 @@
 {
-  "child_modules": {
+  "resources": {
     "module.eks_cluster": {
       "child_modules": {
         "module.eks_cluster.module.cert_manager_role": {
@@ -3293,10 +3293,9 @@
             "iam_database_authentication_enabled": false,
             "iops": null,
             "manage_master_user_password": null,
-            "master_password": "secretvalue%23",
             "master_password_wo": null,
             "master_password_wo_version": null,
-            "master_username": "secret_user",
+            "master_username": "c8admin",
             "performance_insights_enabled": null,
             "region": "eu-west-2",
             "replication_source_identifier": null,
@@ -3442,6 +3441,81 @@
             "type": "ingress"
           }
         }
+      }
+    },
+    "random_password.aurora_admin": {
+      "mode": "managed",
+      "name": "aurora_admin",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 1,
+        "min_numeric": 1,
+        "min_special": 1,
+        "min_upper": 1,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.identity_db": {
+      "mode": "managed",
+      "name": "identity_db",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 1,
+        "min_numeric": 1,
+        "min_special": 1,
+        "min_upper": 1,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.webmodeler_db": {
+      "mode": "managed",
+      "name": "webmodeler_db",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 1,
+        "min_numeric": 1,
+        "min_special": 1,
+        "min_upper": 1,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
       }
     }
   }
