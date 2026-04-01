@@ -2,10 +2,11 @@
 set -euo pipefail
 
 while true; do
-    STATUS=$(oc --context "$CLUSTER_0" get managedclusteraddon -A | grep 'submariner' || true)
+    oc_output=$(oc --context "$CLUSTER_0" get managedclusteraddon -A)
+    STATUS=$(echo "$oc_output" | grep 'submariner' || true)
     # display the status
     oc --context "$CLUSTER_0" -n "oc-clusters-broker" describe Broker
-    oc --context "$CLUSTER_0" get managedclusteraddon -A | grep -E 'NAME|submariner' || true
+    echo "$oc_output" | grep -E 'NAME|submariner' || true
 
     if [ -z "$STATUS" ]; then
         echo "No submariner addons found yet, waiting..."
