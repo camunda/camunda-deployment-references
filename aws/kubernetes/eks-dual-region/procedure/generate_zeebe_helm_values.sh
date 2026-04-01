@@ -3,18 +3,15 @@
 set -e
 
 generate_initial_contact() {
-    # Function to generate the initial contact string for Zeebe clusters
+    # Function to generate the initial contact string for Zeebe clusters.
+    # Uses the headless service FQDN instead of individual broker pod addresses.
+    # Zeebe 8.9+ resolves all brokers behind a headless service name automatically,
+    # making this cluster-size independent.
     local ns_0=$1
     local ns_1=$2
     local release=$3
-    local count=$4
     local port_number=26502
-    local result=""
-    for ((i=0; i<count/2; i++)); do
-        result+="${release}-zeebe-${i}.${release}-zeebe.${ns_0}.svc.cluster.local:${port_number},"
-        result+="${release}-zeebe-${i}.${release}-zeebe.${ns_1}.svc.cluster.local:${port_number},"
-    done
-    echo "${result%,}"  # Remove the trailing comma
+    echo "${release}-zeebe.${ns_0}.svc.cluster.local:${port_number},${release}-zeebe.${ns_1}.svc.cluster.local:${port_number}"
 }
 
 generate_exporter_elasticsearch_url() {
@@ -81,7 +78,7 @@ if [[ "$namespace_0" == "$namespace_1" ]]; then
 fi
 
 # Generating and printing the string
-initial_contact=$(generate_initial_contact "$namespace_0" "$namespace_1" "$helm_release_name" "$cluster_size")
+initial_contact=$(generate_initial_contact "$namespace_0" "$namespace_1" "$helm_release_name")
 elastic0=$(generate_exporter_elasticsearch_url "$namespace_0")
 elastic1=$(generate_exporter_elasticsearch_url "$namespace_1")
 
