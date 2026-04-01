@@ -180,14 +180,3 @@ webModeler:
               value: ${OIDC_ISSUER_URL}
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI
               value: ${OIDC_JWKS_URL}
-
-    webapp:
-        env:
-            - name: OAUTH2_CLIENT_ID
-              value: ${WEBMODELER_UI_CLIENT_ID}
-            - name: OAUTH2_JWKS_URL
-              value: ${OIDC_JWKS_URL}
-            - name: OAUTH2_TOKEN_AUDIENCE
-              value: ${WEBMODELER_UI_CLIENT_ID}
-            - name: OAUTH2_TOKEN_ISSUER
-              value: ${OIDC_ISSUER_URL}
