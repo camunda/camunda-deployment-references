@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Function to generate initial contact points
 generate_initial_contact() {

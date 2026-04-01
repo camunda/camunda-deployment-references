@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Creates namespaces in both clusters.
 #
 # Duplicating namespaces in each cluster is required for Submariner to work as expected.

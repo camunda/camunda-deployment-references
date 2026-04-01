@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 helm repo add camunda https://helm.camunda.io
 helm repo update

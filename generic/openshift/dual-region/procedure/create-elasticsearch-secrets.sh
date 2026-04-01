@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Creates ECK secure settings secrets for Elasticsearch S3 snapshot/backup.
 #
 # ECK injects these keys into the Elasticsearch keystore at startup.

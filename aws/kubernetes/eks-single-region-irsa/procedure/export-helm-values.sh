@@ -14,6 +14,7 @@ export DB_WEBMODELER_USERNAME="$(terraform console <<<local.camunda_webmodeler_d
 export CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME="$(terraform console <<<local.camunda_webmodeler_service_account | tail -n 1 | jq -r)"
 
 export DB_HOST="$(terraform output -raw postgres_endpoint)"
+export DB_PORT=5432
 export DB_ROLE_IDENTITY_NAME="$(terraform console <<<local.camunda_identity_role_name | tail -n 1 | jq -r)"
 export DB_ROLE_IDENTITY_ARN=$(terraform output -json aurora_iam_role_arns | jq -r ".[\"$DB_ROLE_IDENTITY_NAME\"]")
 export DB_ROLE_WEBMODELER_NAME="$(terraform console <<<local.camunda_webmodeler_role_name | tail -n 1 | jq -r)"

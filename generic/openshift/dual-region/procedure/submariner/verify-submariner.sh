@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 while true; do
     STATUS=$(oc --context "$CLUSTER_0" get managedclusteraddon -A | grep 'submariner')

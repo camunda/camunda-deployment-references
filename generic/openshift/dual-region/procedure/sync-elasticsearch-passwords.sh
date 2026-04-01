@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Syncs Elasticsearch passwords across regions for cross-region Zeebe exporters.
 #
 # Each ECK-managed Elasticsearch cluster auto-generates its own 'elasticsearch-es-elastic-user'

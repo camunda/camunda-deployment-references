@@ -1,16 +1,16 @@
 locals {
   aurora_cluster_name = "cluster-name-pg-irsa" # Replace "cluster-name" with your cluster's name
 
-  aurora_master_username = "secret_user"    # Replace with your Aurora username
-  aurora_master_password = "secretvalue%23" # Replace with your Aurora password, password must contain at least one letter, one number, and one special character.
+  aurora_master_username = "c8admin" # Aurora admin username
+  aurora_master_password = random_password.aurora_admin.result
 
   # Database names for Camunda components
   camunda_database_identity   = "camunda_identity"   # Name of your camunda database for Identity
   camunda_database_webmodeler = "camunda_webmodeler" # Name of your camunda database for WebModeler
 
   # IRSA configuration
-  camunda_identity_db_username   = "identity_irsa"   # This is the username that will be used for IRSA connection to the DB on Identity db
-  camunda_webmodeler_db_username = "webmodeler_irsa" # This is the username that will be used for IRSA connection to the DB on WebModeler db
+  camunda_identity_db_username   = "identity_irsa"   # Username for IRSA connection to the Identity DB
+  camunda_webmodeler_db_username = "webmodeler_irsa" # Username for IRSA connection to the WebModeler DB
 
   camunda_identity_service_account   = "identity-sa"   # Replace with your Kubernetes ServiceAcccount that will be created for Identity
   camunda_webmodeler_service_account = "webmodeler-sa" # Replace with your Kubernetes ServiceAcccount that will be created for WebModeler
@@ -19,6 +19,14 @@ locals {
   camunda_webmodeler_role_name = "AuroraRole-Webmodeler-${local.aurora_cluster_name}" # IAM Role name use to allow access to the webmodeler db
 
   db_tags = {} # additional tags that you may want to apply to the resources
+}
+
+# Generate random password for Aurora admin credentials
+# To retrieve password after apply: terraform output -raw aurora_master_password
+resource "random_password" "aurora_admin" {
+  length           = 24
+  special          = true
+  override_special = "!#%&*()-_=+[]{}:?"
 }
 
 module "postgresql" {
@@ -137,4 +145,20 @@ output "postgres_endpoint" {
 output "aurora_iam_role_arns" {
   value       = module.postgresql.aurora_iam_role_arns
   description = "Map of IAM role names to their ARNs"
+}
+
+output "aurora_master_username" {
+  description = "Aurora admin username"
+  value       = local.aurora_master_username
+}
+
+output "aurora_master_password" {
+  description = "Aurora admin password"
+  value       = local.aurora_master_password
+  sensitive   = true
+}
+
+output "postgres_major_version" {
+  description = "PostgreSQL major version (derived from Aurora engine_version)"
+  value       = split(".", module.postgresql.aurora_engine_version)[0]
 }

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Debug script for troubleshooting ManagedCluster issues
 # Usage: ./debug-managed-cluster.sh <cluster-name>

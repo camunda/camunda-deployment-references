@@ -62,13 +62,13 @@ identity:
     externalDatabase:
         enabled: true
         host: ${DB_HOST}
-        port: 5432
+        port: ${DB_PORT}
         username: ${DB_IDENTITY_USERNAME}
         database: ${DB_IDENTITY_NAME}
 
     env:
         - name: SPRING_DATASOURCE_URL
-          value: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_IDENTITY_NAME}?wrapperPlugins=iam
+          value: jdbc:aws-wrapper:postgresql://${DB_HOST}:${DB_PORT}/${DB_IDENTITY_NAME}?wrapperPlugins=iam
         - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
           value: software.amazon.jdbc.Driver
         - name: SPRING_DATASOURCE_USERNAME
@@ -149,7 +149,7 @@ webModeler:
 
     restapi:
         externalDatabase:
-            url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?wrapperPlugins=iam
+            url: jdbc:aws-wrapper:postgresql://${DB_HOST}:${DB_PORT}/${DB_WEBMODELER_NAME}?wrapperPlugins=iam
             user: ${DB_WEBMODELER_USERNAME}
             secret:
                 existingSecret: webmodeler-postgres-secret # fake password needed for chart (IRSA uses IAM auth)

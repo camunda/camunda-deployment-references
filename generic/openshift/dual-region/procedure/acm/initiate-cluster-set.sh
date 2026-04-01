@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # AWS OpenShift specific requirement to ensure CA store is trusted
 oc --context "$CLUSTER_0" apply -f klusterlet-global-config.yml || true # ignore if e.g. on non AWS

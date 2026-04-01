@@ -6,6 +6,10 @@
 # ECS task definition `secrets` (Secrets Manager) instead of plaintext
 # `environment` values.
 
+locals {
+  db_admin_password_effective = var.db_admin_password != "" ? var.db_admin_password : random_password.db_admin_password[0].result
+}
+
 resource "random_password" "admin_user_password" {
   length           = 32
   special          = true
@@ -25,11 +29,6 @@ resource "random_password" "db_admin_password" {
   special          = true
   override_special = "!#$%^()-_=+[]{}:?"
 }
-
-locals {
-  db_admin_password_effective = var.db_admin_password != "" ? var.db_admin_password : random_password.db_admin_password[0].result
-}
-
 resource "aws_secretsmanager_secret" "db_admin_password" {
   name                    = "${var.prefix}-db-admin-password"
   description             = "Admin password for the Aurora PostgreSQL cluster (${var.prefix})"
