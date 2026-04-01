@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euo pipefail
+
+# Create the secret with database credentials for Camunda 8 components (RDBMS variant)
+# Includes orchestration DB credentials for RDBMS secondary storage
+kubectl create secret generic setup-db-secret --namespace "$CAMUNDA_NAMESPACE" \
+  --from-literal=DB_HOST="$DB_HOST" \
+  --from-literal=DB_PORT="$DB_PORT" \
+  --from-literal=POSTGRES_ADMIN_USERNAME="$POSTGRES_ADMIN_USERNAME" \
+  --from-literal=POSTGRES_ADMIN_PASSWORD="$POSTGRES_ADMIN_PASSWORD" \
+  --from-literal=DB_IDENTITY_NAME="$DB_IDENTITY_NAME" \
+  --from-literal=DB_IDENTITY_USERNAME="$DB_IDENTITY_USERNAME" \
+  --from-literal=DB_IDENTITY_PASSWORD="$DB_IDENTITY_PASSWORD" \
+  --from-literal=DB_WEBMODELER_NAME="$DB_WEBMODELER_NAME" \
+  --from-literal=DB_WEBMODELER_USERNAME="$DB_WEBMODELER_USERNAME" \
+  --from-literal=DB_WEBMODELER_PASSWORD="$DB_WEBMODELER_PASSWORD" \
+  --from-literal=DB_ORCHESTRATION_NAME="$DB_ORCHESTRATION_NAME" \
+  --from-literal=DB_ORCHESTRATION_USERNAME="$DB_ORCHESTRATION_USERNAME" \
+  --from-literal=DB_ORCHESTRATION_PASSWORD="$DB_ORCHESTRATION_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -

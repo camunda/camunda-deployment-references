@@ -15,9 +15,11 @@ on:
             - .tool-versions
             - generic/kubernetes/single-region/**
             - azure/kubernetes/aks-single-region/**
+            - azure/kubernetes/aks-single-region-rdbms/**
             - azure/modules/**
             - generic/kubernetes/single-region/procedure/**
             - '!azure/kubernetes/aks-single-region/test/golden/**'
+            - '!azure/kubernetes/aks-single-region-rdbms/test/golden/**'
             - .github/actions/azure-kubernetes-aks-single-region-create/**
             - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
             - .github/actions/azure-kubernetes-ingress-setup/**
@@ -251,22 +253,9 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  # Source the shell script that exports your DB-related variables
-                  # shellcheck disable=SC2086
-                  source ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
+                  source ${{ github.workspace }}/.github/scripts/gha-functions.sh
 
-                  {
-                    echo "DB_HOST=$DB_HOST"
-                    echo "DB_PORT=$DB_PORT"
-                    echo "POSTGRES_ADMIN_USERNAME=$POSTGRES_ADMIN_USERNAME"
-                    echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD"
-                    echo "DB_IDENTITY_NAME=$DB_IDENTITY_NAME"
-                    echo "DB_IDENTITY_USERNAME=$DB_IDENTITY_USERNAME"
-                    echo "DB_IDENTITY_PASSWORD=$DB_IDENTITY_PASSWORD"
-                    echo "DB_WEBMODELER_NAME=$DB_WEBMODELER_NAME"
-                    echo "DB_WEBMODELER_USERNAME=$DB_WEBMODELER_USERNAME"
-                    echo "DB_WEBMODELER_PASSWORD=$DB_WEBMODELER_PASSWORD"
-                  } > "${{ runner.temp }}/outputs_raw"
+                  export_new_env_vars_to_file ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/vars-create-db.sh
 
             - name: Export other secrets from the action
               id: encrypt_outputs
@@ -300,7 +289,7 @@ jobs:
                   matrix-step-name: prepare-clusters
 
     integration-tests:
-        name: Run integration tests
+        name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
         runs-on: ubuntu-latest
         concurrency:
             # instead of running sequentially in a matrix, we use concurrency to run the different scenarios
@@ -429,7 +418,10 @@ jobs:
                   "${GITHUB_WORKSPACE}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh"
 
                   # Reset PostgreSQL
-                  kubectl apply -f ./azure/kubernetes/${{ matrix.scenario.name }}/manifests/reset-postgres.yml --namespace "$CAMUNDA_NAMESPACE"
+                  # shellcheck disable=SC2016
+                  envsubst '$POSTGRES_VERSION' \
+                    < ./azure/kubernetes/${{ matrix.scenario.name }}/manifests/reset-postgres.yml \
+                    | kubectl apply --namespace "$CAMUNDA_NAMESPACE" -f -
 
                   # Wait for the job to complete
                   while true; do
@@ -508,11 +500,15 @@ jobs:
                   yq ". *+ load(\"azure/kubernetes/${{ matrix.scenario.name }}/helm-values/values-${{ matrix.declination.name }}.yml\")" values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
-                  # Merge ECK Elasticsearch operator overlay
-                  echo "Merging ECK Elasticsearch config"
-                  OPERATOR_ES_PATH="generic/kubernetes/operator-based/elasticsearch"
-                  yq ". *+ load(\"${OPERATOR_ES_PATH}/camunda-elastic-values.yml\")" values.yml > values-merged.yml
-                  cat values-merged.yml && mv values-merged.yml values.yml
+                  # Merge ECK Elasticsearch operator overlay (only for Elasticsearch scenarios)
+                  if [[ "${{ matrix.scenario.secondary_storage }}" != "rdbms" ]]; then
+                    echo "Merging ECK Elasticsearch config"
+                    OPERATOR_ES_PATH="generic/kubernetes/operator-based/elasticsearch"
+                    yq ". *+ load(\"${OPERATOR_ES_PATH}/camunda-elastic-values.yml\")" values.yml > values-merged.yml
+                    cat values-merged.yml && mv values-merged.yml values.yml
+                  else
+                    echo "Skipping ECK Elasticsearch config (RDBMS mode)"
+                  fi
 
                   # Merge auth provider specific overlays (keycloak-operator or OIDC)
                   AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
@@ -580,8 +576,14 @@ jobs:
 
                   # Add integration tests specific values
                   if [ "$TESTS_ENABLED" == "true" ]; then
-                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/identity.yml\")" values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
+                    yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/identity.yml\")" values.yml > values-result.yml
+                    cat values-result.yml && mv values-result.yml values.yml
+
+                    # Remove optimize-api permissions when Optimize is disabled (e.g. RDBMS variant)
+                    if [[ "${{ matrix.scenario.secondary_storage }}" == "rdbms" ]]; then
+                      yq 'del(.identity.clients[].permissions[] | select(.resourceServerId == "optimize-api"))' values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
+                    fi
                   fi
 
                   ./generic/kubernetes/single-region/procedure/assemble-envsubst-values.sh
@@ -593,7 +595,10 @@ jobs:
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/check-env-variables.sh
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
 
-                  kubectl apply -f ./azure/kubernetes/${{ matrix.scenario.name }}/manifests/setup-postgres-create-db.yml --namespace "$CAMUNDA_NAMESPACE"
+                  # shellcheck disable=SC2016
+                  envsubst '$POSTGRES_VERSION' \
+                    < ./azure/kubernetes/${{ matrix.scenario.name }}/manifests/setup-postgres-create-db.yml \
+                    | kubectl apply --namespace "$CAMUNDA_NAMESPACE" -f -
 
                   # Wait for the job to complete
                   while true; do
@@ -622,6 +627,7 @@ jobs:
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
 
             - name: Deploy Elasticsearch via ECK Operator
+              if: ${{ matrix.scenario.secondary_storage != 'rdbms' }}
               timeout-minutes: 10
               uses: ./.github/actions/kubernetes-eck-operator
               with:
@@ -648,8 +654,6 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-
-                  source generic/kubernetes/single-region/procedure/chart-env.sh
 
                   AUTH_PROVIDER="${{ matrix.scenario.auth_provider }}"
 
@@ -729,7 +733,8 @@ jobs:
                   camunda-domain-grpc: ${{ env.CAMUNDA_DOMAIN_GRPC }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
-                  elasticsearch-enabled: 'true'
+                  optimize-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
+                  elasticsearch-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
@@ -738,7 +743,7 @@ jobs:
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                   keycloak-service-name: ${{ matrix.scenario.auth_provider == 'keycloak-operator' && 'keycloak-service:18080' || '' }}
-                  elasticsearch-service-name: elasticsearch-es-http:9200
+                  elasticsearch-service-name: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'elasticsearch-es-http:9200' || '' }}
 
             - name: 🔬🚨 Get failed certificate info
               if: failure() && matrix.declination.name == 'domain'
@@ -756,7 +761,7 @@ jobs:
                   artifact-suffix: ${{ matrix.scenario.name }}-${{ matrix.declination.name }}
 
             - name: 🧹 Cleanup ECK Elasticsearch deployment
-              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.secondary_storage != 'rdbms'
               uses: ./.github/actions/kubernetes-eck-operator-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
@@ -768,7 +773,7 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
 
             - name: 🧹 Uninstall ECK Operator
-              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.scenario.secondary_storage != 'rdbms'
               uses: ./.github/actions/kubernetes-eck-operator-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}

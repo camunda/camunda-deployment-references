@@ -12,6 +12,7 @@ on:
             - azure/modules/network/**
             - azure/modules/postgres-db/**
             - azure/kubernetes/aks-single-region/**
+            - azure/kubernetes/aks-single-region-rdbms/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -44,6 +45,12 @@ jobs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                module:
+                    - aks-single-region/
+                    - aks-single-region-rdbms/
         permissions:
             id-token: write # this is required for azure login
             contents: write # allow commits
@@ -80,7 +87,7 @@ jobs:
 
             - name: Export module_dir depending on scenario
               id: set-module-dir
-              run: echo "MODULE_DIR=./azure/kubernetes/aks-single-region/" | tee -a "$GITHUB_ENV"
+              run: echo "MODULE_DIR=./azure/kubernetes/${{ matrix.module }}" | tee -a "$GITHUB_ENV"
 
             - name: Azure Login with OIDC
               uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
