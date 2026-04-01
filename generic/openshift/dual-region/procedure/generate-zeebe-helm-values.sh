@@ -92,21 +92,6 @@ if [[ "$mode" == "failover" ]]; then
   fi
 fi
 
-if [[ -z "$ZEEBE_CLUSTER_SIZE" ]]; then
-  read -r -p "Enter Zeebe cluster size (total number of Zeebe brokers in both Kubernetes clusters) [or set ZEEBE_CLUSTER_SIZE beforehand] (recommended value: 8): " ZEEBE_CLUSTER_SIZE
-fi
-
-# Convert to integer
-cluster_size=$((ZEEBE_CLUSTER_SIZE))
-
-if (( cluster_size % 2 != 0 )); then
-  echo "ERROR: Cluster size $cluster_size is an odd number and not supported in a multi-region setup (must be an even number)"
-  exit 1
-fi
-if (( cluster_size < 4 )); then
-  echo "ERROR: Cluster size $cluster_size is too small and should be at least 4. A multi-region setup is not recommended for a small cluster size."
-  exit 1
-fi
 if [[ "$namespace_0" == "$namespace_1" ]]; then
   echo "ERROR: Kubernetes namespaces for Camunda installations must be called differently"
   exit 1
