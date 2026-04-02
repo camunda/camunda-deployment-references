@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Generate a temporary token from the authorization server (keycloak)
-TOKEN=$(curl --silent --show-error --fail-with-body --retry 3 --retry-delay 2 --retry-all-errors \
+TOKEN=$(curl --silent --show-error --fail \
 --location --request POST "${ZEEBE_AUTHORIZATION_SERVER_URL}" \
 --header "Content-Type: application/x-www-form-urlencoded" \
 --data-urlencode "client_id=${ZEEBE_CLIENT_ID}" \
@@ -15,7 +15,7 @@ fi
 
 # Show the zeebe cluster topology
 echo "📡 Fetching Zeebe cluster topology from: ${ZEEBE_ADDRESS_REST}/v2/topology"
-topology=$(curl --silent --show-error --fail-with-body --retry 3 --retry-delay 2 --retry-all-errors \
+topology=$(curl --silent --show-error --fail \
 --header "Authorization: Bearer ${TOKEN}" "${ZEEBE_ADDRESS_REST}/v2/topology")
 
 echo "$topology" > zeebe-topology.json
