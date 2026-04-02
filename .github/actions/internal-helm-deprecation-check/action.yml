@@ -5,7 +5,10 @@ description: |
     Uses `helm get notes` to retrieve the release notes and scans for
     `[camunda][warning]` (deprecated configuration) and `[camunda][error]`
     (removed configuration) messages.
-    Fails the pipeline if any deprecation warnings or errors are found.
+    Optionally validates that deployed values do not contain unknown keys
+    by checking against a strict version of the chart's JSON Schema.
+    Fails the pipeline if any deprecation warnings, errors, or unknown keys are found.
+    See: https://github.com/camunda/camunda-platform-helm/issues/4564
 
 inputs:
     release-name:
@@ -26,6 +29,15 @@ inputs:
             Messages containing any of these strings will be ignored.
         required: false
         default: ''
+    check-unknown-keys:
+        description: |
+            When set to 'true', deployed values are validated against a strict
+            version of the chart's JSON Schema to detect unknown keys
+            (typos, removed properties).
+            The schema is automatically extracted from the deployed chart.
+            See: https://github.com/camunda/camunda-platform-helm/issues/4564
+        required: false
+        default: 'true'
 
 runs:
     using: composite
@@ -133,3 +145,70 @@ runs:
               fi
 
               echo "✅ No deprecation warnings or errors found in Helm release '${RELEASE_NAME}'"
+
+        - name: 🔑 Check for unknown configuration keys
+          if: ${{ inputs.check-unknown-keys == 'true' }}
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              RELEASE_NAME="${{ inputs.release-name }}"
+              NAMESPACE="${{ inputs.namespace }}"
+              KUBE_CONTEXT="${{ inputs.kube-context }}"
+
+              CONTEXT_ARGS=()
+              if [[ -n "${KUBE_CONTEXT}" ]]; then
+                  CONTEXT_ARGS+=(--kube-context "${KUBE_CONTEXT}")
+              fi
+
+              echo "Checking deployed values for unknown configuration keys..."
+
+              WORK_DIR=$(mktemp -d)
+              trap 'rm -rf "${WORK_DIR}"' EXIT
+
+              # Extract chart name and version from the deployed release
+              CHART_INFO=$(helm list --namespace "${NAMESPACE}" "${CONTEXT_ARGS[@]}" \
+                  --filter "^${RELEASE_NAME}$" -o json | jq -r '.[0].chart')
+
+              if [[ -z "${CHART_INFO}" || "${CHART_INFO}" == "null" ]]; then
+                  echo "::error::Could not determine chart info for release '${RELEASE_NAME}' in namespace '${NAMESPACE}'."
+                  exit 1
+              fi
+
+              # Parse chart name and version (format: <name>-<version>)
+              CHART_VERSION=$(echo "${CHART_INFO}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+.*$')
+              CHART_NAME=$(echo "${CHART_INFO}" | sed "s/-${CHART_VERSION}$//")
+
+              echo "Detected chart: ${CHART_NAME} version ${CHART_VERSION}"
+
+              # Pull the chart to extract its schema
+              helm pull "oci://registry.camunda.cloud/team-distribution/${CHART_NAME}" \
+                  --version "${CHART_VERSION}" \
+                  --destination "${WORK_DIR}" \
+                  --untar
+
+              SCHEMA_PATH="${WORK_DIR}/${CHART_NAME}/values.schema.json"
+              if [[ ! -f "${SCHEMA_PATH}" ]]; then
+                  echo "::warning::No values.schema.json found in chart ${CHART_NAME}:${CHART_VERSION}, skipping unknown keys check."
+                  exit 0
+              fi
+
+              # Retrieve deployed values as JSON
+              VALUES_JSON="${WORK_DIR}/deployed-values.json"
+              if ! helm get values "${RELEASE_NAME}" --namespace "${NAMESPACE}" "${CONTEXT_ARGS[@]}" -o json > "${VALUES_JSON}" 2>&1; then
+                  echo "::error::Failed to retrieve Helm values for '${RELEASE_NAME}' in namespace '${NAMESPACE}'."
+                  cat "${VALUES_JSON}"
+                  exit 1
+              fi
+
+              # Run the unknown keys validation
+              SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+              if python3 "${SCRIPT_DIR}/validate-unknown-keys.py" "${SCHEMA_PATH}" "${VALUES_JSON}"; then
+                  echo "✅ No unknown configuration keys found in Helm release '${RELEASE_NAME}'"
+              else
+                  echo ""
+                  echo "::error::Unknown configuration keys detected in Helm release '${RELEASE_NAME}'"
+                  echo "These keys are not recognized by the Camunda Helm chart schema and will be silently ignored."
+                  echo "This may indicate typos or use of removed/renamed configuration properties."
+                  exit 1
+              fi
