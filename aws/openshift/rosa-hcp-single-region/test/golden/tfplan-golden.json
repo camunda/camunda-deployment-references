@@ -1636,6 +1636,8 @@
                   "type": "rhcs_cluster_rosa_hcp",
                   "values": {
                     "audit_log_arn": null,
+                    "auto_node": null,
+                    "autoscaling_enabled": null,
                     "availability_zones": [
                       "eu-north-1a",
                       "eu-north-1b",
@@ -1659,12 +1661,15 @@
                     "ec2_metadata_http_tokens": "optional",
                     "etcd_kms_key_arn": null,
                     "external_auth_providers_enabled": null,
+                    "fips": null,
                     "host_prefix": 23,
                     "kms_key_arn": null,
                     "log_forwarders_at_cluster_creation": null,
                     "machine_cidr": "10.0.0.0/18",
                     "max_hcp_cluster_wait_timeout_in_minutes": null,
                     "max_machinepool_wait_timeout_in_minutes": null,
+                    "max_replicas": null,
+                    "min_replicas": null,
                     "name": "my-rosa",
                     "pod_cidr": "10.0.64.0/18",
                     "private": false,
@@ -1685,7 +1690,7 @@
                       "owner": "ARN_REDACTED"
                     },
                     "upgrade_acknowledgements_for": null,
-                    "version": "4.17.16",
+                    "version": "4.18.16",
                     "wait_for_create_complete": true,
                     "wait_for_std_compute_nodes_complete": true,
                     "worker_disk_size": null

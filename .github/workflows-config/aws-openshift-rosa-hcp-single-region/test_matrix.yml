@@ -15,12 +15,6 @@ matrix:
           # Therefore, to ensure compatibility and support, we test the latest and the older.
           # For more details, refer to the official support policy at https://endoflife.date/red-hat-openshift.
 
-        - name: OpenShift 4.17
-          schedule_only: true
-          # TODO: EOL this version on 2026-04-01
-          # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.17(\.(?<patch>\d+))?$
-          version: 4.17.44
-
     scenario:
         - name: Chart Setup
           desc: Setup chart in production-like setup with Ingress and TLS.
