@@ -82,8 +82,27 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   echo "💣 Deleting cluster: $cluster_name"
   AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --watch
 
+  # Wait for the cluster to be fully deregistered from ROSA API
+  # rosa delete cluster --watch can return before the cluster is fully removed,
+  # which causes operator-roles deletion to fail with "clusters using Operator Roles Prefix"
+  echo "⏳ Waiting for cluster $cluster_name to be fully deregistered..."
+  for i in $(seq 1 12); do
+    if ! rosa describe cluster -c "$cluster_name" &>/dev/null; then
+      echo "✅ Cluster $cluster_name is fully deregistered"
+      break
+    fi
+    echo "⏳ Cluster still registered, waiting 30s... (attempt $i/12)"
+    sleep 30
+  done
+
   echo "🧹 Deleting operator roles with prefix ${cluster_name}-operator"
-  AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto
+  for i in $(seq 1 6); do
+    if AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto; then
+      break
+    fi
+    echo "⚠️ Failed to delete operator roles, retrying in 30s... (attempt $i/6)"
+    sleep 30
+  done
 
   echo "🧹 Deleting account roles with prefix ${cluster_name}-account"
   AWS_REGION="$region_id" rosa delete account-roles --prefix "${cluster_name}-account" --yes --mode auto
