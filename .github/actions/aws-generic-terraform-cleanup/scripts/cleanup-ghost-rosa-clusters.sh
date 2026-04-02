@@ -82,8 +82,51 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   echo "💣 Deleting cluster: $cluster_name"
   AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --watch
 
+  # Wait for the cluster to be fully deregistered from ROSA API
+  # rosa delete cluster --watch can return before the cluster is fully removed,
+  # which causes operator-roles deletion to fail with "clusters using Operator Roles Prefix"
+  echo "⏳ Waiting for cluster $cluster_name to be fully deregistered..."
+  cluster_deregistered=false
+  for i in $(seq 1 12); do
+    # Distinguish "cluster not found" from transient errors by checking if the
+    # cluster still appears in the list of clusters. If it does not, we assume
+    # it is fully deregistered; otherwise, we keep waiting.
+    if rosa list clusters 2>/dev/null | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
+      if [ "$i" -lt 12 ]; then
+        echo "⏳ Cluster still registered, waiting 30s... (attempt $i/12)"
+        sleep 30
+      else
+        echo "❌ Cluster $cluster_name is still registered after $i attempts"
+      fi
+    else
+      echo "✅ Cluster $cluster_name is fully deregistered"
+      cluster_deregistered=true
+      break
+    fi
+  done
+
+  if [ "$cluster_deregistered" != true ]; then
+    echo "❌ Skipping role and OIDC cleanup for cluster $cluster_name because it did not deregister within the expected time."
+    continue
+  fi
+
   echo "🧹 Deleting operator roles with prefix ${cluster_name}-operator"
-  AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto
+  operator_roles_deleted=false
+  for i in $(seq 1 6); do
+    if AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto; then
+      operator_roles_deleted=true
+      break
+    fi
+    echo "⚠️ Failed to delete operator roles, retrying in 30s... (attempt $i/6)"
+    if [ "$i" -lt 6 ]; then
+      sleep 30
+    fi
+  done
+
+  if [ "$operator_roles_deleted" = false ]; then
+    echo "❌ Failed to delete operator roles with prefix ${cluster_name}-operator after multiple attempts. Aborting cleanup."
+    exit 1
+  fi
 
   echo "🧹 Deleting account roles with prefix ${cluster_name}-account"
   AWS_REGION="$region_id" rosa delete account-roles --prefix "${cluster_name}-account" --yes --mode auto

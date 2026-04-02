@@ -15,7 +15,7 @@ trap cleanup EXIT
 sleep 2
 
 echo "📡 Fetching Zeebe cluster topology..."
-topology=$(curl -s -L -u demo:demo -X GET 'http://localhost:8080/v2/topology' -H 'Accept: application/json')
+topology=$(curl -s --show-error --fail -L -u demo:demo -X GET 'http://localhost:8080/v2/topology' -H 'Accept: application/json')
 echo "$topology" > zeebe-topology.json
 
 jq . zeebe-topology.json
