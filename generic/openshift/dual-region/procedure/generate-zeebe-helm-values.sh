@@ -2,22 +2,18 @@
 set -euo pipefail
 
 # Function to generate initial contact points
+# Uses the headless service FQDN instead of individual broker pod addresses.
+# Zeebe 8.9+ resolves all brokers behind a headless service name automatically,
+# making this cluster-size independent.
 generate_initial_contact() {
   local cluster_0=$1
   local namespace_0=$2
   local cluster_1=$3
   local namespace_1=$4
   local release=$5
-  local count=$6
-  local port_number=${7:-26502}
-  local result=()
+  local port_number=${6:-26502}
 
-  for ((i = 0; i < count / 2; i++)); do
-    result+=("${release}-zeebe-${i}.${cluster_0}.${release}-zeebe.${namespace_0}.svc.clusterset.local:${port_number}")
-    result+=("${release}-zeebe-${i}.${cluster_1}.${release}-zeebe.${namespace_1}.svc.clusterset.local:${port_number}")
-  done
-
-  IFS=","; echo "${result[*]}"; unset IFS
+  echo "${cluster_0}.${release}-zeebe.${namespace_0}.svc.clusterset.local:${port_number},${cluster_1}.${release}-zeebe.${namespace_1}.svc.clusterset.local:${port_number}"
 }
 
 # Function to generate Elasticsearch URL
@@ -97,28 +93,13 @@ if [[ "$mode" == "failover" ]]; then
   fi
 fi
 
-if [[ -z "$ZEEBE_CLUSTER_SIZE" ]]; then
-  read -r -p "Enter Zeebe cluster size (total number of Zeebe brokers in both Kubernetes clusters) [or set ZEEBE_CLUSTER_SIZE beforehand] (recommended value: 8): " ZEEBE_CLUSTER_SIZE
-fi
-
-# Convert to integer
-cluster_size=$((ZEEBE_CLUSTER_SIZE))
-
-if (( cluster_size % 2 != 0 )); then
-  echo "ERROR: Cluster size $cluster_size is an odd number and not supported in a multi-region setup (must be an even number)"
-  exit 1
-fi
-if (( cluster_size < 4 )); then
-  echo "ERROR: Cluster size $cluster_size is too small and should be at least 4. A multi-region setup is not recommended for a small cluster size."
-  exit 1
-fi
 if [[ "$namespace_0" == "$namespace_1" ]]; then
   echo "ERROR: Kubernetes namespaces for Camunda installations must be called differently"
   exit 1
 fi
 
 # Generate values
-initial_contact=$(generate_initial_contact "$cluster_0" "$namespace_0" "$cluster_1" "$namespace_1" "$helm_release_name" "$cluster_size")
+initial_contact=$(generate_initial_contact "$cluster_0" "$namespace_0" "$cluster_1" "$namespace_1" "$helm_release_name")
 elastic0=$(generate_exporter_elasticsearch_url "$cluster_0" "$namespace_0")
 elastic1=$(generate_exporter_elasticsearch_url "$cluster_1" "$namespace_1")
 
