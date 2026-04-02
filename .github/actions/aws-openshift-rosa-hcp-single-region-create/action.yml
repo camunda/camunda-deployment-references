@@ -14,9 +14,6 @@ inputs:
     cluster-name:
         description: Name of the ROSA cluster to deploy
         required: true
-    admin-password:
-        description: Admin password for the ROSA cluster
-        required: true
     admin-username:
         description: Admin username for the ROSA cluster
         default: kube-admin
@@ -266,13 +263,9 @@ runs:
               pwd
               ls
 
-              # protect sensitive values
-              echo "::add-mask::${{ inputs.admin-password }}"
-
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
               sed -i -e 's/\(rosa_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
-                     -e 's/\(rosa_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password }}\2/' \
                      -e 's/\(rosa_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username }}\2/' \
                      -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version }}\2/' \
                      -e "s/\(rosa_cluster_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS]/" \
@@ -463,8 +456,8 @@ runs:
                   set -o errexit
                   set -o pipefail
 
-                  # protect sensitive values
-                  echo "::add-mask::${{ inputs.admin-password }}"
+                  ADMIN_PASSWORD="${{ steps.terraform_outputs_cluster.outputs.rosa_admin_password }}"
+                  echo "::add-mask::${ADMIN_PASSWORD}"
 
                   # Check if the user is already a cluster-admin
                   if ! rosa list users --cluster="${{ inputs.cluster-name }}" | grep -q "${{ inputs.admin-username }}"; then
@@ -473,7 +466,7 @@ runs:
                     echo "✅ User '${{ inputs.admin-username }}' is already a cluster-admin on '${{ inputs.cluster-name }}'."
                   fi
 
-                  oc login --username "${{ inputs.admin-username }}" --password "${{ inputs.admin-password }}" "${{ steps.cluster_info.outputs.cluster_api }}"
+                  oc login --username "${{ inputs.admin-username }}" --password "${ADMIN_PASSWORD}" "${{ steps.cluster_info.outputs.cluster_api }}"
                   oc whoami
 
                   echo "Show existing contexts"

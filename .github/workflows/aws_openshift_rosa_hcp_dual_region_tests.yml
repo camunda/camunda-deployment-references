@@ -159,7 +159,6 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
-                      secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_PASSWORD;
                       secret/data/products/infrastructure-experience/ci/common CI_OPENSHIFT_MAIN_USERNAME;
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
@@ -191,8 +190,6 @@ jobs:
                   cluster-name-1: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-1
                   admin-username-cluster-0: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
                   admin-username-cluster-1: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_USERNAME }}
-                  admin-password-cluster-0: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
-                  admin-password-cluster-1: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
                   aws-region-cluster-0: ${{ env.CLUSTER_0_AWS_REGION }}
                   aws-region-cluster-1: ${{ env.CLUSTER_1_AWS_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}

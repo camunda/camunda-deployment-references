@@ -17,15 +17,9 @@ inputs:
     cluster-name-1:
         description: Name of the ROSA cluster 1 to deploy
         required: true
-    admin-password-cluster-0:
-        description: Admin password for the ROSA cluster 0
-        required: true
     admin-username-cluster-0:
         description: Admin username for the ROSA cluster 0
         default: kube-admin
-    admin-password-cluster-1:
-        description: Admin password for the ROSA cluster 1
-        required: true
     admin-username-cluster-1:
         description: Admin username for the ROSA cluster 1
         default: kube-admin
@@ -295,16 +289,11 @@ runs:
               pwd
               ls
 
-              # protect sensitive values
-              echo "::add-mask::${{ inputs.admin-password-cluster-0 }}"
-              echo "::add-mask::${{ inputs.admin-password-cluster-1 }}"
-
               ## Cluster 0
 
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
               sed -i -e 's/\(rosa_cluster_0_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name-0 }}\2/' \
-                     -e 's/\(rosa_cluster_0_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password-cluster-0 }}\2/' \
                      -e 's/\(rosa_cluster_0_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username-cluster-0 }}\2/' \
                      -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version-cluster-0 }}\2/' \
                      -e "s/\(rosa_cluster_0_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS_CLUSTER_0]/" \
@@ -324,7 +313,6 @@ runs:
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
               sed -i -e 's/\(rosa_cluster_1_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name-1 }}\2/' \
-                     -e 's/\(rosa_cluster_1_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password-cluster-1 }}\2/' \
                      -e 's/\(rosa_cluster_1_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username-cluster-1 }}\2/' \
                      -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version-cluster-1 }}\2/' \
                      -e "s/\(rosa_cluster_1_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS_CLUSTER_1]/" \
@@ -384,6 +372,12 @@ runs:
                   set -o errexit
                   set -o pipefail
 
+                  ADMIN_PASSWORD_0="${{ steps.terraform_outputs_clusters.outputs.rosa_cluster_0_admin_password }}"
+                  echo "::add-mask::${ADMIN_PASSWORD_0}"
+
+                  ADMIN_PASSWORD_1="${{ steps.terraform_outputs_clusters.outputs.rosa_cluster_1_admin_password }}"
+                  echo "::add-mask::${ADMIN_PASSWORD_1}"
+
                   # Cluster 0
 
                   if ! rosa list users --cluster="${{ inputs.cluster-name-0 }}" | grep -q "${{ inputs.admin-username-cluster-0 }}"; then
@@ -393,7 +387,7 @@ runs:
                   fi
 
                   echo "Logging in to Cluster 0: ${{ inputs.cluster-name-0 }}"
-                  oc login --username "${{ inputs.admin-username-cluster-0 }}" --password "${{ inputs.admin-password-cluster-0 }}" \
+                  oc login --username "${{ inputs.admin-username-cluster-0 }}" --password "${ADMIN_PASSWORD_0}" \
                     "${{ steps.terraform_outputs_clusters.outputs.cluster_0_openshift_api_url }}"
 
 
@@ -417,7 +411,7 @@ runs:
                   fi
 
                   echo "Logging in to Cluster 1: ${{ inputs.cluster-name-1 }}"
-                  oc login --username "${{ inputs.admin-username-cluster-1 }}" --password "${{ inputs.admin-password-cluster-1 }}" \
+                  oc login --username "${{ inputs.admin-username-cluster-1 }}" --password "${ADMIN_PASSWORD_1}" \
                     "${{ steps.terraform_outputs_clusters.outputs.cluster_1_openshift_api_url }}"
 
                   oc whoami

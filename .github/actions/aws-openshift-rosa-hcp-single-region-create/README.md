@@ -14,7 +14,6 @@ If the cluster is private, a VPN setup can also be configured.
 | --- | --- | --- | --- |
 | `rh-token` | <p>Red Hat Hybrid Cloud Console Token</p> | `true` | `""` |
 | `cluster-name` | <p>Name of the ROSA cluster to deploy</p> | `true` | `""` |
-| `admin-password` | <p>Admin password for the ROSA cluster</p> | `true` | `""` |
 | `admin-username` | <p>Admin username for the ROSA cluster</p> | `true` | `kube-admin` |
 | `aws-region` | <p>AWS region where the ROSA cluster will be deployed</p> | `true` | `""` |
 | `availability-zones` | <p>Comma separated list of availability zones (letters only, e.g., a,b,c)</p> | `true` | `a,b,c` |
@@ -63,12 +62,6 @@ This action is a `composite` action.
 
     cluster-name:
     # Name of the ROSA cluster to deploy
-    #
-    # Required: true
-    # Default: ""
-
-    admin-password:
-    # Admin password for the ROSA cluster
     #
     # Required: true
     # Default: ""
