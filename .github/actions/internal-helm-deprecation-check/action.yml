@@ -217,16 +217,30 @@ runs:
 
               # Retrieve deployed values as JSON
               VALUES_JSON="${WORK_DIR}/deployed-values.json"
-              if ! helm get values "${RELEASE_NAME}" --namespace "${NAMESPACE}" "${CONTEXT_ARGS[@]}" -o json > "${VALUES_JSON}" 2>&1; then
+              HELM_VALUES_STDERR="${WORK_DIR}/helm-get-values.stderr"
+              if ! helm get values "${RELEASE_NAME}" --namespace "${NAMESPACE}" "${CONTEXT_ARGS[@]}" \
+                  -o json > "${VALUES_JSON}" 2> "${HELM_VALUES_STDERR}"; then
                   echo "::error::Failed to retrieve Helm values for '${RELEASE_NAME}' in namespace '${NAMESPACE}'."
-                  cat "${VALUES_JSON}"
+                  if [[ -s "${HELM_VALUES_STDERR}" ]]; then
+                      echo "Helm output:"
+                      cat "${HELM_VALUES_STDERR}"
+                  fi
                   exit 1
               fi
 
               # Run the unknown keys validation
-              SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-              if python3 "${SCRIPT_DIR}/validate-unknown-keys.py" "${SCHEMA_PATH}" "${VALUES_JSON}"; then
+              SCRIPT_DIR="${GITHUB_ACTION_PATH}"
+              VALIDATION_EXIT=0
+              python3 "${SCRIPT_DIR}/validate-unknown-keys.py" "${SCHEMA_PATH}" "${VALUES_JSON}" || VALIDATION_EXIT=$?
+
+              if [[ "${VALIDATION_EXIT}" -eq 0 ]]; then
                   echo "✅ No unknown configuration keys found in Helm release '${RELEASE_NAME}'"
+              elif [[ "${VALIDATION_EXIT}" -eq 2 ]]; then
+                  echo ""
+                  echo "::error::Failed to validate deployed values against the chart schema" \
+                      "for Helm release '${RELEASE_NAME}'." \
+                      "This indicates an internal error in the validation script."
+                  exit 1
               else
                   echo ""
                   echo "::error::Unknown configuration keys detected in Helm release '${RELEASE_NAME}'"
