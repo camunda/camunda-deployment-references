@@ -23,7 +23,7 @@ spec:
                         set -o pipefail
 
                         echo "Installing dependencies..."
-                        yum install -y postgresql15
+                        yum install -y "postgresql${POSTGRES_MAJOR_VERSION}"
 
                         echo "Resetting Aurora PostgreSQL databases..."
 
@@ -41,6 +41,11 @@ spec:
 
                         EOF
                   env:
+                      - name: POSTGRES_MAJOR_VERSION
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: POSTGRES_MAJOR_VERSION
                       - name: AURORA_ENDPOINT
                         valueFrom:
                             secretKeyRef:
