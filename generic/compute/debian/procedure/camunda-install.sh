@@ -25,14 +25,25 @@ CONNECTORS_SNAPSHOT_VERSION=""
 CAMUNDA_DISTRO_USER=${CAMUNDA_DISTRO_USER:-""}
 CAMUNDA_DISTRO_PASSWORD=${CAMUNDA_DISTRO_PASSWORD:-""}
 
+# Read credentials from temp file if present (written by all-in-one-install.sh)
+CAMUNDA_DISTRO_CRED_FILE="/tmp/.camunda-distro-credentials"
+if [[ -f "${CAMUNDA_DISTRO_CRED_FILE}" ]]; then
+    CAMUNDA_DISTRO_USER=$(sed -n '1p' "${CAMUNDA_DISTRO_CRED_FILE}")
+    CAMUNDA_DISTRO_PASSWORD=$(sed -n '2p' "${CAMUNDA_DISTRO_CRED_FILE}")
+    rm -f "${CAMUNDA_DISTRO_CRED_FILE}"
+fi
+
 CURL_AUTH_OPTS=()
 CURL_NETRC_FILE=""
 if [[ -n "${CAMUNDA_DISTRO_USER}" && -n "${CAMUNDA_DISTRO_PASSWORD}" ]]; then
+    echo "[INFO] Artifactory authentication credentials are configured."
     CURL_NETRC_FILE=$(mktemp)
     chmod 600 "${CURL_NETRC_FILE}"
     printf 'machine artifacts.camunda.com login %s password %s\n' "${CAMUNDA_DISTRO_USER}" "${CAMUNDA_DISTRO_PASSWORD}" > "${CURL_NETRC_FILE}"
     CURL_AUTH_OPTS=(--netrc-file "${CURL_NETRC_FILE}")
     trap 'rm -f "${CURL_NETRC_FILE}"' EXIT
+else
+    echo "[WARN] No Artifactory authentication credentials configured. Downloads may fail for Enterprise artifacts."
 fi
 
 # Check that the operating system is Debian-based

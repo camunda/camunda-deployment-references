@@ -74,13 +74,17 @@ total_ip_count=${#IPS[@]}
 for index in "${!IPS[@]}"; do
     ip=${IPS[$index]}
 
-    # Pass credentials via stdin (through the SSH tunnel) to avoid leaking them
-    # in process listings or CI logs. Use printf %q to safely escape special characters.
-    {
-        printf 'export CAMUNDA_DISTRO_USER=%q\n' "${CAMUNDA_DISTRO_USER}"
-        printf 'export CAMUNDA_DISTRO_PASSWORD=%q\n' "${CAMUNDA_DISTRO_PASSWORD}"
-        cat "${CURRENT_DIR}/camunda-install.sh"
-    } | ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" "bash -s"
+    # Write credentials to a temp file on the remote host via stdin to avoid
+    # leaking them in process listings or CI logs. The install script reads and
+    # deletes this file. A separate SSH call is used so that the install script's
+    # stdin remains clean (the script uses a heredoc internally).
+    if [[ -n "${CAMUNDA_DISTRO_USER}" && -n "${CAMUNDA_DISTRO_PASSWORD}" ]]; then
+        printf '%s\n%s\n' "${CAMUNDA_DISTRO_USER}" "${CAMUNDA_DISTRO_PASSWORD}" | \
+            ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" \
+            'cat > /tmp/.camunda-distro-credentials && chmod 600 /tmp/.camunda-distro-credentials'
+    fi
+
+    ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" < "${CURRENT_DIR}/camunda-install.sh"
 
     echo "[INFO] Attempting to connect to ${ip} to configure the Camunda 8 environment."
 
