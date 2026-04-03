@@ -75,10 +75,10 @@ for index in "${!IPS[@]}"; do
     ip=${IPS[$index]}
 
     # Pass credentials via stdin (through the SSH tunnel) to avoid leaking them
-    # in process listings or CI logs
+    # in process listings or CI logs. Use printf %q to safely escape special characters.
     {
-        echo "export CAMUNDA_DISTRO_USER='${CAMUNDA_DISTRO_USER}'"
-        echo "export CAMUNDA_DISTRO_PASSWORD='${CAMUNDA_DISTRO_PASSWORD}'"
+        printf 'export CAMUNDA_DISTRO_USER=%q\n' "${CAMUNDA_DISTRO_USER}"
+        printf 'export CAMUNDA_DISTRO_PASSWORD=%q\n' "${CAMUNDA_DISTRO_PASSWORD}"
         cat "${CURRENT_DIR}/camunda-install.sh"
     } | ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" "bash -s"
 

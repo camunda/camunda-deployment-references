@@ -25,9 +25,14 @@ CONNECTORS_SNAPSHOT_VERSION=""
 CAMUNDA_DISTRO_USER=${CAMUNDA_DISTRO_USER:-""}
 CAMUNDA_DISTRO_PASSWORD=${CAMUNDA_DISTRO_PASSWORD:-""}
 
-CURL_AUTH_OPTS=""
+CURL_AUTH_OPTS=()
+CURL_NETRC_FILE=""
 if [[ -n "${CAMUNDA_DISTRO_USER}" && -n "${CAMUNDA_DISTRO_PASSWORD}" ]]; then
-    CURL_AUTH_OPTS="-u ${CAMUNDA_DISTRO_USER}:${CAMUNDA_DISTRO_PASSWORD}"
+    CURL_NETRC_FILE=$(mktemp)
+    chmod 600 "${CURL_NETRC_FILE}"
+    printf 'machine artifacts.camunda.com login %s password %s\n' "${CAMUNDA_DISTRO_USER}" "${CAMUNDA_DISTRO_PASSWORD}" > "${CURL_NETRC_FILE}"
+    CURL_AUTH_OPTS=(--netrc-file "${CURL_NETRC_FILE}")
+    trap 'rm -f "${CURL_NETRC_FILE}"' EXIT
 fi
 
 # Check that the operating system is Debian-based
@@ -74,8 +79,7 @@ sudo chown -R "${USERNAME}:${USERNAME}" "${MNT_DIR}/"
 
 if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
     echo "[INFO] Fetching the latest snapshot version of Camunda ${CAMUNDA_VERSION}."
-    # shellcheck disable=SC2086
-    CAMUNDA_SNAPSHOT_VERSION=$(curl -sfL ${CURL_AUTH_OPTS} "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>tar.gz</extension>" | \
+    CAMUNDA_SNAPSHOT_VERSION=$(curl -sfL "${CURL_AUTH_OPTS[@]}" "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>tar.gz</extension>" | \
         grep "<value>" | \
         sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//')
     echo "[INFO] Latest snapshot version is ${CAMUNDA_SNAPSHOT_VERSION}."
@@ -83,11 +87,18 @@ fi
 
 if [[ "${CAMUNDA_CONNECTORS_VERSION}" =~ "SNAPSHOT" ]]; then
     echo "[INFO] Fetching the latest snapshot version of Camunda Connectors ${CAMUNDA_CONNECTORS_VERSION}."
-    # shellcheck disable=SC2086
-    CONNECTORS_SNAPSHOT_VERSION=$(curl -sfL ${CURL_AUTH_OPTS} "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>pom</extension>" | \
+    CONNECTORS_SNAPSHOT_VERSION=$(curl -sfL "${CURL_AUTH_OPTS[@]}" "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>pom</extension>" | \
         grep "<value>" | \
         sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//')
     echo "[INFO] Latest snapshot version is ${CONNECTORS_SNAPSHOT_VERSION}."
+fi
+
+CURL_NETRC_OPT=""
+if [[ -n "${CURL_NETRC_FILE}" ]]; then
+    # Ensure netrc file is accessible by the camunda user in the sudo heredoc below
+    sudo chown "${USERNAME}" "${CURL_NETRC_FILE}"
+    sudo chmod 600 "${CURL_NETRC_FILE}"
+    CURL_NETRC_OPT="--netrc-file ${CURL_NETRC_FILE}"
 fi
 
 sudo -u "${USERNAME}" bash <<EOF
@@ -104,9 +115,11 @@ fi
 # Install Camunda 8
 
 if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
-    curl -fL ${CURL_AUTH_OPTS} "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_SNAPSHOT_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
+    # shellcheck disable=SC2086
+    curl -fL ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_SNAPSHOT_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
 else
-    curl -fL ${CURL_AUTH_OPTS} "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
+    # shellcheck disable=SC2086
+    curl -fL ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
 fi
 
 mkdir -p "${MNT_DIR}/camunda"
@@ -118,9 +131,11 @@ rm -rf "${MNT_DIR}/camunda.tar.gz"
 mkdir -p "${MNT_DIR}/connectors/"
 
 if [[ "${CAMUNDA_CONNECTORS_VERSION}" =~ "SNAPSHOT" ]]; then
-    curl -fL ${CURL_AUTH_OPTS} "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CONNECTORS_SNAPSHOT_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
+    # shellcheck disable=SC2086
+    curl -fL ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CONNECTORS_SNAPSHOT_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
 else
-    curl -fL ${CURL_AUTH_OPTS} "https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CAMUNDA_CONNECTORS_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
+    # shellcheck disable=SC2086
+    curl -fL ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CAMUNDA_CONNECTORS_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
 fi
 
 curl -fL https://raw.githubusercontent.com/camunda/connectors/main/bundle/default-bundle/start.sh -o "${MNT_DIR}/connectors/start.sh"
