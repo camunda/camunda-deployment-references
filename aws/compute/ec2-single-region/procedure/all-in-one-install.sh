@@ -12,6 +12,9 @@ MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 BROKER_PORT=${BROKER_PORT:-26502}
 TERRAFORM_DIR=${TERRAFORM_DIR:-"${CURRENT_DIR}/../terraform/cluster"}
 
+CAMUNDA_DISTRO_USER=${CAMUNDA_DISTRO_USER:-""}
+CAMUNDA_DISTRO_PASSWORD=${CAMUNDA_DISTRO_PASSWORD:-""}
+
 check_tool_installed "ssh"
 check_tool_installed "openssl"
 check_tool_installed "sftp"
@@ -71,7 +74,13 @@ total_ip_count=${#IPS[@]}
 for index in "${!IPS[@]}"; do
     ip=${IPS[$index]}
 
-    ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" < "${CURRENT_DIR}/camunda-install.sh"
+    # Pass credentials via stdin (through the SSH tunnel) to avoid leaking them
+    # in process listings or CI logs
+    {
+        echo "export CAMUNDA_DISTRO_USER='${CAMUNDA_DISTRO_USER}'"
+        echo "export CAMUNDA_DISTRO_PASSWORD='${CAMUNDA_DISTRO_PASSWORD}'"
+        cat "${CURRENT_DIR}/camunda-install.sh"
+    } | ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" "bash -s"
 
     echo "[INFO] Attempting to connect to ${ip} to configure the Camunda 8 environment."
 
