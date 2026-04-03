@@ -36,7 +36,7 @@ identity:
     externalDatabase:
         enabled: true
         host: ${DB_HOST}
-        port: 5432
+        port: ${DB_PORT}
         username: ${DB_IDENTITY_USERNAME}
         database: ${DB_IDENTITY_NAME}
         secret:
@@ -69,7 +69,7 @@ webModeler:
 
     restapi:
         externalDatabase:
-            url: jdbc:aws-wrapper:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}
+            url: jdbc:aws-wrapper:postgresql://${DB_HOST}:${DB_PORT}/${DB_WEBMODELER_NAME}
             user: ${DB_WEBMODELER_USERNAME}
             secret:
                 existingSecret: webmodeler-postgres-secret

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Generate passwords for Camunda 8 components
 

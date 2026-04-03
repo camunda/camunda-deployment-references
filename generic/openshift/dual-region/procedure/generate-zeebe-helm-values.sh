@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Function to generate initial contact points
 # Uses the headless service FQDN instead of individual broker pod addresses.

@@ -13,14 +13,17 @@ spec:
             restartPolicy: Never
             containers:
                 - name: create-setup-user-db
-                  image: alpine/psql:${POSTGRES_VERSION}
+                  image: alpine:latest
                   command:
                       - sh
                       - -c
                       - |
                         /bin/sh <<'EOF'
+                        set -e
                         set -o pipefail
-                        set -e  # Exit on error
+
+                        echo "Installing dependencies..."
+                        apk add --no-cache "postgresql${POSTGRES_MAJOR_VERSION}-client"
 
                         echo "Creating databases and users for Camunda Platform..."
 
@@ -45,6 +48,11 @@ spec:
                         echo "Database setup completed successfully!"
                         EOF
                   env:
+                      - name: POSTGRES_MAJOR_VERSION
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: POSTGRES_MAJOR_VERSION
                       - name: DB_HOST
                         valueFrom:
                             secretKeyRef:

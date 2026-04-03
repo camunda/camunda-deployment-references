@@ -3,6 +3,11 @@ output "aurora_endpoint" {
   description = "The endpoint of the Aurora cluster"
 }
 
+output "aurora_engine_version" {
+  value       = aws_rds_cluster.aurora_cluster.engine_version
+  description = "The engine version of the Aurora cluster"
+}
+
 output "aurora_id" {
   value       = aws_rds_cluster.aurora_cluster.id
   description = "RDS Cluster Identifier"
