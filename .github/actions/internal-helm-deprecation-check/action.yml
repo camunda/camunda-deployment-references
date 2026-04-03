@@ -181,11 +181,33 @@ runs:
 
               echo "Detected chart: ${CHART_NAME} version ${CHART_VERSION}"
 
-              # Pull the chart to extract its schema
-              helm pull "oci://registry.camunda.cloud/team-distribution/${CHART_NAME}" \
+              # Pull the chart to extract its schema.
+              # Try the OCI registry first, then fall back to the Helm repo.
+              # Pre-release versions (e.g. 14.0.0-alpha6) may not have their
+              # own OCI tag when installed via a floating tag like "14-dev-latest".
+              CHART_PULLED=false
+              if helm pull "oci://registry.camunda.cloud/team-distribution/${CHART_NAME}" \
                   --version "${CHART_VERSION}" \
                   --destination "${WORK_DIR}" \
-                  --untar
+                  --untar 2>/dev/null; then
+                  CHART_PULLED=true
+              else
+                  echo "OCI pull failed, trying Helm repo fallback..."
+                  if helm pull "${CHART_NAME}" \
+                      --repo "https://helm.camunda.io" \
+                      --version "${CHART_VERSION}" \
+                      --destination "${WORK_DIR}" \
+                      --untar 2>/dev/null; then
+                      CHART_PULLED=true
+                  fi
+              fi
+
+              if [[ "${CHART_PULLED}" != "true" ]]; then
+                  echo "::warning::Could not pull chart ${CHART_NAME}:${CHART_VERSION}" \
+                      "from OCI registry or Helm repo." \
+                      "The version may not be published yet. Skipping unknown keys check."
+                  exit 0
+              fi
 
               SCHEMA_PATH="${WORK_DIR}/${CHART_NAME}/values.schema.json"
               if [[ ! -f "${SCHEMA_PATH}" ]]; then
