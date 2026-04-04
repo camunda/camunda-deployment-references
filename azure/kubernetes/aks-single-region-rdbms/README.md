@@ -68,7 +68,7 @@ Refer to the [AKS single-region documentation](../aks-single-region/README.md) f
 | <a name="input_postgres_sku_tier"></a> [postgres\_sku\_tier](#input\_postgres\_sku\_tier) | SKU tier for PostgreSQL Flexible Server | `string` | `"GP_Standard_D2s_v3"` | no |
 | <a name="input_postgres_standby_zone"></a> [postgres\_standby\_zone](#input\_postgres\_standby\_zone) | Standby Availability Zone for PostgreSQL high availability | `string` | `"2"` | no |
 | <a name="input_postgres_storage_mb"></a> [postgres\_storage\_mb](#input\_postgres\_storage\_mb) | Storage size in MB for PostgreSQL | `number` | `32768` | no |
-| <a name="input_postgres_version"></a> [postgres\_version](#input\_postgres\_version) | PostgreSQL version | `string` | `"17"` | no |
+| <a name="input_postgres_version"></a> [postgres\_version](#input\_postgres\_version) | PostgreSQL version | `string` | `"17.9"` | no |
 | <a name="input_postgres_zone"></a> [postgres\_zone](#input\_postgres\_zone) | Primary Availability Zone for PostgreSQL server | `string` | `"1"` | no |
 | <a name="input_resource_prefix_placeholder"></a> [resource\_prefix\_placeholder](#input\_resource\_prefix\_placeholder) | Placeholder for the resource prefix | `string` | `""` | no |
 | <a name="input_subscription_id"></a> [subscription\_id](#input\_subscription\_id) | The Azure Subscription ID to deploy into | `string` | n/a | yes |

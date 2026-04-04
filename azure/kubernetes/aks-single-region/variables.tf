@@ -111,7 +111,7 @@ variable "postgres_version" {
   description = "PostgreSQL version"
   type        = string
   # renovate: datasource=endoflife-date depName=postgresql versioning=loose
-  default = "17"
+  default = "17.9"
 }
 
 variable "postgres_sku_tier" {
