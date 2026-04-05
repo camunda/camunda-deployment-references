@@ -202,6 +202,22 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
+            # TODO: Temporary workaround using existing CI credentials for Artifactory authentication.
+            #   Long-term, this should use a dedicated read-only service account.
+            #   See: https://github.com/camunda/team-infrastructure-experience/issues/1053
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common MACHINE_USR;
+                      secret/data/products/infrastructure-experience/ci/common MACHINE_PWD;
+
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
               run: |
@@ -248,6 +264,8 @@ jobs:
                   CAMUNDA_PREVIOUS_VERSION: ${{ env.TESTS_CAMUNDA_PREVIOUS_VERSION }}
                   CAMUNDA_CONNECTORS_VERSION: ${{ env.TESTS_CONNECTORS_VERSION }}
                   CAMUNDA_CONNECTORS_PREVIOUS_VERSION: ${{ env.TESTS_CONNECTORS_PREVIOUS_VERSION }}
+                  CAMUNDA_DISTRO_USER: ${{ steps.secrets.outputs.MACHINE_USR }}
+                  CAMUNDA_DISTRO_PASSWORD: ${{ steps.secrets.outputs.MACHINE_PWD }}
               run: |
                   set -euo pipefail
                   export PATH=$PATH:$(go env GOPATH)/bin
