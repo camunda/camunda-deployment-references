@@ -113,7 +113,7 @@ runs:
     steps:
         - name: Use Utility Actions
           id: utility
-          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@6831fbd126ea17bd519ce325adfcde0cc166aee7 # main
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@aca17c223ced3d0d68da35848a60021e72416baa # main
           with:
               awscli-version: ${{ inputs.awscli-version }}
               terraform-version: ${{ inputs.tf-terraform-version }}
