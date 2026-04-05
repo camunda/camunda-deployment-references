@@ -34,6 +34,7 @@ on:
             - .github/actions/aws-containers-ecs-single-region-fargate-create/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-generic-terraform-outputs/**
+            - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/workflows/aws_ecs_single_region_fargate_tests.yml
             - .tool-versions
@@ -285,6 +286,18 @@ jobs:
                   fi
 
                   echo "✅ Smoke tests completed successfully"
+
+            - name: 🔥 Run Camunda Smoke Test
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 15
+              uses: ./.github/actions/camunda-smoke-test
+              with:
+                  auth-mode: basic
+                  zeebe-rest-address: >-
+                      http://${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
+                  basic-auth-user: demo
+                  basic-auth-password: demo
+                  benchmark-duration: '300'
 
     cleanup-clusters:
         name: Cleanup ECS cluster

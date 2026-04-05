@@ -35,6 +35,7 @@ on:
             - .github/actions/aws-compute-ec2-single-region-create/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-generic-terraform-outputs/**
+            - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/workflows/aws_compute_ec2_single_region_tests.yml
             - .tool-versions
@@ -256,6 +257,19 @@ jobs:
                   go install gotest.tools/gotestsum@latest
                   # Run all tests except TestSetup and TestTeardown
                   go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m --skip 'TestSetup|TestTeardown'
+
+            - name: 🔥 Run Camunda Smoke Test
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 15
+              uses: ./.github/actions/camunda-smoke-test
+              with:
+                  auth-mode: basic
+                  zeebe-rest-address: >-
+                      http://${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
+                  basic-auth-user: demo
+                  basic-auth-password: demo
+                  benchmark-duration: '300'
+
             # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
             - name: Filter logger.go from the test report (too large)
               if: always()

@@ -27,6 +27,7 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/actions/internal-clean-namespace/**
+            - .github/actions/camunda-smoke-test/**
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/aws-kubernetes-ingress-setup/**
             - .github/actions/kubernetes-wildcard-certificate/**
@@ -889,6 +890,19 @@ jobs:
                   set -euo pipefail
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
+
+            - name: 🔥 Run Camunda Smoke Test
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 15
+              uses: ./.github/actions/camunda-smoke-test
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  keycloak-url: >-
+                      ${{ matrix.scenario.auth_provider == 'keycloak-operator'
+                      && 'http://keycloak-service:18080/auth'
+                      || format('http://{0}-keycloak:80/auth',
+                      env.CAMUNDA_RELEASE_NAME) }}
 
             - name: 🧪 Run Helm Chart tests
               if: env.TESTS_ENABLED == 'true'

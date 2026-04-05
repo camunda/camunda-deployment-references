@@ -1,0 +1,245 @@
+---
+name: Camunda Smoke Test
+
+description: >
+    Deploys a BPMN process via Zeebe REST API v2, creates process
+    instances, and verifies they were processed successfully.
+
+    For Kubernetes (EKS, AKS, ROSA, Kind, operator-based):
+      Automatically sets up kubectl port-forward to access the Zeebe
+      gateway and Keycloak from the GitHub Actions runner.
+
+    For non-Kubernetes (ECS Fargate, EC2):
+      Calls the Zeebe REST API directly through ALB/NLB endpoints.
+
+inputs:
+    zeebe-rest-address:
+        description: >
+            Zeebe REST API address (e.g., http://<ALB_DNS>).
+            Leave empty for Kubernetes: port-forward is set up
+            automatically.
+        required: false
+        default: ''
+    auth-mode:
+        description: >
+            Authentication mode: oidc, basic, or none.
+        required: false
+        default: oidc
+
+    # ── Kubernetes inputs (port-forward) ──────────────────────────
+    namespace:
+        description: >
+            Kubernetes namespace where Camunda is deployed.
+            Used for kubectl port-forward and secret extraction.
+        required: false
+        default: camunda
+    release-name:
+        description: >
+            Helm release name for Camunda.
+            Derives service names (e.g., <release>-zeebe-gateway).
+        required: false
+        default: camunda
+    keycloak-url:
+        description: >
+            In-cluster Keycloak base URL for OIDC auth.
+            Operator: http://keycloak-service:18080/auth
+            Bitnami: http://<release>-keycloak:80/auth
+        required: false
+        default: ''
+    client-secret-name:
+        description: >
+            K8s Secret with identity-admin-client-id and
+            identity-admin-client-secret keys.
+        required: false
+        default: identity-secret-for-components-integration
+
+    # ── Basic auth inputs ─────────────────────────────────────────
+    basic-auth-user:
+        description: Username for basic auth.
+        required: false
+        default: demo
+    basic-auth-password:
+        description: Password for basic auth.
+        required: false
+        default: demo
+
+    # ── Benchmark inputs ──────────────────────────────────────────
+    benchmark-duration:
+        description: >
+            Duration in seconds. Default 300 = 5 minutes.
+        required: false
+        default: '300'
+    benchmark-pi-per-second:
+        description: Process instances per second to generate.
+        required: false
+        default: '5'
+    min-expected-instances:
+        description: >
+            Minimum process instances expected.
+        required: false
+        default: '10'
+    propagation-wait-seconds:
+        description: >
+            Seconds to wait for search index propagation.
+        required: false
+        default: '60'
+
+outputs:
+    smoke-test-status:
+        description: "'success' or 'failed'"
+        value: >-
+            ${{ steps.smoke-test.outcome == 'success'
+            && 'success' || 'failed' }}
+    total-instances:
+        description: Total process instances found.
+        value: ${{ steps.smoke-test.outputs.total_instances }}
+
+runs:
+    using: composite
+    steps:
+        # ==============================================================
+        # Port-forward Zeebe gateway (K8s only)
+        # ==============================================================
+        - name: Set up kubectl port-forward
+          id: port-forward
+          if: inputs.zeebe-rest-address == ''
+          shell: bash
+          run: |
+              set -euo pipefail
+              NS="${{ inputs.namespace }}"
+              RELEASE="${{ inputs.release-name }}"
+              SVC="${RELEASE}-zeebe-gateway"
+
+              echo "Starting port-forward to ${SVC}..."
+              kubectl port-forward "svc/${SVC}" 8080:8080 \
+                  -n "$NS" &
+              echo "pf_zeebe_pid=$!" >> "$GITHUB_OUTPUT"
+
+              for i in $(seq 1 30); do
+                  CODE=$(curl -s -o /dev/null \
+                      -w "%{http_code}" \
+                      http://localhost:8080/v2/topology \
+                      2>/dev/null || echo "000")
+                  if [[ "$CODE" =~ ^(200|401|403)$ ]]; then
+                      echo "Zeebe port-forward ready"
+                      break
+                  fi
+                  echo "  attempt ${i}/30 (HTTP ${CODE})"
+                  sleep 2
+              done
+
+        # ==============================================================
+        # Port-forward Keycloak + extract credentials (K8s OIDC)
+        # ==============================================================
+        - name: Set up OIDC authentication
+          id: oidc-setup
+          if: >-
+              inputs.zeebe-rest-address == ''
+              && inputs.auth-mode == 'oidc'
+          shell: bash
+          run: |
+              set -euo pipefail
+              NS="${{ inputs.namespace }}"
+
+              KC_URL="${{ inputs.keycloak-url }}"
+              if [[ -z "$KC_URL" ]]; then
+                  KC_URL="http://keycloak-service:18080/auth"
+              fi
+
+              # Parse host, remote port, path
+              KC_HOST_PORT=$(echo "$KC_URL" \
+                  | sed 's|^http[s]*://||' | sed 's|/.*||')
+              KC_HOST=$(echo "$KC_HOST_PORT" | cut -d: -f1)
+              KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" \
+                  | cut -d: -f2)
+              KC_PATH=$(echo "$KC_URL" \
+                  | sed 's|^http[s]*://[^/]*||')
+
+              LOCAL_KC_PORT=18080
+
+              echo "Port-forwarding ${KC_HOST}..."
+              kubectl port-forward "svc/${KC_HOST}" \
+                  "${LOCAL_KC_PORT}:${KC_REMOTE_PORT}" \
+                  -n "$NS" &
+              echo "pf_kc_pid=$!" >> "$GITHUB_OUTPUT"
+
+              for i in $(seq 1 30); do
+                  CODE=$(curl -s -o /dev/null \
+                      -w "%{http_code}" \
+                      --connect-timeout 5 --max-time 10 \
+                      "http://localhost:${LOCAL_KC_PORT}${KC_PATH}" \
+                      2>/dev/null || echo "000")
+                  if [[ "$CODE" != "000" ]]; then
+                      echo "Keycloak ready (HTTP ${CODE})"
+                      break
+                  fi
+                  echo "  attempt ${i}/30"
+                  sleep 2
+              done
+
+              SECRET="${{ inputs.client-secret-name }}"
+              CLIENT_ID=$(kubectl get secret "$SECRET" \
+                  -n "$NS" \
+                  -o jsonpath='{.data.identity-admin-client-id}' \
+                  | base64 -d)
+              CLIENT_SECRET=$(kubectl get secret "$SECRET" \
+                  -n "$NS" \
+                  -o jsonpath='{.data.identity-admin-client-secret}' \
+                  | base64 -d)
+
+              echo "::add-mask::${CLIENT_SECRET}"
+              KC_TOKEN_PATH="${KC_PATH}/realms/camunda-platform"
+              KC_TOKEN_PATH+="/protocol/openid-connect/token"
+              {
+                  echo "client_id=${CLIENT_ID}"
+                  echo "client_secret=${CLIENT_SECRET}"
+                  echo "token_url=http://localhost:${LOCAL_KC_PORT}${KC_TOKEN_PATH}"
+              } >> "$GITHUB_OUTPUT"
+
+        # ==============================================================
+        # Run HTTP smoke test
+        # ==============================================================
+        - name: Run smoke test
+          id: smoke-test
+          shell: bash
+          run: |
+              set -euo pipefail
+              ACTION_DIR="${{ github.action_path }}"
+              bash "${ACTION_DIR}/scripts/http-smoke-test.sh"
+          env:
+              SMOKE_ZEEBE_REST_URL: >-
+                  ${{ inputs.zeebe-rest-address != ''
+                  && inputs.zeebe-rest-address
+                  || 'http://localhost:8080' }}
+              SMOKE_AUTH_MODE: ${{ inputs.auth-mode }}
+              SMOKE_BASIC_USER: ${{ inputs.basic-auth-user }}
+              SMOKE_BASIC_PASSWORD: ${{ inputs.basic-auth-password }}
+              SMOKE_OIDC_TOKEN_URL: >-
+                  ${{ steps.oidc-setup.outputs.token_url || '' }}
+              SMOKE_OIDC_CLIENT_ID: >-
+                  ${{ steps.oidc-setup.outputs.client_id || '' }}
+              SMOKE_OIDC_CLIENT_SECRET: >-
+                  ${{ steps.oidc-setup.outputs.client_secret || '' }}
+              SMOKE_DURATION: ${{ inputs.benchmark-duration }}
+              SMOKE_PI_PER_SECOND: >-
+                  ${{ inputs.benchmark-pi-per-second }}
+              SMOKE_MIN_EXPECTED: >-
+                  ${{ inputs.min-expected-instances }}
+              SMOKE_PROPAGATION_WAIT: >-
+                  ${{ inputs.propagation-wait-seconds }}
+
+        # ==============================================================
+        # Cleanup port-forwards
+        # ==============================================================
+        - name: Cleanup port-forwards
+          if: always() && inputs.zeebe-rest-address == ''
+          shell: bash
+          run: |
+              set -euo pipefail
+              for PID in \
+                  "${{ steps.port-forward.outputs.pf_zeebe_pid }}" \
+                  "${{ steps.oidc-setup.outputs.pf_kc_pid }}"; do
+                  if [[ -n "$PID" ]]; then
+                      kill "$PID" 2>/dev/null || true
+                  fi
+              done
