@@ -1,0 +1,75 @@
+---
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+    name: keycloak
+spec:
+    # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+    image: docker.io/camunda/keycloak:quay-optimized-26.3.2
+    instances: 1
+    db:
+        # Use official url parameter instead of individual host/port/database
+        # pg-keycloak-rw service is provided by the CNPG keycloak
+        # aws-wrapper is required for optimized images (no impact on functionality)
+        url: jdbc:aws-wrapper:postgresql://pg-keycloak-rw:5432/keycloak
+        schema: public
+        usernameSecret:
+            name: pg-keycloak-secret
+            key: username
+        passwordSecret:
+            name: pg-keycloak-secret
+            key: password
+    http:
+        httpEnabled: true
+        httpPort: 18080
+    additionalOptions:
+        - name: http-relative-path
+          value: /auth
+        # Enable proxy mode for proper HTTPS redirect handling behind Contour ingress
+        - name: proxy-headers
+          value: xforwarded
+    ingress:
+        # Ingress disabled - using separate Ingress object with path /auth and className contour
+        enabled: false
+    hostname:
+        # Use full URL with scheme and path to ensure KC 26 v2 hostname provider
+        # always uses HTTPS for issuer URLs and includes /auth in the issuer.
+        # The path must match http-relative-path (/auth) so the OIDC issuer URL
+        # is consistent: https://DOMAIN/auth/realms/camunda-platform.
+        # Requires Keycloak >= 25 (v2 hostname provider). Not compatible with KC 24.
+        hostname: https://${CAMUNDA_DOMAIN}/auth
+        # Dynamic backchannel for ingress environments (set to false for localhost/no-ingress)
+        backchannelDynamic: false
+        strict: true
+    resources:
+        limits:
+            cpu: 500m
+            memory: 1Gi
+        requests:
+            cpu: 250m
+            memory: 512Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: keycloak-ingress
+    annotations:
+        # TLS secret for HTTPS (cert-manager will create this automatically)
+        kubernetes.io/tls-acme: 'true'
+spec:
+    ingressClassName: contour
+    tls:
+        - hosts:
+              - ${CAMUNDA_DOMAIN}
+          secretName: camunda-keycloak-tls
+    rules:
+        - host: ${CAMUNDA_DOMAIN}
+          http:
+              paths:
+                  - path: /auth
+                    pathType: Prefix
+                    backend:
+                        service:
+                            name: keycloak-service
+                            port:
+                                number: 18080
