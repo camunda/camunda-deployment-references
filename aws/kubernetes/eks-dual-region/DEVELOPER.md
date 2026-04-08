@@ -9,9 +9,10 @@ Welcome to the development reference for Camunda's C8 Multi Region! This documen
 1. Ensure AWS is setup with the profile `infraex`. Otherwise overwrite with `AWS_PROFILE` to e.g. `default`.
 2. Export `TESTS_TF_BINARY_NAME` to `tofu` if you don't want to use Terraform.
 3. Adjust the AWS regions in `./terraform/clusters/variables.tf`. The defaults are cleaned up nightly in InfraEx.
-4. Ensure to export `CLUSTER_NAME` and `BACKUP_NAME` with custom values as the default `nightly` is cleaned up in InfraEx.
-5. Ensure to remove any temporary terraform files from `./terraform/clusters` alternatively run `terraform init -upgrade`
-6. Go into `./test` and run the following to execute terraform, alternatively, you can also run it manually from within terraform:
+4. Optionally set `connectivity_type = "transit-gateway"` and `transit_gateway_id` in your `.tfvars` if testing with Transit Gateway instead of VPC Peering.
+5. Ensure to export `CLUSTER_NAME` and `BACKUP_NAME` with custom values as the default `nightly` is cleaned up in InfraEx.
+6. Ensure to remove any temporary terraform files from `./terraform/clusters` alternatively run `terraform init -upgrade`
+7. Go into `./test` and run the following to execute terraform, alternatively, you can also run it manually from within terraform:
 
 ```bash
 go test --count=1 -v -timeout 120m -run TestSetupTerraform
@@ -19,21 +20,21 @@ go test --count=1 -v -timeout 120m -run TestSetupTerraform
 
 Alternatively, you can also just run `terraform apply` within the `./terraform/clusters` folder.
 
-7. Export following environment variables, those will be used to setup the DNS chaining on each cluster for the opposing namespaces:
+8. Export following environment variables, those will be used to setup the DNS chaining on each cluster for the opposing namespaces:
 
 ```bash
 export CLUSTER_1_NAMESPACE_ARR=c8-snap-cluster-1
 export CLUSTER_0_NAMESPACE_ARR=c8-snap-cluster-0
 ```
 
-8. Adjust AWS regions in `TestAWSKubeConfigCreation` and `initKubernetesHelpers` function based on the ones chosen in Terraform.
-9. Run in `test` the command to create the KubeConfig for each cluster:
+9. Adjust AWS regions in `TestAWSKubeConfigCreation` and `initKubernetesHelpers` function based on the ones chosen in Terraform.
+10. Run in `test` the command to create the KubeConfig for each cluster:
 
 ```bash
 go test --count=1 -v -timeout 120m -run TestAWSKubeConfigCreation
 ```
 
-10. Export `AWS_ACCESS_KEY_ES` and `AWS_SECRET_ACCESS_KEY_ES` based on the terraform output.
+11. Export `AWS_ACCESS_KEY_ES` and `AWS_SECRET_ACCESS_KEY_ES` based on the terraform output.
    E.g. from within the `./terraform/clusters` folder:
 
    ```bash
@@ -41,13 +42,13 @@ go test --count=1 -v -timeout 120m -run TestAWSKubeConfigCreation
    export AWS_SECRET_ACCESS_KEY_ES=$(terraform output -raw s3_aws_secret_access_key)
    ```
 
-11. The following command will setup all namespaces and adds the elastic secret for backups. Run in `test` the command:
+12. The following command will setup all namespaces and adds the elastic secret for backups. Run in `test` the command:
 
 ```bash
 go test --count=1 -v -timeout 120m -run TestClusterPrerequisites
 ```
 
-12. This will do the DNS chaining by deploying internal loadbalancers and configuring CoreDNS. Run in `test` the command:
+13. This will do the DNS chaining by deploying internal loadbalancers and configuring CoreDNS. Run in `test` the command:
 
 ```bash
 go test --count=1 -v -timeout 120m -run TestAWSDNSChaining
