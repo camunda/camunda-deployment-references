@@ -12,8 +12,6 @@ github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPd
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/aws/aws-sdk-go-v2 v1.41.5 h1:dj5kopbwUsVUVFgO4Fi5BIT3t4WyqIDjGKCangnV/yY=
 github.com/aws/aws-sdk-go-v2 v1.41.5/go.mod h1:mwsPRE8ceUUpiTgF7QmQIJ7lgsKUPQOUl3o72QBrE1o=
-github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.2 h1:t9yYsydLYNBk9cJ73rgPhPWqOh/52fcWDQB5b1JsKSY=
-github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.2/go.mod h1:IusfVNTmiSN3t4rhxWFaBAqn+mcNdwKtPcV16eYdgko=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8 h1:eBMB84YGghSocM7PsjmmPffTa+1FBUeNvGvFou6V/4o=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8/go.mod h1:lyw7GFp3qENLh7kwzf7iMzAxDn+NzjXEAGjKS2UOKqI=
 github.com/aws/aws-sdk-go-v2/config v1.32.13 h1:5KgbxMaS2coSWRrx9TX/QtWbqzgQkOdEa3sZPhBhCSg=
@@ -62,8 +60,6 @@ github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.11 h1:weapBOuuFIBEQ
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.11/go.mod h1:3C1gN4FmIVLwYSh8etngUS+f1viY6nLCDVtZmrFbDy0=
 github.com/aws/aws-sdk-go-v2/service/kms v1.45.6 h1:Br3kil4j7RPW+7LoLVkYt8SuhIWlg6ylmbmzXJ7PgXY=
 github.com/aws/aws-sdk-go-v2/service/kms v1.45.6/go.mod h1:FKXkHzw1fJZtg1P1qoAIiwen5thz/cDRTTDCIu8ljxc=
-github.com/aws/aws-sdk-go-v2/service/lambda v1.69.0 h1:BXt75frE/FYtAmEDBJRBa2HexOw+oAZWZl6QknZEFgg=
-github.com/aws/aws-sdk-go-v2/service/lambda v1.69.0/go.mod h1:guz2K3x4FKSdDaoeB+TPVgJNU9oj2gftbp5cR8ela1A=
 github.com/aws/aws-sdk-go-v2/service/lambda v1.88.5 h1:HWN7xwaV7Zwrn3Jlauio4u4aTMFgRzG2fblHWQeir/k=
 github.com/aws/aws-sdk-go-v2/service/lambda v1.88.5/go.mod h1:6HBXRyFFqOw+ALkJ6YGHfrr20/YXYv6X9pcZErXRvCA=
 github.com/aws/aws-sdk-go-v2/service/opensearch v1.52.9 h1:5uzz7nSHjDhmLop8IihUq8bFt5Y0F5d/0C7D/msdxLc=
