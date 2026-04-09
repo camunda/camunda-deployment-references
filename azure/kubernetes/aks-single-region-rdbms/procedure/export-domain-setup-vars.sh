@@ -1,0 +1,1 @@
+../../aks-single-region/procedure/export-domain-setup-vars.sh

@@ -110,7 +110,8 @@ variable "user_node_pool_zones" {
 variable "postgres_version" {
   description = "PostgreSQL version"
   type        = string
-  default     = "15"
+  # renovate: datasource=endoflife-date depName=postgresql versioning=loose
+  default = "17"
 }
 
 variable "postgres_sku_tier" {

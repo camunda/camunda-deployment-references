@@ -59,7 +59,7 @@ module "orchestration_cluster" {
       name  = "SPRING_DATASOURCE_DRIVER_CLASS_NAME"
       value = "software.amazon.jdbc.Driver"
     },
-    # Embedded Identity
+    # Admin
     ## Admin user
     {
       name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_USERNAME"

@@ -1468,6 +1468,12 @@
               }
             },
             "module.eks_cluster_region_0.module.eks.aws_eks_cluster.this[0]": {
+              "identity": {
+                "account_id": null,
+                "name": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -4337,6 +4343,12 @@
               }
             },
             "module.eks_cluster_region_1.module.eks.aws_eks_cluster.this[0]": {
+              "identity": {
+                "account_id": null,
+                "name": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",

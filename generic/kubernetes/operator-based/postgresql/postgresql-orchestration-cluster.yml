@@ -7,7 +7,7 @@ spec:
     instances: 1
     description: PostgreSQL cluster for Camunda orchestration secondary storage (RDBMS mode)
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
-    imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+    imageName: ghcr.io/cloudnative-pg/postgresql:17.9
     storage:
         size: 15Gi
     superuserSecret:

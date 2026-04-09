@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 helm upgrade --install \
     "$CAMUNDA_RELEASE_NAME" oci://registry.camunda.cloud/team-distribution/camunda-platform \

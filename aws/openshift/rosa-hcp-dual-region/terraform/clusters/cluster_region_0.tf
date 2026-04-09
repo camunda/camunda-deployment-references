@@ -4,7 +4,7 @@ locals {
   rosa_cluster_0_zones = ["${var.cluster_0_region}a", "${var.cluster_0_region}b", "${var.cluster_0_region}c"] # Adjust to your needs and align with your value of AWS_REGION
 
   rosa_cluster_0_admin_username = "kubeadmin"
-  rosa_cluster_0_admin_password = "CHANGEME1234r!" # Change the password of your admin password
+  rosa_cluster_0_admin_password = random_password.rosa_cluster_0_admin.result
 
   rosa_cluster_0_vpc_cidr_block     = "10.0.0.0/16"
   rosa_cluster_0_machine_cidr_block = "10.0.0.0/18"
@@ -12,6 +12,18 @@ locals {
   rosa_cluster_0_pod_cidr_block     = "10.0.64.0/18"
 
   rosa_cluster_0_tags = {} # additional tags that you may want to apply to the resources
+}
+
+# Generate random password for ROSA cluster 0 admin
+# To retrieve password after apply: terraform output -raw rosa_cluster_0_admin_password
+resource "random_password" "rosa_cluster_0_admin" {
+  length           = 24
+  special          = true
+  override_special = "!#%&*()-_=+[]{}:?"
+  min_upper        = 1
+  min_lower        = 1
+  min_numeric      = 1
+  min_special      = 1
 }
 
 module "rosa_cluster_0" {
@@ -81,4 +93,10 @@ output "cluster_0_openshift_api_url" {
 output "cluster_0_cluster_console_url" {
   value       = module.rosa_cluster_0.cluster_console_url
   description = "The URL endpoint for accessing the OpenShift web console. This endpoint provides a web-based user interface for managing the OpenShift cluster."
+}
+
+output "rosa_cluster_0_admin_password" {
+  description = "ROSA cluster 0 admin password"
+  value       = local.rosa_cluster_0_admin_password
+  sensitive   = true
 }

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Instructions from https://submariner.io/operations/deployment/subctl/
 curl -Ls https://get.submariner.io -o submariner-install.sh

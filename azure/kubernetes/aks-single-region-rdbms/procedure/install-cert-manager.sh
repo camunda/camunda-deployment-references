@@ -1,0 +1,1 @@
+../../aks-single-region/procedure/install-cert-manager.sh

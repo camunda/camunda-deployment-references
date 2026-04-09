@@ -1,0 +1,1 @@
+../../aks-single-region/procedure/tfvars-no-domain.sh

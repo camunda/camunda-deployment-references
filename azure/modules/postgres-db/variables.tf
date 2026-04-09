@@ -33,7 +33,8 @@ variable "admin_password" {
 variable "postgres_version" {
   description = "PostgreSQL version"
   type        = string
-  default     = "15"
+  # renovate: datasource=endoflife-date depName=postgresql versioning=loose
+  default = "17"
 }
 
 variable "sku_tier" {

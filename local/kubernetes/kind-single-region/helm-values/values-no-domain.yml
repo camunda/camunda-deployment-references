@@ -143,14 +143,6 @@ webModeler:
                 secret:
                     existingSecret: camunda-credentials
                     existingSecretKey: webmodeler-pusher-app-key
-    webapp:
-        resources:
-            requests:
-                cpu: 50m
-                memory: 128Mi
-            limits:
-                cpu: 500m
-                memory: 512Mi
     websockets:
         resources:
             requests:

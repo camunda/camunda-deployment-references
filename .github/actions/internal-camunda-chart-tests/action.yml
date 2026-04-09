@@ -217,6 +217,7 @@ runs:
               CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
               CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
           run: |
               set -euo pipefail
@@ -345,6 +346,13 @@ runs:
 
                   yq eval 'del(.. | select(has("component") and .component == "Elasticsearch"))' \
                     -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
+                fi
+
+                if [ "$OPTIMIZE_ENABLED" != "true" ]; then
+                  echo "Disable Optimize in the core tests as it's not enabled"
+
+                  yq eval 'del(.. | select(has("component") and .component == "Optimize"))' \
+                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
                 fi
 
                 if [ "$WEBMODELER_ENABLED" != "true" ]; then

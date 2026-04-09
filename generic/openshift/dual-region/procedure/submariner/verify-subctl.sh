@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 CLUSTERS=("$CLUSTER_0" "$CLUSTER_1")
 

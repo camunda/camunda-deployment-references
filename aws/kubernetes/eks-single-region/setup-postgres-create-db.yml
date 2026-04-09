@@ -19,10 +19,10 @@ spec:
                       - -c
                       - |
                         /bin/bash <<'EOF'
-                        set -o pipefail
+                        set -euo pipefail
 
                         echo "Installing dependencies..."
-                        yum install -y postgresql15
+                        yum install -y "postgresql${POSTGRES_MAJOR_VERSION}"
 
                         echo "Create identity user and associated database"
                         echo "Note: Any message indicating that the user or the database already exists is informational and can be safely ignored."
@@ -46,6 +46,11 @@ spec:
 
                         EOF
                   env:
+                      - name: POSTGRES_MAJOR_VERSION
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: POSTGRES_MAJOR_VERSION
                       - name: AURORA_ENDPOINT
                         valueFrom:
                             secretKeyRef:

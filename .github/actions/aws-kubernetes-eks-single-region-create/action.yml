@@ -17,7 +17,7 @@ inputs:
         description: Version of Kubernetes to install
         required: false
         # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
-        default: '1.32'
+        default: '1.35'
     single-nat-gateway:
         description: Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.
         default: 'true'

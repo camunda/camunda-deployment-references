@@ -11,6 +11,11 @@ matrix:
           #   - 'oidc': External OIDC provider (EntraID, Cognito)
           # TODO: Add 'oidc' support with Azure EntraID
           auth_provider: keycloak-operator
+          secondary_storage: elasticsearch
+
+        - name: aks-single-region-rdbms
+          auth_provider: keycloak-operator
+          secondary_storage: rdbms
 
     declination:
         - name: no-domain

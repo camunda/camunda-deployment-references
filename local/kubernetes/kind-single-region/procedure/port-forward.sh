@@ -23,7 +23,7 @@ echo "Starting port-forwards (Ctrl+C to stop)..."
 echo ""
 echo "Services available at:"
 echo "  - Zeebe gRPC API:    localhost:26500"
-echo "  - Zeebe REST API:    localhost:8080   (Operate, Tasklist, Identity)"
+echo "  - Zeebe REST API:    localhost:8080   (Operate, Tasklist, Admin)"
 if kubectl get svc camunda-optimize -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
 echo "  - Optimize:          localhost:8083"
 fi
@@ -41,7 +41,7 @@ kubectl port-forward svc/camunda-zeebe-gateway 8080:8080 -n "$CAMUNDA_NAMESPACE"
 if kubectl get svc camunda-optimize -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
     kubectl port-forward svc/camunda-optimize 8083:80 -n "$CAMUNDA_NAMESPACE" &
 fi
-kubectl port-forward svc/camunda-web-modeler-webapp 8070:80 -n "$CAMUNDA_NAMESPACE" &
+kubectl port-forward svc/camunda-web-modeler-restapi 8070:80 -n "$CAMUNDA_NAMESPACE" &
 kubectl port-forward svc/camunda-connectors 8088:8080 -n "$CAMUNDA_NAMESPACE" &
 kubectl port-forward svc/camunda-console 8087:80 -n "$CAMUNDA_NAMESPACE" &
 kubectl port-forward svc/camunda-identity 8085:80 -n "$CAMUNDA_NAMESPACE" &

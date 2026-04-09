@@ -7,6 +7,7 @@ kubectl create secret generic setup-db-secret --namespace "$CAMUNDA_NAMESPACE" \
   --from-literal=AURORA_PORT="$AURORA_PORT" \
   --from-literal=AURORA_USERNAME="$AURORA_USERNAME" \
   --from-literal=AURORA_PASSWORD="$AURORA_PASSWORD" \
+  --from-literal=POSTGRES_MAJOR_VERSION="$POSTGRES_MAJOR_VERSION" \
   --from-literal=DB_IDENTITY_NAME="$DB_IDENTITY_NAME" \
   --from-literal=DB_IDENTITY_USERNAME="$DB_IDENTITY_USERNAME" \
   --from-literal=DB_WEBMODELER_NAME="$DB_WEBMODELER_NAME" \

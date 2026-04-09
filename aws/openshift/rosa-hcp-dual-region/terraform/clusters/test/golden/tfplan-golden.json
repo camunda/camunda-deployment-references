@@ -1,5 +1,5 @@
 {
-  "child_modules": {
+  "resources": {
     "module.rosa_cluster_0": {
       "child_modules": {
         "module.rosa_cluster_0.module.htpasswd_idp": {
@@ -23,7 +23,6 @@
                 "htpasswd": {
                   "users": [
                     {
-                      "password": "CHANGEME1234r!",
                       "username": "kubeadmin"
                     }
                   ]
@@ -1774,6 +1773,8 @@
                   "type": "rhcs_cluster_rosa_hcp",
                   "values": {
                     "audit_log_arn": null,
+                    "auto_node": null,
+                    "autoscaling_enabled": null,
                     "availability_zones": [
                       "us-east-1a",
                       "us-east-1b",
@@ -1797,12 +1798,15 @@
                     "ec2_metadata_http_tokens": "optional",
                     "etcd_kms_key_arn": null,
                     "external_auth_providers_enabled": null,
+                    "fips": null,
                     "host_prefix": 23,
                     "kms_key_arn": null,
                     "log_forwarders_at_cluster_creation": null,
                     "machine_cidr": "10.0.0.0/18",
                     "max_hcp_cluster_wait_timeout_in_minutes": null,
                     "max_machinepool_wait_timeout_in_minutes": null,
+                    "max_replicas": null,
+                    "min_replicas": null,
                     "name": "cluster-region-0",
                     "pod_cidr": "10.0.64.0/18",
                     "private": false,
@@ -2826,7 +2830,6 @@
                 "htpasswd": {
                   "users": [
                     {
-                      "password": "CHANGEME1234r!",
                       "username": "kubeadmin"
                     }
                   ]
@@ -4577,6 +4580,8 @@
                   "type": "rhcs_cluster_rosa_hcp",
                   "values": {
                     "audit_log_arn": null,
+                    "auto_node": null,
+                    "autoscaling_enabled": null,
                     "availability_zones": [
                       "us-east-2a",
                       "us-east-2b",
@@ -4600,12 +4605,15 @@
                     "ec2_metadata_http_tokens": "optional",
                     "etcd_kms_key_arn": null,
                     "external_auth_providers_enabled": null,
+                    "fips": null,
                     "host_prefix": 23,
                     "kms_key_arn": null,
                     "log_forwarders_at_cluster_creation": null,
                     "machine_cidr": "10.1.0.0/18",
                     "max_hcp_cluster_wait_timeout_in_minutes": null,
                     "max_machinepool_wait_timeout_in_minutes": null,
+                    "max_replicas": null,
+                    "min_replicas": null,
                     "name": "cluster-region-1",
                     "pod_cidr": "10.1.64.0/18",
                     "private": false,
@@ -5604,6 +5612,56 @@
             }
           }
         }
+      }
+    },
+    "random_password.rosa_cluster_0_admin": {
+      "mode": "managed",
+      "name": "rosa_cluster_0_admin",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 1,
+        "min_numeric": 1,
+        "min_special": 1,
+        "min_upper": 1,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.rosa_cluster_1_admin": {
+      "mode": "managed",
+      "name": "rosa_cluster_1_admin",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 1,
+        "min_numeric": 1,
+        "min_special": 1,
+        "min_upper": 1,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
       }
     }
   }

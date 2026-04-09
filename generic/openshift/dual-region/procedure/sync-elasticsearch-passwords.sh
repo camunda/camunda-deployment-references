@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Syncs Elasticsearch passwords across regions for cross-region Zeebe exporters.
 #
 # Each ECK-managed Elasticsearch cluster auto-generates its own 'elasticsearch-es-elastic-user'
@@ -21,8 +22,6 @@
 #   CLUSTER_1           - oc context for region 1
 #   CAMUNDA_NAMESPACE_0 - namespace for region 0
 #   CAMUNDA_NAMESPACE_1 - namespace for region 1
-
-set -euo pipefail
 
 echo "Reading Elasticsearch passwords from both regions..."
 

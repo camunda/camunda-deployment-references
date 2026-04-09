@@ -14,6 +14,9 @@
 | Name | Type |
 |------|------|
 | [azurerm_resource_group.app_rg](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
+| [random_password.db_admin](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_password.identity_db](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_password.webmodeler_db](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 ## Inputs
 
 | Name | Description | Type | Default | Required |
@@ -33,7 +36,7 @@
 | <a name="input_postgres_sku_tier"></a> [postgres\_sku\_tier](#input\_postgres\_sku\_tier) | SKU tier for PostgreSQL Flexible Server | `string` | `"GP_Standard_D2s_v3"` | no |
 | <a name="input_postgres_standby_zone"></a> [postgres\_standby\_zone](#input\_postgres\_standby\_zone) | Standby Availability Zone for PostgreSQL high availability | `string` | `"2"` | no |
 | <a name="input_postgres_storage_mb"></a> [postgres\_storage\_mb](#input\_postgres\_storage\_mb) | Storage size in MB for PostgreSQL | `number` | `32768` | no |
-| <a name="input_postgres_version"></a> [postgres\_version](#input\_postgres\_version) | PostgreSQL version | `string` | `"15"` | no |
+| <a name="input_postgres_version"></a> [postgres\_version](#input\_postgres\_version) | PostgreSQL version | `string` | `"17"` | no |
 | <a name="input_postgres_zone"></a> [postgres\_zone](#input\_postgres\_zone) | Primary Availability Zone for PostgreSQL server | `string` | `"1"` | no |
 | <a name="input_resource_prefix_placeholder"></a> [resource\_prefix\_placeholder](#input\_resource\_prefix\_placeholder) | Placeholder for the resource prefix | `string` | `""` | no |
 | <a name="input_subscription_id"></a> [subscription\_id](#input\_subscription\_id) | The Azure Subscription ID to deploy into | `string` | n/a | yes |
@@ -62,5 +65,6 @@
 | <a name="output_postgres_admin_password"></a> [postgres\_admin\_password](#output\_postgres\_admin\_password) | PostgreSQL admin password |
 | <a name="output_postgres_admin_username"></a> [postgres\_admin\_username](#output\_postgres\_admin\_username) | PostgreSQL admin user |
 | <a name="output_postgres_fqdn"></a> [postgres\_fqdn](#output\_postgres\_fqdn) | The fully qualified domain name of the PostgreSQL Flexible Server |
+| <a name="output_postgres_version"></a> [postgres\_version](#output\_postgres\_version) | PostgreSQL major version |
 | <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name) | Name of the resource group |
 <!-- END_TF_DOCS -->
