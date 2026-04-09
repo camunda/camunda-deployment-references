@@ -2,7 +2,7 @@
 
 ## Description
 
-Install and configure ingress-nginx, external-dns, and cert-manager for AWS EKS clusters
+Install and configure Contour, external-dns, and cert-manager for AWS EKS clusters
 
 ## Inputs
 
