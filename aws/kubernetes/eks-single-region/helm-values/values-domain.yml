@@ -17,6 +17,7 @@ global:
 
     ingress:
         enabled: true
+        className: contour
         host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
