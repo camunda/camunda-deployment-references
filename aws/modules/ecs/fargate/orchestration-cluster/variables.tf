@@ -313,6 +313,46 @@ variable "task_desired_count" {
   default     = 3
 }
 
+################################################################
+#                 Dual-Region Configs                          #
+################################################################
+
+variable "cluster_size" {
+  description = "Total Zeebe cluster size across all regions. Defaults to task_desired_count for single-region."
+  type        = number
+  default     = 0 # 0 means use task_desired_count
+}
+
+variable "replication_factor" {
+  description = "Zeebe replication factor. Must be 4 for dual-region."
+  type        = number
+  default     = 0 # 0 means do not set (use Camunda default)
+}
+
+variable "partition_count" {
+  description = "Zeebe partition count. Must equal cluster_size for dual-region."
+  type        = number
+  default     = 0 # 0 means do not set (use Camunda default)
+}
+
+variable "initial_contact_points" {
+  description = "Override for CAMUNDA_CLUSTER_INITIALCONTACTPOINTS. If set, replaces the default Service Connect-based value."
+  type        = string
+  default     = ""
+}
+
+variable "internal_nlb_arn" {
+  description = "ARN of the internal NLB for cross-region Raft traffic on port 26502. If set, registers a target group."
+  type        = string
+  default     = ""
+}
+
+variable "region_id" {
+  description = "Multi-region region ID (0 or 1). If >= 0, sets CAMUNDA_MULTIREGION_REGIONID."
+  type        = number
+  default     = -1 # -1 means do not set
+}
+
 variable "s3_force_destroy" {
   description = "Whether to force destroy the S3 bucket even if it contains objects. Set to true for dev/test environments."
   type        = bool

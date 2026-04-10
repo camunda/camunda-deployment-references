@@ -28,11 +28,13 @@ No modules.
 | [aws_kms_alias.s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias) | resource |
 | [aws_kms_key.s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
 | [aws_lb_listener.grpc_26500](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
+| [aws_lb_listener.raft_26502](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
 | [aws_lb_listener_rule.http_management](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_lb_listener_rule.http_webapp](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule) | resource |
 | [aws_lb_target_group.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group) | resource |
 | [aws_lb_target_group.main_26500](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group) | resource |
 | [aws_lb_target_group.main_9600](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group) | resource |
+| [aws_lb_target_group.raft_26502](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group) | resource |
 | [aws_s3_bucket.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) | resource |
 | [aws_s3_bucket_public_access_block.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_public_access_block) | resource |
 | [aws_s3_bucket_server_side_encryption_configuration.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
@@ -47,6 +49,7 @@ No modules.
 | <a name="input_alb_listener_http_webapp_arn"></a> [alb\_listener\_http\_webapp\_arn](#input\_alb\_listener\_http\_webapp\_arn) | The ARN of the ALB listener for the web application port HTTP(s) traffic | `string` | `""` | no |
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | The AWS region to deploy resources in | `string` | n/a | yes |
 | <a name="input_cloudwatch_retention_days"></a> [cloudwatch\_retention\_days](#input\_cloudwatch\_retention\_days) | The number of days to retain CloudWatch logs | `number` | `30` | no |
+| <a name="input_cluster_size"></a> [cluster\_size](#input\_cluster\_size) | Total Zeebe cluster size across all regions. Defaults to task\_desired\_count for single-region. | `number` | `0` | no |
 | <a name="input_ecs_cluster_id"></a> [ecs\_cluster\_id](#input\_ecs\_cluster\_id) | The cluster id of the ECS cluster to spawn the ECS service in | `string` | n/a | yes |
 | <a name="input_ecs_task_execution_role_arn"></a> [ecs\_task\_execution\_role\_arn](#input\_ecs\_task\_execution\_role\_arn) | ARN of the ECS task execution role (centrally managed) | `string` | n/a | yes |
 | <a name="input_efs_performance_mode"></a> [efs\_performance\_mode](#input\_efs\_performance\_mode) | The performance mode for the EFS file system | `string` | `"generalPurpose"` | no |
@@ -65,9 +68,14 @@ No modules.
 | <a name="input_init_container_image"></a> [init\_container\_image](#input\_init\_container\_image) | Container image for the init container. | `string` | `""` | no |
 | <a name="input_init_container_name"></a> [init\_container\_name](#input\_init\_container\_name) | Name of the init container (referenced by dependsOn). | `string` | `"init"` | no |
 | <a name="input_init_container_secrets"></a> [init\_container\_secrets](#input\_init\_container\_secrets) | ECS task secrets for the init container (rendered as container definition 'secrets'). | <pre>list(object({<br/>    name      = string<br/>    valueFrom = string<br/>  }))</pre> | `[]` | no |
+| <a name="input_initial_contact_points"></a> [initial\_contact\_points](#input\_initial\_contact\_points) | Override for CAMUNDA\_CLUSTER\_INITIALCONTACTPOINTS. If set, replaces the default Service Connect-based value. | `string` | `""` | no |
+| <a name="input_internal_nlb_arn"></a> [internal\_nlb\_arn](#input\_internal\_nlb\_arn) | ARN of the internal NLB for cross-region Raft traffic on port 26502. If set, registers a target group. | `string` | `""` | no |
 | <a name="input_nlb_arn"></a> [nlb\_arn](#input\_nlb\_arn) | The ARN of the Network Load Balancer to use | `string` | `""` | no |
+| <a name="input_partition_count"></a> [partition\_count](#input\_partition\_count) | Zeebe partition count. Must equal cluster\_size for dual-region. | `number` | `0` | no |
 | <a name="input_prefix"></a> [prefix](#input\_prefix) | The prefix to use for naming resources | `string` | n/a | yes |
+| <a name="input_region_id"></a> [region\_id](#input\_region\_id) | Multi-region region ID (0 or 1). If >= 0, sets CAMUNDA\_MULTIREGION\_REGIONID. | `number` | `-1` | no |
 | <a name="input_registry_credentials_arn"></a> [registry\_credentials\_arn](#input\_registry\_credentials\_arn) | The ARN of the Secrets Manager secret containing registry credentials | `string` | `""` | no |
+| <a name="input_replication_factor"></a> [replication\_factor](#input\_replication\_factor) | Zeebe replication factor. Must be 4 for dual-region. | `number` | `0` | no |
 | <a name="input_restore_backup_id"></a> [restore\_backup\_id](#input\_restore\_backup\_id) | The backup ID to restore from. When non-empty and restore\_enabled is true, the restore command will include the --backupId flag. | `string` | `""` | no |
 | <a name="input_restore_container_entrypoint"></a> [restore\_container\_entrypoint](#input\_restore\_container\_entrypoint) | Entrypoint for the restore init container (Docker ENTRYPOINT). The RESTORE\_ARGS environment variable is computed automatically based on restore\_backup\_id. | `list(string)` | <pre>[<br/>  "bash",<br/>  "-c",<br/>  "/usr/local/camunda/bin/restore $RESTORE_ARGS"<br/>]</pre> | no |
 | <a name="input_restore_container_image"></a> [restore\_container\_image](#input\_restore\_container\_image) | Container image for the restore init container. Required when restore\_enabled is true. | `string` | `"camunda/camunda:8.9.0-alpha5"` | no |

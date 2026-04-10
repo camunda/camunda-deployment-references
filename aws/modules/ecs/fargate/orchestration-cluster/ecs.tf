@@ -1,7 +1,20 @@
 
 locals {
+  # Effective cluster size: use cluster_size override if set, else task_desired_count
+  effective_cluster_size = var.cluster_size > 0 ? var.cluster_size : var.task_desired_count
+
+  # Effective initial contact points: use override if set, else default to local Service Connect
+  effective_initial_contact_points = var.initial_contact_points != "" ? var.initial_contact_points : "orchestration-cluster-sc:26502"
+
+  # Dual-region env vars (only set when configured)
+  dual_region_env_vars = concat(
+    var.replication_factor > 0 ? [{ name = "CAMUNDA_CLUSTER_REPLICATIONFACTOR", value = tostring(var.replication_factor) }] : [],
+    var.partition_count > 0 ? [{ name = "CAMUNDA_CLUSTER_PARTITIONCOUNT", value = tostring(var.partition_count) }] : [],
+    var.region_id >= 0 ? [{ name = "CAMUNDA_MULTIREGION_REGIONID", value = tostring(var.region_id) }] : [],
+  )
+
   # Base environment variables shared between main container and restore init container
-  base_environment_variables = [
+  base_environment_variables = concat([
     # Graceful shutdown
     # Allow the Orchestration Cluster to shut down gracefully to release S3 leases
     # AWS Scheduler can sometimes be quicker to kill the task than the default 30s timeout
@@ -17,11 +30,11 @@ locals {
     # Zeebe Cluster Configuration
     {
       name  = "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS"
-      value = "orchestration-cluster-sc:26502"
+      value = local.effective_initial_contact_points
     },
     {
       name  = "CAMUNDA_CLUSTER_SIZE"
-      value = tostring(var.task_desired_count)
+      value = tostring(local.effective_cluster_size)
     },
     # Node Id Provider - ECS specific
     {
@@ -40,7 +53,7 @@ locals {
       name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_REGION"
       value = var.aws_region
     }
-  ]
+  ], local.dual_region_env_vars)
 }
 
 resource "aws_ecs_task_definition" "orchestration_cluster" {
@@ -254,7 +267,8 @@ resource "aws_ecs_service" "orchestration_cluster" {
     for_each = merge(
       var.enable_alb_http_webapp_listener_rule ? { 8080 = aws_lb_target_group.main.arn } : {},
       var.enable_alb_http_management_listener_rule ? { 9600 = aws_lb_target_group.main_9600.arn } : {},
-      var.enable_nlb_grpc_26500_listener ? { 26500 = aws_lb_target_group.main_26500.arn } : {}
+      var.enable_nlb_grpc_26500_listener ? { 26500 = aws_lb_target_group.main_26500.arn } : {},
+      var.internal_nlb_arn != "" ? { 26502 = aws_lb_target_group.raft_26502[0].arn } : {}
     )
     content {
       target_group_arn = load_balancer.value
