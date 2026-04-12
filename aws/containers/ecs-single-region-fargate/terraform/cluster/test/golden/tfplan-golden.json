@@ -680,7 +680,6 @@
                 "sse_algorithm": "aws:kms"
               }
             ],
-            "blocked_encryption_types": [],
             "bucket_key_enabled": true
           }
         ]
@@ -3064,7 +3063,6 @@
                     "sse_algorithm": "aws:kms"
                   }
                 ],
-                "blocked_encryption_types": [],
                 "bucket_key_enabled": true
               }
             ]
@@ -3972,6 +3970,12 @@
           }
         },
         "module.vpc.aws_route_table_association.private[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "private",
@@ -3986,6 +3990,12 @@
           }
         },
         "module.vpc.aws_route_table_association.private[1]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 1,
           "mode": "managed",
           "name": "private",
@@ -4000,6 +4010,12 @@
           }
         },
         "module.vpc.aws_route_table_association.private[2]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 2,
           "mode": "managed",
           "name": "private",
@@ -4014,6 +4030,12 @@
           }
         },
         "module.vpc.aws_route_table_association.public[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "public",
@@ -4028,6 +4050,12 @@
           }
         },
         "module.vpc.aws_route_table_association.public[1]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 1,
           "mode": "managed",
           "name": "public",
@@ -4042,6 +4070,12 @@
           }
         },
         "module.vpc.aws_route_table_association.public[2]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 2,
           "mode": "managed",
           "name": "public",
