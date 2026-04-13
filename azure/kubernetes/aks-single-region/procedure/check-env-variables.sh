@@ -4,7 +4,7 @@
 # Note: Keycloak variables are only required when using embedded Keycloak (not external OIDC)
 
 # List of required environment variables (base configuration)
-required_vars=("DB_HOST" "DB_PORT" "DB_IDENTITY_NAME" "DB_IDENTITY_USERNAME" "DB_IDENTITY_PASSWORD" "DB_WEBMODELER_NAME" "DB_WEBMODELER_USERNAME" "DB_WEBMODELER_PASSWORD")
+required_vars=("POSTGRES_MAJOR_VERSION" "DB_HOST" "DB_PORT" "DB_IDENTITY_NAME" "DB_IDENTITY_USERNAME" "DB_IDENTITY_PASSWORD" "DB_WEBMODELER_NAME" "DB_WEBMODELER_USERNAME" "DB_WEBMODELER_PASSWORD")
 
 # Loop through each variable and check if it is set and not empty
 missing_var=0

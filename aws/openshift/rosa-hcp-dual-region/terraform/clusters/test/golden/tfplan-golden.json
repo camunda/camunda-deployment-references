@@ -1,5 +1,5 @@
 {
-  "child_modules": {
+  "resources": {
     "module.rosa_cluster_0": {
       "child_modules": {
         "module.rosa_cluster_0.module.htpasswd_idp": {
@@ -23,7 +23,6 @@
                 "htpasswd": {
                   "users": [
                     {
-                      "password": "CHANGEME1234r!",
                       "username": "kubeadmin"
                     }
                   ]
@@ -2347,6 +2346,12 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_route_table_association.private_route_table_association[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private_route_table_association",
@@ -2361,6 +2366,12 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_route_table_association.private_route_table_association[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private_route_table_association",
@@ -2375,6 +2386,12 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_route_table_association.private_route_table_association[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private_route_table_association",
@@ -2389,6 +2406,12 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_route_table_association.public_route_table_association[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "public_route_table_association",
@@ -2403,6 +2426,12 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_route_table_association.public_route_table_association[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "public_route_table_association",
@@ -2417,6 +2446,12 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_route_table_association.public_route_table_association[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "public_route_table_association",
@@ -2831,7 +2866,6 @@
                 "htpasswd": {
                   "users": [
                     {
-                      "password": "CHANGEME1234r!",
                       "username": "kubeadmin"
                     }
                   ]
@@ -5155,6 +5189,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route_table_association.private_route_table_association[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private_route_table_association",
@@ -5169,6 +5209,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route_table_association.private_route_table_association[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private_route_table_association",
@@ -5183,6 +5229,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route_table_association.private_route_table_association[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private_route_table_association",
@@ -5197,6 +5249,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route_table_association.public_route_table_association[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "public_route_table_association",
@@ -5211,6 +5269,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route_table_association.public_route_table_association[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "public_route_table_association",
@@ -5225,6 +5289,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_route_table_association.public_route_table_association[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "public_route_table_association",
@@ -5614,6 +5684,56 @@
             }
           }
         }
+      }
+    },
+    "random_password.rosa_cluster_0_admin": {
+      "mode": "managed",
+      "name": "rosa_cluster_0_admin",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 1,
+        "min_numeric": 1,
+        "min_special": 1,
+        "min_upper": 1,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.rosa_cluster_1_admin": {
+      "mode": "managed",
+      "name": "rosa_cluster_1_admin",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 1,
+        "min_numeric": 1,
+        "min_special": 1,
+        "min_upper": 1,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
       }
     }
   }

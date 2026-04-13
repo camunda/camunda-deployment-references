@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Generate the final values
 envsubst < values.yml > generated-values.yml

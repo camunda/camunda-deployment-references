@@ -169,7 +169,7 @@ regenerate-golden-file-all:
       echo "❌ Failed for ${module_dir_rel}" >&2
       exit 1
     fi
-  done < <(find "$REPO_ROOT" -type f -name "config.tf" | LC_ALL=C sort)
+  done < <(find -L "$REPO_ROOT" -type f -name "config.tf" | LC_ALL=C sort)
 
   echo "Processed ${count} environment(s)."
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Cluster 0
 CLUSTER_0_BROKER_NODE_NAME="$(oc --context "$CLUSTER_0" get nodes -o jsonpath='{.items[0].metadata.name}')"

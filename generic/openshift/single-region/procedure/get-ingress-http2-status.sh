@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # List your IngressControllers
 oc -n openshift-ingress-operator get ingresscontrollers

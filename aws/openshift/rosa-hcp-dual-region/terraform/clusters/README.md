@@ -9,7 +9,10 @@
 | <a name="module_rosa_cluster_1"></a> [rosa\_cluster\_1](#module\_rosa\_cluster\_1) | ../../../../modules/rosa-hcp | n/a |
 ## Resources
 
-No resources.
+| Name | Type |
+|------|------|
+| [random_password.rosa_cluster_0_admin](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_password.rosa_cluster_1_admin](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 ## Inputs
 
 | Name | Description | Type | Default | Required |
@@ -37,4 +40,6 @@ No resources.
 | <a name="output_cluster_1_private_subnet_ids"></a> [cluster\_1\_private\_subnet\_ids](#output\_cluster\_1\_private\_subnet\_ids) | A comma-separated list of private subnet IDs in the VPC. These subnets are typically used for internal resources that do not require direct internet access. |
 | <a name="output_cluster_1_public_subnet_ids"></a> [cluster\_1\_public\_subnet\_ids](#output\_cluster\_1\_public\_subnet\_ids) | A comma-separated list of public subnet IDs in the VPC. These subnets are typically used for resources that require internet access. |
 | <a name="output_cluster_1_vpc_id"></a> [cluster\_1\_vpc\_id](#output\_cluster\_1\_vpc\_id) | The VPC ID of the cluster. |
+| <a name="output_rosa_cluster_0_admin_password"></a> [rosa\_cluster\_0\_admin\_password](#output\_rosa\_cluster\_0\_admin\_password) | ROSA cluster 0 admin password |
+| <a name="output_rosa_cluster_1_admin_password"></a> [rosa\_cluster\_1\_admin\_password](#output\_rosa\_cluster\_1\_admin\_password) | ROSA cluster 1 admin password |
 <!-- END_TF_DOCS -->

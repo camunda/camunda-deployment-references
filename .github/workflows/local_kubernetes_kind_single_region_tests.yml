@@ -120,10 +120,10 @@ jobs:
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/cluster-create.sh
 
-            - name: Deploy Ingress NGINX
+            - name: Deploy Contour
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: ./procedure/ingress-nginx-deploy.sh
+              run: ./procedure/contour-deploy.sh
 
             # Domain mode specific steps
             - name: Configure CoreDNS
@@ -347,7 +347,7 @@ jobs:
                   # Enable C8-SM-CHECKS
                   enable-c8sm-deployment-check: 'true'
                   enable-c8sm-connectivity-check: 'true'
-                  skip-c8sm-connectivity-ingress-class-check: 'false'
+                  skip-c8sm-connectivity-ingress-class-check: 'true'
                   enable-c8sm-irsa-check: 'false'  # Not applicable for Kind
                   # Enable Zeebe token/connectivity checks using auto-generated credentials
                   enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||

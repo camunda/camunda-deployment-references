@@ -4,11 +4,23 @@ locals {
   rosa_cluster_zones = ["eu-north-1a", "eu-north-1b", "eu-north-1c"] # Adjust to your needs and align with your value of AWS_REGION
 
   rosa_admin_username = "kubeadmin"
-  rosa_admin_password = "CHANGEME1234r!" # Change the password of your admin password
+  rosa_admin_password = random_password.rosa_admin.result
 
   # Prevent the cluster to be accessed at all from the public Internet if true
   rosa_private_cluster = false
   rosa_tags            = {} # additional tags that you may want to apply to the resources
+}
+
+# Generate random password for ROSA cluster admin
+# To retrieve password after apply: terraform output -raw rosa_admin_password
+resource "random_password" "rosa_admin" {
+  length           = 24
+  special          = true
+  override_special = "!#%&*()-_=+[]{}:?"
+  min_upper        = 1
+  min_lower        = 1
+  min_numeric      = 1
+  min_special      = 1
 }
 
 module "rosa_cluster" {
@@ -80,4 +92,10 @@ output "openshift_api_url" {
 output "cluster_console_url" {
   value       = module.rosa_cluster.cluster_console_url
   description = "The URL endpoint for accessing the OpenShift web console. This endpoint provides a web-based user interface for managing the OpenShift cluster."
+}
+
+output "rosa_admin_password" {
+  description = "ROSA cluster admin password"
+  value       = local.rosa_admin_password
+  sensitive   = true
 }

@@ -12,7 +12,7 @@ spec:
             restartPolicy: Never
             containers:
                 - name: reset-azure-postgres
-                  image: alpine/psql:${POSTGRES_VERSION}
+                  image: alpine:latest
                   command:
                       - sh
                       - -c
@@ -20,6 +20,9 @@ spec:
                         /bin/sh <<'EOF'
                         set -e
                         set -o pipefail
+
+                        echo "Installing dependencies..."
+                        apk add --no-cache "postgresql${POSTGRES_MAJOR_VERSION}-client"
 
                         echo "Resetting Azure PostgreSQL Flexible Server databases..."
 
@@ -41,6 +44,11 @@ spec:
 
                         EOF
                   env:
+                      - name: POSTGRES_MAJOR_VERSION
+                        valueFrom:
+                            secretKeyRef:
+                                name: setup-db-secret
+                                key: POSTGRES_MAJOR_VERSION
                       - name: DB_HOST
                         valueFrom:
                             secretKeyRef:

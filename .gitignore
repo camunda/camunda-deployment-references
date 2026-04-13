@@ -123,8 +123,11 @@ terraform.tfstate.backup
 trivyreport.txt
 
 camunda-docs/**
+camunda-docs
 debug/**
+debug
 camunda-platform-helm/**
+camunda-platform-helm
 
 # Exclude actionlint binary
 actionlint

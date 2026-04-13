@@ -81,7 +81,7 @@ echo "=== Deploying Keycloak ==="
 
     if [[ "$CAMUNDA_MODE" == "domain" ]]; then
         export CAMUNDA_DOMAIN="camunda.example.com"
-        KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-nginx.yml" ./deploy.sh
+        KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-contour.yml" ./deploy.sh
     else
         KEYCLOAK_CONFIG_FILE="keycloak-instance-no-domain.yml" ./deploy.sh
     fi

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Create secrets for Web Modeler configuration:
 # - webmodeler-secret: SMTP password for email delivery
 #

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Creates ECK secure settings secrets for Elasticsearch S3 snapshot/backup.
 #
 # ECK injects these keys into the Elasticsearch keystore at startup.
@@ -11,8 +12,6 @@
 #   CLUSTER_1                - oc context for region 1
 #   CAMUNDA_NAMESPACE_0      - namespace for region 0
 #   CAMUNDA_NAMESPACE_1      - namespace for region 1
-
-set -euo pipefail
 
 create_secret() {
     local context=$1

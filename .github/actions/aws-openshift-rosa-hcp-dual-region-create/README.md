@@ -15,9 +15,7 @@ Each cluster will be added to the kube config with the name of the cluster as co
 | `rh-token` | <p>Red Hat Hybrid Cloud Console Token</p> | `true` | `""` |
 | `cluster-name-0` | <p>Name of the ROSA cluster 0 to deploy</p> | `true` | `""` |
 | `cluster-name-1` | <p>Name of the ROSA cluster 1 to deploy</p> | `true` | `""` |
-| `admin-password-cluster-0` | <p>Admin password for the ROSA cluster 0</p> | `true` | `""` |
 | `admin-username-cluster-0` | <p>Admin username for the ROSA cluster 0</p> | `false` | `kube-admin` |
-| `admin-password-cluster-1` | <p>Admin password for the ROSA cluster 1</p> | `true` | `""` |
 | `admin-username-cluster-1` | <p>Admin username for the ROSA cluster 1</p> | `false` | `kube-admin` |
 | `aws-region-cluster-0` | <p>AWS region where the ROSA cluster 0 will be deployed</p> | `true` | `""` |
 | `aws-region-cluster-1` | <p>AWS region where the ROSA cluster 1 will be deployed</p> | `true` | `""` |
@@ -85,23 +83,11 @@ This action is a `composite` action.
     # Required: true
     # Default: ""
 
-    admin-password-cluster-0:
-    # Admin password for the ROSA cluster 0
-    #
-    # Required: true
-    # Default: ""
-
     admin-username-cluster-0:
     # Admin username for the ROSA cluster 0
     #
     # Required: false
     # Default: kube-admin
-
-    admin-password-cluster-1:
-    # Admin password for the ROSA cluster 1
-    #
-    # Required: true
-    # Default: ""
 
     admin-username-cluster-1:
     # Admin username for the ROSA cluster 1

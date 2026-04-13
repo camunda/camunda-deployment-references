@@ -1,8 +1,8 @@
 locals {
   opensearch_domain_name = "domain-name-os-irsa" # Replace "domain-name" with your domain name
 
-  opensearch_master_username = "secret_user"    # Replace with your opensearch username
-  opensearch_master_password = "Secretvalue%23" # Replace with your opensearch password, password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.
+  opensearch_master_username = "c8admin" # OpenSearch admin username
+  opensearch_master_password = random_password.opensearch_admin.result
 
   opensearch_iam_role_name = "OpenSearchRole-${local.opensearch_domain_name}" # Ensure uniqueness
 
@@ -15,6 +15,18 @@ locals {
   opensearch_tags = {} # additional tags that you may want to apply to the resources
 }
 
+# Generate random password for OpenSearch admin credentials
+# To retrieve password after apply: terraform output -raw opensearch_master_password
+
+resource "random_password" "opensearch_admin" {
+  length           = 24
+  special          = true
+  override_special = "!#%&*()-_=+[]{}:?"
+  min_upper        = 1
+  min_lower        = 1
+  min_numeric      = 1
+  min_special      = 1
+}
 module "opensearch_domain" {
   source      = "../../../../modules/opensearch"
   domain_name = local.opensearch_domain_name
@@ -129,4 +141,10 @@ output "opensearch_endpoint" {
 output "opensearch_iam_role_arns" {
   value       = module.opensearch_domain.opensearch_iam_role_arns
   description = "Map of IAM role names to their ARNs"
+}
+
+output "opensearch_master_password" {
+  description = "OpenSearch admin password"
+  value       = local.opensearch_master_password
+  sensitive   = true
 }

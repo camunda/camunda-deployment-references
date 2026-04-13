@@ -270,6 +270,8 @@ func (suite *CustomEKSRDSTestSuite) TestCustomEKSAndRDS() {
 	terraform.InitAndApplyAndIdempotent(suite.T(), terraformOptionsRDS)
 	auroraEndpoint := terraform.Output(suite.T(), terraformOptionsRDS, "aurora_endpoint")
 	suite.Assert().NotEmpty(auroraEndpoint)
+	auroraEngineVersion := terraform.Output(suite.T(), terraformOptionsRDS, "aurora_engine_version")
+	postgresMajorVersion := strings.Split(auroraEngineVersion, ".")[0]
 
 	// Test of the RDS connection is performed by launching a pod on the cluster and test the pg connection
 	pgKubeCtlOptions := k8s.NewKubectlOptions("", suite.kubeConfigPath, auroraNamespace)
@@ -281,13 +283,14 @@ func (suite *CustomEKSRDSTestSuite) TestCustomEKSAndRDS() {
 			Namespace: auroraNamespace,
 		},
 		Data: map[string]string{
-			"aurora_endpoint":      auroraEndpoint,
-			"aurora_username":      auroraUsername,
-			"aurora_password":      auroraPassword,
-			"aurora_username_irsa": auroraIRSAUsername,
-			"aurora_port":          "5432",
-			"aws_region":           suite.region,
-			"aurora_db_name":       auroraDatabase,
+			"aurora_endpoint":        auroraEndpoint,
+			"aurora_username":        auroraUsername,
+			"aurora_password":        auroraPassword,
+			"aurora_username_irsa":   auroraIRSAUsername,
+			"aurora_port":            "5432",
+			"aws_region":             suite.region,
+			"aurora_db_name":         auroraDatabase,
+			"postgres_major_version": postgresMajorVersion,
 		},
 	}
 

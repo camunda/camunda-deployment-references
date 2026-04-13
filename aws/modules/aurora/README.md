@@ -74,6 +74,7 @@ No modules.
 | <a name="output_aurora_cluster_identifier"></a> [aurora\_cluster\_identifier](#output\_aurora\_cluster\_identifier) | RDS Cluster Identifier |
 | <a name="output_aurora_cluster_resource_id"></a> [aurora\_cluster\_resource\_id](#output\_aurora\_cluster\_resource\_id) | RDS Cluster Resource ID |
 | <a name="output_aurora_endpoint"></a> [aurora\_endpoint](#output\_aurora\_endpoint) | The endpoint of the Aurora cluster |
+| <a name="output_aurora_engine_version"></a> [aurora\_engine\_version](#output\_aurora\_engine\_version) | The engine version of the Aurora cluster |
 | <a name="output_aurora_iam_role_access_policy_arns"></a> [aurora\_iam\_role\_access\_policy\_arns](#output\_aurora\_iam\_role\_access\_policy\_arns) | Map of IAM role names to their access policy ARNs |
 | <a name="output_aurora_iam_role_arns"></a> [aurora\_iam\_role\_arns](#output\_aurora\_iam\_role\_arns) | Map of IAM role names to their ARNs |
 | <a name="output_aurora_id"></a> [aurora\_id](#output\_aurora\_id) | RDS Cluster Identifier |
