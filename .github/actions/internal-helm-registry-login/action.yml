@@ -1,0 +1,48 @@
+---
+name: Internal Helm Registry Login
+description: |
+    Authenticate to registry.camunda.cloud OCI registry for Helm chart pulls.
+    Only performs login when the chart version matches a dev pattern (e.g. dev-latest).
+    Retrieves credentials from Vault automatically.
+inputs:
+    helm-chart-version:
+        description: The Helm chart version being used. Login is only performed for non-standard versions (e.g. dev-latest).
+        required: true
+    vault-addr:
+        description: Vault server URL
+        required: true
+    vault-role-id:
+        description: Vault AppRole role ID
+        required: true
+    vault-secret-id:
+        description: Vault AppRole secret ID
+        required: true
+    registry-host:
+        description: The OCI registry host to authenticate against
+        required: false
+        default: registry.camunda.cloud
+runs:
+    using: composite
+    steps:
+        - name: Import registry credentials
+          if: contains(inputs.helm-chart-version, 'dev-latest')
+          id: secrets
+          uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+          with:
+              url: ${{ inputs.vault-addr }}
+              method: approle
+              roleId: ${{ inputs.vault-role-id }}
+              secretId: ${{ inputs.vault-secret-id }}
+              exportEnv: false
+              secrets: |
+                  secret/data/products/infrastructure-experience/ci/common MACHINE_USR;
+                  secret/data/products/infrastructure-experience/ci/common MACHINE_PWD;
+        - name: Helm registry login
+          if: contains(inputs.helm-chart-version, 'dev-latest')
+          shell: bash
+          run: |
+              set -euo pipefail
+              echo "Logging in to ${{ inputs.registry-host }} for OCI chart pull..."
+              echo "${{ steps.secrets.outputs.MACHINE_PWD }}" | helm registry login "${{ inputs.registry-host }}" \
+                --username "${{ steps.secrets.outputs.MACHINE_USR }}" \
+                --password-stdin
