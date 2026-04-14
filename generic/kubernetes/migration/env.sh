@@ -56,6 +56,15 @@ export MIGRATE_ELASTICSEARCH="${MIGRATE_ELASTICSEARCH:-true}"
 # target ES to allow pulling data from the source Bitnami ES service.
 export ES_WARM_REINDEX="${ES_WARM_REINDEX:-false}"
 
+# ---[ Elasticsearch index prefixes ]------------------------------------------
+# Space-separated list of index prefix patterns used to identify Camunda indices.
+# The default patterns match the standard Camunda index naming. If your
+# installation uses custom index prefixes (e.g. via
+# camunda.data.exporters.elasticsearch.args.index-prefix), replace these
+# patterns with your actual prefixes followed by a wildcard.
+# Example: ES_INDEX_PREFIXES="my-prefix-zeebe-* my-prefix-operate-*"
+export ES_INDEX_PREFIXES="${ES_INDEX_PREFIXES:-zeebe-* operate-* tasklist-* optimize-* connectors-* camunda-*}"
+
 # ┌───────────────────────────────────────────────────────────────────────────┐
 # │                          TARGET MODE                                    │
 # │                                                                         │
