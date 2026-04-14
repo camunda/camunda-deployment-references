@@ -52,7 +52,8 @@ spec:
                         echo ""
 
                         # Build index-matching regex from ES_INDEX_PREFIXES
-                        INDEX_GREP_PATTERN="^(index|$(echo "${ES_INDEX_PREFIXES}" | tr ' ' '\n' | sed 's/\*$//' | paste -sd '|' -))"
+                        # Normalizes whitespace, removes trailing globs, escapes regex metacharacters
+                        INDEX_GREP_PATTERN="^(index|$(echo "${ES_INDEX_PREFIXES}" | tr -s ' ' '\n' | sed '/^$/d; s/\*$//; s/[].[\\^$*+?{}()|]/\\&/g' | paste -sd '|' -))"
 
                         # List Camunda indices
                         echo "Camunda indices:"
