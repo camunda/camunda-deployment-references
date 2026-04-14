@@ -51,10 +51,13 @@ spec:
                         curl -sf "${AUTH[@]}" "http://${ES_HOST}:${ES_PORT}/_cluster/health?pretty"
                         echo ""
 
+                        # Build index-matching regex from ES_INDEX_PREFIXES
+                        INDEX_GREP_PATTERN="^(index|$(echo "${ES_INDEX_PREFIXES}" | tr ' ' '\n' | sed 's/\*$//' | paste -sd '|' -))"
+
                         # List Camunda indices
                         echo "Camunda indices:"
                         INDEX_INFO=$(curl -sf "${AUTH[@]}" "http://${ES_HOST}:${ES_PORT}/_cat/indices?h=index,docs.count,store.size&v" \
-                          | grep -E "^(index|zeebe|operate|tasklist|optimize|connectors)" || echo "(none found)")
+                          | grep -E "$INDEX_GREP_PATTERN" || echo "(none found)")
                         echo "$INDEX_INFO"
                         echo ""
 

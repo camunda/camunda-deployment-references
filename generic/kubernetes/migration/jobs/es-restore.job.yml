@@ -49,6 +49,11 @@ spec:
                         SOURCE_AUTH=()
                         [ -n "${SOURCE_ES_PASSWORD:-}" ] && SOURCE_AUTH=(-u "elastic:$SOURCE_ES_PASSWORD")
 
+                        # Build index-matching regex from ES_INDEX_PREFIXES
+                        # Converts "zeebe-* operate-* camunda-*" → "^(zeebe-|operate-|camunda-)"
+                        INDEX_GREP_PATTERN="^($(echo "${ES_INDEX_PREFIXES}" | tr ' ' '\n' | sed 's/\*$//' | paste -sd '|' -))"
+                        echo "Index prefixes: ${ES_INDEX_PREFIXES}"
+
                         # Wait for target ES
                         MAX_RETRIES=60; RETRY=0
                         until curl -sf "${TARGET_AUTH[@]}" "$TARGET/_cluster/health" >/dev/null; do
@@ -82,7 +87,7 @@ spec:
                         INDEX_DATA=$(curl -sf "${SOURCE_AUTH[@]}" \
                           "$SOURCE/_cat/indices?h=index,docs.count&format=text" \
                           | tr -d '\r' \
-                          | grep -E "^(zeebe|operate|tasklist|optimize|connectors|camunda-)" | sort)
+                          | grep -E "$INDEX_GREP_PATTERN" | sort)
 
                         if [ -z "$INDEX_DATA" ]; then
                           echo "WARNING: No Camunda indices found on source. Nothing to reindex."
@@ -117,7 +122,7 @@ spec:
                         # the warm reindex and will only sync new/updated documents.
                         if [ "${REINDEX_MODE:-full}" = "full" ]; then
                         EXISTING=""
-                        for pattern in "zeebe-*" "operate-*" "tasklist-*" "optimize-*" "connectors-*" "camunda-*"; do
+                        for pattern in ${ES_INDEX_PREFIXES}; do
                           MATCH=$(curl -sf "${TARGET_AUTH[@]}" "$TARGET/_cat/indices/$pattern?h=index" 2>/dev/null || true)
                           if [ -n "$MATCH" ]; then
                             EXISTING=$(printf '%s\n%s' "$EXISTING" "$MATCH")
@@ -138,7 +143,7 @@ spec:
                           echo "  ⚠  THIS IS A DESTRUCTIVE OPERATION — the data in these indices will be lost."
                           echo ""
                           echo "  ES_TARGET=http://${TARGET_ES_HOST}:${TARGET_ES_PORT}"
-                          for pattern in "zeebe-*" "operate-*" "tasklist-*" "optimize-*" "connectors-*" "camunda-*"; do
+                          for pattern in ${ES_INDEX_PREFIXES}; do
                             echo "  curl -X DELETE \"\$ES_TARGET/$pattern\""
                           done
                           echo ""
@@ -259,7 +264,7 @@ spec:
                         echo "Disabling refresh and replicas on target indices..."
                         TARGET_INDICES=$(curl -sf "${TARGET_AUTH[@]}" \
                           "$TARGET/_cat/indices?h=index&format=text" \
-                          | grep -E "^(zeebe|operate|tasklist|optimize|connectors|camunda-)" || true)
+                          | grep -E "$INDEX_GREP_PATTERN" || true)
                         SAVED_REPLICAS_DIR=$(mktemp -d)
                         if [ -n "$TARGET_INDICES" ]; then
                           IDX_LIST=$(echo "$TARGET_INDICES" | paste -sd ',' -)
@@ -382,7 +387,7 @@ spec:
                         echo "Restoring target ES index settings..."
                         TARGET_INDICES=$(curl -sf "${TARGET_AUTH[@]}" \
                           "$TARGET/_cat/indices?h=index&format=text" \
-                          | grep -E "^(zeebe|operate|tasklist|optimize|connectors|camunda-)" || true)
+                          | grep -E "$INDEX_GREP_PATTERN" || true)
                         if [ -n "$TARGET_INDICES" ]; then
                           IDX_LIST=$(echo "$TARGET_INDICES" | paste -sd ',' -)
                           # Restore refresh_interval and translog durability for all indices
@@ -635,9 +640,11 @@ spec:
 
                         # Use _cat/aliases to get alias→index mappings in plain text
                         # Format: alias  index  filter  routing.search  routing.index  is_write_index
+                        # Build alias grep pattern: matches prefixes in the index column (2nd field)
+                        ALIAS_INDEX_PATTERN="[[:space:]]($(echo "${ES_INDEX_PREFIXES}" | tr ' ' '\n' | sed 's/\*$//' | paste -sd '|' -))"
                         ALIAS_DATA=$(curl -sf "${SOURCE_AUTH[@]}" \
                           "$SOURCE/_cat/aliases?h=alias,index,is_write_index&format=text" \
-                          | grep -E "[[:space:]](zeebe|operate|tasklist|optimize|connectors|camunda-)" || true)
+                          | grep -E "$ALIAS_INDEX_PATTERN" || true)
 
                         ALIAS_FAILED=0
                         if [ -n "$ALIAS_DATA" ]; then

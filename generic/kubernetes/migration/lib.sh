@@ -1690,7 +1690,7 @@ backup_es() {
     ensure_backup_pvc
     export JOB_NAME="es-backup-${TIMESTAMP}"
     # shellcheck disable=SC2016
-    local es_varlist='${JOB_NAME} ${NAMESPACE} ${ES_IMAGE} ${ES_HOST} ${ES_PORT} ${ES_SECRET_NAME}'
+    local es_varlist='${JOB_NAME} ${NAMESPACE} ${ES_IMAGE} ${ES_HOST} ${ES_PORT} ${ES_SECRET_NAME} ${ES_INDEX_PREFIXES}'
     run_job "${JOBS_DIR}/es-backup.job.yml" "${JOB_NAME}" 1800 "$es_varlist"
 }
 
@@ -1705,7 +1705,7 @@ restore_es() {
     export REINDEX_MODE="${REINDEX_MODE:-full}"
     export JOB_NAME="es-restore-${TIMESTAMP}"
     # shellcheck disable=SC2016
-    local es_varlist='${ES_IMAGE} ${JOB_NAME} ${NAMESPACE} ${REINDEX_MODE} ${SOURCE_ES_HOST} ${SOURCE_ES_PORT} ${SOURCE_ES_SECRET_NAME} ${TARGET_ES_HOST} ${TARGET_ES_PORT} ${TARGET_ES_SECRET_NAME}'
+    local es_varlist='${ES_IMAGE} ${JOB_NAME} ${NAMESPACE} ${REINDEX_MODE} ${SOURCE_ES_HOST} ${SOURCE_ES_PORT} ${SOURCE_ES_SECRET_NAME} ${TARGET_ES_HOST} ${TARGET_ES_PORT} ${TARGET_ES_SECRET_NAME} ${ES_INDEX_PREFIXES}'
     run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-1800}" "$es_varlist"
     _parse_es_reindex_metrics "${STATE_DIR}/${JOB_NAME}.log" "CUTOVER"
 }
@@ -1721,7 +1721,7 @@ warm_reindex_es() {
     export REINDEX_MODE="delta"
     export JOB_NAME="es-warm-reindex-${TIMESTAMP}"
     # shellcheck disable=SC2016
-    local es_varlist='${ES_IMAGE} ${JOB_NAME} ${NAMESPACE} ${REINDEX_MODE} ${SOURCE_ES_HOST} ${SOURCE_ES_PORT} ${SOURCE_ES_SECRET_NAME} ${TARGET_ES_HOST} ${TARGET_ES_PORT} ${TARGET_ES_SECRET_NAME}'
+    local es_varlist='${ES_IMAGE} ${JOB_NAME} ${NAMESPACE} ${REINDEX_MODE} ${SOURCE_ES_HOST} ${SOURCE_ES_PORT} ${SOURCE_ES_SECRET_NAME} ${TARGET_ES_HOST} ${TARGET_ES_PORT} ${TARGET_ES_SECRET_NAME} ${ES_INDEX_PREFIXES}'
     run_job "${JOBS_DIR}/es-restore.job.yml" "${JOB_NAME}" "${ES_RESTORE_TIMEOUT:-5400}" "$es_varlist"
     _parse_es_reindex_metrics "${STATE_DIR}/${JOB_NAME}.log" "WARM"
 }
