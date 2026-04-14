@@ -1,0 +1,119 @@
+---
+# Chart values for the Camunda Platform 8 Helm chart.
+# This file deliberately contains only the values that differ from the defaults.
+# For changes and documentation, use your favorite diff tool to compare it with:
+# https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform/values.yaml
+
+# This is an example values.yml for a dual-region setup and might require resource tuning from your side
+#
+# Elasticsearch is managed via the ECK operator and configured through a separate overlay file:
+# - Elasticsearch: generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml
+#
+
+global:
+    # Multiregion options for the Orchestration Cluster
+    #
+    ## WARNING: In order to get your multi-region setup covered by Camunda enterprise support
+    # you MUST get your configuration and run books reviewed by Camunda before going to production.
+    # This is necessary for us to be able to help you in case of outages,
+    # due to the complexity of operating multi-region setups and the dependencies to the underlying Kubernetes prerequisites.
+    # If you operate this in the wrong way you risk corruption and complete loss of all data especially in the dual-region case.
+    # If you can, consider three regions. Please, contact your customer success manager as soon as you start planning a multi-region setup.
+    # Camunda reserves the right to limit support if no review was done prior to launch or the review showed significant risks.
+    multiregion:
+        # number of regions that this Camunda Platform instance is stretched across
+        regions: 2
+    security:
+        authentication:
+            # Use basic auth for inter-component communication (demo/demo)
+            # since Management Identity (Keycloak) is not deployed in dual-region
+            method: basic
+    identity:
+        auth:
+            # Disable the Identity authentication
+            # it will fall back to basic-auth: demo/demo as default user
+            enabled: false
+
+identity:
+    enabled: false
+
+identityKeycloak:
+    enabled: false
+
+console:
+    enabled: false # by default, console is not enabled
+
+optimize:
+    enabled: false
+
+connectors:
+    enabled: true
+
+orchestration:
+    # RBC benchmark: 8 brokers, 8 partitions, RF 6
+    clusterSize: '8'
+    partitionCount: '8'
+    replicationFactor: '6'
+    data:
+        secondaryStorage:
+            type: elasticsearch
+    # Disable the Camunda and Zeebe exporters as we use region specific ones below
+    exporters:
+        camunda:
+            enabled: false
+        zeebe:
+            enabled: false
+    env:
+        # Config
+        - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
+          value: camunda_backup
+        - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
+          value: 'true'
+        - name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS
+          value: PLACEHOLDER
+        # Region 0 exporter config
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_CLASSNAME
+          value: io.camunda.exporter.CamundaExporter
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL
+          value: http://elasticsearch-es-masters.camunda-primary.svc.cluster.local:9200
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_USERNAME
+          value: elastic
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: elasticsearch-es-password-region-0
+                  key: elastic
+        # Region 1 exporter config
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_CLASSNAME
+          value: io.camunda.exporter.CamundaExporter
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL
+          value: http://elasticsearch-es-masters.camunda-secondary.svc.cluster.local:9200
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_USERNAME
+          value: elastic
+        - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                  name: elasticsearch-es-password-region-1
+                  key: elastic
+        # Zeebe cluster tuning
+        - name: CAMUNDA_DATA_SNAPSHOTPERIOD
+          value: 5m
+        - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBETIMEOUT
+          value: 500ms
+        - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBEINTERVAL
+          value: 2s
+        - name: CAMUNDA_CLUSTER_RAFT_SNAPSHOTREQUESTTIMEOUT
+          value: 10s
+        - name: CAMUNDA_CLUSTER_COMPRESSIONALGORITHM
+          value: GZIP
+    pvcSize: 32Gi
+    logLevel: INFO
+
+    # RBC benchmark: 4CPU/8GB as per RBC production sizing
+    resources:
+        requests:
+            cpu: '4'
+            memory: 8Gi
+        limits:
+            cpu: '4'
+            memory: 8Gi
