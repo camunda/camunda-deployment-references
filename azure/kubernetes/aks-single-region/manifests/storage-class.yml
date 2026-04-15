@@ -1,4 +1,8 @@
 ---
+# StorageClass manifest for AKS using Azure Disk CSI driver.
+# PremiumV2_LRS provides high performance SSD storage.
+# Note: Azure Disks are encrypted at rest by default using platform-managed keys.
+# To use customer-managed keys, add encryptionType and diskEncryptionSetID parameters.
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
