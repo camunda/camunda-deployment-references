@@ -109,6 +109,10 @@ runs:
                 {
                   echo "HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform"
                 } >> "$GITHUB_ENV"
+              else
+                {
+                  echo "HELM_CHART_NAME=camunda/camunda-platform"
+                } >> "$GITHUB_ENV"
               fi
 
               # create empty file if not exists
