@@ -155,6 +155,7 @@ Edit `env.sh` before starting. The file is organized into 4 sections — see com
 | `MIGRATE_WEBMODELER`         | `true`          | Migrate WebModeler PostgreSQL                |
 | `MIGRATE_ELASTICSEARCH`      | `true`          | Migrate Elasticsearch                        |
 | `ES_WARM_REINDEX`            | `false`         | When `true`, Phase 2 pre-copies ES data to the target (no downtime). Phase 3 then runs a fast delta reindex, reducing cutover from O(data-size) to ~5 min. For external targets, you must configure `reindex.remote.whitelist` on the target ES |
+| `ES_INDEX_PREFIXES`          | `zeebe-* operate-* tasklist-* optimize-* connectors-* camunda-*` | Space-separated list of index prefix patterns used to identify Camunda indices. Update if your installation uses custom index prefixes |
 
 Set any `MIGRATE_*` to `false` to skip a component (e.g. if it's not deployed or already uses an external service).
 

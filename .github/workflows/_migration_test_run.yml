@@ -117,7 +117,7 @@ jobs:
             - name: Configure CoreDNS for domain resolution
               if: matrix.distro.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
-              run: ./procedure/coredns-config.sh
+              run: ./procedure/coredns-config.sh nginx
 
             - name: Generate TLS certificates
               if: matrix.distro.use_tls
@@ -702,7 +702,7 @@ jobs:
 
             - name: Upload migration metrics
               if: always()
-              uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               with:
                   name: migration-metrics-${{ matrix.distro.name }}
                   path: /tmp/migration-metrics.json

@@ -45,11 +45,8 @@ global:
 
     ingress:
         enabled: true
-        className: nginx
+        className: contour
         host: camunda.example.com
-        annotations:
-            # Required for OIDC: Keycloak sends large JWT tokens in headers
-            nginx.ingress.kubernetes.io/proxy-buffer-size: 128k
         tls:
             enabled: true
             secretName: camunda-platform
@@ -123,7 +120,7 @@ orchestration:
     ingress:
         grpc:
             enabled: true
-            className: nginx
+            className: contour
             host: zeebe-camunda.example.com
             tls:
                 enabled: true

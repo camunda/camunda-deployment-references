@@ -109,6 +109,10 @@ runs:
                 {
                   echo "HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform"
                 } >> "$GITHUB_ENV"
+              else
+                {
+                  echo "HELM_CHART_NAME=camunda/camunda-platform"
+                } >> "$GITHUB_ENV"
               fi
 
               # create empty file if not exists
@@ -301,7 +305,7 @@ runs:
 
         - name: Upload Pod Logs
           if: failure()
-          uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+          uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
           with:
               name: pod-logs-${{ inputs.helm-version }}
               retention-days: 7

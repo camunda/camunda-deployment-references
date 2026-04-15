@@ -69,11 +69,11 @@ env:
     # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
     # TODO: [release-duty] Adjust the previous version to the previous stable release, 8.9 --> 8.8, for 8.8 would stick to 8.8
     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.8?(\.(?<patch>\d+))?$
-    TESTS_CAMUNDA_VERSION: 8.8.19
+    TESTS_CAMUNDA_VERSION: 8.8.21
     TESTS_CAMUNDA_PREVIOUS_VERSION: 8.8.0 # Version to be used for upgrade tests, not updated automatically
 
     # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.8?(\.(?<patch>\d+))?$
-    TESTS_CONNECTORS_VERSION: 8.8.9
+    TESTS_CONNECTORS_VERSION: 8.8.10
     TESTS_CONNECTORS_PREVIOUS_VERSION: 8.8.0 # Version to be used for upgrade tests, not updated automatically
 
 jobs:
@@ -285,7 +285,7 @@ jobs:
                   sed 's/\n/&#xA;/g' > "./tests-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-filtered.xml"
             - name: Upload test reports
               if: always()
-              uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               with:
                   name: test-reports-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-${{ matrix.distro.name }}
                   path: ${{ github.workspace }}/aws/compute/ec2-single-region/test/src/tests-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS

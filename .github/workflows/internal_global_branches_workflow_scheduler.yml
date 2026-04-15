@@ -34,7 +34,7 @@ jobs:
 
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@527a28284297c9e25451879b07c90cc84e2c3d21 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@9f6f18860b2e47db8930caadc6c9c50447f055a2 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -125,7 +125,7 @@ jobs:
         steps:
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@527a28284297c9e25451879b07c90cc84e2c3d21 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@9f6f18860b2e47db8930caadc6c9c50447f055a2 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -176,7 +176,7 @@ jobs:
                   extra_args: --all-files --verbose
 
             - name: Create the schedule PR
-              uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8
+              uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
               with:
                   token: ${{ steps.generate-github-token.outputs.token }}
                   branch: ${{ steps.branch-update.outputs.current_branch }}

@@ -101,12 +101,12 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
             - name: Set up Teleport
-              uses: teleport-actions/setup@a820ebbf1bc1a496efca348ad21042d6e8df73a6 # v1
+              uses: teleport-actions/setup@b638ff596557cc3959eb6b5287d5e58e0c8ac6a6 # v1
               with:
                   # renovate: datasource=custom.teleport-camunda depName=teleport
                   version: 18.7.3
             - name: Authenticate with Teleport
-              uses: teleport-actions/auth-k8s@d45dc8f8d215c23519c9d87095ac5de98796bfdc # v2
+              uses: teleport-actions/auth-k8s@0f46164469ae4fcd4d359d40e06bab17d4be17c9 # v2
               with:
                   proxy: camunda.teleport.sh:443
                   token: infra-ci-prod-github-action-infraex
