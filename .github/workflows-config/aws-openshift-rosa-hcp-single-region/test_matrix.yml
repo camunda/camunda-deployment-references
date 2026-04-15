@@ -21,7 +21,7 @@ matrix:
           schedule_only: true
           private_vpc: false
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.18(\.(?<patch>\d+))?$
-          version: 4.18.16
+          version: 4.18.28
 
     scenario:
         - name: rosa-hcp-single-region
