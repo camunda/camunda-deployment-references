@@ -295,9 +295,13 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 
-	// Wait for the gateway to be able to authenticate (CamundaExporter must finish creating ES indices)
-	kubectlHelpers.WaitForGatewayAuthReady(t, &primary.KubectlNamespace, 30, 10*time.Second)
-	kubectlHelpers.WaitForGatewayAuthReady(t, &secondary.KubectlNamespace, 30, 10*time.Second)
+	// Wait for the gateway to be able to authenticate.
+	// With basic auth, each request is validated through the Zeebe engine. Users are created
+	// during cluster initialization: default TENANT is distributed to all partitions first,
+	// then ROLES and USERS are created. In a dual-region cluster with RF 6, cross-region
+	// RAFT appends can time out (2.5s), making the full initialization sequence take 8-10 min.
+	kubectlHelpers.WaitForGatewayAuthReady(t, &primary.KubectlNamespace, 60, 10*time.Second)
+	kubectlHelpers.WaitForGatewayAuthReady(t, &secondary.KubectlNamespace, 60, 10*time.Second)
 
 	// connectors last as they depend on the Orchestration Cluster
 	err := k8s.WaitUntilDeploymentAvailableE(t, &primary.KubectlNamespace, "camunda-connectors", retries, 20*time.Second)
