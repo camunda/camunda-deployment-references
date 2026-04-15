@@ -25,6 +25,7 @@ runs:
     using: composite
     steps:
         - name: Import registry credentials
+          if: contains(inputs.helm-chart-version, 'dev-latest')
           id: secrets
           uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
           with:
@@ -37,6 +38,7 @@ runs:
                   secret/data/products/infrastructure-experience/ci/common MACHINE_USR;
                   secret/data/products/infrastructure-experience/ci/common MACHINE_PWD;
         - name: Helm registry login
+          if: contains(inputs.helm-chart-version, 'dev-latest')
           shell: bash
           run: |
               set -euo pipefail
