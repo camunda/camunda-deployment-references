@@ -71,6 +71,11 @@ orchestration:
           value: 'true'
         - name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS
           value: PLACEHOLDER
+        # Override the advertised host to use FQDN with .cluster.local suffix.
+        # The Helm chart default omits .cluster.local, which causes Netty's DNS
+        # resolver to fail cross-region resolution (SWIM gossip split-brain).
+        - name: ZEEBE_BROKER_NETWORK_ADVERTISEDHOST
+          value: $(K8S_NAME).$(K8S_SERVICE_NAME).$(K8S_NAMESPACE).svc.cluster.local
         # Region 0 exporter config
         - name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
