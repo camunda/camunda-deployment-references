@@ -23,6 +23,17 @@ global:
     multiregion:
         # number of regions that this Camunda Platform instance is stretched across
         regions: 2
+    # Point global ES config to the ECK-managed Elasticsearch service.
+    # Without this, the Helm chart renders camunda.database.elasticsearch.url
+    # pointing to the default bundled ES (camunda-elasticsearch:9200) which
+    # doesn't exist in our ECK-based setup, causing broker crash loops.
+    elasticsearch:
+        url:
+            host: elasticsearch-es-http
+        auth:
+            username: elastic
+            existingSecret: elasticsearch-es-elastic-user
+            existingSecretKey: elastic
     security:
         authentication:
             # Use basic auth for inter-component communication (demo/demo)
