@@ -27,7 +27,10 @@ global:
     # Without this, the Helm chart renders camunda.database.elasticsearch.url
     # pointing to the default bundled ES (camunda-elasticsearch:9200) which
     # doesn't exist in our ECK-based setup, causing broker crash loops.
+    # `external: true` is required for the Helm chart to inject the
+    # VALUES_ELASTICSEARCH_PASSWORD env var into the orchestration pods.
     elasticsearch:
+        external: true
         url:
             host: elasticsearch-es-http
         auth:
