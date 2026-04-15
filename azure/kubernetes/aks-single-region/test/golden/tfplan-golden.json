@@ -199,7 +199,6 @@
               }
             ],
             "node_os_upgrade_channel": "NodeImage",
-            "oidc_issuer_enabled": null,
             "oms_agent": [],
             "open_service_mesh_enabled": null,
             "private_cluster_enabled": false,
