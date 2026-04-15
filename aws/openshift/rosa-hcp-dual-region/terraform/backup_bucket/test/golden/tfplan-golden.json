@@ -269,9 +269,7 @@
               {
                 "sse_algorithm": "aws:kms"
               }
-            ],
-            "blocked_encryption_types": [],
-            "bucket_key_enabled": null
+            ]
           }
         ]
       }
@@ -307,9 +305,7 @@
               {
                 "sse_algorithm": "aws:kms"
               }
-            ],
-            "blocked_encryption_types": [],
-            "bucket_key_enabled": null
+            ]
           }
         ]
       }

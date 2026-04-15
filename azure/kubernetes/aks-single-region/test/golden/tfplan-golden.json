@@ -199,7 +199,6 @@
               }
             ],
             "node_os_upgrade_channel": "NodeImage",
-            "oidc_issuer_enabled": null,
             "oms_agent": [],
             "open_service_mesh_enabled": null,
             "private_cluster_enabled": false,
@@ -932,6 +931,12 @@
           }
         },
         "module.postgres_db.azurerm_private_endpoint.postgres": {
+          "identity": {
+            "name": null,
+            "resource_group_name": null,
+            "subscription_id": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "postgres",
           "provider_name": "registry.terraform.io/hashicorp/azurerm",
