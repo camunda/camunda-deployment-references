@@ -16,6 +16,7 @@ on:
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-camunda-chart-tests/**
+            - .github/actions/internal-helm-deprecation-check/**
             - .tool-versions
             - generic/kubernetes/operator-based/postgresql/**
             - local/kubernetes/kind-single-region/**

@@ -45,6 +45,7 @@ on:
             - generic/kubernetes/operator-based/elasticsearch/**
             - .tools-versions
             - .github/actions/internal-multi-region-tests/**
+            - .github/actions/internal-helm-deprecation-check/**
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
