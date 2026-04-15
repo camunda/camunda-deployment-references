@@ -12,6 +12,9 @@ MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 BROKER_PORT=${BROKER_PORT:-26502}
 TERRAFORM_DIR=${TERRAFORM_DIR:-"${CURRENT_DIR}/../terraform/cluster"}
 
+CAMUNDA_DISTRO_USER=${CAMUNDA_DISTRO_USER:-""}
+CAMUNDA_DISTRO_PASSWORD=${CAMUNDA_DISTRO_PASSWORD:-""}
+
 check_tool_installed "ssh"
 check_tool_installed "openssl"
 check_tool_installed "sftp"
@@ -70,6 +73,16 @@ total_ip_count=${#IPS[@]}
 # The idea is to divide the logic into smaller scripts for better readability and maintainability
 for index in "${!IPS[@]}"; do
     ip=${IPS[$index]}
+
+    # Write credentials to a temp file on the remote host via stdin to avoid
+    # leaking them in process listings or CI logs. The install script reads and
+    # deletes this file. A separate SSH call is used so that the install script's
+    # stdin remains clean (the script uses a heredoc internally).
+    if [[ -n "${CAMUNDA_DISTRO_USER}" && -n "${CAMUNDA_DISTRO_PASSWORD}" ]]; then
+        printf '%s\n%s\n' "${CAMUNDA_DISTRO_USER}" "${CAMUNDA_DISTRO_PASSWORD}" | \
+            ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" \
+            'cat > /tmp/.camunda-distro-credentials && chmod 600 /tmp/.camunda-distro-credentials'
+    fi
 
     ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" < "${CURRENT_DIR}/camunda-install.sh"
 
