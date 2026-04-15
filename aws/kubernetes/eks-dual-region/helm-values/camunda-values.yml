@@ -71,6 +71,13 @@ orchestration:
           value: 'true'
         - name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS
           value: PLACEHOLDER
+        # Override zeebe.broker.cluster.initialContactPoints from the ConfigMap.
+        # The Helm chart generates local-only pod names in the ConfigMap, and
+        # CAMUNDA_CLUSTER_INITIALCONTACTPOINTS maps to a different Spring Boot
+        # property path (camunda.cluster.*) that doesn't override the old
+        # zeebe.broker.cluster.* config. This env var targets the correct path.
+        - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
+          value: PLACEHOLDER
         # Override the advertised host to use FQDN with .cluster.local suffix.
         # The Helm chart default omits .cluster.local, which causes Netty's DNS
         # resolver to fail cross-region resolution (SWIM gossip split-brain).
