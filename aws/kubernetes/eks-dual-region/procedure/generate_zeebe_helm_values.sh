@@ -4,14 +4,19 @@ set -e
 
 generate_initial_contact() {
     # Function to generate the initial contact string for Zeebe clusters.
-    # Uses the headless service FQDN instead of individual broker pod addresses.
-    # Zeebe 8.9+ resolves all brokers behind a headless service name automatically,
-    # making this cluster-size independent.
+    # Uses individual broker pod FQDNs for Zeebe 8.8 compatibility.
+    # Zeebe 8.9+ can use headless service names, but 8.8 requires explicit pod addresses.
     local ns_0=$1
     local ns_1=$2
     local release=$3
+    local count=$4
     local port_number=26502
-    echo "${release}-zeebe.${ns_0}.svc.cluster.local:${port_number},${release}-zeebe.${ns_1}.svc.cluster.local:${port_number}"
+    local result=""
+    for ((i=0; i<count/2; i++)); do
+        result+="${release}-zeebe-${i}.${release}-zeebe.${ns_0}.svc.cluster.local:${port_number},"
+        result+="${release}-zeebe-${i}.${release}-zeebe.${ns_1}.svc.cluster.local:${port_number},"
+    done
+    echo "${result%,}"  # Remove the trailing comma
 }
 
 generate_exporter_elasticsearch_url() {
@@ -24,6 +29,7 @@ generate_exporter_elasticsearch_url() {
 namespace_0=${CAMUNDA_NAMESPACE_0:-""}
 namespace_1=${CAMUNDA_NAMESPACE_1:-""}
 helm_release_name=${CAMUNDA_RELEASE_NAME:-""}
+cluster_size=${ZEEBE_CLUSTER_SIZE:-""}
 
 # Check for deprecated ZEEBE_* environment variables
 if [ -n "${ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS:-}" ]; then
@@ -62,8 +68,20 @@ if [[ "$namespace_0" == "$namespace_1" ]]; then
     exit 1
 fi
 
+if [ -z "$cluster_size" ]; then
+    read -r -p "Enter Zeebe cluster size (total number of Zeebe brokers in both Kubernetes clusters): " cluster_size
+fi
+if ((cluster_size % 2 != 0)); then
+    echo "Cluster size $cluster_size is an odd number and not supported in a multi-region setup (must be an even number)"
+    exit 1
+fi
+if ((cluster_size < 4)); then
+    echo "Cluster size $cluster_size is too small and should be at least 4. A multi-region setup is not recommended for a small cluster size."
+    exit 1
+fi
+
 # Generating and printing the string
-initial_contact=$(generate_initial_contact "$namespace_0" "$namespace_1" "$helm_release_name")
+initial_contact=$(generate_initial_contact "$namespace_0" "$namespace_1" "$helm_release_name" "$cluster_size")
 elastic0=$(generate_exporter_elasticsearch_url "$namespace_0")
 elastic1=$(generate_exporter_elasticsearch_url "$namespace_1")
 
