@@ -105,11 +105,10 @@ runs:
           run: |
               set -euo pipefail
 
-              if [[ "${{ inputs.helm-version }}" =~ dev-latest ]]; then
-                {
-                  echo "HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform"
-                } >> "$GITHUB_ENV"
-              fi
+              # Always use OCI registry for chart pulls (requires registry login)
+              {
+                echo "HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform"
+              } >> "$GITHUB_ENV"
 
               # create empty file if not exists
               # OpenShift specific fix but doesn't harm others
