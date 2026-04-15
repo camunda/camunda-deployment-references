@@ -3,9 +3,13 @@
 ################################################################
 
 # Region 0 backup bucket
+# Bucket name includes account ID for global uniqueness across deployments.
+# force_destroy = true allows `terraform destroy` to succeed even when the bucket
+# contains backup objects. Safe for experiments; set to false in production.
 #trivy:ignore:AVD-AWS-0089 Bucket logging disabled to simplify setup
 resource "aws_s3_bucket" "backup_region_0" {
-  bucket = "${local.prefix_region_0}-backup-bucket"
+  bucket        = "${local.prefix_region_0}-backup-${data.aws_caller_identity.current.account_id}"
+  force_destroy = var.s3_force_destroy
 }
 
 resource "aws_s3_bucket_public_access_block" "backup_region_0" {
@@ -38,10 +42,14 @@ resource "aws_s3_bucket_versioning" "backup_region_0" {
 }
 
 # Region 1 backup bucket
+# Bucket name includes account ID for global uniqueness across deployments.
+# Note: cross-region restore (region 0 reading from region 1's bucket) requires
+# Multi-Region KMS keys. The current per-region KMS keys only allow same-region access.
 #trivy:ignore:AVD-AWS-0089 Bucket logging disabled to simplify setup
 resource "aws_s3_bucket" "backup_region_1" {
-  provider = aws.accepter
-  bucket   = "${local.prefix_region_1}-backup-bucket"
+  provider      = aws.accepter
+  bucket        = "${local.prefix_region_1}-backup-${data.aws_caller_identity.current.account_id}"
+  force_destroy = var.s3_force_destroy
 }
 
 resource "aws_s3_bucket_public_access_block" "backup_region_1" {

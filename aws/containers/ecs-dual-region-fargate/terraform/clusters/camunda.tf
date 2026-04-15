@@ -8,10 +8,11 @@ module "orchestration_cluster_region_0" {
   depends_on = [null_resource.run_db_seed_task]
 
   prefix              = "${local.prefix_region_0}-oc"
+  s3_force_destroy    = var.s3_force_destroy
   ecs_cluster_id      = aws_ecs_cluster.region_0.id
   vpc_id              = module.vpc_region_0.vpc_id
   vpc_private_subnets = module.vpc_region_0.private_subnets
-  aws_region          = data.aws_region.region_0.name
+  aws_region          = data.aws_region.region_0.id
 
   # IAM Roles
   ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution_region_0.arn
@@ -31,11 +32,15 @@ module "orchestration_cluster_region_0" {
   replication_factor     = local.replication_factor
   partition_count        = local.partition_count
   region_id              = 0
-  initial_contact_points = "orchestration-cluster-sc:26502,${aws_lb.nlb_raft_region_1.dns_name}:26502"
-  internal_nlb_arn       = aws_lb.nlb_raft_region_0.arn
+  initial_contact_points             = "orchestration-cluster-sc:26502,${aws_lb.nlb_raft_region_1.dns_name}:26502"
+  internal_nlb_arn                   = aws_lb.nlb_raft_region_0.arn
+  enable_internal_nlb_raft_listener  = true
 
-  # Increase health check grace period for cross-region Raft formation
-  service_health_check_grace_period_seconds = 1200
+  # Increase health check grace periods for cross-region Raft formation.
+  # Zeebe brokers wait for all 8 members before partitions become active,
+  # which can take 5-15 min across two regions.
+  service_health_check_grace_period_seconds   = 1200
+  container_health_check_start_period_seconds = 300
 
   environment_variables = [
     # Secondary Storage - RDBMS (Aurora PostgreSQL Global DB with IAM Auth + Failover)
@@ -151,10 +156,11 @@ module "orchestration_cluster_region_1" {
   depends_on = [null_resource.run_db_seed_task]
 
   prefix              = "${local.prefix_region_1}-oc"
+  s3_force_destroy    = var.s3_force_destroy
   ecs_cluster_id      = aws_ecs_cluster.region_1.id
   vpc_id              = module.vpc_region_1.vpc_id
   vpc_private_subnets = module.vpc_region_1.private_subnets
-  aws_region          = data.aws_region.region_1.name
+  aws_region          = data.aws_region.region_1.id
 
   # IAM Roles
   ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution_region_1.arn
@@ -174,11 +180,15 @@ module "orchestration_cluster_region_1" {
   replication_factor     = local.replication_factor
   partition_count        = local.partition_count
   region_id              = 1
-  initial_contact_points = "orchestration-cluster-sc:26502,${aws_lb.nlb_raft_region_0.dns_name}:26502"
-  internal_nlb_arn       = aws_lb.nlb_raft_region_1.arn
+  initial_contact_points             = "orchestration-cluster-sc:26502,${aws_lb.nlb_raft_region_0.dns_name}:26502"
+  internal_nlb_arn                   = aws_lb.nlb_raft_region_1.arn
+  enable_internal_nlb_raft_listener  = true
 
-  # Increase health check grace period for cross-region Raft formation
-  service_health_check_grace_period_seconds = 1200
+  # Increase health check grace periods for cross-region Raft formation.
+  # Zeebe brokers wait for all 8 members before partitions become active,
+  # which can take 5-15 min across two regions.
+  service_health_check_grace_period_seconds   = 1200
+  container_health_check_start_period_seconds = 600
 
   environment_variables = [
     # Secondary Storage - RDBMS (Aurora PostgreSQL Global DB with IAM Auth + Failover)
@@ -293,7 +303,7 @@ module "connectors_region_0" {
   ecs_cluster_id                       = aws_ecs_cluster.region_0.id
   vpc_id                               = module.vpc_region_0.vpc_id
   vpc_private_subnets                  = module.vpc_region_0.private_subnets
-  aws_region                           = data.aws_region.region_0.name
+  aws_region                           = data.aws_region.region_0.id
   s2s_cloudmap_namespace               = module.orchestration_cluster_region_0.s2s_cloudmap_namespace
   alb_listener_http_webapp_arn         = aws_lb_listener.http_webapp_region_0.arn
   enable_alb_http_webapp_listener_rule = true
@@ -355,7 +365,7 @@ module "connectors_region_1" {
   ecs_cluster_id                       = aws_ecs_cluster.region_1.id
   vpc_id                               = module.vpc_region_1.vpc_id
   vpc_private_subnets                  = module.vpc_region_1.private_subnets
-  aws_region                           = data.aws_region.region_1.name
+  aws_region                           = data.aws_region.region_1.id
   s2s_cloudmap_namespace               = module.orchestration_cluster_region_1.s2s_cloudmap_namespace
   alb_listener_http_webapp_arn         = aws_lb_listener.http_webapp_region_1.arn
   enable_alb_http_webapp_listener_rule = true

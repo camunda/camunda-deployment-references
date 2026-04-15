@@ -43,7 +43,7 @@ resource "aws_ecs_task_definition" "db_seed" {
               -v ON_ERROR_STOP=1 \
               -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${user}') THEN CREATE ROLE \"$${user}\" WITH LOGIN; END IF; END \$\$;" \
               -c "ALTER ROLE \"$${user}\" WITH LOGIN;" \
-              -c "GRANT rds_iam TO \"$${user}\";" \
+              -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.roleid JOIN pg_roles u ON u.oid = m.member WHERE r.rolname = 'rds_iam' AND u.rolname = '$${user}') THEN GRANT rds_iam TO \"$${user}\"; END IF; END \$\$;" \
               -c "GRANT ALL PRIVILEGES ON DATABASE \"$${AURORA_DB_NAME}\" TO \"$${user}\";" \
               -c "GRANT USAGE, CREATE ON SCHEMA public TO \"$${user}\";"
           done
@@ -71,7 +71,7 @@ resource "aws_ecs_task_definition" "db_seed" {
         logDriver = "awslogs"
         options = {
           awslogs-group         = aws_cloudwatch_log_group.db_seed[0].name
-          awslogs-region        = data.aws_region.region_0.name
+          awslogs-region        = data.aws_region.region_0.id
           awslogs-stream-prefix = "db-seed"
         }
       }
@@ -89,6 +89,7 @@ resource "null_resource" "run_db_seed_task" {
     db_name         = var.db_name
     iam_users       = join(",", var.db_seed_iam_usernames)
     iam_auth        = tostring(var.db_iam_auth_enabled)
+    run_id          = var.db_seed_run_id
   }
 
   provisioner "local-exec" {
@@ -109,7 +110,7 @@ resource "null_resource" "run_db_seed_task" {
 
       echo "Running one-time DB seed task..."
       TASK_ARN=$(aws ecs run-task \
-        --region "${data.aws_region.region_0.name}" \
+        --region "${data.aws_region.region_0.id}" \
         --cluster "${aws_ecs_cluster.region_0.arn}" \
         --launch-type FARGATE \
         --task-definition "${aws_ecs_task_definition.db_seed[0].arn}" \
@@ -120,19 +121,19 @@ resource "null_resource" "run_db_seed_task" {
       echo "Task started: $TASK_ARN"
 
       aws ecs wait tasks-stopped \
-        --region "${data.aws_region.region_0.name}" \
+        --region "${data.aws_region.region_0.id}" \
         --cluster "${aws_ecs_cluster.region_0.arn}" \
         --tasks "$TASK_ARN"
 
       EXIT_CODE=$(aws ecs describe-tasks \
-        --region "${data.aws_region.region_0.name}" \
+        --region "${data.aws_region.region_0.id}" \
         --cluster "${aws_ecs_cluster.region_0.arn}" \
         --tasks "$TASK_ARN" \
         --query 'tasks[0].containers[0].exitCode' \
         --output text)
 
       STOP_REASON=$(aws ecs describe-tasks \
-        --region "${data.aws_region.region_0.name}" \
+        --region "${data.aws_region.region_0.id}" \
         --cluster "${aws_ecs_cluster.region_0.arn}" \
         --tasks "$TASK_ARN" \
         --query 'tasks[0].stoppedReason' \

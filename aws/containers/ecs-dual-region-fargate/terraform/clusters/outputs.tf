@@ -22,6 +22,16 @@ output "region_0_ecs_cluster_name" {
   description = "The name of the ECS cluster in region 0"
 }
 
+output "region_0_log_group_name" {
+  value       = module.orchestration_cluster_region_0.log_group_name
+  description = "CloudWatch log group for the orchestration cluster in region 0"
+}
+
+output "region_0_backup_bucket_name" {
+  value       = aws_s3_bucket.backup_region_0.id
+  description = "Name of the S3 backup bucket in region 0"
+}
+
 ################################################################
 #                        Region 1 Outputs                      #
 ################################################################
@@ -46,6 +56,16 @@ output "region_1_ecs_cluster_name" {
   description = "The name of the ECS cluster in region 1"
 }
 
+output "region_1_log_group_name" {
+  value       = module.orchestration_cluster_region_1.log_group_name
+  description = "CloudWatch log group for the orchestration cluster in region 1"
+}
+
+output "region_1_backup_bucket_name" {
+  value       = aws_s3_bucket.backup_region_1.id
+  description = "Name of the S3 backup bucket in region 1"
+}
+
 ################################################################
 #                        Aurora Outputs                        #
 ################################################################
@@ -53,6 +73,16 @@ output "region_1_ecs_cluster_name" {
 output "aurora_global_cluster_id" {
   value       = module.aurora_global.global_cluster_id
   description = "The ID of the Aurora Global Database cluster"
+}
+
+output "aurora_primary_cluster_identifier" {
+  value       = module.aurora_global.primary_cluster_identifier
+  description = "The cluster identifier of the Aurora primary cluster (region 0)"
+}
+
+output "aurora_secondary_cluster_identifier" {
+  value       = module.aurora_global.secondary_cluster_identifier
+  description = "The cluster identifier of the Aurora secondary cluster (region 1)"
 }
 
 output "aurora_primary_endpoint" {
@@ -71,6 +101,12 @@ output "aurora_secondary_endpoint" {
 
 output "admin_user_password" {
   value       = random_password.admin_user_password.result
-  description = "The admin password for Camunda. Easy access purposes, saved in Secrets Manager."
+  description = "The Camunda admin user password. Stored in Secrets Manager in each region."
+  sensitive   = true
+}
+
+output "db_admin_password" {
+  value       = local.db_admin_password_effective
+  description = "The Aurora PostgreSQL admin password. Stored in Secrets Manager in region 0."
   sensitive   = true
 }

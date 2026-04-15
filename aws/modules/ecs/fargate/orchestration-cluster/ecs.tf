@@ -93,6 +93,7 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
     registry_credentials_arn = var.registry_credentials_arn
     has_secrets              = length(var.secrets) > 0
     secrets_json             = jsonencode(var.secrets)
+    container_health_check_start_period_seconds = var.container_health_check_start_period_seconds
 
     init_container_enabled = var.init_container_enabled
     init_container_name    = var.init_container_name

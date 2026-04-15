@@ -104,6 +104,12 @@ variable "service_health_check_grace_period_seconds" {
   default     = 900
 }
 
+variable "container_health_check_start_period_seconds" {
+  description = "Seconds ECS will ignore container health check failures during container startup (startPeriod). For dual-region deployments, Zeebe Raft quorum formation can take 5-15 minutes, so set this to at least 600."
+  type        = number
+  default     = 300
+}
+
 variable "cloudwatch_retention_days" {
   description = "The number of days to retain CloudWatch logs"
   type        = number
@@ -195,7 +201,7 @@ variable "image" {
   # TODO: [release-duty] before the release, update the below versions to the stable release!
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.9\.(?<patch>\d+)(-alpha(?<prerelease>[1-9]|[1-4][0-9]|50))?$
-  default = "camunda/camunda:8.9.0-alpha5"
+  default = "camunda/camunda:8.9.0"
 }
 
 variable "environment_variables" {
@@ -285,7 +291,7 @@ variable "restore_container_image" {
   # TODO: [release-duty] before the release, update the below versions to the stable release!
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.9\.(?<patch>\d+)(-alpha(?<prerelease>[1-9]|[1-4][0-9]|50))?$
-  default = "camunda/camunda:8.9.0-alpha5"
+  default = "camunda/camunda:8.9.0"
 }
 
 variable "restore_container_entrypoint" {
@@ -345,6 +351,12 @@ variable "internal_nlb_arn" {
   description = "ARN of the internal NLB for cross-region Raft traffic on port 26502. If set, registers a target group."
   type        = string
   default     = ""
+}
+
+variable "enable_internal_nlb_raft_listener" {
+  description = "Whether to create the internal NLB listener and target group for cross-region Raft on port 26502 (must be a known boolean at plan time)"
+  type        = bool
+  default     = false
 }
 
 variable "region_id" {

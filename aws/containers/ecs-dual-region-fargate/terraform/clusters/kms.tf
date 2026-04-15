@@ -79,6 +79,13 @@ locals {
 ################################################################
 #                    S3 KMS Keys (per region)                  #
 ################################################################
+# Each region has its own regional KMS key for its backup S3 bucket.
+# IAM policies on the ECS task roles (in s3.tf) grant kms:Decrypt/Encrypt/GenerateDataKey.
+#
+# Cross-region restore limitation: regional KMS keys cannot be used across regions.
+# If you need region 0 ECS tasks to decrypt region 1's S3 backup objects (e.g., during
+# a failover restore), replace these with AWS Multi-Region KMS keys
+# (aws_kms_key with multi_region = true + aws_kms_replica_key in the peer region).
 
 resource "aws_kms_key" "s3_region_0" {
   description             = "KMS key for ${local.prefix_region_0} S3 bucket encryption"

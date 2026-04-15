@@ -3,6 +3,9 @@
 ################################
 
 # Transit Gateway in region 0 (owner)
+# Note: dns_support on the TGW enables basic AWS-internal DNS features for VPC attachments.
+# Cross-region Cloud Map / Service Connect name resolution is handled separately by
+# Route 53 Resolver forwarding rules defined in dns.tf — not by TGW native DNS.
 resource "aws_ec2_transit_gateway" "this" {
   description = "Transit Gateway for ${local.prefix} dual-region ECS"
 

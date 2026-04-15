@@ -18,8 +18,6 @@ Cluster configuration: `cluster_size=8`, `replication_factor=4`, `partition_coun
 ## Prerequisites
 
 - AWS account with permissions for: ECS, Aurora, Transit Gateway, Route 53, S3, EFS, KMS, IAM, Secrets Manager, CloudWatch
-- Two AWS regions with Transit Gateway peering established
-- S3 bucket for Terraform state
 - Camunda Docker image version 8.8+ (RDBMS secondary storage support)
 
 ## Quick start

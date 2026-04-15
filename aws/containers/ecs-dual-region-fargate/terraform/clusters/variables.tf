@@ -4,9 +4,9 @@
 
 locals {
   owner = {
-    region           = "eu-west-2" # London
+    region           = "eu-west-1" # London
     vpc_cidr_block   = "10.192.0.0/16"
-    region_full_name = "london"
+    region_full_name = "dublin"
   }
   accepter = {
     region           = "eu-west-3" # Paris
@@ -47,9 +47,14 @@ variable "single_nat_gateway" {
 ################################################################
 
 variable "limit_access_to_cidrs" {
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
-  description = "List of CIDR blocks to allow access to LoadBalancers"
+  type    = list(string)
+  default = ["0.0.0.0/0"]
+  description = <<-EOT
+    List of CIDR blocks to restrict access to the public-facing LoadBalancers
+    (ports 80, 443, 26500, 9600).
+    Security note: the default ["0.0.0.0/0"] allows unrestricted public access.
+    Restrict to known IP ranges (e.g. office egress, VPN CIDRs) in production.
+  EOT
 }
 
 variable "ports" {
@@ -101,6 +106,12 @@ variable "db_seed_enabled" {
   default     = true
 }
 
+variable "db_seed_run_id" {
+  type        = string
+  description = "Increment this value to force the DB seed task to re-run on the next apply (e.g. '1' → '2'). All SQL is idempotent so re-running is safe."
+  default     = "1"
+}
+
 variable "db_seed_iam_usernames" {
   type        = list(string)
   description = "Database users to create and grant rds_iam + privileges for"
@@ -127,6 +138,12 @@ variable "registry_password" {
 #                         KMS Options                          #
 ################################################################
 
+variable "s3_force_destroy" {
+  type        = bool
+  default     = false
+  description = "Allow terraform destroy to delete S3 backup buckets even when they contain objects. Set to true for dev/test environments where losing backups on destroy is acceptable."
+}
+
 variable "secrets_kms_key_arn" {
   description = "Optional existing KMS key ARN for region 0. If empty, a CMK is created."
   type        = string
@@ -137,4 +154,15 @@ variable "secrets_kms_key_arn_accepter" {
   description = "Optional existing KMS key ARN for region 1. If empty, a CMK is created."
   type        = string
   default     = ""
+}
+
+variable "enable_cross_region_dns_resolver" {
+  type    = bool
+  default = false
+  description = <<-EOT
+    Create Route 53 Resolver endpoints and forwarding rules for cross-region Cloud Map DNS.
+    Requires the IAM permission route53resolver:CreateResolverEndpoint on the calling principal.
+    Zeebe Raft and Connectors work without this because cross-region contact uses NLB DNS names.
+    Enable once the permission is granted if you need cross-region Service Connect name resolution.
+  EOT
 }

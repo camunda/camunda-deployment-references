@@ -46,6 +46,12 @@ variable "iam_auth_enabled" {
   description = "Enable IAM database authentication"
 }
 
+variable "backup_retention_period" {
+  type        = number
+  default     = 7
+  description = "Number of days to retain automated Aurora backups. Minimum 1; set higher for production. Defaults to 7 to give a reasonable recovery window for dual-region failover scenarios."
+}
+
 variable "instance_class" {
   type        = string
   default     = "db.r6g.large"

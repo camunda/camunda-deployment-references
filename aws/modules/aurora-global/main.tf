@@ -81,6 +81,7 @@ resource "aws_rds_cluster" "primary" {
   kms_key_id                = aws_kms_key.primary.arn
   vpc_security_group_ids    = [aws_security_group.primary.id]
   db_subnet_group_name      = aws_db_subnet_group.primary.name
+  backup_retention_period   = var.backup_retention_period
   skip_final_snapshot       = true
   apply_immediately         = true
   copy_tags_to_snapshot     = true

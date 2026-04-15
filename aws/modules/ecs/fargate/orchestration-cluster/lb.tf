@@ -150,7 +150,7 @@ resource "aws_lb_listener" "grpc_26500" {
 ################################################################
 
 resource "aws_lb_target_group" "raft_26502" {
-  count = var.internal_nlb_arn != "" ? 1 : 0
+  count = var.enable_internal_nlb_raft_listener ? 1 : 0
 
   name        = "${substr(var.prefix, 0, 17)}-orc-tg-26502"
   port        = 26502
@@ -172,7 +172,7 @@ resource "aws_lb_target_group" "raft_26502" {
 }
 
 resource "aws_lb_listener" "raft_26502" {
-  count = var.internal_nlb_arn != "" ? 1 : 0
+  count = var.enable_internal_nlb_raft_listener ? 1 : 0
 
   load_balancer_arn = var.internal_nlb_arn
   port              = "26502"

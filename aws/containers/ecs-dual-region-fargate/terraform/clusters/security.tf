@@ -160,11 +160,19 @@ resource "aws_security_group" "remote_access_region_0" {
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
     cidr_blocks = var.limit_access_to_cidrs
-    description = "Allow outbound to remote CIDRs"
+    description = "Allow outbound HTTP"
+  }
+
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow outbound HTTPS"
   }
 
   tags = {
@@ -383,11 +391,19 @@ resource "aws_security_group" "remote_access_region_1" {
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
     cidr_blocks = var.limit_access_to_cidrs
-    description = "Allow outbound to remote CIDRs"
+    description = "Allow outbound HTTP"
+  }
+
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = var.limit_access_to_cidrs
+    description = "Allow outbound HTTPS"
   }
 
   tags = {

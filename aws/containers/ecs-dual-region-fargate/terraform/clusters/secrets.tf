@@ -1,6 +1,11 @@
 ################################################################
 #                     Shared Passwords                         #
 ################################################################
+# recovery_window_in_days = 0 is used throughout this file so that
+# `terraform destroy` can immediately delete secrets without waiting
+# for the default 30-day recovery window. This is intentional for a
+# reference/demo deployment. Set it to >= 7 in production.
+#
 
 locals {
   db_admin_password_effective = var.db_admin_password != "" ? var.db_admin_password : random_password.db_admin_password[0].result
