@@ -321,7 +321,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.34.4-SUFFIX",
+                    "release_version": "1.34.6-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -2287,6 +2287,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route_table_association.private[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private",
@@ -2301,6 +2307,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route_table_association.private[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private",
@@ -2315,6 +2327,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route_table_association.private[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private",
@@ -2329,6 +2347,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route_table_association.public[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "public",
@@ -2343,6 +2367,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route_table_association.public[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "public",
@@ -2357,6 +2387,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_route_table_association.public[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "public",

@@ -2347,6 +2347,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_route_table_association.private_route_table_association[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private_route_table_association",
@@ -2361,6 +2367,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_route_table_association.private_route_table_association[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private_route_table_association",
@@ -2375,6 +2387,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_route_table_association.private_route_table_association[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private_route_table_association",
@@ -2389,6 +2407,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_route_table_association.public_route_table_association[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "public_route_table_association",
@@ -2403,6 +2427,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_route_table_association.public_route_table_association[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "public_route_table_association",
@@ -2417,6 +2447,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_route_table_association.public_route_table_association[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "public_route_table_association",
