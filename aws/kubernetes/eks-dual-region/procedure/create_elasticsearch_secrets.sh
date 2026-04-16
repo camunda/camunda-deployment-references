@@ -1,8 +1,9 @@
 #!/bin/bash
-# Creates the ECK secure settings secret for Elasticsearch S3 snapshot/backup.
+# Creates the Elasticsearch env secret for the bundled Bitnami ES subchart.
 #
-# ECK injects these keys into the Elasticsearch keystore at startup.
-# The secret name must match the secureSettings reference in the Elasticsearch CRD.
+# The secret keys are injected as environment variables into the ES container
+# via elasticsearch.extraEnvVarsSecret. The init-keystore.sh initScript reads
+# $S3_ACCESS_KEY and $S3_SECRET_KEY to populate the ES keystore for S3 backups.
 #
 # Required environment variables:
 #   AWS_ACCESS_KEY_ES        - AWS access key for the S3 backup bucket
@@ -26,8 +27,8 @@ create_secret() {
     local secret_name=$3
 
     kubectl --context "$context" -n "$namespace" create secret generic "$secret_name" \
-        --from-literal=s3.client.camunda.access_key="$AWS_ACCESS_KEY_ES" \
-        --from-literal=s3.client.camunda.secret_key="$AWS_SECRET_ACCESS_KEY_ES" \
+        --from-literal=S3_ACCESS_KEY="$AWS_ACCESS_KEY_ES" \
+        --from-literal=S3_SECRET_KEY="$AWS_SECRET_ACCESS_KEY_ES" \
         --dry-run=client -o yaml | kubectl --context "$context" apply -f -
 }
 
@@ -46,7 +47,7 @@ create_namespace "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1"
 
 SECRET_NAME="elasticsearch-env-secret"
 
-echo "Creating ECK secure settings secret '$SECRET_NAME' in both regions..."
+echo "Creating Elasticsearch env secret '$SECRET_NAME' in both regions..."
 create_secret "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0" "$SECRET_NAME"
 create_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1" "$SECRET_NAME"
 echo "Done."
