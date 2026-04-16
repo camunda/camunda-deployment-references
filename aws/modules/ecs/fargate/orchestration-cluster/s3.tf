@@ -7,10 +7,34 @@ resource "aws_s3_bucket" "main" {
 }
 
 # KMS key for S3 bucket encryption
+#
+# Explicit key policy is required. Without it Terraform relies on the AWS API default, which
+# enables IAM delegation only when the key is created through the console. Keys created via API
+# (as Terraform does) may not include the "Enable IAM User Permissions" root statement, which
+# means identity-based policies on the task role cannot allow kms:Decrypt on this key.
+data "aws_caller_identity" "current" {}
+
 resource "aws_kms_key" "s3" {
   description             = "KMS key for ${var.prefix} S3 bucket encryption"
   deletion_window_in_days = 10
   enable_key_rotation     = true
+
+  # Delegate access control to IAM — without this statement, IAM policies on the task role
+  # cannot grant kms:Decrypt even if they list the key ARN explicitly.
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableIAMUserPermissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 resource "aws_kms_alias" "s3" {
@@ -87,14 +111,10 @@ resource "aws_iam_policy" "s3_access" {
           "kms:Decrypt",
           "kms:Encrypt",
           "kms:GenerateDataKey",
+          "kms:GenerateDataKeyWithoutPlaintext",
           "kms:DescribeKey"
         ]
         Resource = aws_kms_key.s3.arn
-        Condition = {
-          StringEquals = {
-            "kms:ViaService" = "s3.${var.aws_region}.amazonaws.com"
-          }
-        }
       }
     ]
   })

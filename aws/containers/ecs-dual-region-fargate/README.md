@@ -7,7 +7,7 @@ This folder describes the IaC of Camunda on AWS ECS Fargate in a dual-region act
 
 ## Architecture overview
 
-- **Two AWS regions** (default: `eu-west-2` and `eu-west-3`) connected via Transit Gateway
+- **Two AWS regions** (default: `eu-west-1` and `eu-west-3`) connected via VPC Peering
 - **8 Zeebe brokers** — 4 per region with asymmetric initial contact points (Service Connect locally, NLB cross-region)
 - **Aurora Global Database** — single writer endpoint with [AWS JDBC Wrapper](https://github.com/aws/aws-advanced-jdbc-wrapper) `failover` plugin for automatic reconnection
 - **Route 53 Resolver** — forwards Cloud Map DNS queries cross-region for service discovery
@@ -17,25 +17,46 @@ Cluster configuration: `cluster_size=8`, `replication_factor=4`, `partition_coun
 
 ## Prerequisites
 
-- AWS account with permissions for: ECS, Aurora, Transit Gateway, Route 53, S3, EFS, KMS, IAM, Secrets Manager, CloudWatch
+- AWS account with permissions for: ECS, Aurora, EC2 VPC Peering, Route 53, S3, EFS, KMS, IAM, Secrets Manager, CloudWatch
 - Camunda Docker image version 8.8+ (RDBMS secondary storage support)
+
+## Terraform layout
+
+The Terraform configuration is split into two independent root modules:
+
+| Layer | Directory | What it manages |
+|-------|-----------|-----------------|
+| **infra** | `terraform/infra/` | VPC, VPC Peering, ECS clusters, Aurora Global DB, ALB/NLB, KMS, S3, IAM execution roles, security groups, Route 53 Resolver |
+| **camunda** | `terraform/camunda/` | ECS task definitions & services (Zeebe brokers, Connectors), app secrets, DB seed task |
+
+Apply **infra first**. The camunda layer reads infra outputs via `data "terraform_remote_state"` (local state by default; set `infra_state_path` or swap the backend for S3/Terraform Cloud).
 
 ## Quick start
 
 ```bash
-# 1. Deploy infrastructure
-cd terraform/clusters
-terraform init && terraform apply
+# 1. Deploy platform infrastructure
+cd terraform/infra
+terraform init && terraform apply -var="cluster_name=my-camunda"
 
-# 2. Export environment variables from terraform outputs
+# 2. Deploy Camunda application
+cd ../camunda
+terraform init && terraform apply -var="cluster_name=my-camunda"
+
+# 3. Export environment variables from terraform outputs
 source ../../procedure/export_environment_prerequisites.sh
 
-# 3. Verify cross-region DNS resolution
+# 4. Verify cross-region DNS resolution
 ../../procedure/test_cross_region_dns.sh
 
-# 4. Verify dual-region health
+# 5. Verify dual-region health
 ../../procedure/verify_dual_region.sh
 ```
+
+> **Destroy order**: tear down camunda layer first, then infra.
+> ```bash
+> cd terraform/camunda && terraform destroy -var="cluster_name=my-camunda"
+> cd ../infra        && terraform destroy -var="cluster_name=my-camunda"
+> ```
 
 ## Failover / Failback
 

@@ -9,38 +9,46 @@ module "orchestration_cluster_region_0" {
 
   prefix              = "${local.prefix_region_0}-oc"
   s3_force_destroy    = var.s3_force_destroy
-  ecs_cluster_id      = aws_ecs_cluster.region_0.id
-  vpc_id              = module.vpc_region_0.vpc_id
-  vpc_private_subnets = module.vpc_region_0.private_subnets
+  ecs_cluster_id      = local.infra.region_0_ecs_cluster_id
+  vpc_id              = local.infra.region_0_vpc_id
+  vpc_private_subnets = local.infra.region_0_private_subnets
   aws_region          = data.aws_region.region_0.id
 
   # IAM Roles
-  ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution_region_0.arn
+  ecs_task_execution_role_arn = local.infra.region_0_ecs_task_execution_role_arn
 
   # Load Balancer configuration
-  alb_listener_http_webapp_arn     = aws_lb_listener.http_webapp_region_0.arn
-  alb_listener_http_management_arn = aws_lb_listener.http_management_region_0.arn
-  nlb_arn                          = aws_lb.nlb_grpc_region_0.arn
+  alb_listener_http_webapp_arn     = local.infra.region_0_alb_http_webapp_listener_arn
+  alb_listener_http_management_arn = local.infra.region_0_alb_http_management_listener_arn
+  nlb_arn                          = local.infra.region_0_nlb_grpc_arn
 
   enable_alb_http_webapp_listener_rule     = true
   enable_alb_http_management_listener_rule = false
   enable_nlb_grpc_26500_listener           = true
 
   # Dual-region cluster configuration
-  task_desired_count     = local.brokers_per_region
-  cluster_size           = local.cluster_size
-  replication_factor     = local.replication_factor
-  partition_count        = local.partition_count
-  region_id              = 0
-  initial_contact_points             = "orchestration-cluster-sc:26502,${aws_lb.nlb_raft_region_1.dns_name}:26502"
-  internal_nlb_arn                   = aws_lb.nlb_raft_region_0.arn
-  enable_internal_nlb_raft_listener  = true
+  task_desired_count            = local.brokers_per_region
+  cluster_size                  = local.cluster_size
+  replication_factor            = local.replication_factor
+  partition_count               = local.partition_count
+  region_id                     = 0
+  initial_contact_points        = "orchestration-cluster-sc:26502,${local.infra.region_1_nlb_raft_dns_name}:26502"
+  internal_nlb_arn              = local.infra.region_0_nlb_raft_arn
+  enable_internal_nlb_raft_listener = true
 
   # Increase health check grace periods for cross-region Raft formation.
   # Zeebe brokers wait for all 8 members before partitions become active,
   # which can take 5-15 min across two regions.
   service_health_check_grace_period_seconds   = 1200
   container_health_check_start_period_seconds = 300
+
+  # Zeebe's /actuator/health/readiness only passes when all 8 brokers across
+  # both regions have formed Raft quorum. With wait_for_steady_state=true
+  # (the module default), Terraform would block on region 0 indefinitely
+  # because region 0 brokers can never be healthy until region 1 is also up.
+  # Setting false lets both regions deploy in parallel; verify convergence
+  # via the readiness endpoint after apply completes.
+  wait_for_steady_state = false
 
   environment_variables = [
     # Secondary Storage - RDBMS (Aurora PostgreSQL Global DB with IAM Auth + Failover)
@@ -54,7 +62,7 @@ module "orchestration_cluster_region_0" {
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL"
-      value = "jdbc:aws-wrapper:postgresql://${module.aurora_global.primary_cluster_endpoint}:5432/${var.db_name}?wrapperPlugins=iam,failover"
+      value = local.aurora_jdbc_url
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_USERNAME"
@@ -110,11 +118,11 @@ module "orchestration_cluster_region_0" {
     },
     {
       name  = "CAMUNDA_DATA_BACKUP_S3_BUCKETNAME"
-      value = aws_s3_bucket.backup_region_0.bucket
+      value = local.infra.region_0_backup_bucket_name
     },
     {
       name  = "CAMUNDA_DATA_BACKUP_REPOSITORYNAME"
-      value = aws_s3_bucket.backup_region_0.bucket
+      value = local.infra.region_0_backup_bucket_name
     },
   ]
 
@@ -130,15 +138,15 @@ module "orchestration_cluster_region_0" {
   ]
 
   service_security_group_ids = [
-    aws_security_group.camunda_ports_region_0.id,
-    aws_security_group.package_80_443_region_0.id,
-    aws_security_group.efs_region_0.id,
+    local.infra.region_0_camunda_ports_sg_id,
+    local.infra.region_0_package_80_443_sg_id,
+    local.infra.region_0_efs_sg_id,
   ]
-  efs_security_group_ids = [aws_security_group.efs_region_0.id]
+  efs_security_group_ids = [local.infra.region_0_efs_sg_id]
 
   extra_task_role_attachments = [
-    aws_iam_policy.rds_db_connect_region_0.arn,
-    aws_iam_policy.s3_backup_access_region_0.arn,
+    local.infra.region_0_rds_db_connect_policy_arn,
+    local.infra.region_0_s3_backup_access_policy_arn,
   ]
 }
 
@@ -157,38 +165,41 @@ module "orchestration_cluster_region_1" {
 
   prefix              = "${local.prefix_region_1}-oc"
   s3_force_destroy    = var.s3_force_destroy
-  ecs_cluster_id      = aws_ecs_cluster.region_1.id
-  vpc_id              = module.vpc_region_1.vpc_id
-  vpc_private_subnets = module.vpc_region_1.private_subnets
+  ecs_cluster_id      = local.infra.region_1_ecs_cluster_id
+  vpc_id              = local.infra.region_1_vpc_id
+  vpc_private_subnets = local.infra.region_1_private_subnets
   aws_region          = data.aws_region.region_1.id
 
   # IAM Roles
-  ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution_region_1.arn
+  ecs_task_execution_role_arn = local.infra.region_1_ecs_task_execution_role_arn
 
   # Load Balancer configuration
-  alb_listener_http_webapp_arn     = aws_lb_listener.http_webapp_region_1.arn
-  alb_listener_http_management_arn = aws_lb_listener.http_management_region_1.arn
-  nlb_arn                          = aws_lb.nlb_grpc_region_1.arn
+  alb_listener_http_webapp_arn     = local.infra.region_1_alb_http_webapp_listener_arn
+  alb_listener_http_management_arn = local.infra.region_1_alb_http_management_listener_arn
+  nlb_arn                          = local.infra.region_1_nlb_grpc_arn
 
   enable_alb_http_webapp_listener_rule     = true
   enable_alb_http_management_listener_rule = false
   enable_nlb_grpc_26500_listener           = true
 
   # Dual-region cluster configuration
-  task_desired_count     = local.brokers_per_region
-  cluster_size           = local.cluster_size
-  replication_factor     = local.replication_factor
-  partition_count        = local.partition_count
-  region_id              = 1
-  initial_contact_points             = "orchestration-cluster-sc:26502,${aws_lb.nlb_raft_region_0.dns_name}:26502"
-  internal_nlb_arn                   = aws_lb.nlb_raft_region_1.arn
-  enable_internal_nlb_raft_listener  = true
+  task_desired_count            = local.brokers_per_region
+  cluster_size                  = local.cluster_size
+  replication_factor            = local.replication_factor
+  partition_count               = local.partition_count
+  region_id                     = 1
+  initial_contact_points        = "orchestration-cluster-sc:26502,${local.infra.region_0_nlb_raft_dns_name}:26502"
+  internal_nlb_arn              = local.infra.region_1_nlb_raft_arn
+  enable_internal_nlb_raft_listener = true
 
   # Increase health check grace periods for cross-region Raft formation.
   # Zeebe brokers wait for all 8 members before partitions become active,
   # which can take 5-15 min across two regions.
   service_health_check_grace_period_seconds   = 1200
   container_health_check_start_period_seconds = 300
+
+  # See region 0 comment above — same reasoning applies.
+  wait_for_steady_state = false
 
   environment_variables = [
     # Secondary Storage - RDBMS (Aurora PostgreSQL Global DB with IAM Auth + Failover)
@@ -204,7 +215,7 @@ module "orchestration_cluster_region_1" {
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL"
-      value = "jdbc:aws-wrapper:postgresql://${module.aurora_global.primary_cluster_endpoint}:5432/${var.db_name}?wrapperPlugins=iam,failover"
+      value = local.aurora_jdbc_url
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_USERNAME"
@@ -260,11 +271,11 @@ module "orchestration_cluster_region_1" {
     },
     {
       name  = "CAMUNDA_DATA_BACKUP_S3_BUCKETNAME"
-      value = aws_s3_bucket.backup_region_1.bucket
+      value = local.infra.region_1_backup_bucket_name
     },
     {
       name  = "CAMUNDA_DATA_BACKUP_REPOSITORYNAME"
-      value = aws_s3_bucket.backup_region_1.bucket
+      value = local.infra.region_1_backup_bucket_name
     },
   ]
 
@@ -280,15 +291,15 @@ module "orchestration_cluster_region_1" {
   ]
 
   service_security_group_ids = [
-    aws_security_group.camunda_ports_region_1.id,
-    aws_security_group.package_80_443_region_1.id,
-    aws_security_group.efs_region_1.id,
+    local.infra.region_1_camunda_ports_sg_id,
+    local.infra.region_1_package_80_443_sg_id,
+    local.infra.region_1_efs_sg_id,
   ]
-  efs_security_group_ids = [aws_security_group.efs_region_1.id]
+  efs_security_group_ids = [local.infra.region_1_efs_sg_id]
 
   extra_task_role_attachments = [
-    aws_iam_policy.rds_db_connect_region_1.arn,
-    aws_iam_policy.s3_backup_access_region_1.arn,
+    local.infra.region_1_rds_db_connect_policy_arn,
+    local.infra.region_1_s3_backup_access_policy_arn,
   ]
 }
 
@@ -300,20 +311,20 @@ module "connectors_region_0" {
   source = "../../../../modules/ecs/fargate/connectors"
 
   prefix                               = "${local.prefix_region_0}-oc"
-  ecs_cluster_id                       = aws_ecs_cluster.region_0.id
-  vpc_id                               = module.vpc_region_0.vpc_id
-  vpc_private_subnets                  = module.vpc_region_0.private_subnets
+  ecs_cluster_id                       = local.infra.region_0_ecs_cluster_id
+  vpc_id                               = local.infra.region_0_vpc_id
+  vpc_private_subnets                  = local.infra.region_0_private_subnets
   aws_region                           = data.aws_region.region_0.id
   s2s_cloudmap_namespace               = module.orchestration_cluster_region_0.s2s_cloudmap_namespace
-  alb_listener_http_webapp_arn         = aws_lb_listener.http_webapp_region_0.arn
+  alb_listener_http_webapp_arn         = local.infra.region_0_alb_http_webapp_listener_arn
   enable_alb_http_webapp_listener_rule = true
   log_group_name                       = module.orchestration_cluster_region_0.log_group_name
 
-  ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution_region_0.arn
+  ecs_task_execution_role_arn = local.infra.region_0_ecs_task_execution_role_arn
 
   service_security_group_ids = [
-    aws_security_group.camunda_ports_region_0.id,
-    aws_security_group.package_80_443_region_0.id,
+    local.infra.region_0_camunda_ports_sg_id,
+    local.infra.region_0_package_80_443_sg_id,
   ]
 
   environment_variables = [
@@ -347,6 +358,7 @@ module "connectors_region_0" {
   ]
 
   task_desired_count          = 1
+  wait_for_steady_state       = false
   extra_task_role_attachments = []
 }
 
@@ -362,20 +374,20 @@ module "connectors_region_1" {
   }
 
   prefix                               = "${local.prefix_region_1}-oc"
-  ecs_cluster_id                       = aws_ecs_cluster.region_1.id
-  vpc_id                               = module.vpc_region_1.vpc_id
-  vpc_private_subnets                  = module.vpc_region_1.private_subnets
+  ecs_cluster_id                       = local.infra.region_1_ecs_cluster_id
+  vpc_id                               = local.infra.region_1_vpc_id
+  vpc_private_subnets                  = local.infra.region_1_private_subnets
   aws_region                           = data.aws_region.region_1.id
   s2s_cloudmap_namespace               = module.orchestration_cluster_region_1.s2s_cloudmap_namespace
-  alb_listener_http_webapp_arn         = aws_lb_listener.http_webapp_region_1.arn
+  alb_listener_http_webapp_arn         = local.infra.region_1_alb_http_webapp_listener_arn
   enable_alb_http_webapp_listener_rule = true
   log_group_name                       = module.orchestration_cluster_region_1.log_group_name
 
-  ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution_region_1.arn
+  ecs_task_execution_role_arn = local.infra.region_1_ecs_task_execution_role_arn
 
   service_security_group_ids = [
-    aws_security_group.camunda_ports_region_1.id,
-    aws_security_group.package_80_443_region_1.id,
+    local.infra.region_1_camunda_ports_sg_id,
+    local.infra.region_1_package_80_443_sg_id,
   ]
 
   environment_variables = [
@@ -409,5 +421,6 @@ module "connectors_region_1" {
   ]
 
   task_desired_count          = 1
+  wait_for_steady_state       = false
   extra_task_role_attachments = []
 }

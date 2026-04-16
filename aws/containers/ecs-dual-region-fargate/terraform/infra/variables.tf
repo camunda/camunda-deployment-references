@@ -22,7 +22,6 @@ locals {
 variable "cluster_name" {
   type        = string
   description = "Name of the cluster to prefix resources"
-  default     = "yes"
 }
 
 variable "aws_profile" {
@@ -101,42 +100,8 @@ variable "db_iam_auth_enabled" {
   default     = true
 }
 
-variable "db_seed_enabled" {
-  type        = bool
-  description = "Run a one-time ECS task to create/grant IAM DB users"
-  default     = true
-}
-
-variable "db_seed_run_id" {
-  type        = string
-  description = "Increment this value to force the DB seed task to re-run on the next apply (e.g. '1' → '2'). All SQL is idempotent so re-running is safe."
-  default     = "1"
-}
-
-variable "db_seed_iam_usernames" {
-  type        = list(string)
-  description = "Database users to create and grant rds_iam + privileges for"
-  default     = ["camunda"]
-}
-
 ################################################################
-#                     Registry Options                          #
-################################################################
-
-variable "registry_username" {
-  type        = string
-  description = "(Optional) The username for the container registry"
-  default     = ""
-}
-
-variable "registry_password" {
-  type        = string
-  description = "(Optional) The password for the container registry"
-  default     = ""
-}
-
-################################################################
-#                         KMS Options                          #
+#                         S3 / KMS Options                     #
 ################################################################
 
 variable "s3_force_destroy" {
