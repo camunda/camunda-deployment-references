@@ -500,7 +500,7 @@ func stopZeebeExporters(t *testing.T) {
 
 	// Partition distribution may take a while and results in a 500 error
 	for i := 0; i < 10; i++ {
-		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", kubectlHelpers.ElasticsearchPodName, "--", "curl", "-i", "camunda-zeebe-gateway:9600/actuator/exporting/pause", "-XPOST")
+		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", kubectlHelpers.ElasticsearchPodName, "-c", "elasticsearch", "--", "curl", "-i", "camunda-zeebe-gateway:9600/actuator/exporting/pause", "-XPOST")
 		if err != nil {
 			t.Fatalf("[ZEEBE EXPORTERS] Failed to pause exporters: %v", err)
 			return
@@ -526,7 +526,7 @@ func startZeebeExporters(t *testing.T) {
 
 	// Partition distribution may take a while and results in a 500 error
 	for i := 0; i < 10; i++ {
-		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", kubectlHelpers.ElasticsearchPodName, "--", "curl", "-i", "camunda-zeebe-gateway:9600/actuator/exporting/resume", "-XPOST")
+		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", kubectlHelpers.ElasticsearchPodName, "-c", "elasticsearch", "--", "curl", "-i", "camunda-zeebe-gateway:9600/actuator/exporting/resume", "-XPOST")
 		if err != nil {
 			t.Fatalf("[ZEEBE EXPORTERS] Failed to resume exporters: %v", err)
 			return

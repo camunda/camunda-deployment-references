@@ -352,7 +352,7 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, backupBucket,
 	// Replace dots with dashes in the version string.
 	version := strings.ReplaceAll(inputVersion, ".", "-")
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--",
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "-c", "elasticsearch", "--",
 		"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
 		"-H", "Content-Type: application/json",
 		"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}",
@@ -376,9 +376,9 @@ func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName strin
 	t.Logf("[ELASTICSEARCH BACKUP] Creating Elasticsearch backup for cluster %s", cluster.ClusterName)
 
 	// Delete any pre-existing snapshot with the same name to avoid snapshot_name_already_in_use_exception
-	k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-X", "DELETE", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s", backupName))
+	k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "-c", "elasticsearch", "--", "curl", "-X", "DELETE", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s", backupName))
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "-c", "elasticsearch", "--", "curl", "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
@@ -412,11 +412,11 @@ func CheckThatElasticBackupIsPresent(t *testing.T, cluster helpers.Cluster, back
 func removeElasticBackup(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[ELASTICSEARCH BACKUP] Backup not found, removing backup store to recreate %s", cluster.ClusterName)
 
-	k8s.RunKubectl(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-XDELETE", "localhost:9200/_snapshot/camunda_backup")
+	k8s.RunKubectl(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "-c", "elasticsearch", "--", "curl", "-XDELETE", "localhost:9200/_snapshot/camunda_backup")
 }
 
 func getAllElasticBackups(t *testing.T, cluster helpers.Cluster) (string, error) {
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-XGET", "localhost:9200/_snapshot/camunda_backup/_all")
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "-c", "elasticsearch", "--", "curl", "-XGET", "localhost:9200/_snapshot/camunda_backup/_all")
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return "", err
@@ -428,7 +428,7 @@ func getAllElasticBackups(t *testing.T, cluster helpers.Cluster) (string, error)
 func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Restoring Elasticsearch backup for cluster %s", cluster.ClusterName)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "-c", "elasticsearch", "--", "curl", "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
@@ -995,6 +995,7 @@ func CheckElasticsearchProcessInstanceCount(t *testing.T, cluster helpers.Cluste
 		&cluster.KubectlNamespace,
 		"exec",
 		ElasticsearchPodName,
+		"-c", "elasticsearch",
 		"--",
 		"curl",
 		"-s",
@@ -1020,6 +1021,7 @@ func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
 			&cluster.KubectlNamespace,
 			"exec",
 			ElasticsearchPodName,
+			"-c", "elasticsearch",
 			"--",
 			"curl",
 			"-s",
