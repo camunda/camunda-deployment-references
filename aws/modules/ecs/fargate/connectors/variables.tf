@@ -151,8 +151,8 @@ variable "image" {
   type        = string
   # TODO: [release-duty] before the release, update the below versions to the stable release!
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
-  # renovate: datasource=docker depName=camunda/connectors-bundle versioning=regex:^8\.9?(\.(?<patch>\d+))?$
-  default = "camunda/connectors-bundle:8.9.0-alpha3"
+  # renovate: datasource=docker depName=camunda/connectors-bundle versioning=regex:^8\.10?(\.(<?patch>\d+))?$
+  default = "camunda/connectors-bundle:8.10.0-alpha1"
 }
 
 variable "environment_variables" {

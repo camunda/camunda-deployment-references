@@ -51,8 +51,8 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
     BENCHMARK_SCENARIO: ${{ github.event.inputs.benchmark_scenario || 'light' }}
 
-    # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 14-dev-latest
+    # renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+    CAMUNDA_HELM_CHART_VERSION: 15-dev-latest
     # TODO: [release-duty] before the release, update this!
     # TODO: [release-duty] adjust renovate comment to bump the major version
 
