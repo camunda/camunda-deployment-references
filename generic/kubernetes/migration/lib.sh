@@ -95,7 +95,7 @@ discover_camunda_deployments() {
     if [[ -z "$all_deploys" ]]; then
         # Fallback: cluster not reachable or no deployments found
         CAMUNDA_DEPLOYMENTS=(optimize identity connectors)
-        CAMUNDA_WEBMODELER_COMPONENTS=(restapi webapp websockets)
+        CAMUNDA_WEBMODELER_COMPONENTS=(restapi websockets)
         return
     fi
 
