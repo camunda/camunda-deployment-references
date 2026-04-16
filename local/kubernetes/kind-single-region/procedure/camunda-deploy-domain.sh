@@ -36,7 +36,8 @@ fi
 if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
     echo "Installing Camunda Platform (domain mode, Elasticsearch)..."
 
-    helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/camunda-platform \
+    helm upgrade --install "camunda" camunda-platform \
+        --repo https://helm.camunda.io \
         --version "$CAMUNDA_HELM_CHART_VERSION" \
         --namespace "camunda" \
         --values "$OPERATOR_VALUES_DIR/elasticsearch/camunda-elastic-values.yml" \
@@ -48,7 +49,8 @@ if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
 else
     echo "Installing Camunda Platform (domain mode, PostgreSQL RDBMS)..."
 
-    helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/camunda-platform \
+    helm upgrade --install "camunda" camunda-platform \
+        --repo https://helm.camunda.io \
         --version "$CAMUNDA_HELM_CHART_VERSION" \
         --namespace "camunda" \
         --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
@@ -58,33 +60,6 @@ else
         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml" \
         --values helm-values/values-mkcert.yml
 fi
-
-# TODO: [release-duty] before the release, update this by removing the oci pull above
-# and uncomment the installation instruction below
-
-# if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
-#     helm upgrade --install "camunda" camunda-platform \
-#         --repo https://helm.camunda.io \
-#         --version "$CAMUNDA_HELM_CHART_VERSION" \
-#         --namespace "camunda" \
-#         --values "$OPERATOR_VALUES_DIR/elasticsearch/camunda-elastic-values.yml" \
-#         --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
-#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
-#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
-#         --values helm-values/values-domain.yml \
-#         --values helm-values/values-mkcert.yml
-# else
-#     helm upgrade --install "camunda" camunda-platform \
-#         --repo https://helm.camunda.io \
-#         --version "$CAMUNDA_HELM_CHART_VERSION" \
-#         --namespace "camunda" \
-#         --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
-#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
-#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
-#         --values helm-values/values-domain.yml \
-#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml" \
-#         --values helm-values/values-mkcert.yml
-# fi
 
 echo ""
 if [[ "$SECONDARY_STORAGE" == "postgres" ]]; then
