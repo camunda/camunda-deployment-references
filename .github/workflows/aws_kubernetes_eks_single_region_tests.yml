@@ -879,6 +879,7 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   # global.opensearch.enabled is deprecated but still required for the legacy Operate
                   # OpensearchConnector which gates awsEnabled on this flag (see values-domain.yml)
+                  # TODO: remove exclude-patterns and global.opensearch from values once the legacy Operate connector is removed from the Helm chart
                   exclude-patterns: |
                       global.opensearch.enabled
 
@@ -923,6 +924,8 @@ jobs:
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                   keycloak-service-name: ${{ matrix.scenario.auth_provider == 'keycloak-operator' && 'keycloak-service:18080' || '' }}
                   enable-c8sm-irsa-check: ${{ contains(matrix.scenario.name, 'irsa') }}
+                  # TODO: revert to main once c8-sm-checks PR is merged (https://github.com/camunda/c8-sm-checks/pull/292)
+                  tests-c8-sm-checks-repo-ref: fix/aws-irsa-exclude-pattern-and-opensearch-url
 
             - name: 🔬🚨 Get failed certificate info
               if: failure() && matrix.declination.name == 'domain'
