@@ -461,7 +461,7 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	scriptOutput := string(output)
 
 	// Extract the replacement text for the initial contact points and Elasticsearch URLs
-	initialContact := extractReplacementText(scriptOutput, "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS")
+	initialContact := extractReplacementText(scriptOutput, "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS")
 	elastic0 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL")
 	elastic1 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL")
 
@@ -487,9 +487,11 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	fileContent := string(content)
 
 	// Replace the placeholders with the replacement strings
+	// Note: the values file uses "camunda-primary"/"camunda-secondary" as placeholder namespace names
+	// which get replaced with the actual ES URLs containing the real namespace names
 	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", initialContact, -1)
-	modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://%s.%s.svc.cluster.local:9200", ElasticsearchServiceName, namespace0), elastic0, -1)
-	modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://%s.%s.svc.cluster.local:9200", ElasticsearchServiceName, namespace1), elastic1, -1)
+	modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://%s.camunda-primary.svc.cluster.local:9200", ElasticsearchServiceName), elastic0, -1)
+	modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://%s.camunda-secondary.svc.cluster.local:9200", ElasticsearchServiceName), elastic1, -1)
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)

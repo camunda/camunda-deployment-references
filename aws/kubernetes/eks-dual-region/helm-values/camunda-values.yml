@@ -57,7 +57,7 @@ orchestration:
           value: camunda_backup
         - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
           value: 'true'
-        - name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS
+        - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
           value: PLACEHOLDER
         # Region 0 exporter config
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_CLASSNAME

@@ -86,9 +86,9 @@ elastic0=$(generate_exporter_elasticsearch_url "$namespace_0")
 elastic1=$(generate_exporter_elasticsearch_url "$namespace_1")
 
 echo
-echo "Please use the following to change the existing environment variable CAMUNDA_CLUSTER_INITIALCONTACTPOINTS $target_text. It's part of the 'zeebe.env' path."
+echo "Please use the following to change the existing environment variable ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS $target_text. It's part of the 'orchestration.env' path."
 echo
-echo "- name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS"
+echo "- name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS"
 echo "  value: $initial_contact"
 echo
 echo "Please use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
