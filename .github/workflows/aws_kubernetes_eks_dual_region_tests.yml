@@ -369,33 +369,6 @@ jobs:
                   cd -
                   bash ./aws/kubernetes/eks-dual-region/procedure/storageclass-verify.sh
 
-            ############# ECK Elasticsearch Deployment ##############
-            - name: Set kubectl context to London
-              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-london
-
-            - name: Deploy Elasticsearch via ECK on London cluster
-              timeout-minutes: 15
-              uses: ./.github/actions/kubernetes-eck-operator
-              with:
-                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
-                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region.yml
-
-            - name: Set kubectl context to Paris
-              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-paris
-
-            - name: Deploy Elasticsearch via ECK on Paris cluster
-              timeout-minutes: 15
-              uses: ./.github/actions/kubernetes-eck-operator
-              with:
-                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
-                  elasticsearch-cluster-file: elasticsearch-cluster-dual-region.yml
-
-            - name: Sync Elasticsearch passwords across regions
-              run: |
-                  set -euo pipefail
-
-                  bash ./aws/kubernetes/eks-dual-region/procedure/sync_elasticsearch_passwords.sh
-
             - name: Helm registry login
               uses: ./.github/actions/internal-helm-registry-login
               with:

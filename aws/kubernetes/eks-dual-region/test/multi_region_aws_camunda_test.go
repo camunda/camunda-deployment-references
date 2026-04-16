@@ -3,7 +3,6 @@ package test
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +11,6 @@ import (
 	kubectlHelpers "multiregiontests/internal/helpers/kubectl"
 
 	"github.com/gruntwork-io/terratest/modules/k8s"
-	"github.com/gruntwork-io/terratest/modules/shell"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,18 +29,16 @@ const (
 
 var (
 	// TODO: [release-duty] before the release, update this!
-	// TODO: [release-duty] adjust renovate comment to bump the major version
-	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "14.0.0")
-	// TODO: [release-duty] before the release, switch back to "camunda/camunda-platform" (non-OCI)
-	remoteChartName = helpers.GetEnv("HELM_CHART_NAME", "oci://registry.camunda.cloud/team-distribution/camunda-platform")  // OCI registry
-	globalImageTag  = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                                                // allows overwriting the image tag via GHA of every Camunda image
-	clusterName     = helpers.GetEnv("CLUSTER_NAME", "nightly")                                                             // allows supplying random cluster name via GHA
-	cluster0Name    = helpers.GetEnv("CLUSTER_0_NAME", fmt.Sprintf("%s-london", helpers.GetEnv("CLUSTER_NAME", "nightly"))) // kubectl context name for cluster 0
-	cluster1Name    = helpers.GetEnv("CLUSTER_1_NAME", fmt.Sprintf("%s-paris", helpers.GetEnv("CLUSTER_NAME", "nightly")))  // kubectl context name for cluster 1
-	backupName      = helpers.GetEnv("BACKUP_NAME", "nightly")                                                              // allows supplying random backup name via GHA
-	backupBucket    = helpers.GetEnv("BACKUP_BUCKET", fmt.Sprintf("%s-elastic-backup", clusterName))                        // allows supplying backup bucket name via GHA
-	awsProfile      = helpers.GetEnv("AWS_PROFILE", "infraex")
+	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "13.7.0")
+	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform")
+	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                                                // allows overwriting the image tag via GHA of every Camunda image
+	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                                                             // allows supplying random cluster name via GHA
+	cluster0Name       = helpers.GetEnv("CLUSTER_0_NAME", fmt.Sprintf("%s-london", helpers.GetEnv("CLUSTER_NAME", "nightly"))) // kubectl context name for cluster 0
+	cluster1Name       = helpers.GetEnv("CLUSTER_1_NAME", fmt.Sprintf("%s-paris", helpers.GetEnv("CLUSTER_NAME", "nightly")))  // kubectl context name for cluster 1
+	backupName         = helpers.GetEnv("BACKUP_NAME", "nightly")                                                              // allows supplying random backup name via GHA
+	backupBucket       = helpers.GetEnv("BACKUP_BUCKET", fmt.Sprintf("%s-elastic-backup", clusterName))                        // allows supplying backup bucket name via GHA
+	awsProfile         = helpers.GetEnv("AWS_PROFILE", "infraex")
 
 	primary   helpers.Cluster
 	secondary helpers.Cluster
@@ -57,8 +53,6 @@ var (
 
 	// Manifest management
 	defaultValuesYaml      = helpers.GetEnv("DEFAULT_VALUES_YAML", "../helm-values/camunda-values.yml")
-	eckElasticValuesYaml   = helpers.GetEnv("ECK_ELASTIC_VALUES_YAML", "../../../../generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml")
-	eckElasticClusterYaml  = helpers.GetEnv("ECK_ELASTIC_CLUSTER_YAML", "../../../../generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster-dual-region.yml")
 	region0ValuesYaml      = helpers.GetEnv("REGION0_VALUES_YAML", "../helm-values/region0/camunda-values.yml")
 	region1ValuesYaml      = helpers.GetEnv("REGION1_VALUES_YAML", "../helm-values/region1/camunda-values.yml")
 	multiTenancyValuesYaml = helpers.GetEnv("MULTI_TENANCY_VALUES_YAML", "./fixtures/multi-tenancy.yml")
@@ -139,9 +133,6 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		// Multi-Region Operational Procedure
 		// Failback
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestDeployElasticsearchCRSecondary", func(t *testing.T) { deployElasticsearchCR(t, secondary) }},
-		{"TestWaitForElasticsearchReady", func(t *testing.T) { waitForElasticsearchReady(t, secondary) }},
-		{"TestSyncElasticsearchPasswords", syncElasticsearchPasswords},
 		{"TestRecreateCamundaInSecondary", func(t *testing.T) { redeployWithoutOperateTasklist(t, secondary, true) }},
 		{"TestRedeployCamundaInPrimary", func(t *testing.T) { redeployWithoutOperateTasklist(t, primary, false) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
@@ -269,9 +260,6 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	// avoid pod anti-affinity limitations
 	baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 
-	// Merge ECK Elasticsearch operator overlay values
-	valuesYamlFiles = append(valuesYamlFiles, eckElasticValuesYaml)
-
 	if extraValuesYaml != "" {
 		extraValuesYamls := strings.Split(extraValuesYaml, ",")
 		valuesYamlFiles = append(valuesYamlFiles, extraValuesYamls...)
@@ -283,25 +271,15 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesYamlFiles, region1ValuesYaml), 1, baseHelmVars, setStringValues)
 
 	// Check that all deployments and Statefulsets are available
-	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly
-
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "get", "pods")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "get", "pods")
 
-	// Wait for ECK-managed Elasticsearch to be ready in both regions
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
+	// Wait for bundled Elasticsearch statefulset to be ready in both regions
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
-
-	// Wait for the gateway to be able to authenticate.
-	// With basic auth, each request is validated through the Zeebe engine. Users are created
-	// during cluster initialization: default TENANT is distributed to all partitions first,
-	// then ROLES and USERS are created. In a dual-region cluster with RF 6, cross-region
-	// RAFT appends can time out (2.5s), making the full initialization sequence take 8-10 min.
-	kubectlHelpers.WaitForGatewayAuthReady(t, &primary.KubectlNamespace, 60, 10*time.Second)
-	kubectlHelpers.WaitForGatewayAuthReady(t, &secondary.KubectlNamespace, 60, 10*time.Second)
 
 	// connectors last as they depend on the Orchestration Cluster
 	err := k8s.WaitUntilDeploymentAvailableE(t, &primary.KubectlNamespace, "camunda-connectors", retries, 20*time.Second)
@@ -458,45 +436,6 @@ func deleteSecondaryRegion(t *testing.T) {
 	kubectlHelpers.TeardownC8Helm(t, &secondary.KubectlNamespace)
 }
 
-// deployElasticsearchCR re-applies the ECK Elasticsearch custom resource.
-// Used during failback after TeardownC8Helm has deleted it.
-func deployElasticsearchCR(t *testing.T, cluster helpers.Cluster) {
-	t.Logf("[ECK] Deploying Elasticsearch CR in %s 🚀", cluster.ClusterName)
-
-	k8s.KubectlApply(t, &cluster.KubectlNamespace, eckElasticClusterYaml)
-}
-
-// waitForElasticsearchReady waits for the ECK-managed Elasticsearch cluster to reach Ready state.
-func waitForElasticsearchReady(t *testing.T, cluster helpers.Cluster) {
-	t.Logf("[ECK] Waiting for Elasticsearch to be Ready in %s ⏳", cluster.ClusterName)
-
-	k8s.RunKubectl(t, &cluster.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
-}
-
-// syncElasticsearchPasswords reads ECK-generated passwords from both regions and creates
-// cross-region password secrets (elasticsearch-es-password-region-0, elasticsearch-es-password-region-1)
-// in both namespaces so that Zeebe exporters can authenticate against the remote region's Elasticsearch.
-func syncElasticsearchPasswords(t *testing.T) {
-	t.Log("[ES PASSWORDS] Syncing Elasticsearch passwords across regions 🔑")
-
-	if helpers.IsTeleportEnabled() {
-		os.Setenv("KUBECONFIG", "./kubeconfig")
-		os.Setenv("CLUSTER_0", primary.ClusterName)
-		os.Setenv("CLUSTER_1", primary.ClusterName)
-	} else {
-		os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
-		os.Setenv("CLUSTER_0", primary.ClusterName)
-		os.Setenv("CLUSTER_1", secondary.ClusterName)
-	}
-	os.Setenv("CAMUNDA_NAMESPACE_0", primaryNamespace)
-	os.Setenv("CAMUNDA_NAMESPACE_1", secondaryNamespace)
-
-	shell.RunCommand(t, shell.Command{
-		Command: "bash",
-		Args:    []string{"../procedure/sync_elasticsearch_passwords.sh"},
-	})
-}
-
 // redeployWithoutOperateTasklist redeploys Camunda in the specified cluster with Operate and Tasklist disabled.
 // For secondary cluster, it also disables schema creation to prevent conflicts during DB restore.
 func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disableSchemaCreation bool) {
@@ -529,9 +468,6 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 
 	valuesYamlFiles := []string{defaultValuesYaml}
 
-	// Merge ECK Elasticsearch operator overlay values
-	valuesYamlFiles = append(valuesYamlFiles, eckElasticValuesYaml)
-
 	if extraValuesYaml != "" {
 		extraValuesYamls := strings.Split(extraValuesYaml, ",")
 		valuesYamlFiles = append(valuesYamlFiles, extraValuesYamls...)
@@ -545,8 +481,8 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 
 	kubectlHelpers.InstallUpgradeC8Helm(t, &cluster.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, valuesYamlFiles, region, helpers.CombineMaps(baseHelmVars, setValues), setStringValues)
 
-	// Wait for ECK-managed Elasticsearch to be ready
-	k8s.RunKubectl(t, &cluster.KubectlNamespace, "wait", "--for=jsonpath={.status.phase}=Ready", "--timeout="+timeout, "elasticsearch/elasticsearch")
+	// Wait for bundled Elasticsearch statefulset to be ready
+	k8s.RunKubectl(t, &cluster.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
 
 	// We can't wait for Zeebe to become ready as it's not part of the cluster, therefore out of service 503
 	// We are using instead elastic to become ready as the next steps depend on it, additionally as direct next step we check that the brokers have joined in again.

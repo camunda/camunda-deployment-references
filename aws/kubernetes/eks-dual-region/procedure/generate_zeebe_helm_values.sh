@@ -21,7 +21,7 @@ generate_initial_contact() {
 
 generate_exporter_elasticsearch_url() {
     local ns=$1
-    local service_name=${ELASTICSEARCH_SERVICE_NAME:-elasticsearch-es-masters}
+    local service_name=${ELASTICSEARCH_SERVICE_NAME:-camunda-elasticsearch-master-hl}
     local port_number=9200
     echo "http://${service_name}.${ns}.svc.cluster.local:${port_number}"
 }
@@ -91,12 +91,12 @@ echo
 echo "- name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS"
 echo "  value: $initial_contact"
 echo
-echo "Please use the following to change the existing environment variable CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
+echo "Please use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
 echo
-echo "- name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL"
+echo "- name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL"
 echo "  value: $elastic0"
 echo
-echo "Please use the following to change the existing environment variable CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
+echo "Please use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL $target_text. It's part of the 'zeebe.env' path."
 echo
-echo "- name: CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL"
+echo "- name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL"
 echo "  value: $elastic1"
