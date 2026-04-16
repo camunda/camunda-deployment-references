@@ -802,13 +802,21 @@ jobs:
 
                   kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/setup-opensearch-fgac.yml --namespace "$CAMUNDA_NAMESPACE"
 
-                  # Wait for the job to complete
+                  # Wait for the job to complete or fail
                   while true; do
-                      STATUS=$(kubectl get job setup-opensearch-fgac --namespace "$CAMUNDA_NAMESPACE" -o jsonpath='{.status.succeeded}')
+                      SUCCEEDED=$(kubectl get job setup-opensearch-fgac --namespace "$CAMUNDA_NAMESPACE" -o jsonpath='{.status.succeeded}')
+                      FAILED=$(kubectl get job setup-opensearch-fgac --namespace "$CAMUNDA_NAMESPACE" -o jsonpath='{.status.failed}')
 
-                      if [[ "$STATUS" == "1" ]]; then
+                      if [[ "$SUCCEEDED" == "1" ]]; then
                           echo "Job completed successfully."
                           break
+                      fi
+
+                      if [[ "$FAILED" -ge "1" ]]; then
+                          echo "❌ FGAC job failed!"
+                          echo "[DEBUG] Job log:"
+                          kubectl logs job/setup-opensearch-fgac --namespace "$CAMUNDA_NAMESPACE" || true
+                          exit 1
                       fi
 
                       echo "Waiting for job to complete..."
