@@ -31,6 +31,4 @@ export AWS_ES_BUCKET_REGION=""
 export CAMUNDA_RELEASE_NAME=camunda
 
 # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-export HELM_CHART_VERSION="14-dev-latest"
-# TODO: [release-duty] before the release, update this!
-# TODO: [release-duty] adjust renovate comment to bump the major version
+export HELM_CHART_VERSION="14.0.0"

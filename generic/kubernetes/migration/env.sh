@@ -17,9 +17,7 @@ export NAMESPACE="${NAMESPACE:-camunda}"
 export CAMUNDA_RELEASE_NAME="${CAMUNDA_RELEASE_NAME:-camunda}"
 
 # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-export CAMUNDA_HELM_CHART_VERSION="${CAMUNDA_HELM_CHART_VERSION:-14-dev-latest}"
-# TODO: [release-duty] before the release, update this!
-# TODO: [release-duty] adjust renovate comment to bump the major version
+export CAMUNDA_HELM_CHART_VERSION="${CAMUNDA_HELM_CHART_VERSION:-14.0.0}"
 
 # ---[ Camunda domain (for Keycloak Ingress) ]---------------------------------
 # Set to a real domain to generate Keycloak Ingress + TLS.
