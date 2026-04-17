@@ -203,7 +203,20 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 		KubectlOptions: kubectlOptions,
 	}
 
-	helm.Delete(t, helmOptions, "camunda", true)
+	// Ignore errors if the release doesn't exist (e.g. first run or already cleaned up)
+	cmd := shell.Command{
+		Command: "helm",
+		Args:    []string{"delete", "--kubeconfig", kubectlOptions.ConfigPath, "--namespace", kubectlOptions.Namespace, "camunda"},
+	}
+	output, err := shell.RunCommandAndGetOutputE(t, cmd)
+	if err != nil {
+		if strings.Contains(output, "not found") {
+			t.Logf("[C8 HELM TEARDOWN] Release 'camunda' not found in namespace %s, skipping delete", kubectlOptions.Namespace)
+		} else {
+			require.NoError(t, err, "unexpected error deleting helm release: %s", output)
+		}
+	}
+	_ = helmOptions // keep for future use
 
 	t.Logf("[C8 HELM TEARDOWN] removing all PVCs and PVs from namespace %s", kubectlOptions.Namespace)
 
