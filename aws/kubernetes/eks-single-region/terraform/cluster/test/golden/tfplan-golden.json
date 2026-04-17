@@ -1937,6 +1937,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_nat_gateway.this[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -1965,6 +1971,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_nat_gateway.this[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "this",
@@ -1993,6 +2005,12 @@
               }
             },
             "module.eks_cluster.module.vpc.aws_nat_gateway.this[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "this",
@@ -2978,6 +2996,7 @@
               }
             ],
             "cognito_options": [],
+            "deployment_strategy_options": [],
             "domain_endpoint_options": [
               {}
             ],
