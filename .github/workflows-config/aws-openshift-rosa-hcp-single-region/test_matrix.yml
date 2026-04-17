@@ -15,7 +15,6 @@ matrix:
           # rationale: Red Hat supports the last four minor versions of OpenShift.
           # Therefore, to ensure compatibility and support, we test the latest and the older.
           # For more details, refer to the official support policy at https://endoflife.date/red-hat-openshift.
-
     scenario:
         - name: rosa-hcp-single-region
 
