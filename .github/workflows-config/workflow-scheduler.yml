@@ -2,8 +2,8 @@
 schedules:
     - name: Mondays schedules 8.7
       branch: stable/8.7
-      cron_every_day: Monday # left null to run it everyday, otherwise separate days with a coma
-      cron_every_hours: '22' # left null to run it every hour, otherwise separate hours with a coma
+      cron_every_day: Monday # left null to run it everyday, otherwise separate days with a comma
+      cron_every_hours: '22' # left null to run it every hour, otherwise separate hours with a comma
       workflow_files:
           # AWS OpenShift ROSA HCP single region
           - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
@@ -86,7 +86,7 @@ schedules:
           # AWS EC2 Single Region
           - .github/workflows/aws_compute_ec2_single_region_tests.yml
           # AWS ECS Single Region
-          - .github/workflows/aws_compute_ec2_single_region_tests.yml
+          - .github/workflows/aws_ecs_single_region_fargate_tests.yml
           # AWS EKS Dual Region
           - .github/workflows/aws_kubernetes_eks_dual_region_teleport_tests.yml
           - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
