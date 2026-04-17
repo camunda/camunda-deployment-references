@@ -2549,6 +2549,12 @@
               }
             },
             "module.eks_cluster_region_0.module.vpc.aws_nat_gateway.this[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -2577,6 +2583,12 @@
               }
             },
             "module.eks_cluster_region_0.module.vpc.aws_nat_gateway.this[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "this",
@@ -2605,6 +2617,12 @@
               }
             },
             "module.eks_cluster_region_0.module.vpc.aws_nat_gateway.this[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "this",
@@ -5460,6 +5478,12 @@
               }
             },
             "module.eks_cluster_region_1.module.vpc.aws_nat_gateway.this[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -5488,6 +5512,12 @@
               }
             },
             "module.eks_cluster_region_1.module.vpc.aws_nat_gateway.this[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "this",
@@ -5516,6 +5546,12 @@
               }
             },
             "module.eks_cluster_region_1.module.vpc.aws_nat_gateway.this[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "this",
