@@ -18,7 +18,7 @@ schedules:
           # Azure AKS Single Region
           - .github/workflows/azure_kubernetes_aks_single_region_tests.yml
 
-    # Everyday schedules are staggered by 1 hour to avoid GitHub Actions rate limits    # Everyday schedules are staggered by 1 hour to avoid GitHub Actions rate limits
+    # Everyday schedules are staggered by 1 hour to avoid GitHub Actions rate limits
     - name: Everyday schedules 8.7
       branch: stable/8.7
       cron_every_day:
