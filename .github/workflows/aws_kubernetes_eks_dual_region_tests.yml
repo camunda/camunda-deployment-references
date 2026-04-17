@@ -392,7 +392,7 @@ jobs:
                   default-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/camunda-values.yml
                   region-0-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
                   region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
-                  skip-cleanup: 'true'
+                  skip-failover: 'true'
                   exclude-deprecation-patterns: |
                       global.documentStore.type.aws.accessKeyId
                       global.documentStore.type.aws.secretAccessKey

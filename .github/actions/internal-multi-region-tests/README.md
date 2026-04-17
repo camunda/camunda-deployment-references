@@ -24,6 +24,7 @@ Run tests across multiple regions
 | `distribution` | <p>Distribution to test on, e.g., EKS or OpenShift. Mainly for disabling certain tests.</p> | `false` | `EKS` |
 | `release-name` | <p>The Helm release name to check for deprecation warnings</p> | `false` | `camunda` |
 | `exclude-deprecation-patterns` | <p>Newline-separated list of fixed strings to exclude from deprecation warnings. Passed through to internal-helm-deprecation-check using grep -F (fixed-string) semantics.</p> | `false` | `""` |
+| `skip-failover` | <p>Skip failover, failback, multi-tenancy, and scaling tests. Only deploy and verify.</p> | `false` | `false` |
 
 
 ## Runs
@@ -131,4 +132,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ""
+
+    skip-failover:
+    # Skip failover, failback, multi-tenancy, and scaling tests. Only deploy and verify.
+    #
+    # Required: false
+    # Default: false
 ```
