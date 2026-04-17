@@ -15,16 +15,6 @@ matrix:
           # rationale: Red Hat supports the last four minor versions of OpenShift.
           # Therefore, to ensure compatibility and support, we test the latest and the older.
           # For more details, refer to the official support policy at https://endoflife.date/red-hat-openshift.
-
-<<<<<<< HEAD
-=======
-        - name: OpenShift 4.18
-          schedule_only: true
-          private_vpc: false
-          # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.18(\.(?<patch>\d+))?$
-          version: 4.18.28
-
->>>>>>> 4f8e1c3 (fix: update openshift versions (#2309))
     scenario:
         - name: rosa-hcp-single-region
 
