@@ -19,15 +19,16 @@ spec:
                       - -c
                       - |
                         /bin/bash <<'EOF'
-                        set -o pipefail
+                        set -euo pipefail
 
                         echo "Configuring Fine-Grained Access Control for OpenSearch..."
 
-                        # If the following script moves outside of lines 28 - 42, adjust the documentation referencing this file.
+                        # If the following script moves outside of lines 28 - 48, adjust the documentation referencing this file.
                         # Beginning of Script
 
                         # Send the PATCH request to map the IAM role to OpenSearch role
-                        curl -sS -u "$OPENSEARCH_MASTER_USERNAME:$OPENSEARCH_MASTER_PASSWORD" \
+                        HTTP_CODE=$(curl -sS -o /tmp/response.json -w "%{http_code}" \
+                          -u "$OPENSEARCH_MASTER_USERNAME:$OPENSEARCH_MASTER_PASSWORD" \
                           -X PATCH \
                           "https://$OPENSEARCH_HOST/_opendistro/_security/api/rolesmapping/all_access?pretty" \
                           -H 'Content-Type: application/json' \
@@ -38,7 +39,17 @@ spec:
                               "path": "/backend_roles",
                               "value": ["'$OPENSEARCH_ROLE_ARN'"]
                             }
-                          ]'
+                          ]')
+
+                        echo "Response (HTTP $HTTP_CODE):"
+                        cat /tmp/response.json
+
+                        if [[ "$HTTP_CODE" -lt 200 || "$HTTP_CODE" -ge 300 ]]; then
+                          echo "ERROR: FGAC role mapping failed with HTTP $HTTP_CODE"
+                          exit 1
+                        fi
+
+                        echo "FGAC role mapping configured successfully."
 
                         # End of Script
                         EOF

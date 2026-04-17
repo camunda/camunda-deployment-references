@@ -14,6 +14,18 @@
 #   - Various IRSA role ARNs and service account names (from Terraform outputs)
 
 global:
+    # DEPRECATION: global.opensearch.enabled is deprecated in favor of orchestration.data.secondaryStorage.opensearch.enabled
+    # and optimize.database.opensearch.enabled (both already set below).
+    # However, it is still required for the legacy Operate OpensearchConnector (io.camunda.operate.connect.OpensearchConnector)
+    # which gates its awsEnabled config on this flag. Without it, Operate falls back to basic auth and gets 401 from AWS OpenSearch.
+    opensearch:
+        enabled: true
+        aws:
+            enabled: true
+        url:
+            host: ${OPENSEARCH_HOST}
+            port: 443
+
     security:
         authentication:
             method: oidc
