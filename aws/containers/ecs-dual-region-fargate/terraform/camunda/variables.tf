@@ -114,6 +114,6 @@ variable "registry_password" {
 
 variable "s3_force_destroy" {
   type        = bool
-  default     = false
+  default     = true
   description = "Passed through to the orchestration cluster module — must match the infra layer value to avoid conflicts on destroy."
 }

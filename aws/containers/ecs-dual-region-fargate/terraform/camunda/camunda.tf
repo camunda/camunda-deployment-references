@@ -26,6 +26,10 @@ module "orchestration_cluster_region_0" {
   enable_alb_http_management_listener_rule = false
   enable_nlb_grpc_26500_listener           = true
 
+  # Image
+  image                    = "registry.camunda.cloud/team-zeebe/camunda:c8-ecs-multi-region-b70a4759"
+  registry_credentials_arn = var.registry_username != "" ? aws_secretsmanager_secret.registry_credentials_region_0[0].arn : ""
+
   # Dual-region cluster configuration
   task_desired_count            = local.brokers_per_region
   cluster_size                  = local.cluster_size
@@ -124,6 +128,56 @@ module "orchestration_cluster_region_0" {
       name  = "CAMUNDA_DATA_BACKUP_REPOSITORYNAME"
       value = local.infra.region_0_backup_bucket_name
     },
+    # Cluster identification
+    {
+      name  = "CAMUNDA_CLUSTER_NAME"
+      value = "yes-r1-oc-orchestration-cluster"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_REGION"
+      value = "eu-west-1"
+    },
+    # Region-aware partitioning
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_SCHEME"
+      value = "REGION_AWARE"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_0_NAME"
+      value = "eu-west-1"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_0_NUMBEROFREPLICAS"
+      value = "2"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_0_NUMBEROFBROKERS"
+      value = "2"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_0_PRIORITY"
+      value = "1000"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_1_NAME"
+      value = "eu-west-3"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_1_NUMBEROFREPLICAS"
+      value = "2"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_1_NUMBEROFBROKERS"
+      value = "2"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_1_PRIORITY"
+      value = "500"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS"
+      value = "orchestration-cluster-sc:26502,${local.infra.region_1_nlb_raft_dns_name}:26502"
+    },
   ]
 
   secrets = [
@@ -181,6 +235,10 @@ module "orchestration_cluster_region_1" {
   enable_alb_http_webapp_listener_rule     = true
   enable_alb_http_management_listener_rule = false
   enable_nlb_grpc_26500_listener           = true
+
+  # Image
+  image                    = "registry.camunda.cloud/team-zeebe/camunda:c8-ecs-multi-region-b70a4759"
+  registry_credentials_arn = var.registry_username != "" ? aws_secretsmanager_secret.registry_credentials_region_1[0].arn : ""
 
   # Dual-region cluster configuration
   task_desired_count            = local.brokers_per_region
@@ -276,6 +334,56 @@ module "orchestration_cluster_region_1" {
     {
       name  = "CAMUNDA_DATA_BACKUP_REPOSITORYNAME"
       value = local.infra.region_1_backup_bucket_name
+    },
+    # Cluster identification
+    {
+      name  = "CAMUNDA_CLUSTER_NAME"
+      value = "yes-r1-oc-orchestration-cluster"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_REGION"
+      value = "eu-west-3"
+    },
+    # Region-aware partitioning
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_SCHEME"
+      value = "REGION_AWARE"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_0_NAME"
+      value = "eu-west-1"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_0_NUMBEROFREPLICAS"
+      value = "2"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_0_NUMBEROFBROKERS"
+      value = "2"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_0_PRIORITY"
+      value = "1000"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_1_NAME"
+      value = "eu-west-3"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_1_NUMBEROFREPLICAS"
+      value = "2"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_1_NUMBEROFBROKERS"
+      value = "2"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_1_PRIORITY"
+      value = "500"
+    },
+    {
+      name  = "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS"
+      value = "orchestration-cluster-sc:26502,${local.infra.region_0_nlb_raft_dns_name}:26502"
     },
   ]
 

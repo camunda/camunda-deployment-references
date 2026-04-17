@@ -106,7 +106,7 @@ variable "db_iam_auth_enabled" {
 
 variable "s3_force_destroy" {
   type        = bool
-  default     = false
+  default     = true
   description = "Allow terraform destroy to delete S3 backup buckets even when they contain objects. Set to true for dev/test environments where losing backups on destroy is acceptable."
 }
 

@@ -83,3 +83,49 @@ resource "aws_secretsmanager_secret_version" "connectors_password_region_1" {
   secret_id     = aws_secretsmanager_secret.connectors_password_region_1.id
   secret_string = random_password.connectors_user_password.result
 }
+
+################################################################
+#              Registry Credentials                            #
+################################################################
+# Created only when registry_username is provided. The secret is in DockerConfigJson
+# format expected by ECS repositoryCredentials.
+
+resource "aws_secretsmanager_secret" "registry_credentials_region_0" {
+  count = var.registry_username != "" ? 1 : 0
+
+  name                    = "${local.prefix_region_0}-oc-registry-credentials"
+  description             = "Docker registry credentials for private Camunda image (${local.prefix_region_0})"
+  recovery_window_in_days = 0
+  kms_key_id              = local.infra.region_0_secrets_kms_key_arn
+}
+
+resource "aws_secretsmanager_secret_version" "registry_credentials_region_0" {
+  count = var.registry_username != "" ? 1 : 0
+
+  secret_id = aws_secretsmanager_secret.registry_credentials_region_0[0].id
+  secret_string = jsonencode({
+    username = var.registry_username
+    password = var.registry_password
+  })
+}
+
+resource "aws_secretsmanager_secret" "registry_credentials_region_1" {
+  count    = var.registry_username != "" ? 1 : 0
+  provider = aws.accepter
+
+  name                    = "${local.prefix_region_1}-oc-registry-credentials"
+  description             = "Docker registry credentials for private Camunda image (${local.prefix_region_1})"
+  recovery_window_in_days = 0
+  kms_key_id              = local.infra.region_1_secrets_kms_key_arn
+}
+
+resource "aws_secretsmanager_secret_version" "registry_credentials_region_1" {
+  count    = var.registry_username != "" ? 1 : 0
+  provider = aws.accepter
+
+  secret_id = aws_secretsmanager_secret.registry_credentials_region_1[0].id
+  secret_string = jsonencode({
+    username = var.registry_username
+    password = var.registry_password
+  })
+}

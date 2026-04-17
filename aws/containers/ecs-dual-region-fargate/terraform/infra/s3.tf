@@ -9,7 +9,7 @@
 #trivy:ignore:AVD-AWS-0089 Bucket logging disabled to simplify setup
 resource "aws_s3_bucket" "backup_region_0" {
   bucket        = "${local.prefix_region_0}-backup-${data.aws_caller_identity.current.account_id}"
-  force_destroy = var.s3_force_destroy
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_public_access_block" "backup_region_0" {

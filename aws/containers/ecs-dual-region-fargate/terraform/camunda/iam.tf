@@ -25,11 +25,14 @@ resource "aws_iam_policy" "ecs_task_secrets_region_0" {
       {
         Effect = "Allow"
         Action = ["secretsmanager:GetSecretValue"]
-        Resource = [
-          local.infra.db_admin_secret_arn,
-          aws_secretsmanager_secret.admin_user_password_region_0.arn,
-          aws_secretsmanager_secret.connectors_password_region_0.arn,
-        ]
+        Resource = concat(
+          [
+            local.infra.db_admin_secret_arn,
+            aws_secretsmanager_secret.admin_user_password_region_0.arn,
+            aws_secretsmanager_secret.connectors_password_region_0.arn,
+          ],
+          var.registry_username != "" ? [aws_secretsmanager_secret.registry_credentials_region_0[0].arn] : []
+        )
       },
       {
         Effect   = "Allow"
@@ -58,10 +61,13 @@ resource "aws_iam_policy" "ecs_task_secrets_region_1" {
       {
         Effect = "Allow"
         Action = ["secretsmanager:GetSecretValue"]
-        Resource = [
-          aws_secretsmanager_secret.admin_user_password_region_1.arn,
-          aws_secretsmanager_secret.connectors_password_region_1.arn,
-        ]
+        Resource = concat(
+          [
+            aws_secretsmanager_secret.admin_user_password_region_1.arn,
+            aws_secretsmanager_secret.connectors_password_region_1.arn,
+          ],
+          var.registry_username != "" ? [aws_secretsmanager_secret.registry_credentials_region_1[0].arn] : []
+        )
       },
       {
         Effect   = "Allow"
