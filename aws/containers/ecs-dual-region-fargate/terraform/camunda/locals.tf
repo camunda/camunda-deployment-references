@@ -16,7 +16,7 @@ locals {
   # Even-numbered brokers (0, 2, 4, 6) in region 0
   # Odd-numbered brokers (1, 3, 5, 7) in region 1
   cluster_size       = 4
-  replication_factor = 2
+  replication_factor = 4 # REGION_AWARE: sum of numberOfReplicas across regions (2+2) must equal replicationFactor
   partition_count    = 4
   brokers_per_region = 2
 
