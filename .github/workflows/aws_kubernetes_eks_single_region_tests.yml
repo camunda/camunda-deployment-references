@@ -77,9 +77,7 @@ env:
     TLD: camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
 
-    # CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-    # TODO: revert before merge
-    CLEANUP_CLUSTERS: false
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
@@ -91,6 +89,7 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
     # TODO: [release-duty] before the release, update repo ref!
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
+    # TODO: resolve this branch when merging to playwright
     TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
@@ -130,9 +129,7 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  # cluster_name: ${{ inputs.cluster_name }}
-                  # TODO: revert before merge
-                  cluster_name: dgirsa
+                  cluster_name: ${{ inputs.cluster_name }}
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
@@ -928,8 +925,6 @@ jobs:
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                   keycloak-service-name: ${{ matrix.scenario.auth_provider == 'keycloak-operator' && 'keycloak-service:18080' || '' }}
                   enable-c8sm-irsa-check: ${{ contains(matrix.scenario.name, 'irsa') }}
-                  # TODO: revert to main once c8-sm-checks PR is merged (https://github.com/camunda/c8-sm-checks/pull/292)
-                  tests-c8-sm-checks-repo-ref: fix/aws-irsa-exclude-pattern-and-opensearch-url
 
             - name: 🔬🚨 Get failed certificate info
               if: failure() && matrix.declination.name == 'domain'
