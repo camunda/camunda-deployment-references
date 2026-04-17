@@ -15,6 +15,8 @@ schedules:
           # AWS EKS Single Region
           - .github/workflows/aws_kubernetes_eks_single_region_tests.yml
           - .github/workflows/aws_common_procedure_s3_bucket.yml
+          # Azure AKS Single Region
+          - .github/workflows/azure_kubernetes_aks_single_region_tests.yml
 
     - name: Everyday schedules 8.7
       branch: stable/8.7
@@ -26,6 +28,7 @@ schedules:
           - .github/workflows/aws_rosa_hcp_dual_region_daily_cleanup.yml
           - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
           - .github/workflows/aws_eks_single_region_daily_cleanup.yml
+          - .github/workflows/azure_kubernetes_aks_single_region_daily_cleanup.yml
 
     - name: Tuesday schedules 8.8
       branch: stable/8.8
@@ -81,12 +84,19 @@ schedules:
           - .github/workflows/aws_common_procedure_s3_bucket.yml
           # AWS EC2 Single Region
           - .github/workflows/aws_compute_ec2_single_region_tests.yml
+          # AWS ECS Single Region
+          - .github/workflows/aws_compute_ec2_single_region_tests.yml
+          # AWS EKS Dual Region
+          - .github/workflows/aws_kubernetes_eks_dual_region_teleport_tests.yml
+          - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
           # Azure AKS Single Region
           - .github/workflows/azure_kubernetes_aks_single_region_tests.yml
           # Generic Kubernetes Operator Based
           - .github/workflows/generic_kubernetes_operator_based_test.yml
           # Local Kubernetes Kind Single Region
           - .github/workflows/local_kubernetes_kind_single_region_tests.yml
+          # Generic Kubernetes Migration
+          - .github/workflows/generic_kubernetes_migration_test.yml
 
     - name: Everyday schedules 8.9
       branch: stable/8.9
@@ -94,9 +104,12 @@ schedules:
       cron_every_hours: '4'
       workflow_files:
           - .github/workflows/internal_global_links.yml
+          - .github/workflows/aws_cognito_daily_cleanup.yml
+          - .github/workflows/aws_compute_ec2_single_region_daily_cleanup.yml
+          - .github/workflows/aws_ecs_single_region_fargate_daily_cleanup.yml
           - .github/workflows/aws_rosa_hcp_single_region_daily_cleanup.yml
           - .github/workflows/aws_rosa_hcp_dual_region_daily_cleanup.yml
           - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
           - .github/workflows/aws_eks_single_region_daily_cleanup.yml
-          - .github/workflows/aws_compute_ec2_single_region_daily_cleanup.yml
+          - .github/workflows/aws_kubernetes_eks_dual_region_daily_cleanup.yml
           - .github/workflows/azure_aks_single_region_daily_cleanup.yml
