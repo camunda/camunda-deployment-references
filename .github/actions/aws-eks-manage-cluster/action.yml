@@ -99,7 +99,7 @@ runs:
           # see https://github.com/orgs/community/discussions/41927 it's not possible to optimize this yet
           # steps.uses  cannot access the github context.
           # uses: ${{ github.action_repository }}/aws-utility-action@${{ github.action_ref }}
-          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@fdef685a72390a8ab9fc675e594aa276104a1a8d # main
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@0fbb9788b291ee780c97a15cbf25e7eea503837e # main
           with:
               awscli-version: ${{ inputs.awscli-version }}
               terraform-version: ${{ inputs.terraform-version }}
