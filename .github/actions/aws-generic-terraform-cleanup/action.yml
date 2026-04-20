@@ -55,14 +55,14 @@ runs:
     steps:
 
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
 
         - name: Install Cloud Nuke for retry
           shell: bash
           working-directory: /tmp
           env:
               # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
-              CLOUD_NUKE_VERSION: v0.48.0
+              CLOUD_NUKE_VERSION: v0.49.0
           run: |
               curl -LO \
                   --retry 5 \

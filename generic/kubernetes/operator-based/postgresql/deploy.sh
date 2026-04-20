@@ -17,7 +17,7 @@ OPERATOR_NAMESPACE=${1:-cnpg-system}
 CLUSTER_FILTER=${CLUSTER_FILTER:-}
 
 # renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
-CNPG_VERSION="1.28.1"
+CNPG_VERSION="1.29.0"
 
 # Auto-detect OpenShift by checking for the route.openshift.io API group
 is_openshift() {
