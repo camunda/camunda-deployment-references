@@ -17,8 +17,6 @@ jobs:
 
         steps:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-              with:
-                  ref: gh-pages
 
             - name: Import Secrets
               id: secrets
@@ -31,6 +29,13 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+
+            - name: Switch to gh-pages branch
+              run: |
+                  cp .tool-versions /tmp/.tool-versions
+                  git fetch origin gh-pages
+                  git checkout gh-pages
+                  cp /tmp/.tool-versions .tool-versions
 
             - name: Install ROSA CLI and output rosa versions
               shell: bash
