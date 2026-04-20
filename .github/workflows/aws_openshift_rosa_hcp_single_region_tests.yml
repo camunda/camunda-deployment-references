@@ -445,8 +445,10 @@ jobs:
                   cp -f generic/openshift/single-region/helm-values/base.yml ./values.yml
 
                   echo "Applying declination: ${{ matrix.declination.name }}"
+                  echo "  mode: ${{ matrix.declination.declination_mode }}"
+                  echo "  secondary_storage: ${{ matrix.declination.secondary_storage }}"
 
-                  if [[ ${{ matrix.declination.name }} == "domain" ]]; then
+                  if [[ ${{ matrix.declination.declination_mode }} == "domain" ]]; then
 
                     source ./generic/openshift/single-region/procedure/setup-application-domain.sh
                     echo "CAMUNDA_DOMAIN=$CAMUNDA_DOMAIN" | tee -a "$GITHUB_ENV"
@@ -461,7 +463,7 @@ jobs:
                         yq ". *+ load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml
                         cat values-result.yml && mv values-result.yml values.yml
                     done
-                  elif [[ ${{ matrix.declination.name }} == "no-domain" ]]; then
+                  elif [[ ${{ matrix.declination.declination_mode }} == "no-domain" ]]; then
                       # explicitely set no domain
                       echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
                       echo "CAMUNDA_GRPC_DOMAIN=" | tee -a "$GITHUB_ENV"
@@ -469,7 +471,7 @@ jobs:
                       yq ". *+ load(\"generic/openshift/single-region/helm-values/no-domain.yml\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                   else
-                    echo "Error: matrix.declaration must be set to 'domain' or 'no-domain'" >&2
+                    echo "Error: matrix.declination.declination_mode must be set to 'domain' or 'no-domain'" >&2
                     exit 1
                   fi
 
@@ -477,11 +479,19 @@ jobs:
                   yq '. *+ load("generic/openshift/single-region/helm-values/scc.yml")' values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
-                  # Merge ECK Elasticsearch operator overlay
-                  echo "Merging ECK Elasticsearch config"
-                  OPERATOR_ES_PATH="generic/kubernetes/operator-based/elasticsearch"
-                  yq ". *+ load(\"${OPERATOR_ES_PATH}/camunda-elastic-values.yml\")" values.yml > values-merged.yml
-                  cat values-merged.yml && mv values-merged.yml values.yml
+                  # Merge ECK Elasticsearch operator overlay (only for Elasticsearch scenarios)
+                  if [[ "${{ matrix.declination.secondary_storage }}" != "rdbms" ]]; then
+                    echo "Merging ECK Elasticsearch config"
+                    OPERATOR_ES_PATH="generic/kubernetes/operator-based/elasticsearch"
+                    yq ". *+ load(\"${OPERATOR_ES_PATH}/camunda-elastic-values.yml\")" values.yml > values-merged.yml
+                    cat values-merged.yml && mv values-merged.yml values.yml
+                  else
+                    echo "Skipping ECK Elasticsearch config (RDBMS mode)"
+                    echo "Merging RDBMS secondary storage config"
+                    OPERATOR_PG_PATH="generic/kubernetes/operator-based/postgresql"
+                    yq ". *+ load(\"${OPERATOR_PG_PATH}/camunda-rdbms-values.yml\")" values.yml > values-merged.yml
+                    cat values-merged.yml && mv values-merged.yml values.yml
+                  fi
 
                   # Merge auth provider specific overlays (keycloak-operator or OIDC)
                   # These overlays contain the auth-specific configuration
@@ -491,12 +501,12 @@ jobs:
                   if [[ "$AUTH_PROVIDER" == "oidc" ]]; then
                     echo "Applying OIDC auth overlays"
                     yq ". *+ load(\"${HELM_VALUES_PATH}/values-oidc.yml\")" values.yml > values-merged.yml
-                    yq ". *+ load(\"${HELM_VALUES_PATH}/values-oidc-${{ matrix.declination.name }}.yml\")" values-merged.yml > values-merged2.yml
+                    yq ". *+ load(\"${HELM_VALUES_PATH}/values-oidc-${{ matrix.declination.declination_mode }}.yml\")" values-merged.yml > values-merged2.yml
                     cat values-merged2.yml && mv values-merged2.yml values.yml && rm values-merged.yml
                   elif [[ "$AUTH_PROVIDER" == "keycloak-operator" ]]; then
                     echo "Merging operator-based Keycloak config for Keycloak Operator"
                     OPERATOR_KEYCLOAK_PATH="generic/kubernetes/operator-based/keycloak"
-                    yq ". *+ load(\"${OPERATOR_KEYCLOAK_PATH}/camunda-keycloak-${{ matrix.declination.name }}-values.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"${OPERATOR_KEYCLOAK_PATH}/camunda-keycloak-${{ matrix.declination.declination_mode }}-values.yml\")" values.yml > values-merged.yml
                     cat values-merged.yml && mv values-merged.yml values.yml
 
                     # Merge identity secrets configuration for keycloak-operator auth
@@ -531,15 +541,35 @@ jobs:
                       yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                     done
+
+                    # Remove optimize-api permissions when Optimize is disabled (e.g. RDBMS variant)
+                    if [[ "${{ matrix.declination.secondary_storage }}" == "rdbms" ]]; then
+                      yq 'del(.identity.clients[].permissions[] | select(.resourceServerId == "optimize-api"))' values.yml > values-result.yml
+                      cat values-result.yml && mv values-result.yml values.yml
+                    fi
                   fi
 
                   ./generic/openshift/single-region/procedure/assemble-envsubst-values.sh
 
             - name: Deploy Elasticsearch via ECK Operator
+              if: ${{ matrix.declination.secondary_storage != 'rdbms' }}
               timeout-minutes: 10
               uses: ./.github/actions/kubernetes-eck-operator
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
+
+            - name: 🐘 Deploy CNPG cluster pg-camunda (RDBMS secondary storage)
+              if: ${{ matrix.declination.secondary_storage == 'rdbms' }}
+              timeout-minutes: 10
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  cd generic/kubernetes/operator-based/postgresql
+                  CLUSTER_FILTER=pg-camunda CAMUNDA_NAMESPACE="$CAMUNDA_NAMESPACE" ./set-secrets.sh
+                  kubectl apply --server-side -f postgresql-orchestration-cluster.yml -n "$CAMUNDA_NAMESPACE"
+                  kubectl wait --for=condition=Ready --timeout=600s cluster pg-camunda -n "$CAMUNDA_NAMESPACE"
+                  echo "✓ CNPG cluster pg-camunda deployed in namespace $CAMUNDA_NAMESPACE"
 
             - name: 🐘 Deploy Keycloak via Operator (keycloak-operator mode)
               if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
@@ -547,7 +577,7 @@ jobs:
               uses: ./.github/actions/kubernetes-keycloak-operator
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain-openshift' || 'no-domain' }}
+                  keycloak-mode: ${{ matrix.declination.declination_mode == 'domain' && 'domain-openshift' || 'no-domain' }}
                   domain-name: ${{ env.CAMUNDA_DOMAIN }}
 
             - name: 🐘 Deploy CNPG cluster pg-identity
@@ -624,7 +654,7 @@ jobs:
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
             - name: 🔄 Restart CoreDNS
-              if: matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'false'
+              if: matrix.declination.declination_mode == 'domain' && env.CLEANUP_CLUSTERS == 'false'
               uses: ./.github/actions/kubernetes-restart-coredns
               timeout-minutes: 10
               with:
@@ -650,6 +680,8 @@ jobs:
                   camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  optimize-enabled: ${{ matrix.declination.secondary_storage != 'rdbms' && 'true' || 'false' }}
+                  elasticsearch-enabled: ${{ matrix.declination.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
@@ -658,7 +690,7 @@ jobs:
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                   keycloak-service-name: ${{ matrix.scenario.auth_provider == 'keycloak-operator' && 'keycloak-service:18080' || '' }}
-                  elasticsearch-service-name: elasticsearch-es-http:9200
+                  elasticsearch-service-name: ${{ matrix.declination.secondary_storage != 'rdbms' && 'elasticsearch-es-http:9200' || '' }}
                   skip-c8sm-connectivity-ingress-class-check: 'true' # OpenShift uses different ingress class names
 
             - name: 🔬🚨 Get failed Pods info
@@ -667,6 +699,13 @@ jobs:
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+
+            - name: 🧹 Cleanup CNPG cluster pg-camunda
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.declination.secondary_storage == 'rdbms'
+              uses: ./.github/actions/kubernetes-cnpg-cluster-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  cluster-name: pg-camunda
 
             - name: 🧹 Cleanup CNPG cluster pg-identity
               if: always() && env.CLEANUP_CLUSTERS == 'true'
@@ -683,7 +722,7 @@ jobs:
                   cluster-name: pg-webmodeler
 
             - name: 🧹 Cleanup ECK Elasticsearch deployment
-              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.declination.secondary_storage != 'rdbms'
               uses: ./.github/actions/kubernetes-eck-operator-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
@@ -702,7 +741,7 @@ jobs:
                   skip-operator-uninstall: 'false'
 
             - name: 🧹 Uninstall ECK Operator
-              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.declination.secondary_storage != 'rdbms'
               uses: ./.github/actions/kubernetes-eck-operator-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
