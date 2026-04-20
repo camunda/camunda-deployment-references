@@ -17,53 +17,41 @@ jobs:
 
         steps:
             - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-              with:
-                  ref: gh-pages
+
+            - name: Switch to gh-pages branch
+              run: |
+                  cp .github/scripts/get_acm_versions.py /tmp/get_acm_versions.py
+                  git fetch origin gh-pages
+                  git checkout gh-pages
 
             - name: Retrieve OpenShift ACM versions
               shell: bash
               run: |
                   set -euo pipefail
 
-                  # Fetch the latest from the main branch
-                  git fetch origin main
-
-                  # Checkout the script from main branch
-                  git checkout origin/main -- .github/scripts/get_acm_versions.py
-
                   python3 -m venv acm-venv
                   source acm-venv/bin/activate
 
                   pip install requests bs4
 
-                  python .github/scripts/get_acm_versions.py
+                  python /tmp/get_acm_versions.py
 
                   echo "Printing: ./docs/openshift_acm_versions.txt"
                   cat "./docs/openshift_acm_versions.txt"
 
-                  echo "Cleanup of the copied script"
-                  rm .github/scripts/get_acm_versions.py
-                  git restore --staged .github/scripts/get_acm_versions.py || true
-
-            - name: Stash changes and checkout gh-pages branch and push OpenShift ACM versions file to gh-pages
+            - name: Commit and push OpenShift ACM versions file to gh-pages
               shell: bash
               run: |
                   set -euo pipefail
 
-                  # stash the changes
-                  git add docs/openshift_acm_versions.txt
-
-                  # Check if there are any staged changes (changes added to the index)
-                  if git diff --cached --exit-code docs/openshift_acm_versions.txt; then
-                    echo "No changes detected. No commit necessary."
-                  else
+                  git diff --exit-code docs/openshift_acm_versions.txt || {
+                    echo "Changes detected, committing and pushing to gh-pages"
                     git config --local user.name "github-actions[bot]"
                     git config --local user.email "github-actions[bot]@users.noreply.github.com"
-
+                    git add docs/openshift_acm_versions.txt
                     git commit -m "Update OpenShift ACM versions"
-
                     git push origin gh-pages
-                  fi
+                  }
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
