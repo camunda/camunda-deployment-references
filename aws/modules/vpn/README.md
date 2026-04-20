@@ -7,7 +7,7 @@ No modules.
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [aws_acm_certificate.ca_cert](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/acm_certificate) | resource |
 | [aws_acm_certificate.vpn_cert](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/acm_certificate) | resource |
 | [aws_cloudwatch_log_group.vpn_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
@@ -27,7 +27,7 @@ No modules.
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_ca_common_name"></a> [ca\_common\_name](#input\_ca\_common\_name) | Common Name (CN) field for the CA certificate | `string` | `"common.local"` | no |
 | <a name="input_ca_early_renewal_hours"></a> [ca\_early\_renewal\_hours](#input\_ca\_early\_renewal\_hours) | Time before CA certificate expiration to renew it, in hours (default: 30 days) | `number` | `720` | no |
 | <a name="input_ca_key_algorithm"></a> [ca\_key\_algorithm](#input\_ca\_key\_algorithm) | Algorithm used to generate the CA private key | `string` | `"RSA"` | no |
@@ -55,7 +55,7 @@ No modules.
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 | <a name="output_vpn_ca_cert"></a> [vpn\_ca\_cert](#output\_vpn\_ca\_cert) | Public key of the CA Root used for x509 auth |
 | <a name="output_vpn_ca_key"></a> [vpn\_ca\_key](#output\_vpn\_ca\_key) | Private key of the CA Root used for x509 auth |
 | <a name="output_vpn_clients_keys"></a> [vpn\_clients\_keys](#output\_vpn\_clients\_keys) | Map of the clients public and private keys |
