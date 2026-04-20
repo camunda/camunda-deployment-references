@@ -61,16 +61,15 @@ jobs:
 
                   SNAPSHOT_IMAGES=()
 
-                  # Scan .tf, .sh, .yml, .yaml files for Docker image references containing SNAPSHOT
-                  # Pattern: "image/name:X.Y-SNAPSHOT" or "image/name:X.Y.Z-SNAPSHOT"
-                  while IFS= read -r match; do
-                    # Extract image name from patterns like "org/image:version-SNAPSHOT"
-                    image=$(echo "$match" | grep -oP '[a-z0-9._-]+/[a-z0-9._-]+(?=:[^\s"]*SNAPSHOT)')
-                    if [[ -n "$image" ]] && ! printf '%s\n' "${SNAPSHOT_IMAGES[@]}" 2>/dev/null | grep -qx "$image"; then
+                  # Scan for Docker image references like "org/image:X.Y-SNAPSHOT" or "org/image:X.Y.Z-SNAPSHOT"
+                  # The pattern requires a version number before -SNAPSHOT to avoid matching
+                  # file paths, variable names, or comments that happen to contain "SNAPSHOT"
+                  while IFS= read -r image; do
+                    if [[ -n "$image" ]] && ! printf '%s\n' "${SNAPSHOT_IMAGES[@]}" 2>/dev/null | grep -qxF "$image"; then
                       SNAPSHOT_IMAGES+=("$image")
                     fi
-                  done < <(grep -rn "SNAPSHOT" --include="*.tf" --include="*.sh" --include="*.yml" --include="*.yaml" --include="*.tfvars" . \
-                    | grep -E '[a-z0-9._-]+/[a-z0-9._-]+:[^ "]*SNAPSHOT' || true)
+                  done < <(grep -rohP '[a-z0-9._-]+/[a-z0-9._-]+(?=:\d+\.\d+[^\s"'"'"']*SNAPSHOT)' \
+                    --include="*.tf" --include="*.sh" --include="*.yml" --include="*.yaml" --include="*.tfvars" . || true)
 
                   if [[ ${#SNAPSHOT_IMAGES[@]} -eq 0 ]]; then
                     echo "No SNAPSHOT image references found in the repository."
