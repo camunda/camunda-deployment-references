@@ -20,7 +20,7 @@ inputs:
     kubernetes-version:
         description: Version of Kubernetes to install
         required: false
-        default: '1.32'
+        default: '1.34'
     # using S3 backend for terraform state even with Azure, to profit from existing cleanup capabilities
     s3-backend-bucket:
         description: Name of the S3 bucket to store Terraform state
