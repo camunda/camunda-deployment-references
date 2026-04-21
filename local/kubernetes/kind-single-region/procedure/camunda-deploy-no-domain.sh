@@ -12,7 +12,7 @@ set -euo pipefail
 #                      - postgres: Uses PostgreSQL RDBMS only (Optimize disabled)
 
 # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-export CAMUNDA_HELM_CHART_VERSION="14-dev-latest"
+export CAMUNDA_HELM_CHART_VERSION="15-dev-latest"
 # TODO: [release-duty] before the release, update this!
 # TODO: [release-duty] adjust renovate comment to bump the major version
 

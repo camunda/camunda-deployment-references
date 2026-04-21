@@ -1,0 +1,227 @@
+---
+# This workflow checks if alpha1 Docker tags are available for Camunda images
+# that are still using SNAPSHOT versions in the repository.
+# It runs daily and sends a Slack notification when alpha1 becomes available.
+name: Internal - Global - Alpha Availability Check
+
+on:
+    schedule:
+        # Run daily at 7:00 UTC (9:00 CET)
+        - cron: 0 7 * * *
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/internal_global_alpha_availability_check.yml
+
+env:
+    # Slack channel for internal notifications
+    SLACK_CHANNEL_ID: C076N4G1162
+    # Slack channel for PR tests
+    SLACK_CHANNEL_ID_PR: C07E4FF6YMB
+    # Tag infraex-medic on scheduled/manual runs, skip on PRs
+    SLACK_MENTION: ${{ github.event_name != 'pull_request' && '<!subteam^S06NTRBMWUD> please' || 'Please' }}
+
+# Limit workflow to a single execution per ref
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    check-alpha-availability:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Read Camunda version
+              id: version
+              run: |
+                  CAMUNDA_VERSION=$(cat .camunda-version)
+                  echo "camunda_version=${CAMUNDA_VERSION}" >> "$GITHUB_OUTPUT"
+                  echo "Camunda version: ${CAMUNDA_VERSION}"
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
+                      secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
+                      secret/data/products/infrastructure-experience/ci/common SLACK_BOT_TOKEN;
+
+            - name: Scan repo for SNAPSHOT image references
+              id: scan
+              run: |
+                  set -euo pipefail
+
+                  SNAPSHOT_IMAGES=()
+
+                  # Scan for Docker image references like "org/image:X.Y-SNAPSHOT" or "org/image:X.Y.Z-SNAPSHOT"
+                  # The pattern requires a version number before -SNAPSHOT to avoid matching
+                  # file paths, variable names, or comments that happen to contain "SNAPSHOT"
+                  while IFS= read -r image; do
+                    if [[ -n "$image" ]] && ! printf '%s\n' "${SNAPSHOT_IMAGES[@]}" 2>/dev/null | grep -qxF "$image"; then
+                      SNAPSHOT_IMAGES+=("$image")
+                    fi
+                  done < <(grep -rohP '[a-z0-9._-]+/[a-z0-9._-]+(?=:\d+\.\d+[^\s"'"'"']*SNAPSHOT)' \
+                    --include="*.tf" --include="*.sh" --include="*.yml" --include="*.yaml" --include="*.tfvars" . || true)
+
+                  if [[ ${#SNAPSHOT_IMAGES[@]} -eq 0 ]]; then
+                    echo "No SNAPSHOT image references found in the repository."
+                    echo "has_snapshots=false" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "Found SNAPSHOT references for: ${SNAPSHOT_IMAGES[*]}"
+                    # Store as JSON array for the next step
+                    printf -v joined '"%s",' "${SNAPSHOT_IMAGES[@]}"
+                    echo "images=[${joined%,}]" >> "$GITHUB_OUTPUT"
+                    echo "has_snapshots=true" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Check Docker Hub for alpha1 tags
+              if: steps.scan.outputs.has_snapshots == 'true'
+              id: check
+              run: |
+                  set -euo pipefail
+
+                  CAMUNDA_VERSION="${{ steps.version.outputs.camunda_version }}"
+                  IMAGES='${{ steps.scan.outputs.images }}'
+                  AVAILABLE=()
+
+                  # Authenticate to Docker Hub API
+                  DOCKERHUB_TOKEN=$(curl -s -X POST "https://hub.docker.com/v2/users/login" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"username\": \"${{ steps.secrets.outputs.DOCKERHUB_USER }}\", \"password\": \"${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}\"}" \
+                    | jq -r '.token')
+
+                  for image in $(echo "$IMAGES" | jq -r '.[]'); do
+                    alpha_tag="${CAMUNDA_VERSION}.0-alpha1"
+                    echo "Checking ${image}:${alpha_tag} on Docker Hub..."
+
+                    # Docker Hub API v2: check if tag exists (authenticated)
+                    status=$(curl -s -o /dev/null -w "%{http_code}" \
+                      -H "Authorization: Bearer ${DOCKERHUB_TOKEN}" \
+                      "https://hub.docker.com/v2/repositories/${image}/tags/${alpha_tag}")
+
+                    if [[ "$status" == "200" ]]; then
+                      echo "  ✅ ${image}:${alpha_tag} is available!"
+                      AVAILABLE+=("${image}:${alpha_tag}")
+                    else
+                      echo "  ❌ ${image}:${alpha_tag} not found (HTTP ${status})"
+                    fi
+                  done
+
+                  if [[ ${#AVAILABLE[@]} -gt 0 ]]; then
+                    echo "has_alpha=true" >> "$GITHUB_OUTPUT"
+                    printf -v list '%s\n' "${AVAILABLE[@]}"
+                    # Use delimiter for multiline output
+                    {
+                      echo "available_images<<EOF"
+                      echo "$list"
+                      echo "EOF"
+                    } >> "$GITHUB_OUTPUT"
+                  else
+                    echo "has_alpha=false" >> "$GITHUB_OUTPUT"
+                    echo "No alpha1 tags found yet."
+                  fi
+
+            - name: Create GitHub Issue
+              if: steps.check.outputs.has_alpha == 'true' && github.event_name != 'pull_request'
+              run: |
+                  set -euo pipefail
+
+                  BODY=$(cat <<'ISSUE_EOF'
+                  ## Alpha1 tags are now available
+
+                  The following images have `alpha1` published on Docker Hub while the repo still uses `SNAPSHOT`:
+
+                  ```
+                  ${{ steps.check.outputs.available_images }}
+                  ```
+
+                  Please update the SNAPSHOT references in the repository.
+                  ISSUE_EOF
+                  )
+
+                  # Check if an open issue already exists to avoid duplicates
+                  existing=$(gh issue list --label "automated issue" --state open --search "Alpha1 tags available" --json number --jq '.[0].number' || true)
+                  if [[ -n "$existing" ]]; then
+                    echo "Issue #${existing} already exists, skipping creation."
+                  else
+                    gh issue create \
+                      --title "Alpha1 tags available - update SNAPSHOT references" \
+                      --body "$BODY" \
+                      --label "report,automated issue"
+                  fi
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Determine Slack channel
+              id: slack-channel
+              run: |
+                  if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+                    echo "channel=${{ env.SLACK_CHANNEL_ID_PR }}" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "channel=${{ env.SLACK_CHANNEL_ID }}" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Post alpha availability to Slack
+              if: steps.check.outputs.has_alpha == 'true'
+              uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
+              with:
+                  method: chat.postMessage
+                  token: ${{ steps.secrets.outputs.SLACK_BOT_TOKEN }}
+                  payload: |
+                      {
+                        "channel": "${{ steps.slack-channel.outputs.channel }}",
+                        "unfurl_links": false,
+                        "unfurl_media": false,
+                        "text": "🎉 Alpha1 tags available - update SNAPSHOT references",
+                        "blocks": [
+                          {
+                            "type": "header",
+                            "text": {
+                              "type": "plain_text",
+                              "text": "🎉 Alpha1 Docker Tags Available",
+                              "emoji": true
+                            }
+                          },
+                          {
+                            "type": "section",
+                            "text": {
+                              "type": "mrkdwn",
+                              "text": "These images have `alpha1` on Docker Hub but the repo still uses `SNAPSHOT`:\n```\n${{ steps.check.outputs.available_images }}```"
+                            }
+                          },
+                          {
+                            "type": "section",
+                            "text": {
+                              "type": "mrkdwn",
+                              "text": "${{ env.SLACK_MENTION }} update the SNAPSHOT references in `camunda-deployment-references` (branch: `${{ github.ref_name }}`)."
+                            }
+                          },
+                          {
+                            "type": "context",
+                            "elements": [
+                              {
+                                "type": "mrkdwn",
+                                "text": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View workflow run>"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: failure()
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ steps.slack-channel.outputs.channel }}
