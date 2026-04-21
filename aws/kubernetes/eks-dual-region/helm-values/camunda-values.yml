@@ -45,6 +45,12 @@ orchestration:
     clusterSize: '8'
     partitionCount: '8'
     replicationFactor: '6'
+    # Expose embedded gateways via AWS NLB for load balancing across brokers
+    service:
+        type: LoadBalancer
+        annotations:
+            service.beta.kubernetes.io/aws-load-balancer-type: nlb
+            service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
     # Disable the Camunda and Zeebe exporters as we use region specific ones below
     exporters:
         camunda:

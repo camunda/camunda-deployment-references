@@ -23,7 +23,11 @@ resource "aws_s3_bucket" "elastic_backup" {
     Name = var.cluster_name
   }
 
-  force_destroy = true
+  force_destroy = false
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "elastic_backup" {
