@@ -372,10 +372,19 @@ destroy_resource() {
       continue
     fi
 
-    # For non-DependencyViolation errors we fail fast instead of retrying, since these
+    # On OIDC config deletion failure, the ROSA cluster destruction is still propagating
+    # on the Red Hat side. Wait and retry — this is a transient condition.
+    if [[ "$output_tf_destroy" == *"clusters using OIDC config"* && $attempt -lt $max_destroy_attempts ]]; then
+      echo "[$group_id][$module_name] OIDC config still in use (attempt $attempt/$max_destroy_attempts)"
+      echo "[$group_id][$module_name] Waiting 60s for ROSA cluster deletion to propagate..."
+      sleep 60
+      continue
+    fi
+
+    # For other errors we fail fast instead of retrying, since these
     # typically indicate configuration or logic issues (e.g. invalid Terraform, IAM),
-    # not transient AWS conditions. Only DependencyViolation (and known special cases)
-    # are retried above.
+    # not transient AWS/RHCS conditions. Only DependencyViolation, OIDC propagation,
+    # and known special cases are retried above.
     echo "Error destroying module $module_name in group $group_id"
     return 1
   done
