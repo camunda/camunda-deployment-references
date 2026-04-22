@@ -114,9 +114,9 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  cluster_name: ${{ inputs.cluster_name || 'rbc-benchmark' }}
+                  cluster_name: ${{ inputs.cluster_name || 'rbc-bench' }}
                   ref_arch: ${{ inputs.ref-arch }}
-                  cluster_prefix: rbc-benchmark
+                  cluster_prefix: rbc-bench
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
