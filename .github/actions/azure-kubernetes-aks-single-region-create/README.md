@@ -13,7 +13,7 @@ The kube context will be set on the created cluster.
 | `resource-prefix` | <p>Prefix for the resources to be created</p> | `true` | `camunda` |
 | `resource-group-name` | <p>Name of the resource group</p> | `true` | `""` |
 | `cluster-name` | <p>Name of the AKS cluster to deploy</p> | `true` | `camunda-aks-cluster` |
-| `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.32` |
+| `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.34` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
@@ -64,7 +64,7 @@ This action is a `composite` action.
     # Version of Kubernetes to install
     #
     # Required: false
-    # Default: 1.32
+    # Default: 1.34
 
     s3-backend-bucket:
     # Name of the S3 bucket to store Terraform state
