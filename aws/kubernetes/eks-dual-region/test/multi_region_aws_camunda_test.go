@@ -19,8 +19,8 @@ const (
 
 	resourceDir         = "." // only used for the process deployment file
 	terraformDir        = "../terraform/clusters"
-	kubeConfigPrimary   = "./kubeconfig-london"
-	kubeConfigSecondary = "./kubeconfig-paris"
+	kubeConfigPrimary   = "./kubeconfig-us-east-1"
+	kubeConfigSecondary = "./kubeconfig-us-east-2"
 	k8sManifests        = "../procedure/manifests"
 	tenantId            = "test-tenant"
 
@@ -34,8 +34,8 @@ var (
 	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform")
 	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                                                // allows overwriting the image tag via GHA of every Camunda image
 	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                                                             // allows supplying random cluster name via GHA
-	cluster0Name       = helpers.GetEnv("CLUSTER_0_NAME", fmt.Sprintf("%s-london", helpers.GetEnv("CLUSTER_NAME", "nightly"))) // kubectl context name for cluster 0
-	cluster1Name       = helpers.GetEnv("CLUSTER_1_NAME", fmt.Sprintf("%s-paris", helpers.GetEnv("CLUSTER_NAME", "nightly")))  // kubectl context name for cluster 1
+	cluster0Name       = helpers.GetEnv("CLUSTER_0_NAME", fmt.Sprintf("%s-us-east-1", helpers.GetEnv("CLUSTER_NAME", "nightly"))) // kubectl context name for cluster 0
+	cluster1Name       = helpers.GetEnv("CLUSTER_1_NAME", fmt.Sprintf("%s-us-east-2", helpers.GetEnv("CLUSTER_NAME", "nightly")))  // kubectl context name for cluster 1
 	backupName         = helpers.GetEnv("BACKUP_NAME", "nightly")                                                              // allows supplying random backup name via GHA
 	backupBucket       = helpers.GetEnv("BACKUP_BUCKET", fmt.Sprintf("%s-elastic-backup", clusterName))                        // allows supplying backup bucket name via GHA
 	awsProfile         = helpers.GetEnv("AWS_PROFILE", "infraex")
@@ -222,25 +222,25 @@ func initKubernetesHelpers(t *testing.T) {
 	if helpers.IsTeleportEnabled() {
 		t.Log("[K8S INIT] Initializing Kubernetes helpers with Teleport 🚀")
 		primary = helpers.Cluster{
-			Region:           "eu-west-2",
+			Region:           "us-east-1",
 			ClusterName:      teleportCluster,
 			KubectlNamespace: *k8s.NewKubectlOptions("", "kubeconfig", primaryNamespace),
 		}
 		secondary = helpers.Cluster{
-			Region:           "eu-west-3",
+			Region:           "us-east-2",
 			ClusterName:      teleportCluster,
 			KubectlNamespace: *k8s.NewKubectlOptions("", "kubeconfig", secondaryNamespace),
 		}
 	} else {
 		t.Log("[K8S INIT] Initializing Kubernetes helpers 🚀")
 		primary = helpers.Cluster{
-			Region:           "eu-west-2",
+			Region:           "us-east-1",
 			ClusterName:      cluster0Name,
 			KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigPrimary, primaryNamespace),
 			KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigPrimary, "kube-system"),
 		}
 		secondary = helpers.Cluster{
-			Region:           "eu-west-3",
+			Region:           "us-east-2",
 			ClusterName:      cluster1Name,
 			KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespace),
 			KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigSecondary, "kube-system"),
@@ -443,8 +443,8 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 
 	region := 0
 
-	// assumption: eu-west-2 = 0 and eu-west-3 = 1
-	if cluster.Region == "eu-west-3" {
+	// assumption: us-east-1 = 0 and us-east-2 = 1
+	if cluster.Region == "us-east-2" {
 		region = 1
 	}
 

@@ -57,9 +57,9 @@ env:
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infraex
-    AWS_REGION: eu-west-2
-    CLUSTER_0_AWS_REGION: eu-west-2
-    CLUSTER_1_AWS_REGION: eu-west-3
+    AWS_REGION: us-east-1
+    CLUSTER_0_AWS_REGION: us-east-1
+    CLUSTER_1_AWS_REGION: us-east-2
     TESTS_TF_BINARY_NAME: terraform
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
@@ -264,8 +264,8 @@ jobs:
                   source .github/scripts/gha-functions.sh
 
                   # Override cluster names to match the CI naming convention
-                  export CLUSTER_0="${{ env.CLUSTER_NAME }}-london"
-                  export CLUSTER_1="${{ env.CLUSTER_NAME }}-paris"
+                  export CLUSTER_0="${{ env.CLUSTER_NAME }}-us-east-1"
+                  export CLUSTER_1="${{ env.CLUSTER_NAME }}-us-east-2"
 
                   export_new_env_vars aws/kubernetes/eks-dual-region/procedure/export_environment_prerequisites.sh
 
@@ -302,8 +302,8 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-                  aws eks update-kubeconfig --region ${{ env.CLUSTER_0_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
-                  aws eks update-kubeconfig --region ${{ env.CLUSTER_1_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
+                  aws eks update-kubeconfig --region ${{ env.CLUSTER_0_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-us-east-1 --alias ${{ env.CLUSTER_NAME }}-us-east-1
+                  aws eks update-kubeconfig --region ${{ env.CLUSTER_1_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-us-east-2 --alias ${{ env.CLUSTER_NAME }}-us-east-2
 
             ############# Retrieve S3 credentials ##############
             - name: Decrypt S3 credentials
@@ -325,7 +325,7 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  for ctx in "${{ env.CLUSTER_NAME }}-london" "${{ env.CLUSTER_NAME }}-paris"; do
+                  for ctx in "${{ env.CLUSTER_NAME }}-us-east-1" "${{ env.CLUSTER_NAME }}-us-east-2"; do
                     for ns in ${{ env.CAMUNDA_NAMESPACE_0 }} ${{ env.CAMUNDA_NAMESPACE_1 }}; do
                       if kubectl --context "$ctx" get namespace "$ns" &>/dev/null; then
                         echo "Cleaning up resources in $ns on $ctx..."
@@ -339,7 +339,7 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  for ctx in "${{ env.CLUSTER_NAME }}-london" "${{ env.CLUSTER_NAME }}-paris"; do
+                  for ctx in "${{ env.CLUSTER_NAME }}-us-east-1" "${{ env.CLUSTER_NAME }}-us-east-2"; do
                     for ns in ${{ env.CAMUNDA_NAMESPACE_0 }} ${{ env.CAMUNDA_NAMESPACE_1 }}; do
                       if kubectl --context "$ctx" get namespace "$ns" &>/dev/null; then
                         echo "Deleting namespace $ns on context $ctx..."
@@ -399,29 +399,29 @@ jobs:
                       global.documentStore.type.gcp
 
             ############# Debug failed pods ##############
-            - name: Debug failed pods on London cluster
+            - name: Debug failed pods on us-east-1 cluster
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
-                  context: ${{ env.CLUSTER_NAME }}-london
-                  artifact-suffix: ${{ env.CLUSTER_NAME }}-london
+                  context: ${{ env.CLUSTER_NAME }}-us-east-1
+                  artifact-suffix: ${{ env.CLUSTER_NAME }}-us-east-1
 
-            - name: Debug failed pods on Paris cluster
+            - name: Debug failed pods on us-east-2 cluster
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
-                  context: ${{ env.CLUSTER_NAME }}-paris
-                  artifact-suffix: ${{ env.CLUSTER_NAME }}-paris
+                  context: ${{ env.CLUSTER_NAME }}-us-east-2
+                  artifact-suffix: ${{ env.CLUSTER_NAME }}-us-east-2
 
             - name: Debug dual-region infrastructure
               if: failure()
               run: |
                   set -euo pipefail
 
-                  CLUSTER_0_CTX="${{ env.CLUSTER_NAME }}-london"
-                  CLUSTER_1_CTX="${{ env.CLUSTER_NAME }}-paris"
+                  CLUSTER_0_CTX="${{ env.CLUSTER_NAME }}-us-east-1"
+                  CLUSTER_1_CTX="${{ env.CLUSTER_NAME }}-us-east-2"
                   NS_0="${{ env.CAMUNDA_NAMESPACE_0 }}"
                   NS_1="${{ env.CAMUNDA_NAMESPACE_1 }}"
 
@@ -440,16 +440,16 @@ jobs:
                     echo "::endgroup::"
                   done
 
-                  echo "::group::Cross-cluster DNS resolution test (London → Paris)"
+                  echo "::group::Cross-cluster DNS resolution test (us-east-1 → us-east-2)"
                   kubectl --context="$CLUSTER_0_CTX" -n "$NS_0" \
                     run dns-test-cross --image=busybox:1.28 --rm --restart=Never -i --command -- \
                     nslookup "${{ env.CAMUNDA_RELEASE_NAME }}-zeebe.${NS_1}.svc.cluster.local" \
                     2>/dev/null || echo "DNS resolution test failed or timed out"
                   echo "::endgroup::"
 
-                  echo "::group::Cross-cluster connectivity test (London → Paris zeebe:26502)"
+                  echo "::group::Cross-cluster connectivity test (us-east-1 → us-east-2 zeebe:26502)"
                   kubectl --context="$CLUSTER_0_CTX" -n "$NS_0" run connectivity-test --image=busybox:1.28 --rm -i --restart=Never --command -- sh -c "
-                    echo 'Testing TCP connectivity to Paris zeebe on port 26502...'
+                    echo 'Testing TCP connectivity to us-east-2 zeebe on port 26502...'
                     nc -zv ${{ env.CAMUNDA_RELEASE_NAME }}-zeebe.${NS_1}.svc.cluster.local 26502 2>&1 || echo 'TCP connection failed'
                   " 2>/dev/null || echo "Connectivity test failed or timed out"
                   echo "::endgroup::"
@@ -511,25 +511,25 @@ jobs:
               timeout-minutes: 5
               run: |
                   set -euo pipefail
-                  aws eks update-kubeconfig --region ${{ env.CLUSTER_0_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-london --alias ${{ env.CLUSTER_NAME }}-london
-                  aws eks update-kubeconfig --region ${{ env.CLUSTER_1_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-paris --alias ${{ env.CLUSTER_NAME }}-paris
+                  aws eks update-kubeconfig --region ${{ env.CLUSTER_0_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-us-east-1 --alias ${{ env.CLUSTER_NAME }}-us-east-1
+                  aws eks update-kubeconfig --region ${{ env.CLUSTER_1_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-us-east-2 --alias ${{ env.CLUSTER_NAME }}-us-east-2
 
-            - name: Set kubectl context to London for ECK cleanup
+            - name: Set kubectl context to us-east-1 for ECK cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
-              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-london
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-us-east-1
 
-            - name: 🧹 Cleanup ECK Elasticsearch and uninstall Operator on London cluster
+            - name: 🧹 Cleanup ECK Elasticsearch and uninstall Operator on us-east-1 cluster
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               uses: ./.github/actions/kubernetes-eck-operator-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
                   skip-operator-uninstall: 'false'
 
-            - name: Set kubectl context to Paris for ECK cleanup
+            - name: Set kubectl context to us-east-2 for ECK cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
-              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-paris
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-us-east-2
 
-            - name: 🧹 Cleanup ECK Elasticsearch and uninstall Operator on Paris cluster
+            - name: 🧹 Cleanup ECK Elasticsearch and uninstall Operator on us-east-2 cluster
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               uses: ./.github/actions/kubernetes-eck-operator-cleanup
               with:
@@ -557,8 +557,8 @@ jobs:
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: clusters
               env:
-                  CLUSTER_0_AWS_REGION: eu-west-2
-                  CLUSTER_1_AWS_REGION: eu-west-3
+                  CLUSTER_0_AWS_REGION: us-east-1
+                  CLUSTER_1_AWS_REGION: us-east-2
 
     report-success:
         name: Report success

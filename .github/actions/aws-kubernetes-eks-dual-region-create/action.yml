@@ -3,7 +3,7 @@ name: Deploy AWS Kubernetes EKS Dual Region Cluster
 
 description: |
     This GitHub Action automates the deployment of the aws/kubernetes/eks-dual-region reference architecture cluster using Terraform.
-    It creates two EKS clusters in different regions (eu-west-2/London and eu-west-3/Paris) with VPC peering.
+    It creates two EKS clusters in different regions (us-east-1/N. Virginia and us-east-2/Ohio) with VPC peering.
 
 inputs:
     cluster-name:
@@ -12,7 +12,7 @@ inputs:
     aws-region:
         description: Primary AWS region (owner region) for the EKS cluster
         required: false
-        default: eu-west-2
+        default: us-east-1
     kubernetes-version:
         description: Version of Kubernetes to install
         required: false
@@ -184,11 +184,11 @@ runs:
           shell: bash
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/test/
           env:
-              KUBECONFIG: kubeconfig-london:kubeconfig-paris
+              KUBECONFIG: kubeconfig-us-east-1:kubeconfig-us-east-2
           run: |
               set -euo pipefail
 
-              for ctx in "${{ env.CLUSTER_NAME }}-london" "${{ env.CLUSTER_NAME }}-paris"; do
+              for ctx in "${{ env.CLUSTER_NAME }}-us-east-1" "${{ env.CLUSTER_NAME }}-us-east-2"; do
                 for ns in ${{ env.CLUSTER_0_NAMESPACE_ARR }} ${{ env.CLUSTER_1_NAMESPACE_ARR }}; do
                   kubectl --context "$ctx" create namespace "$ns" --dry-run=client -o yaml | kubectl --context "$ctx" apply -f -
                 done

@@ -5,16 +5,16 @@
 locals {
   # For demonstration purposes, we will use owner and acceptor as separation. Naming choice will become clearer when seeing the peering setup
   owner = {
-    region             = "eu-west-2"     # London
+    region             = "us-east-1"     # N. Virginia
     vpc_cidr_block     = "10.192.0.0/16" # vpc for the cluster and pod range
     service_cidr_block = "10.190.0.0/16" # internal network of the cluster
-    region_full_name   = "london"
+    region_full_name   = "us-east-1"
   }
   accepter = {
-    region             = "eu-west-3"     # Paris
+    region             = "us-east-2"     # Ohio
     vpc_cidr_block     = "10.202.0.0/16" # vpc for the cluster and pod range
     service_cidr_block = "10.200.0.0/16" # internal network of the cluster
-    region_full_name   = "paris"
+    region_full_name   = "us-east-2"
   }
 }
 

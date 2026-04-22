@@ -10,9 +10,9 @@ set -euo pipefail
 #
 # Usage:
 #   ./generate-rbc-kubeconfig.sh <cluster-name>
-#   Example: ./generate-rbc-kubeconfig.sh rbc-benchmark-edr-london
+#   Example: ./generate-rbc-kubeconfig.sh rbc-benchmark-edr-us-east-1
 
-CLUSTER_NAME="${1:?Usage: $0 <cluster-name> (e.g., rbc-benchmark-edr-london)}"
+CLUSTER_NAME="${1:?Usage: $0 <cluster-name> (e.g., rbc-benchmark-edr-us-east-1)}"
 NAMESPACE="kube-system"
 SA_NAME="rbc-admin"
 KUBECONFIG_FILE="kubeconfig-${CLUSTER_NAME}.yml"

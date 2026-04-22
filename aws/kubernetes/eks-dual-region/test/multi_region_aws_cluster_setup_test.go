@@ -20,8 +20,8 @@ func TestSetupTerraform(t *testing.T) {
 
 func TestAWSKubeConfigCreation(t *testing.T) {
 	t.Log("[KUBECONFIG] Creating kubeconfig files 🚀")
-	awsHelpers.GenerateAWSKubeConfig(t, clusterName, awsProfile, "eu-west-2", "london")
-	awsHelpers.GenerateAWSKubeConfig(t, clusterName, awsProfile, "eu-west-3", "paris")
+	awsHelpers.GenerateAWSKubeConfig(t, clusterName, awsProfile, "us-east-1", "us-east-1")
+	awsHelpers.GenerateAWSKubeConfig(t, clusterName, awsProfile, "us-east-2", "us-east-2")
 }
 
 func TestTeardownTerraform(t *testing.T) {
@@ -31,8 +31,8 @@ func TestTeardownTerraform(t *testing.T) {
 
 func TestAWSKubeConfigRemoval(t *testing.T) {
 	t.Log("[KUBECONFIG] Removing kubeconfig files 🗑️")
-	awsHelpers.TestRemoveKubeConfig(t, "london")
-	awsHelpers.TestRemoveKubeConfig(t, "paris")
+	awsHelpers.TestRemoveKubeConfig(t, "us-east-1")
+	awsHelpers.TestRemoveKubeConfig(t, "us-east-2")
 }
 
 func TestClusterCleanup(t *testing.T) {

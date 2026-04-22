@@ -97,8 +97,8 @@ runs:
                 kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
               done
 
-              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig-london"
-              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig-paris"
+              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig-us-east-1"
+              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig-us-east-2"
 
               if [[ "${{ inputs.cluster-0-name }}" == "${{ inputs.cluster-1-name }}" ]]; then
                 cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig"

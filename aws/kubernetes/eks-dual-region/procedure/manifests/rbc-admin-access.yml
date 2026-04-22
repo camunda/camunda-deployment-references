@@ -1,6 +1,6 @@
 ---
 # Service Account and RBAC for RBC team external access
-# Apply this on both clusters (london and paris) to give the RBC team admin access
+# Apply this on both clusters (us-east-1 and us-east-2) to give the RBC team admin access
 #
 # Usage:
 #   kubectl apply -f rbc-admin-access.yml

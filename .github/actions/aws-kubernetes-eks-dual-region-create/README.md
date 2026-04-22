@@ -3,7 +3,7 @@
 ## Description
 
 This GitHub Action automates the deployment of the aws/kubernetes/eks-dual-region reference architecture cluster using Terraform.
-It creates two EKS clusters in different regions (eu-west-2/London and eu-west-3/Paris) with VPC peering.
+It creates two EKS clusters in different regions (us-east-1/N. Virginia and us-east-2/Ohio) with VPC peering.
 
 
 ## Inputs
@@ -11,7 +11,7 @@ It creates two EKS clusters in different regions (eu-west-2/London and eu-west-3
 | name | description | required | default |
 | --- | --- | --- | --- |
 | `cluster-name` | <p>Name of the EKS cluster to deploy (will be suffixed with region names)</p> | `true` | `""` |
-| `aws-region` | <p>Primary AWS region (owner region) for the EKS cluster</p> | `false` | `eu-west-2` |
+| `aws-region` | <p>Primary AWS region (owner region) for the EKS cluster</p> | `false` | `us-east-1` |
 | `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.35` |
 | `single-nat-gateway` | <p>Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.</p> | `false` | `true` |
 | `tags` | <p>Tags to apply to the cluster and related resources, in JSON format</p> | `false` | `{}` |
@@ -50,7 +50,7 @@ This action is a `composite` action.
     # Primary AWS region (owner region) for the EKS cluster
     #
     # Required: false
-    # Default: eu-west-2
+    # Default: us-east-1
 
     kubernetes-version:
     # Version of Kubernetes to install
