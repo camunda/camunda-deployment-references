@@ -558,18 +558,20 @@ jobs:
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
 
+            - name: 🐘 Deploy CNPG cluster pg-identity
+              timeout-minutes: 10
+              uses: ./.github/actions/kubernetes-cnpg-cluster
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  cluster-name: pg-identity
+
             - name: 🐘 Deploy CNPG cluster pg-camunda (RDBMS secondary storage)
               if: ${{ matrix.declination.secondary_storage == 'rdbms' }}
               timeout-minutes: 10
-              shell: bash
-              run: |
-                  set -euo pipefail
-
-                  cd generic/kubernetes/operator-based/postgresql
-                  CLUSTER_FILTER=pg-camunda CAMUNDA_NAMESPACE="$CAMUNDA_NAMESPACE" ./set-secrets.sh
-                  kubectl apply --server-side -f postgresql-orchestration-cluster.yml -n "$CAMUNDA_NAMESPACE"
-                  kubectl wait --for=condition=Ready --timeout=600s cluster pg-camunda -n "$CAMUNDA_NAMESPACE"
-                  echo "✓ CNPG cluster pg-camunda deployed in namespace $CAMUNDA_NAMESPACE"
+              uses: ./.github/actions/kubernetes-cnpg-cluster
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  cluster-name: pg-camunda
 
             - name: 🐘 Deploy Keycloak via Operator (keycloak-operator mode)
               if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
@@ -579,13 +581,6 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   keycloak-mode: ${{ matrix.declination.declination_mode == 'domain' && 'domain-openshift' || 'no-domain' }}
                   domain-name: ${{ env.CAMUNDA_DOMAIN }}
-
-            - name: 🐘 Deploy CNPG cluster pg-identity
-              timeout-minutes: 10
-              uses: ./.github/actions/kubernetes-cnpg-cluster
-              with:
-                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  cluster-name: pg-identity
 
             - name: 🐘 Deploy CNPG cluster pg-webmodeler
               if: env.WEBMODELER_ENABLED == 'true'

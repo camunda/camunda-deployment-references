@@ -63,14 +63,13 @@ echo ""
 echo "=== Deploying PostgreSQL (CloudNativePG) ==="
 (
     cd "$OPERATOR_BASE/postgresql"
-    CLUSTER_FILTER="$CLUSTER_FILTER" NAMESPACE="$CAMUNDA_NAMESPACE" ./deploy.sh
 
-    # Deploy orchestration PG cluster (only for RDBMS mode)
+    # When using RDBMS mode, also deploy the orchestration cluster (pg-camunda)
     if [[ "$SECONDARY_STORAGE" == "postgres" ]]; then
-        echo "Deploying orchestration PostgreSQL cluster (pg-camunda)..."
-        kubectl apply --server-side -f postgresql-orchestration-cluster.yml -n "$CAMUNDA_NAMESPACE"
-        kubectl wait --for=condition=Ready --timeout=600s cluster pg-camunda -n "$CAMUNDA_NAMESPACE"
+        CLUSTER_FILTER="${CLUSTER_FILTER:+$CLUSTER_FILTER,}pg-camunda"
     fi
+
+    CLUSTER_FILTER="$CLUSTER_FILTER" NAMESPACE="$CAMUNDA_NAMESPACE" ./deploy.sh
 )
 
 # 3. Deploy Keycloak via Keycloak operator
