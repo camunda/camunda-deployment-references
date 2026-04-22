@@ -29,6 +29,37 @@ MIN_AGE_HOURS=$1
 CURRENT_TIME=$($date_command +%s)
 
 
+# cleanup_iam_roles_with_prefix removes all IAM roles whose name starts with the
+# given prefix, including detaching/deleting their policies first.
+cleanup_iam_roles_with_prefix() {
+  local role_prefix="$1"
+  local roles
+  roles=$(aws iam list-roles --query "Roles[?starts_with(RoleName, '${role_prefix}')].RoleName" --output text)
+  if [[ -z "$roles" || "$roles" == "None" ]]; then
+    echo "  ℹ️ No IAM roles found for prefix ${role_prefix}, already cleaned up"
+    return 0
+  fi
+  for role in $roles; do
+    echo "  🗑️ Cleaning up IAM role: $role"
+    local attached_policies
+    attached_policies=$(aws iam list-attached-role-policies --role-name "$role" --query 'AttachedPolicies[].PolicyArn' --output text)
+    if [[ -n "$attached_policies" && "$attached_policies" != "None" ]]; then
+      for policy_arn in $attached_policies; do
+        aws iam detach-role-policy --role-name "$role" --policy-arn "$policy_arn"
+      done
+    fi
+    local inline_policies
+    inline_policies=$(aws iam list-role-policies --role-name "$role" --query 'PolicyNames[]' --output text)
+    if [[ -n "$inline_policies" && "$inline_policies" != "None" ]]; then
+      for policy_name in $inline_policies; do
+        aws iam delete-role-policy --role-name "$role" --policy-name "$policy_name"
+      done
+    fi
+    aws iam delete-role --role-name "$role"
+    echo "  ✅ Deleted role: $role"
+  done
+}
+
 rosa login --token="$RHCS_TOKEN"
 
 # Ensure account-level OCM roles exist (prerequisites for cluster operations)
@@ -113,41 +144,13 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   echo "🧹 Deleting operator roles with prefix ${cluster_name}-operator"
   if ! AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto; then
     echo "⚠️ rosa delete operator-roles failed, falling back to direct AWS IAM cleanup"
-    role_prefix="${cluster_name}-operator"
-    roles=$(aws iam list-roles --query "Roles[?starts_with(RoleName, '${role_prefix}')].RoleName" --output text)
-    for role in $roles; do
-      echo "  🗑️ Cleaning up IAM role: $role"
-      attached_policies=$(aws iam list-attached-role-policies --role-name "$role" --query 'AttachedPolicies[].PolicyArn' --output text)
-      for policy_arn in $attached_policies; do
-        aws iam detach-role-policy --role-name "$role" --policy-arn "$policy_arn"
-      done
-      inline_policies=$(aws iam list-role-policies --role-name "$role" --query 'PolicyNames[]' --output text)
-      for policy_name in $inline_policies; do
-        aws iam delete-role-policy --role-name "$role" --policy-name "$policy_name"
-      done
-      aws iam delete-role --role-name "$role"
-      echo "  ✅ Deleted role: $role"
-    done
+    cleanup_iam_roles_with_prefix "${cluster_name}-operator"
   fi
 
   echo "🧹 Deleting account roles with prefix ${cluster_name}-account"
   if ! AWS_REGION="$region_id" rosa delete account-roles --prefix "${cluster_name}-account" --yes --mode auto; then
     echo "⚠️ rosa delete account-roles failed, falling back to direct AWS IAM cleanup"
-    role_prefix="${cluster_name}-account"
-    roles=$(aws iam list-roles --query "Roles[?starts_with(RoleName, '${role_prefix}')].RoleName" --output text)
-    for role in $roles; do
-      echo "  🗑️ Cleaning up IAM role: $role"
-      attached_policies=$(aws iam list-attached-role-policies --role-name "$role" --query 'AttachedPolicies[].PolicyArn' --output text)
-      for policy_arn in $attached_policies; do
-        aws iam detach-role-policy --role-name "$role" --policy-arn "$policy_arn"
-      done
-      inline_policies=$(aws iam list-role-policies --role-name "$role" --query 'PolicyNames[]' --output text)
-      for policy_name in $inline_policies; do
-        aws iam delete-role-policy --role-name "$role" --policy-name "$policy_name"
-      done
-      aws iam delete-role --role-name "$role"
-      echo "  ✅ Deleted role: $role"
-    done
+    cleanup_iam_roles_with_prefix "${cluster_name}-account"
   fi
 
   echo "🧹 Deleting OIDC provider ${oidc_config_id}"
