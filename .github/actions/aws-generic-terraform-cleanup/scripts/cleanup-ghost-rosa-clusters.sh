@@ -111,28 +111,57 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   fi
 
   echo "🧹 Deleting operator roles with prefix ${cluster_name}-operator"
-  operator_roles_deleted=false
-  for i in $(seq 1 6); do
-    if AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto; then
-      operator_roles_deleted=true
-      break
-    fi
-    echo "⚠️ Failed to delete operator roles, retrying in 30s... (attempt $i/6)"
-    if [ "$i" -lt 6 ]; then
-      sleep 30
-    fi
-  done
-
-  if [ "$operator_roles_deleted" = false ]; then
-    echo "❌ Failed to delete operator roles with prefix ${cluster_name}-operator after multiple attempts. Aborting cleanup."
-    exit 1
+  if ! AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto; then
+    echo "⚠️ rosa delete operator-roles failed, falling back to direct AWS IAM cleanup"
+    role_prefix="${cluster_name}-operator"
+    roles=$(aws iam list-roles --query "Roles[?starts_with(RoleName, '${role_prefix}')].RoleName" --output text)
+    for role in $roles; do
+      echo "  🗑️ Cleaning up IAM role: $role"
+      attached_policies=$(aws iam list-attached-role-policies --role-name "$role" --query 'AttachedPolicies[].PolicyArn' --output text)
+      for policy_arn in $attached_policies; do
+        aws iam detach-role-policy --role-name "$role" --policy-arn "$policy_arn"
+      done
+      inline_policies=$(aws iam list-role-policies --role-name "$role" --query 'PolicyNames[]' --output text)
+      for policy_name in $inline_policies; do
+        aws iam delete-role-policy --role-name "$role" --policy-name "$policy_name"
+      done
+      aws iam delete-role --role-name "$role"
+      echo "  ✅ Deleted role: $role"
+    done
   fi
 
   echo "🧹 Deleting account roles with prefix ${cluster_name}-account"
-  AWS_REGION="$region_id" rosa delete account-roles --prefix "${cluster_name}-account" --yes --mode auto
+  if ! AWS_REGION="$region_id" rosa delete account-roles --prefix "${cluster_name}-account" --yes --mode auto; then
+    echo "⚠️ rosa delete account-roles failed, falling back to direct AWS IAM cleanup"
+    role_prefix="${cluster_name}-account"
+    roles=$(aws iam list-roles --query "Roles[?starts_with(RoleName, '${role_prefix}')].RoleName" --output text)
+    for role in $roles; do
+      echo "  🗑️ Cleaning up IAM role: $role"
+      attached_policies=$(aws iam list-attached-role-policies --role-name "$role" --query 'AttachedPolicies[].PolicyArn' --output text)
+      for policy_arn in $attached_policies; do
+        aws iam detach-role-policy --role-name "$role" --policy-arn "$policy_arn"
+      done
+      inline_policies=$(aws iam list-role-policies --role-name "$role" --query 'PolicyNames[]' --output text)
+      for policy_name in $inline_policies; do
+        aws iam delete-role-policy --role-name "$role" --policy-name "$policy_name"
+      done
+      aws iam delete-role --role-name "$role"
+      echo "  ✅ Deleted role: $role"
+    done
+  fi
 
   echo "🧹 Deleting OIDC provider ${oidc_config_id}"
-  AWS_REGION="$region_id" rosa delete oidc-provider --oidc-config-id "${oidc_config_id}" --yes --mode auto
+  if ! AWS_REGION="$region_id" rosa delete oidc-provider --oidc-config-id "${oidc_config_id}" --yes --mode auto; then
+    echo "⚠️ rosa delete oidc-provider failed, falling back to direct AWS IAM cleanup"
+    oidc_provider_arn=$(aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?ends_with(Arn, '/${oidc_config_id}')].Arn" --output text)
+    if [[ -n "$oidc_provider_arn" && "$oidc_provider_arn" != "None" ]]; then
+      echo "  🗑️ Deleting OIDC provider: $oidc_provider_arn"
+      aws iam delete-open-id-connect-provider --open-id-connect-provider-arn "$oidc_provider_arn"
+      echo "  ✅ Deleted OIDC provider: $oidc_provider_arn"
+    else
+      echo "  ℹ️ No OIDC provider found for config ID ${oidc_config_id}, already cleaned up"
+    fi
+  fi
 
 done
 
