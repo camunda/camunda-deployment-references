@@ -410,10 +410,30 @@ destroy_resource() {
       continue
     fi
 
-    # For non-DependencyViolation errors we fail fast instead of retrying, since these
+    # On OIDC config deletion failure, the ROSA cluster destruction is still propagating
+    # on the Red Hat side. Wait and retry — this is a transient condition.
+    if [[ "$output_tf_destroy" == *"clusters using OIDC config"* && $attempt -lt $max_destroy_attempts ]]; then
+      echo "[$group_id][$module_name] OIDC config still in use (attempt $attempt/$max_destroy_attempts)"
+      echo "[$group_id][$module_name] Waiting 60s for ROSA cluster deletion to propagate..."
+      sleep 60
+      continue
+    fi
+
+    # On CLUSTERS-MGMT-400 with trust policy error: the account IAM roles exist but their
+    # trust policies are broken (e.g. previous partial cleanup removed the trust relationship).
+    # Red Hat's service can't assume the Installer role to delete the cluster.
+    # We recreate the account roles with correct trust policies and retry.
+    if [[ "$output_tf_destroy" == *"CLUSTERS-MGMT-400"* && "$output_tf_destroy" == *"trust policy"* && $attempt -lt $max_destroy_attempts ]]; then
+      echo "[$group_id][$module_name] Broken trust policy detected (attempt $attempt/$max_destroy_attempts)"
+      echo "[$group_id][$module_name] Recreating account roles to restore trust policies..."
+      rosa create account-roles --mode auto --yes --hosted-cp --prefix "${group_id}-account" || true
+      continue
+    fi
+
+    # For other errors we fail fast instead of retrying, since these
     # typically indicate configuration or logic issues (e.g. invalid Terraform, IAM),
-    # not transient AWS conditions. Only DependencyViolation (and known special cases)
-    # are retried above.
+    # not transient AWS/RHCS conditions. Only DependencyViolation, OIDC propagation,
+    # trust policy repair, and known special cases are retried above.
     echo "Error destroying module $module_name in group $group_id"
     return 1
   done
