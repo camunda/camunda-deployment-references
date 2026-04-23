@@ -1,6 +1,12 @@
 {
   "resources": {
     "aws_ebs_volume.camunda[0]": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "index": 0,
       "mode": "managed",
       "name": "camunda",
@@ -31,6 +37,12 @@
       }
     },
     "aws_ebs_volume.camunda[1]": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "index": 1,
       "mode": "managed",
       "name": "camunda",
@@ -61,6 +73,12 @@
       }
     },
     "aws_ebs_volume.camunda[2]": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "index": 2,
       "mode": "managed",
       "name": "camunda",
@@ -1881,6 +1899,14 @@
       }
     },
     "aws_volume_attachment.ebs_attachment[0]": {
+      "identity": {
+        "account_id": null,
+        "device_name": null,
+        "instance_id": null,
+        "region": null,
+        "volume_id": null
+      },
+      "identity_schema_version": 0,
       "index": 0,
       "mode": "managed",
       "name": "ebs_attachment",
@@ -1898,6 +1924,14 @@
       }
     },
     "aws_volume_attachment.ebs_attachment[1]": {
+      "identity": {
+        "account_id": null,
+        "device_name": null,
+        "instance_id": null,
+        "region": null,
+        "volume_id": null
+      },
+      "identity_schema_version": 0,
       "index": 1,
       "mode": "managed",
       "name": "ebs_attachment",
@@ -1915,6 +1949,14 @@
       }
     },
     "aws_volume_attachment.ebs_attachment[2]": {
+      "identity": {
+        "account_id": null,
+        "device_name": null,
+        "instance_id": null,
+        "region": null,
+        "volume_id": null
+      },
+      "identity_schema_version": 0,
       "index": 2,
       "mode": "managed",
       "name": "ebs_attachment",
@@ -1998,6 +2040,7 @@
               }
             ],
             "cognito_options": [],
+            "deployment_strategy_options": [],
             "domain_endpoint_options": [
               {}
             ],
@@ -2370,6 +2413,12 @@
           }
         },
         "module.vpc.aws_eip.nat[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "nat",
@@ -2396,6 +2445,12 @@
           }
         },
         "module.vpc.aws_internet_gateway.this[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "this",
@@ -2418,6 +2473,12 @@
           }
         },
         "module.vpc.aws_nat_gateway.this[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "this",
