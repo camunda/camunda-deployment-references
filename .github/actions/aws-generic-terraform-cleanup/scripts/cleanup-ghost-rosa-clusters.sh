@@ -137,25 +137,48 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   done
 
   if [ "$cluster_deregistered" != true ]; then
-    echo "❌ Skipping role and OIDC cleanup for cluster $cluster_name because it did not deregister within the expected time."
-    continue
+    echo "⚠️ Cluster $cluster_name did not deregister in time. Proceeding with direct IAM cleanup..."
   fi
 
   echo "🧹 Deleting operator roles with prefix ${cluster_name}-operator"
-  if ! AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto; then
-    echo "⚠️ rosa delete operator-roles failed, falling back to direct AWS IAM cleanup"
+  if [ "$cluster_deregistered" == true ]; then
+    # Only try rosa CLI if the cluster is fully deregistered, otherwise it will fail
+    # with "clusters using Operator Roles Prefix"
+    if ! AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto; then
+      echo "⚠️ rosa delete operator-roles failed, falling back to direct AWS IAM cleanup"
+      cleanup_iam_roles_with_prefix "${cluster_name}-operator"
+    fi
+  else
+    echo "⚠️ Cluster still registered, falling back to direct AWS IAM cleanup for operator roles"
     cleanup_iam_roles_with_prefix "${cluster_name}-operator"
   fi
 
   echo "🧹 Deleting account roles with prefix ${cluster_name}-account"
-  if ! AWS_REGION="$region_id" rosa delete account-roles --prefix "${cluster_name}-account" --yes --mode auto; then
-    echo "⚠️ rosa delete account-roles failed, falling back to direct AWS IAM cleanup"
+  if [ "$cluster_deregistered" == true ]; then
+    if ! AWS_REGION="$region_id" rosa delete account-roles --prefix "${cluster_name}-account" --yes --mode auto; then
+      echo "⚠️ rosa delete account-roles failed, falling back to direct AWS IAM cleanup"
+      cleanup_iam_roles_with_prefix "${cluster_name}-account"
+    fi
+  else
+    echo "⚠️ Cluster still registered, falling back to direct AWS IAM cleanup for account roles"
     cleanup_iam_roles_with_prefix "${cluster_name}-account"
   fi
 
   echo "🧹 Deleting OIDC provider ${oidc_config_id}"
-  if ! AWS_REGION="$region_id" rosa delete oidc-provider --oidc-config-id "${oidc_config_id}" --yes --mode auto; then
-    echo "⚠️ rosa delete oidc-provider failed, falling back to direct AWS IAM cleanup"
+  if [ "$cluster_deregistered" == true ]; then
+    if ! AWS_REGION="$region_id" rosa delete oidc-provider --oidc-config-id "${oidc_config_id}" --yes --mode auto; then
+      echo "⚠️ rosa delete oidc-provider failed, falling back to direct AWS IAM cleanup"
+      oidc_provider_arn=$(aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?ends_with(Arn, '/${oidc_config_id}')].Arn" --output text)
+      if [[ -n "$oidc_provider_arn" && "$oidc_provider_arn" != "None" ]]; then
+        echo "  🗑️ Deleting OIDC provider: $oidc_provider_arn"
+        aws iam delete-open-id-connect-provider --open-id-connect-provider-arn "$oidc_provider_arn"
+        echo "  ✅ Deleted OIDC provider: $oidc_provider_arn"
+      else
+        echo "  ℹ️ No OIDC provider found for config ID ${oidc_config_id}, already cleaned up"
+      fi
+    fi
+  else
+    echo "⚠️ Cluster still registered, falling back to direct AWS IAM cleanup for OIDC provider"
     oidc_provider_arn=$(aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?ends_with(Arn, '/${oidc_config_id}')].Arn" --output text)
     if [[ -n "$oidc_provider_arn" && "$oidc_provider_arn" != "None" ]]; then
       echo "  🗑️ Deleting OIDC provider: $oidc_provider_arn"
