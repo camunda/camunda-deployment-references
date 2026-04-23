@@ -640,6 +640,10 @@ jobs:
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  # TODO: Re-enable once https://github.com/camunda/camunda-platform-helm/pull/5938 is merged.
+                  # Several keys (keycloak.url.*, ingress.annotations, service.annotations) are flagged
+                  # as unknown due to missing properties in the chart's values.schema.json.
+                  check-unknown-keys: 'false'
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
