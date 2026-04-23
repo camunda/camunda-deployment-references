@@ -111,7 +111,7 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   AWS_REGION="$region_id" rosa create operator-roles --mode auto --yes --hosted-cp --prefix "${cluster_name}-operator" --oidc-config-id "${oidc_config_id}" --role-arn "${installer_role_arn}"
 
   echo "💣 Deleting cluster: $cluster_name"
-  AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y
+  AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --best-effort --watch
 
   # Wait for the cluster to be fully deregistered from ROSA API
   # rosa delete cluster can return before the cluster is fully removed,
