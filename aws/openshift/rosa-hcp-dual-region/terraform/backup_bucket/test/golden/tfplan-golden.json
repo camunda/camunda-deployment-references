@@ -60,6 +60,12 @@
       }
     },
     "aws_iam_user_policy_attachment.s3_access_attachment": {
+      "identity": {
+        "account_id": null,
+        "policy_arn": null,
+        "user": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "s3_access_attachment",
       "provider_name": "registry.terraform.io/hashicorp/aws",
