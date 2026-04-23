@@ -467,6 +467,7 @@ destroy_module() {
     if [[ "$output" == *"CLUSTERS-MGMT-400"* && "$output" == *"trust policy"* && $attempt -lt $max_destroy_attempts ]]; then
       echo "[$group_id][$module_name] Broken trust policy detected (attempt $attempt/$max_destroy_attempts)"
       echo "[$group_id][$module_name] Recreating account roles to restore trust policies..."
+      rosa login --token="$RHCS_TOKEN"
       rosa create account-roles --mode auto --yes --hosted-cp --prefix "${group_id}-account" || true
       continue
     fi
