@@ -1,0 +1,223 @@
+---
+name: Camunda Integration Tests (Go)
+
+description: >
+    Run local Go-based integration tests against a deployed Camunda cluster.
+    Replaces the Venom-based tests that previously required cloning the
+    camunda-platform-helm repository.
+
+    Two test suites:
+    1. Preflight: Health/readiness checks for all components
+    2. Core: Functional tests (auth, API, process deploy, topology)
+
+    Tests run from the GHA runner using port-forward (no-domain)
+    or ingress URLs (domain mode).
+
+inputs:
+    test-namespace:
+        description: Kubernetes namespace where Camunda is deployed
+        default: camunda
+    test-release-name:
+        description: Helm release name for Camunda
+        default: camunda
+    test-cluster-type:
+        description: Cluster type (kubernetes or openshift)
+        default: kubernetes
+    camunda-domain:
+        description: Domain for ingress-based access. Empty = port-forward mode.
+        default: ''
+    camunda-domain-grpc:
+        description: gRPC domain (e.g. zeebe-domain.example.com:443)
+        default: ''
+    auth-mode:
+        description: 'Authentication mode: oidc, basic, or none'
+        default: oidc
+    oidc-token-url:
+        description: OIDC token endpoint URL
+        default: ''
+    oidc-client-id:
+        description: OIDC client ID
+        default: ''
+    oidc-client-secret:
+        description: OIDC client secret
+        default: ''
+    basic-auth-user:
+        description: Username for basic auth
+        default: demo
+    basic-auth-password:
+        description: Password for basic auth
+        default: demo
+    elasticsearch-enabled:
+        description: Whether Elasticsearch is enabled
+        default: 'true'
+    webmodeler-enabled:
+        description: Whether WebModeler is enabled
+        default: 'false'
+    console-enabled:
+        description: Whether Console is enabled
+        default: 'false'
+    optimize-enabled:
+        description: Whether Optimize is enabled
+        default: 'true'
+    zeebe-gateway-url:
+        description: Zeebe gateway URL (for port-forward mode)
+        default: http://localhost:8080
+    keycloak-url:
+        description: Keycloak URL (for port-forward mode)
+        default: http://localhost:18080/auth
+    elasticsearch-url:
+        description: Elasticsearch URL (for port-forward mode)
+        default: http://localhost:9200
+    retry-attempts:
+        description: Number of retry attempts for flaky checks
+        default: '5'
+    retry-delay:
+        description: Delay between retries (Go duration format)
+        default: 10s
+    run-preflight:
+        description: Whether to run preflight tests
+        default: 'true'
+    run-core:
+        description: Whether to run core tests
+        default: 'true'
+    go-test-args:
+        description: Additional arguments to pass to go test
+        default: -v -count=1
+
+outputs:
+    preflight-result:
+        description: "'passed' or 'failed'"
+        value: ${{ steps.preflight.outcome == 'success' && 'passed' || 'failed' }}
+    core-result:
+        description: "'passed' or 'failed'"
+        value: ${{ steps.core.outcome == 'success' && 'passed' || 'failed' }}
+
+runs:
+    using: composite
+    steps:
+        # ==============================================================
+        # Port-forward setup (no-domain mode only)
+        # ==============================================================
+        - name: 🔌 Set up port-forwards for integration tests
+          id: port-forward
+          if: inputs.camunda-domain == ''
+          shell: bash
+          run: |
+              set -euo pipefail
+              NS="${{ inputs.test-namespace }}"
+              RELEASE="${{ inputs.test-release-name }}"
+
+              # Zeebe Gateway
+              echo "Starting port-forward to ${RELEASE}-zeebe-gateway..."
+              kubectl port-forward "svc/${RELEASE}-zeebe-gateway" 8080:8080 -n "$NS" &
+              echo "pf_zeebe_pid=$!" >> "$GITHUB_OUTPUT"
+
+              # Keycloak (parse host and port from keycloak-url input)
+              KC_URL="${{ inputs.keycloak-url }}"
+              if [[ -n "$KC_URL" && "${{ inputs.auth-mode }}" == "oidc" ]]; then
+                  KC_HOST_PORT=$(echo "$KC_URL" | sed 's|^http[s]*://||' | sed 's|/.*||')
+                  KC_HOST=$(echo "$KC_HOST_PORT" | cut -d: -f1)
+                  KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -d: -f2)
+                  echo "Starting port-forward to ${KC_HOST}..."
+                  kubectl port-forward "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}" -n "$NS" &
+                  echo "pf_kc_pid=$!" >> "$GITHUB_OUTPUT"
+              fi
+
+              # Orchestration (internal metrics/actuator port)
+              echo "Starting port-forward to ${RELEASE}-orchestration..."
+              kubectl port-forward "svc/${RELEASE}-zeebe-gateway" 9600:9600 -n "$NS" &
+              echo "pf_orch_pid=$!" >> "$GITHUB_OUTPUT"
+
+              echo "Waiting for port-forwards to be established..."
+              sleep 10
+
+              # Verify Zeebe is reachable
+              for i in $(seq 1 15); do
+                  CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                      http://localhost:8080/v2/topology 2>/dev/null || echo "000")
+                  if [[ "$CODE" =~ ^(200|401|403)$ ]]; then
+                      echo "✅ Zeebe port-forward ready (HTTP ${CODE})"
+                      break
+                  fi
+                  echo "  attempt ${i}/15 (HTTP ${CODE})"
+                  sleep 2
+              done
+
+        - name: 🧪 Run Preflight Tests
+          id: preflight
+          if: inputs.run-preflight == 'true'
+          shell: bash
+          working-directory: generic/kubernetes/single-region/tests/integration
+          env:
+              TEST_NAMESPACE: ${{ inputs.test-namespace }}
+              TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
+              TEST_CLUSTER_TYPE: ${{ inputs.test-cluster-type }}
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
+              TEST_AUTH_MODE: ${{ inputs.auth-mode }}
+              TEST_BASIC_USER: ${{ inputs.basic-auth-user }}
+              TEST_BASIC_PASSWORD: ${{ inputs.basic-auth-password }}
+              TEST_OIDC_TOKEN_URL: ${{ inputs.oidc-token-url }}
+              TEST_OIDC_CLIENT_ID: ${{ inputs.oidc-client-id }}
+              TEST_OIDC_CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
+              ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
+              WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
+              CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
+              TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
+              TEST_KEYCLOAK_URL: ${{ inputs.keycloak-url }}
+              TEST_ELASTICSEARCH_URL: ${{ inputs.elasticsearch-url }}
+              TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
+              TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
+          run: |
+              set -euo pipefail
+              echo "🧪 Running preflight tests..."
+              go test ${{ inputs.go-test-args }} ./preflight/...
+
+        - name: 🧪 Run Core Tests
+          id: core
+          if: inputs.run-core == 'true'
+          shell: bash
+          working-directory: generic/kubernetes/single-region/tests/integration
+          env:
+              TEST_NAMESPACE: ${{ inputs.test-namespace }}
+              TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
+              TEST_CLUSTER_TYPE: ${{ inputs.test-cluster-type }}
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
+              TEST_AUTH_MODE: ${{ inputs.auth-mode }}
+              TEST_BASIC_USER: ${{ inputs.basic-auth-user }}
+              TEST_BASIC_PASSWORD: ${{ inputs.basic-auth-password }}
+              TEST_OIDC_TOKEN_URL: ${{ inputs.oidc-token-url }}
+              TEST_OIDC_CLIENT_ID: ${{ inputs.oidc-client-id }}
+              TEST_OIDC_CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
+              ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
+              WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
+              CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
+              TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
+              TEST_KEYCLOAK_URL: ${{ inputs.keycloak-url }}
+              TEST_ELASTICSEARCH_URL: ${{ inputs.elasticsearch-url }}
+              TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
+              TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
+          run: |
+              set -euo pipefail
+              echo "🧪 Running core tests..."
+              go test ${{ inputs.go-test-args }} ./core/...
+
+        # ==============================================================
+        # Cleanup port-forwards
+        # ==============================================================
+        - name: 🧹 Cleanup port-forwards
+          if: always() && inputs.camunda-domain == ''
+          shell: bash
+          run: |
+              set -euo pipefail
+              for PID in \
+                  "${{ steps.port-forward.outputs.pf_zeebe_pid }}" \
+                  "${{ steps.port-forward.outputs.pf_kc_pid }}" \
+                  "${{ steps.port-forward.outputs.pf_orch_pid }}"; do
+                  if [[ -n "$PID" ]]; then
+                      kill "$PID" 2>/dev/null || true
+                  fi
+              done
