@@ -18,6 +18,8 @@ on:
             - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/camunda-smoke-test/**
+            - .github/actions/internal-integration-tests/**
+            - generic/kubernetes/single-region/tests/integration/**
             - .tool-versions
             - generic/kubernetes/operator-based/postgresql/**
             - local/kubernetes/kind-single-region/**
@@ -361,20 +363,24 @@ jobs:
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  # Use auto-generated local credentials instead of CI credentials from Vault
                   test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
                   test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
                   enable-helm-chart-tests: 'false'
                   enable-zeebe-client-tests: 'false'
                   keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200
+                  # Enable C8-SM-CHECKS
                   enable-c8sm-deployment-check: 'true'
                   enable-c8sm-connectivity-check: 'true'
                   skip-c8sm-connectivity-ingress-class-check: 'true'
-                  enable-c8sm-irsa-check: 'false'
+                  enable-c8sm-irsa-check: 'false'  # Not applicable for Kind
+                  # Enable Zeebe token/connectivity checks using auto-generated credentials
                   enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
                       'false' }}
                   enable-c8sm-zeebe-connectivity-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
                       || 'false' }}
+                  # Enable local domain mode for Kind - configures /etc/hosts for domain resolution
                   local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
 
             ############# Debug failed pods ##############

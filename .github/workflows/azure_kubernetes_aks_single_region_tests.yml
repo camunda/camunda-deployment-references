@@ -30,6 +30,8 @@ on:
             - .github/actions/kubernetes-wildcard-certificate/**
             - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/camunda-smoke-test/**
+            - .github/actions/internal-integration-tests/**
+            - generic/kubernetes/single-region/tests/integration/**
             - .github/actions/kubernetes-eck-operator/**
             - .github/actions/kubernetes-eck-operator-cleanup/**
             - generic/kubernetes/operator-based/elasticsearch/**

@@ -30,6 +30,7 @@ on:
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-integration-tests/**
+            - generic/kubernetes/single-region/tests/integration/**
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/aws-kubernetes-ingress-setup/**
             - .github/actions/kubernetes-wildcard-certificate/**

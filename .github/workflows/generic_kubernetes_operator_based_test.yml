@@ -30,6 +30,8 @@ on:
             - .github/actions/internal-clean-namespace/**
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/camunda-smoke-test/**
+            - .github/actions/internal-integration-tests/**
+            - generic/kubernetes/single-region/tests/integration/**
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/aws-kubernetes-ingress-setup/**
             - .github/actions/kubernetes-wildcard-certificate/**
@@ -789,11 +791,11 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   camunda-domain: ${{ matrix.declination.name == 'domain' && env.CAMUNDA_DOMAIN || '' }}
                   camunda-domain-grpc: ${{ matrix.declination.name == 'domain' && format('zeebe-{0}:443', env.CAMUNDA_DOMAIN) || '' }}
-                  webmodeler-enabled: 'true'
-                  console-enabled: 'true'
-                  elasticsearch-enabled: 'false'
+                  webmodeler-enabled: 'true'      # Always enabled in operator-based deployment
+                  console-enabled: 'true'         # Always enabled in operator-based deployment
+                  elasticsearch-enabled: 'false'  # Using ECK operator instead
                   enable-helm-chart-tests: 'false'
-                  zeebe-authenticated: 'true'
+                  zeebe-authenticated: 'true' # we always have an auth provider
                   skip-c8sm-connectivity-ingress-class-check: ${{ matrix.distro.type == 'openshift' && 'true' || 'false' }}
                   keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200
