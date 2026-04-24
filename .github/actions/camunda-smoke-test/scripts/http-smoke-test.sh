@@ -219,7 +219,7 @@ for attempt in $(seq 1 18); do
         -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" \
         2>/dev/null || echo '{}')
 
-    FOUND=$(echo "$SEARCH_RESP" | jq -r '.totalItems // 0' 2>/dev/null || echo "0")
+    FOUND=$(echo "$SEARCH_RESP" | jq -r '.page.totalItems // .totalItems // 0' 2>/dev/null || echo "0")
 
     if [[ "$FOUND" -ge "$MIN_EXPECTED" ]]; then
         break
@@ -247,7 +247,7 @@ COMPLETED_RESP=$(api_call -X POST \
     -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\",\"state\":\"COMPLETED\"}}" \
     2>/dev/null || echo '{}')
 
-COMPLETED=$(echo "$COMPLETED_RESP" | jq -r '.totalItems // 0' 2>/dev/null || echo "0")
+COMPLETED=$(echo "$COMPLETED_RESP" | jq -r '.page.totalItems // .totalItems // 0' 2>/dev/null || echo "0")
 
 if [[ "$COMPLETED" -gt 0 ]]; then
     pass "${COMPLETED} instances completed end-to-end"
