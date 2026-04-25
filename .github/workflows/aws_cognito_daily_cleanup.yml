@@ -1,6 +1,5 @@
 ---
 name: Tests - Daily Cleanup - AWS Cognito
-
 on:
     workflow_dispatch:
         inputs:
@@ -8,47 +7,31 @@ on:
                 description: Override max age (leave empty to use each pool's configured auto_cleanup_hours tag)
                 required: false
                 default: ''
-    pull_request:
-        paths:
-            - .github/workflows/aws_cognito_daily_cleanup.yml
-            - .tool-versions
-            - aws/common/cognito/**
-            - .github/actions/aws-configure-cli/**
-
+    pull_request: {}
     schedule:
-        - cron: 0 7 * * * # At 07:00 everyday
-
+        - cron: 0 7 * * *
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: false
-
 env:
     IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
-
-    # Override max age (empty = use each pool's auto_cleanup_hours tag)
     MAX_AGE_OVERRIDE: ${{ github.event.inputs.max_age_hours || '' }}
-
-    # Default if no tag found (matches aws-cognito-create action default)
     DEFAULT_MAX_AGE_HOURS: '72'
-
-    # Sync with aws_kubernetes_eks_single_region_tests.yml
     AWS_PROFILE: infraex
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     AWS_REGION: eu-west-2
     COGNITO_STATE_PREFIX: cognito-test/
-
 jobs:
     triage:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
-
     cleanup-cognito:
         needs:
             - triage
@@ -56,17 +39,14 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4
             - name: Use repo .tool-version as global version
               run: cp .tool-versions ~/.tool-versions
-
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -75,134 +55,42 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
             - name: Find and cleanup expired Cognito User Pools
-              run: |
-                  set -euo pipefail
-
-                  CURRENT_TIME=$(date +%s)
-                  CLEANED_COUNT=0
-                  SKIPPED_COUNT=0
-
-                  echo "🔍 Scanning Cognito User Pools with 'camunda-integration-test' purpose tag..."
-
-                  # List all user pools
-                  POOLS=$(aws cognito-idp list-user-pools --max-results 60 --profile "$AWS_PROFILE" --output json)
-                  POOL_IDS=$(echo "$POOLS" | jq -r '.UserPools[].Id')
-
-                  if [[ -z "$POOL_IDS" ]]; then
-                    echo "No Cognito User Pools found"
-                    exit 0
-                  fi
-
-                  for POOL_ID in $POOL_IDS; do
-                    # Get pool details including tags
-                    POOL_INFO=$(aws cognito-idp describe-user-pool --user-pool-id "$POOL_ID" --profile "$AWS_PROFILE" --output json 2>/dev/null) || continue
-
-                    POOL_NAME=$(echo "$POOL_INFO" | jq -r '.UserPool.Name')
-
-                    # Get creation date and calculate age
-                    # CreationDate is an ISO-8601 timestamp (e.g. "2026-02-10T14:30:00Z"), convert to epoch
-                    CREATION_DATE=$(echo "$POOL_INFO" | jq -r '.UserPool.CreationDate')
-                    CREATION_TIME=$(date -d "$CREATION_DATE" +%s 2>/dev/null) || {
-                      echo "⚠️  $POOL_ID - Failed to parse CreationDate '$CREATION_DATE', skipping"
-                      SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-                      continue
-                    }
-                    AGE_SECONDS=$((CURRENT_TIME - CREATION_TIME))
-                    AGE_HOURS=$((AGE_SECONDS / 3600))
-
-                    # Get configured cleanup hours from tag (or use default)
-                    if [[ -n "$MAX_AGE_OVERRIDE" ]]; then
-                      CLEANUP_HOURS=$MAX_AGE_OVERRIDE
-                    else
-                      CLEANUP_HOURS=$(echo "$POOL_INFO" | jq -r '.UserPool.UserPoolTags.auto_cleanup_hours // empty')
-                      if [[ -z "$CLEANUP_HOURS" ]]; then
-                        CLEANUP_HOURS=$DEFAULT_MAX_AGE_HOURS
-                      fi
-                    fi
-
-                    MAX_AGE_SECONDS=$((CLEANUP_HOURS * 3600))
-
-                    if [[ $AGE_SECONDS -gt $MAX_AGE_SECONDS ]]; then
-                      echo "🗑️  $POOL_NAME ($POOL_ID) - ${AGE_HOURS}h old, limit: ${CLEANUP_HOURS}h - DELETING"
-
-                      # Delete the user pool domain first (if exists)
-                      DOMAIN=$(echo "$POOL_INFO" | jq -r '.UserPool.Domain // empty')
-                      if [[ -n "$DOMAIN" ]]; then
-                        aws cognito-idp delete-user-pool-domain --user-pool-id "$POOL_ID" --domain "$DOMAIN" --profile "$AWS_PROFILE" 2>/dev/null || true
-                      fi
-
-                      # Delete the user pool
-                      if aws cognito-idp delete-user-pool --user-pool-id "$POOL_ID" --profile "$AWS_PROFILE" 2>/dev/null; then
-                        echo "   ✅ Deleted successfully"
-                        ((CLEANED_COUNT++))
-                      else
-                        echo "   ❌ Failed to delete"
-                      fi
-                    else
-                      echo "⏳ $POOL_NAME ($POOL_ID) - ${AGE_HOURS}h old, limit: ${CLEANUP_HOURS}h - skipping"
-                      ((SKIPPED_COUNT++))
-                    fi
-                  done
-
-                  echo ""
-                  echo "📋 Summary: Deleted $CLEANED_COUNT pool(s), Skipped $SKIPPED_COUNT pool(s)"
-
+              run: "set -euo pipefail\n\nCURRENT_TIME=$(date +%s)\nCLEANED_COUNT=0\nSKIPPED_COUNT=0\n\necho \"\U0001F50D Scanning Cognito User Pools with\
+                  \ 'camunda-integration-test' purpose tag...\"\n\n# List all user pools\nPOOLS=$(aws cognito-idp list-user-pools --max-results 60 --profile\
+                  \ \"$AWS_PROFILE\" --output json)\nPOOL_IDS=$(echo \"$POOLS\" | jq -r '.UserPools[].Id')\n\nif [[ -z \"$POOL_IDS\" ]]; then\n  echo \"\
+                  No Cognito User Pools found\"\n  exit 0\nfi\n\nfor POOL_ID in $POOL_IDS; do\n  # Get pool details including tags\n  POOL_INFO=$(aws cognito-idp\
+                  \ describe-user-pool --user-pool-id \"$POOL_ID\" --profile \"$AWS_PROFILE\" --output json 2>/dev/null) || continue\n\n  POOL_NAME=$(echo\
+                  \ \"$POOL_INFO\" | jq -r '.UserPool.Name')\n\n  # Get creation date and calculate age\n  # CreationDate is an ISO-8601 timestamp (e.g.\
+                  \ \"2026-02-10T14:30:00Z\"), convert to epoch\n  CREATION_DATE=$(echo \"$POOL_INFO\" | jq -r '.UserPool.CreationDate')\n  CREATION_TIME=$(date\
+                  \ -d \"$CREATION_DATE\" +%s 2>/dev/null) || {\n    echo \"⚠️  $POOL_ID - Failed to parse CreationDate '$CREATION_DATE', skipping\"\n \
+                  \   SKIPPED_COUNT=$((SKIPPED_COUNT + 1))\n    continue\n  }\n  AGE_SECONDS=$((CURRENT_TIME - CREATION_TIME))\n  AGE_HOURS=$((AGE_SECONDS\
+                  \ / 3600))\n\n  # Get configured cleanup hours from tag (or use default)\n  if [[ -n \"$MAX_AGE_OVERRIDE\" ]]; then\n    CLEANUP_HOURS=$MAX_AGE_OVERRIDE\n\
+                  \  else\n    CLEANUP_HOURS=$(echo \"$POOL_INFO\" | jq -r '.UserPool.UserPoolTags.auto_cleanup_hours // empty')\n    if [[ -z \"$CLEANUP_HOURS\"\
+                  \ ]]; then\n      CLEANUP_HOURS=$DEFAULT_MAX_AGE_HOURS\n    fi\n  fi\n\n  MAX_AGE_SECONDS=$((CLEANUP_HOURS * 3600))\n\n  if [[ $AGE_SECONDS\
+                  \ -gt $MAX_AGE_SECONDS ]]; then\n    echo \"\U0001F5D1️  $POOL_NAME ($POOL_ID) - ${AGE_HOURS}h old, limit: ${CLEANUP_HOURS}h - DELETING\"\
+                  \n\n    # Delete the user pool domain first (if exists)\n    DOMAIN=$(echo \"$POOL_INFO\" | jq -r '.UserPool.Domain // empty')\n    if\
+                  \ [[ -n \"$DOMAIN\" ]]; then\n      aws cognito-idp delete-user-pool-domain --user-pool-id \"$POOL_ID\" --domain \"$DOMAIN\" --profile\
+                  \ \"$AWS_PROFILE\" 2>/dev/null || true\n    fi\n\n    # Delete the user pool\n    if aws cognito-idp delete-user-pool --user-pool-id \"\
+                  $POOL_ID\" --profile \"$AWS_PROFILE\" 2>/dev/null; then\n      echo \"   ✅ Deleted successfully\"\n      ((CLEANED_COUNT++))\n    else\n\
+                  \      echo \"   ❌ Failed to delete\"\n    fi\n  else\n    echo \"⏳ $POOL_NAME ($POOL_ID) - ${AGE_HOURS}h old, limit: ${CLEANUP_HOURS}h\
+                  \ - skipping\"\n    ((SKIPPED_COUNT++))\n  fi\ndone\n\necho \"\"\necho \"\U0001F4CB Summary: Deleted $CLEANED_COUNT pool(s), Skipped $SKIPPED_COUNT\
+                  \ pool(s)\"\n"
             - name: Cleanup orphaned Terraform states
-              run: |
-                  set -euo pipefail
-
-                  echo "🧹 Cleaning up orphaned Terraform state files..."
-
-                  # List all terraform state files
-                  STATES=$(aws s3api list-objects-v2 \
-                    --bucket "$S3_BACKEND_BUCKET" \
-                    --prefix "$COGNITO_STATE_PREFIX" \
-                    --query "Contents[?ends_with(Key, '.tfstate')].Key" \
-                    --output json \
-                    --profile "$AWS_PROFILE" 2>/dev/null || echo "[]")
-
-                  if [[ "$STATES" == "null" ]] || [[ "$STATES" == "[]" ]]; then
-                    echo "No Terraform states found"
-                    exit 0
-                  fi
-
-                  # Get list of existing pool IDs
-                  EXISTING_POOLS=$(aws cognito-idp list-user-pools --max-results 60 --profile "$AWS_PROFILE" --query 'UserPools[].Id' --output text 2>/dev/null || echo "")
-
-                  for KEY in $(echo "$STATES" | jq -r '.[]'); do
-                    # Check if any existing pool is referenced in the state path
-                    IS_ORPHAN=true
-                    for POOL_ID in $EXISTING_POOLS; do
-                      if [[ "$KEY" == *"$POOL_ID"* ]]; then
-                        IS_ORPHAN=false
-                        break
-                      fi
-                    done
-
-                    # For states not matching pool IDs, check if the state is old
-                    if [[ "$IS_ORPHAN" == "true" ]]; then
-                      STATE_AGE=$(aws s3api head-object \
-                        --bucket "$S3_BACKEND_BUCKET" \
-                        --key "$KEY" \
-                        --profile "$AWS_PROFILE" \
-                        --query 'LastModified' \
-                        --output text 2>/dev/null) || STATE_AGE=""
-                      if [[ -n "$STATE_AGE" ]]; then
-                        STATE_TIME=$(date -d "$STATE_AGE" +%s 2>/dev/null || echo "0")
-                        AGE_HOURS=$(( ($(date +%s) - STATE_TIME) / 3600 ))
-
-                        if [[ $AGE_HOURS -gt ${DEFAULT_MAX_AGE_HOURS} ]]; then
-                          echo "🗑️  Removing orphaned state: $KEY (${AGE_HOURS}h old)"
-                          aws s3 rm "s3://${S3_BACKEND_BUCKET}/${KEY}" --profile "$AWS_PROFILE" 2>/dev/null || true
-                        fi
-                      fi
-                    fi
-                  done
-
-                  echo "✅ Orphaned state cleanup complete"
-
+              run: "set -euo pipefail\n\necho \"\U0001F9F9 Cleaning up orphaned Terraform state files...\"\n\n# List all terraform state files\nSTATES=$(aws\
+                  \ s3api list-objects-v2 \\\n  --bucket \"$S3_BACKEND_BUCKET\" \\\n  --prefix \"$COGNITO_STATE_PREFIX\" \\\n  --query \"Contents[?ends_with(Key,\
+                  \ '.tfstate')].Key\" \\\n  --output json \\\n  --profile \"$AWS_PROFILE\" 2>/dev/null || echo \"[]\")\n\nif [[ \"$STATES\" == \"null\"\
+                  \ ]] || [[ \"$STATES\" == \"[]\" ]]; then\n  echo \"No Terraform states found\"\n  exit 0\nfi\n\n# Get list of existing pool IDs\nEXISTING_POOLS=$(aws\
+                  \ cognito-idp list-user-pools --max-results 60 --profile \"$AWS_PROFILE\" --query 'UserPools[].Id' --output text 2>/dev/null || echo \"\
+                  \")\n\nfor KEY in $(echo \"$STATES\" | jq -r '.[]'); do\n  # Check if any existing pool is referenced in the state path\n  IS_ORPHAN=true\n\
+                  \  for POOL_ID in $EXISTING_POOLS; do\n    if [[ \"$KEY\" == *\"$POOL_ID\"* ]]; then\n      IS_ORPHAN=false\n      break\n    fi\n  done\n\
+                  \n  # For states not matching pool IDs, check if the state is old\n  if [[ \"$IS_ORPHAN\" == \"true\" ]]; then\n    STATE_AGE=$(aws s3api\
+                  \ head-object \\\n      --bucket \"$S3_BACKEND_BUCKET\" \\\n      --key \"$KEY\" \\\n      --profile \"$AWS_PROFILE\" \\\n      --query\
+                  \ 'LastModified' \\\n      --output text 2>/dev/null) || STATE_AGE=\"\"\n    if [[ -n \"$STATE_AGE\" ]]; then\n      STATE_TIME=$(date\
+                  \ -d \"$STATE_AGE\" +%s 2>/dev/null || echo \"0\")\n      AGE_HOURS=$(( ($(date +%s) - STATE_TIME) / 3600 ))\n\n      if [[ $AGE_HOURS\
+                  \ -gt ${DEFAULT_MAX_AGE_HOURS} ]]; then\n        echo \"\U0001F5D1️  Removing orphaned state: $KEY (${AGE_HOURS}h old)\"\n        aws\
+                  \ s3 rm \"s3://${S3_BACKEND_BUCKET}/${KEY}\" --profile \"$AWS_PROFILE\" 2>/dev/null || true\n      fi\n    fi\n  fi\ndone\n\necho \"✅\
+                  \ Orphaned state cleanup complete\"\n"
     report-failure:
         name: Report failures
         if: failure()
@@ -213,8 +101,10 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+
+# Scheduled trigger: 2026-04-25T04:54:41Z - Everyday schedules 8.9
