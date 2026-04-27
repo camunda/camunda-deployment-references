@@ -83,6 +83,21 @@ inputs:
     go-test-args:
         description: Additional arguments to pass to go test
         default: -v -count=1
+    local-domain-mode:
+        description: >
+            Add /etc/hosts entries so the runner can resolve `camunda-domain`
+            (and the gRPC variant) to `local-domain-ip`. Required for Kind +
+            domain mode, where the ingress is reachable through localhost.
+        default: 'false'
+    local-domain-ip:
+        description: IP used for local-domain-mode /etc/hosts entries.
+        default: 127.0.0.1
+    connectors-service-name:
+        description: Service name for Connectors (used to set up port-forward in no-domain mode).
+        default: camunda-connectors
+    connectors-local-port:
+        description: Local port to forward Connectors onto (no-domain mode).
+        default: '8081'
 
 outputs:
     preflight-result:
@@ -95,6 +110,31 @@ outputs:
 runs:
     using: composite
     steps:
+        # ==============================================================
+        # /etc/hosts setup (domain mode on Kind / local clusters)
+        # ==============================================================
+        - name: 🔧 Configure /etc/hosts for local domain mode
+          if: ${{ inputs.local-domain-mode == 'true' && inputs.camunda-domain != '' }}
+          shell: bash
+          env:
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
+              LOCAL_DOMAIN_IP: ${{ inputs.local-domain-ip }}
+          run: |
+              set -euo pipefail
+              echo "🔧 Configuring /etc/hosts for local domain mode (IP=$LOCAL_DOMAIN_IP)"
+              if ! grep -qE "[[:space:]]${CAMUNDA_DOMAIN}([[:space:]]|$)" /etc/hosts; then
+                  echo "$LOCAL_DOMAIN_IP $CAMUNDA_DOMAIN" | sudo tee -a /etc/hosts
+              fi
+              if [[ -n "$CAMUNDA_DOMAIN_GRPC" ]]; then
+                  GRPC_HOST="${CAMUNDA_DOMAIN_GRPC%%:*}"
+                  if [[ "$GRPC_HOST" != "$CAMUNDA_DOMAIN" ]] && \
+                     ! grep -qE "[[:space:]]${GRPC_HOST}([[:space:]]|$)" /etc/hosts; then
+                      echo "$LOCAL_DOMAIN_IP $GRPC_HOST" | sudo tee -a /etc/hosts
+                  fi
+              fi
+              grep -E "($CAMUNDA_DOMAIN|${CAMUNDA_DOMAIN_GRPC%%:*})" /etc/hosts || true
+
         # ==============================================================
         # Port-forward setup (no-domain mode only)
         # ==============================================================
@@ -139,6 +179,19 @@ runs:
               kubectl port-forward "svc/${RELEASE}-zeebe-gateway" 9600:9600 -n "$NS" &
               echo "pf_orch_pid=$!" >> "$GITHUB_OUTPUT"
 
+              # Connectors (so preflight readiness/liveness can reach it from
+              # the runner instead of the in-cluster service name).
+              CONN_SVC="${{ inputs.connectors-service-name }}"
+              CONN_LOCAL_PORT="${{ inputs.connectors-local-port }}"
+              if kubectl get svc "$CONN_SVC" -n "$NS" >/dev/null 2>&1; then
+                  echo "Starting port-forward to ${CONN_SVC}..."
+                  kubectl port-forward "svc/${CONN_SVC}" "${CONN_LOCAL_PORT}:8080" -n "$NS" &
+                  echo "pf_conn_pid=$!" >> "$GITHUB_OUTPUT"
+                  echo "connectors_local_url=http://localhost:${CONN_LOCAL_PORT}" >> "$GITHUB_OUTPUT"
+              else
+                  echo "⚠️  Connectors service '${CONN_SVC}' not found in namespace '${NS}', skipping port-forward"
+              fi
+
               echo "Waiting for port-forwards to be established..."
               sleep 10
 
@@ -177,6 +230,7 @@ runs:
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
               TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
+              TEST_CONNECTORS_URL: ${{ steps.port-forward.outputs.connectors_local_url }}
               TEST_ELASTICSEARCH_URL: ${{ inputs.elasticsearch-url }}
               TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
               TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
@@ -208,6 +262,7 @@ runs:
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
               TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
+              TEST_CONNECTORS_URL: ${{ steps.port-forward.outputs.connectors_local_url }}
               TEST_ELASTICSEARCH_URL: ${{ inputs.elasticsearch-url }}
               TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
               TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
@@ -227,7 +282,8 @@ runs:
               for PID in \
                   "${{ steps.port-forward.outputs.pf_zeebe_pid }}" \
                   "${{ steps.port-forward.outputs.pf_kc_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_orch_pid }}"; do
+                  "${{ steps.port-forward.outputs.pf_orch_pid }}" \
+                  "${{ steps.port-forward.outputs.pf_conn_pid }}"; do
                   if [[ -n "$PID" ]]; then
                       kill "$PID" 2>/dev/null || true
                   fi

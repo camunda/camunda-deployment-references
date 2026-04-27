@@ -34,6 +34,10 @@ Tests run from the GHA runner using port-forward (no-domain) or ingress URLs (do
 | `run-preflight` | <p>Whether to run preflight tests</p> | `false` | `true` |
 | `run-core` | <p>Whether to run core tests</p> | `false` | `true` |
 | `go-test-args` | <p>Additional arguments to pass to go test</p> | `false` | `-v -count=1` |
+| `local-domain-mode` | <p>Add /etc/hosts entries so the runner can resolve <code>camunda-domain</code> (and the gRPC variant) to <code>local-domain-ip</code>. Required for Kind + domain mode, where the ingress is reachable through localhost.</p> | `false` | `false` |
+| `local-domain-ip` | <p>IP used for local-domain-mode /etc/hosts entries.</p> | `false` | `127.0.0.1` |
+| `connectors-service-name` | <p>Service name for Connectors (used to set up port-forward in no-domain mode).</p> | `false` | `camunda-connectors` |
+| `connectors-local-port` | <p>Local port to forward Connectors onto (no-domain mode).</p> | `false` | `8081` |
 
 
 ## Outputs
@@ -190,4 +194,28 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: -v -count=1
+
+    local-domain-mode:
+    # Add /etc/hosts entries so the runner can resolve `camunda-domain` (and the gRPC variant) to `local-domain-ip`. Required for Kind + domain mode, where the ingress is reachable through localhost.
+    #
+    # Required: false
+    # Default: false
+
+    local-domain-ip:
+    # IP used for local-domain-mode /etc/hosts entries.
+    #
+    # Required: false
+    # Default: 127.0.0.1
+
+    connectors-service-name:
+    # Service name for Connectors (used to set up port-forward in no-domain mode).
+    #
+    # Required: false
+    # Default: camunda-connectors
+
+    connectors-local-port:
+    # Local port to forward Connectors onto (no-domain mode).
+    #
+    # Required: false
+    # Default: 8081
 ```

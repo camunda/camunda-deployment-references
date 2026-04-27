@@ -359,6 +359,10 @@ jobs:
                   elasticsearch-enabled: 'false'
                   webmodeler-enabled: 'true'
                   console-enabled: 'true'
+                  # Configure /etc/hosts for camunda.example.com when running
+                  # the TLS/domain declinations on Kind so the runner can reach
+                  # the ingress.
+                  local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
 
             - name: 🧪 Run C8-SM-CHECKS deployment and connectivity tests
               if: env.TESTS_ENABLED == 'true'
