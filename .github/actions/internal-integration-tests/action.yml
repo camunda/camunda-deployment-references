@@ -41,6 +41,13 @@ inputs:
     oidc-client-secret:
         description: OIDC client secret
         default: ''
+    oidc-m2m-clients:
+        description: >
+            JSON map of additional OIDC client_id -> client_secret pairs to
+            validate via the per-component M2M token test (mirrors the venom
+            "Generating M2M Token" suite). Example:
+            {"connectors":"...","optimize":"..."}
+        default: ''
     basic-auth-user:
         description: Username for basic auth
         default: demo
@@ -233,6 +240,7 @@ runs:
               TEST_OIDC_TOKEN_URL: ${{ inputs.oidc-token-url }}
               TEST_OIDC_CLIENT_ID: ${{ inputs.oidc-client-id }}
               TEST_OIDC_CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
+              TEST_OIDC_M2M_CLIENTS: ${{ inputs.oidc-m2m-clients }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
               CONSOLE_ENABLED: ${{ inputs.console-enabled }}
@@ -266,6 +274,7 @@ runs:
               TEST_OIDC_TOKEN_URL: ${{ inputs.oidc-token-url }}
               TEST_OIDC_CLIENT_ID: ${{ inputs.oidc-client-id }}
               TEST_OIDC_CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
+              TEST_OIDC_M2M_CLIENTS: ${{ inputs.oidc-m2m-clients }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
               CONSOLE_ENABLED: ${{ inputs.console-enabled }}

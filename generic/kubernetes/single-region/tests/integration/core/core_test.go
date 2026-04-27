@@ -106,21 +106,37 @@ func TestDeployAndVerifyProcess(t *testing.T) {
 		t.Skip("process deployment requires authentication")
 	}
 
-	processID := "integration-test-process"
-	bpmn := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-                  id="Definitions_1"
-                  targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:process id="%s" name="Integration Test" isExecutable="true">
-    <bpmn:startEvent id="start">
-      <bpmn:outgoing>toEnd</bpmn:outgoing>
-    </bpmn:startEvent>
-    <bpmn:endEvent id="end">
-      <bpmn:incoming>toEnd</bpmn:incoming>
-    </bpmn:endEvent>
-    <bpmn:sequenceFlow id="toEnd" sourceRef="start" targetRef="end"/>
-  </bpmn:process>
-</bpmn:definitions>`, processID)
+	cases := []struct {
+		name      string
+		processID string
+		bpmn      string
+	}{
+		{
+			name:      "Basic",
+			processID: "integration-test-process",
+			bpmn:      basicProcessBPMN("integration-test-process"),
+		},
+		{
+			// Mirrors the venom "TEST - Deploy Inbound Connector Process"
+			// step. Validates that the engine accepts a BPMN that references
+			// an inbound connector type (deployment-time validation only;
+			// the connector worker itself is not exercised here).
+			name:      "InboundConnector",
+			processID: "integration-test-inbound-connector",
+			bpmn:      inboundConnectorBPMN("integration-test-inbound-connector"),
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			deployAndVerify(t, tc.processID, tc.bpmn)
+		})
+	}
+}
+
+func deployAndVerify(t *testing.T, processID, bpmn string) {
+	t.Helper()
 
 	// Write BPMN to temp file
 	tmpFile, err := os.CreateTemp("", "test-process-*.bpmn")

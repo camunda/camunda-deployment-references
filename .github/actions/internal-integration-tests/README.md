@@ -20,6 +20,7 @@ Tests run from the GHA runner using port-forward (no-domain) or ingress URLs (do
 | `oidc-token-url` | <p>OIDC token endpoint URL</p> | `false` | `""` |
 | `oidc-client-id` | <p>OIDC client ID</p> | `false` | `""` |
 | `oidc-client-secret` | <p>OIDC client secret</p> | `false` | `""` |
+| `oidc-m2m-clients` | <p>JSON map of additional OIDC client<em>id -> client</em>secret pairs to validate via the per-component M2M token test (mirrors the venom "Generating M2M Token" suite). Example: {"connectors":"…","optimize":"…"}</p> | `false` | `""` |
 | `basic-auth-user` | <p>Username for basic auth</p> | `false` | `demo` |
 | `basic-auth-password` | <p>Password for basic auth</p> | `false` | `demo` |
 | `elasticsearch-enabled` | <p>Whether Elasticsearch is enabled</p> | `false` | `true` |
@@ -107,6 +108,12 @@ This action is a `composite` action.
 
     oidc-client-secret:
     # OIDC client secret
+    #
+    # Required: false
+    # Default: ""
+
+    oidc-m2m-clients:
+    # JSON map of additional OIDC client_id -> client_secret pairs to validate via the per-component M2M token test (mirrors the venom "Generating M2M Token" suite). Example: {"connectors":"...","optimize":"..."}
     #
     # Required: false
     # Default: ""

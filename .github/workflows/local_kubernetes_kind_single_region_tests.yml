@@ -334,6 +334,37 @@ jobs:
                     echo "LOCAL_CLIENT_SECRET=$LOCAL_CLIENT_SECRET" >> "$GITHUB_OUTPUT"
                   fi
 
+                  # Build the M2M client map (JSON) consumed by the per-component
+                  # M2M token test. Keys are Keycloak client IDs, values are
+                  # secrets pulled from the camunda-credentials secret. Missing
+                  # entries are silently skipped (component disabled).
+                  read_secret() {
+                      kubectl get secret camunda-credentials -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                          -o jsonpath="{.data.$1}" 2>/dev/null | base64 -d || true
+                  }
+                  M2M_JSON='{'
+                  sep=''
+                  for entry in \
+                      "orchestration:identity-orchestration-client-token" \
+                      "connectors:identity-connectors-client-token" \
+                      "console:identity-console-client-token" \
+                      "optimize:identity-optimize-client-token"; do
+                      cid="${entry%%:*}"
+                      key="${entry##*:}"
+                      val="$(read_secret "$key")"
+                      if [[ -n "$val" ]]; then
+                          M2M_JSON+="${sep}\"${cid}\":\"${val}\""
+                          sep=','
+                      fi
+                  done
+                  M2M_JSON+='}'
+                  # Use a delimited heredoc so the JSON survives masking.
+                  {
+                      echo 'LOCAL_M2M_CLIENTS<<__M2M_EOF__'
+                      echo "$M2M_JSON"
+                      echo '__M2M_EOF__'
+                  } >> "$GITHUB_OUTPUT"
+
             - name: 🔥 Run Camunda Smoke Test
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 15
@@ -355,6 +386,7 @@ jobs:
                   auth-mode: oidc
                   oidc-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
                   oidc-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
+                  oidc-m2m-clients: ${{ steps.local-credentials.outputs.LOCAL_M2M_CLIENTS }}
                   keycloak-url: http://keycloak-service:18080/auth
                   elasticsearch-enabled: 'false'
                   webmodeler-enabled: 'true'
