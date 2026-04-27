@@ -46,12 +46,19 @@ inputs:
             Bitnami: http://<release>-keycloak:80/auth
         required: false
         default: ''
-    client-secret-name:
+    # ── OIDC auth inputs ────────────────────────────────────────
+    oidc-client-id:
         description: >
-            K8s Secret with identity-admin-client-id and
-            identity-admin-client-secret keys.
+            OIDC client ID for M2M authentication.
+            Required when auth-mode is 'oidc'.
         required: false
-        default: identity-secret-for-components-integration
+        default: ''
+    oidc-client-secret:
+        description: >
+            OIDC client secret for M2M authentication.
+            Required when auth-mode is 'oidc'.
+        required: false
+        default: ''
 
     # ── Basic auth inputs ─────────────────────────────────────────
     basic-auth-user:
@@ -141,6 +148,13 @@ runs:
               set -euo pipefail
               NS="${{ inputs.namespace }}"
 
+              CLIENT_ID="${{ inputs.oidc-client-id }}"
+              CLIENT_SECRET="${{ inputs.oidc-client-secret }}"
+              if [[ -z "$CLIENT_ID" || -z "$CLIENT_SECRET" ]]; then
+                  echo "::error::oidc-client-id and oidc-client-secret are required when auth-mode is 'oidc'"
+                  exit 1
+              fi
+
               KC_URL="${{ inputs.keycloak-url }}"
               if [[ -z "$KC_URL" ]]; then
                   KC_URL="http://keycloak-service:18080/auth"
@@ -176,29 +190,6 @@ runs:
                   echo "  attempt ${i}/30"
                   sleep 2
               done
-
-              SECRET="${{ inputs.client-secret-name }}"
-              if kubectl get secret "$SECRET" -n "$NS" &>/dev/null; then
-                  echo "Using secret '${SECRET}' for OIDC credentials"
-                  CLIENT_ID=$(kubectl get secret "$SECRET" \
-                      -n "$NS" \
-                      -o jsonpath='{.data.identity-admin-client-id}' \
-                      | base64 -d)
-                  CLIENT_SECRET=$(kubectl get secret "$SECRET" \
-                      -n "$NS" \
-                      -o jsonpath='{.data.identity-admin-client-secret}' \
-                      | base64 -d)
-              else
-                  # Camunda 8.9+ Helm chart: credentials in <release>-credentials
-                  RELEASE="${{ inputs.release-name }}"
-                  FALLBACK="${RELEASE}-credentials"
-                  echo "Secret '${SECRET}' not found, trying '${FALLBACK}'..."
-                  CLIENT_ID="orchestration"
-                  CLIENT_SECRET=$(kubectl get secret "$FALLBACK" \
-                      -n "$NS" \
-                      -o jsonpath='{.data.identity-orchestration-client-token}' \
-                      | base64 -d)
-              fi
 
               echo "::add-mask::${CLIENT_SECRET}"
               KC_TOKEN_PATH="${KC_PATH}/realms/camunda-platform"

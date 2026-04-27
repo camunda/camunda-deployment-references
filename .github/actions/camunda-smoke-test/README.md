@@ -20,7 +20,8 @@ For non-Kubernetes (ECS Fargate, EC2):
 | `namespace` | <p>Kubernetes namespace where Camunda is deployed. Used for kubectl port-forward and secret extraction.</p> | `false` | `camunda` |
 | `release-name` | <p>Helm release name for Camunda. Derives service names (e.g., <release>-zeebe-gateway).</p> | `false` | `camunda` |
 | `keycloak-url` | <p>In-cluster Keycloak base URL for OIDC auth. Operator: http://keycloak-service:18080/auth Bitnami: http://<release>-keycloak:80/auth</p> | `false` | `""` |
-| `client-secret-name` | <p>K8s Secret with identity-admin-client-id and identity-admin-client-secret keys.</p> | `false` | `identity-secret-for-components-integration` |
+| `oidc-client-id` | <p>OIDC client ID for M2M authentication. Required when auth-mode is 'oidc'.</p> | `false` | `""` |
+| `oidc-client-secret` | <p>OIDC client secret for M2M authentication. Required when auth-mode is 'oidc'.</p> | `false` | `""` |
 | `basic-auth-user` | <p>Username for basic auth.</p> | `false` | `demo` |
 | `basic-auth-password` | <p>Password for basic auth.</p> | `false` | `demo` |
 | `benchmark-duration` | <p>Duration in seconds. Default 300 = 5 minutes.</p> | `false` | `300` |
@@ -76,11 +77,17 @@ This action is a `composite` action.
     # Required: false
     # Default: ""
 
-    client-secret-name:
-    # K8s Secret with identity-admin-client-id and identity-admin-client-secret keys.
+    oidc-client-id:
+    # OIDC client ID for M2M authentication. Required when auth-mode is 'oidc'.
     #
     # Required: false
-    # Default: identity-secret-for-components-integration
+    # Default: ""
+
+    oidc-client-secret:
+    # OIDC client secret for M2M authentication. Required when auth-mode is 'oidc'.
+    #
+    # Required: false
+    # Default: ""
 
     basic-auth-user:
     # Username for basic auth.

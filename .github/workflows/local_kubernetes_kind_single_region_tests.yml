@@ -329,6 +329,8 @@ jobs:
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  oidc-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
+                  oidc-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
 
             - name: 🧪 Run Go Integration Tests (replaces Venom)
               if: env.TESTS_ENABLED == 'true'
