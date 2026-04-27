@@ -114,14 +114,25 @@ runs:
 
               # Keycloak (parse host and port from keycloak-url input)
               KC_URL="${{ inputs.keycloak-url }}"
+              # Default local URL = original URL when port-forward not applicable.
+              KC_LOCAL_URL="$KC_URL"
               if [[ -n "$KC_URL" && "${{ inputs.auth-mode }}" == "oidc" ]]; then
-                  KC_HOST_PORT=$(echo "$KC_URL" | sed 's|^http[s]*://||' | sed 's|/.*||')
+                  # Strip scheme, then split host:port from path.
+                  KC_NO_SCHEME=$(echo "$KC_URL" | sed 's|^http[s]*://||')
+                  KC_HOST_PORT=$(echo "$KC_NO_SCHEME" | cut -d/ -f1)
+                  KC_PATH="/$(echo "$KC_NO_SCHEME" | cut -s -d/ -f2-)"
+                  [[ "$KC_PATH" == "/" ]] && KC_PATH=""
                   KC_HOST=$(echo "$KC_HOST_PORT" | cut -d: -f1)
-                  KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -d: -f2)
+                  KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -s -d: -f2)
+                  [[ -z "$KC_REMOTE_PORT" ]] && KC_REMOTE_PORT=18080
                   echo "Starting port-forward to ${KC_HOST}..."
                   kubectl port-forward "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}" -n "$NS" &
                   echo "pf_kc_pid=$!" >> "$GITHUB_OUTPUT"
+                  # When the input points at an in-cluster hostname, rewrite to
+                  # localhost so Go tests can reach Keycloak through the forward.
+                  KC_LOCAL_URL="http://localhost:18080${KC_PATH}"
               fi
+              echo "kc_local_url=${KC_LOCAL_URL}" >> "$GITHUB_OUTPUT"
 
               # Orchestration (internal metrics/actuator port)
               echo "Starting port-forward to ${RELEASE}-orchestration..."
@@ -165,7 +176,7 @@ runs:
               CONSOLE_ENABLED: ${{ inputs.console-enabled }}
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
-              TEST_KEYCLOAK_URL: ${{ inputs.keycloak-url }}
+              TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
               TEST_ELASTICSEARCH_URL: ${{ inputs.elasticsearch-url }}
               TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
               TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
@@ -196,7 +207,7 @@ runs:
               CONSOLE_ENABLED: ${{ inputs.console-enabled }}
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
-              TEST_KEYCLOAK_URL: ${{ inputs.keycloak-url }}
+              TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
               TEST_ELASTICSEARCH_URL: ${{ inputs.elasticsearch-url }}
               TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
               TEST_RETRY_DELAY: ${{ inputs.retry-delay }}

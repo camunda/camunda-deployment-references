@@ -186,20 +186,6 @@ jobs:
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/create-identity-secrets.sh
 
-            # CI-only: create the venom test client credentials secret expected
-            # by generic/kubernetes/single-region/tests/helm-values/identity.yml.
-            # The venom client gets explicit admin role + write:* permissions,
-            # so the smoke test can deploy BPMN resources via the Zeebe REST API.
-            - name: Create venom test client secret
-              run: |
-                  set -euo pipefail
-                  VENOM_SECRET="$(openssl rand -hex 16)"
-                  kubectl create secret generic identity-secret-for-components-integration \
-                      --namespace "${{ env.CAMUNDA_NAMESPACE }}" \
-                      --from-literal=identity-admin-client-id="venom" \
-                      --from-literal=identity-admin-client-secret="$VENOM_SECRET" \
-                      --dry-run=client -o yaml | kubectl apply -f -
-
             - name: Extract Helm chart version
               id: chart-version
               working-directory: ${{ env.REF_ARCH_PATH }}
@@ -230,11 +216,11 @@ jobs:
                     helm-values/values-domain.yml > helm-values/values-domain.yml.tmp
                   mv helm-values/values-domain.yml.tmp helm-values/values-domain.yml
 
-                  # CI-only: layer the venom test client (admin role + full perms)
-                  # so the smoke test can deploy BPMN resources via Zeebe REST API.
-                  yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/identity.yml\")" \
-                    helm-values/values-domain.yml > helm-values/values-domain.yml.tmp
-                  mv helm-values/values-domain.yml.tmp helm-values/values-domain.yml
+                  # CI-only: grant the auto-generated 'orchestration' M2M client
+                  # the admin role so the smoke test can deploy BPMN resources
+                  # via the Zeebe REST API. User-facing helm-values stay unchanged.
+                  yq -i '.orchestration.security.initialization.defaultRoles.admin.clients = ["orchestration"]' \
+                    helm-values/values-domain.yml
 
                   ./procedure/camunda-deploy-domain.sh
 
@@ -251,11 +237,11 @@ jobs:
                     helm-values/values-no-domain.yml > helm-values/values-no-domain.yml.tmp
                   mv helm-values/values-no-domain.yml.tmp helm-values/values-no-domain.yml
 
-                  # CI-only: layer the venom test client (admin role + full perms)
-                  # so the smoke test can deploy BPMN resources via Zeebe REST API.
-                  yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/identity.yml\")" \
-                    helm-values/values-no-domain.yml > helm-values/values-no-domain.yml.tmp
-                  mv helm-values/values-no-domain.yml.tmp helm-values/values-no-domain.yml
+                  # CI-only: grant the auto-generated 'orchestration' M2M client
+                  # the admin role so the smoke test can deploy BPMN resources
+                  # via the Zeebe REST API. User-facing helm-values stay unchanged.
+                  yq -i '.orchestration.security.initialization.defaultRoles.admin.clients = ["orchestration"]' \
+                    helm-values/values-no-domain.yml
 
                   ./procedure/camunda-deploy-no-domain.sh
 
