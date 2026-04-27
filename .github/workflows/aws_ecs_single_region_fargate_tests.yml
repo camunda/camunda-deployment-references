@@ -295,8 +295,8 @@ jobs:
                   auth-mode: basic
                   zeebe-rest-address: >-
                       http://${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
-                  basic-auth-user: demo
-                  basic-auth-password: demo
+                  basic-auth-user: admin
+                  basic-auth-password: ${{ fromJson(steps.terraform-outputs.outputs.json_output).admin_user_password.value }}
                   benchmark-duration: '300'
 
     cleanup-clusters:
