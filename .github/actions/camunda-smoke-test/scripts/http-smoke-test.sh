@@ -137,14 +137,34 @@ cat > "$BPMN_FILE" <<'BPMN_EOF'
 </bpmn:definitions>
 BPMN_EOF
 
-DEPLOY_RESP=$(api_call -X POST "${ZEEBE_URL}/v2/deployments" \
-    -H "Accept: application/json" \
-    -F "resources=@${BPMN_FILE}" 2>&1) || {
-    fail_test "Failed to deploy BPMN process: ${DEPLOY_RESP}"
-    rm -f "$BPMN_FILE"
-    exit 1
-}
+# Retry deployment: Zeebe may report ready via /v2/topology before the
+# broker fully accepts deployments. Capture HTTP code + body so failures
+# are diagnosable instead of silently empty (curl -f swallows the body).
+DEPLOY_RESP=""
+DEPLOY_CODE="000"
+for attempt in $(seq 1 12); do
+    DEPLOY_BODY_FILE=$(mktemp /tmp/smoke-deploy-resp-XXXXXX)
+    DEPLOY_CODE=$(curl -s -o "$DEPLOY_BODY_FILE" -w "%{http_code}" \
+        --connect-timeout 10 --max-time 60 \
+        "${AUTH_ARGS[@]}" \
+        -X POST "${ZEEBE_URL}/v2/deployments" \
+        -H "Accept: application/json" \
+        -F "resources=@${BPMN_FILE}" 2>/dev/null || echo "000")
+    DEPLOY_RESP=$(cat "$DEPLOY_BODY_FILE")
+    rm -f "$DEPLOY_BODY_FILE"
+    if [[ "$DEPLOY_CODE" =~ ^2[0-9][0-9]$ ]]; then
+        break
+    fi
+    log "  Deploy attempt ${attempt}/12: HTTP ${DEPLOY_CODE} (retrying in 5s)"
+    log "  Response: ${DEPLOY_RESP:0:500}"
+    sleep 5
+done
 rm -f "$BPMN_FILE"
+
+if [[ ! "$DEPLOY_CODE" =~ ^2[0-9][0-9]$ ]]; then
+    fail_test "Failed to deploy BPMN process (HTTP ${DEPLOY_CODE}): ${DEPLOY_RESP}"
+    exit 1
+fi
 
 # Extract process definition key
 PROC_DEF_KEY=$(echo "$DEPLOY_RESP" | jq -r \
