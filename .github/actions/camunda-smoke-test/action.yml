@@ -168,7 +168,7 @@ runs:
                       -w "%{http_code}" \
                       --connect-timeout 5 --max-time 10 \
                       "http://localhost:${LOCAL_KC_PORT}${KC_PATH}" \
-                      2>/dev/null || echo "000")
+                      2>/dev/null) || CODE="000"
                   if [[ "$CODE" != "000" ]]; then
                       echo "Keycloak ready (HTTP ${CODE})"
                       break
@@ -178,14 +178,27 @@ runs:
               done
 
               SECRET="${{ inputs.client-secret-name }}"
-              CLIENT_ID=$(kubectl get secret "$SECRET" \
-                  -n "$NS" \
-                  -o jsonpath='{.data.identity-admin-client-id}' \
-                  | base64 -d)
-              CLIENT_SECRET=$(kubectl get secret "$SECRET" \
-                  -n "$NS" \
-                  -o jsonpath='{.data.identity-admin-client-secret}' \
-                  | base64 -d)
+              if kubectl get secret "$SECRET" -n "$NS" &>/dev/null; then
+                  echo "Using secret '${SECRET}' for OIDC credentials"
+                  CLIENT_ID=$(kubectl get secret "$SECRET" \
+                      -n "$NS" \
+                      -o jsonpath='{.data.identity-admin-client-id}' \
+                      | base64 -d)
+                  CLIENT_SECRET=$(kubectl get secret "$SECRET" \
+                      -n "$NS" \
+                      -o jsonpath='{.data.identity-admin-client-secret}' \
+                      | base64 -d)
+              else
+                  # Camunda 8.9+ Helm chart: credentials in <release>-credentials
+                  RELEASE="${{ inputs.release-name }}"
+                  FALLBACK="${RELEASE}-credentials"
+                  echo "Secret '${SECRET}' not found, trying '${FALLBACK}'..."
+                  CLIENT_ID="orchestration"
+                  CLIENT_SECRET=$(kubectl get secret "$FALLBACK" \
+                      -n "$NS" \
+                      -o jsonpath='{.data.identity-orchestration-client-token}' \
+                      | base64 -d)
+              fi
 
               echo "::add-mask::${CLIENT_SECRET}"
               KC_TOKEN_PATH="${KC_PATH}/realms/camunda-platform"
