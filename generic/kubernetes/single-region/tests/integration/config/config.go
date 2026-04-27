@@ -36,15 +36,15 @@ type Config struct {
 	OptimizeEnabled      bool
 
 	// Service addresses (populated from env or derived)
-	ZeebeGatewayURL    string // e.g. http://localhost:8080
-	KeycloakURL        string // e.g. http://localhost:18080/auth
-	ElasticsearchURL   string // e.g. http://localhost:9200
-	OrchestrationURL   string // internal orchestration URL
-	ConnectorsURL      string
-	IdentityURL        string
-	ConsoleURL         string
-	OptimizeURL        string
-	WebModelerURL      string
+	ZeebeGatewayURL  string // e.g. http://localhost:8080
+	KeycloakURL      string // e.g. http://localhost:18080/auth
+	ElasticsearchURL string // e.g. http://localhost:9200
+	OrchestrationURL string // internal orchestration URL
+	ConnectorsURL    string
+	IdentityURL      string
+	ConsoleURL       string
+	OptimizeURL      string
+	WebModelerURL    string
 
 	// Timeouts
 	HTTPTimeout   time.Duration
