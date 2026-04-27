@@ -348,10 +348,17 @@ jobs:
                   # service account) — client_credentials grant is not allowed
                   # for it, so it must NOT be added here. Venom only covered
                   # connectors / optimize / orchestration anyway.
-                  for entry in \
-                      "orchestration:identity-orchestration-client-token" \
-                      "connectors:identity-connectors-client-token" \
-                      "optimize:identity-optimize-client-token"; do
+                  ENTRIES=(
+                      "orchestration:identity-orchestration-client-token"
+                      "connectors:identity-connectors-client-token"
+                  )
+                  # Optimize is only deployed when secondary storage is
+                  # Elasticsearch; in pg-only mode the keycloak client is
+                  # not provisioned and client_credentials returns 401.
+                  if [[ "${{ matrix.declination.secondary_storage }}" != "postgres" ]]; then
+                      ENTRIES+=("optimize:identity-optimize-client-token")
+                  fi
+                  for entry in "${ENTRIES[@]}"; do
                       cid="${entry%%:*}"
                       key="${entry##*:}"
                       val="$(read_secret "$key")"
@@ -394,6 +401,9 @@ jobs:
                   elasticsearch-enabled: 'false'
                   webmodeler-enabled: 'true'
                   console-enabled: 'true'
+                  # Optimize requires Elasticsearch; disabled in pg-only mode
+                  # (matches the helm install flag set in deploy step).
+                  optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
                   # Configure /etc/hosts for camunda.example.com when running
                   # the TLS/domain declinations on Kind so the runner can reach
                   # the ingress.
