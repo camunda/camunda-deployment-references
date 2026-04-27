@@ -50,13 +50,15 @@ inputs:
     oidc-client-id:
         description: >
             OIDC client ID for M2M authentication.
-            Required when auth-mode is 'oidc'.
+            If empty, auto-extracted from <release-name>-credentials
+            secret (client ID defaults to 'orchestration').
         required: false
         default: ''
     oidc-client-secret:
         description: >
             OIDC client secret for M2M authentication.
-            Required when auth-mode is 'oidc'.
+            If empty, auto-extracted from <release-name>-credentials
+            secret (key: identity-orchestration-client-token).
         required: false
         default: ''
 
@@ -147,12 +149,22 @@ runs:
           run: |
               set -euo pipefail
               NS="${{ inputs.namespace }}"
+              RELEASE="${{ inputs.release-name }}"
 
               CLIENT_ID="${{ inputs.oidc-client-id }}"
               CLIENT_SECRET="${{ inputs.oidc-client-secret }}"
               if [[ -z "$CLIENT_ID" || -z "$CLIENT_SECRET" ]]; then
-                  echo "::error::oidc-client-id and oidc-client-secret are required when auth-mode is 'oidc'"
-                  exit 1
+                  echo "Auto-extracting OIDC credentials from ${RELEASE}-credentials secret..."
+                  SECRET="${RELEASE}-credentials"
+                  CLIENT_ID="orchestration"
+                  CLIENT_SECRET=$(kubectl get secret "$SECRET" \
+                      -n "$NS" \
+                      -o jsonpath='{.data.identity-orchestration-client-token}' | base64 -d)
+                  if [[ -z "$CLIENT_SECRET" ]]; then
+                      echo "::error::Failed to extract OIDC client secret from secret '${SECRET}'"
+                      exit 1
+                  fi
+                  echo "Successfully extracted OIDC credentials"
               fi
 
               KC_URL="${{ inputs.keycloak-url }}"

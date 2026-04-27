@@ -755,20 +755,6 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-            - name: � Extract OIDC credentials for smoke test
-              id: smoke-credentials
-              if: env.TESTS_ENABLED == 'true'
-              run: |
-                  set -euo pipefail
-                  SECRET="${{ env.CAMUNDA_RELEASE_NAME }}-credentials"
-                  CLIENT_ID="orchestration"
-                  CLIENT_SECRET=$(kubectl get secret "$SECRET" \
-                    -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                    -o jsonpath='{.data.identity-orchestration-client-token}' | base64 -d)
-                  echo "::add-mask::${CLIENT_SECRET}"
-                  echo "CLIENT_ID=${CLIENT_ID}" >> "$GITHUB_OUTPUT"
-                  echo "CLIENT_SECRET=${CLIENT_SECRET}" >> "$GITHUB_OUTPUT"
-
             - name: 🔥 Run Camunda Smoke Test
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 15
@@ -776,8 +762,6 @@ jobs:
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
-                  oidc-client-id: ${{ steps.smoke-credentials.outputs.CLIENT_ID }}
-                  oidc-client-secret: ${{ steps.smoke-credentials.outputs.CLIENT_SECRET }}
 
             - name: 🧪 Run Go Integration Tests (replaces Venom)
               if: env.TESTS_ENABLED == 'true'
