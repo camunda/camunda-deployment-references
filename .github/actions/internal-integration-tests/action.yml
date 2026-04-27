@@ -105,6 +105,13 @@ inputs:
     connectors-local-port:
         description: Local port to forward Connectors onto (no-domain mode).
         default: '8081'
+    connectors-context-path:
+        description: |
+            Context path under which the Connectors app is exposed (matches
+            helm value `connectors.contextPath`). Appended to the local
+            connectors URL so /actuator/health/* probes resolve correctly.
+            Leave empty when the chart serves connectors at root.
+        default: ''
 
 outputs:
     preflight-result:
@@ -201,7 +208,10 @@ runs:
                   echo "Starting port-forward to ${CONN_SVC}..."
                   kubectl port-forward "svc/${CONN_SVC}" "${CONN_LOCAL_PORT}:8080" -n "$NS" &
                   echo "pf_conn_pid=$!" >> "$GITHUB_OUTPUT"
-                  echo "connectors_local_url=http://localhost:${CONN_LOCAL_PORT}" >> "$GITHUB_OUTPUT"
+                  CONN_PATH="${{ inputs.connectors-context-path }}"
+                  # Strip trailing slash so concatenation never doubles up.
+                  CONN_PATH="${CONN_PATH%/}"
+                  echo "connectors_local_url=http://localhost:${CONN_LOCAL_PORT}${CONN_PATH}" >> "$GITHUB_OUTPUT"
               else
                   echo "⚠️  Connectors service '${CONN_SVC}' not found in namespace '${NS}', skipping port-forward"
               fi

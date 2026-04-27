@@ -753,6 +753,9 @@ jobs:
                   elasticsearch-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  # AKS domain values set connectors.contextPath: /connectors;
+                  # no-domain values keep root, so omit when domain is empty.
+                  connectors-context-path: ${{ env.CAMUNDA_DOMAIN != '' && '/connectors' || '' }}
 
             - name: 🧪 Run C8 SM checks & Zeebe client tests
               if: env.TESTS_ENABLED == 'true'

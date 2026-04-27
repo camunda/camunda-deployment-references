@@ -938,6 +938,9 @@ jobs:
                   elasticsearch-enabled: 'false'
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  # EKS values set connectors.contextPath: /connectors so the
+                  # actuator endpoints live under that prefix.
+                  connectors-context-path: /connectors
 
             - name: 🧪 Run C8 SM checks & Zeebe client tests
               if: env.TESTS_ENABLED == 'true'

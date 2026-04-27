@@ -4,6 +4,15 @@ apiVersion: kind.x-k8s.io/v1alpha4
 
 name: camunda-platform-local
 
+# Lift containerd's per-image pull "no progress" timeout (default: 1m).
+# Pulling many large camunda/keycloak/postgresql images in parallel on a
+# single Kind worker can exceed the default and yield "context canceled"
+# ImagePullBackOff errors, especially in CI runners.
+containerdConfigPatches:
+    - |-
+      [plugins."io.containerd.grpc.v1.cri"]
+        image_pull_progress_timeout = "10m"
+
 networking:
     apiServerAddress: 127.0.0.1
     apiServerPort: 6443

@@ -161,9 +161,9 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: Deploy Camunda with Bitnami sub-charts
-              # Helm install --timeout is 20m below; give the GHA step a bit
+              # Helm install --timeout is 30m below; give the GHA step a bit
               # more headroom (download images, helm post-install hooks).
-              timeout-minutes: 25
+              timeout-minutes: 35
               run: |
                   set -euo pipefail
 
@@ -175,7 +175,7 @@ jobs:
                       --namespace "${{ env.CAMUNDA_NAMESPACE }}"
                       --values generic/kubernetes/migration/tests/bitnami-values.yml
                       --values generic/kubernetes/migration/tests/bitnami-values-identity-test.yml
-                      --timeout 20m
+                      --timeout 30m
                       --wait
                   )
 

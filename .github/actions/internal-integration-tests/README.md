@@ -39,6 +39,7 @@ Tests run from the GHA runner using port-forward (no-domain) or ingress URLs (do
 | `local-domain-ip` | <p>IP used for local-domain-mode /etc/hosts entries.</p> | `false` | `127.0.0.1` |
 | `connectors-service-name` | <p>Service name for Connectors (used to set up port-forward in no-domain mode).</p> | `false` | `camunda-connectors` |
 | `connectors-local-port` | <p>Local port to forward Connectors onto (no-domain mode).</p> | `false` | `8081` |
+| `connectors-context-path` | <p>Context path under which the Connectors app is exposed (matches helm value <code>connectors.contextPath</code>). Appended to the local connectors URL so /actuator/health/* probes resolve correctly. Leave empty when the chart serves connectors at root.</p> | `false` | `""` |
 
 
 ## Outputs
@@ -225,4 +226,13 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 8081
+
+    connectors-context-path:
+    # Context path under which the Connectors app is exposed (matches
+    # helm value `connectors.contextPath`). Appended to the local
+    # connectors URL so /actuator/health/* probes resolve correctly.
+    # Leave empty when the chart serves connectors at root.
+    #
+    # Required: false
+    # Default: ""
 ```
