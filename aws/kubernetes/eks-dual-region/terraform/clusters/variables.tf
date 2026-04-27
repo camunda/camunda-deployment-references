@@ -72,6 +72,20 @@ variable "single_nat_gateway" {
   default     = false
   description = "If true, only one NAT gateway will be created to save on e.g. IPs, not good for HA"
 }
+
+variable "enable_vpc_flow_logs" {
+  type = bool
+  # Enabled by default on this branch to support RBC benchmark debugging
+  # (NLB throttling, SYN drops at the ENI level, etc.).
+  default     = true
+  description = "If true, enable VPC Flow Logs to CloudWatch on both regional VPCs."
+}
+
+variable "vpc_flow_logs_retention_in_days" {
+  type        = number
+  default     = 7
+  description = "Retention in days for the VPC Flow Logs CloudWatch Log Group on both regions."
+}
 variable "default_tags" {
   type        = map(string)
   default     = {}

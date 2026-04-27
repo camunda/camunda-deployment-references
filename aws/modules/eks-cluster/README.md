@@ -60,6 +60,7 @@ module "eks_cluster" {
 | <a name="input_cluster_service_ipv4_cidr"></a> [cluster\_service\_ipv4\_cidr](#input\_cluster\_service\_ipv4\_cidr) | The CIDR block to assign Kubernetes service IP addresses from. Between /24 and /12. | `string` | `"10.190.0.0/16"` | no |
 | <a name="input_cluster_tags"></a> [cluster\_tags](#input\_cluster\_tags) | A map of additional tags to add to the cluster | `map(string)` | `{}` | no |
 | <a name="input_enable_cluster_creator_admin_permissions"></a> [enable\_cluster\_creator\_admin\_permissions](#input\_enable\_cluster\_creator\_admin\_permissions) | Indicates whether or not to add the cluster creator (the identity used by Terraform) as an administrator via access entry. | `bool` | `true` | no |
+| <a name="input_enable_vpc_flow_logs"></a> [enable\_vpc\_flow\_logs](#input\_enable\_vpc\_flow\_logs) | If true, enable VPC Flow Logs to a dedicated CloudWatch Log Group (and create the IAM role). Useful to investigate SYN drops, NLB connection issues and L3/L4 traffic patterns. Note: incurs CloudWatch Logs ingestion/storage cost. | `bool` | `false` | no |
 | <a name="input_expose_public_elb"></a> [expose\_public\_elb](#input\_expose\_public\_elb) | If true, expose ELB resources on the public network. By default, takes the value of !var.private\_vpc, but can be explicitly set to enable private VPC while still exposing services publicly. | `bool` | `null` | no |
 | <a name="input_kms_key_tags"></a> [kms\_key\_tags](#input\_kms\_key\_tags) | The tags to associate with the KMS key. | `map(string)` | `{}` | no |
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version to be used by EKS | `string` | `"1.34"` | no |
@@ -75,6 +76,7 @@ module "eks_cluster" {
 | <a name="input_private_vpc"></a> [private\_vpc](#input\_private\_vpc) | If true, create only private subnets without public subnets or NAT gateways. | `bool` | `false` | no |
 | <a name="input_region"></a> [region](#input\_region) | The region where the cluster and relevant resources should be deployed in | `string` | n/a | yes |
 | <a name="input_single_nat_gateway"></a> [single\_nat\_gateway](#input\_single\_nat\_gateway) | If set to true, a single NAT Gateway will be created for the VPC. If set to false, a NAT Gateway will be created for each subnet and requiring an IP per subnet. | `bool` | `false` | no |
+| <a name="input_vpc_flow_logs_retention_in_days"></a> [vpc\_flow\_logs\_retention\_in\_days](#input\_vpc\_flow\_logs\_retention\_in\_days) | Retention in days for the VPC Flow Logs CloudWatch Log Group. Only used when enable\_vpc\_flow\_logs is true. | `number` | `7` | no |
 ## Outputs
 
 | Name | Description |

@@ -84,8 +84,13 @@ module "vpc" {
   # enable_dns_hostnames = true
   # enable_dns_support   = true
 
-  # Logs IP traffic for whole VPC
-  enable_flow_log                      = false
-  create_flow_log_cloudwatch_iam_role  = false
-  create_flow_log_cloudwatch_log_group = false
+  # Logs IP traffic for whole VPC (CloudWatch destination when enabled)
+  enable_flow_log                      = var.enable_vpc_flow_logs
+  create_flow_log_cloudwatch_iam_role  = var.enable_vpc_flow_logs
+  create_flow_log_cloudwatch_log_group = var.enable_vpc_flow_logs
+
+  flow_log_destination_type                       = "cloud-watch-logs"
+  flow_log_traffic_type                           = "ALL"
+  flow_log_max_aggregation_interval               = 60
+  flow_log_cloudwatch_log_group_retention_in_days = var.vpc_flow_logs_retention_in_days
 }

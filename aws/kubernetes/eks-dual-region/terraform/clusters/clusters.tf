@@ -15,6 +15,9 @@ module "eks_cluster_region_0" {
   np_desired_node_count = var.np_desired_node_count
   single_nat_gateway    = var.single_nat_gateway
 
+  enable_vpc_flow_logs            = var.enable_vpc_flow_logs
+  vpc_flow_logs_retention_in_days = var.vpc_flow_logs_retention_in_days
+
   cluster_service_ipv4_cidr = local.owner.service_cidr_block
   cluster_node_ipv4_cidr    = local.owner.vpc_cidr_block
 }
@@ -31,6 +34,9 @@ module "eks_cluster_region_1" {
   np_max_node_count     = var.np_max_node_count
   np_desired_node_count = var.np_desired_node_count
   single_nat_gateway    = var.single_nat_gateway
+
+  enable_vpc_flow_logs            = var.enable_vpc_flow_logs
+  vpc_flow_logs_retention_in_days = var.vpc_flow_logs_retention_in_days
 
   cluster_service_ipv4_cidr = local.accepter.service_cidr_block
   cluster_node_ipv4_cidr    = local.accepter.vpc_cidr_block
