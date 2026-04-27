@@ -244,7 +244,10 @@ func TestLoginPages(t *testing.T) {
 			}
 
 			err := helpers.Retry(cfg.RetryAttempts, cfg.RetryDelay, func() error {
-				resp, err := client.Get(p.url)
+				// Login pages are public; do NOT attach a bearer token. SPA
+				// ingresses (e.g. WebModeler) reject M2M tokens with 401
+				// because the token has no user scope.
+				resp, err := client.GetUnauth(p.url)
 				if err != nil {
 					return fmt.Errorf("GET %s failed: %w", p.url, err)
 				}
@@ -252,8 +255,16 @@ func TestLoginPages(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				if resp.StatusCode != http.StatusOK {
-					return fmt.Errorf("expected 200, got %d", resp.StatusCode)
+				// Accept 200 (page rendered) and the common redirect codes
+				// (302/303/307) ingresses use to bounce unauthenticated users
+				// to the IdP login flow.
+				switch resp.StatusCode {
+				case http.StatusOK,
+					http.StatusFound,
+					http.StatusSeeOther,
+					http.StatusTemporaryRedirect:
+				default:
+					return fmt.Errorf("expected 200/3xx, got %d", resp.StatusCode)
 				}
 				bodyLower := strings.ToLower(body)
 				if strings.Contains(bodyLower, "\"error\"") {

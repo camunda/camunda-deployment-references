@@ -109,6 +109,17 @@ func (c *Client) Get(url string) (*http.Response, error) {
 	return c.Do(req)
 }
 
+// GetUnauth performs a GET request without injecting any authentication
+// header. Useful for public endpoints (e.g. login pages) where attaching a
+// stale or M2M bearer triggers a 401 from SPA-style ingresses.
+func (c *Client) GetUnauth(url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return c.http.Do(req)
+}
+
 // PostJSON performs a POST request with a JSON body.
 func (c *Client) PostJSON(url string, body string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, strings.NewReader(body))
