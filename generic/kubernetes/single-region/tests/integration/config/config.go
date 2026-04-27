@@ -88,12 +88,16 @@ func (c *Config) setServiceURLs() {
 		base := fmt.Sprintf("https://%s", c.Domain)
 		c.ZeebeGatewayURL = base
 		c.KeycloakURL = base + "/auth"
-		c.OrchestrationURL = base
-		c.ConnectorsURL = base + "/connectors"
-		c.IdentityURL = base + "/identity"
-		c.ConsoleURL = base + "/console"
-		c.OptimizeURL = base + "/optimize"
-		c.WebModelerURL = base + "/modeler"
+		// Actuator endpoints (/actuator/health/...) are NOT exposed via the
+		// public ingress; they live on internal management ports. Allow the
+		// caller to override Orchestration/Connectors URLs (typically with
+		// localhost port-forwards) so preflight checks can still run.
+		c.OrchestrationURL = envOr("TEST_ORCHESTRATION_URL", base)
+		c.ConnectorsURL = envOr("TEST_CONNECTORS_URL", base+"/connectors")
+		c.IdentityURL = envOr("TEST_IDENTITY_URL", base+"/identity")
+		c.ConsoleURL = envOr("TEST_CONSOLE_URL", base+"/console")
+		c.OptimizeURL = envOr("TEST_OPTIMIZE_URL", base+"/optimize")
+		c.WebModelerURL = envOr("TEST_WEBMODELER_URL", base+"/modeler")
 	} else {
 		// Port-forward mode: services at localhost
 		c.ZeebeGatewayURL = envOr("TEST_ZEEBE_GATEWAY_URL", "http://localhost:8080")

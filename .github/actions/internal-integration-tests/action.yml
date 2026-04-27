@@ -136,51 +136,58 @@ runs:
               grep -E "($CAMUNDA_DOMAIN|${CAMUNDA_DOMAIN_GRPC%%:*})" /etc/hosts || true
 
         # ==============================================================
-        # Port-forward setup (no-domain mode only)
+        # Port-forwards
+        #   - no-domain mode: forward Zeebe (8080) and Keycloak (18080) so the
+        #     runner can reach the public APIs through localhost.
+        #   - all modes:      forward the internal actuator/management ports
+        #     (Orchestration 9600, Connectors 8080) since /actuator is not
+        #     exposed via the public ingress in domain mode.
         # ==============================================================
         - name: 🔌 Set up port-forwards for integration tests
           id: port-forward
-          if: inputs.camunda-domain == ''
           shell: bash
           run: |
               set -euo pipefail
               NS="${{ inputs.test-namespace }}"
               RELEASE="${{ inputs.test-release-name }}"
+              DOMAIN="${{ inputs.camunda-domain }}"
 
-              # Zeebe Gateway
-              echo "Starting port-forward to ${RELEASE}-zeebe-gateway..."
-              kubectl port-forward "svc/${RELEASE}-zeebe-gateway" 8080:8080 -n "$NS" &
-              echo "pf_zeebe_pid=$!" >> "$GITHUB_OUTPUT"
+              if [[ -z "$DOMAIN" ]]; then
+                  # Zeebe Gateway
+                  echo "Starting port-forward to ${RELEASE}-zeebe-gateway..."
+                  kubectl port-forward "svc/${RELEASE}-zeebe-gateway" 8080:8080 -n "$NS" &
+                  echo "pf_zeebe_pid=$!" >> "$GITHUB_OUTPUT"
 
-              # Keycloak (parse host and port from keycloak-url input)
-              KC_URL="${{ inputs.keycloak-url }}"
-              # Default local URL = original URL when port-forward not applicable.
-              KC_LOCAL_URL="$KC_URL"
-              if [[ -n "$KC_URL" && "${{ inputs.auth-mode }}" == "oidc" ]]; then
-                  # Strip scheme, then split host:port from path.
-                  KC_NO_SCHEME=$(echo "$KC_URL" | sed 's|^http[s]*://||')
-                  KC_HOST_PORT=$(echo "$KC_NO_SCHEME" | cut -d/ -f1)
-                  KC_PATH="/$(echo "$KC_NO_SCHEME" | cut -s -d/ -f2-)"
-                  [[ "$KC_PATH" == "/" ]] && KC_PATH=""
-                  KC_HOST=$(echo "$KC_HOST_PORT" | cut -d: -f1)
-                  KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -s -d: -f2)
-                  [[ -z "$KC_REMOTE_PORT" ]] && KC_REMOTE_PORT=18080
-                  echo "Starting port-forward to ${KC_HOST}..."
-                  kubectl port-forward "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}" -n "$NS" &
-                  echo "pf_kc_pid=$!" >> "$GITHUB_OUTPUT"
-                  # When the input points at an in-cluster hostname, rewrite to
-                  # localhost so Go tests can reach Keycloak through the forward.
-                  KC_LOCAL_URL="http://localhost:18080${KC_PATH}"
+                  # Keycloak (parse host and port from keycloak-url input)
+                  KC_URL="${{ inputs.keycloak-url }}"
+                  # Default local URL = original URL when port-forward not applicable.
+                  KC_LOCAL_URL="$KC_URL"
+                  if [[ -n "$KC_URL" && "${{ inputs.auth-mode }}" == "oidc" ]]; then
+                      # Strip scheme, then split host:port from path.
+                      KC_NO_SCHEME=$(echo "$KC_URL" | sed 's|^http[s]*://||')
+                      KC_HOST_PORT=$(echo "$KC_NO_SCHEME" | cut -d/ -f1)
+                      KC_PATH="/$(echo "$KC_NO_SCHEME" | cut -s -d/ -f2-)"
+                      [[ "$KC_PATH" == "/" ]] && KC_PATH=""
+                      KC_HOST=$(echo "$KC_HOST_PORT" | cut -d: -f1)
+                      KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -s -d: -f2)
+                      [[ -z "$KC_REMOTE_PORT" ]] && KC_REMOTE_PORT=18080
+                      echo "Starting port-forward to ${KC_HOST}..."
+                      kubectl port-forward "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}" -n "$NS" &
+                      echo "pf_kc_pid=$!" >> "$GITHUB_OUTPUT"
+                      # When the input points at an in-cluster hostname, rewrite to
+                      # localhost so Go tests can reach Keycloak through the forward.
+                      KC_LOCAL_URL="http://localhost:18080${KC_PATH}"
+                  fi
+                  echo "kc_local_url=${KC_LOCAL_URL}" >> "$GITHUB_OUTPUT"
               fi
-              echo "kc_local_url=${KC_LOCAL_URL}" >> "$GITHUB_OUTPUT"
 
-              # Orchestration (internal metrics/actuator port)
-              echo "Starting port-forward to ${RELEASE}-orchestration..."
+              # Orchestration actuator (always, port 9600 on the gateway svc)
+              echo "Starting port-forward to ${RELEASE}-zeebe-gateway:9600..."
               kubectl port-forward "svc/${RELEASE}-zeebe-gateway" 9600:9600 -n "$NS" &
               echo "pf_orch_pid=$!" >> "$GITHUB_OUTPUT"
+              echo "orchestration_local_url=http://localhost:9600" >> "$GITHUB_OUTPUT"
 
-              # Connectors (so preflight readiness/liveness can reach it from
-              # the runner instead of the in-cluster service name).
+              # Connectors actuator (always, when service is present)
               CONN_SVC="${{ inputs.connectors-service-name }}"
               CONN_LOCAL_PORT="${{ inputs.connectors-local-port }}"
               if kubectl get svc "$CONN_SVC" -n "$NS" >/dev/null 2>&1; then
@@ -195,17 +202,19 @@ runs:
               echo "Waiting for port-forwards to be established..."
               sleep 10
 
-              # Verify Zeebe is reachable
-              for i in $(seq 1 15); do
-                  CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-                      http://localhost:8080/v2/topology 2>/dev/null || echo "000")
-                  if [[ "$CODE" =~ ^(200|401|403)$ ]]; then
-                      echo "✅ Zeebe port-forward ready (HTTP ${CODE})"
-                      break
-                  fi
-                  echo "  attempt ${i}/15 (HTTP ${CODE})"
-                  sleep 2
-              done
+              # Verify Zeebe is reachable (only meaningful in no-domain mode)
+              if [[ -z "$DOMAIN" ]]; then
+                  for i in $(seq 1 15); do
+                      CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                          http://localhost:8080/v2/topology 2>/dev/null || echo "000")
+                      if [[ "$CODE" =~ ^(200|401|403)$ ]]; then
+                          echo "✅ Zeebe port-forward ready (HTTP ${CODE})"
+                          break
+                      fi
+                      echo "  attempt ${i}/15 (HTTP ${CODE})"
+                      sleep 2
+                  done
+              fi
 
         - name: 🧪 Run Preflight Tests
           id: preflight
@@ -230,6 +239,7 @@ runs:
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
               TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
+              TEST_ORCHESTRATION_URL: ${{ steps.port-forward.outputs.orchestration_local_url }}
               TEST_CONNECTORS_URL: ${{ steps.port-forward.outputs.connectors_local_url }}
               TEST_ELASTICSEARCH_URL: ${{ inputs.elasticsearch-url }}
               TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
@@ -262,6 +272,7 @@ runs:
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
               TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
+              TEST_ORCHESTRATION_URL: ${{ steps.port-forward.outputs.orchestration_local_url }}
               TEST_CONNECTORS_URL: ${{ steps.port-forward.outputs.connectors_local_url }}
               TEST_ELASTICSEARCH_URL: ${{ inputs.elasticsearch-url }}
               TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
@@ -275,7 +286,7 @@ runs:
         # Cleanup port-forwards
         # ==============================================================
         - name: 🧹 Cleanup port-forwards
-          if: always() && inputs.camunda-domain == ''
+          if: always()
           shell: bash
           run: |
               set -euo pipefail
