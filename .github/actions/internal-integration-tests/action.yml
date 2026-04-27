@@ -206,6 +206,30 @@ runs:
                   echo "⚠️  Connectors service '${CONN_SVC}' not found in namespace '${NS}', skipping port-forward"
               fi
 
+              # Elasticsearch (only when ES is enabled & a service exists in-cluster).
+              # The preflight Go tests hit http://localhost:9200 unconditionally
+              # when ELASTICSEARCH_ENABLED=true, so they need a forward in
+              # no-domain / port-forward mode.
+              if [[ "${{ inputs.elasticsearch-enabled }}" == "true" ]]; then
+                  ES_SVC=""
+                  for candidate in \
+                      "${RELEASE}-elasticsearch" \
+                      "elasticsearch-master" \
+                      "${RELEASE}-elasticsearch-master"; do
+                      if kubectl get svc "$candidate" -n "$NS" >/dev/null 2>&1; then
+                          ES_SVC="$candidate"
+                          break
+                      fi
+                  done
+                  if [[ -n "$ES_SVC" ]]; then
+                      echo "Starting port-forward to ${ES_SVC}:9200..."
+                      kubectl port-forward "svc/${ES_SVC}" 9200:9200 -n "$NS" &
+                      echo "pf_es_pid=$!" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "⚠️  No Elasticsearch service found in namespace '${NS}', skipping port-forward"
+                  fi
+              fi
+
               echo "Waiting for port-forwards to be established..."
               sleep 10
 
@@ -303,7 +327,8 @@ runs:
                   "${{ steps.port-forward.outputs.pf_zeebe_pid }}" \
                   "${{ steps.port-forward.outputs.pf_kc_pid }}" \
                   "${{ steps.port-forward.outputs.pf_orch_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_conn_pid }}"; do
+                  "${{ steps.port-forward.outputs.pf_conn_pid }}" \
+                  "${{ steps.port-forward.outputs.pf_es_pid }}"; do
                   if [[ -n "$PID" ]]; then
                       kill "$PID" 2>/dev/null || true
                   fi

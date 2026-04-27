@@ -750,7 +750,7 @@ jobs:
                       && 'http://keycloak-service:18080/auth'
                       || format('http://{0}-keycloak:80/auth',
                       env.CAMUNDA_RELEASE_NAME) }}
-                  elasticsearch-enabled: 'true'
+                  elasticsearch-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
 
