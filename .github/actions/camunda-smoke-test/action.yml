@@ -154,17 +154,37 @@ runs:
               CLIENT_ID="${{ inputs.oidc-client-id }}"
               CLIENT_SECRET="${{ inputs.oidc-client-secret }}"
               if [[ -z "$CLIENT_ID" || -z "$CLIENT_SECRET" ]]; then
-                  echo "Auto-extracting OIDC credentials from ${RELEASE}-credentials secret..."
-                  SECRET="${RELEASE}-credentials"
-                  CLIENT_ID="orchestration"
-                  CLIENT_SECRET=$(kubectl get secret "$SECRET" \
-                      -n "$NS" \
-                      -o jsonpath='{.data.identity-orchestration-client-token}' | base64 -d)
-                  if [[ -z "$CLIENT_SECRET" ]]; then
-                      echo "::error::Failed to extract OIDC client secret from secret '${SECRET}'"
-                      exit 1
+                  # Prefer the test-only 'venom' client (created via
+                  # generic/kubernetes/single-region/tests/helm-values/identity.yml).
+                  # It has explicit admin role + write:* on orchestration-api,
+                  # so it can deploy BPMN resources for the smoke test.
+                  # Falls back to the auto-generated 'orchestration' M2M client,
+                  # which only works if it has been granted the admin role.
+                  VENOM_SECRET_NAME="identity-secret-for-components-integration"
+                  if kubectl get secret "$VENOM_SECRET_NAME" -n "$NS" \
+                      >/dev/null 2>&1; then
+                      echo "Auto-extracting OIDC credentials from '${VENOM_SECRET_NAME}' (venom)..."
+                      CLIENT_ID=$(kubectl get secret "$VENOM_SECRET_NAME" -n "$NS" \
+                          -o jsonpath='{.data.identity-admin-client-id}' | base64 -d)
+                      CLIENT_SECRET=$(kubectl get secret "$VENOM_SECRET_NAME" -n "$NS" \
+                          -o jsonpath='{.data.identity-admin-client-secret}' | base64 -d)
+                      if [[ -z "$CLIENT_ID" || -z "$CLIENT_SECRET" ]]; then
+                          echo "::error::Secret '${VENOM_SECRET_NAME}' is missing identity-admin-client-id or identity-admin-client-secret"
+                          exit 1
+                      fi
+                  else
+                      echo "Auto-extracting OIDC credentials from ${RELEASE}-credentials secret (orchestration)..."
+                      SECRET="${RELEASE}-credentials"
+                      CLIENT_ID="orchestration"
+                      CLIENT_SECRET=$(kubectl get secret "$SECRET" \
+                          -n "$NS" \
+                          -o jsonpath='{.data.identity-orchestration-client-token}' | base64 -d)
+                      if [[ -z "$CLIENT_SECRET" ]]; then
+                          echo "::error::Failed to extract OIDC client secret from secret '${SECRET}'"
+                          exit 1
+                      fi
                   fi
-                  echo "Successfully extracted OIDC credentials"
+                  echo "Successfully extracted OIDC credentials (client_id=${CLIENT_ID})"
               fi
 
               KC_URL="${{ inputs.keycloak-url }}"
