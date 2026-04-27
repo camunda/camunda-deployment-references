@@ -216,6 +216,12 @@ jobs:
                     helm-values/values-domain.yml > helm-values/values-domain.yml.tmp
                   mv helm-values/values-domain.yml.tmp helm-values/values-domain.yml
 
+                  # CI-only: grant the auto-generated 'orchestration' M2M client
+                  # the admin role so the smoke test can deploy BPMN resources
+                  # via the Zeebe REST API. User-facing helm-values stay unchanged.
+                  yq -i '.orchestration.security.initialization.defaultRoles.admin.clients = ["orchestration"]' \
+                    helm-values/values-domain.yml
+
                   ./procedure/camunda-deploy-domain.sh
 
             - name: Deploy Camunda (no-domain mode)
@@ -230,6 +236,12 @@ jobs:
                   yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/registry.yml\")" \
                     helm-values/values-no-domain.yml > helm-values/values-no-domain.yml.tmp
                   mv helm-values/values-no-domain.yml.tmp helm-values/values-no-domain.yml
+
+                  # CI-only: grant the auto-generated 'orchestration' M2M client
+                  # the admin role so the smoke test can deploy BPMN resources
+                  # via the Zeebe REST API. User-facing helm-values stay unchanged.
+                  yq -i '.orchestration.security.initialization.defaultRoles.admin.clients = ["orchestration"]' \
+                    helm-values/values-no-domain.yml
 
                   ./procedure/camunda-deploy-no-domain.sh
 

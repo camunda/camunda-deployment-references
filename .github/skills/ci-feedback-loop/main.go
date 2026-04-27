@@ -72,13 +72,13 @@ func ensureDebugDir(runID string) (string, error) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 type runEntry struct {
-	DatabaseID    int64  `json:"databaseId"`
-	DisplayTitle  string `json:"displayTitle"`
-	WorkflowName  string `json:"workflowName"`
-	Status        string `json:"status"`
-	Conclusion    string `json:"conclusion"`
-	HeadSha       string `json:"headSha"`
-	URL           string `json:"url"`
+	DatabaseID   int64  `json:"databaseId"`
+	DisplayTitle string `json:"displayTitle"`
+	WorkflowName string `json:"workflowName"`
+	Status       string `json:"status"`
+	Conclusion   string `json:"conclusion"`
+	HeadSha      string `json:"headSha"`
+	URL          string `json:"url"`
 }
 
 func listRuns(branch string, limit int) ([]runEntry, error) {
