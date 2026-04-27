@@ -344,10 +344,13 @@ jobs:
                   }
                   M2M_JSON='{'
                   sep=''
+                  # NOTE: 'console' is a Keycloak public client (no
+                  # service account) — client_credentials grant is not allowed
+                  # for it, so it must NOT be added here. Venom only covered
+                  # connectors / optimize / orchestration anyway.
                   for entry in \
                       "orchestration:identity-orchestration-client-token" \
                       "connectors:identity-connectors-client-token" \
-                      "console:identity-console-client-token" \
                       "optimize:identity-optimize-client-token"; do
                       cid="${entry%%:*}"
                       key="${entry##*:}"
