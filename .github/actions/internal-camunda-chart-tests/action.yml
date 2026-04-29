@@ -401,6 +401,10 @@ runs:
               CAMUNDA_NAMESPACE_1: ${{ inputs.camunda-namespace-1 || '' }}
               CAMUNDA_NAMESPACE_0: ${{ inputs.camunda-namespace-0 || '' }}
               CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name || '' }}
+              # TEST_NAMESPACE is consumed by start_port_forward(); export it
+              # here because the helm-chart-tests step that sets it can be
+              # disabled (e.g. operator-based scenarios).
+              TEST_NAMESPACE: ${{ inputs.test-namespace }}
           run: |
               set -euo pipefail
 
