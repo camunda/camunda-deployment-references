@@ -661,7 +661,10 @@ jobs:
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
-                  auth-mode: ${{ matrix.scenario.auth_provider == 'oidc' && 'oidc' || 'basic' }}
+                  # Both 'oidc' (external IdP) and 'keycloak-operator' (Keycloak Operator)
+                  # scenarios use OIDC against the cluster; only an empty auth_provider
+                  # falls back to Camunda's basic auth.
+                  auth-mode: ${{ matrix.scenario.auth_provider != '' && 'oidc' || 'basic' }}
                   oidc-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   oidc-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                   keycloak-url: >-
