@@ -346,6 +346,8 @@ k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 h1:AZYQSJemyQB5eRxqcPky+/7EdBj0x
 k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2/go.mod h1:xDxuJ0whA3d0I4mf/C4ppKHxXynQ+fxnkmQH0vTHnuk=
 sigs.k8s.io/aws-iam-authenticator v0.7.13 h1:wBC5abylrB3t7+BI06s5AmyrwDGU9qb3+MGi/GSIzsw=
 sigs.k8s.io/aws-iam-authenticator v0.7.13/go.mod h1:Y8EOAlswaE+sXL/wpMCmYHwSpDF8m16Wg7AKqk5Nefw=
+sigs.k8s.io/aws-iam-authenticator v0.7.14 h1:XCO/CarM+2h/QRwiRrc3KgcDVrs0DyMWlrCfjIwRHE8=
+sigs.k8s.io/aws-iam-authenticator v0.7.14/go.mod h1:Y8EOAlswaE+sXL/wpMCmYHwSpDF8m16Wg7AKqk5Nefw=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 h1:IpInykpT6ceI+QxKBbEflcR5EXP7sU1kvOlxwZh5txg=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730/go.mod h1:mdzfpAEoE6DHQEN0uh9ZbOCuHbLK5wOm7dK4ctXE9Tg=
 sigs.k8s.io/randfill v1.0.0 h1:JfjMILfT8A6RbawdsK2JXGBR5AQVfd+9TbzrlneTyrU=
