@@ -74,3 +74,29 @@ variable "default_tags" {
   default     = {}
   description = "Default tags to apply to all resources"
 }
+
+################################
+# Connectivity                 #
+################################
+
+variable "connectivity_type" {
+  type        = string
+  description = "Type of connectivity between the two VPCs. 'peering' uses VPC Peering, 'transit-gateway' uses an existing AWS Transit Gateway."
+  default     = "peering"
+  validation {
+    condition     = contains(["peering", "transit-gateway"], var.connectivity_type)
+    error_message = "connectivity_type must be 'peering' or 'transit-gateway'."
+  }
+}
+
+variable "transit_gateway_id" {
+  type        = string
+  description = "ID of an existing Transit Gateway to attach VPCs to. Required when connectivity_type is 'transit-gateway'."
+  default     = null
+}
+
+variable "transit_gateway_ram_share_arn" {
+  type        = string
+  description = "ARN of a RAM share for the Transit Gateway. Required when the TGW is in a different AWS account."
+  default     = null
+}
