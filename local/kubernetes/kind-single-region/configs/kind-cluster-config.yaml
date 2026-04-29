@@ -11,7 +11,7 @@ name: camunda-platform-local
 containerdConfigPatches:
     - |-
       [plugins."io.containerd.grpc.v1.cri"]
-        image_pull_progress_timeout = "10m"
+        image_pull_progress_timeout = "30m"
 
 networking:
     apiServerAddress: 127.0.0.1
