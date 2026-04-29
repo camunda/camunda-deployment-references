@@ -709,10 +709,8 @@ jobs:
               timeout-minutes: 30
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
-                  secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
-                  enable-helm-chart-tests: 'false' # TODO: integrate helm chart dual region tests if they exist
                   zeebe-authenticated: 'false'
                   zeebe-topology-check-script: ./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology.sh
                   zeebe-topology-golden-file: ./generic/kubernetes/dual-region/procedure/check-zeebe-cluster-topology-output.json
