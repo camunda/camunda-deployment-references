@@ -11,6 +11,17 @@ apiVersion: kind.x-k8s.io/v1alpha4
 
 name: camunda-platform-local
 
+# Bump containerd's per-pull progress timeout (default: 1m).
+# Pulling many large camunda/keycloak/postgresql/elasticsearch images in
+# parallel on a single Kind worker can exceed the default and yield
+# "context canceled" / ImagePullBackOff errors, especially in CI runners.
+# The migration scenario pulls the Bitnami source stack AND the operator-based
+# target stack side-by-side, so it is even more sensitive to this timeout.
+containerdConfigPatches:
+    - |-
+      [plugins."io.containerd.grpc.v1.cri"]
+        image_pull_progress_timeout = "10m"
+
 networking:
     apiServerAddress: 127.0.0.1
     apiServerPort: 6443
