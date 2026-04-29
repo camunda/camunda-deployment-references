@@ -441,7 +441,8 @@
                       "account_iam_role_name": "[\"my-rosa-account-HCP-ROSA-Installer-Role\",\"my-rosa-account-HCP-ROSA-Support-Role\",\"my-rosa-account-HCP-ROSA-Worker-Role\"]",
                       "account_role_prefix": "my-rosa-account",
                       "path": "/",
-                      "shared_vpc_policy_attachments": "[]"
+                      "shared_vpc_policy_attachments": "[]",
+                      "trust_policy_external_id": null
                     }
                   }
                 }
@@ -1881,6 +1882,12 @@
         "module.rosa_cluster.module.vpc": {
           "resources": {
             "module.rosa_cluster.module.vpc.aws_eip.eip[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "eip",
@@ -1907,6 +1914,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_eip.eip[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "eip",
@@ -1933,6 +1946,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_eip.eip[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "eip",
@@ -1959,6 +1978,12 @@
               }
             },
             "module.rosa_cluster.module.vpc.aws_internet_gateway.internet_gateway": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "internet_gateway",
               "provider_name": "registry.terraform.io/hashicorp/aws",
