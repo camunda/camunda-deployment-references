@@ -112,12 +112,20 @@ func (c *Client) Get(url string) (*http.Response, error) {
 // GetUnauth performs a GET request without injecting any authentication
 // header. Useful for public endpoints (e.g. login pages) where attaching a
 // stale or M2M bearer triggers a 401 from SPA-style ingresses.
+//
+// Redirects are NOT followed: TestLoginPages already accepts 3xx as success,
+// and following the redirect can lead to an http:// URL (e.g. WebModeler's
+// /modeler -> /modeler/ trailing-slash redirect drops https) that hangs.
 func (c *Client) GetUnauth(url string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	return c.http.Do(req)
+	noRedirect := *c.http
+	noRedirect.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	return noRedirect.Do(req)
 }
 
 // PostJSON performs a POST request with a JSON body.
