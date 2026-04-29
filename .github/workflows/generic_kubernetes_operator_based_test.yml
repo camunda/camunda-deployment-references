@@ -780,6 +780,9 @@ jobs:
                   elasticsearch-enabled: 'false'
                   webmodeler-enabled: 'true'
                   console-enabled: 'true'
+                  # operator-based always serves connectors under /connectors
+                  # (see generic/kubernetes/operator-based/tests/utils/camunda-{domain,no-domain}-values.yml)
+                  connectors-context-path: /connectors
 
             - name: 🧪 Run C8 SM checks & Zeebe client tests
               if: env.TESTS_ENABLED == 'true'
