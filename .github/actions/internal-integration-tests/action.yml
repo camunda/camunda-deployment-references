@@ -225,7 +225,8 @@ runs:
                   for candidate in \
                       "${RELEASE}-elasticsearch" \
                       "elasticsearch-master" \
-                      "${RELEASE}-elasticsearch-master"; do
+                      "${RELEASE}-elasticsearch-master" \
+                      "elasticsearch-es-http"; do
                       if kubectl get svc "$candidate" -n "$NS" >/dev/null 2>&1; then
                           ES_SVC="$candidate"
                           break
