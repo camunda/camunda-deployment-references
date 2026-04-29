@@ -96,7 +96,8 @@ env:
     # Test environment for cloud provider, please keep it synced between the workflows
     AZURE_REGION: swedencentral
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # TODO: REVERT BEFORE MERGE — disable cleanup to speed up iteration
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
 
     # TEST VARIABLES
 
@@ -139,7 +140,8 @@ jobs:
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
 
                   ref_arch: ${{ inputs.ref-arch }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  # TODO: REVERT BEFORE MERGE — pin fixed name to reuse cluster across runs
+                  cluster_name: ${{ inputs.cluster_name || 'iter-aks' }}
     prepare-clusters:
         name: Prepare clusters
         needs:

@@ -80,7 +80,8 @@ env:
     TLD: camunda.ie
     MAIL_OVERWRITE: admin@camunda.ie
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # TODO: REVERT BEFORE MERGE — disable cleanup to speed up iteration
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
 
     # TEST VARIABLES
 
@@ -127,7 +128,8 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  cluster_name: ${{ inputs.cluster_name }}
+                  # TODO: REVERT BEFORE MERGE — pin fixed name to reuse cluster across runs
+                  cluster_name: ${{ inputs.cluster_name || 'iter-eks' }}
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
