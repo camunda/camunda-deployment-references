@@ -7,7 +7,7 @@ No modules.
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [aws_route.cluster_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
 | [aws_route.cluster_0_private](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
 | [aws_route.cluster_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
@@ -28,7 +28,7 @@ No modules.
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_cluster_0_region"></a> [cluster\_0\_region](#input\_cluster\_0\_region) | Region of the cluster 0 | `string` | `"us-east-1"` | no |
 | <a name="input_cluster_0_vpc_id"></a> [cluster\_0\_vpc\_id](#input\_cluster\_0\_vpc\_id) | VPC ID of the cluster 0 | `string` | n/a | yes |
 | <a name="input_cluster_1_region"></a> [cluster\_1\_region](#input\_cluster\_1\_region) | Region of the cluster 1 | `string` | `"us-east-2"` | no |

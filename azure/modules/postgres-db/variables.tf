@@ -33,7 +33,8 @@ variable "admin_password" {
 variable "postgres_version" {
   description = "PostgreSQL version"
   type        = string
-  # renovate: datasource=endoflife-date depName=postgresql versioning=loose
+  # AKS Flexible Server only supports the major version, so we pin to major only.
+  # renovate: datasource=endoflife-date depName=postgresql versioning=loose extractVersion=^(?<version>\d+)
   default = "17"
 }
 
