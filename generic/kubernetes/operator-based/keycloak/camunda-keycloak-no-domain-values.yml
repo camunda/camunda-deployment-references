@@ -29,11 +29,6 @@ global:
         keycloak:
             # For external Keycloak managed by operator
             internal: false # Disable internal Keycloak
-            url:
-                # Configuration for external Keycloak service
-                protocol: http
-                host: keycloak-service
-                port: '18080'
             contextPath: /auth
             realm: /realms/camunda-platform
             auth:
@@ -52,8 +47,6 @@ orchestration:
 
 identityKeycloak:
     enabled: false
-    postgresql:
-        enabled: false
 
 identity:
     enabled: true

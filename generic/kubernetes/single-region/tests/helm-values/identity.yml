@@ -35,11 +35,3 @@ identity:
                 definition: delete:*
               - resourceServerId: console-api
                 definition: write:*
-
-orchestration:
-    security:
-        initialization:
-            defaultRoles:
-                admin:
-                    clients:
-                        - venom

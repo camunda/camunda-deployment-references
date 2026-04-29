@@ -82,7 +82,6 @@ webModeler:
 
     restapi:
         externalDatabase:
-            enabled: true
             url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_WEBMODELER_NAME}?sslmode=require
             user: ${DB_WEBMODELER_USERNAME}
             secret:
