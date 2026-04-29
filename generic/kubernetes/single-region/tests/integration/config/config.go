@@ -39,6 +39,10 @@ type Config struct {
 	ZeebeGatewayURL  string // e.g. http://localhost:8080
 	KeycloakURL      string // e.g. http://localhost:18080/auth
 	ElasticsearchURL string // e.g. http://localhost:9200
+	// Optional Elasticsearch HTTP basic auth (used by preflight probes when
+	// the cluster is deployed with security enabled, e.g. ECK operator).
+	ElasticsearchUser     string
+	ElasticsearchPassword string
 	OrchestrationURL string // internal orchestration URL
 	ConnectorsURL    string
 	IdentityURL      string
@@ -74,6 +78,9 @@ func FromEnv() (*Config, error) {
 		ConsoleEnabled:       envBool("CONSOLE_ENABLED", false),
 		OptimizeEnabled:      envBool("OPTIMIZE_ENABLED", true),
 
+		ElasticsearchUser:     envOr("TEST_ELASTICSEARCH_USER", ""),
+		ElasticsearchPassword: envOr("TEST_ELASTICSEARCH_PASSWORD", ""),
+
 		HTTPTimeout:   envDuration("TEST_HTTP_TIMEOUT", 30*time.Second),
 		RetryAttempts: envInt("TEST_RETRY_ATTEMPTS", 3),
 		RetryDelay:    envDuration("TEST_RETRY_DELAY", 10*time.Second),
@@ -84,11 +91,6 @@ func FromEnv() (*Config, error) {
 }
 
 func (c *Config) setServiceURLs() {
-	// Elasticsearch is always reached via a localhost port-forward (it is
-	// never exposed through the public ingress), so resolve its URL in both
-	// domain and no-domain modes.
-	c.ElasticsearchURL = envOr("TEST_ELASTICSEARCH_URL", "http://localhost:9200")
-
 	if c.Domain != "" {
 		base := fmt.Sprintf("https://%s", c.Domain)
 		c.ZeebeGatewayURL = base
@@ -103,10 +105,14 @@ func (c *Config) setServiceURLs() {
 		c.ConsoleURL = envOr("TEST_CONSOLE_URL", base+"/console")
 		c.OptimizeURL = envOr("TEST_OPTIMIZE_URL", base+"/optimize")
 		c.WebModelerURL = envOr("TEST_WEBMODELER_URL", base+"/modeler")
+		// Elasticsearch is never exposed via the public ingress, so always
+		// require a port-forwarded URL (defaults to localhost:9200).
+		c.ElasticsearchURL = envOr("TEST_ELASTICSEARCH_URL", "http://localhost:9200")
 	} else {
 		// Port-forward mode: services at localhost
 		c.ZeebeGatewayURL = envOr("TEST_ZEEBE_GATEWAY_URL", "http://localhost:8080")
 		c.KeycloakURL = envOr("TEST_KEYCLOAK_URL", "http://localhost:18080/auth")
+		c.ElasticsearchURL = envOr("TEST_ELASTICSEARCH_URL", "http://localhost:9200")
 
 		// Internal service URLs (via port-forward or in-cluster)
 		rel := c.ReleaseName

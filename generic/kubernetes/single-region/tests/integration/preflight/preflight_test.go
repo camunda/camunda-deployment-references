@@ -3,10 +3,13 @@
 package preflight
 
 import (
+	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,6 +34,26 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// esGet performs a GET against Elasticsearch using its own basic-auth
+// credentials (when configured). This bypasses the Camunda OIDC/basic auth
+// client because ES has its own user database (e.g. ECK 'elastic' user).
+func esGet(url string) (*http.Response, error) {
+	c := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // self-signed ECK cert
+		},
+	}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.ElasticsearchUser != "" {
+		req.SetBasicAuth(cfg.ElasticsearchUser, cfg.ElasticsearchPassword)
+	}
+	return c.Do(req)
+}
+
 // TestElasticsearchReadiness checks that Elasticsearch cluster is reachable.
 func TestElasticsearchReadiness(t *testing.T) {
 	if !cfg.ElasticsearchEnabled {
@@ -38,7 +61,7 @@ func TestElasticsearchReadiness(t *testing.T) {
 	}
 	url := cfg.ElasticsearchURL + "/_cluster/health?timeout=1s"
 	err := helpers.Retry(cfg.RetryAttempts, cfg.RetryDelay, func() error {
-		resp, err := client.Get(url)
+		resp, err := esGet(url)
 		if err != nil {
 			return fmt.Errorf("request failed: %w", err)
 		}
@@ -58,7 +81,7 @@ func TestElasticsearchLiveness(t *testing.T) {
 	}
 	url := cfg.ElasticsearchURL + "/_cluster/health?wait_for_status=green&timeout=1s"
 	err := helpers.Retry(cfg.RetryAttempts, cfg.RetryDelay, func() error {
-		resp, err := client.Get(url)
+		resp, err := esGet(url)
 		if err != nil {
 			return fmt.Errorf("request failed: %w", err)
 		}

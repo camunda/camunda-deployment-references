@@ -236,6 +236,20 @@ runs:
                       echo "Starting port-forward to ${ES_SVC}:9200..."
                       kubectl port-forward "svc/${ES_SVC}" 9200:9200 -n "$NS" &
                       echo "pf_es_pid=$!" >> "$GITHUB_OUTPUT"
+                      # ECK enables xpack.security by default; expose the
+                      # generated 'elastic' user password so preflight probes
+                      # can authenticate. Bitnami chart leaves ES open, so the
+                      # secret simply won't exist there.
+                      ES_USER=""
+                      ES_PASS=""
+                      if kubectl get secret elasticsearch-es-elastic-user -n "$NS" >/dev/null 2>&1; then
+                          ES_USER="elastic"
+                          ES_PASS=$(kubectl get secret elasticsearch-es-elastic-user \
+                              -n "$NS" -o jsonpath='{.data.elastic}' | base64 -d)
+                          echo "::add-mask::${ES_PASS}"
+                      fi
+                      echo "es_user=${ES_USER}" >> "$GITHUB_OUTPUT"
+                      echo "es_pass=${ES_PASS}" >> "$GITHUB_OUTPUT"
                   else
                       echo "⚠️  No Elasticsearch service found in namespace '${NS}', skipping port-forward"
                   fi
@@ -285,6 +299,8 @@ runs:
               TEST_ORCHESTRATION_URL: ${{ steps.port-forward.outputs.orchestration_local_url }}
               TEST_CONNECTORS_URL: ${{ steps.port-forward.outputs.connectors_local_url }}
               TEST_ELASTICSEARCH_URL: ${{ inputs.elasticsearch-url }}
+              TEST_ELASTICSEARCH_USER: ${{ steps.port-forward.outputs.es_user }}
+              TEST_ELASTICSEARCH_PASSWORD: ${{ steps.port-forward.outputs.es_pass }}
               TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
               TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
           run: |
@@ -319,6 +335,8 @@ runs:
               TEST_ORCHESTRATION_URL: ${{ steps.port-forward.outputs.orchestration_local_url }}
               TEST_CONNECTORS_URL: ${{ steps.port-forward.outputs.connectors_local_url }}
               TEST_ELASTICSEARCH_URL: ${{ inputs.elasticsearch-url }}
+              TEST_ELASTICSEARCH_USER: ${{ steps.port-forward.outputs.es_user }}
+              TEST_ELASTICSEARCH_PASSWORD: ${{ steps.port-forward.outputs.es_pass }}
               TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
               TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
           run: |
