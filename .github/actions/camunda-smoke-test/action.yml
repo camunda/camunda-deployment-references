@@ -120,9 +120,17 @@ runs:
               SVC="${RELEASE}-zeebe-gateway"
 
               echo "Starting port-forward to ${SVC}..."
-              kubectl port-forward "svc/${SVC}" 8080:8080 \
-                  -n "$NS" &
-              echo "pf_zeebe_pid=$!" >> "$GITHUB_OUTPUT"
+              # Detach from the step's bash via setsid + nohup so the PF
+              # survives the composite-action step boundary (otherwise the
+              # GHA runner reaps the child shell's process group between
+              # steps and the next step gets connection-refused on :8080).
+              mkdir -p /tmp/smoke-pf
+              setsid nohup kubectl port-forward "svc/${SVC}" 8080:8080 \
+                  -n "$NS" </dev/null \
+                  >/tmp/smoke-pf/zeebe.log 2>&1 &
+              PF_PID=$!
+              disown "$PF_PID" || true
+              echo "pf_zeebe_pid=${PF_PID}" >> "$GITHUB_OUTPUT"
 
               for i in $(seq 1 30); do
                   CODE=$(curl -s -o /dev/null \
@@ -204,10 +212,16 @@ runs:
               LOCAL_KC_PORT=18080
 
               echo "Port-forwarding ${KC_HOST}..."
-              kubectl port-forward "svc/${KC_HOST}" \
+              # Same setsid/nohup detachment as the Zeebe PF above so the
+              # Keycloak forward survives the composite-action step boundary.
+              mkdir -p /tmp/smoke-pf
+              setsid nohup kubectl port-forward "svc/${KC_HOST}" \
                   "${LOCAL_KC_PORT}:${KC_REMOTE_PORT}" \
-                  -n "$NS" &
-              echo "pf_kc_pid=$!" >> "$GITHUB_OUTPUT"
+                  -n "$NS" </dev/null \
+                  >/tmp/smoke-pf/keycloak.log 2>&1 &
+              PF_KC_PID=$!
+              disown "$PF_KC_PID" || true
+              echo "pf_kc_pid=${PF_KC_PID}" >> "$GITHUB_OUTPUT"
 
               for i in $(seq 1 30); do
                   CODE=$(curl -s -o /dev/null \
