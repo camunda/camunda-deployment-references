@@ -204,8 +204,14 @@ runs:
               KC_HOST_PORT=$(echo "$KC_URL" \
                   | sed 's|^http[s]*://||' | sed 's|/.*||')
               KC_HOST=$(echo "$KC_HOST_PORT" | cut -d: -f1)
-              KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" \
-                  | cut -d: -f2)
+              # Default remote port to 80 (operator/bitnami in-cluster keycloak
+              # services typically expose http on 80 or 18080). When the URL
+              # contains an explicit :port (e.g. keycloak-service:18080), keep it.
+              if [[ "$KC_HOST_PORT" == *:* ]]; then
+                  KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -d: -f2)
+              else
+                  KC_REMOTE_PORT=80
+              fi
               KC_PATH=$(echo "$KC_URL" \
                   | sed 's|^http[s]*://[^/]*||')
 

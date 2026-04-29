@@ -40,12 +40,14 @@ LAST_TOKEN_TIME=0
 TOKEN_REFRESH_INTERVAL=240
 
 get_oidc_token() {
+    # Use --data-urlencode so client_id / client_secret values containing
+    # reserved characters (+, &, =, spaces, ...) are encoded correctly.
     curl -sf --connect-timeout 10 --max-time 30 \
         -X POST "$TOKEN_URL" \
         -H "Content-Type: application/x-www-form-urlencoded" \
-        -d "grant_type=client_credentials" \
-        -d "client_id=${CLIENT_ID}" \
-        -d "client_secret=${CLIENT_SECRET}" 2>/dev/null \
+        --data-urlencode "grant_type=client_credentials" \
+        --data-urlencode "client_id=${CLIENT_ID}" \
+        --data-urlencode "client_secret=${CLIENT_SECRET}" 2>/dev/null \
         | jq -r '.access_token // empty' 2>/dev/null || echo ""
 }
 
@@ -201,12 +203,15 @@ while [[ $(date +%s) -lt $END_TIME ]]; do
 
     CREATED=$((CREATED + BATCH_SIZE))
 
-    # Rate limit: sleep remainder of the second
+    # Rate limit: sleep remainder of the second.
+    # Convert ms to a fractional seconds string with 3 decimal digits so that
+    # e.g. 50ms becomes 0.050s (not 0.50s = 500ms as bare "0.${SLEEP_MS}" would yield).
     BATCH_END=$(date +%s%3N)
     ELAPSED_MS=$((BATCH_END - BATCH_START))
     if [[ $ELAPSED_MS -lt 1000 ]]; then
         SLEEP_MS=$((1000 - ELAPSED_MS))
-        sleep "0.${SLEEP_MS}"
+        SLEEP_SEC=$(printf '0.%03d' "$SLEEP_MS")
+        sleep "$SLEEP_SEC"
     fi
 
     # Log progress every 30s

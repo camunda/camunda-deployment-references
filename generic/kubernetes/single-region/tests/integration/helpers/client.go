@@ -165,7 +165,12 @@ func (c *Client) GetTokenForClient(tokenURL, clientID, clientSecret string) (str
 }
 
 // Retry executes fn up to maxAttempts times with the given delay between attempts.
+// maxAttempts < 1 is normalised to 1 so the function always runs at least once and
+// can never return a nil error without having actually attempted the operation.
 func Retry(maxAttempts int, delay time.Duration, fn func() error) error {
+	if maxAttempts < 1 {
+		maxAttempts = 1
+	}
 	var lastErr error
 	for i := 0; i < maxAttempts; i++ {
 		if err := fn(); err != nil {
@@ -176,6 +181,9 @@ func Retry(maxAttempts int, delay time.Duration, fn func() error) error {
 			continue
 		}
 		return nil
+	}
+	if lastErr == nil {
+		return fmt.Errorf("failed after %d attempts: no error captured", maxAttempts)
 	}
 	return fmt.Errorf("failed after %d attempts: %w", maxAttempts, lastErr)
 }
