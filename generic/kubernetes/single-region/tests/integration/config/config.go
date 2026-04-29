@@ -84,6 +84,11 @@ func FromEnv() (*Config, error) {
 }
 
 func (c *Config) setServiceURLs() {
+	// Elasticsearch is always reached via a localhost port-forward (it is
+	// never exposed through the public ingress), so resolve its URL in both
+	// domain and no-domain modes.
+	c.ElasticsearchURL = envOr("TEST_ELASTICSEARCH_URL", "http://localhost:9200")
+
 	if c.Domain != "" {
 		base := fmt.Sprintf("https://%s", c.Domain)
 		c.ZeebeGatewayURL = base
@@ -102,7 +107,6 @@ func (c *Config) setServiceURLs() {
 		// Port-forward mode: services at localhost
 		c.ZeebeGatewayURL = envOr("TEST_ZEEBE_GATEWAY_URL", "http://localhost:8080")
 		c.KeycloakURL = envOr("TEST_KEYCLOAK_URL", "http://localhost:18080/auth")
-		c.ElasticsearchURL = envOr("TEST_ELASTICSEARCH_URL", "http://localhost:9200")
 
 		// Internal service URLs (via port-forward or in-cluster)
 		rel := c.ReleaseName
