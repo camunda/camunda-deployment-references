@@ -43,12 +43,12 @@ type Config struct {
 	// the cluster is deployed with security enabled, e.g. ECK operator).
 	ElasticsearchUser     string
 	ElasticsearchPassword string
-	OrchestrationURL string // internal orchestration URL
-	ConnectorsURL    string
-	IdentityURL      string
-	ConsoleURL       string
-	OptimizeURL      string
-	WebModelerURL    string
+	OrchestrationURL      string // internal orchestration URL
+	ConnectorsURL         string
+	IdentityURL           string
+	ConsoleURL            string
+	OptimizeURL           string
+	WebModelerURL         string
 
 	// Timeouts
 	HTTPTimeout   time.Duration
