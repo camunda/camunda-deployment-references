@@ -185,6 +185,9 @@ log ""
 log "=== Creating process instances (${PI_PER_SECOND} PI/s for ${DURATION}s) ==="
 
 CREATED=0
+ATTEMPTED=0
+SUCCESS_FILE=$(mktemp /tmp/smoke-success-XXXXXX)
+trap 'rm -f "$SUCCESS_FILE"' EXIT
 START_TIME=$(date +%s)
 END_TIME=$((START_TIME + DURATION))
 BATCH_SIZE=$((PI_PER_SECOND))
@@ -193,15 +196,21 @@ while [[ $(date +%s) -lt $END_TIME ]]; do
     BATCH_START=$(date +%s%3N)
 
     for _ in $(seq 1 "$BATCH_SIZE"); do
-        api_call -X POST "${ZEEBE_URL}/v2/process-instances" \
+        # Append "1" on success only. wait below tolerates per-curl failures
+        # (transient 429 / 5xx) so the smoke test stays resilient.
+        ( api_call -X POST "${ZEEBE_URL}/v2/process-instances" \
             -H "Content-Type: application/json" \
             -H "Accept: application/json" \
             -d "{\"processDefinitionKey\":\"${PROC_DEF_KEY}\"}" \
-            -o /dev/null 2>/dev/null &
+            -o /dev/null 2>/dev/null \
+            && printf '1' >> "$SUCCESS_FILE" ) &
     done
-    wait
+    # Don't abort the whole test on a single transient curl failure; we
+    # rely on SUCCESS_FILE to count only the successful POSTs.
+    wait || true
 
-    CREATED=$((CREATED + BATCH_SIZE))
+    ATTEMPTED=$((ATTEMPTED + BATCH_SIZE))
+    CREATED=$(wc -c < "$SUCCESS_FILE" | tr -d '[:space:]')
 
     # Rate limit: sleep remainder of the second.
     # Convert ms to a fractional seconds string with 3 decimal digits so that
@@ -218,11 +227,11 @@ while [[ $(date +%s) -lt $END_TIME ]]; do
     NOW=$(date +%s)
     ELAPSED=$((NOW - START_TIME))
     if [[ $((ELAPSED % 30)) -eq 0 ]] && [[ $ELAPSED -gt 0 ]]; then
-        log "  Progress: ${CREATED} instances created (${ELAPSED}s elapsed)"
+        log "  Progress: ${CREATED}/${ATTEMPTED} instances created (${ELAPSED}s elapsed)"
     fi
 done
 
-pass "Created ${CREATED} process instances in ${DURATION}s"
+pass "Created ${CREATED}/${ATTEMPTED} process instances in ${DURATION}s"
 
 # ── Wait for propagation ────────────────────────────────────────────
 log ""

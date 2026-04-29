@@ -115,11 +115,15 @@ inputs:
 
 outputs:
     preflight-result:
-        description: "'passed' or 'failed'"
-        value: ${{ steps.preflight.outcome == 'success' && 'passed' || 'failed' }}
+        description: "'passed', 'failed', or 'skipped'"
+        value: >-
+            ${{ steps.preflight.outcome == 'success' && 'passed'
+            || (steps.preflight.outcome == 'skipped' && 'skipped' || 'failed') }}
     core-result:
-        description: "'passed' or 'failed'"
-        value: ${{ steps.core.outcome == 'success' && 'passed' || 'failed' }}
+        description: "'passed', 'failed', or 'skipped'"
+        value: >-
+            ${{ steps.core.outcome == 'success' && 'passed'
+            || (steps.core.outcome == 'skipped' && 'skipped' || 'failed') }}
 
 runs:
     using: composite
@@ -166,39 +170,62 @@ runs:
               RELEASE="${{ inputs.test-release-name }}"
               DOMAIN="${{ inputs.camunda-domain }}"
 
+              # Detach kubectl port-forwards from the composite-action step's
+              # process group with setsid + nohup so they survive across step
+              # boundaries (otherwise the GHA runner reaps the child shell's
+              # process group between steps and follow-up steps get
+              # connection-refused). Mirrors the pattern used in
+              # .github/actions/camunda-smoke-test.
+              mkdir -p /tmp/integ-pf
+              pf() {
+                  local logname="$1"; shift
+                  setsid nohup kubectl port-forward "$@" \
+                      </dev/null \
+                      >"/tmp/integ-pf/${logname}.log" 2>&1 &
+                  local pid=$!
+                  disown "$pid" || true
+                  echo "$pid"
+              }
+
               if [[ -z "$DOMAIN" ]]; then
                   # Zeebe Gateway
                   echo "Starting port-forward to ${RELEASE}-zeebe-gateway..."
-                  kubectl port-forward "svc/${RELEASE}-zeebe-gateway" 8080:8080 -n "$NS" &
-                  echo "pf_zeebe_pid=$!" >> "$GITHUB_OUTPUT"
-
-                  # Keycloak (parse host and port from keycloak-url input)
-                  KC_URL="${{ inputs.keycloak-url }}"
-                  # Default local URL = original URL when port-forward not applicable.
-                  KC_LOCAL_URL="$KC_URL"
-                  if [[ -n "$KC_URL" && "${{ inputs.auth-mode }}" == "oidc" ]]; then
-                      # Strip scheme, then split host:port from path.
-                      KC_NO_SCHEME=$(echo "$KC_URL" | sed 's|^http[s]*://||')
-                      KC_HOST_PORT=$(echo "$KC_NO_SCHEME" | cut -d/ -f1)
-                      KC_PATH="/$(echo "$KC_NO_SCHEME" | cut -s -d/ -f2-)"
-                      [[ "$KC_PATH" == "/" ]] && KC_PATH=""
-                      KC_HOST=$(echo "$KC_HOST_PORT" | cut -d: -f1)
-                      KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -s -d: -f2)
-                      [[ -z "$KC_REMOTE_PORT" ]] && KC_REMOTE_PORT=18080
-                      echo "Starting port-forward to ${KC_HOST}..."
-                      kubectl port-forward "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}" -n "$NS" &
-                      echo "pf_kc_pid=$!" >> "$GITHUB_OUTPUT"
-                      # When the input points at an in-cluster hostname, rewrite to
-                      # localhost so Go tests can reach Keycloak through the forward.
-                      KC_LOCAL_URL="http://localhost:18080${KC_PATH}"
-                  fi
-                  echo "kc_local_url=${KC_LOCAL_URL}" >> "$GITHUB_OUTPUT"
+                  PF_PID=$(pf zeebe "svc/${RELEASE}-zeebe-gateway" 8080:8080 -n "$NS")
+                  echo "pf_zeebe_pid=${PF_PID}" >> "$GITHUB_OUTPUT"
               fi
+
+              # Keycloak port-forward (both no-domain and domain mode):
+              # callers always pass an in-cluster Keycloak URL
+              # (e.g. http://keycloak-service:18080/auth or
+              # http://<release>-keycloak:80/auth) which the GHA runner cannot
+              # reach directly even in domain mode (the public ingress does
+              # not always expose Keycloak). Forward it locally so the Go
+              # tests can hit the OIDC token endpoint via localhost.
+              KC_URL="${{ inputs.keycloak-url }}"
+              # Default local URL = original URL when port-forward not applicable.
+              KC_LOCAL_URL="$KC_URL"
+              if [[ -n "$KC_URL" && "${{ inputs.auth-mode }}" == "oidc" ]]; then
+                  # Strip scheme, then split host:port from path.
+                  KC_NO_SCHEME=$(echo "$KC_URL" | sed 's|^http[s]*://||')
+                  KC_HOST_PORT=$(echo "$KC_NO_SCHEME" | cut -d/ -f1)
+                  KC_PATH="/$(echo "$KC_NO_SCHEME" | cut -s -d/ -f2-)"
+                  [[ "$KC_PATH" == "/" ]] && KC_PATH=""
+                  KC_HOST=$(echo "$KC_HOST_PORT" | cut -d: -f1)
+                  KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -s -d: -f2)
+                  [[ -z "$KC_REMOTE_PORT" ]] && KC_REMOTE_PORT=18080
+                  echo "Starting port-forward to ${KC_HOST}..."
+                  PF_KC_PID=$(pf keycloak "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}" -n "$NS")
+                  echo "pf_kc_pid=${PF_KC_PID}" >> "$GITHUB_OUTPUT"
+                  # Rewrite to localhost so Go tests reach Keycloak through
+                  # the forward.
+                  KC_LOCAL_URL="http://localhost:18080${KC_PATH}"
+              fi
+              echo "kc_local_url=${KC_LOCAL_URL}" >> "$GITHUB_OUTPUT"
 
               # Orchestration actuator (always, port 9600 on the gateway svc)
               echo "Starting port-forward to ${RELEASE}-zeebe-gateway:9600..."
-              kubectl port-forward "svc/${RELEASE}-zeebe-gateway" 9600:9600 -n "$NS" &
-              echo "pf_orch_pid=$!" >> "$GITHUB_OUTPUT"
+              PF_ORCH_PID=$(pf orchestration "svc/${RELEASE}-zeebe-gateway" 9600:9600 -n "$NS")
+              echo "pf_orch_pid=${PF_ORCH_PID}" >> "$GITHUB_OUTPUT"
               echo "orchestration_local_url=http://localhost:9600" >> "$GITHUB_OUTPUT"
 
               # Connectors actuator (always, when service is present)
@@ -206,8 +233,8 @@ runs:
               CONN_LOCAL_PORT="${{ inputs.connectors-local-port }}"
               if kubectl get svc "$CONN_SVC" -n "$NS" >/dev/null 2>&1; then
                   echo "Starting port-forward to ${CONN_SVC}..."
-                  kubectl port-forward "svc/${CONN_SVC}" "${CONN_LOCAL_PORT}:8080" -n "$NS" &
-                  echo "pf_conn_pid=$!" >> "$GITHUB_OUTPUT"
+                  PF_CONN_PID=$(pf connectors "svc/${CONN_SVC}" "${CONN_LOCAL_PORT}:8080" -n "$NS")
+                  echo "pf_conn_pid=${PF_CONN_PID}" >> "$GITHUB_OUTPUT"
                   CONN_PATH="${{ inputs.connectors-context-path }}"
                   # Strip trailing slash so concatenation never doubles up.
                   CONN_PATH="${CONN_PATH%/}"
@@ -234,8 +261,8 @@ runs:
                   done
                   if [[ -n "$ES_SVC" ]]; then
                       echo "Starting port-forward to ${ES_SVC}:9200..."
-                      kubectl port-forward "svc/${ES_SVC}" 9200:9200 -n "$NS" &
-                      echo "pf_es_pid=$!" >> "$GITHUB_OUTPUT"
+                      PF_ES_PID=$(pf elasticsearch "svc/${ES_SVC}" 9200:9200 -n "$NS")
+                      echo "pf_es_pid=${PF_ES_PID}" >> "$GITHUB_OUTPUT"
                       # ECK enables xpack.security by default; expose the
                       # generated 'elastic' user password so preflight probes
                       # can authenticate. Bitnami chart leaves ES open, so the

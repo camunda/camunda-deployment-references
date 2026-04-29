@@ -46,8 +46,8 @@ Tests run from the GHA runner using port-forward (no-domain) or ingress URLs (do
 
 | name | description |
 | --- | --- |
-| `preflight-result` | <p>'passed' or 'failed'</p> |
-| `core-result` | <p>'passed' or 'failed'</p> |
+| `preflight-result` | <p>'passed', 'failed', or 'skipped'</p> |
+| `core-result` | <p>'passed', 'failed', or 'skipped'</p> |
 
 
 ## Runs

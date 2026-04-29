@@ -22,6 +22,7 @@ For non-Kubernetes (ECS Fargate, EC2):
 | `keycloak-url` | <p>In-cluster Keycloak base URL for OIDC auth. Operator: http://keycloak-service:18080/auth Bitnami: http://<release>-keycloak:80/auth</p> | `false` | `""` |
 | `oidc-client-id` | <p>OIDC client ID for M2M authentication. If empty, auto-extracted from <release-name>-credentials secret (client ID defaults to 'orchestration').</p> | `false` | `""` |
 | `oidc-client-secret` | <p>OIDC client secret for M2M authentication. If empty, auto-extracted from <release-name>-credentials secret (key: identity-orchestration-client-token).</p> | `false` | `""` |
+| `oidc-token-url` | <p>OIDC token endpoint URL (e.g., https://<keycloak>/realms/camunda-platform/protocol/openid-connect/token). Required for non-Kubernetes deployments (ECS / EC2) when auth-mode=oidc. In Kubernetes mode this input is ignored — the URL is derived from the auto-port-forwarded Keycloak.</p> | `false` | `""` |
 | `basic-auth-user` | <p>Username for basic auth.</p> | `false` | `demo` |
 | `basic-auth-password` | <p>Password for basic auth.</p> | `false` | `demo` |
 | `benchmark-duration` | <p>Duration in seconds. Default 300 = 5 minutes.</p> | `false` | `300` |
@@ -85,6 +86,12 @@ This action is a `composite` action.
 
     oidc-client-secret:
     # OIDC client secret for M2M authentication. If empty, auto-extracted from <release-name>-credentials secret (key: identity-orchestration-client-token).
+    #
+    # Required: false
+    # Default: ""
+
+    oidc-token-url:
+    # OIDC token endpoint URL (e.g., https://<keycloak>/realms/camunda-platform/protocol/openid-connect/token). Required for non-Kubernetes deployments (ECS / EC2) when auth-mode=oidc. In Kubernetes mode this input is ignored — the URL is derived from the auto-port-forwarded Keycloak.
     #
     # Required: false
     # Default: ""

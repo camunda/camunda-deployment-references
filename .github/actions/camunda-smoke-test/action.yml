@@ -61,6 +61,15 @@ inputs:
             secret (key: identity-orchestration-client-token).
         required: false
         default: ''
+    oidc-token-url:
+        description: >
+            OIDC token endpoint URL (e.g.,
+            https://<keycloak>/realms/camunda-platform/protocol/openid-connect/token).
+            Required for non-Kubernetes deployments (ECS / EC2) when
+            auth-mode=oidc. In Kubernetes mode this input is ignored — the
+            URL is derived from the auto-port-forwarded Keycloak.
+        required: false
+        default: ''
 
     # ── Basic auth inputs ─────────────────────────────────────────
     basic-auth-user:
@@ -271,11 +280,14 @@ runs:
               SMOKE_BASIC_USER: ${{ inputs.basic-auth-user }}
               SMOKE_BASIC_PASSWORD: ${{ inputs.basic-auth-password }}
               SMOKE_OIDC_TOKEN_URL: >-
-                  ${{ steps.oidc-setup.outputs.token_url || '' }}
+                  ${{ steps.oidc-setup.outputs.token_url
+                  || inputs.oidc-token-url }}
               SMOKE_OIDC_CLIENT_ID: >-
-                  ${{ steps.oidc-setup.outputs.client_id || '' }}
+                  ${{ steps.oidc-setup.outputs.client_id
+                  || inputs.oidc-client-id }}
               SMOKE_OIDC_CLIENT_SECRET: >-
-                  ${{ steps.oidc-setup.outputs.client_secret || '' }}
+                  ${{ steps.oidc-setup.outputs.client_secret
+                  || inputs.oidc-client-secret }}
               SMOKE_DURATION: ${{ inputs.benchmark-duration }}
               SMOKE_PI_PER_SECOND: >-
                   ${{ inputs.benchmark-pi-per-second }}
