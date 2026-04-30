@@ -351,9 +351,22 @@ runs:
               TOKEN_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
               CLIENT_ID: ${{ inputs.oidc-client-id }}
               CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
-              ZEEBE_URL: ${{ inputs.zeebe-gateway-url }}
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
           run: |
               set -uo pipefail
+              # In domain mode (e.g. ROSA HCP, AKS with Ingress) Zeebe is
+              # exposed via the cluster ingress at https://<camunda-domain>
+              # and we deliberately do NOT port-forward Zeebe locally.
+              # Hitting zeebe-gateway-url (default http://localhost:8080)
+              # would block ~2.5 min on connection refused. Derive the
+              # warmup URL from camunda-domain when present, fall back to
+              # zeebe-gateway-url for port-forward / local-kind setups.
+              if [[ -n "$CAMUNDA_DOMAIN" ]]; then
+                  ZEEBE_URL="https://${CAMUNDA_DOMAIN}"
+              else
+                  ZEEBE_URL="$ZEEBE_GATEWAY_URL"
+              fi
               if [[ -z "$TOKEN_URL" || -z "$CLIENT_ID" || -z "$CLIENT_SECRET" || -z "$ZEEBE_URL" ]]; then
                   echo "Skipping JWKS warmup: missing TOKEN_URL/CLIENT_ID/CLIENT_SECRET/ZEEBE_URL"
                   exit 0

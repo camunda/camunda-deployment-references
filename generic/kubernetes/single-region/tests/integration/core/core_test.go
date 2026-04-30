@@ -138,14 +138,6 @@ func TestDeployAndVerifyProcess(t *testing.T) {
 func deployAndVerify(t *testing.T, processID, bpmn string) {
 	t.Helper()
 
-	// Write BPMN to temp file
-	tmpFile, err := os.CreateTemp("", "test-process-*.bpmn")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-	_, err = tmpFile.WriteString(bpmn)
-	require.NoError(t, err)
-	tmpFile.Close()
-
 	// Deploy via multipart form
 	t.Run("Deploy", func(t *testing.T) {
 		deployURL := cfg.ZeebeGatewayURL + "/v2/deployments"
