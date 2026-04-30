@@ -76,8 +76,7 @@ env:
     TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
     S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-single-region/ # keep it synced with the name of the module for simplicity
 
-    # TODO: REVERT BEFORE MERGE — disable cleanup to speed up iteration
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
@@ -126,8 +125,7 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  # TODO: REVERT BEFORE MERGE — pin fixed name to reuse cluster across runs
-                  cluster_name: ${{ inputs.cluster_name || 'iter3-rosa-hcp' }}
+                  cluster_name: ${{ inputs.cluster_name }}
                   ref_arch: ${{ inputs.ref-arch }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
