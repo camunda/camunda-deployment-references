@@ -1,18 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-# TODO(docs): before merging, port the explanation block below into
-# camunda-docs (Self-Managed > OpenShift > Ingress / ROSA HCP ALPN h2
-# procedure). See companion script `enable-ingress-http2.sh` and the
-# `secretName` comment in `helm-values/orchestration-route.yml`.
-#
 # Copy the OpenShift router default wildcard TLS secret into the Camunda
-# namespace so that the orchestration gRPC Route can reference it via
-# `tls.secretName`. Without this, the Route falls back to the cluster
-# wildcard cert *served implicitly* by HAProxy, which on ROSA HCP managed
-# clusters never advertises ALPN h2 because the per-SNI `[alpn h2,http/1.1]`
-# entry in HAProxy's `crt-list` is only generated when the Route carries an
-# explicit `spec.tls.certificate`.
+# namespace so the orchestration gRPC Route can reference it via
+# `tls.secretName`. Required on ROSA HCP to make HAProxy advertise ALPN h2
+# (per-SNI `crt-list` mechanism). See the OpenShift / ROSA HCP HTTP/2
+# section in camunda-docs for the rationale.
 #
 # Required env:
 #   CAMUNDA_NAMESPACE                   target namespace (e.g. "camunda")
