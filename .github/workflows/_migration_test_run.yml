@@ -210,8 +210,6 @@ jobs:
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  # TODO: re-enable once camunda/camunda-platform-helm#5938 is released
-                  check-unknown-keys: 'false'
                   exclude-patterns: |
                       Bitnami-based subcharts are deprecated
 
@@ -446,8 +444,6 @@ jobs:
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  # TODO: re-enable once camunda/camunda-platform-helm#5938 is released
-                  check-unknown-keys: 'false'
 
             # --- Phase 4: Validate ---
             - name: Phase 4 - Validate migration

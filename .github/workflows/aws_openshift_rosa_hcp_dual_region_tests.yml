@@ -677,8 +677,6 @@ jobs:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
                   kube-context: ${{ env.CLUSTER_0 }}
-                  # TODO: re-enable once camunda/camunda-platform-helm#5938 is released
-                  check-unknown-keys: 'false'
 
             - name: 🔍 Check for Helm deprecation warnings (region 1)
               uses: ./.github/actions/internal-helm-deprecation-check
@@ -686,8 +684,6 @@ jobs:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   kube-context: ${{ env.CLUSTER_1 }}
-                  # TODO: re-enable once camunda/camunda-platform-helm#5938 is released
-                  check-unknown-keys: 'false'
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/openshift/dual-region
               timeout-minutes: 10
@@ -756,8 +752,6 @@ jobs:
                   # Re-export services after Failback since the test recreates the Helm release without ServiceExports
                   post-failback-script: ./generic/openshift/dual-region/procedure/export-services-submariner.sh
                   distribution: OpenShift
-                  # TODO: re-enable once camunda/camunda-platform-helm#5938 is released
-                  check-unknown-keys: 'false'
 
             - name: 🔬🚨 Get failed Pods info - Cluster 0
               if: failure()

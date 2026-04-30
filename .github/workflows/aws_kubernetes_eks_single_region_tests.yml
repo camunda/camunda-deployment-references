@@ -878,8 +878,6 @@ jobs:
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  # TODO: re-enable once camunda/camunda-platform-helm#5938 is released
-                  check-unknown-keys: 'false'
                   # global.opensearch.enabled is deprecated but still required for the legacy Operate
                   # OpensearchConnector which gates awsEnabled on this flag (see values-domain.yml)
                   # TODO: remove exclude-patterns and global.opensearch from values once the legacy Operate connector is removed from the Helm chart

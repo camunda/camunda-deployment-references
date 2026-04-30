@@ -726,8 +726,6 @@ jobs:
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  # TODO: re-enable once camunda/camunda-platform-helm#5938 is released
-                  check-unknown-keys: 'false'
 
             - name: 👀⏳ Wait for the deployment to be healthy
               timeout-minutes: 10
