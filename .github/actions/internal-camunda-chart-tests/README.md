@@ -2,12 +2,13 @@
 
 ## Description
 
-Run the Camunda Helm chart tests. Already requires the Helm chart to be deployed and cluster access granted.
-This action integrates multiple testing layers: 1. Helm chart integration tests (from camunda-platform-helm) 2. C8 Self-Managed checks (from c8-sm-checks repository):
-   - Deployment verification (checks pods and containers status)
-   - Kubernetes connectivity checks (services and ingress resolution)
-   - AWS IRSA configuration checks (for EKS clusters with IRSA)
-   - Zeebe token generation and connectivity checks
+Run the Camunda Self-Managed checks against an already deployed Helm release. Requires the Helm chart to be deployed and cluster access granted.
+This action wraps the c8-sm-checks repository:
+  - Deployment verification (checks pods and containers status)
+  - Kubernetes connectivity checks (services and ingress resolution)
+  - AWS IRSA configuration checks (for EKS clusters with IRSA)
+  - Zeebe token generation and connectivity checks
+  - Zeebe topology golden-file comparison
 
 All C8 SM checks can be individually enabled/disabled via inputs.
 
@@ -16,11 +17,8 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 
 | name | description | required | default |
 | --- | --- | --- | --- |
-| `tests-camunda-helm-chart-repo-ref` | <p>The branch, tag or commit to checkout</p> | `false` | `main` |
-| `tests-camunda-helm-chart-repo-path` | <p>Path to the Helm chart repository</p> | `false` | `./.camunda_helm_repo` |
 | `tests-c8-sm-checks-repo-ref` | <p>The branch, tag or commit to checkout for c8-sm-checks</p> | `false` | `main` |
 | `tests-c8-sm-checks-repo-path` | <p>Path to clone the c8-sm-checks repository</p> | `false` | `./.c8-sm-checks` |
-| `secrets` | <p>JSON wrapped secrets for easier secret passing</p> | `true` | `""` |
 | `camunda-version` | <p>The version of the Camunda to test</p> | `true` | `""` |
 | `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `""` |
 | `camunda-domain-grpc` | <p>The domain to use for the gRPC tests</p> | `false` | `""` |
@@ -34,7 +32,6 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | `zeebe-topology-golden-file` | <p>The golden file to compare the Zeebe topology output against.</p> | `false` | `./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology-output.json` |
 | `zeebe-topology-check-script` | <p>The script called to the current Zeebe topology.</p> | `false` | `./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh` |
 | `zeebe-authenticated` | <p>Use the authentication layer to interact with zeebe</p> | `false` | `true` |
-| `enable-helm-chart-tests` | <p>Whether the Helm Chart tests should be run</p> | `false` | `true` |
 | `enable-zeebe-client-tests` | <p>Whether the Zeebe Client tests should be run</p> | `false` | `true` |
 | `cluster-1-name` | <p>Optional cluster 1 name for sed replacement (dual-region only)</p> | `false` | `""` |
 | `camunda-namespace-1` | <p>Optional namespace for region 1 (dual-region only)</p> | `false` | `""` |
@@ -62,18 +59,6 @@ This action is a `composite` action.
 ```yaml
 - uses: camunda/camunda-deployment-references/.github/actions/internal-camunda-chart-tests@main
   with:
-    tests-camunda-helm-chart-repo-ref:
-    # The branch, tag or commit to checkout
-    #
-    # Required: false
-    # Default: main
-
-    tests-camunda-helm-chart-repo-path:
-    # Path to the Helm chart repository
-    #
-    # Required: false
-    # Default: ./.camunda_helm_repo
-
     tests-c8-sm-checks-repo-ref:
     # The branch, tag or commit to checkout for c8-sm-checks
     #
@@ -85,12 +70,6 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ./.c8-sm-checks
-
-    secrets:
-    # JSON wrapped secrets for easier secret passing
-    #
-    # Required: true
-    # Default: ""
 
     camunda-version:
     # The version of the Camunda to test
@@ -166,12 +145,6 @@ This action is a `composite` action.
 
     zeebe-authenticated:
     # Use the authentication layer to interact with zeebe
-    #
-    # Required: false
-    # Default: true
-
-    enable-helm-chart-tests:
-    # Whether the Helm Chart tests should be run
     #
     # Required: false
     # Default: true

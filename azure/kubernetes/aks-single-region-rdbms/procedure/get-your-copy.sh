@@ -2,8 +2,7 @@
 set -euo pipefail
 
 # Download a copy of the reference architecture (RDBMS variant)
-# TODO: [release-duty] before the release, update this!
-BRANCH="main"
+BRANCH="stable/8.9"
 
 git clone --depth 1 --branch "$BRANCH" https://github.com/camunda/camunda-deployment-references.git
 

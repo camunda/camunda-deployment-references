@@ -181,6 +181,32 @@ runs:
 
               echo "Detected chart: ${CHART_NAME} version ${CHART_VERSION}"
 
+              # Dynamic skip: the strict unknown-keys validation requires
+              # schema fixes shipped in camunda-platform >= 14.0.2 (not yet
+              # released at time of writing — expected very soon).
+              # On older charts (e.g. 14.0.1) the deployed values contain keys
+              # that are valid at runtime but missing from the bundled
+              # values.schema.json (orchestration.affinity, env[].valueFrom,
+              # global.multiregion, identityKeycloak.image.pullSecrets,
+              # elasticsearch.global.imagePullSecrets, ...).
+              # Refs:
+              #   - https://github.com/camunda/camunda-platform-helm/issues/5930 (bug)
+              #   - https://github.com/camunda/camunda-platform-helm/pull/5938   (merged fix, awaiting 14.0.2 release)
+              # Once 14.0.2 lands, this guard becomes a no-op automatically and
+              # the strict check resumes everywhere.
+              MIN_SCHEMA_VERSION="14.0.2"
+              # Strip pre-release suffix (e.g. "-alpha6", "-dev-...") so that
+              # 14.0.2-alpha1 is still considered >= 14.0.2 for our purposes.
+              CHART_VERSION_BASE=$(echo "${CHART_VERSION}" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+              LOWEST=$(printf '%s\n%s\n' "${CHART_VERSION_BASE}" "${MIN_SCHEMA_VERSION}" | sort -V | head -n1)
+              if [[ "${LOWEST}" != "${MIN_SCHEMA_VERSION}" ]]; then
+                  echo "::warning::Skipping unknown-keys check: chart ${CHART_NAME} ${CHART_VERSION}" \
+                      "predates the schema fixes from camunda-platform-helm ${MIN_SCHEMA_VERSION}" \
+                      "(see https://github.com/camunda/camunda-platform-helm/pull/5938)." \
+                      "Re-enable automatically once ${MIN_SCHEMA_VERSION} is published."
+                  exit 0
+              fi
+
               # Pull the chart to extract its schema.
               # Try the OCI registry first, then fall back to the Helm repo.
               # Pre-release versions (e.g. 14.0.0-alpha6) may not have their
