@@ -129,7 +129,7 @@ jobs:
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
                   # TODO: REVERT BEFORE MERGE — pin fixed name to reuse cluster across runs
-                  cluster_name: ${{ inputs.cluster_name || 'iter-eks' }}
+                  cluster_name: ${{ inputs.cluster_name || 'iter2-eks' }}
                   ref_arch: ${{ inputs.ref-arch }}
                   cluster_prefix: eks-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}

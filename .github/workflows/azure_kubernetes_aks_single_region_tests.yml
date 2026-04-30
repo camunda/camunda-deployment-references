@@ -141,7 +141,7 @@ jobs:
 
                   ref_arch: ${{ inputs.ref-arch }}
                   # TODO: REVERT BEFORE MERGE — pin fixed name to reuse cluster across runs
-                  cluster_name: ${{ inputs.cluster_name || 'iter-aks' }}
+                  cluster_name: ${{ inputs.cluster_name || 'iter2-aks' }}
     prepare-clusters:
         name: Prepare clusters
         needs:
