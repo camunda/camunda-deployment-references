@@ -335,6 +335,68 @@ runs:
               echo "🧪 Running preflight tests..."
               go test ${{ inputs.go-test-args }} ./preflight/...
 
+        # Warm up the Zeebe Gateway → Identity JWKS path on cold clusters
+        # (notably ROSA HCP). The Spring OAuth resource server lazily fetches
+        # the JWK set on the FIRST authenticated request and caches it; if
+        # intra-cluster networking is still warming up, that fetch times out
+        # (~40s) and the request returns 500 with "Couldn't retrieve JWK
+        # set from URL: Connect timed out". Subsequent requests then succeed
+        # almost immediately. Doing this probe in the workflow (instead of
+        # bumping per-test retries) keeps the actual tests fast and their
+        # failure messages meaningful.
+        - name: 🔥 Warm up Zeebe Gateway JWKS cache
+          if: inputs.run-core == 'true' && inputs.auth-mode == 'oidc'
+          shell: bash
+          env:
+              TOKEN_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
+              CLIENT_ID: ${{ inputs.oidc-client-id }}
+              CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
+              ZEEBE_URL: ${{ inputs.zeebe-gateway-url }}
+          run: |
+              set -uo pipefail
+              if [[ -z "$TOKEN_URL" || -z "$CLIENT_ID" || -z "$CLIENT_SECRET" || -z "$ZEEBE_URL" ]]; then
+                  echo "Skipping JWKS warmup: missing TOKEN_URL/CLIENT_ID/CLIENT_SECRET/ZEEBE_URL"
+                  exit 0
+              fi
+              # Keycloak token-url ends with /auth — the actual token endpoint
+              # is /auth/realms/camunda-platform/protocol/openid-connect/token.
+              REALM_TOKEN_URL="${TOKEN_URL%/}/realms/camunda-platform/protocol/openid-connect/token"
+              echo "Fetching M2M token from ${REALM_TOKEN_URL}"
+              TOKEN=$(curl -sf --connect-timeout 10 --max-time 30 \
+                  -X POST "$REALM_TOKEN_URL" \
+                  -H "Content-Type: application/x-www-form-urlencoded" \
+                  --data-urlencode "grant_type=client_credentials" \
+                  --data-urlencode "client_id=${CLIENT_ID}" \
+                  --data-urlencode "client_secret=${CLIENT_SECRET}" \
+                  | jq -r '.access_token // empty')
+              if [[ -z "$TOKEN" ]]; then
+                  echo "::warning::Could not obtain M2M token for JWKS warmup; skipping"
+                  exit 0
+              fi
+              echo "::add-mask::${TOKEN}"
+              # Probe Zeebe Gateway with a cheap authenticated request until it
+              # stops returning 5xx (JWKS cache miss). 30 attempts × 5s = 2.5min
+              # max — long enough for ROSA HCP cold start, short enough to
+              # surface real auth failures.
+              echo "Warming up ${ZEEBE_URL}/v2/topology…"
+              for i in $(seq 1 30); do
+                  CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                      --connect-timeout 10 --max-time 60 \
+                      -H "Authorization: Bearer ${TOKEN}" \
+                      "${ZEEBE_URL%/}/v2/topology" 2>/dev/null || echo "000")
+                  case "$CODE" in
+                      2*|401|403)
+                          echo "✅ Zeebe Gateway JWT path warm (HTTP ${CODE}) after ${i} attempt(s)"
+                          exit 0
+                          ;;
+                      *)
+                          echo "  attempt ${i}/30: HTTP ${CODE} (waiting 5s)"
+                          sleep 5
+                          ;;
+                  esac
+              done
+              echo "::warning::JWKS warmup did not converge after 30 attempts; tests will retry."
+
         - name: 🧪 Run Core Tests
           id: core
           if: inputs.run-core == 'true'
