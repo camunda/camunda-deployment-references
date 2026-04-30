@@ -236,7 +236,34 @@ pass "Created ${CREATED}/${ATTEMPTED} process instances in ${DURATION}s"
 # ── Wait for propagation ────────────────────────────────────────────
 log ""
 log "=== Waiting ${PROPAGATION_WAIT}s for search index propagation ==="
-sleep "$PROPAGATION_WAIT"
+# Keep the kubectl port-forwards alive during the propagation wait.
+# A bare `sleep 60` lets the SPDY/TCP idle timer (typically 4 min on
+# managed cloud LBs, but as low as 60s on AKS LB / Azure ILB / some
+# CNIs) close both port-forward streams. When they die, every
+# subsequent verify call returns HTTP 000000 even though Zeebe and
+# Keycloak are healthy. Probing /v2/topology and the OIDC token
+# endpoint every 10s keeps both PFs warm.
+KEEPALIVE_INTERVAL=10
+KA_END=$(($(date +%s) + PROPAGATION_WAIT))
+while [[ $(date +%s) -lt $KA_END ]]; do
+    # Zeebe REST: cheapest healthcheck. Ignore failures — the verify
+    # loop below will diagnose any persistent unreachability.
+    curl -s -o /dev/null --connect-timeout 5 --max-time 10 \
+        "${AUTH_ARGS[@]}" "${ZEEBE_URL}/v2/topology" 2>/dev/null || true
+    # Keycloak: hit the token endpoint to keep its PF warm. We discard
+    # the response; refresh_auth will obtain fresh credentials before
+    # the verify loop.
+    if [[ "$AUTH_MODE" == "oidc" && -n "$TOKEN_URL" ]]; then
+        curl -s -o /dev/null --connect-timeout 5 --max-time 10 \
+            -X POST "$TOKEN_URL" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "grant_type=client_credentials" \
+            --data-urlencode "client_id=${CLIENT_ID}" \
+            --data-urlencode "client_secret=${CLIENT_SECRET}" \
+            2>/dev/null || true
+    fi
+    sleep "$KEEPALIVE_INTERVAL"
+done
 
 # ── Verify process instances ────────────────────────────────────────
 log ""
@@ -288,7 +315,21 @@ for attempt in $(seq 1 "$SEARCH_MAX_ATTEMPTS"); do
         break
     fi
     log "  Attempt ${attempt}/${SEARCH_MAX_ATTEMPTS}: HTTP ${SEARCH_CODE}, found ${FOUND} (need >= ${MIN_EXPECTED}), waiting 10s..."
-    sleep 10
+    # If the search returned HTTP 000000 (connection refused / port-forward
+    # dead), warn loudly so it is obvious in the logs that the issue is
+    # client-side, not Camunda-side. The actual port-forward is owned by
+    # the action.yml step; we cannot restart it from here, but the
+    # /v2/topology probe below keeps the SPDY stream warm and may let
+    # kubectl reopen the underlying connection on next attempt.
+    if [[ "$SEARCH_CODE" == "000" ]]; then
+        log "  WARN: Got HTTP 000 — likely a dropped kubectl port-forward, not a Camunda issue."
+    fi
+    # Split the 10s wait into 2x 5s with a topology ping in the middle so
+    # the Zeebe port-forward never sits idle long enough to be reaped.
+    sleep 5
+    curl -s -o /dev/null --connect-timeout 5 --max-time 10 \
+        "${AUTH_ARGS[@]}" "${ZEEBE_URL}/v2/topology" 2>/dev/null || true
+    sleep 5
 done
 
 if [[ "$FOUND" -ge "$MIN_EXPECTED" ]]; then

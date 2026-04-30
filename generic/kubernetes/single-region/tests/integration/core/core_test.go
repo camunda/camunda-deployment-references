@@ -150,11 +150,7 @@ func deployAndVerify(t *testing.T, processID, bpmn string) {
 	t.Run("Deploy", func(t *testing.T) {
 		deployURL := cfg.ZeebeGatewayURL + "/v2/deployments"
 
-		file, err := os.Open(tmpFile.Name())
-		require.NoError(t, err)
-		defer file.Close()
-
-		// Build multipart request
+		// Build multipart body once — it's cheap to rebuild on retry.
 		var b strings.Builder
 		boundary := "----TestBoundary"
 		b.WriteString("--" + boundary + "\r\n")
@@ -162,20 +158,45 @@ func deployAndVerify(t *testing.T, processID, bpmn string) {
 		b.WriteString("Content-Type: application/octet-stream\r\n\r\n")
 		b.WriteString(bpmn)
 		b.WriteString("\r\n--" + boundary + "--\r\n")
+		body := b.String()
 
-		req, err := http.NewRequest(http.MethodPost, deployURL, strings.NewReader(b.String()))
-		require.NoError(t, err)
-		req.Header.Set("Content-Type", "multipart/form-data; boundary="+boundary)
-		req.Header.Set("Accept", "application/json")
+		// Retry on transient 5xx (e.g. JWT JWK-set fetch timeouts when
+		// Identity/Keycloak briefly hiccups between deploys — observed on
+		// ROSA HCP). 4xx are returned without retry.
+		var lastBody string
+		var lastStatus int
+		err := helpers.Retry(5, cfg.RetryDelay, func() error {
+			req, err := http.NewRequest(http.MethodPost, deployURL, strings.NewReader(body))
+			if err != nil {
+				return err
+			}
+			req.Header.Set("Content-Type", "multipart/form-data; boundary="+boundary)
+			req.Header.Set("Accept", "application/json")
 
-		resp, err := client.Do(req)
-		require.NoError(t, err)
-		body, err := helpers.ReadBody(resp)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode, "deploy should succeed: %s", body)
+			resp, err := client.Do(req)
+			if err != nil {
+				return err
+			}
+			respBody, err := helpers.ReadBody(resp)
+			if err != nil {
+				return err
+			}
+			lastBody = respBody
+			lastStatus = resp.StatusCode
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+			// Only retry on transient server errors; surface 4xx immediately.
+			if resp.StatusCode >= 500 {
+				return fmt.Errorf("deploy returned %d: %s", resp.StatusCode, respBody)
+			}
+			return nil
+		})
+		require.NoError(t, err, "deploy should succeed after retries: %s", lastBody)
+		require.Equal(t, http.StatusOK, lastStatus, "deploy should succeed: %s", lastBody)
 
 		var result map[string]interface{}
-		require.NoError(t, json.Unmarshal([]byte(body), &result))
+		require.NoError(t, json.Unmarshal([]byte(lastBody), &result))
 
 		deployments, ok := result["deployments"].([]interface{})
 		require.True(t, ok, "response should have deployments array")
