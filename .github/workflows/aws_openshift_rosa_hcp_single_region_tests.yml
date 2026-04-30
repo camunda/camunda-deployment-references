@@ -127,7 +127,7 @@ jobs:
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
                   # TODO: REVERT BEFORE MERGE — pin fixed name to reuse cluster across runs
-                  cluster_name: ${{ inputs.cluster_name || 'iter2-rosa-hcp' }}
+                  cluster_name: ${{ inputs.cluster_name || 'iter3-rosa-hcp' }}
                   ref_arch: ${{ inputs.ref-arch }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
