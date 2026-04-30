@@ -242,23 +242,52 @@ sleep "$PROPAGATION_WAIT"
 log ""
 log "=== Verifying process instances ==="
 
-refresh_auth
-
-FOUND=0
-for attempt in $(seq 1 18); do
-    SEARCH_RESP=$(api_call -X POST \
-        "${ZEEBE_URL}/v2/process-instances/search" \
+# Helper: search the secondary storage with explicit HTTP code + body
+# capture so failures are diagnosable instead of being silently swallowed
+# by `curl -sf` (which returns empty body on HTTP 4xx/5xx). Stores the
+# response in $SEARCH_RESP and the HTTP status in $SEARCH_CODE.
+search_process_instances() {
+    local body="$1"
+    local resp_file
+    resp_file=$(mktemp /tmp/smoke-search-resp-XXXXXX)
+    SEARCH_CODE=$(curl -s -o "$resp_file" -w "%{http_code}" \
+        --connect-timeout 10 --max-time 30 \
+        "${AUTH_ARGS[@]}" \
+        -X POST "${ZEEBE_URL}/v2/process-instances/search" \
         -H "Content-Type: application/json" \
         -H "Accept: application/json" \
-        -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" \
-        2>/dev/null || echo '{}')
+        -d "$body" 2>/dev/null || echo "000")
+    SEARCH_RESP=$(cat "$resp_file")
+    rm -f "$resp_file"
+}
 
-    FOUND=$(echo "$SEARCH_RESP" | jq -r '.page.totalItems // .totalItems // 0' 2>/dev/null || echo "0")
+# Refresh OIDC tokens between create-loop and search loop AND on every
+# attempt: ES indexing of 1485 PIs may push the search past the token
+# expiry, leading to silent 401s.
+FOUND=0
+SEARCH_RESP=""
+SEARCH_CODE="000"
+# Bumped from 18 to 30 attempts (5 min) to tolerate slower-than-usual ES
+# indexing on cold ROSA HCP clusters. Combined with the 60s propagation
+# wait above, total tolerance is ~6 min.
+SEARCH_MAX_ATTEMPTS=30
+for attempt in $(seq 1 "$SEARCH_MAX_ATTEMPTS"); do
+    refresh_auth
+    search_process_instances \
+        "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}"
+
+    if [[ "$SEARCH_CODE" =~ ^2[0-9][0-9]$ ]]; then
+        FOUND=$(echo "$SEARCH_RESP" \
+            | jq -r '.page.totalItems // .totalItems // 0' 2>/dev/null \
+            || echo "0")
+    else
+        FOUND=0
+    fi
 
     if [[ "$FOUND" -ge "$MIN_EXPECTED" ]]; then
         break
     fi
-    log "  Attempt ${attempt}/18: found ${FOUND} (need >= ${MIN_EXPECTED}), waiting 10s..."
+    log "  Attempt ${attempt}/${SEARCH_MAX_ATTEMPTS}: HTTP ${SEARCH_CODE}, found ${FOUND} (need >= ${MIN_EXPECTED}), waiting 10s..."
     sleep 10
 done
 
@@ -266,6 +295,18 @@ if [[ "$FOUND" -ge "$MIN_EXPECTED" ]]; then
     pass "Found ${FOUND} process instances (expected >= ${MIN_EXPECTED})"
 else
     fail_test "Found ${FOUND} process instances (expected >= ${MIN_EXPECTED})"
+    log "  Last search HTTP code: ${SEARCH_CODE}"
+    log "  Last search response : ${SEARCH_RESP:0:1000}"
+
+    # Probe with an empty filter to disambiguate "ES indexer is broken"
+    # from "filter does not match anything". This is purely diagnostic.
+    refresh_auth
+    search_process_instances "{}"
+    PROBE_TOTAL=$(echo "$SEARCH_RESP" \
+        | jq -r '.page.totalItems // .totalItems // 0' 2>/dev/null \
+        || echo "0")
+    log "  Diagnostic probe (empty filter): HTTP ${SEARCH_CODE}, totalItems=${PROBE_TOTAL}"
+    log "  Probe response: ${SEARCH_RESP:0:500}"
 fi
 
 # ── Check for completed instances ───────────────────────────────────
@@ -273,20 +314,23 @@ log ""
 log "=== Checking for completed instances ==="
 
 refresh_auth
+search_process_instances \
+    "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\",\"state\":\"COMPLETED\"}}"
 
-COMPLETED_RESP=$(api_call -X POST \
-    "${ZEEBE_URL}/v2/process-instances/search" \
-    -H "Content-Type: application/json" \
-    -H "Accept: application/json" \
-    -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\",\"state\":\"COMPLETED\"}}" \
-    2>/dev/null || echo '{}')
-
-COMPLETED=$(echo "$COMPLETED_RESP" | jq -r '.page.totalItems // .totalItems // 0' 2>/dev/null || echo "0")
+if [[ "$SEARCH_CODE" =~ ^2[0-9][0-9]$ ]]; then
+    COMPLETED=$(echo "$SEARCH_RESP" \
+        | jq -r '.page.totalItems // .totalItems // 0' 2>/dev/null \
+        || echo "0")
+else
+    COMPLETED=0
+fi
 
 if [[ "$COMPLETED" -gt 0 ]]; then
     pass "${COMPLETED} instances completed end-to-end"
 else
     fail_test "No completed instances found"
+    log "  Last search HTTP code: ${SEARCH_CODE}"
+    log "  Last search response : ${SEARCH_RESP:0:1000}"
 fi
 
 # ── Cleanup: delete deployed process ────────────────────────────────
