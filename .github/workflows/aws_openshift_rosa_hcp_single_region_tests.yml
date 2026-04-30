@@ -651,6 +651,67 @@ jobs:
                       || format('http://{0}-keycloak:80/auth',
                       env.CAMUNDA_RELEASE_NAME) }}
 
+            # Diagnostic step: probe ALPN/h2 negotiation on the Zeebe gRPC route.
+            # ROSA HCP managed clusters block cluster-wide HTTP/2 enablement;
+            # we need to confirm whether HAProxy actually advertises h2 in ALPN
+            # before deciding on a fix. Best-effort, never fails the job.
+            # See: TestOrchestrationGRPC in generic/kubernetes/single-region/tests/integration/core/grpc_test.go
+            - name: 🔍 Diagnose Zeebe gRPC ALPN (h2)
+              if: env.TESTS_ENABLED == 'true' && matrix.declination.name == 'domain'
+              continue-on-error: true
+              timeout-minutes: 3
+              env:
+                  ZEEBE_GRPC_ENDPOINT: ${{ env.CAMUNDA_GRPC_DOMAIN }}
+              run: |
+                  set -uo pipefail
+                  HOST="${ZEEBE_GRPC_ENDPOINT%%:*}"
+                  echo "Probing ${ZEEBE_GRPC_ENDPOINT} (SNI=${HOST})"
+
+                  echo "::group::openssl s_client — request ALPN h2"
+                  openssl s_client -connect "${ZEEBE_GRPC_ENDPOINT}" \
+                      -servername "${HOST}" -alpn h2 </dev/null 2>&1 \
+                      | grep -E "ALPN|^Protocol|subject=|issuer=|Verify return|negotiated" \
+                      || echo "(no relevant lines)"
+                  echo "::endgroup::"
+
+                  echo "::group::openssl s_client — request ALPN h2,http/1.1"
+                  openssl s_client -connect "${ZEEBE_GRPC_ENDPOINT}" \
+                      -servername "${HOST}" -alpn h2,http/1.1 </dev/null 2>&1 \
+                      | grep -E "ALPN|^Protocol|negotiated" \
+                      || echo "(no relevant lines)"
+                  echo "::endgroup::"
+
+                  echo "::group::openssl s_client — no ALPN request (baseline)"
+                  openssl s_client -connect "${ZEEBE_GRPC_ENDPOINT}" \
+                      -servername "${HOST}" </dev/null 2>&1 \
+                      | grep -E "ALPN|^Protocol|subject=|issuer=|Verify return" \
+                      || echo "(no relevant lines)"
+                  echo "::endgroup::"
+
+                  echo "::group::curl --http2 over TLS"
+                  curl -sS -o /dev/null -w "http_version=%{http_version}\nhttp_code=%{http_code}\n" \
+                      --http2 -k "https://${ZEEBE_GRPC_ENDPOINT}/" || true
+                  echo "::endgroup::"
+
+                  echo "::group::Route definition (Zeebe)"
+                  oc -n "${CAMUNDA_NAMESPACE:-camunda}" get route -o yaml \
+                      | grep -E "name:|host:|termination:|insecureEdge|targetPort:|secretName:" \
+                      || true
+                  echo "::endgroup::"
+
+                  echo "::group::IngressController default-enable-http2 annotation"
+                  oc -n openshift-ingress-operator get ingresscontroller default \
+                      -o jsonpath='{.metadata.annotations}' | tr ',' '\n' || true
+                  echo
+                  echo "::endgroup::"
+
+                  echo "::group::router-default ROUTER_* env (HTTP/2 toggle)"
+                  oc -n openshift-ingress get pod \
+                      -l ingresscontroller.operator.openshift.io/deployment-ingresscontroller=default \
+                      -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{range .spec.containers[0].env[?(@.name)]}{"  "}{.name}{"="}{.value}{"\n"}{end}{end}' \
+                      2>/dev/null | grep -iE "name=|http2|alpn" || true
+                  echo "::endgroup::"
+
             - name: 🧪 Run Go Integration Tests (replaces Venom)
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 20
