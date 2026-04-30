@@ -18,10 +18,12 @@ oc -n openshift-ingress-operator annotate --overwrite \
 # Cluster-wide flag — best effort. If the managed admission webhook denies it
 # (typical on ROSA HCP) we keep going with only the IngressController-level
 # annotation, which is enough on most ROSA HCP setups.
+HTTP2_ANNO_ERR="$(mktemp -t http2-cluster-anno.err.XXXXXX)"
+trap 'rm -f "$HTTP2_ANNO_ERR"' EXIT
 if ! oc annotate --overwrite ingresses.config/cluster \
-    ingress.operator.openshift.io/default-enable-http2=true 2>/tmp/http2-cluster-anno.err; then
+    ingress.operator.openshift.io/default-enable-http2=true 2>"$HTTP2_ANNO_ERR"; then
     echo "⚠️  Could not set cluster-wide HTTP/2 annotation (often denied by ROSA managed webhook):"
-    sed 's/^/    /' /tmp/http2-cluster-anno.err || true
+    sed 's/^/    /' "$HTTP2_ANNO_ERR" || true
     echo "   Continuing with IngressController-level annotation only."
 fi
 
