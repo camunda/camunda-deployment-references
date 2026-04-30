@@ -14,7 +14,7 @@ A set of utility steps to be used across different workflows, including:
 | name | description | required | default |
 | --- | --- | --- | --- |
 | `awscli-version` | <p>Version of the AWS CLI to install</p> | `false` | `2.15.52` |
-| `terraform-version` | <p>Version of Terraform to install</p> | `false` | `latest` |
+| `terraform-version` | <p>Version of Terraform to install. Use an empty string or 'latest' to read the version from the consumer repo's .tool-versions file (falls back to 'latest' when neither is present).</p> | `false` | `""` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
 | `aws-region` | <p>AWS region to use for S3 bucket operations</p> | `true` | `""` |
@@ -50,10 +50,12 @@ This action is a `composite` action.
     # Default: 2.15.52
 
     terraform-version:
-    # Version of Terraform to install
+    # Version of Terraform to install. Use an empty string or 'latest' to
+    # read the version from the consumer repo's .tool-versions file
+    # (falls back to 'latest' when neither is present).
     #
     # Required: false
-    # Default: latest
+    # Default: ""
 
     s3-backend-bucket:
     # Name of the S3 bucket to store Terraform state
