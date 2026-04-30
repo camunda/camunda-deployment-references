@@ -456,6 +456,17 @@ jobs:
 
                     ./generic/openshift/single-region/procedure/enable-ingress-http2.sh
 
+                    # ROSA HCP override: HAProxy only advertises ALPN h2 per-SNI
+                    # via a `crt-list` entry, which requires the gRPC Route to
+                    # carry an explicit `spec.tls.certificate`. Copy the router
+                    # default wildcard TLS secret into the Camunda namespace and
+                    # override the chart's default `secretName: '-'` to reference
+                    # it so the rendered Route gets the cert inlined.
+                    export CAMUNDA_PLATFORM_ROUTER_TLS_SECRET="camunda-platform-router-tls"
+                    ./generic/openshift/single-region/procedure/copy-router-tls-secret.sh
+                    yq -i ".orchestration.ingress.grpc.tls.secretName = \"$CAMUNDA_PLATFORM_ROUTER_TLS_SECRET\"" \
+                        generic/openshift/single-region/helm-values/orchestration-route.yml
+
                     # Enable Routes
                     for file in orchestration-route.yml connectors-route.yml domain.yml; do
                         yq ". *+ load(\"generic/openshift/single-region/helm-values/$file\")" values.yml > values-result.yml

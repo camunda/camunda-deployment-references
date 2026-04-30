@@ -488,6 +488,17 @@ jobs:
                           echo "Enable HTTP/2 on OpenShift Ingress Controller"
                           source ./../../openshift/single-region/procedure/get-ingress-http2-status.sh
                           ./../../openshift/single-region/procedure/enable-ingress-http2.sh
+
+                          # ROSA HCP override: HAProxy only advertises ALPN h2
+                          # per-SNI via a `crt-list` entry, which requires the
+                          # gRPC Route to carry an explicit `spec.tls.certificate`.
+                          # Copy the router default wildcard TLS secret into the
+                          # Camunda namespace; the secret name is then injected
+                          # into the chart values below (replacing the default
+                          # `secretName: '-'` in `orchestration-route.yml`).
+                          export CAMUNDA_PLATFORM_ROUTER_TLS_SECRET="camunda-platform-router-tls"
+                          echo "CAMUNDA_PLATFORM_ROUTER_TLS_SECRET=$CAMUNDA_PLATFORM_ROUTER_TLS_SECRET" | tee -a "$GITHUB_ENV"
+                          ./../../openshift/single-region/procedure/copy-router-tls-secret.sh
                       else
                           # EKS and other Kubernetes clusters use camunda.ie
                           BASE_DOMAIN="camunda.ie"
@@ -552,7 +563,7 @@ jobs:
                         .global.ingress.annotations."route.openshift.io/termination" = "edge" |
                         .global.ingress.tls.secretName = "-" |
                         del(.orchestration.ingress.grpc.annotations."kubernetes.io/tls-acme") |
-                        .orchestration.ingress.grpc.tls.secretName = "-"
+                        .orchestration.ingress.grpc.tls.secretName = strenv(CAMUNDA_PLATFORM_ROUTER_TLS_SECRET)
                       ' > camunda-assembled-values-raw-temp.yml
                       mv camunda-assembled-values-raw-temp.yml camunda-assembled-values-raw.yml
 

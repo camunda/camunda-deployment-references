@@ -17,7 +17,25 @@ orchestration:
             className: openshift-default
             tls:
                 enabled: true
-                # explicitely '-' as secret name as we rely on the IngressOperator to handle the TLS secret, if you use a custom certificate, you might want to fill this value
+                # TODO(docs): before merging, port the explanation below into
+                # camunda-docs (Self-Managed > OpenShift > Ingress / ROSA HCP
+                # ALPN h2 procedure). Reference companion scripts:
+                #   procedure/enable-ingress-http2.sh
+                #   procedure/copy-router-tls-secret.sh
+                #
+                # Default value `'-'` lets the Ingress Operator manage the Route TLS
+                # certificate automatically. This works on self-managed OpenShift
+                # clusters that advertise ALPN h2 on default certs (e.g. with
+                # cluster-wide `default-enable-http2=true`, see
+                # `procedure/enable-ingress-http2.sh`).
+                #
+                # On ROSA HCP managed clusters, HAProxy only advertises ALPN h2
+                # per-SNI via a `crt-list` entry, which requires the Route to
+                # carry an explicit `spec.tls.certificate`. In that case, override
+                # this value (e.g. with `yq`) to reference a Secret holding the
+                # router default wildcard cert (provisioned by
+                # `procedure/copy-router-tls-secret.sh`), for example:
+                #     secretName: camunda-platform-router-tls
                 secretName: '-'
             host: zeebe-${CAMUNDA_DOMAIN}
 
