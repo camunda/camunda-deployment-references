@@ -40,7 +40,10 @@ if [[ -n "${CAMUNDA_DISTRO_USER}" && -n "${CAMUNDA_DISTRO_PASSWORD}" ]]; then
     chmod 600 "${CURL_NETRC_FILE}"
     printf 'machine artifacts.camunda.com login %s password %s\n' "${CAMUNDA_DISTRO_USER}" "${CAMUNDA_DISTRO_PASSWORD}" > "${CURL_NETRC_FILE}"
     CURL_AUTH_OPTS=(--netrc-file "${CURL_NETRC_FILE}")
-    trap 'rm -f "${CURL_NETRC_FILE}"' EXIT
+    # Use sudo because ownership of the netrc file is later transferred to the
+    # camunda user (see chown below); without sudo, rm would fail due to the
+    # /tmp sticky bit and the EXIT trap would propagate a non-zero exit code.
+    trap 'sudo rm -f "${CURL_NETRC_FILE}" || true' EXIT
 else
     echo "[WARN] No Artifactory authentication credentials configured. Downloads may fail for Enterprise artifacts."
 fi
@@ -140,12 +143,14 @@ rm -rf "${MNT_DIR}/camunda.tar.gz"
 
 mkdir -p "${MNT_DIR}/connectors/"
 
+# --fail-with-body (instead of -f) keeps the response body on HTTP error so the
+# Artifactory error message (e.g. 401/403 JSON) is visible in CI logs.
 if [[ "${CAMUNDA_CONNECTORS_VERSION}" =~ "SNAPSHOT" ]]; then
     # shellcheck disable=SC2086
-    curl -fL ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CONNECTORS_SNAPSHOT_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
+    curl -L --fail-with-body --show-error -w "[INFO] connectors download: HTTP %{http_code} (%{size_download} bytes)\n" ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CONNECTORS_SNAPSHOT_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar" || { echo "[FAIL] connectors download failed; response body:"; cat "${MNT_DIR}/connectors/connectors.jar" 2>/dev/null | head -c 4096; echo; exit 1; }
 else
     # shellcheck disable=SC2086
-    curl -fL ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CAMUNDA_CONNECTORS_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar"
+    curl -L --fail-with-body --show-error -w "[INFO] connectors download: HTTP %{http_code} (%{size_download} bytes)\n" ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CAMUNDA_CONNECTORS_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar" || { echo "[FAIL] connectors download failed; response body:"; cat "${MNT_DIR}/connectors/connectors.jar" 2>/dev/null | head -c 4096; echo; exit 1; }
 fi
 
 curl -fL https://raw.githubusercontent.com/camunda/connectors/main/bundle/default-bundle/start.sh -o "${MNT_DIR}/connectors/start.sh"
