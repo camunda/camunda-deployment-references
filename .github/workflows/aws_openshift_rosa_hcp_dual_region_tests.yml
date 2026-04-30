@@ -756,6 +756,8 @@ jobs:
                   # Re-export services after Failback since the test recreates the Helm release without ServiceExports
                   post-failback-script: ./generic/openshift/dual-region/procedure/export-services-submariner.sh
                   distribution: OpenShift
+                  # TODO: re-enable once camunda/camunda-platform-helm#5938 is released
+                  check-unknown-keys: 'false'
 
             - name: 🔬🚨 Get failed Pods info - Cluster 0
               if: failure()

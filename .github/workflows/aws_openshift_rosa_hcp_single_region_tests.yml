@@ -674,6 +674,10 @@ jobs:
                       && 'http://keycloak-service:18080/auth'
                       || format('http://{0}-keycloak:80/auth',
                       env.CAMUNDA_RELEASE_NAME) }}
+                  # In domain mode the Connectors app is exposed under /connectors
+                  # by the chart's `connectors.contextPath`, so the actuator probes
+                  # need the same prefix when reached through the local port-forward.
+                  connectors-context-path: ${{ matrix.declination.name == 'domain' && '/connectors' || '' }}
                   elasticsearch-enabled: 'false'
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
