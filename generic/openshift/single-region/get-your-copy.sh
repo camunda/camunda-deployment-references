@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Download a copy of the reference architecture
-BRANCH="stable/8.9"
+# TODO: [release-duty] before the release, update this!
+BRANCH="main"
 
 git clone --depth 1 --branch "$BRANCH" https://github.com/camunda/camunda-deployment-references.git
 
