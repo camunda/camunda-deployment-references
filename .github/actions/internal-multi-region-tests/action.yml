@@ -65,6 +65,13 @@ inputs:
             Passed through to internal-helm-deprecation-check using grep -F (fixed-string) semantics.
         required: false
         default: ''
+    check-unknown-keys:
+        description: |
+            Forwarded to internal-helm-deprecation-check. Set to 'false' to skip
+            the strict unknown-keys validation against the chart JSON Schema
+            (e.g. while waiting for an upstream chart fix).
+        required: false
+        default: 'true'
 runs:
     using: composite
     steps:
@@ -159,6 +166,7 @@ runs:
               namespace: ${{ inputs.cluster-0-namespace }}
               kube-context: ${{ inputs.cluster-0-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
+              check-unknown-keys: ${{ inputs.check-unknown-keys }}
 
         - name: 🔍 Check for Helm deprecation warnings (region 1)
           uses: ./.github/actions/internal-helm-deprecation-check
@@ -167,6 +175,7 @@ runs:
               namespace: ${{ inputs.cluster-1-namespace }}
               kube-context: ${{ inputs.cluster-1-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
+              check-unknown-keys: ${{ inputs.check-unknown-keys }}
 
         - name: Set start timestamp for Failover
           shell: bash

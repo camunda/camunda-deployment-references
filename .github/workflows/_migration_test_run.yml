@@ -161,7 +161,9 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: Deploy Camunda with Bitnami sub-charts
-              timeout-minutes: 10
+              # Helm install --timeout is 30m below; give the GHA step a bit
+              # more headroom (download images, helm post-install hooks).
+              timeout-minutes: 35
               run: |
                   set -euo pipefail
 
@@ -173,7 +175,7 @@ jobs:
                       --namespace "${{ env.CAMUNDA_NAMESPACE }}"
                       --values generic/kubernetes/migration/tests/bitnami-values.yml
                       --values generic/kubernetes/migration/tests/bitnami-values-identity-test.yml
-                      --timeout 20m
+                      --timeout 30m
                       --wait
                   )
 
@@ -541,7 +543,6 @@ jobs:
               timeout-minutes: 15
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
-                  secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ''
@@ -553,8 +554,6 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
                   test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
-                  # Disable Venom/Helm chart tests, only run C8-SM-CHECKS
-                  enable-helm-chart-tests: 'false'
                   enable-zeebe-client-tests: 'false'
                   keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200
@@ -624,7 +623,6 @@ jobs:
               timeout-minutes: 15
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
-                  secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ''
@@ -636,7 +634,6 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
                   test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
-                  enable-helm-chart-tests: 'false'
                   enable-zeebe-client-tests: 'false'
                   keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200

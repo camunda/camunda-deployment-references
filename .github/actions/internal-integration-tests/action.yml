@@ -1,0 +1,466 @@
+---
+name: Camunda Integration Tests (Go)
+
+description: >
+    Run local Go-based integration tests against a deployed Camunda cluster.
+    Replaces the Venom-based tests that previously required cloning the
+    camunda-platform-helm repository.
+
+    Two test suites:
+    1. Preflight: Health/readiness checks for all components
+    2. Core: Functional tests (auth, API, process deploy, topology)
+
+    Tests run from the GHA runner using port-forward (no-domain)
+    or ingress URLs (domain mode).
+
+inputs:
+    test-namespace:
+        description: Kubernetes namespace where Camunda is deployed
+        default: camunda
+    test-release-name:
+        description: Helm release name for Camunda
+        default: camunda
+    test-cluster-type:
+        description: Cluster type (kubernetes or openshift)
+        default: kubernetes
+    camunda-domain:
+        description: Domain for ingress-based access. Empty = port-forward mode.
+        default: ''
+    camunda-domain-grpc:
+        description: gRPC domain (e.g. zeebe-domain.example.com:443)
+        default: ''
+    auth-mode:
+        description: 'Authentication mode: oidc, basic, or none'
+        default: oidc
+    oidc-token-url:
+        description: OIDC token endpoint URL
+        default: ''
+    oidc-client-id:
+        description: OIDC client ID
+        default: ''
+    oidc-client-secret:
+        description: OIDC client secret
+        default: ''
+    oidc-m2m-clients:
+        description: >
+            JSON map of additional OIDC client_id -> client_secret pairs to
+            validate via the per-component M2M token test (mirrors the venom
+            "Generating M2M Token" suite). Example:
+            {"connectors":"...","optimize":"..."}
+        default: ''
+    basic-auth-user:
+        description: Username for basic auth
+        default: demo
+    basic-auth-password:
+        description: Password for basic auth
+        default: demo
+    elasticsearch-enabled:
+        description: Whether Elasticsearch is enabled
+        default: 'true'
+    webmodeler-enabled:
+        description: Whether WebModeler is enabled
+        default: 'false'
+    console-enabled:
+        description: Whether Console is enabled
+        default: 'false'
+    optimize-enabled:
+        description: Whether Optimize is enabled
+        default: 'true'
+    zeebe-gateway-url:
+        description: Zeebe gateway URL (for port-forward mode)
+        default: http://localhost:8080
+    keycloak-url:
+        description: Keycloak URL (for port-forward mode)
+        default: http://localhost:18080/auth
+    elasticsearch-url:
+        description: Elasticsearch URL (for port-forward mode)
+        default: http://localhost:9200
+    retry-attempts:
+        description: Number of retry attempts for flaky checks
+        default: '5'
+    retry-delay:
+        description: Delay between retries (Go duration format)
+        default: 10s
+    run-preflight:
+        description: Whether to run preflight tests
+        default: 'true'
+    run-core:
+        description: Whether to run core tests
+        default: 'true'
+    go-test-args:
+        description: Additional arguments to pass to go test
+        default: -v -count=1
+    local-domain-mode:
+        description: >
+            Add /etc/hosts entries so the runner can resolve `camunda-domain`
+            (and the gRPC variant) to `local-domain-ip`. Required for Kind +
+            domain mode, where the ingress is reachable through localhost.
+        default: 'false'
+    local-domain-ip:
+        description: IP used for local-domain-mode /etc/hosts entries.
+        default: 127.0.0.1
+    connectors-service-name:
+        description: Service name for Connectors (used to set up port-forward in no-domain mode).
+        default: camunda-connectors
+    connectors-local-port:
+        description: Local port to forward Connectors onto (no-domain mode).
+        default: '8081'
+    connectors-context-path:
+        description: |
+            Context path under which the Connectors app is exposed (matches
+            helm value `connectors.contextPath`). Appended to the local
+            connectors URL so /actuator/health/* probes resolve correctly.
+            Leave empty when the chart serves connectors at root.
+        default: ''
+
+outputs:
+    preflight-result:
+        description: "'passed', 'failed', or 'skipped'"
+        value: >-
+            ${{ steps.preflight.outcome == 'success' && 'passed'
+            || (steps.preflight.outcome == 'skipped' && 'skipped' || 'failed') }}
+    core-result:
+        description: "'passed', 'failed', or 'skipped'"
+        value: >-
+            ${{ steps.core.outcome == 'success' && 'passed'
+            || (steps.core.outcome == 'skipped' && 'skipped' || 'failed') }}
+
+runs:
+    using: composite
+    steps:
+        # ==============================================================
+        # /etc/hosts setup (domain mode on Kind / local clusters)
+        # ==============================================================
+        - name: 🔧 Configure /etc/hosts for local domain mode
+          if: ${{ inputs.local-domain-mode == 'true' && inputs.camunda-domain != '' }}
+          shell: bash
+          env:
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
+              LOCAL_DOMAIN_IP: ${{ inputs.local-domain-ip }}
+          run: |
+              set -euo pipefail
+              echo "🔧 Configuring /etc/hosts for local domain mode (IP=$LOCAL_DOMAIN_IP)"
+              if ! grep -qE "[[:space:]]${CAMUNDA_DOMAIN}([[:space:]]|$)" /etc/hosts; then
+                  echo "$LOCAL_DOMAIN_IP $CAMUNDA_DOMAIN" | sudo tee -a /etc/hosts
+              fi
+              if [[ -n "$CAMUNDA_DOMAIN_GRPC" ]]; then
+                  GRPC_HOST="${CAMUNDA_DOMAIN_GRPC%%:*}"
+                  if [[ "$GRPC_HOST" != "$CAMUNDA_DOMAIN" ]] && \
+                     ! grep -qE "[[:space:]]${GRPC_HOST}([[:space:]]|$)" /etc/hosts; then
+                      echo "$LOCAL_DOMAIN_IP $GRPC_HOST" | sudo tee -a /etc/hosts
+                  fi
+              fi
+              grep -E "($CAMUNDA_DOMAIN|${CAMUNDA_DOMAIN_GRPC%%:*})" /etc/hosts || true
+
+        # ==============================================================
+        # Port-forwards
+        #   - no-domain mode: forward Zeebe (8080) and Keycloak (18080) so the
+        #     runner can reach the public APIs through localhost.
+        #   - all modes:      forward the internal actuator/management ports
+        #     (Orchestration 9600, Connectors 8080) since /actuator is not
+        #     exposed via the public ingress in domain mode.
+        # ==============================================================
+        - name: 🔌 Set up port-forwards for integration tests
+          id: port-forward
+          shell: bash
+          run: |
+              set -euo pipefail
+              NS="${{ inputs.test-namespace }}"
+              RELEASE="${{ inputs.test-release-name }}"
+              DOMAIN="${{ inputs.camunda-domain }}"
+
+              # Detach kubectl port-forwards from the composite-action step's
+              # process group with setsid + nohup so they survive across step
+              # boundaries (otherwise the GHA runner reaps the child shell's
+              # process group between steps and follow-up steps get
+              # connection-refused). Mirrors the pattern used in
+              # .github/actions/camunda-smoke-test.
+              mkdir -p /tmp/integ-pf
+              pf() {
+                  local logname="$1"; shift
+                  setsid nohup kubectl port-forward "$@" \
+                      </dev/null \
+                      >"/tmp/integ-pf/${logname}.log" 2>&1 &
+                  local pid=$!
+                  disown "$pid" || true
+                  echo "$pid"
+              }
+
+              if [[ -z "$DOMAIN" ]]; then
+                  # Zeebe Gateway
+                  echo "Starting port-forward to ${RELEASE}-zeebe-gateway..."
+                  PF_PID=$(pf zeebe "svc/${RELEASE}-zeebe-gateway" 8080:8080 -n "$NS")
+                  echo "pf_zeebe_pid=${PF_PID}" >> "$GITHUB_OUTPUT"
+              fi
+
+              # Keycloak port-forward (both no-domain and domain mode):
+              # callers always pass an in-cluster Keycloak URL
+              # (e.g. http://keycloak-service:18080/auth or
+              # http://<release>-keycloak:80/auth) which the GHA runner cannot
+              # reach directly even in domain mode (the public ingress does
+              # not always expose Keycloak). Forward it locally so the Go
+              # tests can hit the OIDC token endpoint via localhost.
+              KC_URL="${{ inputs.keycloak-url }}"
+              # Default local URL = original URL when port-forward not applicable.
+              KC_LOCAL_URL="$KC_URL"
+              if [[ -n "$KC_URL" && "${{ inputs.auth-mode }}" == "oidc" ]]; then
+                  # Strip scheme, then split host:port from path.
+                  KC_NO_SCHEME=$(echo "$KC_URL" | sed 's|^http[s]*://||')
+                  KC_HOST_PORT=$(echo "$KC_NO_SCHEME" | cut -d/ -f1)
+                  KC_PATH="/$(echo "$KC_NO_SCHEME" | cut -s -d/ -f2-)"
+                  [[ "$KC_PATH" == "/" ]] && KC_PATH=""
+                  KC_HOST=$(echo "$KC_HOST_PORT" | cut -d: -f1)
+                  KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -s -d: -f2)
+                  [[ -z "$KC_REMOTE_PORT" ]] && KC_REMOTE_PORT=18080
+                  echo "Starting port-forward to ${KC_HOST}..."
+                  PF_KC_PID=$(pf keycloak "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}" -n "$NS")
+                  echo "pf_kc_pid=${PF_KC_PID}" >> "$GITHUB_OUTPUT"
+                  # Rewrite to localhost so Go tests reach Keycloak through
+                  # the forward.
+                  KC_LOCAL_URL="http://localhost:18080${KC_PATH}"
+              fi
+              echo "kc_local_url=${KC_LOCAL_URL}" >> "$GITHUB_OUTPUT"
+
+              # Orchestration actuator (always, port 9600 on the gateway svc)
+              echo "Starting port-forward to ${RELEASE}-zeebe-gateway:9600..."
+              PF_ORCH_PID=$(pf orchestration "svc/${RELEASE}-zeebe-gateway" 9600:9600 -n "$NS")
+              echo "pf_orch_pid=${PF_ORCH_PID}" >> "$GITHUB_OUTPUT"
+              echo "orchestration_local_url=http://localhost:9600" >> "$GITHUB_OUTPUT"
+
+              # Connectors actuator (always, when service is present)
+              CONN_SVC="${{ inputs.connectors-service-name }}"
+              CONN_LOCAL_PORT="${{ inputs.connectors-local-port }}"
+              if kubectl get svc "$CONN_SVC" -n "$NS" >/dev/null 2>&1; then
+                  echo "Starting port-forward to ${CONN_SVC}..."
+                  PF_CONN_PID=$(pf connectors "svc/${CONN_SVC}" "${CONN_LOCAL_PORT}:8080" -n "$NS")
+                  echo "pf_conn_pid=${PF_CONN_PID}" >> "$GITHUB_OUTPUT"
+                  CONN_PATH="${{ inputs.connectors-context-path }}"
+                  # Strip trailing slash so concatenation never doubles up.
+                  CONN_PATH="${CONN_PATH%/}"
+                  echo "connectors_local_url=http://localhost:${CONN_LOCAL_PORT}${CONN_PATH}" >> "$GITHUB_OUTPUT"
+              else
+                  echo "⚠️  Connectors service '${CONN_SVC}' not found in namespace '${NS}', skipping port-forward"
+              fi
+
+              # Elasticsearch (only when ES is enabled & a service exists in-cluster).
+              # The preflight Go tests hit http://localhost:9200 unconditionally
+              # when ELASTICSEARCH_ENABLED=true, so they need a forward in
+              # no-domain / port-forward mode.
+              if [[ "${{ inputs.elasticsearch-enabled }}" == "true" ]]; then
+                  ES_SVC=""
+                  for candidate in \
+                      "${RELEASE}-elasticsearch" \
+                      "elasticsearch-master" \
+                      "${RELEASE}-elasticsearch-master" \
+                      "elasticsearch-es-http"; do
+                      if kubectl get svc "$candidate" -n "$NS" >/dev/null 2>&1; then
+                          ES_SVC="$candidate"
+                          break
+                      fi
+                  done
+                  if [[ -n "$ES_SVC" ]]; then
+                      echo "Starting port-forward to ${ES_SVC}:9200..."
+                      PF_ES_PID=$(pf elasticsearch "svc/${ES_SVC}" 9200:9200 -n "$NS")
+                      echo "pf_es_pid=${PF_ES_PID}" >> "$GITHUB_OUTPUT"
+                      # ECK enables xpack.security by default; expose the
+                      # generated 'elastic' user password so preflight probes
+                      # can authenticate. Bitnami chart leaves ES open, so the
+                      # secret simply won't exist there.
+                      ES_USER=""
+                      ES_PASS=""
+                      if kubectl get secret elasticsearch-es-elastic-user -n "$NS" >/dev/null 2>&1; then
+                          ES_USER="elastic"
+                          ES_PASS=$(kubectl get secret elasticsearch-es-elastic-user \
+                              -n "$NS" -o jsonpath='{.data.elastic}' | base64 -d)
+                          echo "::add-mask::${ES_PASS}"
+                      fi
+                      echo "es_user=${ES_USER}" >> "$GITHUB_OUTPUT"
+                      echo "es_pass=${ES_PASS}" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "⚠️  No Elasticsearch service found in namespace '${NS}', skipping port-forward"
+                  fi
+              fi
+
+              echo "Waiting for port-forwards to be established..."
+              sleep 10
+
+              # Verify Zeebe is reachable (only meaningful in no-domain mode)
+              if [[ -z "$DOMAIN" ]]; then
+                  for i in $(seq 1 15); do
+                      CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                          http://localhost:8080/v2/topology 2>/dev/null || echo "000")
+                      if [[ "$CODE" =~ ^(200|401|403)$ ]]; then
+                          echo "✅ Zeebe port-forward ready (HTTP ${CODE})"
+                          break
+                      fi
+                      echo "  attempt ${i}/15 (HTTP ${CODE})"
+                      sleep 2
+                  done
+              fi
+
+        - name: 🧪 Run Preflight Tests
+          id: preflight
+          if: inputs.run-preflight == 'true'
+          shell: bash
+          working-directory: generic/kubernetes/single-region/tests/integration
+          env:
+              TEST_NAMESPACE: ${{ inputs.test-namespace }}
+              TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
+              TEST_CLUSTER_TYPE: ${{ inputs.test-cluster-type }}
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
+              TEST_AUTH_MODE: ${{ inputs.auth-mode }}
+              TEST_BASIC_USER: ${{ inputs.basic-auth-user }}
+              TEST_BASIC_PASSWORD: ${{ inputs.basic-auth-password }}
+              TEST_OIDC_TOKEN_URL: ${{ inputs.oidc-token-url }}
+              TEST_OIDC_CLIENT_ID: ${{ inputs.oidc-client-id }}
+              TEST_OIDC_CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
+              TEST_OIDC_M2M_CLIENTS: ${{ inputs.oidc-m2m-clients }}
+              ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
+              WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
+              CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
+              TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
+              TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
+              TEST_ORCHESTRATION_URL: ${{ steps.port-forward.outputs.orchestration_local_url }}
+              TEST_CONNECTORS_URL: ${{ steps.port-forward.outputs.connectors_local_url }}
+              TEST_ELASTICSEARCH_URL: ${{ inputs.elasticsearch-url }}
+              TEST_ELASTICSEARCH_USER: ${{ steps.port-forward.outputs.es_user }}
+              TEST_ELASTICSEARCH_PASSWORD: ${{ steps.port-forward.outputs.es_pass }}
+              TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
+              TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
+          run: |
+              set -euo pipefail
+              echo "🧪 Running preflight tests..."
+              go test ${{ inputs.go-test-args }} ./preflight/...
+
+        # Warm up the Zeebe Gateway → Identity JWKS path on cold clusters
+        # (notably ROSA HCP). The Spring OAuth resource server lazily fetches
+        # the JWK set on the FIRST authenticated request and caches it; if
+        # intra-cluster networking is still warming up, that fetch times out
+        # (~40s) and the request returns 500 with "Couldn't retrieve JWK
+        # set from URL: Connect timed out". Subsequent requests then succeed
+        # almost immediately. Doing this probe in the workflow (instead of
+        # bumping per-test retries) keeps the actual tests fast and their
+        # failure messages meaningful.
+        - name: 🔥 Warm up Zeebe Gateway JWKS cache
+          if: inputs.run-core == 'true' && inputs.auth-mode == 'oidc'
+          shell: bash
+          env:
+              TOKEN_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
+              CLIENT_ID: ${{ inputs.oidc-client-id }}
+              CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
+          run: |
+              set -uo pipefail
+              # In domain mode (e.g. ROSA HCP, AKS with Ingress) Zeebe is
+              # exposed via the cluster ingress at https://<camunda-domain>
+              # and we deliberately do NOT port-forward Zeebe locally.
+              # Hitting zeebe-gateway-url (default http://localhost:8080)
+              # would block ~2.5 min on connection refused. Derive the
+              # warmup URL from camunda-domain when present, fall back to
+              # zeebe-gateway-url for port-forward / local-kind setups.
+              if [[ -n "$CAMUNDA_DOMAIN" ]]; then
+                  ZEEBE_URL="https://${CAMUNDA_DOMAIN}"
+              else
+                  ZEEBE_URL="$ZEEBE_GATEWAY_URL"
+              fi
+              if [[ -z "$TOKEN_URL" || -z "$CLIENT_ID" || -z "$CLIENT_SECRET" || -z "$ZEEBE_URL" ]]; then
+                  echo "Skipping JWKS warmup: missing TOKEN_URL/CLIENT_ID/CLIENT_SECRET/ZEEBE_URL"
+                  exit 0
+              fi
+              # Keycloak token-url ends with /auth — the actual token endpoint
+              # is /auth/realms/camunda-platform/protocol/openid-connect/token.
+              REALM_TOKEN_URL="${TOKEN_URL%/}/realms/camunda-platform/protocol/openid-connect/token"
+              echo "Fetching M2M token from ${REALM_TOKEN_URL}"
+              TOKEN=$(curl -sf --connect-timeout 10 --max-time 30 \
+                  -X POST "$REALM_TOKEN_URL" \
+                  -H "Content-Type: application/x-www-form-urlencoded" \
+                  --data-urlencode "grant_type=client_credentials" \
+                  --data-urlencode "client_id=${CLIENT_ID}" \
+                  --data-urlencode "client_secret=${CLIENT_SECRET}" \
+                  | jq -r '.access_token // empty')
+              if [[ -z "$TOKEN" ]]; then
+                  echo "::warning::Could not obtain M2M token for JWKS warmup; skipping"
+                  exit 0
+              fi
+              echo "::add-mask::${TOKEN}"
+              # Probe Zeebe Gateway with a cheap authenticated request until it
+              # stops returning 5xx (JWKS cache miss). 30 attempts × 5s = 2.5min
+              # max — long enough for ROSA HCP cold start, short enough to
+              # surface real auth failures.
+              echo "Warming up ${ZEEBE_URL}/v2/topology…"
+              for i in $(seq 1 30); do
+                  CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                      --connect-timeout 10 --max-time 60 \
+                      -H "Authorization: Bearer ${TOKEN}" \
+                      "${ZEEBE_URL%/}/v2/topology" 2>/dev/null || echo "000")
+                  case "$CODE" in
+                      2*|401|403)
+                          echo "✅ Zeebe Gateway JWT path warm (HTTP ${CODE}) after ${i} attempt(s)"
+                          exit 0
+                          ;;
+                      *)
+                          echo "  attempt ${i}/30: HTTP ${CODE} (waiting 5s)"
+                          sleep 5
+                          ;;
+                  esac
+              done
+              echo "::warning::JWKS warmup did not converge after 30 attempts; tests will retry."
+
+        - name: 🧪 Run Core Tests
+          id: core
+          if: inputs.run-core == 'true'
+          shell: bash
+          working-directory: generic/kubernetes/single-region/tests/integration
+          env:
+              TEST_NAMESPACE: ${{ inputs.test-namespace }}
+              TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
+              TEST_CLUSTER_TYPE: ${{ inputs.test-cluster-type }}
+              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
+              TEST_AUTH_MODE: ${{ inputs.auth-mode }}
+              TEST_BASIC_USER: ${{ inputs.basic-auth-user }}
+              TEST_BASIC_PASSWORD: ${{ inputs.basic-auth-password }}
+              TEST_OIDC_TOKEN_URL: ${{ inputs.oidc-token-url }}
+              TEST_OIDC_CLIENT_ID: ${{ inputs.oidc-client-id }}
+              TEST_OIDC_CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
+              TEST_OIDC_M2M_CLIENTS: ${{ inputs.oidc-m2m-clients }}
+              ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
+              WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
+              CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
+              TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
+              TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
+              TEST_ORCHESTRATION_URL: ${{ steps.port-forward.outputs.orchestration_local_url }}
+              TEST_CONNECTORS_URL: ${{ steps.port-forward.outputs.connectors_local_url }}
+              TEST_ELASTICSEARCH_URL: ${{ inputs.elasticsearch-url }}
+              TEST_ELASTICSEARCH_USER: ${{ steps.port-forward.outputs.es_user }}
+              TEST_ELASTICSEARCH_PASSWORD: ${{ steps.port-forward.outputs.es_pass }}
+              TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
+              TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
+          run: |
+              set -euo pipefail
+              echo "🧪 Running core tests..."
+              go test ${{ inputs.go-test-args }} ./core/...
+
+        # ==============================================================
+        # Cleanup port-forwards
+        # ==============================================================
+        - name: 🧹 Cleanup port-forwards
+          if: always()
+          shell: bash
+          run: |
+              set -euo pipefail
+              for PID in \
+                  "${{ steps.port-forward.outputs.pf_zeebe_pid }}" \
+                  "${{ steps.port-forward.outputs.pf_kc_pid }}" \
+                  "${{ steps.port-forward.outputs.pf_orch_pid }}" \
+                  "${{ steps.port-forward.outputs.pf_conn_pid }}" \
+                  "${{ steps.port-forward.outputs.pf_es_pid }}"; do
+                  if [[ -n "$PID" ]]; then
+                      kill "$PID" 2>/dev/null || true
+                  fi
+              done

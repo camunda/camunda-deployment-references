@@ -17,7 +17,15 @@ orchestration:
             className: openshift-default
             tls:
                 enabled: true
-                # explicitely '-' as secret name as we rely on the IngressOperator to handle the TLS secret, if you use a custom certificate, you might want to fill this value
+                # `secretName: '-'` lets the Ingress Operator manage the Route
+                # TLS certificate automatically. This works on self-managed
+                # OpenShift with cluster-wide `default-enable-http2=true`
+                # (see `procedure/enable-ingress-http2.sh`).
+                #
+                # On ROSA HCP, override this value (e.g. with `yq` in CI) to
+                # reference a Secret holding the router default wildcard cert
+                # (provisioned by `procedure/copy-router-tls-secret.sh`).
+                # See the OpenShift / ROSA HCP HTTP/2 section in camunda-docs.
                 secretName: '-'
             host: zeebe-${CAMUNDA_DOMAIN}
 
