@@ -17,7 +17,7 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.12
 
-awscli 2.34.41
+awscli 2.34.42
 
 delta 0.18.2
 
