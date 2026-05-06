@@ -238,6 +238,14 @@ jobs:
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  # The Camunda Hub consolidation (chart 15.x) deprecates the legacy
+                  # console.enabled / webModeler.enabled flags. Migrating to
+                  # camundaHub.enabled changes deployment topology and ingress paths,
+                  # so it is tracked as a separate follow-up rather than rolled into
+                  # this PR.
+                  exclude-patterns: |
+                      "console.enabled" is deprecated
+                      "webModeler.enabled" is deprecated
 
             - name: Wait for Camunda deployment
               timeout-minutes: 10

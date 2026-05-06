@@ -27,10 +27,10 @@ global:
                 redirectUrl: https://camunda.example.com/console
             webModeler:
                 redirectUrl: https://camunda.example.com/modeler
+    host: camunda.example.com
     ingress:
         enabled: true
         className: nginx
-        host: camunda.example.com
         annotations:
             nginx.ingress.kubernetes.io/proxy-buffer-size: 128k
         tls:
