@@ -1,54 +1,32 @@
 ---
 name: Tests - Integration - Local Kubernetes Kind Single Region
-
 permissions:
     contents: read
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
-
+    pull-requests: write
 on:
     schedule:
-        - cron: 0 4 * * 3 # Runs at 4 AM on Wednesdays
-    pull_request:
-        paths:
-            - .github/workflows/local_kubernetes_kind_single_region_tests.yml
-            - .github/workflows-config/local-kubernetes-kind-single-region/**
-            - .github/actions/internal-triage-skip/**
-            - .github/actions/internal-apply-skip-label/**
-            - .github/actions/internal-tests-matrix/**
-            - .github/actions/internal-camunda-chart-tests/**
-            - .github/actions/internal-helm-deprecation-check/**
-            - .github/actions/camunda-smoke-test/**
-            - .github/actions/internal-integration-tests/**
-            - generic/kubernetes/single-region/tests/integration/**
-            - .tool-versions
-            - generic/kubernetes/operator-based/postgresql/**
-            - local/kubernetes/kind-single-region/**
+        - cron: 0 4 * * 3
+    pull_request: {}
     workflow_dispatch:
-
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: false
-
 env:
     REF_ARCH_PATH: local/kubernetes/kind-single-region
     IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
     CI_MATRIX_FILE: .github/workflows-config/local-kubernetes-kind-single-region/test_matrix.yml
-
-    # TEST VARIABLES
     TESTS_ENABLED: 'true'
-
 jobs:
     triage:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
-
     clusters-info:
         needs: triage
         if: needs.triage.outputs.should_skip == 'false'
@@ -57,11 +35,9 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
               id: matrix
@@ -70,7 +46,6 @@ jobs:
                   cluster_prefix: kind-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
-
     integration-tests:
         name: Test ${{ matrix.distro.name }} - ${{ matrix.declination.name }}
         needs:
@@ -92,19 +67,16 @@ jobs:
             TEST_CLUSTER_TYPE: kubernetes
         steps:
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4
             - name: Install envsubst
               run: |
                   sudo apt-get update -qq
                   sudo apt-get install -y -qq gettext-base
-
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -116,17 +88,13 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET;
-
             - name: Create Kind cluster
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/cluster-create.sh
-
             - name: Deploy Contour
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/contour-deploy.sh
-
-            # Domain mode specific steps
             - name: Configure CoreDNS
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
@@ -134,7 +102,6 @@ jobs:
                   set -euo pipefail
 
                   ./procedure/coredns-config.sh
-
             - name: Generate TLS certificates
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
@@ -142,7 +109,6 @@ jobs:
                   set -euo pipefail
 
                   ./procedure/certs-generate.sh
-
             - name: Create TLS secret
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
@@ -150,7 +116,6 @@ jobs:
                   set -euo pipefail
 
                   ./procedure/certs-create-secret.sh
-
             - name: Create CA ConfigMap
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
@@ -158,7 +123,6 @@ jobs:
                   set -euo pipefail
 
                   ./procedure/certs-create-ca-configmap.sh
-
             - name: Create Docker Hub pull secret
               run: |
                   set -euo pipefail
@@ -169,8 +133,6 @@ jobs:
                       --docker-username="${{ steps.secrets.outputs.DOCKERHUB_USER }}" \
                       --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                       --namespace="${{ env.CAMUNDA_NAMESPACE }}"
-
-            # Deploy prerequisite operators (Elasticsearch, PostgreSQL, Keycloak)
             - name: Deploy operators (Elasticsearch, PostgreSQL, Keycloak)
               timeout-minutes: 15
               working-directory: ${{ env.REF_ARCH_PATH }}
@@ -180,12 +142,9 @@ jobs:
               run: |
                   set -euo pipefail
                   ./procedure/operators-deploy.sh
-
-            # Create identity secrets (replaces removed global.secrets.autoGenerated)
             - name: Create identity secrets
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/create-identity-secrets.sh
-
             - name: Extract Helm chart version
               id: chart-version
               working-directory: ${{ env.REF_ARCH_PATH }}
@@ -193,7 +152,6 @@ jobs:
                   SCRIPT=${{ matrix.declination.use_tls && 'procedure/camunda-deploy-domain.sh' || 'procedure/camunda-deploy-no-domain.sh' }}
                   VERSION=$(grep -oP 'CAMUNDA_HELM_CHART_VERSION="\K[^"]+' "$SCRIPT")
                   echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
             - name: Helm registry login
               uses: ./.github/actions/internal-helm-registry-login
               with:
@@ -201,8 +159,6 @@ jobs:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-            # Deploy Camunda
             - name: Deploy Camunda (domain mode)
               if: matrix.declination.use_tls
               working-directory: ${{ env.REF_ARCH_PATH }}
@@ -223,7 +179,6 @@ jobs:
                     helm-values/values-domain.yml
 
                   ./procedure/camunda-deploy-domain.sh
-
             - name: Deploy Camunda (no-domain mode)
               if: ${{ !matrix.declination.use_tls }}
               working-directory: ${{ env.REF_ARCH_PATH }}
@@ -244,19 +199,16 @@ jobs:
                     helm-values/values-no-domain.yml
 
                   ./procedure/camunda-deploy-no-domain.sh
-
             - name: 🔍 Check for Helm deprecation warnings
               uses: ./.github/actions/internal-helm-deprecation-check
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-
             - name: Wait for Camunda deployment
               timeout-minutes: 10
               env:
                   CAMUNDA_NAMESPACE: ${{ env.CAMUNDA_NAMESPACE }}
               run: ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
-
             - name: Verify get-keycloak-password script
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: |
@@ -272,7 +224,6 @@ jobs:
                   echo "$output" | grep -q "Keycloak Admin Password:" || { echo "ERROR: Missing password in output"; exit 1; }
 
                   echo "✅ get-keycloak-password.sh works correctly"
-
             - name: ✅ Deployment verification successful
               run: |
                   set -euo pipefail
@@ -287,7 +238,6 @@ jobs:
                   echo ""
                   echo "=== All Resources ==="
                   kubectl get all -n "${{ env.CAMUNDA_NAMESPACE }}"
-
             - name: Set Camunda domain environment variables
               run: |
                   set -euo pipefail
@@ -299,7 +249,6 @@ jobs:
                       echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
                       echo "CAMUNDA_GRPC_DOMAIN=" | tee -a "$GITHUB_ENV"
                   fi
-
             - name: Set current Camunda version
               id: camunda-version
               run: |
@@ -307,72 +256,27 @@ jobs:
 
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
-
             - name: Extract auto-generated credentials from Helm deployment
               id: local-credentials
-              run: |
-                  set -euo pipefail
-
-                  echo "📦 Extracting auto-generated credentials from camunda-credentials secret..."
-
-                  # The Helm chart auto-generates an 'orchestration' client that can be used for M2M authentication
-                  # Client ID is 'orchestration' and secret is stored in identity-orchestration-client-token
-                  LOCAL_CLIENT_ID="orchestration"
-                  LOCAL_CLIENT_SECRET=$(kubectl get secret camunda-credentials -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                    -o jsonpath='{.data.identity-orchestration-client-token}' | base64 -d)
-
-                  if [[ -z "$LOCAL_CLIENT_SECRET" ]]; then
-                    echo "⚠️ Could not extract orchestration client secret, tests requiring auth will be skipped"
-                    echo "LOCAL_CLIENT_ID=" | tee -a "$GITHUB_OUTPUT"
-                    echo "LOCAL_CLIENT_SECRET=" | tee -a "$GITHUB_OUTPUT"
-                  else
-                    echo "✅ Successfully extracted orchestration client credentials"
-                    echo "LOCAL_CLIENT_ID=$LOCAL_CLIENT_ID" | tee -a "$GITHUB_OUTPUT"
-                    # Don't print secret to logs
-                    echo "LOCAL_CLIENT_SECRET=$LOCAL_CLIENT_SECRET" >> "$GITHUB_OUTPUT"
-                  fi
-
-                  # Build the M2M client map (JSON) consumed by the per-component
-                  # M2M token test. Keys are Keycloak client IDs, values are
-                  # secrets pulled from the camunda-credentials secret. Missing
-                  # entries are silently skipped (component disabled).
-                  read_secret() {
-                      kubectl get secret camunda-credentials -n "${{ env.CAMUNDA_NAMESPACE }}" \
-                          -o jsonpath="{.data.$1}" 2>/dev/null | base64 -d || true
-                  }
-                  M2M_JSON='{'
-                  sep=''
-                  # NOTE: 'console' is a Keycloak public client (no
-                  # service account) — client_credentials grant is not allowed
-                  # for it, so it must NOT be added here. Venom only covered
-                  # connectors / optimize / orchestration anyway.
-                  ENTRIES=(
-                      "orchestration:identity-orchestration-client-token"
-                      "connectors:identity-connectors-client-token"
-                  )
-                  # Optimize is only deployed when secondary storage is
-                  # Elasticsearch; in pg-only mode the keycloak client is
-                  # not provisioned and client_credentials returns 401.
-                  if [[ "${{ matrix.declination.secondary_storage }}" != "postgres" ]]; then
-                      ENTRIES+=("optimize:identity-optimize-client-token")
-                  fi
-                  for entry in "${ENTRIES[@]}"; do
-                      cid="${entry%%:*}"
-                      key="${entry##*:}"
-                      val="$(read_secret "$key")"
-                      if [[ -n "$val" ]]; then
-                          M2M_JSON+="${sep}\"${cid}\":\"${val}\""
-                          sep=','
-                      fi
-                  done
-                  M2M_JSON+='}'
-                  # Use a delimited heredoc so the JSON survives masking.
-                  {
-                      echo 'LOCAL_M2M_CLIENTS<<__M2M_EOF__'
-                      echo "$M2M_JSON"
-                      echo '__M2M_EOF__'
-                  } >> "$GITHUB_OUTPUT"
-
+              run: "set -euo pipefail\n\necho \"\U0001F4E6 Extracting auto-generated credentials from camunda-credentials secret...\"\n\n# The Helm chart\
+                  \ auto-generates an 'orchestration' client that can be used for M2M authentication\n# Client ID is 'orchestration' and secret is stored\
+                  \ in identity-orchestration-client-token\nLOCAL_CLIENT_ID=\"orchestration\"\nLOCAL_CLIENT_SECRET=$(kubectl get secret camunda-credentials\
+                  \ -n \"${{ env.CAMUNDA_NAMESPACE }}\" \\\n  -o jsonpath='{.data.identity-orchestration-client-token}' | base64 -d)\n\nif [[ -z \"$LOCAL_CLIENT_SECRET\"\
+                  \ ]]; then\n  echo \"⚠️ Could not extract orchestration client secret, tests requiring auth will be skipped\"\n  echo \"LOCAL_CLIENT_ID=\"\
+                  \ | tee -a \"$GITHUB_OUTPUT\"\n  echo \"LOCAL_CLIENT_SECRET=\" | tee -a \"$GITHUB_OUTPUT\"\nelse\n  echo \"✅ Successfully extracted orchestration\
+                  \ client credentials\"\n  echo \"LOCAL_CLIENT_ID=$LOCAL_CLIENT_ID\" | tee -a \"$GITHUB_OUTPUT\"\n  # Don't print secret to logs\n  echo\
+                  \ \"LOCAL_CLIENT_SECRET=$LOCAL_CLIENT_SECRET\" >> \"$GITHUB_OUTPUT\"\nfi\n\n# Build the M2M client map (JSON) consumed by the per-component\n\
+                  # M2M token test. Keys are Keycloak client IDs, values are\n# secrets pulled from the camunda-credentials secret. Missing\n# entries are\
+                  \ silently skipped (component disabled).\nread_secret() {\n    kubectl get secret camunda-credentials -n \"${{ env.CAMUNDA_NAMESPACE }}\"\
+                  \ \\\n        -o jsonpath=\"{.data.$1}\" 2>/dev/null | base64 -d || true\n}\nM2M_JSON='{'\nsep=''\n# NOTE: 'console' is a Keycloak public\
+                  \ client (no\n# service account) — client_credentials grant is not allowed\n# for it, so it must NOT be added here. Venom only covered\n\
+                  # connectors / optimize / orchestration anyway.\nENTRIES=(\n    \"orchestration:identity-orchestration-client-token\"\n    \"connectors:identity-connectors-client-token\"\
+                  \n)\n# Optimize is only deployed when secondary storage is\n# Elasticsearch; in pg-only mode the keycloak client is\n# not provisioned\
+                  \ and client_credentials returns 401.\nif [[ \"${{ matrix.declination.secondary_storage }}\" != \"postgres\" ]]; then\n    ENTRIES+=(\"\
+                  optimize:identity-optimize-client-token\")\nfi\nfor entry in \"${ENTRIES[@]}\"; do\n    cid=\"${entry%%:*}\"\n    key=\"${entry##*:}\"\
+                  \n    val=\"$(read_secret \"$key\")\"\n    if [[ -n \"$val\" ]]; then\n        M2M_JSON+=\"${sep}\\\"${cid}\\\":\\\"${val}\\\"\"\n   \
+                  \     sep=','\n    fi\ndone\nM2M_JSON+='}'\n# Use a delimited heredoc so the JSON survives masking.\n{\n    echo 'LOCAL_M2M_CLIENTS<<__M2M_EOF__'\n\
+                  \    echo \"$M2M_JSON\"\n    echo '__M2M_EOF__'\n} >> \"$GITHUB_OUTPUT\"\n"
             - name: 🔥 Run Camunda Smoke Test
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 15
@@ -380,7 +284,6 @@ jobs:
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
-
             - name: 🧪 Run Go Integration Tests (replaces Venom)
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 20
@@ -399,14 +302,8 @@ jobs:
                   elasticsearch-enabled: 'false'
                   webmodeler-enabled: 'true'
                   console-enabled: 'true'
-                  # Optimize requires Elasticsearch; disabled in pg-only mode
-                  # (matches the helm install flag set in deploy step).
                   optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
-                  # Configure /etc/hosts for camunda.example.com when running
-                  # the TLS/domain declinations on Kind so the runner can reach
-                  # the ingress.
                   local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
-
             - name: 🧪 Run C8-SM-CHECKS deployment and connectivity tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 15
@@ -417,32 +314,25 @@ jobs:
                   camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
                   webmodeler-enabled: 'true'
                   console-enabled: 'true'
-                  # Optimize requires Elasticsearch, so it's disabled in RDBMS-only mode
                   optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
                   elasticsearch-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
-                  # Use auto-generated local credentials instead of CI credentials from Vault
                   test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
                   test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
                   enable-zeebe-client-tests: 'false'
                   keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200
-                  # Enable C8-SM-CHECKS
                   enable-c8sm-deployment-check: 'true'
                   enable-c8sm-connectivity-check: 'true'
                   skip-c8sm-connectivity-ingress-class-check: 'true'
-                  enable-c8sm-irsa-check: 'false'  # Not applicable for Kind
-                  # Enable Zeebe token/connectivity checks using auto-generated credentials
+                  enable-c8sm-irsa-check: 'false'
                   enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
                       'false' }}
                   enable-c8sm-zeebe-connectivity-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true'
                       || 'false' }}
-                  # Enable local domain mode for Kind - configures /etc/hosts for domain resolution
                   local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
-
-            ############# Debug failed pods ##############
             - name: Debug failed pods
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
@@ -450,7 +340,6 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   context: ${{ env.CLUSTER_NAME }}
                   artifact-suffix: ${{ env.CLUSTER_NAME }}
-
             - name: Cleanup
               if: always()
               run: |
@@ -458,21 +347,18 @@ jobs:
 
                   echo "Cleaning up Kind cluster: ${{ env.CLUSTER_NAME }}"
                   kind delete cluster --name "${{ env.CLUSTER_NAME }}" || true
-
     report-success:
         name: Report success
         runs-on: ubuntu-latest
         needs:
             - integration-tests
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
               env:
                   GH_TOKEN: ${{ github.token }}
               uses: ./.github/actions/internal-apply-skip-label
-
     report-failure:
         name: Report failures
         if: failure()
@@ -483,8 +369,10 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+
+# Scheduled trigger: 2026-05-06T22:22:00Z - Wednesday schedules 8.9
