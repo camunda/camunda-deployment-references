@@ -15,6 +15,13 @@
 # migration version validation passes. When updating operator versions,
 # update these values accordingly.
 
+# Camunda Hub consolidates Console + WebModeler into a single deployment in
+# chart 15.x. The legacy `console.enabled` / `webModeler.enabled` flags are
+# deprecated; sub-component overrides below still pass through via the chart's
+# `or` fallback.
+camundaHub:
+    enabled: true
+
 global:
     security:
         # Required for vendor-ee images (not signed by Bitnami)
@@ -120,9 +127,9 @@ identityKeycloak:
             username: keycloak
             database: keycloak
 
-# WebModeler with SMTP stub (required for Camunda 8.8+)
+# WebModeler with SMTP stub (required for Camunda 8.8+).
+# Deployed via `camundaHub.enabled: true` above; overrides pass through.
 webModeler:
-    enabled: true
     restapi:
         mail:
             smtpHost: smtp.example.com
@@ -159,8 +166,7 @@ optimize:
         elasticsearch:
             enabled: true
 
-console:
-    enabled: true
+# Console is deployed via `camundaHub.enabled: true` above.
 
 # Connectors
 connectors:

@@ -59,7 +59,6 @@ optimize:
     contextPath: /optimize
 
 console:
-    enabled: true
     contextPath: /console
 
 orchestration:
