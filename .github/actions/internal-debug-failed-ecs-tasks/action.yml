@@ -20,7 +20,9 @@ inputs:
         required: false
         default: '200'
     max-stopped-tasks:
-        description: Maximum number of recently-stopped tasks to inspect per service
+        description: |
+            Maximum number of recently-stopped tasks to inspect per service (and additionally for
+            standalone tasks not owned by any service, e.g. one-off `RunTask` invocations).
         required: false
         default: '20'
     artifact-suffix:
@@ -130,7 +132,7 @@ runs:
                 echo "::endgroup::"
               done
 
-        - name: 🔬🚨 Inspect tasks (running + stopped)
+        - name: 🔬🚨 Inspect tasks (per-service + standalone)
           shell: bash
           env:
               AWS_REGION: ${{ inputs.aws-region }}
@@ -140,59 +142,102 @@ runs:
           run: |
               set -euo pipefail
 
-              for status in RUNNING STOPPED; do
-                echo "::group::Tasks (${status})"
-                if [[ "$status" == "STOPPED" ]]; then
-                  TASK_ARNS=$(aws ecs list-tasks --cluster "$CLUSTER" \
-                    --desired-status "$status" --max-items "$MAX_STOPPED" \
-                    --query 'taskArns' --output text || true)
-                else
-                  TASK_ARNS=$(aws ecs list-tasks --cluster "$CLUSTER" \
-                    --desired-status "$status" \
-                    --query 'taskArns' --output text || true)
+              # Per-task summary projection
+              Q='tasks[].{'
+              Q+='arn:taskArn,'
+              Q+='defn:taskDefinitionArn,'
+              Q+='lastStatus:lastStatus,'
+              Q+='desiredStatus:desiredStatus,'
+              Q+='health:healthStatus,'
+              Q+='startedBy:startedBy,'
+              Q+='group:group,'
+              Q+='stoppedReason:stoppedReason,'
+              Q+='exitCodes:containers[].{'
+              Q+='name:name,exit:exitCode,reason:reason,lastStatus:lastStatus}'
+              Q+='}'
+
+              SERVICE_ARNS=$(aws ecs list-services --cluster "$CLUSTER" \
+                --query 'serviceArns' --output text || true)
+
+              describe_and_dump() {
+                # $1 = task arns (whitespace-separated), $2 = file label, $3 = group title
+                local arns="$1" label="$2" title="$3"
+                if [[ -z "$arns" || "$arns" == "None" ]]; then
+                  echo "No tasks for ${title}."
+                  return
                 fi
 
-                if [[ -z "$TASK_ARNS" || "$TASK_ARNS" == "None" ]]; then
-                  echo "No ${status} tasks."
-                  echo "::endgroup::"
-                  continue
-                fi
-
-                Q='tasks[].{'
-                Q+='arn:taskArn,'
-                Q+='defn:taskDefinitionArn,'
-                Q+='lastStatus:lastStatus,'
-                Q+='desiredStatus:desiredStatus,'
-                Q+='health:healthStatus,'
-                Q+='startedBy:startedBy,'
-                Q+='group:group,'
-                Q+='stoppedReason:stoppedReason,'
-                Q+='exitCodes:containers[].{'
-                Q+='name:name,exit:exitCode,reason:reason,lastStatus:lastStatus}'
-                Q+='}'
-
+                echo "::group::${title}"
                 # shellcheck disable=SC2086
-                aws ecs describe-tasks --cluster "$CLUSTER" --tasks $TASK_ARNS \
+                aws ecs describe-tasks --cluster "$CLUSTER" --tasks $arns \
                   --query "$Q" --output yaml \
-                  | tee "${DUMP_DIR}/tasks-${status}.yaml" || true
+                  | tee "${DUMP_DIR}/${label}.yaml" || true
                 echo "::endgroup::"
 
-                # Also dump full describe-tasks for the artifact (more verbose)
                 # shellcheck disable=SC2086
-                aws ecs describe-tasks --cluster "$CLUSTER" --tasks $TASK_ARNS \
-                  --output yaml > "${DUMP_DIR}/tasks-${status}-full.yaml" 2>&1 || true
+                aws ecs describe-tasks --cluster "$CLUSTER" --tasks $arns \
+                  --output yaml > "${DUMP_DIR}/${label}-full.yaml" 2>&1 || true
 
-                # Dump task definitions referenced by these tasks (deduped)
                 # shellcheck disable=SC2086
-                TD_ARNS=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks $TASK_ARNS \
-                  --query 'tasks[].taskDefinitionArn' --output text 2>/dev/null \
-                  | tr '\t' '\n' | sort -u || true)
-                for td in $TD_ARNS; do
+                local td td_safe
+                for td in $(aws ecs describe-tasks --cluster "$CLUSTER" --tasks $arns \
+                              --query 'tasks[].taskDefinitionArn' --output text 2>/dev/null \
+                              | tr '\t' '\n' | sort -u); do
                   td_safe="${td##*/}"
                   td_safe="${td_safe//[^a-zA-Z0-9_.-]/_}"
                   aws ecs describe-task-definition --task-definition "$td" \
                     --output yaml > "${DUMP_DIR}/taskdef-${td_safe}.yaml" 2>&1 || true
                 done
+              }
+
+              for status in RUNNING STOPPED; do
+                # Cap STOPPED per-service so a noisy service can't crowd out others
+                CAP=()
+                if [[ "$status" == "STOPPED" ]]; then
+                  CAP=(--max-items "$MAX_STOPPED")
+                fi
+
+                # Per-service tasks
+                if [[ -n "$SERVICE_ARNS" && "$SERVICE_ARNS" != "None" ]]; then
+                  for svc_arn in $SERVICE_ARNS; do
+                    svc_name="${svc_arn##*/}"
+                    svc_safe="${svc_name//[^a-zA-Z0-9_.-]/_}"
+                    T_ARNS=$(aws ecs list-tasks --cluster "$CLUSTER" \
+                      --service-name "$svc_name" --desired-status "$status" \
+                      "${CAP[@]}" \
+                      --query 'taskArns' --output text || true)
+                    describe_and_dump "$T_ARNS" \
+                      "tasks-${svc_safe}-${status}" \
+                      "Tasks (${status}) :: service ${svc_name}"
+                  done
+                fi
+
+                # Standalone tasks (not owned by any service, e.g. one-off `RunTask`
+                # invocations like db-seed). Compute set difference between
+                # cluster-wide and per-service ARNs.
+                ALL_FILE="${DUMP_DIR}/.all-${status}.tmp"
+                aws ecs list-tasks --cluster "$CLUSTER" \
+                  --desired-status "$status" "${CAP[@]}" \
+                  --query 'taskArns' --output text 2>/dev/null \
+                  | tr '\t' '\n' | sed '/^$/d' | sort -u > "$ALL_FILE" || true
+
+                SVC_FILE="${DUMP_DIR}/.svc-${status}.tmp"
+                : > "$SVC_FILE"
+                if [[ -n "$SERVICE_ARNS" && "$SERVICE_ARNS" != "None" ]]; then
+                  for svc_arn in $SERVICE_ARNS; do
+                    svc_name="${svc_arn##*/}"
+                    aws ecs list-tasks --cluster "$CLUSTER" \
+                      --service-name "$svc_name" --desired-status "$status" \
+                      --query 'taskArns' --output text 2>/dev/null \
+                      | tr '\t' '\n' | sed '/^$/d' >> "$SVC_FILE" || true
+                  done
+                fi
+                STANDALONE=$(comm -23 "$ALL_FILE" <(sort -u "$SVC_FILE") \
+                  | tr '\n' ' ')
+                rm -f "$ALL_FILE" "$SVC_FILE"
+                describe_and_dump "$STANDALONE" \
+                  "tasks-standalone-${status}" \
+                  "Tasks (${status}) :: standalone (no service)"
               done
 
         - name: 🔬🚨 Fetch CloudWatch logs

@@ -309,6 +309,28 @@ jobs:
 
                   echo "✅ Smoke tests completed successfully"
 
+            - name: Compute ECS cluster name on failure
+              id: compute_cluster_name
+              if: failure()
+              shell: bash
+              # Mirrors the prefix logic in aws-containers-ecs-single-region-fargate-create:
+              # cluster-name input → cut to 14 chars → strip trailing dash → "${prefix}-cluster"
+              run: |
+                  set -euo pipefail
+                  RAW="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}"
+                  PREFIX=$(echo "$RAW" | cut -c1-14)
+                  PREFIX=${PREFIX%-}
+                  echo "ecs-cluster=${PREFIX}-cluster" | tee -a "$GITHUB_OUTPUT"
+
+            - name: 🔬🚨 Get failed ECS tasks info
+              if: failure() && steps.compute_cluster_name.outputs.ecs-cluster != ''
+              timeout-minutes: 10
+              uses: ./.github/actions/internal-debug-failed-ecs-tasks
+              with:
+                  cluster-name: ${{ steps.compute_cluster_name.outputs.ecs-cluster }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+
     cleanup-clusters:
         name: Cleanup ECS cluster
         if: always()

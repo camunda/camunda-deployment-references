@@ -12,7 +12,7 @@ Collect debug info from an ECS cluster (services, tasks, stopped reasons, CloudW
 | `aws-region` | <p>The AWS region the cluster lives in</p> | `true` | `""` |
 | `log-group-prefix` | <p>CloudWatch log group name prefix to fetch logs from. If empty, defaults to <code>/ecs/&lt;cluster-name without trailing -cluster&gt;</code>.</p> | `false` | `""` |
 | `log-tail-lines` | <p>Number of CloudWatch log lines to display per stream in the CI output (full logs are uploaded as artifact)</p> | `false` | `200` |
-| `max-stopped-tasks` | <p>Maximum number of recently-stopped tasks to inspect per service</p> | `false` | `20` |
+| `max-stopped-tasks` | <p>Maximum number of recently-stopped tasks to inspect per service (and additionally for standalone tasks not owned by any service, e.g. one-off <code>RunTask</code> invocations).</p> | `false` | `20` |
 | `artifact-suffix` | <p>Suffix appended to the artifact name (e.g. scenario/declination identifier)</p> | `false` | `""` |
 
 
@@ -51,7 +51,8 @@ This action is a `composite` action.
     # Default: 200
 
     max-stopped-tasks:
-    # Maximum number of recently-stopped tasks to inspect per service
+    # Maximum number of recently-stopped tasks to inspect per service (and additionally for
+    # standalone tasks not owned by any service, e.g. one-off `RunTask` invocations).
     #
     # Required: false
     # Default: 20
