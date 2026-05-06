@@ -17,7 +17,7 @@ webModeler:
             host: pg-webmodeler-rw
             port: 5432
             database: webmodeler
-            user: webmodeler
+            username: webmodeler
             secret:
                 existingSecret: pg-webmodeler-secret
                 existingSecretKey: password
