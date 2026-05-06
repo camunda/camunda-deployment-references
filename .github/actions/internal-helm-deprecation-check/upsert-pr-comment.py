@@ -18,11 +18,14 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import random
 import re
-import subprocess
 import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 MARKER = "<!-- helm-deprecation-check -->"
@@ -50,32 +53,54 @@ def section_id(*parts: str) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
 
 
-def gh_api(args: list[str], *, input_data: bytes | None = None) -> str:
-    """Run `gh api ...` and return stdout. Raises on non-zero exit."""
-    proc = subprocess.run(  # noqa: S603 -- args list, no shell
-        ["gh", "api", *args],
-        input=input_data,
-        capture_output=True,
-        check=False,
-    )
-    if proc.returncode != 0:
+API_BASE = os.environ.get("GITHUB_API_URL", "https://api.github.com")
+
+
+def _token() -> str:
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if not token:
+        raise RuntimeError("GH_TOKEN/GITHUB_TOKEN not set")
+    return token
+
+
+def gh_api(
+    path: str,
+    *,
+    method: str = "GET",
+    body: dict | None = None,
+    query: dict | None = None,
+) -> tuple[int, bytes]:
+    """Call the GitHub REST API. Returns (status_code, raw_body)."""
+    url = f"{API_BASE}{path}"
+    if query:
+        url = f"{url}?{urllib.parse.urlencode(query)}"
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method)  # noqa: S310 -- https only
+    req.add_header("Authorization", f"Bearer {_token()}")
+    req.add_header("Accept", "application/vnd.github+json")
+    req.add_header("X-GitHub-Api-Version", "2022-11-28")
+    req.add_header("User-Agent", "internal-helm-deprecation-check")
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req) as resp:  # noqa: S310 -- https only
+            return resp.status, resp.read()
+    except urllib.error.HTTPError as exc:
+        payload = exc.read() or b""
         raise RuntimeError(
-            f"gh api {args} failed (exit {proc.returncode}): "
-            f"{proc.stderr.decode('utf-8', errors='replace')}"
-        )
-    return proc.stdout.decode("utf-8", errors="replace")
+            f"GitHub API {method} {path} failed ({exc.code}): "
+            f"{payload.decode('utf-8', errors='replace')}"
+        ) from exc
 
 
 def find_existing_comment(repo: str, pr_number: int) -> dict | None:
     """Return the first issue comment containing the marker, or None."""
     page = 1
     while True:
-        raw = gh_api([
+        _, raw = gh_api(
             f"/repos/{repo}/issues/{pr_number}/comments",
-            "--method", "GET",
-            "-f", f"per_page=100",
-            "-f", f"page={page}",
-        ])
+            query={"per_page": 100, "page": page},
+        )
         comments = json.loads(raw)
         if not comments:
             return None
@@ -133,39 +158,28 @@ def has_any_section(body: str) -> bool:
 
 
 def post_comment(repo: str, pr_number: int, body: str) -> dict:
-    payload = json.dumps({"body": body}).encode("utf-8")
-    raw = gh_api(
-        [
-            f"/repos/{repo}/issues/{pr_number}/comments",
-            "--method", "POST",
-            "-H", "Accept: application/vnd.github+json",
-            "--input", "-",
-        ],
-        input_data=payload,
+    _, raw = gh_api(
+        f"/repos/{repo}/issues/{pr_number}/comments",
+        method="POST",
+        body={"body": body},
     )
     return json.loads(raw)
 
 
 def patch_comment(repo: str, comment_id: int, body: str) -> dict:
-    payload = json.dumps({"body": body}).encode("utf-8")
-    raw = gh_api(
-        [
-            f"/repos/{repo}/issues/comments/{comment_id}",
-            "--method", "PATCH",
-            "-H", "Accept: application/vnd.github+json",
-            "--input", "-",
-        ],
-        input_data=payload,
+    _, raw = gh_api(
+        f"/repos/{repo}/issues/comments/{comment_id}",
+        method="PATCH",
+        body={"body": body},
     )
     return json.loads(raw)
 
 
 def delete_comment(repo: str, comment_id: int) -> None:
-    gh_api([
+    gh_api(
         f"/repos/{repo}/issues/comments/{comment_id}",
-        "--method", "DELETE",
-        "-H", "Accept: application/vnd.github+json",
-    ])
+        method="DELETE",
+    )
 
 
 def attempt_upsert(
