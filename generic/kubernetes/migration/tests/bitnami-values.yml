@@ -15,12 +15,6 @@
 # migration version validation passes. When updating operator versions,
 # update these values accordingly.
 
-# Camunda Hub consolidates Console + WebModeler into a single deployment in
-# chart 15.x. The legacy `console.enabled` / `webModeler.enabled` flags are
-# deprecated; sub-component overrides below still pass through via the chart's
-# `or` fallback.
-camundaHub:
-    enabled: true
 
 global:
     security:
@@ -126,6 +120,13 @@ identityKeycloak:
         auth:
             username: keycloak
             database: keycloak
+
+# Camunda Hub consolidates Console + WebModeler into a single deployment in
+# chart 15.x. The legacy `console.enabled` / `webModeler.enabled` flags are
+# deprecated; sub-component overrides below still pass through via the chart's
+# `or` fallback.
+camundaHub:
+    enabled: true
 
 # WebModeler with SMTP stub (required for Camunda 8.8+).
 # Deployed via `camundaHub.enabled: true` above; overrides pass through.
