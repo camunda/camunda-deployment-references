@@ -12,9 +12,9 @@
 #
 
 global:
+    host: ${CAMUNDA_DOMAIN}
     ingress:
         enabled: true
-        host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
             secretName: camunda-c8-tls
@@ -73,7 +73,7 @@ webModeler:
         externalDatabase:
             enabled: true
             url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_WEBMODELER_NAME}?sslmode=require
-            user: ${DB_WEBMODELER_USERNAME}
+            username: ${DB_WEBMODELER_USERNAME}
             secret:
                 existingSecret: webmodeler-postgres-secret
                 existingSecretKey: password

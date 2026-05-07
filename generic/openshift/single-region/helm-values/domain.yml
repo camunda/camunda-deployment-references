@@ -4,6 +4,7 @@
 # This file contains OpenShift-specific ingress configuration.
 
 global:
+    host: ${CAMUNDA_DOMAIN}
     identity:
         auth:
             identity:
@@ -19,7 +20,6 @@ global:
     ingress:
         enabled: true
         className: openshift-default
-        host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
             # explicitly '-' as secret name as we rely on the IngressOperator to handle the TLS secret
