@@ -228,6 +228,13 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/ec2-single-region CAMUNDA_BASIC_AUTH_USER;
                       secret/data/products/infrastructure-experience/ci/ec2-single-region CAMUNDA_BASIC_AUTH_PASSWORD;
 
+            - name: Export Camunda basic auth credentials
+              run: |
+                  {
+                    echo "CAMUNDA_BASIC_AUTH_USER=${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}"
+                    echo "CAMUNDA_BASIC_AUTH_PASSWORD=${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}"
+                  } >> "$GITHUB_ENV"
+
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
               run: |
