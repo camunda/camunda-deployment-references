@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -11,6 +12,17 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// basicAuthCredentials returns the "-u user:password" argument for curl commands,
+// sourced from CAMUNDA_BASIC_AUTH_USER and CAMUNDA_BASIC_AUTH_PASSWORD env vars.
+func basicAuthCredentials(t *testing.T) string {
+	t.Helper()
+	user := os.Getenv("CAMUNDA_BASIC_AUTH_USER")
+	password := os.Getenv("CAMUNDA_BASIC_AUTH_PASSWORD")
+	require.NotEmpty(t, user, "CAMUNDA_BASIC_AUTH_USER must be set")
+	require.NotEmpty(t, password, "CAMUNDA_BASIC_AUTH_PASSWORD must be set")
+	return fmt.Sprintf("%s:%s", user, password)
+}
+
 func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Options, version string) {
 
 	tfOutputs := terraform.OutputAll(t, terraformOptions)
@@ -19,7 +31,7 @@ func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Opt
 
 	cmd := shell.Command{
 		Command: "curl",
-		Args:    []string{"-u", "demo:demo", fmt.Sprintf("%s/v2/topology", alb)},
+		Args:    []string{"-u", basicAuthCredentials(t), fmt.Sprintf("%s/v2/topology", alb)},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -48,7 +60,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd := shell.Command{
 		Command: "curl",
-		Args:    []string{"-u", "demo:demo", "--form", "resources=@utils/single-task.bpmn", fmt.Sprintf("%s/v2/deployments", alb), "-H", "'Content-Type: multipart/form-data'", "-H", "'Accept: application/json'"},
+		Args:    []string{"-u", basicAuthCredentials(t), "--form", "resources=@utils/single-task.bpmn", fmt.Sprintf("%s/v2/deployments", alb), "-H", "'Content-Type: multipart/form-data'", "-H", "'Accept: application/json'"},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -65,7 +77,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd = shell.Command{
 		Command: "curl",
-		Args:    []string{"-u", "demo:demo", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json", "--data-raw", fmt.Sprintf("{\"processDefinitionKey\":\"%d\"}", processDefinitionKey)},
+		Args:    []string{"-u", basicAuthCredentials(t), "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json", "--data-raw", fmt.Sprintf("{\"processDefinitionKey\":\"%d\"}", processDefinitionKey)},
 	}
 	shell.RunCommand(t, cmd)
 
@@ -74,7 +86,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd = shell.Command{
 		Command: "curl",
-		Args:    []string{"-u", "demo:demo", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances/search", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json"},
+		Args:    []string{"-u", basicAuthCredentials(t), "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances/search", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json"},
 	}
 	output = shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -84,7 +96,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd = shell.Command{
 		Command: "curl",
-		Args:    []string{"-u", "demo:demo", "-L", "-X", "POST", fmt.Sprintf("%s/v2/resources/%d/deletion", alb, processDefinitionKey)},
+		Args:    []string{"-u", basicAuthCredentials(t), "-L", "-X", "POST", fmt.Sprintf("%s/v2/resources/%d/deletion", alb, processDefinitionKey)},
 	}
 	shell.RunCommand(t, cmd)
 }

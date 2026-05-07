@@ -8,6 +8,7 @@ ConditionFileNotEmpty=/opt/camunda/camunda/config/camunda-environment
 [Service]
 Type=simple
 EnvironmentFile=/opt/camunda/camunda/config/camunda-environment
+EnvironmentFile=/etc/camunda/secrets.env
 ExecStart=/opt/camunda/camunda/bin/camunda
 Restart=on-failure
 RestartSec=30

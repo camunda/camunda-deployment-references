@@ -8,6 +8,7 @@ ConditionFileNotEmpty=/opt/camunda/connectors/connectors-environment
 [Service]
 Type=simple
 EnvironmentFile=/opt/camunda/connectors/connectors-environment
+EnvironmentFile=/etc/camunda/secrets.env
 ExecStart=/opt/camunda/connectors/start.sh
 Restart=on-failure
 RestartSec=30
