@@ -97,6 +97,15 @@ resource "aws_ecs_service" "connectors" {
   deployment_maximum_percent         = 200
   deployment_minimum_healthy_percent = 50
 
+  # Fail fast on broken deployments (e.g. CannotPullContainerError) instead of
+  # retrying for the full create timeout. AWS thresholds at ceil(0.5*desired)
+  # bounded to [10, 200] failures. rollback=false: on first create there is no
+  # prior deployment to roll back to.
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = false
+  }
+
   network_configuration {
     subnets          = var.vpc_private_subnets
     security_groups  = var.service_security_group_ids

@@ -1,0 +1,309 @@
+---
+name: Debug failed ECS tasks
+description: Collect debug info from an ECS cluster (services, tasks, stopped reasons, CloudWatch logs) and upload as artifact
+
+inputs:
+    cluster-name:
+        description: The ECS cluster name or ARN to inspect
+        required: true
+    aws-region:
+        description: The AWS region the cluster lives in
+        required: true
+    log-group-prefix:
+        description: |
+            CloudWatch log group name prefix to fetch logs from.
+            If empty, defaults to `/ecs/<cluster-name without trailing -cluster>`.
+        required: false
+        default: ''
+    log-tail-lines:
+        description: Number of CloudWatch log lines to display per stream in the CI output (full logs are uploaded as artifact)
+        required: false
+        default: '200'
+    max-stopped-tasks:
+        description: |
+            Maximum number of recently-stopped tasks to inspect per service (and additionally for
+            standalone tasks not owned by any service, e.g. one-off `RunTask` invocations).
+        required: false
+        default: '20'
+    artifact-suffix:
+        description: Suffix appended to the artifact name (e.g. scenario/declination identifier)
+        required: false
+        default: ''
+
+runs:
+    using: composite
+    steps:
+        - name: 🔬🚨 Resolve inputs
+          id: resolve
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              CLUSTER_INPUT="${{ inputs.cluster-name }}"
+              # Accept either a name or an ARN; extract the bare name for prefix derivation
+              CLUSTER_NAME="${CLUSTER_INPUT##*/}"
+
+              LOG_PREFIX="${{ inputs.log-group-prefix }}"
+              if [[ -z "$LOG_PREFIX" ]]; then
+                # Default: strip a trailing "-cluster" suffix and look under /ecs/<base>
+                LOG_PREFIX="/ecs/${CLUSTER_NAME%-cluster}"
+              fi
+
+              # Sanitize for filesystem use
+              SAFE_NAME="${CLUSTER_NAME//[^a-zA-Z0-9_.-]/_}"
+              DUMP_DIR="/tmp/ecs-debug-dump-${SAFE_NAME}"
+              mkdir -p "$DUMP_DIR"
+
+              {
+                echo "cluster-name=${CLUSTER_NAME}"
+                echo "cluster-ref=${CLUSTER_INPUT}"
+                echo "log-prefix=${LOG_PREFIX}"
+                echo "dump-dir=${DUMP_DIR}"
+              } | tee -a "$GITHUB_OUTPUT"
+
+        - name: 🔬🚨 Get cluster overview
+          shell: bash
+          env:
+              AWS_REGION: ${{ inputs.aws-region }}
+              CLUSTER: ${{ steps.resolve.outputs.cluster-ref }}
+              DUMP_DIR: ${{ steps.resolve.outputs.dump-dir }}
+          run: |
+              set -euo pipefail
+
+              echo "::group::Cluster description"
+              aws ecs describe-clusters \
+                --clusters "$CLUSTER" \
+                --include ATTACHMENTS CONFIGURATIONS SETTINGS STATISTICS TAGS \
+                --output yaml | tee "${DUMP_DIR}/cluster-describe.yaml" || true
+              echo "::endgroup::"
+
+        - name: 🔬🚨 Inspect services, deployments, events
+          shell: bash
+          env:
+              AWS_REGION: ${{ inputs.aws-region }}
+              CLUSTER: ${{ steps.resolve.outputs.cluster-ref }}
+              DUMP_DIR: ${{ steps.resolve.outputs.dump-dir }}
+          run: |
+              set -euo pipefail
+
+              SERVICE_ARNS=$(aws ecs list-services --cluster "$CLUSTER" \
+                --query 'serviceArns' --output text || true)
+
+              if [[ -z "$SERVICE_ARNS" || "$SERVICE_ARNS" == "None" ]]; then
+                echo "No services found in cluster $CLUSTER"
+                : > "${DUMP_DIR}/services.txt"
+                exit 0
+              fi
+
+              echo "$SERVICE_ARNS" | tr '\t' '\n' > "${DUMP_DIR}/services.txt"
+
+              echo "::group::Services overview"
+              # shellcheck disable=SC2086
+              aws ecs describe-services --cluster "$CLUSTER" \
+                --services $SERVICE_ARNS \
+                --query 'services[].{name:serviceName,status:status,desired:desiredCount,running:runningCount,pending:pendingCount,launch:launchType,taskDef:taskDefinition}' \
+                --output table || true
+              echo "::endgroup::"
+
+              # shellcheck disable=SC2086
+              aws ecs describe-services --cluster "$CLUSTER" \
+                --services $SERVICE_ARNS \
+                --output yaml > "${DUMP_DIR}/services-describe.yaml" || true
+
+              for svc_arn in $SERVICE_ARNS; do
+                svc_name="${svc_arn##*/}"
+                echo ""
+                echo "============================================"
+                echo "Service: ${svc_name}"
+                echo "============================================"
+
+                echo "::group::${svc_name} - deployments"
+                aws ecs describe-services --cluster "$CLUSTER" \
+                  --services "$svc_arn" \
+                  --query 'services[0].deployments' \
+                  --output yaml || true
+                echo "::endgroup::"
+
+                echo "::group::${svc_name} - events (last 30)"
+                aws ecs describe-services --cluster "$CLUSTER" \
+                  --services "$svc_arn" \
+                  --query 'services[0].events[0:30]' \
+                  --output yaml || true
+                echo "::endgroup::"
+              done
+
+        - name: 🔬🚨 Inspect tasks (per-service + standalone)
+          shell: bash
+          env:
+              AWS_REGION: ${{ inputs.aws-region }}
+              CLUSTER: ${{ steps.resolve.outputs.cluster-ref }}
+              DUMP_DIR: ${{ steps.resolve.outputs.dump-dir }}
+              MAX_STOPPED: ${{ inputs.max-stopped-tasks }}
+          run: |
+              set -euo pipefail
+
+              # Per-task summary projection
+              Q='tasks[].{'
+              Q+='arn:taskArn,'
+              Q+='defn:taskDefinitionArn,'
+              Q+='lastStatus:lastStatus,'
+              Q+='desiredStatus:desiredStatus,'
+              Q+='health:healthStatus,'
+              Q+='startedBy:startedBy,'
+              Q+='group:group,'
+              Q+='stoppedReason:stoppedReason,'
+              Q+='exitCodes:containers[].{'
+              Q+='name:name,exit:exitCode,reason:reason,lastStatus:lastStatus}'
+              Q+='}'
+
+              SERVICE_ARNS=$(aws ecs list-services --cluster "$CLUSTER" \
+                --query 'serviceArns' --output text || true)
+
+              describe_and_dump() {
+                # $1 = task arns (whitespace-separated), $2 = file label, $3 = group title
+                local arns="$1" label="$2" title="$3"
+                if [[ -z "$arns" || "$arns" == "None" ]]; then
+                  echo "No tasks for ${title}."
+                  return
+                fi
+
+                echo "::group::${title}"
+                # shellcheck disable=SC2086
+                aws ecs describe-tasks --cluster "$CLUSTER" --tasks $arns \
+                  --query "$Q" --output yaml \
+                  | tee "${DUMP_DIR}/${label}.yaml" || true
+                echo "::endgroup::"
+
+                # shellcheck disable=SC2086
+                aws ecs describe-tasks --cluster "$CLUSTER" --tasks $arns \
+                  --output yaml > "${DUMP_DIR}/${label}-full.yaml" 2>&1 || true
+
+                # shellcheck disable=SC2086
+                local td td_safe
+                for td in $(aws ecs describe-tasks --cluster "$CLUSTER" --tasks $arns \
+                              --query 'tasks[].taskDefinitionArn' --output text 2>/dev/null \
+                              | tr '\t' '\n' | sort -u); do
+                  td_safe="${td##*/}"
+                  td_safe="${td_safe//[^a-zA-Z0-9_.-]/_}"
+                  aws ecs describe-task-definition --task-definition "$td" \
+                    --output yaml > "${DUMP_DIR}/taskdef-${td_safe}.yaml" 2>&1 || true
+                done
+              }
+
+              for status in RUNNING STOPPED; do
+                # Cap STOPPED per-service so a noisy service can't crowd out others
+                CAP=()
+                if [[ "$status" == "STOPPED" ]]; then
+                  CAP=(--max-items "$MAX_STOPPED")
+                fi
+
+                # Per-service tasks
+                if [[ -n "$SERVICE_ARNS" && "$SERVICE_ARNS" != "None" ]]; then
+                  for svc_arn in $SERVICE_ARNS; do
+                    svc_name="${svc_arn##*/}"
+                    svc_safe="${svc_name//[^a-zA-Z0-9_.-]/_}"
+                    T_ARNS=$(aws ecs list-tasks --cluster "$CLUSTER" \
+                      --service-name "$svc_name" --desired-status "$status" \
+                      "${CAP[@]}" \
+                      --query 'taskArns' --output text || true)
+                    describe_and_dump "$T_ARNS" \
+                      "tasks-${svc_safe}-${status}" \
+                      "Tasks (${status}) :: service ${svc_name}"
+                  done
+                fi
+
+                # Standalone tasks (not owned by any service, e.g. one-off `RunTask`
+                # invocations like db-seed). Compute set difference between
+                # cluster-wide and per-service ARNs.
+                ALL_FILE="${DUMP_DIR}/.all-${status}.tmp"
+                aws ecs list-tasks --cluster "$CLUSTER" \
+                  --desired-status "$status" "${CAP[@]}" \
+                  --query 'taskArns' --output text 2>/dev/null \
+                  | tr '\t' '\n' | sed '/^$/d' | sort -u > "$ALL_FILE" || true
+
+                SVC_FILE="${DUMP_DIR}/.svc-${status}.tmp"
+                : > "$SVC_FILE"
+                if [[ -n "$SERVICE_ARNS" && "$SERVICE_ARNS" != "None" ]]; then
+                  for svc_arn in $SERVICE_ARNS; do
+                    svc_name="${svc_arn##*/}"
+                    aws ecs list-tasks --cluster "$CLUSTER" \
+                      --service-name "$svc_name" --desired-status "$status" \
+                      --query 'taskArns' --output text 2>/dev/null \
+                      | tr '\t' '\n' | sed '/^$/d' >> "$SVC_FILE" || true
+                  done
+                fi
+                STANDALONE=$(comm -23 "$ALL_FILE" <(sort -u "$SVC_FILE") \
+                  | tr '\n' ' ')
+                rm -f "$ALL_FILE" "$SVC_FILE"
+                describe_and_dump "$STANDALONE" \
+                  "tasks-standalone-${status}" \
+                  "Tasks (${status}) :: standalone (no service)"
+              done
+
+        - name: 🔬🚨 Fetch CloudWatch logs
+          shell: bash
+          env:
+              AWS_REGION: ${{ inputs.aws-region }}
+              LOG_PREFIX: ${{ steps.resolve.outputs.log-prefix }}
+              DUMP_DIR: ${{ steps.resolve.outputs.dump-dir }}
+              LOG_TAIL: ${{ inputs.log-tail-lines }}
+          run: |
+              set -euo pipefail
+
+              echo "::group::Log groups under prefix ${LOG_PREFIX}"
+              LOG_GROUPS=$(aws logs describe-log-groups \
+                --log-group-name-prefix "$LOG_PREFIX" \
+                --query 'logGroups[].logGroupName' --output text || true)
+
+              if [[ -z "$LOG_GROUPS" || "$LOG_GROUPS" == "None" ]]; then
+                echo "No log groups found under prefix $LOG_PREFIX"
+                echo "::endgroup::"
+                exit 0
+              fi
+              echo "$LOG_GROUPS" | tr '\t' '\n'
+              echo "::endgroup::"
+
+              for lg in $LOG_GROUPS; do
+                lg_safe="${lg//\//_}"
+                lg_safe="${lg_safe//[^a-zA-Z0-9_.-]/_}"
+                lg_dir="${DUMP_DIR}/logs${lg_safe}"
+                mkdir -p "$lg_dir"
+
+                # Pick the 50 most recently active streams
+                STREAMS=$(aws logs describe-log-streams \
+                  --log-group-name "$lg" \
+                  --order-by LastEventTime --descending \
+                  --max-items 50 \
+                  --query 'logStreams[].logStreamName' --output text 2>/dev/null || true)
+
+                if [[ -z "$STREAMS" || "$STREAMS" == "None" ]]; then
+                  echo "No streams in log group $lg"
+                  continue
+                fi
+
+                for stream in $STREAMS; do
+                  stream_safe="${stream//\//_}"
+                  stream_safe="${stream_safe//[^a-zA-Z0-9_.-]/_}"
+                  out_file="${lg_dir}/${stream_safe}.log"
+
+                  # Full log to artifact
+                  aws logs get-log-events \
+                    --log-group-name "$lg" \
+                    --log-stream-name "$stream" \
+                    --start-from-head \
+                    --query 'events[].[timestamp, message]' \
+                    --output text > "$out_file" 2>&1 || true
+
+                  echo "::group::${lg} :: ${stream} (tail ${LOG_TAIL})"
+                  tail -n "$LOG_TAIL" "$out_file" || true
+                  echo "::endgroup::"
+                done
+              done
+
+        - name: 📤 Upload ECS debug dump
+          if: always()
+          uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+          with:
+              name: ecs-debug-dump${{ inputs.artifact-suffix != '' && format('-{0}', inputs.artifact-suffix) || '' }}
+              retention-days: 7
+              path: ${{ steps.resolve.outputs.dump-dir }}

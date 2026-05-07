@@ -131,3 +131,7 @@ camunda-platform-helm
 
 # Exclude actionlint binary
 actionlint
+
+# Claude Code local agent state (lock files, user-local settings)
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
