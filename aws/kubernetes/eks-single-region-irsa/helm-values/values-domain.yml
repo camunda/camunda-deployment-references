@@ -26,13 +26,13 @@ global:
             host: ${OPENSEARCH_HOST}
             port: 443
 
+    host: ${CAMUNDA_DOMAIN}
     security:
         authentication:
             method: oidc
 
     ingress:
         enabled: true
-        host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
             secretName: camunda-c8-tls
@@ -162,7 +162,7 @@ webModeler:
     restapi:
         externalDatabase:
             url: jdbc:aws-wrapper:postgresql://${DB_HOST}:${DB_PORT}/${DB_WEBMODELER_NAME}?wrapperPlugins=iam
-            user: ${DB_WEBMODELER_USERNAME}
+            username: ${DB_WEBMODELER_USERNAME}
             secret:
                 existingSecret: webmodeler-postgres-secret # fake password needed for chart (IRSA uses IAM auth)
                 existingSecretKey: password
