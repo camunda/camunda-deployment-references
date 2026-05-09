@@ -328,7 +328,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.34.6-SUFFIX",
+                    "release_version": "1.34.7-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -3319,6 +3319,12 @@
     "module.postgresql": {
       "resources": {
         "module.postgresql.aws_db_subnet_group.this": {
+          "identity": {
+            "account_id": null,
+            "name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
