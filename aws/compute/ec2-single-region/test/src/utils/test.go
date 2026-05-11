@@ -110,7 +110,7 @@ func ResetCamunda(t *testing.T, terraformOptions *terraform.Options, adminUserna
 	for _, ip := range camundaIps {
 		cmd := shell.Command{
 			Command: "ssh",
-			Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%S@%s", adminUsername, ip), "sudo systemctl stop camunda"},
+			Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, ip), "sudo systemctl stop camunda"},
 		}
 		// Ignore error as the service might not be running
 		shell.RunCommandE(t, cmd)
