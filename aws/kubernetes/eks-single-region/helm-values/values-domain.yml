@@ -112,7 +112,10 @@ orchestration:
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
-                projectcontour.io/upstream-protocol.h2c: '26500'
+
+    service:
+        annotations:
+            projectcontour.io/upstream-protocol.h2c: '26500'
 
 
 console:
