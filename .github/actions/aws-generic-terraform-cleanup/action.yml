@@ -127,13 +127,17 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              declare -A regions=()
-              [[ -n "${AWS_REGION:-}" ]] && regions["$AWS_REGION"]=1
-              [[ -n "${CLUSTER_0_AWS_REGION:-}" ]] && regions["$CLUSTER_0_AWS_REGION"]=1
-              [[ -n "${CLUSTER_1_AWS_REGION:-}" ]] && regions["$CLUSTER_1_AWS_REGION"]=1
-              for region in "${!regions[@]}"; do
+              regions=$(
+                printf '%s\n%s\n%s\n' \
+                  "${AWS_REGION:-}" \
+                  "${CLUSTER_0_AWS_REGION:-}" \
+                  "${CLUSTER_1_AWS_REGION:-}" \
+                  | grep -v '^$' | sort -u
+              )
+              while IFS= read -r region; do
+                [[ -z "$region" ]] && continue
                 ${{ github.action_path }}/scripts/nuke-orphan-target-groups.sh "$region" || true
-              done
+              done <<< "$regions"
 
         # Required for matrix jobs
         - name: Convert key prefix into slug

@@ -47,8 +47,9 @@ list_orphans() {
 }
 
 echo "Listing ELBv2 target groups in ${REGION} (pass 1)..."
-mapfile -t pass1 < <(list_orphans)
-pass1_count=${#pass1[@]}
+pass1="$(list_orphans)"
+pass1_count=0
+[[ -n "$pass1" ]] && pass1_count=$(printf '%s\n' "$pass1" | wc -l | tr -d ' ')
 echo "Pass 1: ${pass1_count} orphan target group(s)."
 
 if [[ $pass1_count -eq 0 ]]; then
@@ -59,22 +60,40 @@ echo "Waiting ${SETTLE_SECONDS}s before re-checking to avoid deleting TGs mid-at
 sleep "$SETTLE_SECONDS"
 
 echo "Listing ELBv2 target groups in ${REGION} (pass 2)..."
-mapfile -t pass2 < <(list_orphans)
-declare -A still_orphan=()
-for arn in "${pass2[@]}"; do
-    still_orphan["$arn"]=1
-done
+pass2="$(list_orphans)"
 
-confirmed=()
-for arn in "${pass1[@]}"; do
-    if [[ -n "${still_orphan[$arn]:-}" ]]; then
-        confirmed+=("$arn")
-    else
-        echo "Skipping ${arn} — attached to an LB during the settle window."
+# Confirmed = intersection of pass1 and pass2 (newline-separated lists).
+# Avoids bash 4-only features (mapfile, associative arrays) so the script
+# runs on macOS bash 3.2 as well as the Linux runners used by CI.
+confirmed="$(
+    if [[ -n "$pass1" && -n "$pass2" ]]; then
+        comm -12 \
+            <(printf '%s\n' "$pass1" | sort -u) \
+            <(printf '%s\n' "$pass2" | sort -u)
     fi
-done
+)"
 
-total=${#confirmed[@]}
+# Log TGs that recovered (in pass1 but not in pass2).
+if [[ -n "$pass1" ]]; then
+    healed="$(
+        if [[ -n "$pass2" ]]; then
+            comm -23 \
+                <(printf '%s\n' "$pass1" | sort -u) \
+                <(printf '%s\n' "$pass2" | sort -u)
+        else
+            printf '%s\n' "$pass1" | sort -u
+        fi
+    )"
+    if [[ -n "$healed" ]]; then
+        while IFS= read -r arn; do
+            [[ -z "$arn" ]] && continue
+            echo "Skipping ${arn} — attached to an LB during the settle window."
+        done <<< "$healed"
+    fi
+fi
+
+total=0
+[[ -n "$confirmed" ]] && total=$(printf '%s\n' "$confirmed" | wc -l | tr -d ' ')
 echo "Confirmed orphan target group(s) in ${REGION}: ${total}"
 
 if [[ $total -eq 0 ]]; then
@@ -83,7 +102,8 @@ fi
 
 deleted=0
 skipped=0
-for tg_arn in "${confirmed[@]}"; do
+while IFS= read -r tg_arn; do
+    [[ -z "$tg_arn" ]] && continue
     if [[ "$DRY_RUN" == "true" ]]; then
         echo "[DRY RUN] Would delete: $tg_arn"
         continue
@@ -97,6 +117,6 @@ for tg_arn in "${confirmed[@]}"; do
         echo "Skipped (delete failed): $tg_arn — $(cat /tmp/tg-delete-err)"
         skipped=$((skipped + 1))
     fi
-done
+done <<< "$confirmed"
 
 echo "Done in ${REGION}: deleted=${deleted}, skipped=${skipped}, total=${total}"
