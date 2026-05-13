@@ -83,6 +83,21 @@ cleanup_vpc_dependencies() {
     sleep 30
   fi
 
+  # 1b. Delete ELBv2 Target Groups in this VPC.
+  # AWS does not cascade-delete TGs when their LB is removed, so they pile up
+  # and eventually exhaust the per-region TooManyTargetGroups quota.
+  # TGs still attached to a live LB return ResourceInUse and are silently skipped.
+  local tg_arns
+  tg_arns=$(aws elbv2 describe-target-groups \
+    --query "TargetGroups[?VpcId=='${vpc_id}'].TargetGroupArn" \
+    --output text --region "$region" 2>/dev/null)
+  if [[ -n "$tg_arns" && "$tg_arns" != "None" ]]; then
+    for tg_arn in $tg_arns; do
+      echo "  Deleting Target Group: $tg_arn"
+      aws elbv2 delete-target-group --target-group-arn "$tg_arn" --region "$region" 2>/dev/null || true
+    done
+  fi
+
   # 2. Delete Classic Load Balancers
   local clb_names
   clb_names=$(aws elb describe-load-balancers \
