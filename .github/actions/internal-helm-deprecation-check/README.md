@@ -12,7 +12,9 @@ by checking against a strict version of the chart's JSON Schema.
 On pull request events, findings are reported as a single shared PR
 comment (one comment per PR, with one section per
 workflow/job/release/namespace combination) and the workflow is NOT
-failed. On non-PR events, findings still fail the workflow.
+failed. On non-PR events (schedule, workflow_dispatch, push, etc.),
+findings are emitted as ::warning:: annotations in the Actions log
+and the workflow is NOT failed.
 
 See: https://github.com/camunda/camunda-platform-helm/issues/4564
 

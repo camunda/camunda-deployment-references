@@ -11,7 +11,9 @@ description: |
     On pull request events, findings are reported as a single shared PR
     comment (one comment per PR, with one section per
     workflow/job/release/namespace combination) and the workflow is NOT
-    failed. On non-PR events, findings still fail the workflow.
+    failed. On non-PR events (schedule, workflow_dispatch, push, etc.),
+    findings are emitted as ::warning:: annotations in the Actions log
+    and the workflow is NOT failed.
 
     See: https://github.com/camunda/camunda-platform-helm/issues/4564
 
@@ -299,7 +301,7 @@ runs:
                   } >> "${FINDINGS_FILE}"
               fi
 
-        - name: 💬 Report findings to PR (or fail on non-PR events)
+        - name: 💬 Report findings to PR (or log warning on non-PR events)
           if: always()
           shell: bash
           env:
@@ -336,12 +338,12 @@ runs:
 
               if [[ -z "${PR_NUMBER}" ]]; then
                   if [[ -s "${FINDINGS_FILE}" ]]; then
-                      echo "::error::Helm deprecation findings detected and no PR context is available to comment on."
+                      echo "::warning::Helm deprecation findings detected; no PR context to comment on. See job logs for details."
                       echo "Findings:"
                       cat "${FINDINGS_FILE}"
                       echo ""
                       echo "See: https://docs.camunda.io/docs/self-managed/deployment/helm/upgrade/"
-                      exit 1
+                      exit 0
                   fi
                   echo "No PR context and no findings; nothing to report."
                   exit 0
