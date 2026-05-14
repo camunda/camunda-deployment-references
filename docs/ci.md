@@ -89,10 +89,28 @@ All reusable CI logic lives in `.github/actions/`. Each action has:
 - `kubernetes-*` — Kubernetes-level setup (operators, ingress, certificates, DNS)
 - `aws-cognito-create` / `aws-aurora-manage-cluster` / `aws-opensearch-manage-cluster` — cloud service setup
 
+## GitHub Actions Conventions
+
+- **Pin all actions to a commit SHA**, not a semver tag. Renovate handles updates automatically.
+  ```yaml
+  # Correct
+  uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+  # Wrong
+  uses: actions/checkout@v4
+  ```
+- **All secrets come from Vault** — never GitHub Secrets or hardcoded values. CI secrets live at `secret/data/products/infrastructure-experience/ci/common` (AWS, Azure, common credentials).
+
 ## PR Automation
 
 - **Auto-labeling:** `.github/labeler.yml` assigns labels based on changed paths (e.g. `aws/`, `azure/`, `generic/`)
-- **Renovate:** `.github/renovate.json5` manages dependency updates; `baseBranchPatterns` must be updated when branches are added/removed
+- **Renovate:** `.github/renovate.json5` extends `github>camunda/infraex-common-config:default.json5`. This shared config governs scheduling (weekends only, except CVEs), grouping (minor+patch together), automerge, and custom regex managers for non-standard deps (ROSA, Helm chart versions). Update `baseBranchPatterns` when branches are added/removed.
+
+## Customer-Facing Repo
+
+`camunda-deployment-references` is a **customer-facing** repository. This means:
+- PRs must be structured and well-described (motivation + implications)
+- Documentation PRs in [camunda-docs](https://github.com/camunda/camunda-docs) should accompany significant changes
+- Typical PR breakdown for a new reference architecture: (1) Terraform modules, (2) Helm values + procedures, (3) CI tests
 
 ## Release Process
 

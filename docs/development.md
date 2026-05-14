@@ -11,6 +11,47 @@ pre-commit install      # install git commit hooks
 
 All tool versions (Terraform, Helm, kubectl, kind, Go, etc.) are pinned in `.tool-versions`.
 
+## Cloud Provider Access
+
+### AWS
+
+Access is via Okta SSO. Configure once:
+
+```bash
+aws configure sso --profile infraex
+# SSO start URL: https://d-9967231e9d.awsapps.com/start
+# SSO region: eu-central-1
+# Account ID: 4448-0410-6854
+```
+
+Login (short-lived credentials, re-run when expired):
+
+```bash
+aws sso login --profile infraex
+aws sts get-caller-identity --profile infraex   # verify
+```
+
+> **Warning:** Regions **eu-west-2** and **eu-west-3** are reserved for CI and are nuked nightly. Never use them for local development.
+
+### Azure
+
+Access is via Okta with a `firstname.lastname@camundaittest.onmicrosoft.com` account.
+
+```bash
+az login                                          # browser-based MFA
+az account set --subscription "<subscription>"   # set target subscription
+```
+
+For AKS access (kubectl):
+
+```bash
+az aks get-credentials --resource-group <RG> --name <CLUSTER>
+kubelogin convert-kubeconfig -l azurecli         # required for AAD-integrated clusters
+kubectl get nodes                                 # verify
+```
+
+kubelogin in `azurecli` mode relies on the Azure CLI token (valid ~24h). Re-run `az login` if kubectl auth fails the next day.
+
 ## Common Commands
 
 ```bash
