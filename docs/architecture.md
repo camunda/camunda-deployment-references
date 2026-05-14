@@ -49,7 +49,7 @@ Camunda 8 deployments consist of two logical clusters:
 - Zeebe (workflow engine)
 - Operate (monitoring UI)
 - Tasklist (human task UI)
-- Identity (auth/authz)
+- Admin (auth/authz) — named Identity in ≤ 8.8
 
 **Secondary Storage (choose one per deployment, migration between them is not supported):**
 - Elasticsearch / OpenSearch (search-heavy workloads)
