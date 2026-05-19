@@ -58,9 +58,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure()
-              # TODO(infraex-common-config#487): pinned to the feat/issue-1106-branch-aware-slack-alerts tip;
-              # bump to the next released tag (>=1.7.0) of infraex-common-config before merging.
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b033a85e17556c002c2b54f1a0ae31554382eb90
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@6d3ddc1bbae80d4c7bb42541ba7f0e95a2ef9787 # 1.6.1
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
