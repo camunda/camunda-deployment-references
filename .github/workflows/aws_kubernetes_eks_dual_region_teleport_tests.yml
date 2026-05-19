@@ -67,7 +67,7 @@ env:
     TELEPORT: true
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 14.1.0
+    CAMUNDA_HELM_CHART_VERSION: 14.2.0
 
 jobs:
     triage:
