@@ -59,10 +59,26 @@ jobs:
                     rosa list versions --output json              | jq '.[].raw_id' --raw-output
                   } | sort -V -u -r > docs/rosa_versions.txt
 
+                  echo "::group::Raw HCP versions returned by rosa CLI"
+                  rosa list versions --hosted-cp --output json | jq '.[].raw_id' --raw-output || true
+                  echo "::endgroup::"
+
+                  echo "::group::Raw classic versions returned by rosa CLI"
+                  rosa list versions --output json | jq '.[].raw_id' --raw-output || true
+                  echo "::endgroup::"
+
+                  echo "::group::Generated docs/rosa_versions.txt ($(wc -l < docs/rosa_versions.txt) lines)"
+                  cat docs/rosa_versions.txt
+                  echo "::endgroup::"
+
             - name: Commit and push ROSA versions file to gh-pages
               shell: bash
               run: |
                   set -euo pipefail
+
+                  echo "::group::Diff against gh-pages"
+                  git --no-pager diff -- docs/rosa_versions.txt || true
+                  echo "::endgroup::"
 
                   git diff --exit-code docs/rosa_versions.txt || {
                     git config --local user.name "github-actions[bot]"
