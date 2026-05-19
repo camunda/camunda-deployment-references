@@ -1,0 +1,76 @@
+---
+# Internal smoke test for the Slack alert routing wired in
+# `report-failure-on-slack`. Exercise both branches of the ternary
+# (scheduled vs. non-scheduled) without having to wait for cron.
+#
+# Usage:
+#   gh workflow run "Internal - Global - Slack Alert Smoke" \
+#       -f simulate_schedule=false -f force_fail=true
+#
+# Expected outcomes:
+#   - simulate_schedule=true, force_fail=true   → posts to infraex-alerts, pings @infraex-medic
+#   - simulate_schedule=false, force_fail=true  → posts to infraex-tests, no mention
+#   - force_fail=false                          → job succeeds, no alert (sanity check)
+#
+# When the production action gains stable-branch severity (see
+# camunda/infraex-common-config#487), trigger this from a `stable/*`
+# branch as well to verify the severity prefix renders.
+
+name: Internal - Global - Slack Alert Smoke
+
+on:
+    workflow_dispatch:
+        inputs:
+            simulate_schedule:
+                description: Route as if this were a scheduled run (infraex-alerts + medic mention).
+                type: boolean
+                default: false
+            force_fail:
+                description: Intentionally fail the job so the notify step fires.
+                type: boolean
+                default: true
+
+permissions:
+    contents: read
+
+jobs:
+    smoke:
+        runs-on: ubuntu-latest
+        env:
+            IS_SCHEDULE: ${{ inputs.simulate_schedule }}
+        steps:
+            - name: Echo routing decision
+              shell: bash
+              env:
+                  SIMULATE_SCHEDULE: ${{ inputs.simulate_schedule }}
+                  FORCE_FAIL: ${{ inputs.force_fail }}
+              run: |
+                  set -euo pipefail
+                  echo "simulate_schedule=$SIMULATE_SCHEDULE"
+                  echo "force_fail=$FORCE_FAIL"
+                  if [[ "$SIMULATE_SCHEDULE" == "true" ]]; then
+                    echo "Expected channel: C076N4G1162 (infraex-alerts) with @infraex-medic mention"
+                  else
+                    echo "Expected channel: C07E4FF6YMB (infraex-tests) without mention"
+                  fi
+
+            - name: Intentional failure
+              if: ${{ inputs.force_fail }}
+              shell: bash
+              run: |
+                  echo "Failing on purpose to exercise the Slack notify path." >&2
+                  exit 1
+
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: failure()
+              # TODO(infraex-common-config#487): pinned to the feat/issue-1106-branch-aware-slack-alerts tip;
+              # bump to the next released tag (>=1.7.0) of infraex-common-config before merging.
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b033a85e17556c002c2b54f1a0ae31554382eb90
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}
