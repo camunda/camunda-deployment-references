@@ -195,7 +195,7 @@ variable "image" {
   # TODO: [release-duty] before the release, update the below versions to the stable release!
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)(-alpha(?<prerelease>[1-9]|[1-4][0-9]|50))?$
-  default = "camunda/camunda:8.10-SNAPSHOT"
+  default = "camunda/camunda:8.10.0-alpha1"
 }
 
 variable "environment_variables" {
@@ -285,7 +285,7 @@ variable "restore_container_image" {
   # TODO: [release-duty] before the release, update the below versions to the stable release!
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)(-alpha(?<prerelease>[1-9]|[1-4][0-9]|50))?$
-  default = "camunda/camunda:8.10-SNAPSHOT"
+  default = "camunda/camunda:8.10.0-alpha1"
 }
 
 variable "restore_container_entrypoint" {
