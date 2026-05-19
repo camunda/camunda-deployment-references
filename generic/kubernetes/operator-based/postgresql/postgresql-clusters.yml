@@ -7,7 +7,7 @@ spec:
     instances: 1
     description: PostgreSQL cluster for Camunda Identity
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
-    imageName: ghcr.io/cloudnative-pg/postgresql:17.9
+    imageName: ghcr.io/cloudnative-pg/postgresql:18.3
     storage:
         size: 15Gi
     superuserSecret:
@@ -31,7 +31,7 @@ spec:
     instances: 1
     description: PostgreSQL cluster for Keycloak
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
-    imageName: ghcr.io/cloudnative-pg/postgresql:17.9
+    imageName: ghcr.io/cloudnative-pg/postgresql:18.3
     storage:
         size: 15Gi
     superuserSecret:
@@ -59,7 +59,7 @@ spec:
     instances: 1
     description: PostgreSQL cluster for Webmodeler
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
-    imageName: ghcr.io/cloudnative-pg/postgresql:17.9
+    imageName: ghcr.io/cloudnative-pg/postgresql:18.3
     superuserSecret:
         name: pg-webmodeler-superuser-secret
     # OpenShift Security Context - let SCC manage the security context
