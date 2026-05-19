@@ -39,17 +39,22 @@ jobs:
 
             - name: Install ROSA CLI and output rosa versions
               shell: bash
-              working-directory: /tmp
               run: |
                   set -euo pipefail
 
+                  # Download and install rosa CLI in /tmp (we don't need it in the repo).
+                  pushd /tmp >/dev/null
                   curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-linux.tar.gz"
                   tar -xvf rosa-linux.tar.gz
                   sudo mv rosa /usr/local/bin/rosa
                   chmod +x /usr/local/bin/rosa
                   rm -f rosa-linux.tar.gz
+                  popd >/dev/null
+
                   rosa version
                   rosa login --token=${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+
+                  # Write the artifact into the repo working tree (gh-pages branch is currently checked out).
                   mkdir -p docs
                   # We deploy ROSA HCP (Hosted Control Planes) — the `--hosted-cp` flag is required,
                   # otherwise `rosa list versions` returns ROSA classic versions, which lag behind HCP.
