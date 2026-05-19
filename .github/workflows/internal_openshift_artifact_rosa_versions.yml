@@ -51,7 +51,13 @@ jobs:
                   rosa version
                   rosa login --token=${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
                   mkdir -p docs
-                  rosa list versions --output json | jq '.[].raw_id' --raw-output > docs/rosa_versions.txt
+                  # We deploy ROSA HCP (Hosted Control Planes) — the `--hosted-cp` flag is required,
+                  # otherwise `rosa list versions` returns ROSA classic versions, which lag behind HCP.
+                  # Merge classic + HCP, dedup, and sort descending so Renovate sees all supported versions.
+                  {
+                    rosa list versions --hosted-cp --output json | jq '.[].raw_id' --raw-output
+                    rosa list versions --output json              | jq '.[].raw_id' --raw-output
+                  } | sort -V -u -r > docs/rosa_versions.txt
 
             - name: Commit and push ROSA versions file to gh-pages
               shell: bash
