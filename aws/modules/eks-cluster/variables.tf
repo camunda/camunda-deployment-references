@@ -130,6 +130,18 @@ variable "single_nat_gateway" {
   description = "If set to true, a single NAT Gateway will be created for the VPC. If set to false, a NAT Gateway will be created for each subnet and requiring an IP per subnet."
 }
 
+variable "enable_vpc_flow_logs" {
+  type        = bool
+  default     = false
+  description = "If true, enable VPC Flow Logs to a dedicated CloudWatch Log Group (and create the IAM role). Useful to investigate SYN drops, NLB connection issues and L3/L4 traffic patterns. Note: incurs CloudWatch Logs ingestion/storage cost."
+}
+
+variable "vpc_flow_logs_retention_in_days" {
+  type        = number
+  default     = 7
+  description = "Retention in days for the VPC Flow Logs CloudWatch Log Group. Only used when enable_vpc_flow_logs is true."
+}
+
 variable "kms_key_tags" {
   type        = map(string)
   description = "The tags to associate with the KMS key."

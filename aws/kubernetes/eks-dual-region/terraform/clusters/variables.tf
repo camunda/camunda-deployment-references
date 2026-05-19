@@ -1,0 +1,93 @@
+################################
+# Magic Variables             #
+################################
+
+locals {
+  # For demonstration purposes, we will use owner and acceptor as separation. Naming choice will become clearer when seeing the peering setup
+  owner = {
+    region             = "us-east-1"     # N. Virginia
+    vpc_cidr_block     = "10.192.0.0/16" # vpc for the cluster and pod range
+    service_cidr_block = "10.190.0.0/16" # internal network of the cluster
+    region_full_name   = "us-east-1"
+  }
+  accepter = {
+    region             = "us-east-2"     # Ohio
+    vpc_cidr_block     = "10.202.0.0/16" # vpc for the cluster and pod range
+    service_cidr_block = "10.200.0.0/16" # internal network of the cluster
+    region_full_name   = "us-east-2"
+  }
+}
+
+################################
+# Variables                    #
+################################
+
+variable "cluster_name" {
+  type        = string
+  description = "Name of the cluster to prefix resources"
+}
+
+variable "aws_profile" {
+  type        = string
+  description = "AWS Profile to use (null = use default credential chain)"
+  default     = null
+}
+
+variable "kubernetes_version" {
+  type        = string
+  description = "Kubernetes version to use"
+  # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
+  default = "1.35"
+}
+
+variable "np_instance_types" {
+  type        = list(string)
+  description = "Instance types for the node pool"
+  # RBC benchmark: m6i.2xlarge (8 vCPU, 32GB) to fit 4CPU/8GB broker pods
+  default = ["m6i.2xlarge"]
+}
+
+variable "np_capacity_type" {
+  type        = string
+  default     = "ON_DEMAND"
+  description = "Allows setting the capacity type to ON_DEMAND or SPOT to determine stable nodes"
+}
+
+variable "np_max_node_count" {
+  type = number
+  # RBC benchmark: up to 12 nodes per region
+  default     = 12
+  description = "Maximum number of nodes in the node pool"
+}
+
+variable "np_desired_node_count" {
+  type = number
+  # RBC benchmark: 6 nodes per region (4 brokers + ES + other components)
+  default     = 6
+  description = "Desired number of nodes in the node pool"
+}
+
+variable "single_nat_gateway" {
+  type        = bool
+  default     = false
+  description = "If true, only one NAT gateway will be created to save on e.g. IPs, not good for HA"
+}
+
+variable "enable_vpc_flow_logs" {
+  type = bool
+  # Enabled by default on this branch to support RBC benchmark debugging
+  # (NLB throttling, SYN drops at the ENI level, etc.).
+  default     = true
+  description = "If true, enable VPC Flow Logs to CloudWatch on both regional VPCs."
+}
+
+variable "vpc_flow_logs_retention_in_days" {
+  type        = number
+  default     = 7
+  description = "Retention in days for the VPC Flow Logs CloudWatch Log Group on both regions."
+}
+variable "default_tags" {
+  type        = map(string)
+  default     = {}
+  description = "Default tags to apply to all resources"
+}

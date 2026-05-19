@@ -1,0 +1,327 @@
+---
+name: Internal Multi-Region Tests
+description: Run tests across multiple regions
+inputs:
+    cluster-0-namespace:
+        description: Camunda namespace for Cluster 0
+        required: true
+        default: camunda-platform
+    cluster-1-namespace:
+        description: Camunda namespace for Cluster 1
+        required: true
+        default: camunda-platform
+    helm-version:
+        description: Helm version to test
+        required: true
+    cluster-0-name:
+        description: Name of cluster in region 0
+        required: true
+    cluster-1-name:
+        description: Name of cluster in region 1
+        required: true
+    backup-name:
+        description: Name of the backup that should be created, important in shared s3 buckets
+        required: false
+    backup-bucket:
+        description: Name of the S3 bucket where backups are stored
+        required: false
+        default: camunda-platform-backups
+    default-values-yaml:
+        description: Path to default values yaml file
+        required: false
+        default: ./aws/kubernetes/eks-dual-region/helm-values/camunda-values.yml
+    region-0-values-yaml:
+        description: Path to region 0 values yaml file
+        required: false
+        default: ./aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
+    region-1-values-yaml:
+        description: Path to region 1 values yaml file
+        required: false
+        default: ./aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
+    extra-values-yaml:
+        description: Comma separated string of extra values yaml files to be applied
+        required: false
+        default: ''
+    skip-cleanup:
+        description: Skip cleanup step only (keep deploy to ensure test process is created). Use this when deployment already exists with platform-specific
+            config like OpenShift ServiceExports.
+        required: false
+        default: 'false'
+    post-failback-script:
+        description: Script to run after Failback to re-export services (e.g., for OpenShift Submariner ServiceExports)
+        required: false
+        default: ''
+    distribution:
+        description: Distribution to test on, e.g., EKS or OpenShift. Mainly for disabling certain tests.
+        required: false
+        default: EKS
+    release-name:
+        description: The Helm release name to check for deprecation warnings
+        required: false
+        default: camunda
+    exclude-deprecation-patterns:
+        description: |
+            Newline-separated list of fixed strings to exclude from deprecation warnings.
+            Passed through to internal-helm-deprecation-check using grep -F (fixed-string) semantics.
+        required: false
+        default: ''
+    skip-failover:
+        description: Skip failover, failback, multi-tenancy, and scaling tests. Only deploy and verify.
+        required: false
+        default: 'false'
+runs:
+    using: composite
+    steps:
+        - name: Set working directory
+          shell: bash
+          run: echo "TEST_DIR=${TEST_DIR:-./aws/kubernetes/eks-dual-region/test}" >> "$GITHUB_ENV"
+
+        # Explicitly set up Go for caching of packages
+        - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+          with:
+              go-version-file: ${{ env.TEST_DIR }}/go.mod
+              cache-dependency-path: ${{ env.TEST_DIR }}/go.sum
+
+        - name: Split up Kubeconfig
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              for ctx in $(kubectl config get-contexts -o name); do
+                if [[ "$ctx" == *default* ]]; then
+                  echo "Skipping $ctx (contains 'default')" # it's a faulty one
+                  continue
+                fi
+
+                echo "Exporting $ctx ..."
+                kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
+              done
+
+              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig-us-east-1"
+              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig-us-east-2"
+
+              if [[ "${{ inputs.cluster-0-name }}" == "${{ inputs.cluster-1-name }}" ]]; then
+                cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig"
+              fi
+
+        - name: Set Up Environment Variables
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              if [[ "${{ inputs.helm-version }}" =~ dev-latest ]]; then
+                {
+                  echo "HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform"
+                } >> "$GITHUB_ENV"
+              else
+                {
+                  echo "HELM_CHART_NAME=camunda/camunda-platform"
+                } >> "$GITHUB_ENV"
+              fi
+
+              # create empty file if not exists
+              # OpenShift specific fix but doesn't harm others
+              # OpenShift already delivers ready2go region files, so we don't do the overlaying / patching anymore
+              touch "${{ inputs.default-values-yaml }}"
+
+              {
+                echo "CAMUNDA_NAMESPACE_0=${{ inputs.cluster-0-namespace }}"
+                echo "CAMUNDA_NAMESPACE_1=${{ inputs.cluster-1-namespace }}"
+                echo "CLUSTER_0_NAME=${{ inputs.cluster-0-name }}"
+                echo "CLUSTER_1_NAME=${{ inputs.cluster-1-name }}"
+                echo "HELM_CHART_VERSION=${{ inputs.helm-version }}"
+                echo "BACKUP_NAME=${{ inputs.backup-name }}"
+                echo "BACKUP_BUCKET=${{ inputs.backup-bucket }}"
+                echo "DEFAULT_VALUES_YAML=${{ inputs.default-values-yaml }}"
+                echo "REGION0_VALUES_YAML=${{ inputs.region-0-values-yaml }}"
+                echo "REGION1_VALUES_YAML=${{ inputs.region-1-values-yaml }}"
+                echo "EXTRA_VALUES_YAML=${{ inputs.extra-values-yaml }}"
+              } >> "$GITHUB_ENV"
+
+        - name: Clean Environment
+          if: inputs.skip-cleanup != 'true'
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 15m -failfast -run TestAWSDualRegCleanup
+
+        - name: Deploy multi-region setup - ${{ inputs.helm-version }}
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 30m -failfast -run TestAWSDeployDualRegCamunda
+
+        - name: 🔍 Check for Helm deprecation warnings (region 0)
+          uses: ./.github/actions/internal-helm-deprecation-check
+          with:
+              release-name: ${{ inputs.release-name }}
+              namespace: ${{ inputs.cluster-0-namespace }}
+              kube-context: ${{ inputs.cluster-0-name }}
+              exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
+
+        - name: 🔍 Check for Helm deprecation warnings (region 1)
+          uses: ./.github/actions/internal-helm-deprecation-check
+          with:
+              release-name: ${{ inputs.release-name }}
+              namespace: ${{ inputs.cluster-1-namespace }}
+              kube-context: ${{ inputs.cluster-1-name }}
+              exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
+
+        - name: Set start timestamp for Failover
+          if: inputs.skip-failover != 'true'
+          shell: bash
+          id: failover-start
+          run: |
+              set -euo pipefail
+
+              printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+
+        - name: Failover ${{ inputs.helm-version }}
+          if: inputs.skip-failover != 'true'
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestAWSDualRegFailover_8_6_plus
+
+        - name: Calculate Failover duration
+          if: inputs.skip-failover != 'true'
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              printf -v now '%(%s)T'
+              duration=$((now - ${{ steps.failover-start.outputs.timestamp }}))
+              echo $duration
+              if [ "$duration" -gt 900 ]; then
+              echo "::error::Failover of ${{ inputs.helm-version }} is taking longer than 15 minutes"
+              fi
+
+        - name: Set start timestamp for Failback
+          if: inputs.skip-failover != 'true'
+          shell: bash
+          id: failback-start
+          run: |
+              set -euo pipefail
+
+              printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+
+        - name: Failback - ${{ inputs.helm-version }}
+          if: inputs.skip-failover != 'true'
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 45m -failfast -run TestAWSDualRegFailback_8_6_plus
+
+        - name: Re-export services after Failback (OpenShift)
+          if: inputs.skip-failover != 'true' && inputs.post-failback-script != ''
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "Running post-failback script to re-export services..."
+              ${{ inputs.post-failback-script }}
+
+        - name: Calculate Failback duration
+          if: inputs.skip-failover != 'true'
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              printf -v now '%(%s)T'
+              duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
+              echo $duration
+              if [ "$duration" -gt 1500 ]; then
+                echo "::error::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
+              fi
+
+        - name: Test multi-tenancy
+          if: inputs.skip-failover != 'true'
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestMultiTenancyDualReg
+
+        - name: Test scaling zeebe brokers in multi-region setup
+          if: inputs.skip-failover != 'true'
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestZeebeClusterScaleUpBrokers
+
+        - name: Test scaling zeebe partitions in multi-region setup
+          if: inputs.skip-failover != 'true'
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestZeebeClusterScaleUpPartitions
+
+        - name: Test scaling zeebe brokers and partitions in multi-region setup
+          if: inputs.skip-failover != 'true'
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestZeebeClusterScaleUpBothBrokersAndPartitions
+
+        - name: Deploy connector webhook flow in multi-region setup
+          if: inputs.skip-failover != 'true'
+          shell: bash
+          working-directory: ./aws/kubernetes/eks-dual-region/test
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 20m -failfast -run TestConnectorWebhookFlowDeploy
+
+        # It's separated to allow re-exporting the Services for OpenShift
+        - name: Re-export services (OpenShift)
+          if: inputs.skip-failover != 'true' && inputs.post-failback-script != ''
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              echo "Running post-failback script to re-export services to expose mock server..."
+              ${{ inputs.post-failback-script }}
+
+        - name: Test connector webhook flow in multi-region setup
+          shell: bash
+          if: inputs.skip-failover != 'true' && inputs.distribution == 'EKS'
+          working-directory: ${{ env.TEST_DIR }}
+          env:
+              DISTRIBUTION: ${{ inputs.distribution }}
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 10m -failfast -run TestConnectorWebhookFlowTest
+
+        - name: Debug Step
+          shell: bash
+          working-directory: ${{ env.TEST_DIR }}
+          if: failure()
+          run: |
+              set -euo pipefail
+
+              go test --count=1 -v -timeout 4m -failfast -run TestDebugStep
+
+        - name: Upload Pod Logs
+          if: failure()
+          uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+          with:
+              name: pod-logs-${{ inputs.helm-version }}
+              retention-days: 7
+              path: ${{ env.TEST_DIR }}/*.log

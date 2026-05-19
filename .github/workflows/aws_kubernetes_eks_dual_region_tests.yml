@@ -1,0 +1,592 @@
+---
+name: Tests - Integration - AWS Kubernetes EKS Dual Region
+
+permissions:
+    contents: read # don't allow commits
+    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+
+on:
+    # schedule disabled for RBC benchmark - cluster is persistent
+    # schedule:
+    #     - cron: 0 3 * * 1 # 03:00 UTC on Monday
+    workflow_dispatch:
+        inputs:
+            cluster_name:
+                description: Cluster name.
+                required: false
+                type: string
+            delete_clusters:
+                description: Whether to delete the clusters.
+                type: boolean
+                default: true
+            enable_tests:
+                description: Whether to enable the tests.
+                type: boolean
+                default: true
+            ref-arch:
+                description: |
+                    Reference architecture to use, can only deploy one at a time.
+                    Use a different trigger with unique names for each ref-arch.
+                    Valid values are `eks-dual-region`.
+                    Only for workflow_dispatch.
+                required: false
+                type: string
+                default: eks-dual-region
+    pull_request:
+        # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
+        paths:
+            - .github/actions/setup-aws/action.yml
+            - .github/actions/kubernetes-eck-operator/**
+            - .github/actions/kubernetes-eck-operator-cleanup/**
+            - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
+            - aws/kubernetes/eks-dual-region/helm-values/**
+            - aws/kubernetes/eks-dual-region/procedure/**
+            - aws/kubernetes/eks-dual-region/terraform/**
+            - aws/kubernetes/eks-dual-region/test/**
+            - generic/kubernetes/operator-based/elasticsearch/**
+            - .tools-versions
+            - .github/actions/internal-multi-region-tests/**
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
+    cancel-in-progress: false
+
+env:
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
+    IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
+
+    AWS_PROFILE: infraex
+    AWS_REGION: us-east-1
+    CLUSTER_0_AWS_REGION: us-east-1
+    CLUSTER_1_AWS_REGION: us-east-2
+    TESTS_TF_BINARY_NAME: terraform
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+
+    # RBC benchmark: disable cluster deletion by default
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'false' }}
+
+    # TEST VARIABLES
+
+    # Vars with "CI_" prefix are used in the CI workflow only.
+    CI_MATRIX_FILE: .github/workflows-config/aws-kubernetes-eks-dual-region/test_matrix.yml
+    TF_VAR_default_tags: '{"map-migrated": "migARUADZHVWZ"}'
+    TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+
+    CAMUNDA_NAMESPACE_0: c8-snap-cluster-0
+    CAMUNDA_NAMESPACE_1: c8-snap-cluster-1
+    CAMUNDA_RELEASE_NAME: camunda
+
+    # RBC benchmark: use stable 8.8 chart
+    # renovate: datasource=helm depName=camunda-platform versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+    CAMUNDA_HELM_CHART_VERSION: 13.7.0
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    clusters-info:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        name: Define Matrix
+        runs-on: ubuntu-latest
+        outputs:
+            platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+
+            - name: Define tests matrix
+              uses: ./.github/actions/internal-tests-matrix
+              id: matrix
+              with:
+                  ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
+                  cluster_name: ${{ inputs.cluster_name || 'rbc-bench' }}
+                  ref_arch: ${{ inputs.ref-arch }}
+                  cluster_prefix: rbc-bench
+                  is_schedule: ${{ env.IS_SCHEDULE }}
+                  is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
+
+    prepare-clusters:
+        name: Prepare clusters
+        needs:
+            - clusters-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 90
+        env:
+            CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Export S3_BACKEND_BUCKET based on matrix
+              id: s3_prefix
+              run: |
+                  set -euo pipefail
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Create K8S dual-region clusters and login
+              uses: ./.github/actions/aws-kubernetes-eks-dual-region-create
+              id: create_cluster
+              # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
+              if: always() && success()
+              with:
+                  cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  ref-arch: ${{ matrix.scenario.name }}
+                  tags: >
+                      {
+                        "ci-run-id": "${{ github.run_id }}",
+                        "ci-run-number": "${{ github.run_number }}",
+                        "ci-workflow": "${{ github.workflow }}",
+                        "ci-actor": "${{ github.actor }}",
+                        "ci-ref": "${{ github.ref }}",
+                        "ci-commit": "${{ github.sha }}",
+                        "ci-repo": "${{ github.repository }}",
+                        "ci-event": "${{ github.event_name }}",
+                        "map-migrated": "migARUADZHVWZ"
+                      }
+
+            ############# Export S3 credentials for integration-tests ##############
+            - name: Dump S3 credentials
+              if: always() && steps.create_cluster.outcome == 'success'
+              id: dump_secrets
+              run: |
+                  set -euo pipefail
+
+                  yq eval -n \
+                    '.["s3-aws-access-key"] = "${{ steps.create_cluster.outputs.s3-aws-access-key }}" |
+                    .["s3-aws-secret-access-key"] = "${{ steps.create_cluster.outputs.s3-aws-secret-access-key }}" |
+                    .["s3-bucket-name"] = "${{ steps.create_cluster.outputs.s3-bucket-name }}"' > "${{ runner.temp }}/sensitive_values.yaml"
+
+            - name: Encrypt S3 credentials
+              if: always() && steps.create_cluster.outcome == 'success'
+              id: export_secrets
+              uses: ./.github/actions/internal-generic-encrypt-export
+              with:
+                  file_path: ${{ runner.temp }}/sensitive_values.yaml
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            - uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
+              if: always() && steps.create_cluster.outcome == 'success'
+              id: out
+              with:
+                  matrix-step-name: ${{ github.job }}
+                  matrix-key: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
+                  outputs: |-
+                      sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_file_base64 }}
+
+    access-info:
+        name: Read S3 credentials from matrix
+        runs-on: ubuntu-latest
+        needs: prepare-clusters
+        outputs:
+            config: ${{ steps.read-workflow.outputs.result }}
+        steps:
+            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+              id: read-workflow
+              with:
+                  matrix-step-name: prepare-clusters
+
+    integration-tests:
+        needs:
+            - clusters-info
+            - access-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 120
+        env:
+            CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+        steps:
+            ################## Checkout ##################
+            - name: Checkout repository
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Register environment variables
+              run: |
+                  set -euo pipefail
+
+                  source .github/scripts/gha-functions.sh
+
+                  # Override cluster names to match the CI naming convention
+                  export CLUSTER_0="${{ env.CLUSTER_NAME }}-us-east-1"
+                  export CLUSTER_1="${{ env.CLUSTER_NAME }}-us-east-2"
+
+                  export_new_env_vars aws/kubernetes/eks-dual-region/procedure/export_environment_prerequisites.sh
+
+                  # Persist CI cluster names to subsequent steps
+                  {
+                    echo "CLUSTER_0=${CLUSTER_0}"
+                    echo "CLUSTER_1=${CLUSTER_1}"
+                  } >> "$GITHUB_ENV"
+            ############# Tool Installation ##############
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+            - name: KubeConfig generation
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+                  aws eks update-kubeconfig --region ${{ env.CLUSTER_0_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-us-east-1 --alias ${{ env.CLUSTER_NAME }}-us-east-1
+                  aws eks update-kubeconfig --region ${{ env.CLUSTER_1_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-us-east-2 --alias ${{ env.CLUSTER_NAME }}-us-east-2
+
+            ############# Retrieve S3 credentials ##############
+            - name: Decrypt S3 credentials
+              uses: ./.github/actions/internal-generic-decrypt-import
+              with:
+                  output_path: ${{ runner.temp }}/sensitive.yaml
+                  encrypted_file_base64: >
+                      ${{ fromJson(needs.access-info.outputs.config).sensitive_values_raw[
+                        format(
+                          '{0}-{1}',
+                          matrix.distro.name,
+                          matrix.scenario.name
+                        )
+                      ] }}
+                  encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+
+            ############# Clean up and recreate namespaces + secrets ##############
+            - name: Clean up Helm releases and ECK resources
+              run: |
+                  set -euo pipefail
+
+                  for ctx in "${{ env.CLUSTER_NAME }}-us-east-1" "${{ env.CLUSTER_NAME }}-us-east-2"; do
+                    for ns in ${{ env.CAMUNDA_NAMESPACE_0 }} ${{ env.CAMUNDA_NAMESPACE_1 }}; do
+                      if kubectl --context "$ctx" get namespace "$ns" &>/dev/null; then
+                        echo "Cleaning up resources in $ns on $ctx..."
+                        helm delete camunda --kubeconfig <(kubectl config view --raw) --kube-context "$ctx" -n "$ns" 2>/dev/null || true
+                        kubectl --context "$ctx" delete elasticsearch --all -n "$ns" --timeout=120s 2>/dev/null || true
+                      fi
+                    done
+                  done
+
+            - name: Delete namespaces
+              run: |
+                  set -euo pipefail
+
+                  for ctx in "${{ env.CLUSTER_NAME }}-us-east-1" "${{ env.CLUSTER_NAME }}-us-east-2"; do
+                    for ns in ${{ env.CAMUNDA_NAMESPACE_0 }} ${{ env.CAMUNDA_NAMESPACE_1 }}; do
+                      if kubectl --context "$ctx" get namespace "$ns" &>/dev/null; then
+                        echo "Deleting namespace $ns on context $ctx..."
+                        kubectl --context "$ctx" delete namespace "$ns" --wait --timeout=300s
+                        echo "✓ Namespace $ns deleted on $ctx"
+                      fi
+                    done
+                  done
+
+            - name: Create namespaces and secrets
+              run: |
+                  set -euo pipefail
+
+                  export AWS_ACCESS_KEY_ES=$(yq eval '.["s3-aws-access-key"]' "${{ runner.temp }}/sensitive.yaml")
+                  echo "::add-mask::$AWS_ACCESS_KEY_ES"
+                  export AWS_SECRET_ACCESS_KEY_ES=$(yq eval '.["s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml")
+                  echo "::add-mask::$AWS_SECRET_ACCESS_KEY_ES"
+
+                  bash ./aws/kubernetes/eks-dual-region/procedure/create_elasticsearch_secrets.sh
+
+            - name: Configure storage classes
+              run: |
+                  set -euo pipefail
+
+                  cd ./aws/kubernetes/eks-dual-region/procedure
+                  ./storageclass-configure.sh
+                  cd -
+                  bash ./aws/kubernetes/eks-dual-region/procedure/storageclass-verify.sh
+
+            - name: Helm registry login
+              uses: ./.github/actions/internal-helm-registry-login
+              with:
+                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+            - name: Run Multi-region tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 60
+              uses: ./.github/actions/internal-multi-region-tests
+              with:
+                  cluster-0-name: ${{ env.CLUSTER_0 }}
+                  cluster-1-name: ${{ env.CLUSTER_1 }}
+                  cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  cluster-1-namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  helm-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
+                  backup-name: ${{ env.CAMUNDA_RELEASE_NAME }}-backup-${{ github.run_attempt }}
+                  backup-bucket: ${{ env.CLUSTER_NAME }}-elastic-backup
+                  default-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/camunda-values.yml
+                  region-0-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
+                  region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
+                  skip-failover: 'true'
+                  exclude-deprecation-patterns: |
+                      global.documentStore.type.aws.accessKeyId
+                      global.documentStore.type.aws.secretAccessKey
+                      global.documentStore.type.gcp
+
+            ############# Debug failed pods ##############
+            - name: Debug failed pods on us-east-1 cluster
+              if: failure()
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  context: ${{ env.CLUSTER_NAME }}-us-east-1
+                  artifact-suffix: ${{ env.CLUSTER_NAME }}-us-east-1
+
+            - name: Debug failed pods on us-east-2 cluster
+              if: failure()
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  context: ${{ env.CLUSTER_NAME }}-us-east-2
+                  artifact-suffix: ${{ env.CLUSTER_NAME }}-us-east-2
+
+            - name: Debug dual-region infrastructure
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  CLUSTER_0_CTX="${{ env.CLUSTER_NAME }}-us-east-1"
+                  CLUSTER_1_CTX="${{ env.CLUSTER_NAME }}-us-east-2"
+                  NS_0="${{ env.CAMUNDA_NAMESPACE_0 }}"
+                  NS_1="${{ env.CAMUNDA_NAMESPACE_1 }}"
+
+                  for ctx in "$CLUSTER_0_CTX" "$CLUSTER_1_CTX"; do
+                    echo "::group::ECK Elasticsearch status - ${ctx}"
+                    kubectl --context="$ctx" -n "$NS_0" get elasticsearch -o wide 2>/dev/null || echo "No Elasticsearch found in $NS_0"
+                    kubectl --context="$ctx" -n "$NS_1" get elasticsearch -o wide 2>/dev/null || echo "No Elasticsearch found in $NS_1"
+                    echo "::endgroup::"
+
+                    echo "::group::CoreDNS ConfigMap - ${ctx}"
+                    kubectl --context="$ctx" -n kube-system get configmap coredns -o yaml 2>/dev/null || echo "CoreDNS configmap not found"
+                    echo "::endgroup::"
+
+                    echo "::group::Internal DNS LB - ${ctx}"
+                    kubectl --context="$ctx" -n kube-system get svc internal-dns-lb -o wide 2>/dev/null || echo "No internal-dns-lb service found"
+                    echo "::endgroup::"
+                  done
+
+                  echo "::group::Cross-cluster DNS resolution test (us-east-1 → us-east-2)"
+                  kubectl --context="$CLUSTER_0_CTX" -n "$NS_0" \
+                    run dns-test-cross --image=busybox:1.28 --rm --restart=Never -i --command -- \
+                    nslookup "${{ env.CAMUNDA_RELEASE_NAME }}-zeebe.${NS_1}.svc.cluster.local" \
+                    2>/dev/null || echo "DNS resolution test failed or timed out"
+                  echo "::endgroup::"
+
+                  echo "::group::Cross-cluster connectivity test (us-east-1 → us-east-2 zeebe:26502)"
+                  kubectl --context="$CLUSTER_0_CTX" -n "$NS_0" run connectivity-test --image=busybox:1.28 --rm -i --restart=Never --command -- sh -c "
+                    echo 'Testing TCP connectivity to us-east-2 zeebe on port 26502...'
+                    nc -zv ${{ env.CAMUNDA_RELEASE_NAME }}-zeebe.${NS_1}.svc.cluster.local 26502 2>&1 || echo 'TCP connection failed'
+                  " 2>/dev/null || echo "Connectivity test failed or timed out"
+                  echo "::endgroup::"
+
+    cleanup-clusters:
+        runs-on: ubuntu-latest
+        timeout-minutes: 60
+        if: always()
+        needs:
+            - integration-tests
+            - access-info
+            - clusters-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        steps:
+            ################## Checkout ##################
+            - name: Checkout repository
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            ############# Tool Installation ##############
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+            ################ Env Helper ###################
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+            - name: Export S3_BACKEND_BUCKET based on matrix
+              id: s3_prefix
+              run: |
+                  set -euo pipefail
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
+            ########### KubeConfig Generation ############
+            - name: Export Cluster Name
+              run: |
+                  echo "CLUSTER_NAME=${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}" >> "$GITHUB_ENV"
+            - name: KubeConfig generation
+              if: env.CLEANUP_CLUSTERS == 'true'
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -failfast -run TestAWSKubeConfigCreation
+
+            ############# ECK Elasticsearch Cleanup ##############
+            - name: Generate kubeconfig for ECK cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+                  aws eks update-kubeconfig --region ${{ env.CLUSTER_0_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-us-east-1 --alias ${{ env.CLUSTER_NAME }}-us-east-1
+                  aws eks update-kubeconfig --region ${{ env.CLUSTER_1_AWS_REGION }} --name ${{ env.CLUSTER_NAME }}-us-east-2 --alias ${{ env.CLUSTER_NAME }}-us-east-2
+
+            - name: Set kubectl context to us-east-1 for ECK cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-us-east-1
+
+            - name: 🧹 Cleanup ECK Elasticsearch and uninstall Operator on us-east-1 cluster
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
+                  skip-operator-uninstall: 'false'
+
+            - name: Set kubectl context to us-east-2 for ECK cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              run: kubectl config use-context ${{ env.CLUSTER_NAME }}-us-east-2
+
+            - name: 🧹 Cleanup ECK Elasticsearch and uninstall Operator on us-east-2 cluster
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/kubernetes-eck-operator-cleanup
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
+                  skip-operator-uninstall: 'false'
+
+            ########### Load Balancer Removal ############
+            - name: Delete LBs to unblock teardown
+              if: env.CLEANUP_CLUSTERS == 'true'
+              working-directory: ./aws/kubernetes/eks-dual-region/test/
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -failfast -run TestClusterCleanup
+
+            ############# Terratest Teardown #############
+            - name: Delete on-demand EKS Cluster
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 125
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours: 0
+                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  modules-order: clusters
+              env:
+                  CLUSTER_0_AWS_REGION: us-east-1
+                  CLUSTER_1_AWS_REGION: us-east-2
+
+    report-success:
+        name: Report success
+        runs-on: ubuntu-latest
+        needs:
+            - integration-tests
+            - cleanup-clusters
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Prevent other runs for renovate
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
+    report-failure:
+        name: Report failures
+        if: failure()
+        runs-on: ubuntu-latest
+        needs:
+            - report-success
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: ${{ env.IS_SCHEDULE == 'true' }}
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

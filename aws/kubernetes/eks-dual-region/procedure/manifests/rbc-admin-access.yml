@@ -1,0 +1,38 @@
+---
+# Service Account and RBAC for RBC team external access
+# Apply this on both clusters (us-east-1 and us-east-2) to give the RBC team admin access
+#
+# Usage:
+#   kubectl apply -f rbc-admin-access.yml
+#   # Generate a long-lived token:
+#   kubectl create token rbc-admin --duration=720h -n kube-system
+#   # Or use the auto-generated secret token:
+#   kubectl get secret rbc-admin-token -n kube-system -o jsonpath='{.data.token}' | base64 -d
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+    name: rbc-admin
+    namespace: kube-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+    name: rbc-admin-token
+    namespace: kube-system
+    annotations:
+        kubernetes.io/service-account.name: rbc-admin
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+    name: rbc-admin-binding
+roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: cluster-admin
+subjects:
+    - kind: ServiceAccount
+      name: rbc-admin
+      namespace: kube-system
