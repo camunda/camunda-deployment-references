@@ -29,6 +29,20 @@ on:
                 description: Intentionally fail the job so the notify step fires.
                 type: boolean
                 default: true
+    # Also fire automatically when the smoke workflow itself changes, so a
+    # broken routing wire-up is caught on the PR that introduced it instead
+    # of waiting for someone to remember to dispatch it manually.
+    # Scoped to this file only — we do not want every PR push to spam the
+    # infraex-tests channel.
+    pull_request:
+        paths:
+            - .github/workflows/internal_global_slack_alert_smoke.yml
+    push:
+        branches:
+            - main
+            - stable/**
+        paths:
+            - .github/workflows/internal_global_slack_alert_smoke.yml
 
 permissions:
     contents: read
@@ -37,25 +51,27 @@ jobs:
     smoke:
         runs-on: ubuntu-latest
         env:
-            IS_SCHEDULE: ${{ inputs.simulate_schedule }}
+            # On workflow_dispatch the user controls these. On pull_request / push
+            # we default to: route as a non-scheduled run (the realistic PR/push
+            # case) and force the failure so the notify step actually fires.
+            IS_SCHEDULE: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_schedule || 'false' }}
+            FORCE_FAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.force_fail || 'true' }}
         steps:
             - name: Echo routing decision
               shell: bash
-              env:
-                  SIMULATE_SCHEDULE: ${{ inputs.simulate_schedule }}
-                  FORCE_FAIL: ${{ inputs.force_fail }}
               run: |
                   set -euo pipefail
-                  echo "simulate_schedule=$SIMULATE_SCHEDULE"
+                  echo "event=$GITHUB_EVENT_NAME"
+                  echo "simulate_schedule=$IS_SCHEDULE"
                   echo "force_fail=$FORCE_FAIL"
-                  if [[ "$SIMULATE_SCHEDULE" == "true" ]]; then
+                  if [[ "$IS_SCHEDULE" == "true" ]]; then
                     echo "Expected channel: C076N4G1162 (infraex-alerts) with @infraex-medic mention"
                   else
                     echo "Expected channel: C07E4FF6YMB (infraex-tests) without mention"
                   fi
 
             - name: Intentional failure
-              if: ${{ inputs.force_fail }}
+              if: ${{ env.FORCE_FAIL == 'true' }}
               shell: bash
               run: |
                   echo "Failing on purpose to exercise the Slack notify path." >&2
