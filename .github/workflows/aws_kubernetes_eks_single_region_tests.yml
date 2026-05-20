@@ -697,14 +697,12 @@ jobs:
                     echo "CAMUNDA_DOMAIN_GRPC=$CAMUNDA_DOMAIN_GRPC" | tee -a "$GITHUB_ENV"
                   fi
 
-                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
-                    echo "Enabling WebModeler"
-                    yq -i '.webModeler.enabled = true' values.yml
-                  fi
-
-                  if [ "$CONSOLE_ENABLED" == "true" ]; then
-                    echo "Enabling Console"
-                    yq -i '.console.enabled = true' values.yml
+                  # Chart 15.x consolidates Console + WebModeler under
+                  # `camundaHub.enabled: true`. The legacy `console.enabled` /
+                  # `webModeler.enabled` keys are deprecated and emit warnings.
+                  if [ "$WEBMODELER_ENABLED" == "true" ] || [ "$CONSOLE_ENABLED" == "true" ]; then
+                    echo "Enabling Camunda Hub (Console + WebModeler)"
+                    yq -i '.camundaHub.enabled = true' values.yml
                   fi
 
                   # Add integration tests values
