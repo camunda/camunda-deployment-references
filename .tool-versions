@@ -17,7 +17,7 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.12
 
-awscli 2.34.45
+awscli 2.34.50
 
 delta 0.18.2
 
@@ -48,7 +48,7 @@ mkcert 1.4.4
 
 pre-commit 4.5.1
 
-python 3.14.4
+python 3.14.5
 
 shellcheck 0.11.0
 
