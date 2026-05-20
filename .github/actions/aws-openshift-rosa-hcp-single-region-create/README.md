@@ -18,7 +18,7 @@ If the cluster is private, a VPN setup can also be configured.
 | `aws-region` | <p>AWS region where the ROSA cluster will be deployed</p> | `true` | `""` |
 | `availability-zones` | <p>Comma separated list of availability zones (letters only, e.g., a,b,c)</p> | `true` | `a,b,c` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `true` | `latest` |
-| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.20.3` |
+| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.21.15` |
 | `replicas` | <p>Number of replicas for the ROSA cluster (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `private-vpc` | <p>The VPC within which the cluster resides will only have private subnets, meaning that it cannot be accessed at all from the public Internet (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
@@ -94,7 +94,7 @@ This action is a `composite` action.
     # Version of the OpenShift to install
     #
     # Required: true
-    # Default: 4.20.3
+    # Default: 4.21.15
 
     replicas:
     # Number of replicas for the ROSA cluster (empty will fallback on default value of the module)
