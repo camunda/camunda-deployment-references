@@ -117,7 +117,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6d3ddc1bbae80d4c7bb42541ba7f0e95a2ef9787 # 1.6.1
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -147,7 +147,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6d3ddc1bbae80d4c7bb42541ba7f0e95a2ef9787 # 1.6.1
 
             - name: Import Secrets
               id: secrets
@@ -307,7 +307,7 @@ jobs:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6d3ddc1bbae80d4c7bb42541ba7f0e95a2ef9787 # 1.6.1
 
             - name: Install CLI tools from OpenShift Mirror
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -825,7 +825,7 @@ jobs:
             - integration-tests
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@72741a38c220a7d70f5d8a790b14ac9907dd70cc # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@8e9d7f50e469e94eaa7f0e48cde0302a2ef728ce # main
               with:
                   error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
                   run-id: ${{ github.run_id }}
@@ -857,7 +857,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6d3ddc1bbae80d4c7bb42541ba7f0e95a2ef9787 # 1.6.1
 
             - name: Import Secrets
               id: secrets
