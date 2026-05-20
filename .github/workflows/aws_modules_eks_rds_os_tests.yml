@@ -306,8 +306,9 @@ jobs:
     report-failure:
         name: Report failure
         runs-on: ubuntu-latest
-        if: failure()
+        if: needs.triage.outputs.should_skip == 'false' && (failure())
         needs:
+            - triage
             - report-success
         steps:
             - name: Notify in Slack in case of failure
