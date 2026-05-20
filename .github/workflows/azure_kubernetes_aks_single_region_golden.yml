@@ -60,7 +60,7 @@ jobs:
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@6d3ddc1bbae80d4c7bb42541ba7f0e95a2ef9787 # 1.6.1
 
             - name: Import Secrets
               id: secrets
