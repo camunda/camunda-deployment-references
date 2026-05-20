@@ -393,8 +393,9 @@ jobs:
     report-failure:
         name: Report failure
         runs-on: ubuntu-latest
-        if: failure()
+        if: needs.triage.outputs.should_skip == 'false' && (failure())
         needs:
+            - triage
             - report-success
             - test-report
         steps:
