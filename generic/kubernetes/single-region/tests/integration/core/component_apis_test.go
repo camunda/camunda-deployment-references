@@ -44,17 +44,9 @@ func TestComponentAPIs(t *testing.T) {
 			skip:       !cfg.ConsoleEnabled || !cfg.HasDomain(),
 			skipReason: "Console disabled or not reachable without ingress",
 		},
-		{
-			name: "Identity",
-			url:  cfg.IdentityURL,
-			path: "/api/users",
-			// Identity may answer 200 (admin) or 403 (M2M client without
-			// admin scope). 403 still proves the API is reachable & enforcing
-			// auth, which is what venom validated.
-			acceptCodes: []int{http.StatusOK, http.StatusForbidden},
-			skip:        !cfg.HasDomain(),
-			skipReason:  "Identity not reachable without ingress",
-		},
+		// Identity standalone REST API was removed in Camunda 8.10 — admin
+		// surface moved to the orchestration cluster under /v2/*, which is
+		// already covered by core_test.go via OrchestrationURL.
 		{
 			name: "Connectors",
 			url:  cfg.ConnectorsURL,
