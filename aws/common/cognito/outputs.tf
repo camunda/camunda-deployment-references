@@ -24,32 +24,32 @@ output "cognito_domain" {
 # OIDC Endpoints
 output "issuer_url" {
   description = "OIDC Issuer URL"
-  value       = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${aws_cognito_user_pool.camunda.id}"
+  value       = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.camunda.id}"
 }
 
 output "authorization_url" {
   description = "OIDC Authorization endpoint"
-  value       = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/oauth2/authorize"
+  value       = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/authorize"
 }
 
 output "token_url" {
   description = "OIDC Token endpoint"
-  value       = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/oauth2/token"
+  value       = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/token"
 }
 
 output "jwks_url" {
   description = "OIDC JWKS endpoint"
-  value       = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${aws_cognito_user_pool.camunda.id}/.well-known/jwks.json"
+  value       = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.camunda.id}/.well-known/jwks.json"
 }
 
 output "userinfo_url" {
   description = "OIDC UserInfo endpoint"
-  value       = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/oauth2/userInfo"
+  value       = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/userInfo"
 }
 
 output "logout_url" {
   description = "Logout endpoint"
-  value       = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/logout"
+  value       = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/logout"
 }
 
 # Resource Server
@@ -151,7 +151,7 @@ output "expires_at" {
 # AWS Region info
 output "aws_region" {
   description = "AWS Region where Cognito is deployed"
-  value       = data.aws_region.current.name
+  value       = data.aws_region.current.region
 }
 
 # Combined output for convenience
@@ -159,11 +159,11 @@ output "oidc_config" {
   description = "Complete OIDC configuration for Camunda"
   value = {
     user_pool_id      = aws_cognito_user_pool.camunda.id
-    issuer_url        = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${aws_cognito_user_pool.camunda.id}"
-    authorization_url = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/oauth2/authorize"
-    token_url         = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/oauth2/token"
-    jwks_url          = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${aws_cognito_user_pool.camunda.id}/.well-known/jwks.json"
-    userinfo_url      = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/oauth2/userInfo"
+    issuer_url        = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.camunda.id}"
+    authorization_url = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/authorize"
+    token_url         = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/token"
+    jwks_url          = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.camunda.id}/.well-known/jwks.json"
+    userinfo_url      = "https://${aws_cognito_user_pool_domain.camunda.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/userInfo"
   }
   sensitive = false
 }

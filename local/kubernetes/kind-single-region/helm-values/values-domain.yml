@@ -43,10 +43,10 @@ global:
             webModeler:
                 redirectUrl: https://camunda.example.com/modeler
 
+    host: camunda.example.com
     ingress:
         enabled: true
         className: contour
-        host: camunda.example.com
         tls:
             enabled: true
             secretName: camunda-platform
@@ -137,40 +137,47 @@ orchestration:
                     users:
                         - admin
 
-console:
+camundaHub:
     enabled: true
-    contextPath: /console
-    resources:
-        requests:
-            cpu: 50m
-            memory: 64Mi
-        limits:
-            cpu: 500m
-            memory: 256Mi
-
-webModeler:
-    contextPath: /modeler
-    restapi:
-        resources:
-            requests:
-                cpu: 100m
-                memory: 256Mi
-            limits:
-                cpu: 1000m
-                memory: 1Gi
-        pusher:
-            secret:
-                existingSecret: camunda-credentials
-                existingSecretKey: webmodeler-pusher-app-secret
-            client:
-                secret:
-                    existingSecret: camunda-credentials
-                    existingSecretKey: webmodeler-pusher-app-key
-    websockets:
+    console:
+        contextPath: /console
         resources:
             requests:
                 cpu: 50m
-                memory: 128Mi
+                memory: 64Mi
             limits:
                 cpu: 500m
-                memory: 512Mi
+                memory: 256Mi
+
+    webModeler:
+        contextPath: /modeler
+        # Chart 15.x defaults webModeler.image.tag to "8.10.0-alpha1-rc1",
+        # which is not published to Docker Hub. Use the rolling SNAPSHOT tag
+        # for camunda/hub and camunda/hub-websockets in CI until a tagged
+        # release is available.
+        image:
+            tag: SNAPSHOT
+        restapi:
+            resources:
+                requests:
+                    cpu: 100m
+                    memory: 256Mi
+                limits:
+                    cpu: 1000m
+                    memory: 1Gi
+            pusher:
+                secret:
+                    existingSecret: camunda-credentials
+                    existingSecretKey: webmodeler-pusher-app-secret
+                client:
+                    secret:
+                        existingSecret: camunda-credentials
+                        existingSecretKey: webmodeler-pusher-app-key
+        websockets:
+            resources:
+                requests:
+                    cpu: 50m
+                    memory: 128Mi
+                limits:
+                    cpu: 500m
+                    memory: 512Mi

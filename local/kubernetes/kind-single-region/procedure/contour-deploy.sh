@@ -4,7 +4,7 @@ set -euo pipefail
 # Deploy Contour ingress controller with Envoy
 
 # renovate: datasource=helm depName=contour registryUrl=https://projectcontour.github.io/helm-charts
-CONTOUR_HELM_CHART_VERSION="0.4.0"
+CONTOUR_HELM_CHART_VERSION="0.5.0"
 
 echo "Installing Contour ingress controller..."
 

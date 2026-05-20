@@ -15,13 +15,16 @@ jobs:
             pull-requests: write # only allow updates of the tags
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/labeler@634933edcd8ababfe52f92936142cc22ac488b1b # v6
+            - uses: actions/labeler@f27b608878404679385c85cfa523b85ccb86e213 # v6
 
             - name: Notify in Slack in case of failure
               id: slack-notification
-              if: failure() && github.event_name == 'schedule'
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              if: failure()
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@6d3ddc1bbae80d4c7bb42541ba7f0e95a2ef9787 # 1.6.1
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ github.event_name == 'schedule' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ github.event_name == 'schedule' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ github.event_name == 'schedule' && 'false' || 'true' }}

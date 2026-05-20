@@ -33,6 +33,7 @@ on:
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-containers-ecs-single-region-fargate-create/**
             - .github/actions/aws-configure-cli/**
+            - .github/actions/internal-debug-failed-ecs-tasks/**
             - .github/actions/internal-generic-terraform-outputs/**
             - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-terraform-drift-detect/**
@@ -160,6 +161,28 @@ jobs:
                         "ci-event": "${{ github.event_name }}",
                         "map-migrated": "migARUADZHVWZ"
                       }
+
+            - name: Compute ECS cluster name on failure
+              id: compute_cluster_name
+              if: failure()
+              shell: bash
+              # Mirrors the prefix logic in aws-containers-ecs-single-region-fargate-create:
+              # cluster-name input → cut to 14 chars → strip trailing dash → "${prefix}-cluster"
+              run: |
+                  set -euo pipefail
+                  RAW="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}"
+                  PREFIX=$(echo "$RAW" | cut -c1-14)
+                  PREFIX=${PREFIX%-}
+                  echo "ecs-cluster=${PREFIX}-cluster" | tee -a "$GITHUB_OUTPUT"
+
+            - name: 🔬🚨 Get failed ECS tasks info
+              if: failure() && steps.compute_cluster_name.outputs.ecs-cluster != ''
+              timeout-minutes: 10
+              uses: ./.github/actions/internal-debug-failed-ecs-tasks
+              with:
+                  cluster-name: ${{ steps.compute_cluster_name.outputs.ecs-cluster }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
 
     integration-tests:
         name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
@@ -299,6 +322,28 @@ jobs:
                   basic-auth-password: ${{ fromJson(steps.terraform-outputs.outputs.json_output).admin_user_password.value }}
                   benchmark-duration: '300'
 
+            - name: Compute ECS cluster name on failure
+              id: compute_cluster_name
+              if: failure()
+              shell: bash
+              # Mirrors the prefix logic in aws-containers-ecs-single-region-fargate-create:
+              # cluster-name input → cut to 14 chars → strip trailing dash → "${prefix}-cluster"
+              run: |
+                  set -euo pipefail
+                  RAW="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}"
+                  PREFIX=$(echo "$RAW" | cut -c1-14)
+                  PREFIX=${PREFIX%-}
+                  echo "ecs-cluster=${PREFIX}-cluster" | tee -a "$GITHUB_OUTPUT"
+
+            - name: 🔬🚨 Get failed ECS tasks info
+              if: failure() && steps.compute_cluster_name.outputs.ecs-cluster != ''
+              timeout-minutes: 10
+              uses: ./.github/actions/internal-debug-failed-ecs-tasks
+              with:
+                  cluster-name: ${{ steps.compute_cluster_name.outputs.ecs-cluster }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+
     cleanup-clusters:
         name: Cleanup ECS cluster
         if: always()
@@ -375,9 +420,11 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@6d3ddc1bbae80d4c7bb42541ba7f0e95a2ef9787 # 1.6.1
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}
