@@ -52,7 +52,7 @@ global:
                     existingSecret: camunda-credentials
                     existingSecretKey: identity-webmodeler-client-token
     image:
-        registry: registry.camunda.cloud
+        registry: dev.registry.camunda.cloud
         pullSecrets:
             - name: registry-camunda-cloud
             - name: index-docker-io
@@ -61,9 +61,9 @@ global:
 elasticsearch:
     enabled: true
     image:
-        registry: registry.camunda.cloud
+        registry: dev.registry.camunda.cloud
         repository: vendor-ee/elasticsearch
-        # renovate: datasource=docker depName=registry.camunda.cloud/vendor-ee/elasticsearch
+        # renovate: datasource=docker depName=dev.registry.camunda.cloud/vendor-ee/elasticsearch
         tag: 8.19.13
         pullSecrets:
             - name: registry-camunda-cloud
@@ -83,9 +83,9 @@ elasticsearch:
 identityPostgresql:
     enabled: true
     image:
-        registry: registry.camunda.cloud
+        registry: dev.registry.camunda.cloud
         repository: vendor-ee/postgresql
-        # renovate: datasource=docker depName=registry.camunda.cloud/vendor-ee/postgresql
+        # renovate: datasource=docker depName=dev.registry.camunda.cloud/vendor-ee/postgresql
         tag: 15.17.0
         pullSecrets:
             - name: registry-camunda-cloud
@@ -101,18 +101,18 @@ identity:
 identityKeycloak:
     enabled: true
     image:
-        registry: registry.camunda.cloud
+        registry: dev.registry.camunda.cloud
         repository: keycloak-ee/keycloak
-        # renovate: datasource=docker depName=registry.camunda.cloud/keycloak-ee/keycloak
+        # renovate: datasource=docker depName=dev.registry.camunda.cloud/keycloak-ee/keycloak
         tag: 26.5.6
         pullSecrets:
             - name: registry-camunda-cloud
     postgresql:
         enabled: true
         image:
-            registry: registry.camunda.cloud
+            registry: dev.registry.camunda.cloud
             repository: vendor-ee/postgresql
-            # renovate: datasource=docker depName=registry.camunda.cloud/vendor-ee/postgresql
+            # renovate: datasource=docker depName=dev.registry.camunda.cloud/vendor-ee/postgresql
             tag: 15.17.0
             pullSecrets:
                 - name: registry-camunda-cloud
@@ -142,9 +142,9 @@ webModeler:
 webModelerPostgresql:
     enabled: true
     image:
-        registry: registry.camunda.cloud
+        registry: dev.registry.camunda.cloud
         repository: vendor-ee/postgresql
-        # renovate: datasource=docker depName=registry.camunda.cloud/vendor-ee/postgresql
+        # renovate: datasource=docker depName=dev.registry.camunda.cloud/vendor-ee/postgresql
         tag: 15.17.0
         pullSecrets:
             - name: registry-camunda-cloud

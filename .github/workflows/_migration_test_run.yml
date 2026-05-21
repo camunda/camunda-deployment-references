@@ -96,7 +96,7 @@ jobs:
                       --docker-password="${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" \
                       --namespace="${{ env.CAMUNDA_NAMESPACE }}"
                   kubectl create secret docker-registry registry-camunda-cloud \
-                      --docker-server=registry.camunda.cloud \
+                      --docker-server=dev.registry.camunda.cloud \
                       --docker-username="${{ steps.secrets.outputs.MACHINE_USR }}" \
                       --docker-password="${{ steps.secrets.outputs.MACHINE_PWD }}" \
                       --namespace="${{ env.CAMUNDA_NAMESPACE }}"
@@ -190,7 +190,7 @@ jobs:
                   CHART_VERSION="${{ env.CAMUNDA_HELM_CHART_VERSION }}"
                   if [[ "${CHART_VERSION}" == *dev-latest* ]]; then
                       echo "Using OCI registry for dev version ${CHART_VERSION}..."
-                      CHART_REF="oci://registry.camunda.cloud/team-distribution/camunda-platform"
+                      CHART_REF="oci://dev.registry.camunda.cloud/team-distribution/camunda-platform"
                   else
                       CHART_REF="camunda/camunda-platform"
                   fi
