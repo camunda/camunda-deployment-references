@@ -442,7 +442,8 @@
                       "account_iam_role_name": "[\"cluster-region-1-account-HCP-ROSA-Installer-Role\",\"cluster-region-1-account-HCP-ROSA-Support-Role\",\"cluster-region-1-account-HCP-ROSA-Worker-Role\"]",
                       "account_role_prefix": "cluster-region-1-account",
                       "path": "/",
-                      "shared_vpc_policy_attachments": "[]"
+                      "shared_vpc_policy_attachments": "[]",
+                      "trust_policy_external_id": null
                     }
                   }
                 }
@@ -3349,7 +3350,8 @@
                       "account_iam_role_name": "[\"cluster-region-2-account-HCP-ROSA-Installer-Role\",\"cluster-region-2-account-HCP-ROSA-Support-Role\",\"cluster-region-2-account-HCP-ROSA-Worker-Role\"]",
                       "account_role_prefix": "cluster-region-2-account",
                       "path": "/",
-                      "shared_vpc_policy_attachments": "[]"
+                      "shared_vpc_policy_attachments": "[]",
+                      "trust_policy_external_id": null
                     }
                   }
                 }
