@@ -1,6 +1,11 @@
 {
   "resources": {
     "aws_iam_access_key.service_account_access_key": {
+      "identity": {
+        "account_id": null,
+        "id": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "service_account_access_key",
       "provider_name": "registry.terraform.io/hashicorp/aws",
