@@ -112,13 +112,9 @@ runs:
               echo "Installing cert-manager with ACME issuer as default..."
               ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-cert-manager.sh
 
-              if [[ "${{ inputs.use-wildcard-cert }}" != "true" ]]; then
-                  echo "Installing ACME/Let's Encrypt issuer..."
-                  export AZURE_DNS_ZONE="${{ inputs.tld }}"
-                  ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-cert-manager-issuer.sh
-              else
-                  echo "Skipping ACME/Let's Encrypt issuer install (wildcard certificate from Vault is in use)"
-              fi
+              echo "Installing ACME/Let's Encrypt issuer..."
+              export AZURE_DNS_ZONE="${{ inputs.tld }}"
+              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-cert-manager-issuer.sh
 
               echo "✅ Ingress setup completed successfully for AKS cluster."
 
