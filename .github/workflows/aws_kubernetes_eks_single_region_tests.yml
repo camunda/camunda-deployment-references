@@ -644,7 +644,9 @@ jobs:
                   ref-arch: ${{ matrix.scenario.name }}
                   use-wildcard-cert: ${{ steps.cert-config.outputs.use-wildcard-cert }}
                   wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
+                  wildcard-cert-secret-name: |
+                      ${{ env.WILDCARD_TLS_SECRET_NAME }}
+                      camunda-keycloak-tls
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
