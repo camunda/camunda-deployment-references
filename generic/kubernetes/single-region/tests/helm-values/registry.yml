@@ -6,6 +6,11 @@
 # https://docs.docker.com/docker-hub/download-rate-limit/
 identityKeycloak:
     image:
+        # Mirror chart defaults so c8-sm-checks aws-irsa.sh can match the
+        # 'camunda/keycloak' substring in helm get values output.
+        # renovate: datasource=docker depName=camunda/keycloak
+        repository: camunda/keycloak
+        tag: 26.3.3
         pullSecrets:
             - name: index-docker-io
 
