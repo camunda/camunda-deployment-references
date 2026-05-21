@@ -442,7 +442,8 @@
                       "account_iam_role_name": "[\"my-rosa-account-HCP-ROSA-Installer-Role\",\"my-rosa-account-HCP-ROSA-Support-Role\",\"my-rosa-account-HCP-ROSA-Worker-Role\"]",
                       "account_role_prefix": "my-rosa-account",
                       "path": "/",
-                      "shared_vpc_policy_attachments": "[]"
+                      "shared_vpc_policy_attachments": "[]",
+                      "trust_policy_external_id": null
                     }
                   }
                 }
