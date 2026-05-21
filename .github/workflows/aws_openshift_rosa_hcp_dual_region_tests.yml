@@ -909,6 +909,7 @@ jobs:
                   modules-order: backup_bucket,peering,clusters
     report-success:
         name: Report success
+        if: ${{ !failure() && !cancelled() }}
         runs-on: ubuntu-latest
         needs:
             - integration-tests
