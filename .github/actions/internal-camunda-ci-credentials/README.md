@@ -25,7 +25,7 @@ Outputs:
 | `vault-addr` | <p>Vault address (typically secrets.VAULT_ADDR).</p> | `true` | `""` |
 | `vault-role-id` | <p>Vault AppRole role id (typically secrets.VAULT<em>ROLE</em>ID).</p> | `true` | `""` |
 | `vault-secret-id` | <p>Vault AppRole secret id (typically secrets.VAULT<em>SECRET</em>ID).</p> | `true` | `""` |
-| `vault-secret-path` | <p>Vault KV v2 data path holding the <code>CAMUNDA_BASIC_AUTH_USER</code> and <code>CAMUNDA_BASIC_AUTH_PASSWORD</code> keys. Defaults to the shared CI secret used across all reference-architecture workflows.</p> | `false` | `secret/data/products/infrastructure-experience/ci/global-camunda-basic-auth` |
+| `vault-secret-path` | <p>Vault KV v2 data path holding the basic-auth credentials. Defaults to the shared <code>ci/common</code> secret already used by other workflows: its <code>CI_CAMUNDA_USER_TEST_CLIENT_ID</code> / <code>CI_CAMUNDA_USER_TEST_CLIENT_SECRET</code> keys are reused here as the Camunda basic-auth username/password (the chart provisions a local user matching them via the generated overlay values).</p> | `false` | `secret/data/products/infrastructure-experience/ci/common` |
 
 
 ## Outputs
@@ -63,10 +63,13 @@ This action is a `composite` action.
     # Default: ""
 
     vault-secret-path:
-    # Vault KV v2 data path holding the `CAMUNDA_BASIC_AUTH_USER` and
-    # `CAMUNDA_BASIC_AUTH_PASSWORD` keys. Defaults to the shared CI
-    # secret used across all reference-architecture workflows.
+    # Vault KV v2 data path holding the basic-auth credentials.
+    # Defaults to the shared `ci/common` secret already used by other
+    # workflows: its `CI_CAMUNDA_USER_TEST_CLIENT_ID` /
+    # `CI_CAMUNDA_USER_TEST_CLIENT_SECRET` keys are reused here as the
+    # Camunda basic-auth username/password (the chart provisions a local
+    # user matching them via the generated overlay values).
     #
     # Required: false
-    # Default: secret/data/products/infrastructure-experience/ci/global-camunda-basic-auth
+    # Default: secret/data/products/infrastructure-experience/ci/common
 ```
