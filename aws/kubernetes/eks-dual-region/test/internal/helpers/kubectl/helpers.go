@@ -2,6 +2,7 @@ package kubectlHelpers
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,9 +27,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// basicAuthDemoHeader is the precomputed base64 for credentials demo:demo -> echo -n 'demo:demo' | base64
-// Used only for test/demo authentication against the Camunda components.
-const basicAuthDemoHeader = "Basic ZGVtbzpkZW1v"
+// basicAuthDemoHeader is the Authorization header for the Camunda basic-auth user
+// used by the test suite. Defaults to demo:demo (the chart's default), but CI
+// overrides it by exporting CAMUNDA_BASIC_AUTH_USER and CAMUNDA_BASIC_AUTH_PASSWORD
+// so the publicly reachable CI cluster never authenticates with demo:demo
+// (see incident INC-5340).
+var basicAuthDemoHeader = func() string {
+	user := helpers.GetEnv("CAMUNDA_BASIC_AUTH_USER", "demo")
+	password := helpers.GetEnv("CAMUNDA_BASIC_AUTH_PASSWORD", "demo")
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+password))
+}()
 
 var (
 	// ElasticsearchPodName is the ECK-managed Elasticsearch pod used for exec operations (backup, restore, health checks).

@@ -74,7 +74,7 @@ env:
     TESTS_CAMUNDA_PREVIOUS_VERSION: 8.9.0 # Version to be used for upgrade tests, not updated automatically
 
     # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.10(\.(?<patch>\d+))?$
-    TESTS_CONNECTORS_VERSION: 8.10.0
+    TESTS_CONNECTORS_VERSION: 8.10.0-SNAPSHOT
     TESTS_CONNECTORS_PREVIOUS_VERSION: 8.9.0 # Version to be used for upgrade tests, not updated automatically
 
 jobs:
@@ -216,6 +216,26 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/artifactory-ro ARTIFACTORY_USR;
                       secret/data/products/infrastructure-experience/ci/artifactory-ro ARTIFACTORY_PSW;
 
+            - name: Import Camunda basic auth credentials
+              id: camunda-credentials
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID | CAMUNDA_BASIC_AUTH_USER;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET | CAMUNDA_BASIC_AUTH_PASSWORD;
+
+            - name: Export Camunda basic auth credentials
+              run: |
+                  {
+                    echo "CAMUNDA_BASIC_AUTH_USER=${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}"
+                    echo "CAMUNDA_BASIC_AUTH_PASSWORD=${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}"
+                  } >> "$GITHUB_ENV"
+
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
               run: |
@@ -264,6 +284,8 @@ jobs:
                   CAMUNDA_CONNECTORS_PREVIOUS_VERSION: ${{ env.TESTS_CONNECTORS_PREVIOUS_VERSION }}
                   CAMUNDA_DISTRO_USER: ${{ steps.artifactory-credentials.outputs.ARTIFACTORY_USR }}
                   CAMUNDA_DISTRO_PASSWORD: ${{ steps.artifactory-credentials.outputs.ARTIFACTORY_PSW }}
+                  CAMUNDA_BASIC_AUTH_USER: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
+                  CAMUNDA_BASIC_AUTH_PASSWORD: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
               run: |
                   set -euo pipefail
                   export PATH=$PATH:$(go env GOPATH)/bin
@@ -281,8 +303,8 @@ jobs:
                   auth-mode: basic
                   zeebe-rest-address: >-
                       http://${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
-                  basic-auth-user: demo
-                  basic-auth-password: demo
+                  basic-auth-user: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
+                  basic-auth-password: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
                   benchmark-duration: '300'
 
             # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5

@@ -55,6 +55,28 @@ echo "[INFO] Copying existing configuration files to temporary files for modific
 cp "${CONFIG_DIR}/camunda-environment" "${SCRIPT_DIR}/camunda-environment.tmp"
 cp "${CONFIG_DIR}/connectors-environment" "${SCRIPT_DIR}/connectors-environment.tmp"
 
+echo "[INFO] Substituting credential placeholders in temporary config files..."
+: "${CAMUNDA_BASIC_AUTH_USER:=demo}"
+: "${CAMUNDA_BASIC_AUTH_PASSWORD:=demo}"
+export CAMUNDA_BASIC_AUTH_USER CAMUNDA_BASIC_AUTH_PASSWORD
+
+if [ "${CAMUNDA_BASIC_AUTH_USER}" = "demo" ] && [ "${CAMUNDA_BASIC_AUTH_PASSWORD}" = "demo" ]; then
+    echo "[WARN] Camunda is being configured with the default demo:demo credentials."
+    echo "       Set CAMUNDA_BASIC_AUTH_USER and CAMUNDA_BASIC_AUTH_PASSWORD before running"
+    echo "       this script to use unique credentials (recommended for any non-throwaway env)."
+fi
+
+# Single quotes are intentional: envsubst needs literal variable names
+# shellcheck disable=SC2016
+envsubst '${CAMUNDA_BASIC_AUTH_USER} ${CAMUNDA_BASIC_AUTH_PASSWORD}' \
+    < "${SCRIPT_DIR}/camunda-environment.tmp" > "${SCRIPT_DIR}/camunda-environment.tmp.out" \
+    && mv "${SCRIPT_DIR}/camunda-environment.tmp.out" "${SCRIPT_DIR}/camunda-environment.tmp"
+
+# shellcheck disable=SC2016
+envsubst '${CAMUNDA_BASIC_AUTH_USER} ${CAMUNDA_BASIC_AUTH_PASSWORD}' \
+    < "${SCRIPT_DIR}/connectors-environment.tmp" > "${SCRIPT_DIR}/connectors-environment.tmp.out" \
+    && mv "${SCRIPT_DIR}/connectors-environment.tmp.out" "${SCRIPT_DIR}/connectors-environment.tmp"
+
 echo "[INFO] Configuring the environment variables for cluster communication, external DB usage and writing to temporary camunda-environment file."
 # Default configuration for setup with OpenSearch as DB
 {
