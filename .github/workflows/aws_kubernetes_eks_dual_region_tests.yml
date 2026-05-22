@@ -46,6 +46,7 @@ on:
             - .tools-versions
             - .github/actions/internal-multi-region-tests/**
             - .github/actions/internal-helm-deprecation-check/**
+            - .github/actions/internal-camunda-ci-credentials/**
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
