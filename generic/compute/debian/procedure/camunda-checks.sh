@@ -44,6 +44,10 @@ check_service_running() {
         echo "[OK] The service '$service_name' is running."
     else
         echo "[FAIL] The service '$service_name' is not running."
+        echo "[INFO] systemctl status (last 50 lines):"
+        sudo systemctl status --no-pager -n 50 "$service_name" || true
+        echo "[INFO] journalctl (last 200 lines):"
+        sudo journalctl -u "$service_name" --no-pager -n 200 || true
         SCRIPT_STATUS_OUTPUT=2
     fi
 }
