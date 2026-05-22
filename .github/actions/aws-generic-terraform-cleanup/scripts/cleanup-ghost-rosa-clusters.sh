@@ -111,28 +111,38 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   AWS_REGION="$region_id" rosa create operator-roles --mode auto --yes --hosted-cp --prefix "${cluster_name}-operator" --oidc-config-id "${oidc_config_id}" --role-arn "${installer_role_arn}"
 
   echo "💣 Deleting cluster: $cluster_name"
-  AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --best-effort --watch
+  # Do NOT pass --watch: it blocks for the full ~60 min AWS teardown and
+  # starves later clusters in the matrix. The polling loop below is the
+  # supported wait mechanism.
+  AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --best-effort
 
   # Wait for the cluster to be fully deregistered from ROSA API
   # rosa delete cluster can return before the cluster is fully removed,
   # which causes operator-roles deletion to fail with "clusters using Operator Roles Prefix"
   echo "⏳ Waiting for cluster $cluster_name to be fully deregistered..."
   cluster_deregistered=false
-  for i in $(seq 1 30); do
-    # Distinguish "cluster not found" from transient errors by checking if the
-    # cluster still appears in the list of clusters. If it does not, we assume
-    # it is fully deregistered; otherwise, we keep waiting.
-    if rosa list clusters 2>/dev/null | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
-      if [ "$i" -lt 30 ]; then
-        echo "⏳ Cluster still registered, waiting 30s... (attempt $i/30)"
-        sleep 30
+  for i in $(seq 1 60); do
+    # Capture `rosa list clusters` separately so we can distinguish a
+    # transient failure (API/network hiccup) from a true "cluster not found".
+    # Treating a non-zero `rosa list` as deregistered would let role deletion
+    # race ahead of cluster teardown and fail with
+    # "clusters using Operator Roles Prefix".
+    if cluster_list=$(rosa list clusters 2>/dev/null); then
+      if echo "$cluster_list" | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
+        if [ "$i" -lt 60 ]; then
+          echo "⏳ Cluster still registered, waiting 30s... (attempt $i/60)"
+          sleep 30
+        else
+          echo "❌ Cluster $cluster_name is still registered after $i attempts"
+        fi
       else
-        echo "❌ Cluster $cluster_name is still registered after $i attempts"
+        echo "✅ Cluster $cluster_name is fully deregistered"
+        cluster_deregistered=true
+        break
       fi
     else
-      echo "✅ Cluster $cluster_name is fully deregistered"
-      cluster_deregistered=true
-      break
+      echo "⚠️ rosa list clusters failed transiently, retrying in 30s... (attempt $i/60)"
+      sleep 30
     fi
   done
 
