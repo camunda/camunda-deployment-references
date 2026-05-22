@@ -39,8 +39,10 @@ connectors:
     enabled: true
     resources:
         requests:
+            cpu: 100m
             memory: 256Mi
         limits:
+            cpu: 1000m
             memory: 1Gi
     security:
         authentication:
@@ -110,8 +112,10 @@ console:
     enabled: true
     resources:
         requests:
+            cpu: 50m
             memory: 64Mi
         limits:
+            cpu: 500m
             memory: 256Mi
 
 webModeler:
