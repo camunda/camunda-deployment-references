@@ -28,6 +28,8 @@ Run tests across multiple regions
 | `vault-addr` | <p>Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.</p> | `false` | `""` |
 | `vault-role-id` | <p>Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.</p> | `false` | `""` |
 | `vault-secret-id` | <p>Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.</p> | `false` | `""` |
+| `slack-channel-id` | <p>Forwarded to internal-helm-deprecation-check. Overrides the default infraex channel.</p> | `false` | `""` |
+| `slack-mention-people` | <p>Forwarded to internal-helm-deprecation-check. Slack handles/groups to mention on scheduled-run alerts.</p> | `false` | `""` |
 
 
 ## Runs
@@ -158,6 +160,18 @@ This action is a `composite` action.
 
     vault-secret-id:
     # Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
+    #
+    # Required: false
+    # Default: ""
+
+    slack-channel-id:
+    # Forwarded to internal-helm-deprecation-check. Overrides the default infraex channel.
+    #
+    # Required: false
+    # Default: ""
+
+    slack-mention-people:
+    # Forwarded to internal-helm-deprecation-check. Slack handles/groups to mention on scheduled-run alerts.
     #
     # Required: false
     # Default: ""
