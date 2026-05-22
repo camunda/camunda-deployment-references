@@ -4,6 +4,13 @@
 ### Linux ###
 *~
 
+# Vim swap files
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
 # temporary files which can be created if a process still has a handle open of a deleted file
 .fuse_hidden*
 
@@ -126,8 +133,12 @@ camunda-docs/**
 camunda-docs
 debug/**
 debug
-camunda-platform-helm/**
 camunda-platform-helm
+camunda-platform-helm/**
 
 # Exclude actionlint binary
 actionlint
+
+# Claude Code local agent state (lock files, user-local settings)
+.claude/scheduled_tasks.lock
+.claude/settings.local.json

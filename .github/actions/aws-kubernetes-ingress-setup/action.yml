@@ -125,6 +125,25 @@ runs:
               echo "Installing ACME/Let's Encrypt issuer..."
               ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager-issuer.sh
 
+              if [[ "${{ inputs.use-wildcard-cert }}" == "true" ]]; then
+                  echo "🩹 Wildcard cert in use — patching cert-manager to drop ingress-shim default issuer"
+                  echo "   (keeps ClusterIssuer/letsencrypt installed but stops auto-Certificates from"
+                  echo "    'kubernetes.io/tls-acme' annotations, so sub-charts cannot burn LE quota)"
+
+                  current_args=$(kubectl -n cert-manager get deployment cert-manager \
+                      -o json | jq -c '.spec.template.spec.containers[0].args // []')
+                  new_args=$(jq -cn --argjson a "$current_args" \
+                      '$a | map(select(test("^--default-issuer-(name|kind|group)=") | not))')
+
+                  if [[ "$current_args" == "$new_args" ]]; then
+                      echo "ℹ️  cert-manager controller already has no default-issuer args — nothing to patch"
+                  else
+                      kubectl -n cert-manager patch deployment cert-manager --type=json \
+                          -p "[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/args\",\"value\":${new_args}}]"
+                      kubectl -n cert-manager rollout status deployment cert-manager --timeout=2m
+                  fi
+              fi
+
               echo "✅ Ingress setup completed successfully for EKS cluster."
 
         - name: 🔐 Setup wildcard TLS certificate from Vault

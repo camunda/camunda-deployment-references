@@ -6,10 +6,12 @@
 # Authentication Secrets:
 # - pg-webmodeler-secret: Contains PostgreSQL user credentials for WebModeler
 
-# WebModeler configuration
+# WebModeler configuration. WebModeler is deployed as a sub-component of
+# Camunda Hub when `camundaHub.enabled: true` is set in the consuming values
+# file (see local/kubernetes/kind-single-region/helm-values/values-*.yml).
+# Legacy `webModeler.*` overrides below pass through to the Hub WebModeler
+# sub-component via the chart's `or` fallback.
 webModeler:
-    enabled: true
-
     # Use external PostgreSQL for WebModeler
     restapi:
         externalDatabase:
@@ -17,7 +19,7 @@ webModeler:
             host: pg-webmodeler-rw
             port: 5432
             database: webmodeler
-            user: webmodeler
+            username: webmodeler
             secret:
                 existingSecret: pg-webmodeler-secret
                 existingSecretKey: password

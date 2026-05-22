@@ -56,6 +56,8 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "override_policy_documents": [],
+                "source_policy_documents": [],
                 "statement": [
                   {
                     "actions": [
@@ -87,10 +89,10 @@
               "type": "aws_iam_policy_document",
               "values": {
                 "override_json": null,
-                "override_policy_documents": null,
+                "override_policy_documents": [],
                 "policy_id": null,
                 "source_json": null,
-                "source_policy_documents": null,
+                "source_policy_documents": [],
                 "statement": [
                   {
                     "actions": [
@@ -203,6 +205,8 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "override_policy_documents": [],
+                "source_policy_documents": [],
                 "statement": [
                   {
                     "actions": [
@@ -234,10 +238,10 @@
               "type": "aws_iam_policy_document",
               "values": {
                 "override_json": null,
-                "override_policy_documents": null,
+                "override_policy_documents": [],
                 "policy_id": null,
                 "source_json": null,
-                "source_policy_documents": null,
+                "source_policy_documents": [],
                 "statement": [
                   {
                     "actions": [
@@ -1683,6 +1687,8 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "override_policy_documents": [],
+                "source_policy_documents": [],
                 "statement": [
                   {
                     "actions": [
@@ -1714,10 +1720,10 @@
               "type": "aws_iam_policy_document",
               "values": {
                 "override_json": null,
-                "override_policy_documents": null,
+                "override_policy_documents": [],
                 "policy_id": null,
                 "source_json": null,
-                "source_policy_documents": null,
+                "source_policy_documents": [],
                 "statement": [
                   {
                     "actions": [

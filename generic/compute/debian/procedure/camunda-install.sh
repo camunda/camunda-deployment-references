@@ -10,9 +10,12 @@ set -euo pipefail
 
 # Executed on remote host, defaults should be set here or env vars preconfigured on remote host
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
-# renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.10(\.(?<patch>\d+))?$
+# TODO: [release-duty] before the release, drop the `-SNAPSHOT` suffix and
+# restore the renovate `regex:^8\.10(\.(?<patch>\d+))?$` versioning comments.
+# Until 8.10 GA, the released artifacts don't exist on artifacts.camunda.com
+# (only on connectors-snapshots / zeebe SNAPSHOT paths), so the install must
+# pull from SNAPSHOT.
 CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.10.0-SNAPSHOT"}
-# renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.10(\.(?<patch>\d+))?$
 CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.10.0-SNAPSHOT"}
 
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}

@@ -70,7 +70,7 @@ webModeler:
     restapi:
         externalDatabase:
             url: jdbc:aws-wrapper:postgresql://${DB_HOST}:${DB_PORT}/${DB_WEBMODELER_NAME}
-            user: ${DB_WEBMODELER_USERNAME}
+            username: ${DB_WEBMODELER_USERNAME}
             secret:
                 existingSecret: webmodeler-postgres-secret
                 existingSecretKey: password

@@ -20,7 +20,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -39,24 +39,51 @@ jobs:
 
             - name: Install ROSA CLI and output rosa versions
               shell: bash
-              working-directory: /tmp
               run: |
                   set -euo pipefail
 
+                  # Download and install rosa CLI in /tmp (we don't need it in the repo).
+                  pushd /tmp >/dev/null
                   curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-linux.tar.gz"
                   tar -xvf rosa-linux.tar.gz
                   sudo mv rosa /usr/local/bin/rosa
                   chmod +x /usr/local/bin/rosa
                   rm -f rosa-linux.tar.gz
+                  popd >/dev/null
+
                   rosa version
                   rosa login --token=${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+
+                  # Write the artifact into the repo working tree (gh-pages branch is currently checked out).
                   mkdir -p docs
-                  rosa list versions --output json | jq '.[].raw_id' --raw-output > docs/rosa_versions.txt
+                  # We deploy ROSA HCP (Hosted Control Planes) — the `--hosted-cp` flag is required,
+                  # otherwise `rosa list versions` returns ROSA classic versions, which lag behind HCP.
+                  # Merge classic + HCP, dedup, and sort descending so Renovate sees all supported versions.
+                  {
+                    rosa list versions --hosted-cp --output json | jq '.[].raw_id' --raw-output
+                    rosa list versions --output json              | jq '.[].raw_id' --raw-output
+                  } | sort -V -u -r > docs/rosa_versions.txt
+
+                  echo "::group::Raw HCP versions returned by rosa CLI"
+                  rosa list versions --hosted-cp --output json | jq '.[].raw_id' --raw-output || true
+                  echo "::endgroup::"
+
+                  echo "::group::Raw classic versions returned by rosa CLI"
+                  rosa list versions --output json | jq '.[].raw_id' --raw-output || true
+                  echo "::endgroup::"
+
+                  echo "::group::Generated docs/rosa_versions.txt ($(wc -l < docs/rosa_versions.txt) lines)"
+                  cat docs/rosa_versions.txt
+                  echo "::endgroup::"
 
             - name: Commit and push ROSA versions file to gh-pages
               shell: bash
               run: |
                   set -euo pipefail
+
+                  echo "::group::Diff against gh-pages"
+                  git --no-pager diff -- docs/rosa_versions.txt || true
+                  echo "::endgroup::"
 
                   git diff --exit-code docs/rosa_versions.txt || {
                     git config --local user.name "github-actions[bot]"
@@ -71,7 +98,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure() && github.event_name == 'schedule'
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

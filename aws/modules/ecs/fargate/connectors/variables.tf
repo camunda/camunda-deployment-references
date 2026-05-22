@@ -131,12 +131,12 @@ variable "wait_for_steady_state" {
 variable "service_timeouts" {
   description = "Timeout configuration for ECS service operations"
   type = object({
-    create = optional(string, "30m")
+    create = optional(string, "15m")
     update = optional(string, "30m")
     delete = optional(string, "20m")
   })
   default = {
-    create = "30m"
+    create = "15m"
     update = "30m"
     delete = "20m"
   }
@@ -153,7 +153,7 @@ variable "image" {
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
   # renovate: datasource=docker depName=camunda/connectors-bundle versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
-  default = "camunda/connectors-bundle:8.10.0-SNAPSHOT"
+  default = "camunda/connectors-bundle:8.10.0-alpha1"
 }
 
 variable "environment_variables" {

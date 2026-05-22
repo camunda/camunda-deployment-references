@@ -83,7 +83,7 @@ resource "aws_iam_policy" "s3_backup_access_policy" {
         ],
         Condition = {
           StringEquals = {
-            "kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com"
+            "kms:ViaService" = "s3.${data.aws_region.current.region}.amazonaws.com"
           }
         }
       }

@@ -174,12 +174,12 @@ variable "wait_for_steady_state" {
 variable "service_timeouts" {
   description = "Timeout configuration for ECS service operations"
   type = object({
-    create = optional(string, "30m")
+    create = optional(string, "15m")
     update = optional(string, "30m")
     delete = optional(string, "20m")
   })
   default = {
-    create = "30m"
+    create = "15m"
     update = "30m"
     delete = "20m"
   }
@@ -195,7 +195,7 @@ variable "image" {
   # TODO: [release-duty] before the release, update the below versions to the stable release!
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)(-alpha(?<prerelease>[1-9]|[1-4][0-9]|50))?$
-  default = "camunda/camunda:8.10.0"
+  default = "camunda/camunda:8.10.0-alpha1"
 }
 
 variable "environment_variables" {
@@ -285,7 +285,7 @@ variable "restore_container_image" {
   # TODO: [release-duty] before the release, update the below versions to the stable release!
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)(-alpha(?<prerelease>[1-9]|[1-4][0-9]|50))?$
-  default = "camunda/camunda:8.10.0"
+  default = "camunda/camunda:8.10.0-alpha1"
 }
 
 variable "restore_container_entrypoint" {

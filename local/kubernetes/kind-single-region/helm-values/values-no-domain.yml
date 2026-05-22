@@ -115,26 +115,47 @@ orchestration:
                 admin:
                     users:
                         - admin
-
-console:
+camundaHub:
     enabled: true
-    resources:
-        requests:
-            cpu: 50m
-            memory: 64Mi
-        limits:
-            cpu: 500m
-            memory: 256Mi
-
-webModeler:
-    restapi:
+    console:
         resources:
             requests:
-                cpu: 100m
-                memory: 256Mi
+                cpu: 50m
+                memory: 64Mi
             limits:
-                cpu: 1000m
-                memory: 1Gi
+                cpu: 500m
+                memory: 256Mi
+
+    webModeler:
+        # Chart 15.x defaults webModeler.image.tag to "8.10.0-alpha1-rc1",
+        # which is not published to Docker Hub. Use the rolling SNAPSHOT tag
+        # for camunda/hub and camunda/hub-websockets in CI until a tagged
+        # release is available.
+        image:
+            tag: SNAPSHOT
+        restapi:
+            resources:
+                requests:
+                    cpu: 100m
+                    memory: 256Mi
+                limits:
+                    cpu: 1000m
+                    memory: 1Gi
+        websockets:
+            resources:
+                requests:
+                    cpu: 50m
+                    memory: 128Mi
+                limits:
+                    cpu: 500m
+                    memory: 512Mi
+
+# Chart 15.x: Web Modeler Pusher secret/key must be configured at the
+# top-level `webModeler.*` path, not under `camundaHub.webModeler.*`.
+# Without this, the chart auto-generates a new random Pusher secret on
+# every `helm upgrade`, breaking WebSocket auth.
+webModeler:
+    restapi:
         pusher:
             secret:
                 existingSecret: camunda-credentials
@@ -143,11 +164,3 @@ webModeler:
                 secret:
                     existingSecret: camunda-credentials
                     existingSecretKey: webmodeler-pusher-app-key
-    websockets:
-        resources:
-            requests:
-                cpu: 50m
-                memory: 128Mi
-            limits:
-                cpu: 500m
-                memory: 512Mi

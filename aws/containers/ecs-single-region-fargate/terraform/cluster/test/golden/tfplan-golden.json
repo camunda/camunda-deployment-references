@@ -1598,7 +1598,9 @@
           "sensitive_values": {
             "alarms": [],
             "capacity_provider_strategy": [],
-            "deployment_circuit_breaker": [],
+            "deployment_circuit_breaker": [
+              {}
+            ],
             "deployment_configuration": [],
             "deployment_controller": [],
             "load_balancer": [
@@ -1632,7 +1634,12 @@
           "values": {
             "alarms": [],
             "capacity_provider_strategy": [],
-            "deployment_circuit_breaker": [],
+            "deployment_circuit_breaker": [
+              {
+                "enable": true,
+                "rollback": false
+              }
+            ],
             "deployment_controller": [],
             "deployment_maximum_percent": 200,
             "deployment_minimum_healthy_percent": 50,
@@ -1674,7 +1681,7 @@
             "sigint_rollback": null,
             "tags": null,
             "timeouts": {
-              "create": "30m",
+              "create": "15m",
               "delete": "20m",
               "update": "30m"
             },
@@ -2054,7 +2061,9 @@
           "sensitive_values": {
             "alarms": [],
             "capacity_provider_strategy": [],
-            "deployment_circuit_breaker": [],
+            "deployment_circuit_breaker": [
+              {}
+            ],
             "deployment_configuration": [],
             "deployment_controller": [],
             "load_balancer": [
@@ -2121,7 +2130,12 @@
           "values": {
             "alarms": [],
             "capacity_provider_strategy": [],
-            "deployment_circuit_breaker": [],
+            "deployment_circuit_breaker": [
+              {
+                "enable": true,
+                "rollback": false
+              }
+            ],
             "deployment_controller": [],
             "deployment_maximum_percent": 100,
             "deployment_minimum_healthy_percent": 66,
@@ -2218,7 +2232,7 @@
             "sigint_rollback": null,
             "tags": null,
             "timeouts": {
-              "create": "30m",
+              "create": "15m",
               "delete": "20m",
               "update": "30m"
             },
