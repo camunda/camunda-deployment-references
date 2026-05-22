@@ -15,7 +15,14 @@ trap cleanup EXIT
 sleep 2
 
 echo "📡 Fetching Zeebe cluster topology..."
-topology=$(curl -s --show-error --fail -L -u "${ZEEBE_BASIC_AUTH_USER:-demo}:${ZEEBE_BASIC_AUTH_PASSWORD:-demo}" -X GET 'http://localhost:8080/v2/topology' -H 'Accept: application/json')
+# Only attach basic-auth when both vars are set. Never default to demo:demo
+# (see INC-5340) — an unauthenticated cluster works without -u, an
+# authenticated one must receive real credentials from the caller.
+AUTH_ARGS=()
+if [[ -n "${ZEEBE_BASIC_AUTH_USER:-}" && -n "${ZEEBE_BASIC_AUTH_PASSWORD:-}" ]]; then
+    AUTH_ARGS=(-u "${ZEEBE_BASIC_AUTH_USER}:${ZEEBE_BASIC_AUTH_PASSWORD}")
+fi
+topology=$(curl -s --show-error --fail -L "${AUTH_ARGS[@]}" -X GET 'http://localhost:8080/v2/topology' -H 'Accept: application/json')
 echo "$topology" > zeebe-topology.json
 
 jq . zeebe-topology.json
