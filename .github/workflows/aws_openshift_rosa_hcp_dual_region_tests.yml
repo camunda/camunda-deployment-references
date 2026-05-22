@@ -21,6 +21,7 @@ on:
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-camunda-ci-credentials/**
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
@@ -737,6 +738,17 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
+            # Fetches CAMUNDA_BASIC_AUTH_USER/PASSWORD from Vault and writes a
+            # Helm overlay values file so the CI cluster is not protected by
+            # the chart default demo:demo admin (see incident INC-5340).
+            - name: Camunda CI basic-auth credentials
+              id: camunda-ci-credentials
+              uses: ./.github/actions/internal-camunda-ci-credentials
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
             - name: Run Multi-region tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60
@@ -752,6 +764,7 @@ jobs:
                   default-values-yaml: ${{ github.workspace }}/openshift.yml
                   region-0-values-yaml: ${{ github.workspace }}/generated-values-region-0.yml
                   region-1-values-yaml: ${{ github.workspace }}/generated-values-region-1.yml
+                  extra-values-yaml: ${{ steps.camunda-ci-credentials.outputs.values-file }}
                   # Skip cleanup since OpenShift deployment is already done with Submariner ServiceExports
                   # Deploy will use helm upgrade --install which preserves existing resources
                   skip-cleanup: 'true'
