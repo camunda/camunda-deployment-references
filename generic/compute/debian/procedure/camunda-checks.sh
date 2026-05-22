@@ -40,14 +40,14 @@ check_service() {
 check_service_running() {
     local service_name=$1
 
-    if sudo systemctl is-active --quiet "$service_name"; then
+    if systemctl is-active --quiet "$service_name"; then
         echo "[OK] The service '$service_name' is running."
     else
         echo "[FAIL] The service '$service_name' is not running."
         echo "[INFO] systemctl status (last 50 lines):"
-        sudo systemctl status --no-pager -n 50 "$service_name" || true
+        systemctl status --no-pager -n 50 "$service_name" || true
         echo "[INFO] journalctl (last 200 lines):"
-        sudo journalctl -u "$service_name" --no-pager -n 200 || true
+        journalctl -u "$service_name" --no-pager -n 200 || true
         SCRIPT_STATUS_OUTPUT=2
     fi
 }
