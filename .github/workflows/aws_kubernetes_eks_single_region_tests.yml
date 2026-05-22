@@ -886,6 +886,9 @@ jobs:
                   # TODO: remove exclude-patterns and global.opensearch from values once the legacy Operate connector is removed from the Helm chart
                   exclude-patterns: |
                       global.opensearch.enabled
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             # In domain + OIDC mode the Camunda app pods (Zeebe, Connectors, …)
             # contact the public Keycloak URL at startup to fetch the OIDC
