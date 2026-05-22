@@ -1,0 +1,109 @@
+---
+name: Internal — Camunda CI basic-auth credentials
+description: |
+    Fetches a shared Camunda basic-auth user/password from Vault and exposes
+    them to the workflow so that publicly reachable CI deployments never run
+    with the chart/config default `demo:demo` credentials (see incident
+    INC-5340).
+
+    Outputs:
+    - The credentials are exported to `$GITHUB_ENV` as `CAMUNDA_BASIC_AUTH_USER`
+      and `CAMUNDA_BASIC_AUTH_PASSWORD`.
+    - A Helm overlay values file is written at `${{ runner.temp }}/ci-camunda-basic-auth.yml`
+      with init-user overrides for the `camunda-platform` chart. Its path is
+      exported as `CAMUNDA_BASIC_AUTH_VALUES_FILE` env var and as the
+      `values-file` step output, so callers can append it to their `helm`
+      / `--values` invocation (or to a multi-region tests `extra-values-yaml`
+      input) to make the deployed chart use the Vault credentials.
+
+inputs:
+    vault-addr:
+        description: Vault address (typically secrets.VAULT_ADDR).
+        required: true
+    vault-role-id:
+        description: Vault AppRole role id (typically secrets.VAULT_ROLE_ID).
+        required: true
+    vault-secret-id:
+        description: Vault AppRole secret id (typically secrets.VAULT_SECRET_ID).
+        required: true
+    vault-secret-path:
+        description: |
+            Vault KV v2 data path holding the `CAMUNDA_BASIC_AUTH_USER` and
+            `CAMUNDA_BASIC_AUTH_PASSWORD` keys. Defaults to the shared CI
+            secret used across all reference-architecture workflows.
+        required: false
+        default: secret/data/products/infrastructure-experience/ci/global-camunda-basic-auth
+
+outputs:
+    values-file:
+        description: Path of the generated Helm overlay values file.
+        value: ${{ steps.write-values.outputs.values-file }}
+
+runs:
+    using: composite
+    steps:
+        - name: Import Camunda CI basic-auth credentials
+          id: camunda-ci-credentials
+          uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+          with:
+              url: ${{ inputs.vault-addr }}
+              method: approle
+              roleId: ${{ inputs.vault-role-id }}
+              secretId: ${{ inputs.vault-secret-id }}
+              exportEnv: false
+              secrets: |
+                  ${{ inputs.vault-secret-path }} CAMUNDA_BASIC_AUTH_USER;
+                  ${{ inputs.vault-secret-path }} CAMUNDA_BASIC_AUTH_PASSWORD;
+
+        - name: Export Camunda CI basic-auth credentials to env
+          shell: bash
+          run: |
+              set -euo pipefail
+              {
+                echo "CAMUNDA_BASIC_AUTH_USER=${{ steps.camunda-ci-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}"
+                echo "CAMUNDA_BASIC_AUTH_PASSWORD=${{ steps.camunda-ci-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}"
+              } >> "$GITHUB_ENV"
+
+        - name: Write Helm overlay values file
+          id: write-values
+          shell: bash
+          env:
+              CAMUNDA_BASIC_AUTH_USER: ${{ steps.camunda-ci-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
+              CAMUNDA_BASIC_AUTH_PASSWORD: ${{ steps.camunda-ci-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
+          run: |
+              set -euo pipefail
+              values_file="${RUNNER_TEMP}/ci-camunda-basic-auth.yml"
+
+              # The orchestration chart ships two initial users (index 0 = connectors,
+              # index 1 = admin/demo). We override only the admin entry so that
+              # the connectors user keeps working as documented and so that the
+              # admin login is not demo:demo on the CI cluster.
+              cat > "${values_file}" <<EOF
+              orchestration:
+                  security:
+                      initialization:
+                          users:
+                              - username: connectors
+                                password: connector
+                                name: Connector User
+                                email: connector@demo.com
+                              - username: ${CAMUNDA_BASIC_AUTH_USER}
+                                password: ${CAMUNDA_BASIC_AUTH_PASSWORD}
+                                name: CI Admin User
+                                email: ${CAMUNDA_BASIC_AUTH_USER}@ci.local
+                          defaultRoles:
+                              admin:
+                                  users:
+                                      - ${CAMUNDA_BASIC_AUTH_USER}
+                              connectors:
+                                  users:
+                                      - connectors
+                                  clients:
+                                      - connectors
+              EOF
+
+              {
+                echo "CAMUNDA_BASIC_AUTH_VALUES_FILE=${values_file}"
+              } >> "$GITHUB_ENV"
+              echo "values-file=${values_file}" >> "$GITHUB_OUTPUT"
+              echo "[INFO] Helm overlay values file written to ${values_file}"
