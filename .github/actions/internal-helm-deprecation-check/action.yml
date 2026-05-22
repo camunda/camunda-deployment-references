@@ -7,7 +7,14 @@ description: |
     (removed configuration) messages.
     Optionally validates that deployed values do not contain unknown keys
     by checking against a strict version of the chart's JSON Schema.
-    Fails the pipeline if any deprecation warnings, errors, or unknown keys are found.
+    Findings are reported in an event-aware, non-blocking way:
+      - schedule: emitted as ::warning:: annotations and, when the Slack
+        inputs are wired, posted to Slack via the shared
+        report-failure-on-slack action.
+      - any other event (pull_request, workflow_dispatch, push, ...):
+        emitted as ::warning:: annotations in the job log only.
+    The workflow is NEVER failed by this action; the intent is to trace
+    drift, not to block release pipelines.
     See: https://github.com/camunda/camunda-platform-helm/issues/4564
 
 inputs:
@@ -38,6 +45,38 @@ inputs:
             See: https://github.com/camunda/camunda-platform-helm/issues/4564
         required: false
         default: 'true'
+    vault-addr:
+        description: |
+            HashiCorp Vault address. Required only when posting a Slack
+            alert on scheduled runs. Pass `${{ secrets.VAULT_ADDR }}`.
+        required: false
+        default: ''
+    vault-role-id:
+        description: |
+            HashiCorp Vault AppRole role id. Required only when posting a
+            Slack alert on scheduled runs. Pass `${{ secrets.VAULT_ROLE_ID }}`.
+        required: false
+        default: ''
+    vault-secret-id:
+        description: |
+            HashiCorp Vault AppRole secret id. Required only when posting a
+            Slack alert on scheduled runs. Pass `${{ secrets.VAULT_SECRET_ID }}`.
+        required: false
+        default: ''
+    slack-channel-id:
+        description: |
+            Slack channel id to alert when findings are detected on a
+            scheduled run. When empty (default), no Slack notification is
+            posted; findings are still logged as `::warning::` annotations.
+        required: false
+        default: ''
+    slack-mention-people:
+        description: |
+            Slack handles or group mentions to include in the scheduled-run
+            alert (e.g. `@infraex-medic`). Only used when `slack-channel-id`
+            is set and the event is `schedule`.
+        required: false
+        default: ''
 
 runs:
     using: composite
@@ -111,7 +150,7 @@ runs:
               HAS_ISSUES=false
 
               if [[ -n "${ERRORS}" ]]; then
-                  echo "::error::Removed configuration keys detected in Helm release '${RELEASE_NAME}'"
+                  echo "::warning::Removed configuration keys detected in Helm release '${RELEASE_NAME}'"
                   echo ""
                   echo "=========================================="
                   echo "  REMOVED CONFIGURATION KEYS (ERRORS)"
@@ -125,7 +164,7 @@ runs:
               fi
 
               if [[ -n "${WARNINGS}" ]]; then
-                  echo "::error::Deprecation warnings detected in Helm release '${RELEASE_NAME}'"
+                  echo "::warning::Deprecation warnings detected in Helm release '${RELEASE_NAME}'"
                   echo ""
                   echo "=========================================="
                   echo "  DEPRECATION WARNINGS"
@@ -141,10 +180,10 @@ runs:
               if [[ "${HAS_ISSUES}" == "true" ]]; then
                   echo "Please update the Helm values to use the new configuration format."
                   echo "See: https://docs.camunda.io/docs/self-managed/deployment/helm/upgrade/"
-                  exit 1
+                  echo "HELM_DEPRECATION_FINDINGS_PRESENT=true" >> "${GITHUB_ENV}"
+              else
+                  echo "✅ No deprecation warnings or errors found in Helm release '${RELEASE_NAME}'"
               fi
-
-              echo "✅ No deprecation warnings or errors found in Helm release '${RELEASE_NAME}'"
 
         - name: 🔑 Check for unknown configuration keys
           if: ${{ inputs.check-unknown-keys == 'true' }}
@@ -269,8 +308,25 @@ runs:
                   exit 1
               else
                   echo ""
-                  echo "::error::Unknown configuration keys detected in Helm release '${RELEASE_NAME}'"
+                  echo "::warning::Unknown configuration keys detected in Helm release '${RELEASE_NAME}'"
                   echo "These keys are not recognized by the Camunda Helm chart schema and will be silently ignored."
                   echo "This may indicate typos or use of removed/renamed configuration properties."
-                  exit 1
+                  echo "HELM_DEPRECATION_FINDINGS_PRESENT=true" >> "${GITHUB_ENV}"
               fi
+
+        - name: 🔔 Alert Slack on scheduled-run findings
+          if: |
+              always()
+              && github.event_name == 'schedule'
+              && env.HELM_DEPRECATION_FINDINGS_PRESENT == 'true'
+              && inputs.slack-channel-id != ''
+              && inputs.vault-addr != ''
+              && inputs.vault-role-id != ''
+              && inputs.vault-secret-id != ''
+          uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+          with:
+              vault_addr: ${{ inputs.vault-addr }}
+              vault_role_id: ${{ inputs.vault-role-id }}
+              vault_secret_id: ${{ inputs.vault-secret-id }}
+              slack_channel_id: ${{ inputs.slack-channel-id }}
+              slack_mention_people: ${{ inputs.slack-mention-people }}

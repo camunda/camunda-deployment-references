@@ -8,7 +8,14 @@ Uses `helm get notes` to retrieve the release notes and scans for
 (removed configuration) messages.
 Optionally validates that deployed values do not contain unknown keys
 by checking against a strict version of the chart's JSON Schema.
-Fails the pipeline if any deprecation warnings, errors, or unknown keys are found.
+Findings are reported in an event-aware, non-blocking way:
+  - schedule: emitted as ::warning:: annotations and, when the Slack
+    inputs are wired, posted to Slack via the shared
+    report-failure-on-slack action.
+  - any other event (pull_request, workflow_dispatch, push, ...):
+    emitted as ::warning:: annotations in the job log only.
+The workflow is NEVER failed by this action; the intent is to trace
+drift, not to block release pipelines.
 See: https://github.com/camunda/camunda-platform-helm/issues/4564
 
 
@@ -21,6 +28,11 @@ See: https://github.com/camunda/camunda-platform-helm/issues/4564
 | `kube-context` | <p>The Kubernetes context to use (optional, defaults to current context)</p> | `false` | `""` |
 | `exclude-patterns` | <p>Newline-separated list of fixed strings to exclude from warnings and errors. Messages containing any of these strings will be ignored.</p> | `false` | `""` |
 | `check-unknown-keys` | <p>When set to 'true', deployed values are validated against a strict version of the chart's JSON Schema to detect unknown keys (typos, removed properties). The schema is automatically extracted from the deployed chart. See: https://github.com/camunda/camunda-platform-helm/issues/4564</p> | `false` | `true` |
+| `vault-addr` | <p>HashiCorp Vault address. Required only when posting a Slack alert on scheduled runs. Pass <code>${{ secrets.VAULT_ADDR }}</code>.</p> | `false` | `""` |
+| `vault-role-id` | <p>HashiCorp Vault AppRole role id. Required only when posting a Slack alert on scheduled runs. Pass <code>${{ secrets.VAULT_ROLE_ID }}</code>.</p> | `false` | `""` |
+| `vault-secret-id` | <p>HashiCorp Vault AppRole secret id. Required only when posting a Slack alert on scheduled runs. Pass <code>${{ secrets.VAULT_SECRET_ID }}</code>.</p> | `false` | `""` |
+| `slack-channel-id` | <p>Slack channel id to alert when findings are detected on a scheduled run. When empty (default), no Slack notification is posted; findings are still logged as <code>::warning::</code> annotations.</p> | `false` | `""` |
+| `slack-mention-people` | <p>Slack handles or group mentions to include in the scheduled-run alert (e.g. <code>@infraex-medic</code>). Only used when <code>slack-channel-id</code> is set and the event is <code>schedule</code>.</p> | `false` | `""` |
 
 
 ## Runs
@@ -66,4 +78,41 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
+
+    vault-addr:
+    # HashiCorp Vault address. Required only when posting a Slack
+    # alert on scheduled runs. Pass `${{ secrets.VAULT_ADDR }}`.
+    #
+    # Required: false
+    # Default: ""
+
+    vault-role-id:
+    # HashiCorp Vault AppRole role id. Required only when posting a
+    # Slack alert on scheduled runs. Pass `${{ secrets.VAULT_ROLE_ID }}`.
+    #
+    # Required: false
+    # Default: ""
+
+    vault-secret-id:
+    # HashiCorp Vault AppRole secret id. Required only when posting a
+    # Slack alert on scheduled runs. Pass `${{ secrets.VAULT_SECRET_ID }}`.
+    #
+    # Required: false
+    # Default: ""
+
+    slack-channel-id:
+    # Slack channel id to alert when findings are detected on a
+    # scheduled run. When empty (default), no Slack notification is
+    # posted; findings are still logged as `::warning::` annotations.
+    #
+    # Required: false
+    # Default: ""
+
+    slack-mention-people:
+    # Slack handles or group mentions to include in the scheduled-run
+    # alert (e.g. `@infraex-medic`). Only used when `slack-channel-id`
+    # is set and the event is `schedule`.
+    #
+    # Required: false
+    # Default: ""
 ```
