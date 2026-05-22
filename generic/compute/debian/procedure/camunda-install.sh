@@ -153,18 +153,26 @@ else
     curl -L --fail-with-body --show-error -w "[INFO] connectors download: HTTP %{http_code} (%{size_download} bytes)\n" ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CAMUNDA_CONNECTORS_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar" || { echo "[FAIL] connectors download failed; response body:"; cat "${MNT_DIR}/connectors/connectors.jar" 2>/dev/null | head -c 4096; echo; exit 1; }
 fi
 
+# Connectors JAR is downloaded above (inside the camunda-user heredoc).
+# The launcher is written from the OUTER script on purpose: the surrounding
+# sudo-user heredoc is unquoted, so it would otherwise expand every dollar
+# sign inside the nested quoted LAUNCH body before piping to bash --
+# turning the launcher's $0 into the outer shell's $0 (-bash over SSH) and
+# breaking 'readlink -f' with 'invalid option -- b', plus tripping set -u
+# on SCRIPT_DIR. Writing the file here keeps the launcher body 100% literal.
+EOF
+
 # The connector-runtime-bundle is a Spring Boot uber-jar with its dependencies
 # under BOOT-INF/lib/, so it can only be launched via "java -jar". The upstream
 # start.sh from camunda/connectors@main is unpinned and historically used a
 # flat-classpath invocation that broke whenever the bundle layout changed
 # (e.g. the 8.9.4 release), making every fresh install fail with a JVM
-# class-resolution error. Vendor a minimal self-contained launcher instead.
-cat > "${MNT_DIR}/connectors/start.sh" <<'LAUNCH'
+# class-resolution error. Vendor a minimal self-contained launcher.
+sudo -u "${USERNAME}" tee "${MNT_DIR}/connectors/start.sh" > /dev/null <<'LAUNCH'
 #!/bin/bash
 set -eu
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 # shellcheck disable=SC2086
 exec java ${JAVA_OPTS:-} -jar "${SCRIPT_DIR}/connectors.jar"
 LAUNCH
-chmod +x "${MNT_DIR}/connectors/start.sh"
-EOF
+sudo chmod +x "${MNT_DIR}/connectors/start.sh"
