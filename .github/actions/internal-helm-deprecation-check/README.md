@@ -21,8 +21,11 @@ Findings are reported in an event-aware, non-blocking way:
     `contains(github.head_ref, 'schedules/') || github.event_name == 'schedule'`).
   - workflow_dispatch / push / any other event: emitted as
     ::warning:: annotations in the job log only.
-The workflow is NEVER failed by this action; the intent is to trace
-drift, not to block release pipelines.
+Findings (deprecation warnings, removed keys, unknown keys) are never
+treated as failures — the intent is to trace drift, not to block release
+pipelines. The action can still exit non-zero on genuine internal errors
+(e.g. `helm get notes` / `helm get values` failures, or an internal error
+in the unknown-keys validator).
 
 See: https://github.com/camunda/camunda-platform-helm/issues/4564
 

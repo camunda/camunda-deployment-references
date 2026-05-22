@@ -84,6 +84,14 @@ inputs:
         description: Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
         required: false
         default: ''
+    slack-channel-id:
+        description: Forwarded to internal-helm-deprecation-check. Overrides the default infraex channel.
+        required: false
+        default: ''
+    slack-mention-people:
+        description: Forwarded to internal-helm-deprecation-check. Slack handles/groups to mention on scheduled-run alerts.
+        required: false
+        default: ''
 runs:
     using: composite
     steps:
@@ -182,6 +190,8 @@ runs:
               vault-addr: ${{ inputs.vault-addr }}
               vault-role-id: ${{ inputs.vault-role-id }}
               vault-secret-id: ${{ inputs.vault-secret-id }}
+              slack-channel-id: ${{ inputs.slack-channel-id }}
+              slack-mention-people: ${{ inputs.slack-mention-people }}
 
         - name: 🔍 Check for Helm deprecation warnings (region 1)
           uses: ./.github/actions/internal-helm-deprecation-check
@@ -194,6 +204,8 @@ runs:
               vault-addr: ${{ inputs.vault-addr }}
               vault-role-id: ${{ inputs.vault-role-id }}
               vault-secret-id: ${{ inputs.vault-secret-id }}
+              slack-channel-id: ${{ inputs.slack-channel-id }}
+              slack-mention-people: ${{ inputs.slack-mention-people }}
 
         - name: Set start timestamp for Failover
           shell: bash
