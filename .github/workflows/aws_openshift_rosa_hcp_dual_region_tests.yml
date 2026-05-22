@@ -886,7 +886,7 @@ jobs:
             - name: Delete on-demand ROSA HCP Cluster
               uses: ./.github/actions/aws-generic-terraform-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
-              timeout-minutes: 125
+              timeout-minutes: 180
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
                   CLUSTER_0_AWS_REGION: ${{ env.CLUSTER_0_AWS_REGION }}
