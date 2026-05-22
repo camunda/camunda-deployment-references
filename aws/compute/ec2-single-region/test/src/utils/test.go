@@ -12,7 +12,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// basicAuthCredentials returns the "-u user:password" argument for curl commands,
+// basicAuthCredentials returns the "user:password" pair to feed into curl's `-u` flag,
 // sourced from CAMUNDA_BASIC_AUTH_USER and CAMUNDA_BASIC_AUTH_PASSWORD env vars.
 func basicAuthCredentials(t *testing.T) string {
 	t.Helper()
