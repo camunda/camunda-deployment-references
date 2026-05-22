@@ -28,13 +28,16 @@ import (
 )
 
 // basicAuthDemoHeader is the Authorization header for the Camunda basic-auth user
-// used by the test suite. Defaults to demo:demo (the chart's default), but CI
-// overrides it by exporting CAMUNDA_BASIC_AUTH_USER and CAMUNDA_BASIC_AUTH_PASSWORD
-// so the publicly reachable CI cluster never authenticates with demo:demo
-// (see incident INC-5340).
+// used by the test suite. Sourced from CAMUNDA_BASIC_AUTH_USER and
+// CAMUNDA_BASIC_AUTH_PASSWORD env vars (set in CI by internal-camunda-ci-credentials).
+// Panics if either is empty — the publicly reachable CI cluster must never
+// authenticate with demo:demo (see incident INC-5340).
 var basicAuthDemoHeader = func() string {
-	user := helpers.GetEnv("CAMUNDA_BASIC_AUTH_USER", "demo")
-	password := helpers.GetEnv("CAMUNDA_BASIC_AUTH_PASSWORD", "demo")
+	user := os.Getenv("CAMUNDA_BASIC_AUTH_USER")
+	password := os.Getenv("CAMUNDA_BASIC_AUTH_PASSWORD")
+	if user == "" || password == "" {
+		panic("CAMUNDA_BASIC_AUTH_USER and CAMUNDA_BASIC_AUTH_PASSWORD must be set (see INC-5340)")
+	}
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+password))
 }()
 
