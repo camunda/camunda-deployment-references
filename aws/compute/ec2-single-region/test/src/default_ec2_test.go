@@ -359,7 +359,7 @@ func TestCamundaUpgrade(t *testing.T) {
 			Command: "bash",
 			Args: []string{"-c", `cat >> ../../configs/camunda-environment <<'EOF'
 ZEEBE_BROKER_EXPERIMENTAL_VERSIONCHECKRESTRICTIONENABLED=false
-CAMUNDA_DATABASE_SCHEMA_MANAGER_VERSION_CHECK_RESTRICTION_ENABLED=false
+CAMUNDA_DATABASE_SCHEMAMANAGER_VERSIONCHECKRESTRICTIONENABLED=false
 EOF`},
 		}
 		shell.RunCommand(t, cmd)
