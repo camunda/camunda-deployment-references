@@ -23,9 +23,6 @@ global:
                     existingSecret: camunda-credentials
                     existingSecretKey: identity-admin-client-token
 
-            identity:
-                redirectUrl: http://localhost:8085
-
             optimize:
                 redirectUrl: http://localhost:8083
                 secret:
@@ -34,23 +31,16 @@ global:
 
             console:
                 redirectUrl: http://localhost:8087
-                secret:
-                    existingSecret: camunda-credentials
-                    existingSecretKey: identity-console-client-token
 
             webModeler:
                 redirectUrl: http://localhost:8070
 
 connectors:
     enabled: true
-    inbound:
-        mode: disabled
     resources:
         requests:
-            cpu: 100m
             memory: 256Mi
         limits:
-            cpu: 1000m
             memory: 1Gi
     security:
         authentication:
@@ -120,10 +110,8 @@ console:
     enabled: true
     resources:
         requests:
-            cpu: 50m
             memory: 64Mi
         limits:
-            cpu: 500m
             memory: 256Mi
 
 webModeler:
