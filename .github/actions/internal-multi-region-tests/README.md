@@ -24,6 +24,7 @@ Run tests across multiple regions
 | `distribution` | <p>Distribution to test on, e.g., EKS or OpenShift. Mainly for disabling certain tests.</p> | `false` | `EKS` |
 | `release-name` | <p>The Helm release name to check for deprecation warnings</p> | `false` | `camunda` |
 | `exclude-deprecation-patterns` | <p>Newline-separated list of fixed strings to exclude from deprecation warnings. Passed through to internal-helm-deprecation-check using grep -F (fixed-string) semantics.</p> | `false` | `""` |
+| `check-unknown-keys` | <p>Forwarded to internal-helm-deprecation-check. Set to 'false' to skip the strict unknown-keys validation against the chart JSON Schema (e.g. while waiting for an upstream chart fix).</p> | `false` | `true` |
 
 
 ## Runs
@@ -131,4 +132,12 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ""
+
+    check-unknown-keys:
+    # Forwarded to internal-helm-deprecation-check. Set to 'false' to skip
+    # the strict unknown-keys validation against the chart JSON Schema
+    # (e.g. while waiting for an upstream chart fix).
+    #
+    # Required: false
+    # Default: true
 ```

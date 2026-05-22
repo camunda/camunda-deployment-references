@@ -29,6 +29,9 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-clean-namespace/**
             - .github/actions/internal-helm-deprecation-check/**
+            - .github/actions/camunda-smoke-test/**
+            - .github/actions/internal-integration-tests/**
+            - generic/kubernetes/single-region/tests/integration/**
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/aws-kubernetes-ingress-setup/**
             - .github/actions/kubernetes-wildcard-certificate/**
@@ -96,11 +99,6 @@ env:
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
-    # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    # TODO: resolve this branch when merging to playwright
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
-    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
-
     ROSA_CLI_VERSION: latest
 
 jobs:
@@ -128,7 +126,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -157,11 +155,11 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -335,7 +333,7 @@ jobs:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Install CLI tools from OpenShift Mirror
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -345,7 +343,7 @@ jobs:
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -490,6 +488,17 @@ jobs:
                           echo "Enable HTTP/2 on OpenShift Ingress Controller"
                           source ./../../openshift/single-region/procedure/get-ingress-http2-status.sh
                           ./../../openshift/single-region/procedure/enable-ingress-http2.sh
+
+                          # ROSA HCP override: HAProxy only advertises ALPN h2
+                          # per-SNI via a `crt-list` entry, which requires the
+                          # gRPC Route to carry an explicit `spec.tls.certificate`.
+                          # Copy the router default wildcard TLS secret into the
+                          # Camunda namespace; the secret name is then injected
+                          # into the chart values below (replacing the default
+                          # `secretName: '-'` in `orchestration-route.yml`).
+                          export CAMUNDA_PLATFORM_ROUTER_TLS_SECRET="camunda-platform-router-tls"
+                          echo "CAMUNDA_PLATFORM_ROUTER_TLS_SECRET=$CAMUNDA_PLATFORM_ROUTER_TLS_SECRET" | tee -a "$GITHUB_ENV"
+                          ./../../openshift/single-region/procedure/copy-router-tls-secret.sh
                       else
                           # EKS and other Kubernetes clusters use camunda.ie
                           BASE_DOMAIN="camunda.ie"
@@ -554,7 +563,7 @@ jobs:
                         .global.ingress.annotations."route.openshift.io/termination" = "edge" |
                         .global.ingress.tls.secretName = "-" |
                         del(.orchestration.ingress.grpc.annotations."kubernetes.io/tls-acme") |
-                        .orchestration.ingress.grpc.tls.secretName = "-"
+                        .orchestration.ingress.grpc.tls.secretName = strenv(CAMUNDA_PLATFORM_ROUTER_TLS_SECRET)
                       ' > camunda-assembled-values-raw-temp.yml
                       mv camunda-assembled-values-raw-temp.yml camunda-assembled-values-raw.yml
 
@@ -755,43 +764,58 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
-            - name: 🧪 Run Camunda Platform tests
+            - name: 🔥 Run Camunda Smoke Test
               if: env.TESTS_ENABLED == 'true'
-              timeout-minutes: 60
+              timeout-minutes: 15
+              uses: ./.github/actions/camunda-smoke-test
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+
+            - name: 🧪 Run Go Integration Tests (replaces Venom)
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 20
+              uses: ./.github/actions/internal-integration-tests
+              with:
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+                  camunda-domain: ${{ matrix.declination.name == 'domain' && env.CAMUNDA_DOMAIN || '' }}
+                  camunda-domain-grpc: ${{ matrix.declination.name == 'domain' && format('zeebe-{0}:443', env.CAMUNDA_DOMAIN) || '' }}
+                  auth-mode: oidc
+                  oidc-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
+                  oidc-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
+                  keycloak-url: http://keycloak-service:18080/auth
+                  elasticsearch-enabled: 'false'
+                  webmodeler-enabled: 'true'
+                  console-enabled: 'true'
+                  # operator-based always serves connectors under /connectors
+                  # (see generic/kubernetes/operator-based/tests/utils/camunda-{domain,no-domain}-values.yml)
+                  # at the INGRESS layer (path-based routing). The pod's actuator
+                  # endpoints, however, are mounted at root (/actuator/...), so
+                  # only prefix /connectors when we hit the public ingress
+                  # (domain mode). In no-domain mode the test port-forwards
+                  # directly to the connectors service.
+                  connectors-context-path: ${{ matrix.declination.name == 'domain' && '/connectors' || '' }}
+
+            - name: 🧪 Run C8 SM checks & Zeebe client tests
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 30
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
-                  # Required inputs
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
-                  secrets: ${{ toJSON(secrets) }}
-
-                  # Test repository configuration
-                  tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
-                  tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}
-
-                  # Cluster configuration
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
-
-                  # Domain configuration (for domain declination)
                   camunda-domain: ${{ matrix.declination.name == 'domain' && env.CAMUNDA_DOMAIN || '' }}
                   camunda-domain-grpc: ${{ matrix.declination.name == 'domain' && format('zeebe-{0}:443', env.CAMUNDA_DOMAIN) || '' }}
-
-                  # Component configuration
                   webmodeler-enabled: 'true'      # Always enabled in operator-based deployment
                   console-enabled: 'true'         # Always enabled in operator-based deployment
                   elasticsearch-enabled: 'false'  # Using ECK operator instead
-
-                  # Test configuration
-                  enable-helm-chart-tests: 'true'
                   zeebe-authenticated: 'true' # we always have an auth provider
                   skip-c8sm-connectivity-ingress-class-check: ${{ matrix.distro.type == 'openshift' && 'true' || 'false' }}
-
-                  # Service name for operator-based deployment
                   keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200
-
-                  # Authentication tokens (from Vault secrets)
                   test-client-id: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}
                   test-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
 
@@ -823,11 +847,11 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Import Secrets
               id: secrets
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   url: ${{ secrets.VAULT_ADDR }}
@@ -886,6 +910,7 @@ jobs:
 
     report-success:
         name: Report success
+        if: ${{ !failure() && !cancelled() }}
         runs-on: ubuntu-latest
         needs:
             - integration-tests
@@ -901,16 +926,19 @@ jobs:
 
     report-failures:
         name: Report failures
-        if: failure()
+        if: needs.triage.outputs.should_skip == 'false' && (failure())
         runs-on: ubuntu-latest
         needs:
+            - triage
             - report-success
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

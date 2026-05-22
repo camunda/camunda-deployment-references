@@ -35,6 +35,7 @@ on:
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-debug-failed-ecs-tasks/**
             - .github/actions/internal-generic-terraform-outputs/**
+            - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/workflows/aws_ecs_single_region_fargate_tests.yml
             - .tool-versions
@@ -89,7 +90,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -116,7 +117,7 @@ jobs:
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -199,7 +200,7 @@ jobs:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -309,6 +310,18 @@ jobs:
 
                   echo "✅ Smoke tests completed successfully"
 
+            - name: 🔥 Run Camunda Smoke Test
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 15
+              uses: ./.github/actions/camunda-smoke-test
+              with:
+                  auth-mode: basic
+                  zeebe-rest-address: >-
+                      http://${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
+                  basic-auth-user: admin
+                  basic-auth-password: ${{ fromJson(steps.terraform-outputs.outputs.json_output).admin_user_password.value }}
+                  benchmark-duration: '300'
+
             - name: Compute ECS cluster name on failure
               id: compute_cluster_name
               if: failure()
@@ -352,7 +365,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Configure AWS CLI
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -385,6 +398,7 @@ jobs:
 
     report-success:
         name: Report success
+        if: ${{ !failure() && !cancelled() }}
         runs-on: ubuntu-slim
         needs:
             - integration-tests
@@ -401,15 +415,18 @@ jobs:
     report-failure:
         name: Report failure
         runs-on: ubuntu-slim
-        if: failure()
+        if: needs.triage.outputs.should_skip == 'false' && (failure())
         needs:
+            - triage
             - report-success
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@18718a9ca7599dc71ef3624230ad624720e85ee9 # 1.6.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}
