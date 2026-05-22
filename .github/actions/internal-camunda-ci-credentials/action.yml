@@ -28,11 +28,14 @@ inputs:
         required: true
     vault-secret-path:
         description: |
-            Vault KV v2 data path holding the `CAMUNDA_BASIC_AUTH_USER` and
-            `CAMUNDA_BASIC_AUTH_PASSWORD` keys. Defaults to the shared CI
-            secret used across all reference-architecture workflows.
+            Vault KV v2 data path holding the basic-auth credentials.
+            Defaults to the shared `ci/common` secret already used by other
+            workflows: its `CI_CAMUNDA_USER_TEST_CLIENT_ID` /
+            `CI_CAMUNDA_USER_TEST_CLIENT_SECRET` keys are reused here as the
+            Camunda basic-auth username/password (the chart provisions a local
+            user matching them via the generated overlay values).
         required: false
-        default: secret/data/products/infrastructure-experience/ci/global-camunda-basic-auth
+        default: secret/data/products/infrastructure-experience/ci/common
 
 outputs:
     values-file:
@@ -52,8 +55,8 @@ runs:
               secretId: ${{ inputs.vault-secret-id }}
               exportEnv: false
               secrets: |
-                  ${{ inputs.vault-secret-path }} CAMUNDA_BASIC_AUTH_USER;
-                  ${{ inputs.vault-secret-path }} CAMUNDA_BASIC_AUTH_PASSWORD;
+                  ${{ inputs.vault-secret-path }} CI_CAMUNDA_USER_TEST_CLIENT_ID | CAMUNDA_BASIC_AUTH_USER;
+                  ${{ inputs.vault-secret-path }} CI_CAMUNDA_USER_TEST_CLIENT_SECRET | CAMUNDA_BASIC_AUTH_PASSWORD;
 
         - name: Export Camunda CI basic-auth credentials to env
           shell: bash
