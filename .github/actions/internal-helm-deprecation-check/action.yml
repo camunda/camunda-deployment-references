@@ -8,9 +8,12 @@ description: |
     Optionally validates that deployed values do not contain unknown keys
     by checking against a strict version of the chart's JSON Schema.
     Findings are reported in an event-aware, non-blocking way:
-      - schedule: emitted as ::warning:: annotations and, when the Slack
-        inputs are wired, posted to Slack via the shared
-        report-failure-on-slack action.
+      - schedule (real or simulated via a `schedules/*` head_ref): emitted
+        as ::warning:: annotations and, when the Slack inputs are wired,
+        posted to Slack via the shared report-failure-on-slack action.
+        Simulated schedules are detected from the caller workflow's
+        `IS_SCHEDULE` env var (set to `'true'` when
+        `contains(github.head_ref, 'schedules/') || github.event_name == 'schedule'`).
       - any other event (pull_request, workflow_dispatch, push, ...):
         emitted as ::warning:: annotations in the job log only.
     The workflow is NEVER failed by this action; the intent is to trace
@@ -74,7 +77,8 @@ inputs:
         description: |
             Slack handles or group mentions to include in the scheduled-run
             alert (e.g. `@infraex-medic`). Only used when `slack-channel-id`
-            is set and the event is `schedule`.
+            is set and the caller workflow advertises `IS_SCHEDULE=true`
+            (real or simulated schedule).
         required: false
         default: ''
 
@@ -317,7 +321,7 @@ runs:
         - name: 🔔 Alert Slack on scheduled-run findings
           if: |
               always()
-              && github.event_name == 'schedule'
+              && env.IS_SCHEDULE == 'true'
               && env.HELM_DEPRECATION_FINDINGS_PRESENT == 'true'
               && inputs.slack-channel-id != ''
               && inputs.vault-addr != ''

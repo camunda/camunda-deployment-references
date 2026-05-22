@@ -9,9 +9,12 @@ Uses `helm get notes` to retrieve the release notes and scans for
 Optionally validates that deployed values do not contain unknown keys
 by checking against a strict version of the chart's JSON Schema.
 Findings are reported in an event-aware, non-blocking way:
-  - schedule: emitted as ::warning:: annotations and, when the Slack
-    inputs are wired, posted to Slack via the shared
-    report-failure-on-slack action.
+  - schedule (real or simulated via a `schedules/*` head_ref): emitted
+    as ::warning:: annotations and, when the Slack inputs are wired,
+    posted to Slack via the shared report-failure-on-slack action.
+    Simulated schedules are detected from the caller workflow's
+    `IS_SCHEDULE` env var (set to `'true'` when
+    `contains(github.head_ref, 'schedules/') || github.event_name == 'schedule'`).
   - any other event (pull_request, workflow_dispatch, push, ...):
     emitted as ::warning:: annotations in the job log only.
 The workflow is NEVER failed by this action; the intent is to trace
@@ -32,7 +35,7 @@ See: https://github.com/camunda/camunda-platform-helm/issues/4564
 | `vault-role-id` | <p>HashiCorp Vault AppRole role id. Required only when posting a Slack alert on scheduled runs. Pass <code>${{ secrets.VAULT_ROLE_ID }}</code>.</p> | `false` | `""` |
 | `vault-secret-id` | <p>HashiCorp Vault AppRole secret id. Required only when posting a Slack alert on scheduled runs. Pass <code>${{ secrets.VAULT_SECRET_ID }}</code>.</p> | `false` | `""` |
 | `slack-channel-id` | <p>Slack channel id to alert when findings are detected on a scheduled run. When empty (default), no Slack notification is posted; findings are still logged as <code>::warning::</code> annotations.</p> | `false` | `""` |
-| `slack-mention-people` | <p>Slack handles or group mentions to include in the scheduled-run alert (e.g. <code>@infraex-medic</code>). Only used when <code>slack-channel-id</code> is set and the event is <code>schedule</code>.</p> | `false` | `""` |
+| `slack-mention-people` | <p>Slack handles or group mentions to include in the scheduled-run alert (e.g. <code>@infraex-medic</code>). Only used when <code>slack-channel-id</code> is set and the caller workflow advertises <code>IS_SCHEDULE=true</code> (real or simulated schedule).</p> | `false` | `""` |
 
 
 ## Runs
@@ -111,7 +114,8 @@ This action is a `composite` action.
     slack-mention-people:
     # Slack handles or group mentions to include in the scheduled-run
     # alert (e.g. `@infraex-medic`). Only used when `slack-channel-id`
-    # is set and the event is `schedule`.
+    # is set and the caller workflow advertises `IS_SCHEDULE=true`
+    # (real or simulated schedule).
     #
     # Required: false
     # Default: ""
