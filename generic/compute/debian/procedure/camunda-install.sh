@@ -162,8 +162,9 @@ fi
 cat > "${MNT_DIR}/connectors/start.sh" <<'LAUNCH'
 #!/bin/bash
 set -eu
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 # shellcheck disable=SC2086
-exec java ${JAVA_OPTS:-} -jar "/opt/camunda/connectors/connectors.jar"
+exec java ${JAVA_OPTS:-} -jar "${SCRIPT_DIR}/connectors.jar"
 LAUNCH
 chmod +x "${MNT_DIR}/connectors/start.sh"
 EOF
