@@ -404,6 +404,17 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
+            # Fetches CAMUNDA_BASIC_AUTH_USER/PASSWORD from Vault and writes a
+            # Helm overlay values file so the CI cluster is not protected by
+            # the chart default demo:demo admin (see incident INC-5340).
+            - name: Camunda CI basic-auth credentials
+              id: camunda-ci-credentials
+              uses: ./.github/actions/internal-camunda-ci-credentials
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
             - name: Run Multi-region tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60
@@ -419,6 +430,7 @@ jobs:
                   default-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/camunda-values.yml
                   region-0-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
                   region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
+                  extra-values-yaml: ${{ steps.camunda-ci-credentials.outputs.values-file }}
                   skip-cleanup: 'true'
 
             ############# Debug failed pods ##############
