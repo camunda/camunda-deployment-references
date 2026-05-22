@@ -40,7 +40,7 @@ check_service() {
 check_service_running() {
     local service_name=$1
 
-    if systemctl is-active --quiet "$service_name"; then
+    if sudo systemctl is-active --quiet "$service_name"; then
         echo "[OK] The service '$service_name' is running."
     else
         echo "[FAIL] The service '$service_name' is not running."
