@@ -56,8 +56,12 @@ spec:
                         WM_URL="http://camunda-web-modeler-restapi:80"
                         WM_MGMT_URL="http://camunda-web-modeler-restapi:8091"
 
-                        DEMO_USER="demo"
-                        DEMO_PASS="demo"
+                        # Basic-auth credentials are sourced from env (injected via
+                        # envsubst from CAMUNDA_BASIC_AUTH_USER/PASSWORD on the runner —
+                        # see INC-5340: never authenticate with demo:demo). The basic-auth
+                        # branch below fails loudly if these are empty.
+                        DEMO_USER="${CAMUNDA_BASIC_AUTH_USER}"
+                        DEMO_PASS="${CAMUNDA_BASIC_AUTH_PASSWORD}"
                         KC_REALM="camunda-platform"
 
                         # Determine KC admin credentials:
@@ -176,6 +180,10 @@ spec:
                                     -H "Accept: application/json" \
                                     -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" 2>/dev/null || echo '{}')
                             else
+                                if [ -z "${DEMO_USER}" ] || [ -z "${DEMO_PASS}" ]; then
+                                    fail_test "Basic auth requested but CAMUNDA_BASIC_AUTH_USER/PASSWORD are empty (refusing to fall back to demo:demo — see INC-5340)"
+                                    break
+                                fi
                                 SEARCH_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \
                                     -u "${DEMO_USER}:${DEMO_PASS}" \
                                     -X POST "${ZEEBE_URL}/v2/process-instances/search" \

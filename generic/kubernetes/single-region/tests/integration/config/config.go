@@ -67,8 +67,8 @@ func FromEnv() (*Config, error) {
 		DomainGRPC: envOr("CAMUNDA_DOMAIN_GRPC", ""),
 
 		AuthMode:     envOr("TEST_AUTH_MODE", "oidc"),
-		BasicUser:    envOr("TEST_BASIC_USER", "demo"),
-		BasicPass:    envOr("TEST_BASIC_PASSWORD", "demo"),
+		BasicUser:    envOr("TEST_BASIC_USER", ""),
+		BasicPass:    envOr("TEST_BASIC_PASSWORD", ""),
 		OIDCTokenURL: envOr("TEST_OIDC_TOKEN_URL", ""),
 		OIDCClientID: envOr("TEST_OIDC_CLIENT_ID", ""),
 		OIDCSecret:   envOr("TEST_OIDC_CLIENT_SECRET", ""),
