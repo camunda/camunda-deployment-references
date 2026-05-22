@@ -259,6 +259,12 @@ func TestCloudWatchFeature(t *testing.T) {
 	}
 }
 
+// TestCamundaUpgrade exercises the in-place upgrade path. When the target
+// version is a SNAPSHOT (default on main / stable branches between releases),
+// the broker may legitimately fail to start because the daily artifact at
+// https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/
+// can be broken upstream — independent of anything in this repo. If this test
+// is the only failure on a green PR, re-run later or check upstream Zeebe CI.
 func TestCamundaUpgrade(t *testing.T) {
 	t.Log("Test Camunda upgrade")
 
