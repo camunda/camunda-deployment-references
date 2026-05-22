@@ -62,10 +62,6 @@ cp "${CONFIG_DIR}/camunda-environment" "${SCRIPT_DIR}/camunda-environment.tmp"
 cp "${CONFIG_DIR}/connectors-environment" "${SCRIPT_DIR}/connectors-environment.tmp"
 
 echo "[INFO] Substituting credential placeholders in temporary config files..."
-# Defaults preserve the historical demo:demo behaviour so existing users are not
-# forced to provide credentials. CI overrides these variables with Vault-sourced
-# values so that publicly reachable CI instances never run with demo:demo.
-# See incident INC-5340 for context.
 : "${CAMUNDA_BASIC_AUTH_USER:=demo}"
 : "${CAMUNDA_BASIC_AUTH_PASSWORD:=demo}"
 export CAMUNDA_BASIC_AUTH_USER CAMUNDA_BASIC_AUTH_PASSWORD
