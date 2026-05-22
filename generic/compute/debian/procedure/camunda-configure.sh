@@ -56,12 +56,18 @@ cp "${CONFIG_DIR}/camunda-environment" "${SCRIPT_DIR}/camunda-environment.tmp"
 cp "${CONFIG_DIR}/connectors-environment" "${SCRIPT_DIR}/connectors-environment.tmp"
 
 echo "[INFO] Substituting credential placeholders in temporary config files..."
-if [ -z "${CAMUNDA_BASIC_AUTH_USER:-}" ] || [ -z "${CAMUNDA_BASIC_AUTH_PASSWORD:-}" ]; then
-    echo "[ERROR] CAMUNDA_BASIC_AUTH_USER and CAMUNDA_BASIC_AUTH_PASSWORD must be set."
-    echo "        These are used for Camunda admin authentication."
-    echo "        Example: export CAMUNDA_BASIC_AUTH_USER=admin"
-    echo "        Example: export CAMUNDA_BASIC_AUTH_PASSWORD=\$(openssl rand -base64 32)"
-    exit 1
+# Defaults preserve the historical demo:demo behaviour so existing users are not
+# forced to provide credentials. CI overrides these variables with Vault-sourced
+# values so that publicly reachable CI instances never run with demo:demo.
+# See incident INC-5340 for context.
+: "${CAMUNDA_BASIC_AUTH_USER:=demo}"
+: "${CAMUNDA_BASIC_AUTH_PASSWORD:=demo}"
+export CAMUNDA_BASIC_AUTH_USER CAMUNDA_BASIC_AUTH_PASSWORD
+
+if [ "${CAMUNDA_BASIC_AUTH_USER}" = "demo" ] && [ "${CAMUNDA_BASIC_AUTH_PASSWORD}" = "demo" ]; then
+    echo "[WARN] Camunda is being configured with the default demo:demo credentials."
+    echo "       Set CAMUNDA_BASIC_AUTH_USER and CAMUNDA_BASIC_AUTH_PASSWORD before running"
+    echo "       this script to use unique credentials (recommended for any non-throwaway env)."
 fi
 
 # Single quotes are intentional: envsubst needs literal variable names
