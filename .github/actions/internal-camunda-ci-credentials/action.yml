@@ -95,9 +95,12 @@ runs:
               umask 077
 
               # The orchestration chart ships two initial users (index 0 =
-              # connectors, index 1 = admin/demo). We override only the admin
-              # entry so that the connectors user keeps working as documented
-              # and so the admin login is not demo:demo on the CI cluster.
+              # connectors, index 1 = admin/demo). Helm merges arrays by full
+              # replacement, so we must emit the COMPLETE users list here —
+              # the connectors entry below is the verbatim chart default and
+              # must stay in sync with it so the connectors auth keeps
+              # working; only the admin entry is rewritten with CI-provided
+              # credentials so the cluster never comes up as demo:demo.
               python3 - <<'PY'
               import json, os
               user = os.environ["CAMUNDA_BASIC_AUTH_USER"]
