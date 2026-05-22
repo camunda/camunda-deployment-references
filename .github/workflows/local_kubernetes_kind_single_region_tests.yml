@@ -340,8 +340,7 @@ jobs:
                       kubectl get secret camunda-credentials -n "${{ env.CAMUNDA_NAMESPACE }}" \
                           -o jsonpath="{.data.$1}" 2>/dev/null | base64 -d || true
                   }
-                  M2M_JSON='{'
-                  sep=''
+                  M2M_JSON='{}'
                   # NOTE: 'console' is a Keycloak public client (no
                   # service account) — client_credentials grant is not allowed
                   # for it, so it must NOT be added here. Venom only covered
@@ -361,11 +360,9 @@ jobs:
                       key="${entry##*:}"
                       val="$(read_secret "$key")"
                       if [[ -n "$val" ]]; then
-                          M2M_JSON+="${sep}\"${cid}\":\"${val}\""
-                          sep=','
+                          M2M_JSON="$(jq -nc --argjson acc "$M2M_JSON" --arg k "$cid" --arg v "$val" '$acc + {($k): $v}')"
                       fi
                   done
-                  M2M_JSON+='}'
                   # Use a delimited heredoc so the JSON survives masking.
                   {
                       echo 'LOCAL_M2M_CLIENTS<<__M2M_EOF__'

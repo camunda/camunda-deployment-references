@@ -161,6 +161,9 @@ func (c *Client) GetTokenForClient(tokenURL, clientID, clientSecret string) (str
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", fmt.Errorf("decode failed: %w", err)
 	}
+	if result.AccessToken == "" {
+		return "", fmt.Errorf("empty access_token in response")
+	}
 	return result.AccessToken, nil
 }
 
