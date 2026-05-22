@@ -8,12 +8,20 @@ description: |
     Optionally validates that deployed values do not contain unknown keys
     by checking against a strict version of the chart's JSON Schema.
 
-    On pull request events, findings are reported as a single shared PR
-    comment (one comment per PR, with one section per
-    workflow/job/release/namespace combination) and the workflow is NOT
-    failed. On non-PR events (schedule, workflow_dispatch, push, etc.),
-    findings are emitted as ::warning:: annotations in the Actions log
-    and the workflow is NOT failed.
+    Findings are reported in an event-aware, non-blocking way:
+      - pull_request / pull_request_target / workflow_run: posted to a
+        single shared PR comment (one comment per PR, one section per
+        workflow/job/release/namespace combination).
+      - schedule (real or simulated via a `schedules/*` head_ref): emitted
+        as ::warning:: annotations and, when the Slack inputs are wired,
+        posted to Slack via the shared report-failure-on-slack action.
+        Simulated schedules are detected from the caller workflow's
+        `IS_SCHEDULE` env var (set to `'true'` when
+        `contains(github.head_ref, 'schedules/') || github.event_name == 'schedule'`).
+      - workflow_dispatch / push / any other event: emitted as
+        ::warning:: annotations in the job log only.
+    The workflow is NEVER failed by this action; the intent is to trace
+    drift, not to block release pipelines.
 
     See: https://github.com/camunda/camunda-platform-helm/issues/4564
 
@@ -60,6 +68,39 @@ inputs:
             `pull-requests: write` permission for the comment to be posted.
         required: false
         default: ${{ github.token }}
+    vault-addr:
+        description: |
+            HashiCorp Vault address. Required only when posting a Slack
+            alert on scheduled runs. Pass `${{ secrets.VAULT_ADDR }}`.
+        required: false
+        default: ''
+    vault-role-id:
+        description: |
+            HashiCorp Vault AppRole role id. Required only when posting a
+            Slack alert on scheduled runs. Pass `${{ secrets.VAULT_ROLE_ID }}`.
+        required: false
+        default: ''
+    vault-secret-id:
+        description: |
+            HashiCorp Vault AppRole secret id. Required only when posting a
+            Slack alert on scheduled runs. Pass `${{ secrets.VAULT_SECRET_ID }}`.
+        required: false
+        default: ''
+    slack-channel-id:
+        description: |
+            Slack channel id to alert when findings are detected on a
+            scheduled run. When empty (default), no Slack notification is
+            posted; findings are still logged as `::warning::` annotations.
+        required: false
+        default: ''
+    slack-mention-people:
+        description: |
+            Slack handles or group mentions to include in the scheduled-run
+            alert (e.g. `@infraex-medic`). Only used when `slack-channel-id`
+            is set and the caller workflow advertises `IS_SCHEDULE=true`
+            (real or simulated schedule).
+        required: false
+        default: ''
 
 runs:
     using: composite
@@ -221,6 +262,32 @@ runs:
 
               echo "Detected chart: ${CHART_NAME} version ${CHART_VERSION}"
 
+              # Dynamic skip: the strict unknown-keys validation requires
+              # schema fixes shipped in camunda-platform >= 14.0.2 (not yet
+              # released at time of writing — expected very soon).
+              # On older charts (e.g. 14.0.1) the deployed values contain keys
+              # that are valid at runtime but missing from the bundled
+              # values.schema.json (orchestration.affinity, env[].valueFrom,
+              # global.multiregion, identityKeycloak.image.pullSecrets,
+              # elasticsearch.global.imagePullSecrets, ...).
+              # Refs:
+              #   - https://github.com/camunda/camunda-platform-helm/issues/5930 (bug)
+              #   - https://github.com/camunda/camunda-platform-helm/pull/5938   (merged fix, awaiting 14.0.2 release)
+              # Once 14.0.2 lands, this guard becomes a no-op automatically and
+              # the strict check resumes everywhere.
+              MIN_SCHEMA_VERSION="14.0.2"
+              # Strip pre-release suffix (e.g. "-alpha6", "-dev-...") so that
+              # 14.0.2-alpha1 is still considered >= 14.0.2 for our purposes.
+              CHART_VERSION_BASE=$(echo "${CHART_VERSION}" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+              LOWEST=$(printf '%s\n%s\n' "${CHART_VERSION_BASE}" "${MIN_SCHEMA_VERSION}" | sort -V | head -n1)
+              if [[ "${LOWEST}" != "${MIN_SCHEMA_VERSION}" ]]; then
+                  echo "::warning::Skipping unknown-keys check: chart ${CHART_NAME} ${CHART_VERSION}" \
+                      "predates the schema fixes from camunda-platform-helm ${MIN_SCHEMA_VERSION}" \
+                      "(see https://github.com/camunda/camunda-platform-helm/pull/5938)." \
+                      "Re-enable automatically once ${MIN_SCHEMA_VERSION} is published."
+                  exit 0
+              fi
+
               # Pull the chart to extract its schema.
               # Try the OCI registry first, then fall back to the Helm repo.
               # Pre-release versions (e.g. 14.0.0-alpha6) may not have their
@@ -301,7 +368,8 @@ runs:
                   } >> "${FINDINGS_FILE}"
               fi
 
-        - name: 💬 Report findings to PR (or log warning on non-PR events)
+        - name: 💬 Report findings (PR comment, log, or Slack)
+          id: report-findings
           if: always()
           shell: bash
           env:
@@ -320,10 +388,13 @@ runs:
 
               # The previous step may not have run (e.g. earlier infra failure).
               # Treat a missing findings file as "nothing to report".
-              if [[ -z "${FINDINGS_FILE:-}" || ! -f "${FINDINGS_FILE}" ]]; then
-                  echo "No findings file produced; nothing to report."
+              if [[ -z "${FINDINGS_FILE:-}" || ! -f "${FINDINGS_FILE}" || ! -s "${FINDINGS_FILE}" ]]; then
+                  echo "findings-present=false" >> "${GITHUB_OUTPUT}"
+                  echo "No findings to report."
                   exit 0
               fi
+
+              echo "findings-present=true" >> "${GITHUB_OUTPUT}"
 
               # Determine PR number from the triggering event.
               PR_NUMBER=""
@@ -337,15 +408,11 @@ runs:
               esac
 
               if [[ -z "${PR_NUMBER}" ]]; then
-                  if [[ -s "${FINDINGS_FILE}" ]]; then
-                      echo "::warning::Helm deprecation findings detected; no PR context to comment on. See job logs for details."
-                      echo "Findings:"
-                      cat "${FINDINGS_FILE}"
-                      echo ""
-                      echo "See: https://docs.camunda.io/docs/self-managed/deployment/helm/upgrade/"
-                      exit 0
-                  fi
-                  echo "No PR context and no findings; nothing to report."
+                  echo "::warning::Helm deprecation findings detected on event '${GITHUB_EVENT_NAME:-unknown}'; see job log."
+                  echo "Findings:"
+                  cat "${FINDINGS_FILE}"
+                  echo ""
+                  echo "See: https://docs.camunda.io/docs/self-managed/deployment/helm/upgrade/"
                   exit 0
               fi
 
@@ -360,3 +427,20 @@ runs:
                   --section-key "${INPUT_SECTION_KEY}" \
                   --run-url "${GH_SERVER_URL}/${GH_REPO}/actions/runs/${GH_RUN_ID}" \
                   --findings-file "${FINDINGS_FILE}"
+
+        - name: 🔔 Alert Slack on scheduled-run findings
+          if: |
+              always()
+              && env.IS_SCHEDULE == 'true'
+              && steps.report-findings.outputs.findings-present == 'true'
+              && inputs.slack-channel-id != ''
+              && inputs.vault-addr != ''
+              && inputs.vault-role-id != ''
+              && inputs.vault-secret-id != ''
+          uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+          with:
+              vault_addr: ${{ inputs.vault-addr }}
+              vault_role_id: ${{ inputs.vault-role-id }}
+              vault_secret_id: ${{ inputs.vault-secret-id }}
+              slack_channel_id: ${{ inputs.slack-channel-id }}
+              slack_mention_people: ${{ inputs.slack-mention-people }}
