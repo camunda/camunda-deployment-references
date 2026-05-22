@@ -1,0 +1,139 @@
+---
+name: Internal — Camunda CI basic-auth credentials
+description: |
+    Fetches a shared Camunda basic-auth user/password from Vault and exposes
+    them to the workflow so that publicly reachable CI deployments never run
+    with the chart/config default `demo:demo` credentials (see incident
+    INC-5340).
+
+    Outputs:
+    - The credentials are exported to `$GITHUB_ENV` as `CAMUNDA_BASIC_AUTH_USER`
+      and `CAMUNDA_BASIC_AUTH_PASSWORD` (written via the GITHUB_ENV heredoc
+      form so the values are never interpolated into the shell source).
+    - A Helm overlay values file (JSON, which is valid YAML for helm) is
+      written at `$RUNNER_TEMP/ci-camunda-basic-auth.json` with
+      init-user overrides for the `camunda-platform` chart, with `0600`
+      perms. Its path is exposed as the `values-file` step output, so
+      callers can append it to their `helm -f` invocation (or to a
+      multi-region tests `extra-values-yaml` input) to make the deployed
+      chart use the Vault credentials.
+
+inputs:
+    vault-addr:
+        description: Vault address (typically secrets.VAULT_ADDR).
+        required: true
+    vault-role-id:
+        description: Vault AppRole role id (typically secrets.VAULT_ROLE_ID).
+        required: true
+    vault-secret-id:
+        description: Vault AppRole secret id (typically secrets.VAULT_SECRET_ID).
+        required: true
+    vault-secret-path:
+        description: |
+            Vault KV v2 data path holding the basic-auth credentials.
+            Defaults to the shared `ci/common` secret already used by other
+            workflows: its `CI_CAMUNDA_USER_TEST_CLIENT_ID` /
+            `CI_CAMUNDA_USER_TEST_CLIENT_SECRET` keys are reused here as the
+            Camunda basic-auth username/password (the chart provisions a local
+            user matching them via the generated overlay values).
+        required: false
+        default: secret/data/products/infrastructure-experience/ci/common
+
+outputs:
+    values-file:
+        description: Path of the generated Helm overlay values file.
+        value: ${{ steps.write-values.outputs.values-file }}
+
+runs:
+    using: composite
+    steps:
+        - name: Import Camunda CI basic-auth credentials
+          id: camunda-ci-credentials
+          uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+          with:
+              url: ${{ inputs.vault-addr }}
+              method: approle
+              roleId: ${{ inputs.vault-role-id }}
+              secretId: ${{ inputs.vault-secret-id }}
+              exportEnv: false
+              secrets: |
+                  ${{ inputs.vault-secret-path }} CI_CAMUNDA_USER_TEST_CLIENT_ID | CAMUNDA_BASIC_AUTH_USER;
+                  ${{ inputs.vault-secret-path }} CI_CAMUNDA_USER_TEST_CLIENT_SECRET | CAMUNDA_BASIC_AUTH_PASSWORD;
+
+        # Export the credentials to $GITHUB_ENV using the heredoc form so the
+        # values are never interpolated by the GHA expression engine inside a
+        # `run:` script (which would put the secret literally in the shell
+        # source, defeating GitHub's masker on transformations / shell traces).
+        # The values come in via the `env:` table; bash only sees "$VAR".
+        - name: Export Camunda CI basic-auth credentials to env
+          shell: bash
+          env:
+              CAMUNDA_BASIC_AUTH_USER: ${{ steps.camunda-ci-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
+              CAMUNDA_BASIC_AUTH_PASSWORD: ${{ steps.camunda-ci-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
+          run: |
+              set -euo pipefail
+              delim="GH_ENV_$(openssl rand -hex 16)"
+              {
+                printf '%s<<%s\n%s\n%s\n' "CAMUNDA_BASIC_AUTH_USER"     "$delim" "$CAMUNDA_BASIC_AUTH_USER"     "$delim"
+                printf '%s<<%s\n%s\n%s\n' "CAMUNDA_BASIC_AUTH_PASSWORD" "$delim" "$CAMUNDA_BASIC_AUTH_PASSWORD" "$delim"
+              } >> "$GITHUB_ENV"
+
+        # Render the Helm overlay through python's json module (helm accepts
+        # JSON values files) so the password is treated as opaque data and
+        # cannot be interpolated by either the GHA expression engine or by
+        # bash heredoc expansion. The file is written with 0600 perms in
+        # ${RUNNER_TEMP} so only the runner user can read it back.
+        - name: Write Helm overlay values file
+          id: write-values
+          shell: bash
+          env:
+              CAMUNDA_BASIC_AUTH_USER: ${{ steps.camunda-ci-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
+              CAMUNDA_BASIC_AUTH_PASSWORD: ${{ steps.camunda-ci-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
+              VALUES_FILE: ${{ runner.temp }}/ci-camunda-basic-auth.json
+          run: |
+              set -euo pipefail
+              umask 077
+
+              # The orchestration chart ships two initial users (index 0 =
+              # connectors, index 1 = admin/demo). We override only the admin
+              # entry so that the connectors user keeps working as documented
+              # and so the admin login is not demo:demo on the CI cluster.
+              python3 - <<'PY'
+              import json, os
+              user = os.environ["CAMUNDA_BASIC_AUTH_USER"]
+              pw   = os.environ["CAMUNDA_BASIC_AUTH_PASSWORD"]
+              doc = {
+                  "orchestration": {
+                      "security": {
+                          "initialization": {
+                              "users": [
+                                  {
+                                      "username": "connectors",
+                                      "password": "connector",
+                                      "name": "Connector User",
+                                      "email": "connector@demo.com",
+                                  },
+                                  {
+                                      "username": user,
+                                      "password": pw,
+                                      "name": "CI Admin User",
+                                      "email": f"{user}@ci.local",
+                                  },
+                              ],
+                              "defaultRoles": {
+                                  "admin":      {"users": [user]},
+                                  "connectors": {
+                                      "users":   ["connectors"],
+                                      "clients": ["connectors"],
+                                  },
+                              },
+                          }
+                      }
+                  }
+              }
+              with open(os.environ["VALUES_FILE"], "w", encoding="utf-8") as f:
+                  json.dump(doc, f)
+              PY
+              chmod 600 "${VALUES_FILE}"
+              echo "values-file=${VALUES_FILE}" >> "$GITHUB_OUTPUT"
+              echo "[INFO] Helm overlay values file written to ${VALUES_FILE}"
