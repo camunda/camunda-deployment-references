@@ -89,16 +89,21 @@ inputs:
     slack-channel-id:
         description: |
             Slack channel id to alert when findings are detected on a
-            scheduled run. When empty (default), no Slack notification is
-            posted; findings are still logged as `::warning::` annotations.
+            (real or simulated) scheduled run. When left empty, the
+            action defaults to the standard infraex channels:
+              - `C076N4G1162` (infraex-alerts) on real schedule events
+              - `C07E4FF6YMB` (infraex-test)   on every other event
+                (simulated schedules via `schedules/*` head_ref,
+                 workflow_dispatch, etc.)
+            Set explicitly to override.
         required: false
         default: ''
     slack-mention-people:
         description: |
             Slack handles or group mentions to include in the scheduled-run
-            alert (e.g. `@infraex-medic`). Only used when `slack-channel-id`
-            is set and the caller workflow advertises `IS_SCHEDULE=true`
-            (real or simulated schedule).
+            alert (e.g. `@infraex-medic`). Only used when the caller
+            workflow advertises `IS_SCHEDULE=true` (real or simulated
+            schedule).
         required: false
         default: ''
 
@@ -433,7 +438,6 @@ runs:
               always()
               && env.IS_SCHEDULE == 'true'
               && steps.report-findings.outputs.findings-present == 'true'
-              && inputs.slack-channel-id != ''
               && inputs.vault-addr != ''
               && inputs.vault-role-id != ''
               && inputs.vault-secret-id != ''
@@ -442,5 +446,6 @@ runs:
               vault_addr: ${{ inputs.vault-addr }}
               vault_role_id: ${{ inputs.vault-role-id }}
               vault_secret_id: ${{ inputs.vault-secret-id }}
-              slack_channel_id: ${{ inputs.slack-channel-id }}
+              slack_channel_id: ${{ inputs.slack-channel-id != '' && inputs.slack-channel-id || (env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB')
+                  }}
               slack_mention_people: ${{ inputs.slack-mention-people }}
