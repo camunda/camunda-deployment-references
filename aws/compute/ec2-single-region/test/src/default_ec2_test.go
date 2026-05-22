@@ -259,6 +259,12 @@ func TestCloudWatchFeature(t *testing.T) {
 	}
 }
 
+// TestCamundaUpgrade exercises the in-place upgrade path. When the target
+// version is a SNAPSHOT (default on main / stable branches between releases),
+// the broker may legitimately fail to start because the daily artifact at
+// https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/
+// can be broken upstream — independent of anything in this repo. If this test
+// is the only failure on a green PR, re-run later or check upstream Zeebe CI.
 func TestCamundaUpgrade(t *testing.T) {
 	t.Log("Test Camunda upgrade")
 
@@ -344,11 +350,17 @@ func TestCamundaUpgrade(t *testing.T) {
 		t.Fatalf("Error writing file: %v", err)
 	}
 
-	// Zeebe has a prerelease protection that results in unhealthy clusters if not disabled
+	// Both Zeebe broker and the search-engine SchemaManager refuse upgrades from/to a
+	// pre-release version (see io.camunda.zeebe.util.migration.VersionCompatibilityCheck —
+	// UseOfPreReleaseVersion). Disable both gates so the upgrade test can run against
+	// SNAPSHOT/alpha builds.
 	if strings.Contains(camundaCurrentVersionFull, "SNAPSHOT") || strings.Contains(camundaCurrentVersionFull, "alpha") {
 		cmd = shell.Command{
 			Command: "bash",
-			Args:    []string{"-c", "echo ZEEBE_BROKER_EXPERIMENTAL_VERSIONCHECKRESTRICTIONENABLED=false >> ../../configs/camunda-environment"},
+			Args: []string{"-c", `cat >> ../../configs/camunda-environment <<'EOF'
+ZEEBE_BROKER_EXPERIMENTAL_VERSIONCHECKRESTRICTIONENABLED=false
+CAMUNDA_DATABASE_SCHEMAMANAGER_VERSIONCHECKRESTRICTIONENABLED=false
+EOF`},
 		}
 		shell.RunCommand(t, cmd)
 	}
