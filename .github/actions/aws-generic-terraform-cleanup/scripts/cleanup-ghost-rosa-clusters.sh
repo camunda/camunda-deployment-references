@@ -122,20 +122,27 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   echo "⏳ Waiting for cluster $cluster_name to be fully deregistered..."
   cluster_deregistered=false
   for i in $(seq 1 60); do
-    # Distinguish "cluster not found" from transient errors by checking if the
-    # cluster still appears in the list of clusters. If it does not, we assume
-    # it is fully deregistered; otherwise, we keep waiting.
-    if rosa list clusters 2>/dev/null | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
-      if [ "$i" -lt 60 ]; then
-        echo "⏳ Cluster still registered, waiting 30s... (attempt $i/60)"
-        sleep 30
+    # Capture `rosa list clusters` separately so we can distinguish a
+    # transient failure (API/network hiccup) from a true "cluster not found".
+    # Treating a non-zero `rosa list` as deregistered would let role deletion
+    # race ahead of cluster teardown and fail with
+    # "clusters using Operator Roles Prefix".
+    if cluster_list=$(rosa list clusters 2>/dev/null); then
+      if echo "$cluster_list" | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
+        if [ "$i" -lt 60 ]; then
+          echo "⏳ Cluster still registered, waiting 30s... (attempt $i/60)"
+          sleep 30
+        else
+          echo "❌ Cluster $cluster_name is still registered after $i attempts"
+        fi
       else
-        echo "❌ Cluster $cluster_name is still registered after $i attempts"
+        echo "✅ Cluster $cluster_name is fully deregistered"
+        cluster_deregistered=true
+        break
       fi
     else
-      echo "✅ Cluster $cluster_name is fully deregistered"
-      cluster_deregistered=true
-      break
+      echo "⚠️ rosa list clusters failed transiently, retrying in 30s... (attempt $i/60)"
+      sleep 30
     fi
   done
 
