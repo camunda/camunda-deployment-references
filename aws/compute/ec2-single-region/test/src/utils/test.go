@@ -3,9 +3,11 @@ package utils
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/gruntwork-io/terratest/modules/retry"
 	"github.com/gruntwork-io/terratest/modules/shell"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/require"
@@ -133,7 +135,17 @@ func ResetCamunda(t *testing.T, terraformOptions *terraform.Options, adminUserna
 		Command: "ssh",
 		Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, camundaIps[0]), fmt.Sprintf("curl -X DELETE %s/_all", openSearchConnection)},
 	}
-	output := shell.RunCommandAndGetStdOut(t, cmd)
+
+	// AWS OpenSearch runs automatic hourly snapshots. A DELETE /_all racing with
+	// an in-progress snapshot returns snapshot_in_progress_exception (HTTP 400);
+	// retry until the snapshot completes (max ~5 minutes).
+	output := retry.DoWithRetry(t, "DELETE OpenSearch indices", 10, 30*time.Second, func() (string, error) {
+		out := shell.RunCommandAndGetStdOut(t, cmd)
+		if strings.Contains(out, "snapshot_in_progress_exception") {
+			return "", fmt.Errorf("OpenSearch snapshot in progress, retrying")
+		}
+		return out, nil
+	})
 
 	require.Contains(t, output, "{\"acknowledged\":true}", "Expected response to be acknowledged")
 }
