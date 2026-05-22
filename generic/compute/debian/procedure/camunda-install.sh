@@ -156,9 +156,17 @@ else
     curl -L --fail-with-body --show-error -w "[INFO] connectors download: HTTP %{http_code} (%{size_download} bytes)\n" ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CAMUNDA_CONNECTORS_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar" || { echo "[FAIL] connectors download failed; response body:"; cat "${MNT_DIR}/connectors/connectors.jar" 2>/dev/null | head -c 4096; echo; exit 1; }
 fi
 
-curl -fL https://raw.githubusercontent.com/camunda/connectors/main/bundle/default-bundle/start.sh -o "${MNT_DIR}/connectors/start.sh"
+# The connector-runtime-bundle is a Spring Boot uber-jar with its dependencies
+# under BOOT-INF/lib/, so it can only be launched via "java -jar". The upstream
+# start.sh from camunda/connectors@main is unpinned and historically used a
+# flat-classpath invocation that broke whenever the bundle layout changed
+# (e.g. the 8.9.4 release), making every fresh install fail with a JVM
+# class-resolution error. Vendor a minimal self-contained launcher instead.
+cat > "${MNT_DIR}/connectors/start.sh" <<'LAUNCH'
+#!/bin/bash
+set -eu
+# shellcheck disable=SC2086
+exec java ${JAVA_OPTS:-} -jar "/opt/camunda/connectors/connectors.jar"
+LAUNCH
 chmod +x "${MNT_DIR}/connectors/start.sh"
-
-# shellcheck disable=SC2016
-sed -i '$ s@.*@java ${JAVA_OPTS} -cp "'"${MNT_DIR}/connectors/*"'" "io.camunda.connector.runtime.app.ConnectorRuntimeApplication"@' "${MNT_DIR}/connectors/start.sh"
 EOF
