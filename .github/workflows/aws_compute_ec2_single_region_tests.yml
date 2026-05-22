@@ -211,6 +211,40 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/artifactory-ro ARTIFACTORY_USR;
                       secret/data/products/infrastructure-experience/ci/artifactory-ro ARTIFACTORY_PSW;
 
+            - name: Import Camunda basic auth credentials
+              id: camunda-credentials
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID | CAMUNDA_BASIC_AUTH_USER;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET | CAMUNDA_BASIC_AUTH_PASSWORD;
+
+            - name: Export Camunda basic auth credentials
+              env:
+                  CAMUNDA_BASIC_AUTH_USER: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
+                  CAMUNDA_BASIC_AUTH_PASSWORD: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
+              run: |
+                  # Use a heredoc (with a delimiter that does not collide with
+                  # the secret values) so the secrets are read from env vars at
+                  # runtime and never interpolated into the shell source —
+                  # GitHub Actions expression interpolation would embed the raw
+                  # values into the generated script and could leak via runner
+                  # debug logs / `set -x` traces.
+                  delim="EOF_$(openssl rand -hex 8)"
+                  {
+                    echo "CAMUNDA_BASIC_AUTH_USER<<$delim"
+                    printf '%s\n' "$CAMUNDA_BASIC_AUTH_USER"
+                    echo "$delim"
+                    echo "CAMUNDA_BASIC_AUTH_PASSWORD<<$delim"
+                    printf '%s\n' "$CAMUNDA_BASIC_AUTH_PASSWORD"
+                    echo "$delim"
+                  } >> "$GITHUB_ENV"
+
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
               run: |
@@ -259,6 +293,8 @@ jobs:
                   CAMUNDA_CONNECTORS_PREVIOUS_VERSION: ${{ env.TESTS_CONNECTORS_PREVIOUS_VERSION }}
                   CAMUNDA_DISTRO_USER: ${{ steps.artifactory-credentials.outputs.ARTIFACTORY_USR }}
                   CAMUNDA_DISTRO_PASSWORD: ${{ steps.artifactory-credentials.outputs.ARTIFACTORY_PSW }}
+                  CAMUNDA_BASIC_AUTH_USER: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
+                  CAMUNDA_BASIC_AUTH_PASSWORD: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
               run: |
                   set -euo pipefail
                   export PATH=$PATH:$(go env GOPATH)/bin

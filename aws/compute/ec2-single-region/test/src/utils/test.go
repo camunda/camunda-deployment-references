@@ -2,14 +2,28 @@ package utils
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/gruntwork-io/terratest/modules/retry"
 	"github.com/gruntwork-io/terratest/modules/shell"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
+
+// basicAuthCredentials returns the "user:password" pair to feed into curl's `-u` flag,
+// sourced from CAMUNDA_BASIC_AUTH_USER and CAMUNDA_BASIC_AUTH_PASSWORD env vars.
+func basicAuthCredentials(t *testing.T) string {
+	t.Helper()
+	user := os.Getenv("CAMUNDA_BASIC_AUTH_USER")
+	password := os.Getenv("CAMUNDA_BASIC_AUTH_PASSWORD")
+	require.NotEmpty(t, user, "CAMUNDA_BASIC_AUTH_USER must be set")
+	require.NotEmpty(t, password, "CAMUNDA_BASIC_AUTH_PASSWORD must be set")
+	return fmt.Sprintf("%s:%s", user, password)
+}
 
 func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Options, version string) {
 
@@ -19,7 +33,7 @@ func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Opt
 
 	cmd := shell.Command{
 		Command: "curl",
-		Args:    []string{"-u", "demo:demo", fmt.Sprintf("%s/v2/topology", alb)},
+		Args:    []string{"-u", basicAuthCredentials(t), fmt.Sprintf("%s/v2/topology", alb)},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -48,7 +62,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd := shell.Command{
 		Command: "curl",
-		Args:    []string{"-u", "demo:demo", "--form", "resources=@utils/single-task.bpmn", fmt.Sprintf("%s/v2/deployments", alb), "-H", "'Content-Type: multipart/form-data'", "-H", "'Accept: application/json'"},
+		Args:    []string{"-u", basicAuthCredentials(t), "--form", "resources=@utils/single-task.bpmn", fmt.Sprintf("%s/v2/deployments", alb), "-H", "'Content-Type: multipart/form-data'", "-H", "'Accept: application/json'"},
 	}
 	output := shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -65,7 +79,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd = shell.Command{
 		Command: "curl",
-		Args:    []string{"-u", "demo:demo", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json", "--data-raw", fmt.Sprintf("{\"processDefinitionKey\":\"%d\"}", processDefinitionKey)},
+		Args:    []string{"-u", basicAuthCredentials(t), "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json", "--data-raw", fmt.Sprintf("{\"processDefinitionKey\":\"%d\"}", processDefinitionKey)},
 	}
 	shell.RunCommand(t, cmd)
 
@@ -74,7 +88,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd = shell.Command{
 		Command: "curl",
-		Args:    []string{"-u", "demo:demo", "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances/search", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json"},
+		Args:    []string{"-u", basicAuthCredentials(t), "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances/search", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json"},
 	}
 	output = shell.RunCommandAndGetStdOut(t, cmd)
 
@@ -84,7 +98,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 
 	cmd = shell.Command{
 		Command: "curl",
-		Args:    []string{"-u", "demo:demo", "-L", "-X", "POST", fmt.Sprintf("%s/v2/resources/%d/deletion", alb, processDefinitionKey)},
+		Args:    []string{"-u", basicAuthCredentials(t), "-L", "-X", "POST", fmt.Sprintf("%s/v2/resources/%d/deletion", alb, processDefinitionKey)},
 	}
 	shell.RunCommand(t, cmd)
 }
@@ -121,7 +135,17 @@ func ResetCamunda(t *testing.T, terraformOptions *terraform.Options, adminUserna
 		Command: "ssh",
 		Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, camundaIps[0]), fmt.Sprintf("curl -X DELETE %s/_all", openSearchConnection)},
 	}
-	output := shell.RunCommandAndGetStdOut(t, cmd)
+
+	// AWS OpenSearch runs automatic hourly snapshots. A DELETE /_all racing with
+	// an in-progress snapshot returns snapshot_in_progress_exception (HTTP 400);
+	// retry until the snapshot completes (max ~5 minutes).
+	output := retry.DoWithRetry(t, "DELETE OpenSearch indices", 10, 30*time.Second, func() (string, error) {
+		out := shell.RunCommandAndGetStdOut(t, cmd)
+		if strings.Contains(out, "snapshot_in_progress_exception") {
+			return "", fmt.Errorf("OpenSearch snapshot in progress, retrying")
+		}
+		return out, nil
+	})
 
 	require.Contains(t, output, "{\"acknowledged\":true}", "Expected response to be acknowledged")
 }
