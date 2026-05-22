@@ -73,13 +73,17 @@ inputs:
 
     # ── Basic auth inputs ─────────────────────────────────────────
     basic-auth-user:
-        description: Username for basic auth.
+        description: >
+            Username for basic auth. Required when auth-mode=basic.
+            No default — callers must supply real credentials (see INC-5340).
         required: false
-        default: demo
+        default: ''
     basic-auth-password:
-        description: Password for basic auth.
+        description: >
+            Password for basic auth. Required when auth-mode=basic.
+            No default — callers must supply real credentials (see INC-5340).
         required: false
-        default: demo
+        default: ''
 
     # ── Benchmark inputs ──────────────────────────────────────────
     benchmark-duration:

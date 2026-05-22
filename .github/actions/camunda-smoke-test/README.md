@@ -23,8 +23,8 @@ For non-Kubernetes (ECS Fargate, EC2):
 | `oidc-client-id` | <p>OIDC client ID for M2M authentication. If empty, auto-extracted from <release-name>-credentials secret (client ID defaults to 'orchestration').</p> | `false` | `""` |
 | `oidc-client-secret` | <p>OIDC client secret for M2M authentication. If empty, auto-extracted from <release-name>-credentials secret (key: identity-orchestration-client-token).</p> | `false` | `""` |
 | `oidc-token-url` | <p>OIDC token endpoint URL (e.g., https://<keycloak>/realms/camunda-platform/protocol/openid-connect/token). Required for non-Kubernetes deployments (ECS / EC2) when auth-mode=oidc. In Kubernetes mode this input is ignored — the URL is derived from the auto-port-forwarded Keycloak.</p> | `false` | `""` |
-| `basic-auth-user` | <p>Username for basic auth.</p> | `false` | `demo` |
-| `basic-auth-password` | <p>Password for basic auth.</p> | `false` | `demo` |
+| `basic-auth-user` | <p>Username for basic auth. Required when auth-mode=basic. No default — callers must supply real credentials (see INC-5340).</p> | `false` | `""` |
+| `basic-auth-password` | <p>Password for basic auth. Required when auth-mode=basic. No default — callers must supply real credentials (see INC-5340).</p> | `false` | `""` |
 | `benchmark-duration` | <p>Duration in seconds. Default 300 = 5 minutes.</p> | `false` | `300` |
 | `benchmark-pi-per-second` | <p>Process instances per second to generate.</p> | `false` | `5` |
 | `min-expected-instances` | <p>Minimum process instances expected.</p> | `false` | `10` |
@@ -97,16 +97,16 @@ This action is a `composite` action.
     # Default: ""
 
     basic-auth-user:
-    # Username for basic auth.
+    # Username for basic auth. Required when auth-mode=basic. No default — callers must supply real credentials (see INC-5340).
     #
     # Required: false
-    # Default: demo
+    # Default: ""
 
     basic-auth-password:
-    # Password for basic auth.
+    # Password for basic auth. Required when auth-mode=basic. No default — callers must supply real credentials (see INC-5340).
     #
     # Required: false
-    # Default: demo
+    # Default: ""
 
     benchmark-duration:
     # Duration in seconds. Default 300 = 5 minutes.
