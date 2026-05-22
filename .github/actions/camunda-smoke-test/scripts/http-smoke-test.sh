@@ -19,8 +19,8 @@ FAILURES=0
 # ── Configuration from environment ──────────────────────────────────
 ZEEBE_URL="${SMOKE_ZEEBE_REST_URL:?SMOKE_ZEEBE_REST_URL is required}"
 AUTH_MODE="${SMOKE_AUTH_MODE:-basic}"
-BASIC_USER="${SMOKE_BASIC_USER:-demo}"
-BASIC_PASSWORD="${SMOKE_BASIC_PASSWORD:-demo}"
+BASIC_USER="${SMOKE_BASIC_USER:-}"
+BASIC_PASSWORD="${SMOKE_BASIC_PASSWORD:-}"
 TOKEN_URL="${SMOKE_OIDC_TOKEN_URL:-}"
 CLIENT_ID="${SMOKE_OIDC_CLIENT_ID:-}"
 CLIENT_SECRET="${SMOKE_OIDC_CLIENT_SECRET:-}"
@@ -70,6 +70,10 @@ refresh_auth() {
 }
 
 if [[ "$AUTH_MODE" == "basic" ]]; then
+    if [[ -z "$BASIC_USER" || -z "$BASIC_PASSWORD" ]]; then
+        fail_test "basic auth requires SMOKE_BASIC_USER and SMOKE_BASIC_PASSWORD (refusing to fall back to demo:demo — see INC-5340)"
+        exit 1
+    fi
     AUTH_ARGS=(-u "${BASIC_USER}:${BASIC_PASSWORD}")
     log "Auth mode: basic (user=${BASIC_USER})"
 elif [[ "$AUTH_MODE" == "oidc" ]]; then
