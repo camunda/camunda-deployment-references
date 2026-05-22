@@ -677,6 +677,9 @@ jobs:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
                   kube-context: ${{ env.CLUSTER_0 }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: 🔍 Check for Helm deprecation warnings (region 1)
               uses: ./.github/actions/internal-helm-deprecation-check
@@ -684,6 +687,9 @@ jobs:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   kube-context: ${{ env.CLUSTER_1 }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/openshift/dual-region
               timeout-minutes: 10
@@ -752,6 +758,9 @@ jobs:
                   # Re-export services after Failback since the test recreates the Helm release without ServiceExports
                   post-failback-script: ./generic/openshift/dual-region/procedure/export-services-submariner.sh
                   distribution: OpenShift
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: 🔬🚨 Get failed Pods info - Cluster 0
               if: failure()
@@ -886,7 +895,7 @@ jobs:
             - name: Delete on-demand ROSA HCP Cluster
               uses: ./.github/actions/aws-generic-terraform-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
-              timeout-minutes: 125
+              timeout-minutes: 180
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
                   CLUSTER_0_AWS_REGION: ${{ env.CLUSTER_0_AWS_REGION }}
