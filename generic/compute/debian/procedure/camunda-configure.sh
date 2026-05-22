@@ -50,6 +50,12 @@ fi
 
 echo "[INFO] All required variables are defined. Proceeding with configuration..."
 
+if ! command -v envsubst >/dev/null 2>&1; then
+    echo "[ERROR] 'envsubst' is required but not installed."
+    echo "        Install it via your distro's gettext package (e.g. 'apt-get install -y gettext-base' on Debian/Ubuntu)."
+    exit 1
+fi
+
 echo "[INFO] Copying existing configuration files to temporary files for modification..."
 
 cp "${CONFIG_DIR}/camunda-environment" "${SCRIPT_DIR}/camunda-environment.tmp"
