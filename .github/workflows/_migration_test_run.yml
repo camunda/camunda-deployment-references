@@ -480,9 +480,13 @@ jobs:
                   export NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
                   export TEST_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
                   export TEST_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+                  # Empty in this workflow today (no internal-camunda-ci-credentials wired in);
+                  # kept here so the rendered job never falls back to demo:demo (INC-5340).
+                  export CAMUNDA_BASIC_AUTH_USER="${CAMUNDA_BASIC_AUTH_USER:-}"
+                  export CAMUNDA_BASIC_AUTH_PASSWORD="${CAMUNDA_BASIC_AUTH_PASSWORD:-}"
 
                   # shellcheck disable=SC2016
-                  envsubst '${NAMESPACE} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET}' \
+                  envsubst '${NAMESPACE} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET} ${CAMUNDA_BASIC_AUTH_USER} ${CAMUNDA_BASIC_AUTH_PASSWORD}' \
                       < generic/kubernetes/migration/tests/verify-test-data-job.yml \
                       | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
 
@@ -594,12 +598,14 @@ jobs:
                   export NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
                   export TEST_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
                   export TEST_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+                  export CAMUNDA_BASIC_AUTH_USER="${CAMUNDA_BASIC_AUTH_USER:-}"
+                  export CAMUNDA_BASIC_AUTH_PASSWORD="${CAMUNDA_BASIC_AUTH_PASSWORD:-}"
 
                   # Delete previous verify job from Phase 4
                   kubectl delete job verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --ignore-not-found=true
 
                   # shellcheck disable=SC2016
-                  envsubst '${NAMESPACE} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET}' \
+                  envsubst '${NAMESPACE} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET} ${CAMUNDA_BASIC_AUTH_USER} ${CAMUNDA_BASIC_AUTH_PASSWORD}' \
                       < generic/kubernetes/migration/tests/verify-test-data-job.yml \
                       | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
 
