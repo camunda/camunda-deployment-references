@@ -570,6 +570,34 @@ jobs:
                   ./generic/openshift/dual-region/procedure/assemble-envsubst-values.sh
 
 
+            # Fetches CAMUNDA_BASIC_AUTH_USER/PASSWORD from Vault and writes a
+            # Helm overlay values file so the CI cluster is not protected by
+            # the chart default demo:demo admin (see incident INC-5340).
+            - name: Camunda CI basic-auth credentials
+              id: camunda-ci-credentials
+              uses: ./.github/actions/internal-camunda-ci-credentials
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+            # Merge the CI overlay into the values files produced by
+            # assemble-envsubst-values.sh, so install-chart.sh stays
+            # untouched and customer-facing procedures keep their default
+            # behavior.
+            - name: Merge CI basic-auth overlay into generated values
+              shell: bash
+              env:
+                  OVERLAY_FILE: ${{ steps.camunda-ci-credentials.outputs.values-file }}
+              run: |
+                  set -euo pipefail
+                  for region_values in generated-values-region-1.yml generated-values-region-2.yml; do
+                      # shellcheck disable=SC2016 # $item is a yq expression, not a shell variable
+                      yq eval-all '. as $item ireduce ({}; . *+ $item)' \
+                          "${region_values}" "${OVERLAY_FILE}" > "${region_values}.merged"
+                      mv "${region_values}.merged" "${region_values}"
+                  done
+
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 30
               run: |
