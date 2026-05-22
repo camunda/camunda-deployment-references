@@ -344,11 +344,17 @@ func TestCamundaUpgrade(t *testing.T) {
 		t.Fatalf("Error writing file: %v", err)
 	}
 
-	// Zeebe has a prerelease protection that results in unhealthy clusters if not disabled
+	// Both Zeebe broker and the search-engine SchemaManager refuse upgrades from/to a
+	// pre-release version (see io.camunda.zeebe.util.migration.VersionCompatibilityCheck —
+	// UseOfPreReleaseVersion). Disable both gates so the upgrade test can run against
+	// SNAPSHOT/alpha builds.
 	if strings.Contains(camundaCurrentVersionFull, "SNAPSHOT") || strings.Contains(camundaCurrentVersionFull, "alpha") {
 		cmd = shell.Command{
 			Command: "bash",
-			Args:    []string{"-c", "echo ZEEBE_BROKER_EXPERIMENTAL_VERSIONCHECKRESTRICTIONENABLED=false >> ../../configs/camunda-environment"},
+			Args: []string{"-c", `cat >> ../../configs/camunda-environment <<'EOF'
+ZEEBE_BROKER_EXPERIMENTAL_VERSIONCHECKRESTRICTIONENABLED=false
+CAMUNDA_DATABASE_SCHEMA_MANAGER_VERSION_CHECK_RESTRICTION_ENABLED=false
+EOF`},
 		}
 		shell.RunCommand(t, cmd)
 	}
