@@ -9,13 +9,15 @@ INC-5340).
 
 Outputs:
 - The credentials are exported to `$GITHUB_ENV` as `CAMUNDA_BASIC_AUTH_USER`
-  and `CAMUNDA_BASIC_AUTH_PASSWORD`.
-- A Helm overlay values file is written at `${{ runner.temp }}/ci-camunda-basic-auth.yml`
-  with init-user overrides for the `camunda-platform` chart. Its path is
-  exported as `CAMUNDA_BASIC_AUTH_VALUES_FILE` env var and as the
-  `values-file` step output, so callers can append it to their `helm`
-  / `--values` invocation (or to a multi-region tests `extra-values-yaml`
-  input) to make the deployed chart use the Vault credentials.
+  and `CAMUNDA_BASIC_AUTH_PASSWORD` (written via the GITHUB_ENV heredoc
+  form so the values are never interpolated into the shell source).
+- A Helm overlay values file (JSON, which is valid YAML for helm) is
+  written at `${{ runner.temp }}/ci-camunda-basic-auth.json` with
+  init-user overrides for the `camunda-platform` chart, with `0600`
+  perms. Its path is exposed as the `values-file` step output, so
+  callers can append it to their `helm -f` invocation (or to a
+  multi-region tests `extra-values-yaml` input) to make the deployed
+  chart use the Vault credentials.
 
 
 ## Inputs
