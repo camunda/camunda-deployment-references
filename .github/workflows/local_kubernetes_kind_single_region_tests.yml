@@ -17,6 +17,9 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/internal-helm-deprecation-check/**
+            - .github/actions/camunda-smoke-test/**
+            - .github/actions/internal-integration-tests/**
+            - generic/kubernetes/single-region/tests/integration/**
             - .tool-versions
             - generic/kubernetes/operator-based/postgresql/**
             - local/kubernetes/kind-single-region/**
@@ -34,9 +37,6 @@ env:
 
     # TEST VARIABLES
     TESTS_ENABLED: 'true'
-    # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: fix-venom-8-8   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
-    TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
 jobs:
     triage:
@@ -216,6 +216,12 @@ jobs:
                     helm-values/values-domain.yml > helm-values/values-domain.yml.tmp
                   mv helm-values/values-domain.yml.tmp helm-values/values-domain.yml
 
+                  # CI-only: grant the auto-generated 'orchestration' M2M client
+                  # the admin role so the smoke test can deploy BPMN resources
+                  # via the Zeebe REST API. User-facing helm-values stay unchanged.
+                  yq -i '.orchestration.security.initialization.defaultRoles.admin.clients = ["orchestration"]' \
+                    helm-values/values-domain.yml
+
                   ./procedure/camunda-deploy-domain.sh
 
             - name: Deploy Camunda (no-domain mode)
@@ -230,6 +236,12 @@ jobs:
                   yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/registry.yml\")" \
                     helm-values/values-no-domain.yml > helm-values/values-no-domain.yml.tmp
                   mv helm-values/values-no-domain.yml.tmp helm-values/values-no-domain.yml
+
+                  # CI-only: grant the auto-generated 'orchestration' M2M client
+                  # the admin role so the smoke test can deploy BPMN resources
+                  # via the Zeebe REST API. User-facing helm-values stay unchanged.
+                  yq -i '.orchestration.security.initialization.defaultRoles.admin.clients = ["orchestration"]' \
+                    helm-values/values-no-domain.yml
 
                   ./procedure/camunda-deploy-no-domain.sh
 
@@ -320,12 +332,83 @@ jobs:
                     echo "LOCAL_CLIENT_SECRET=$LOCAL_CLIENT_SECRET" >> "$GITHUB_OUTPUT"
                   fi
 
+                  # Build the M2M client map (JSON) consumed by the per-component
+                  # M2M token test. Keys are Keycloak client IDs, values are
+                  # secrets pulled from the camunda-credentials secret. Missing
+                  # entries are silently skipped (component disabled).
+                  read_secret() {
+                      kubectl get secret camunda-credentials -n "${{ env.CAMUNDA_NAMESPACE }}" \
+                          -o jsonpath="{.data.$1}" 2>/dev/null | base64 -d || true
+                  }
+                  M2M_JSON='{}'
+                  # NOTE: 'console' is a Keycloak public client (no
+                  # service account) — client_credentials grant is not allowed
+                  # for it, so it must NOT be added here. Venom only covered
+                  # connectors / optimize / orchestration anyway.
+                  ENTRIES=(
+                      "orchestration:identity-orchestration-client-token"
+                      "connectors:identity-connectors-client-token"
+                  )
+                  # Optimize is only deployed when secondary storage is
+                  # Elasticsearch; in pg-only mode the keycloak client is
+                  # not provisioned and client_credentials returns 401.
+                  if [[ "${{ matrix.declination.secondary_storage }}" != "postgres" ]]; then
+                      ENTRIES+=("optimize:identity-optimize-client-token")
+                  fi
+                  for entry in "${ENTRIES[@]}"; do
+                      cid="${entry%%:*}"
+                      key="${entry##*:}"
+                      val="$(read_secret "$key")"
+                      if [[ -n "$val" ]]; then
+                          M2M_JSON="$(jq -nc --argjson acc "$M2M_JSON" --arg k "$cid" --arg v "$val" '$acc + {($k): $v}')"
+                      fi
+                  done
+                  # Use a delimited heredoc so the JSON survives masking.
+                  {
+                      echo 'LOCAL_M2M_CLIENTS<<__M2M_EOF__'
+                      echo "$M2M_JSON"
+                      echo '__M2M_EOF__'
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: 🔥 Run Camunda Smoke Test
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 15
+              uses: ./.github/actions/camunda-smoke-test
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+
+            - name: 🧪 Run Go Integration Tests (replaces Venom)
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 20
+              uses: ./.github/actions/internal-integration-tests
+              with:
+                  test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
+                  camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
+                  camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
+                  auth-mode: oidc
+                  oidc-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
+                  oidc-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
+                  oidc-m2m-clients: ${{ steps.local-credentials.outputs.LOCAL_M2M_CLIENTS }}
+                  keycloak-url: http://keycloak-service:18080/auth
+                  elasticsearch-enabled: 'false'
+                  webmodeler-enabled: 'true'
+                  console-enabled: 'true'
+                  # Optimize requires Elasticsearch; disabled in pg-only mode
+                  # (matches the helm install flag set in deploy step).
+                  optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
+                  # Configure /etc/hosts for camunda.example.com when running
+                  # the TLS/domain declinations on Kind so the runner can reach
+                  # the ingress.
+                  local-domain-mode: ${{ matrix.declination.use_tls && 'true' || 'false' }}
+
             - name: 🧪 Run C8-SM-CHECKS deployment and connectivity tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 15
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
-                  secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
@@ -340,8 +423,6 @@ jobs:
                   # Use auto-generated local credentials instead of CI credentials from Vault
                   test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
                   test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
-                  # Disable Venom/Helm chart tests, only run C8-SM-CHECKS
-                  enable-helm-chart-tests: 'false'
                   enable-zeebe-client-tests: 'false'
                   keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200

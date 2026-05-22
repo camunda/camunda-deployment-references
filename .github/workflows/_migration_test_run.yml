@@ -542,7 +542,6 @@ jobs:
               timeout-minutes: 15
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
-                  secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ''
@@ -554,8 +553,6 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
                   test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
-                  # Disable Venom/Helm chart tests, only run C8-SM-CHECKS
-                  enable-helm-chart-tests: 'false'
                   enable-zeebe-client-tests: 'false'
                   keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200
@@ -625,7 +622,6 @@ jobs:
               timeout-minutes: 15
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
-                  secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ''
@@ -637,7 +633,6 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
                   test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
-                  enable-helm-chart-tests: 'false'
                   enable-zeebe-client-tests: 'false'
                   keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200

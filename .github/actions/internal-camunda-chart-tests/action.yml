@@ -2,35 +2,25 @@
 name: Camunda Chart Tests
 
 description: >
-    Run the Camunda Helm chart tests.
-    Already requires the Helm chart to be deployed and cluster access granted.
+    Run the Camunda Self-Managed checks against an already deployed Helm release.
+    Requires the Helm chart to be deployed and cluster access granted.
 
-    This action integrates multiple testing layers:
-    1. Helm chart integration tests (from camunda-platform-helm)
-    2. C8 Self-Managed checks (from c8-sm-checks repository):
-       - Deployment verification (checks pods and containers status)
-       - Kubernetes connectivity checks (services and ingress resolution)
-       - AWS IRSA configuration checks (for EKS clusters with IRSA)
-       - Zeebe token generation and connectivity checks
+    This action wraps the c8-sm-checks repository:
+      - Deployment verification (checks pods and containers status)
+      - Kubernetes connectivity checks (services and ingress resolution)
+      - AWS IRSA configuration checks (for EKS clusters with IRSA)
+      - Zeebe token generation and connectivity checks
+      - Zeebe topology golden-file comparison
 
     All C8 SM checks can be individually enabled/disabled via inputs.
 
 inputs:
-    tests-camunda-helm-chart-repo-ref:
-        description: The branch, tag or commit to checkout
-        default: main
-    tests-camunda-helm-chart-repo-path:
-        description: Path to the Helm chart repository
-        default: ./.camunda_helm_repo
     tests-c8-sm-checks-repo-ref:
         description: The branch, tag or commit to checkout for c8-sm-checks
         default: main
     tests-c8-sm-checks-repo-path:
         description: Path to clone the c8-sm-checks repository
         default: ./.c8-sm-checks
-    secrets:
-        description: JSON wrapped secrets for easier secret passing
-        required: true
     camunda-version:
         description: The version of the Camunda to test
         required: true
@@ -69,9 +59,6 @@ inputs:
         default: ./generic/kubernetes/single-region/procedure/check-zeebe-cluster-topology.sh
     zeebe-authenticated:
         description: Use the authentication layer to interact with zeebe
-        default: 'true'
-    enable-helm-chart-tests:
-        description: Whether the Helm Chart tests should be run
         default: 'true'
     enable-zeebe-client-tests:
         description: Whether the Zeebe Client tests should be run
@@ -131,29 +118,6 @@ inputs:
 runs:
     using: composite
     steps:
-        - name: Import Secrets
-          id: secrets
-          if: ${{ inputs.enable-helm-chart-tests == 'true' || inputs.zeebe-authenticated == 'true' }}
-          uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
-          with:
-              url: ${{ fromJSON(inputs.secrets).VAULT_ADDR }}
-              method: approle
-              roleId: ${{ fromJSON(inputs.secrets).VAULT_ROLE_ID }}
-              secretId: ${{ fromJSON(inputs.secrets).VAULT_SECRET_ID }}
-              exportEnv: false
-              secrets: |
-                  secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
-                  secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
-
-        - name: 🧙‍♂️ Clone camunda/camunda-platform-helm
-          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-          if: ${{ inputs.enable-helm-chart-tests == 'true' }}
-          with:
-              repository: camunda/camunda-platform-helm
-              ref: ${{ inputs.tests-camunda-helm-chart-repo-ref }}
-              path: ${{ inputs.tests-camunda-helm-chart-repo-path }}
-              fetch-depth: 0
-
         - name: 🧙‍♂️ Clone camunda/c8-sm-checks
           uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
           with:
@@ -208,190 +172,6 @@ runs:
               echo "KEYCLOAK_TARGET=$KEYCLOAK_TARGET" | tee -a "$GITHUB_ENV"
               echo "ELASTICSEARCH_TARGET=$ELASTICSEARCH_TARGET" | tee -a "$GITHUB_ENV"
 
-        - name: 🧪 TESTS - Set variables
-          if: ${{ inputs.enable-helm-chart-tests == 'true' }}
-          shell: bash
-          env:
-              CAMUNDA_VERSION: ${{ inputs.camunda-version }}
-              CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
-              CAMUNDA_DOMAIN_GRPC: ${{ inputs.camunda-domain-grpc }}
-              WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
-              CONSOLE_ENABLED: ${{ inputs.console-enabled }}
-              OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
-              ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
-          run: |
-              set -euo pipefail
-
-              # export test variables to be used in other steps
-              echo "TEST_NAMESPACE=${{ inputs.test-namespace }}" | tee -a "$GITHUB_ENV"
-              echo "TEST_CHART_NAME=${{ inputs.test-release-name }}" | tee -a "$GITHUB_ENV"
-              echo "TEST_CLUSTER_TYPE=$TEST_CLUSTER_TYPE" | tee -a "$GITHUB_ENV"
-              export TESTS_CAMUNDA_HELM_CHART_REPO_PATH="${{ inputs.tests-camunda-helm-chart-repo-path }}"
-              echo "TESTS_CAMUNDA_HELM_CHART_REPO_PATH=$TESTS_CAMUNDA_HELM_CHART_REPO_PATH" | tee -a "$GITHUB_ENV"
-
-              export TEST_CHART_DIR_STATIC="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/charts/camunda-platform-$CAMUNDA_VERSION"
-              echo "TEST_CHART_DIR_STATIC=$TEST_CHART_DIR_STATIC" | tee -a "$GITHUB_ENV"
-
-              TEST_INGRESS_HOST="$CAMUNDA_DOMAIN"
-              echo "TEST_INGRESS_HOST=$TEST_INGRESS_HOST" | tee -a "$GITHUB_ENV"
-
-              # shellcheck disable=SC2002
-              TEST_CHART_VERSION=$(cat "$TEST_CHART_DIR_STATIC/Chart.yaml" | yq '.version')
-              echo "TEST_CHART_VERSION=$TEST_CHART_VERSION" | tee -a "$GITHUB_ENV"
-
-              # setup docker registry secret for tests
-              echo "TEST_CREATE_DOCKER_LOGIN_SECRET=true" | tee -a "$GITHUB_ENV"
-              echo "TEST_DOCKER_USERNAME_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_USER }}" | tee -a "$GITHUB_ENV"
-              echo "TEST_DOCKER_PASSWORD_CAMUNDA_CLOUD=${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" | tee -a "$GITHUB_ENV"
-
-              CI_TASKS_BASE_DIR="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/test/integration/scenarios/"
-              echo "CI_TASKS_BASE_DIR=$CI_TASKS_BASE_DIR" | tee -a "$GITHUB_ENV"
-              export TEST_CHART_DIR="../../../../charts/camunda-platform-$CAMUNDA_VERSION"
-              echo "TEST_CHART_DIR=$TEST_CHART_DIR" | tee -a "$GITHUB_ENV"
-              export TEST_VALUES_BASE_DIR="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/test/integration/scenarios"
-              echo "TEST_VALUES_BASE_DIR=$TEST_VALUES_BASE_DIR" | tee -a "$GITHUB_ENV"
-
-              # replace integration with the camunda release name as part of adaptation required to run the tests in our environment
-              if [[ "${{ inputs.enable-helm-chart-tests }}" == "true" ]]; then
-                find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i "s/integration/$CAMUNDA_RELEASE_NAME/g"
-
-                # Use pre-configured service references from environment
-                echo "Updating service references:"
-                echo "  Keycloak: http://$KEYCLOAK_TARGET"
-                echo "  Elasticsearch: http://$ELASTICSEARCH_TARGET"
-
-                # Update variables-default.yaml (used for no-domain scenarios)
-                yq eval ".preflightVars.baseURLs.keycloak = \"http://${KEYCLOAK_TARGET}\"" -i \
-                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
-                yq eval ".preflightVars.baseURLs.elasticsearch = \"http://${ELASTICSEARCH_TARGET}\"" -i \
-                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
-                yq eval ".coreVars.authURL = \"http://${KEYCLOAK_TARGET}/auth/realms/camunda-platform/protocol/openid-connect/token\"" -i \
-                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
-
-                # Update variables-ingress-combined.yaml (used for domain/ingress scenarios)
-                # For domain scenarios, keep the public HTTPS URLs, only update internal service references
-                if [[ -f "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml" ]]; then
-                  # Only update preflightVars (internal service checks) and elasticsearch
-                  yq eval ".preflightVars.baseURLs.keycloak = \"http://${KEYCLOAK_TARGET}\"" -i \
-                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
-                  yq eval ".preflightVars.baseURLs.elasticsearch = \"http://${ELASTICSEARCH_TARGET}\"" -i \
-                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
-                  yq eval ".coreVars.baseURLs.elasticsearch = \"http://${ELASTICSEARCH_TARGET}\"" -i \
-                    "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
-                  # DO NOT update coreVars.baseURLs.keycloak - it should use the public ingress URL (https://$DOMAIN/auth/)
-                  echo "Note: Keycloak coreVars URL preserved for public ingress access"
-                fi
-
-                echo "✅ Service references updated successfully"
-
-                echo "Configure Venom tests"
-                # (adapted from https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L56)
-                export VARIABLES_ENV_FILE="$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables.env"
-
-                # False because we run OIDC
-                echo "VENOM_VAR_SKIP_TEST_KEYCLOAK=false" >> "$VARIABLES_ENV_FILE"
-
-                # Enable the ingress tests
-
-                if [[ "$CAMUNDA_DOMAIN" != "" ]]; then
-                  # shellcheck disable=SC2129
-                  echo "VENOM_VAR_TEST_INGRESS_HOST=$TEST_INGRESS_HOST" >> "$VARIABLES_ENV_FILE"
-                  echo "VENOM_EXTRA_ARGS=--var-from-file=./vars/variables-ingress-combined.yaml" >> "$VARIABLES_ENV_FILE"
-
-                  # Setting is broken and results in always skipping ingress tests
-                  # This removes the faulty setting but should only be done in domain context
-                  echo "Skip test ingress is also broken, fixing it"
-                  yq eval '(.testcases[].steps[].skip |= map(select(test("skiptestingress", "i") | not)))' \
-                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-                  yq eval 'del(.. | select(has("skip") and .skip | length == 0).skip)' \
-                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-
-                  if [[ "$CAMUNDA_DOMAIN_GRPC" != "" ]]; then
-                    yq eval '.coreVars.baseURLs.orchestrationGRPC = env(CAMUNDA_DOMAIN_GRPC)' \
-                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-ingress-combined.yaml"
-                  fi
-                else
-                  # Some variables are not working correctly, patching it with yq directly
-                  echo "VENOM_VAR_SKIP_TEST_INGRESS=true" >> "$VARIABLES_ENV_FILE"
-
-                  # fix wrong default orchestrationGRPC port
-                  yq eval '.coreVars.baseURLs.orchestrationGRPC |= (select(tag == "!!str") | sub("^http://", "") | sub(":9600$", ":26500"))' \
-                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
-                fi
-
-                echo "VENOM_VAR_TEST_CLIENT_ID=${{ inputs.test-client-id }}" >> "$VARIABLES_ENV_FILE"
-                echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ inputs.test-client-secret }}" >> "$VARIABLES_ENV_FILE"
-
-                ZEEBE_VERSION=$(yq '.zeebe.image.tag' "$TEST_CHART_DIR_STATIC/values.yaml")
-                # shellcheck disable=SC2129
-                echo "ZEEBE_VERSION=$ZEEBE_VERSION" >> "$VARIABLES_ENV_FILE"
-                # In case the Zeebe version has not been released officially yet.
-                echo "ZEEBE_VERSION_FALLBACK=8.5.6" >> "$VARIABLES_ENV_FILE"
-
-                echo "Patch the test files..."
-
-                # TODO: [BUG] remove the patchs when https://github.com/camunda/camunda-platform-helm/issues/3081 is fixed
-                echo "Patch expression ShoudBeFalse"
-                sed -i "s/ ShouldBeFalse/ ShouldEqual 'false'/g" \
-                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
-                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
-
-                echo "Patch expression ShouldBeTrue"
-                sed -i "s/ ShouldBeTrue/ ShouldEqual 'true'/g" \
-                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml" \
-                  "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
-
-                if [[ "$ELASTICSEARCH_ENABLED" != "true" ]]; then
-                  echo "Disable Elasticsearch in the core tests as it's not enabled"
-
-                  yq eval 'del(.. | select(has("component") and .component == "Elasticsearch"))' \
-                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-preflight.yaml"
-                fi
-
-                if [ "$OPTIMIZE_ENABLED" != "true" ]; then
-                  echo "Disable Optimize in the core tests as it's not enabled"
-
-                  yq eval 'del(.. | select(has("component") and .component == "Optimize"))' \
-                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-                fi
-
-                if [ "$WEBMODELER_ENABLED" != "true" ]; then
-                  echo "Disable Webmodeler in the core tests as it's not enabled"
-
-                  echo "VENOM_VAR_SKIP_TEST_WEBMODELER=false" >> "$VARIABLES_ENV_FILE"
-                  yq eval 'del(.. | select(has("component") and .component == "WebModeler"))' \
-                    -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/testsuite-core.yaml"
-                fi
-
-                echo "Patch the identity secrets to allow venom to access to the platform"
-                sed -i -e 's/integration-test-credentials/identity-secret-for-components/g' \
-                        "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
-
-                # remove venom var client secret as we define it in the file
-                yq e 'del(.spec.template.spec.containers[].env[] | select(.name == "VENOM_VAR_TEST_CLIENT_SECRET"))' \
-                  -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/core/patches/job.yaml"
-
-                # we're overwriting the tool-versions of the Helm chart tests with our own
-                echo "Ensure asdf tool is available in the test suite by using our global one"
-                cp .tool-versions "$TESTS_CAMUNDA_HELM_CHART_REPO_PATH"
-              fi
-
-        - name: 🧪 TESTS - Run Preflight TestSuite
-          if: ${{ inputs.enable-helm-chart-tests == 'true' }}
-          shell: bash
-          run: |
-              set -euo pipefail
-
-              task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.preflight
-
-        - name: 🧪 TESTS - Run Core TestSuite
-          if: ${{ inputs.enable-helm-chart-tests == 'true' }}
-          shell: bash
-          run: |
-              set -euo pipefail
-
-              task -d "${CI_TASKS_BASE_DIR}/chart-full-setup" test.core
-
         - name: 🧪 TESTS - Run zeebe client tests
           if: ${{ inputs.enable-zeebe-client-tests == 'true' }}
           shell: bash
@@ -401,6 +181,7 @@ runs:
               CAMUNDA_NAMESPACE_1: ${{ inputs.camunda-namespace-1 || '' }}
               CAMUNDA_NAMESPACE_0: ${{ inputs.camunda-namespace-0 || '' }}
               CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name || '' }}
+              TEST_NAMESPACE: ${{ inputs.test-namespace }}
           run: |
               set -euo pipefail
 
