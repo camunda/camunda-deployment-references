@@ -111,7 +111,7 @@ orchestration:
     resources:
         requests:
             cpu: 200m
-            memory: 1Gi
+            memory: 2Gi
         limits:
             cpu: 1512m
-            memory: 3Gi
+            memory: 5Gi
