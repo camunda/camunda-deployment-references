@@ -211,6 +211,9 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   exclude-patterns: |
                       Bitnami-based subcharts are deprecated
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             # =================================================================
             # STEP 1.5: Generate Test Data for Migration Validation
@@ -443,6 +446,9 @@ jobs:
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             # --- Phase 4: Validate ---
             - name: Phase 4 - Validate migration

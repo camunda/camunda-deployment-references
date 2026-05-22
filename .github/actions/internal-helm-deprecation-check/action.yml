@@ -8,10 +8,23 @@ description: |
     Optionally validates that deployed values do not contain unknown keys
     by checking against a strict version of the chart's JSON Schema.
 
-    On pull request events, findings are reported as a single shared PR
-    comment (one comment per PR, with one section per
-    workflow/job/release/namespace combination) and the workflow is NOT
-    failed. On non-PR events, findings still fail the workflow.
+    Findings are reported in an event-aware, non-blocking way:
+      - pull_request / pull_request_target / workflow_run: posted to a
+        single shared PR comment (one comment per PR, one section per
+        workflow/job/release/namespace combination).
+      - schedule (real or simulated via a `schedules/*` head_ref): emitted
+        as ::warning:: annotations and, when the Slack inputs are wired,
+        posted to Slack via the shared report-failure-on-slack action.
+        Simulated schedules are detected from the caller workflow's
+        `IS_SCHEDULE` env var (set to `'true'` when
+        `contains(github.head_ref, 'schedules/') || github.event_name == 'schedule'`).
+      - workflow_dispatch / push / any other event: emitted as
+        ::warning:: annotations in the job log only.
+    Findings (deprecation warnings, removed keys, unknown keys) are never
+    treated as failures — the intent is to trace drift, not to block release
+    pipelines. The action can still exit non-zero on genuine internal errors
+    (e.g. `helm get notes` / `helm get values` failures, or an internal error
+    in the unknown-keys validator).
 
     See: https://github.com/camunda/camunda-platform-helm/issues/4564
 
@@ -58,6 +71,44 @@ inputs:
             `pull-requests: write` permission for the comment to be posted.
         required: false
         default: ${{ github.token }}
+    vault-addr:
+        description: |
+            HashiCorp Vault address. Required only when posting a Slack
+            alert on scheduled runs. Pass secrets.VAULT_ADDR from the caller.
+        required: false
+        default: ''
+    vault-role-id:
+        description: |
+            HashiCorp Vault AppRole role id. Required only when posting a
+            Slack alert on scheduled runs. Pass secrets.VAULT_ROLE_ID from the caller.
+        required: false
+        default: ''
+    vault-secret-id:
+        description: |
+            HashiCorp Vault AppRole secret id. Required only when posting a
+            Slack alert on scheduled runs. Pass secrets.VAULT_SECRET_ID from the caller.
+        required: false
+        default: ''
+    slack-channel-id:
+        description: |
+            Slack channel id to alert when findings are detected on a
+            (real or simulated) scheduled run. When left empty, the
+            action defaults to the standard infraex channels:
+              - `C076N4G1162` (infraex-alerts) on real schedule events
+              - `C07E4FF6YMB` (infraex-test)   on every other event
+                (simulated schedules via `schedules/*` head_ref,
+                 workflow_dispatch, etc.)
+            Set explicitly to override.
+        required: false
+        default: ''
+    slack-mention-people:
+        description: |
+            Slack handles or group mentions to include in the scheduled-run
+            alert (e.g. `@infraex-medic`). Only used when the caller
+            workflow advertises `IS_SCHEDULE=true` (real or simulated
+            schedule).
+        required: false
+        default: ''
 
 runs:
     using: composite
@@ -325,7 +376,8 @@ runs:
                   } >> "${FINDINGS_FILE}"
               fi
 
-        - name: 💬 Report findings to PR (or fail on non-PR events)
+        - name: 💬 Report findings (PR comment, log, or Slack)
+          id: report-findings
           if: always()
           shell: bash
           env:
@@ -344,10 +396,13 @@ runs:
 
               # The previous step may not have run (e.g. earlier infra failure).
               # Treat a missing findings file as "nothing to report".
-              if [[ -z "${FINDINGS_FILE:-}" || ! -f "${FINDINGS_FILE}" ]]; then
-                  echo "No findings file produced; nothing to report."
+              if [[ -z "${FINDINGS_FILE:-}" || ! -f "${FINDINGS_FILE}" || ! -s "${FINDINGS_FILE}" ]]; then
+                  echo "findings-present=false" >> "${GITHUB_OUTPUT}"
+                  echo "No findings to report."
                   exit 0
               fi
+
+              echo "findings-present=true" >> "${GITHUB_OUTPUT}"
 
               # Determine PR number from the triggering event.
               PR_NUMBER=""
@@ -361,15 +416,11 @@ runs:
               esac
 
               if [[ -z "${PR_NUMBER}" ]]; then
-                  if [[ -s "${FINDINGS_FILE}" ]]; then
-                      echo "::error::Helm deprecation findings detected and no PR context is available to comment on."
-                      echo "Findings:"
-                      cat "${FINDINGS_FILE}"
-                      echo ""
-                      echo "See: https://docs.camunda.io/docs/self-managed/deployment/helm/upgrade/"
-                      exit 1
-                  fi
-                  echo "No PR context and no findings; nothing to report."
+                  echo "::warning::Helm deprecation findings detected on event '${GITHUB_EVENT_NAME:-unknown}'; see job log."
+                  echo "Findings:"
+                  cat "${FINDINGS_FILE}"
+                  echo ""
+                  echo "See: https://docs.camunda.io/docs/self-managed/deployment/helm/upgrade/"
                   exit 0
               fi
 
@@ -384,3 +435,20 @@ runs:
                   --section-key "${INPUT_SECTION_KEY}" \
                   --run-url "${GH_SERVER_URL}/${GH_REPO}/actions/runs/${GH_RUN_ID}" \
                   --findings-file "${FINDINGS_FILE}"
+
+        - name: 🔔 Alert Slack on scheduled-run findings
+          if: |
+              always()
+              && env.IS_SCHEDULE == 'true'
+              && steps.report-findings.outputs.findings-present == 'true'
+              && inputs.vault-addr != ''
+              && inputs.vault-role-id != ''
+              && inputs.vault-secret-id != ''
+          uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+          with:
+              vault_addr: ${{ inputs.vault-addr }}
+              vault_role_id: ${{ inputs.vault-role-id }}
+              vault_secret_id: ${{ inputs.vault-secret-id }}
+              slack_channel_id: ${{ inputs.slack-channel-id != '' && inputs.slack-channel-id || (env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB')
+                  }}
+              slack_mention_people: ${{ inputs.slack-mention-people }}
