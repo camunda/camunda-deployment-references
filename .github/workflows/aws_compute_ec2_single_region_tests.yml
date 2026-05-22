@@ -221,8 +221,8 @@ jobs:
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
                   secrets: |
-                      secret/data/products/infrastructure-experience/ci/ec2-single-region CAMUNDA_BASIC_AUTH_USER;
-                      secret/data/products/infrastructure-experience/ci/ec2-single-region CAMUNDA_BASIC_AUTH_PASSWORD;
+                      secret/data/products/infrastructure-experience/ci/global-camunda-basic-auth CAMUNDA_BASIC_AUTH_USER;
+                      secret/data/products/infrastructure-experience/ci/global-camunda-basic-auth CAMUNDA_BASIC_AUTH_PASSWORD;
 
             - name: Export Camunda basic auth credentials
               run: |
