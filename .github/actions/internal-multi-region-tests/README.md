@@ -25,6 +25,11 @@ Run tests across multiple regions
 | `release-name` | <p>The Helm release name to check for deprecation warnings</p> | `false` | `camunda` |
 | `exclude-deprecation-patterns` | <p>Newline-separated list of fixed strings to exclude from deprecation warnings. Passed through to internal-helm-deprecation-check using grep -F (fixed-string) semantics.</p> | `false` | `""` |
 | `check-unknown-keys` | <p>Forwarded to internal-helm-deprecation-check. Set to 'false' to skip the strict unknown-keys validation against the chart JSON Schema (e.g. while waiting for an upstream chart fix).</p> | `false` | `true` |
+| `vault-addr` | <p>Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.</p> | `false` | `""` |
+| `vault-role-id` | <p>Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.</p> | `false` | `""` |
+| `vault-secret-id` | <p>Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.</p> | `false` | `""` |
+| `slack-channel-id` | <p>Forwarded to internal-helm-deprecation-check. Overrides the default infraex channel.</p> | `false` | `""` |
+| `slack-mention-people` | <p>Forwarded to internal-helm-deprecation-check. Slack handles/groups to mention on scheduled-run alerts.</p> | `false` | `""` |
 
 
 ## Runs
@@ -140,4 +145,34 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
+
+    vault-addr:
+    # Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
+    #
+    # Required: false
+    # Default: ""
+
+    vault-role-id:
+    # Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
+    #
+    # Required: false
+    # Default: ""
+
+    vault-secret-id:
+    # Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
+    #
+    # Required: false
+    # Default: ""
+
+    slack-channel-id:
+    # Forwarded to internal-helm-deprecation-check. Overrides the default infraex channel.
+    #
+    # Required: false
+    # Default: ""
+
+    slack-mention-people:
+    # Forwarded to internal-helm-deprecation-check. Slack handles/groups to mention on scheduled-run alerts.
+    #
+    # Required: false
+    # Default: ""
 ```
