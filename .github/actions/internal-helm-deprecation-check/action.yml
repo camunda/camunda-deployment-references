@@ -71,19 +71,19 @@ inputs:
     vault-addr:
         description: |
             HashiCorp Vault address. Required only when posting a Slack
-            alert on scheduled runs. Pass `${{ secrets.VAULT_ADDR }}`.
+            alert on scheduled runs. Pass secrets.VAULT_ADDR from the caller.
         required: false
         default: ''
     vault-role-id:
         description: |
             HashiCorp Vault AppRole role id. Required only when posting a
-            Slack alert on scheduled runs. Pass `${{ secrets.VAULT_ROLE_ID }}`.
+            Slack alert on scheduled runs. Pass secrets.VAULT_ROLE_ID from the caller.
         required: false
         default: ''
     vault-secret-id:
         description: |
             HashiCorp Vault AppRole secret id. Required only when posting a
-            Slack alert on scheduled runs. Pass `${{ secrets.VAULT_SECRET_ID }}`.
+            Slack alert on scheduled runs. Pass secrets.VAULT_SECRET_ID from the caller.
         required: false
         default: ''
     slack-channel-id:
