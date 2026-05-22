@@ -7,20 +7,25 @@ description: |
     (removed configuration) messages.
     Optionally validates that deployed values do not contain unknown keys
     by checking against a strict version of the chart's JSON Schema.
+
     Findings are reported in an event-aware, non-blocking way:
+      - pull_request / pull_request_target / workflow_run: posted to a
+        single shared PR comment (one comment per PR, one section per
+        workflow/job/release/namespace combination).
       - schedule (real or simulated via a `schedules/*` head_ref): emitted
         as ::warning:: annotations and, when the Slack inputs are wired,
         posted to Slack via the shared report-failure-on-slack action.
         Simulated schedules are detected from the caller workflow's
         `IS_SCHEDULE` env var (set to `'true'` when
         `contains(github.head_ref, 'schedules/') || github.event_name == 'schedule'`).
-      - any other event (pull_request, workflow_dispatch, push, ...):
-        emitted as ::warning:: annotations in the job log only.
+      - workflow_dispatch / push / any other event: emitted as
+        ::warning:: annotations in the job log only.
     Findings (deprecation warnings, removed keys, unknown keys) are never
     treated as failures — the intent is to trace drift, not to block release
     pipelines. The action can still exit non-zero on genuine internal errors
     (e.g. `helm get notes` / `helm get values` failures, or an internal error
     in the unknown-keys validator).
+
     See: https://github.com/camunda/camunda-platform-helm/issues/4564
 
 inputs:
@@ -51,6 +56,21 @@ inputs:
             See: https://github.com/camunda/camunda-platform-helm/issues/4564
         required: false
         default: 'true'
+    comment-section-key:
+        description: |
+            Optional extra identifier mixed into the PR comment section ID.
+            Use this when the same workflow + job + release-name + namespace
+            tuple runs more than once (e.g. across matrix entries) and each
+            run should produce its own section in the shared PR comment.
+        required: false
+        default: ''
+    github-token:
+        description: |
+            Token used to read and update the shared PR comment.
+            Defaults to the workflow-provided GITHUB_TOKEN. The token needs
+            `pull-requests: write` permission for the comment to be posted.
+        required: false
+        default: ${{ github.token }}
     vault-addr:
         description: |
             HashiCorp Vault address. Required only when posting a Slack
@@ -95,12 +115,19 @@ runs:
     steps:
         - name: 🔍 Check for Helm deprecation warnings
           shell: bash
+          env:
+              FINDINGS_DIR: ${{ runner.temp }}/helm-deprecation-check
           run: |
               set -euo pipefail
 
               RELEASE_NAME="${{ inputs.release-name }}"
               NAMESPACE="${{ inputs.namespace }}"
               KUBE_CONTEXT="${{ inputs.kube-context }}"
+
+              mkdir -p "${FINDINGS_DIR}"
+              FINDINGS_FILE="${FINDINGS_DIR}/findings.md"
+              : > "${FINDINGS_FILE}"
+              echo "FINDINGS_FILE=${FINDINGS_FILE}" >> "${GITHUB_ENV}"
 
               CONTEXT_ARGS=()
               if [[ -n "${KUBE_CONTEXT}" ]]; then
@@ -159,8 +186,6 @@ runs:
                   done <<< "${EXCLUDE_PATTERNS}"
               fi
 
-              HAS_ISSUES=false
-
               if [[ -n "${ERRORS}" ]]; then
                   echo "::warning::Removed configuration keys detected in Helm release '${RELEASE_NAME}'"
                   echo ""
@@ -172,7 +197,14 @@ runs:
                   echo ""
                   echo "=========================================="
                   echo ""
-                  HAS_ISSUES=true
+                  {
+                      echo "### ❌ Removed configuration keys"
+                      echo ""
+                      echo '```'
+                      echo "${ERRORS}"
+                      echo '```'
+                      echo ""
+                  } >> "${FINDINGS_FILE}"
               fi
 
               if [[ -n "${WARNINGS}" ]]; then
@@ -186,13 +218,19 @@ runs:
                   echo ""
                   echo "=========================================="
                   echo ""
-                  HAS_ISSUES=true
+                  {
+                      echo "### ⚠️ Deprecation warnings"
+                      echo ""
+                      echo '```'
+                      echo "${WARNINGS}"
+                      echo '```'
+                      echo ""
+                  } >> "${FINDINGS_FILE}"
               fi
 
-              if [[ "${HAS_ISSUES}" == "true" ]]; then
-                  echo "Please update the Helm values to use the new configuration format."
+              if [[ -s "${FINDINGS_FILE}" ]]; then
+                  echo "Findings will be reported via PR comment (or fail the job on non-PR events)."
                   echo "See: https://docs.camunda.io/docs/self-managed/deployment/helm/upgrade/"
-                  echo "HELM_DEPRECATION_FINDINGS_PRESENT=true" >> "${GITHUB_ENV}"
               else
                   echo "✅ No deprecation warnings or errors found in Helm release '${RELEASE_NAME}'"
               fi
@@ -305,10 +343,15 @@ runs:
                   exit 1
               fi
 
-              # Run the unknown keys validation
+              # Run the unknown keys validation, capturing stdout for the PR comment
               SCRIPT_DIR="${GITHUB_ACTION_PATH}"
+              VALIDATION_OUTPUT="${WORK_DIR}/validation-output.txt"
               VALIDATION_EXIT=0
-              python3 "${SCRIPT_DIR}/validate-unknown-keys.py" "${SCHEMA_PATH}" "${VALUES_JSON}" || VALIDATION_EXIT=$?
+              python3 "${SCRIPT_DIR}/validate-unknown-keys.py" "${SCHEMA_PATH}" "${VALUES_JSON}" \
+                  > "${VALIDATION_OUTPUT}" 2>&1 || VALIDATION_EXIT=$?
+
+              # Always echo the captured output to the job log
+              cat "${VALIDATION_OUTPUT}"
 
               if [[ "${VALIDATION_EXIT}" -eq 0 ]]; then
                   echo "✅ No unknown configuration keys found in Helm release '${RELEASE_NAME}'"
@@ -323,14 +366,81 @@ runs:
                   echo "::warning::Unknown configuration keys detected in Helm release '${RELEASE_NAME}'"
                   echo "These keys are not recognized by the Camunda Helm chart schema and will be silently ignored."
                   echo "This may indicate typos or use of removed/renamed configuration properties."
-                  echo "HELM_DEPRECATION_FINDINGS_PRESENT=true" >> "${GITHUB_ENV}"
+                  {
+                      echo "### 🔑 Unknown configuration keys"
+                      echo ""
+                      echo '```'
+                      cat "${VALIDATION_OUTPUT}"
+                      echo '```'
+                      echo ""
+                  } >> "${FINDINGS_FILE}"
               fi
+
+        - name: 💬 Report findings (PR comment, log, or Slack)
+          id: report-findings
+          if: always()
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              INPUT_RELEASE_NAME: ${{ inputs.release-name }}
+              INPUT_NAMESPACE: ${{ inputs.namespace }}
+              INPUT_KUBE_CONTEXT: ${{ inputs.kube-context }}
+              INPUT_SECTION_KEY: ${{ inputs.comment-section-key }}
+              GH_WORKFLOW: ${{ github.workflow }}
+              GH_JOB: ${{ github.job }}
+              GH_REPO: ${{ github.repository }}
+              GH_RUN_ID: ${{ github.run_id }}
+              GH_SERVER_URL: ${{ github.server_url }}
+          run: |
+              set -euo pipefail
+
+              # The previous step may not have run (e.g. earlier infra failure).
+              # Treat a missing findings file as "nothing to report".
+              if [[ -z "${FINDINGS_FILE:-}" || ! -f "${FINDINGS_FILE}" || ! -s "${FINDINGS_FILE}" ]]; then
+                  echo "findings-present=false" >> "${GITHUB_OUTPUT}"
+                  echo "No findings to report."
+                  exit 0
+              fi
+
+              echo "findings-present=true" >> "${GITHUB_OUTPUT}"
+
+              # Determine PR number from the triggering event.
+              PR_NUMBER=""
+              case "${GITHUB_EVENT_NAME:-}" in
+                  pull_request|pull_request_target)
+                      PR_NUMBER=$(jq -r '.pull_request.number // empty' "${GITHUB_EVENT_PATH}")
+                      ;;
+                  workflow_run)
+                      PR_NUMBER=$(jq -r '.workflow_run.pull_requests[0].number // empty' "${GITHUB_EVENT_PATH}")
+                      ;;
+              esac
+
+              if [[ -z "${PR_NUMBER}" ]]; then
+                  echo "::warning::Helm deprecation findings detected on event '${GITHUB_EVENT_NAME:-unknown}'; see job log."
+                  echo "Findings:"
+                  cat "${FINDINGS_FILE}"
+                  echo ""
+                  echo "See: https://docs.camunda.io/docs/self-managed/deployment/helm/upgrade/"
+                  exit 0
+              fi
+
+              python3 "${GITHUB_ACTION_PATH}/upsert-pr-comment.py" \
+                  --pr-number "${PR_NUMBER}" \
+                  --repo "${GH_REPO}" \
+                  --workflow "${GH_WORKFLOW}" \
+                  --job "${GH_JOB}" \
+                  --release-name "${INPUT_RELEASE_NAME}" \
+                  --namespace "${INPUT_NAMESPACE}" \
+                  --kube-context "${INPUT_KUBE_CONTEXT}" \
+                  --section-key "${INPUT_SECTION_KEY}" \
+                  --run-url "${GH_SERVER_URL}/${GH_REPO}/actions/runs/${GH_RUN_ID}" \
+                  --findings-file "${FINDINGS_FILE}"
 
         - name: 🔔 Alert Slack on scheduled-run findings
           if: |
               always()
               && env.IS_SCHEDULE == 'true'
-              && env.HELM_DEPRECATION_FINDINGS_PRESENT == 'true'
+              && steps.report-findings.outputs.findings-present == 'true'
               && inputs.vault-addr != ''
               && inputs.vault-role-id != ''
               && inputs.vault-secret-id != ''
