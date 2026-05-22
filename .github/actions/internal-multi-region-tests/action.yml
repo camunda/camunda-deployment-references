@@ -72,6 +72,18 @@ inputs:
             (e.g. while waiting for an upstream chart fix).
         required: false
         default: 'true'
+    vault-addr:
+        description: Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
+        required: false
+        default: ''
+    vault-role-id:
+        description: Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
+        required: false
+        default: ''
+    vault-secret-id:
+        description: Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
+        required: false
+        default: ''
 runs:
     using: composite
     steps:
@@ -167,6 +179,9 @@ runs:
               kube-context: ${{ inputs.cluster-0-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
+              vault-addr: ${{ inputs.vault-addr }}
+              vault-role-id: ${{ inputs.vault-role-id }}
+              vault-secret-id: ${{ inputs.vault-secret-id }}
 
         - name: 🔍 Check for Helm deprecation warnings (region 1)
           uses: ./.github/actions/internal-helm-deprecation-check
@@ -176,6 +191,9 @@ runs:
               kube-context: ${{ inputs.cluster-1-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
+              vault-addr: ${{ inputs.vault-addr }}
+              vault-role-id: ${{ inputs.vault-role-id }}
+              vault-secret-id: ${{ inputs.vault-secret-id }}
 
         - name: Set start timestamp for Failover
           shell: bash
