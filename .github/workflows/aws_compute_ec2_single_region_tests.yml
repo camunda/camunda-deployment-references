@@ -303,8 +303,8 @@ jobs:
                   auth-mode: basic
                   zeebe-rest-address: >-
                       http://${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
-                  basic-auth-user: demo
-                  basic-auth-password: demo
+                  basic-auth-user: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
+                  basic-auth-password: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
                   benchmark-duration: '300'
 
             # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
