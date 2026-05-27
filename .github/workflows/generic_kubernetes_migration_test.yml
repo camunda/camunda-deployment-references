@@ -1,27 +1,12 @@
 ---
 name: Tests - Integration - Generic Migration from Bitnami
-
 permissions:
     contents: read
     pull-requests: write
-
 on:
     schedule:
-        - cron: 0 3 * * 2 # Runs at 3 AM on Tuesday (after operator-based tests on Monday)
-    pull_request:
-        paths:
-            - .github/workflows/generic_kubernetes_migration_test.yml
-            - .github/workflows/_migration_test_run.yml
-            - .github/workflows-config/generic-kubernetes-migration-from-bitnami/test_matrix.yml
-            - .tool-versions
-            - generic/kubernetes/migration/**
-            - generic/kubernetes/operator-based/**
-            - local/kubernetes/kind-single-region/**
-            - .github/actions/internal-apply-skip-label/**
-            - .github/actions/internal-tests-matrix/**
-            - .github/actions/internal-clean-namespace/**
-            - .github/actions/internal-helm-deprecation-check/**
-
+        - cron: 0 3 * * 2
+    pull_request: {}
     workflow_dispatch:
         inputs:
             enable_tests:
@@ -37,38 +22,28 @@ on:
                     - light
                     - heavy
                 default: light
-
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: false
-
 env:
     IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
-
     CI_MATRIX_FILE: .github/workflows-config/generic-kubernetes-migration-from-bitnami/test_matrix.yml
-
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
     BENCHMARK_SCENARIO: ${{ github.event.inputs.benchmark_scenario || 'light' }}
-
-    # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
     CAMUNDA_HELM_CHART_VERSION: 14.3.0
-
-    # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
     TESTS_CAMUNDA_HELM_CHART_REPO_REF: main
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo
-
 jobs:
     triage:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
-
     clusters-info:
         needs:
             - triage
@@ -81,13 +56,11 @@ jobs:
             platform-matrix-heavy: ${{ steps.split.outputs.heavy }}
             has-heavy: ${{ steps.split.outputs.has_heavy }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
               with:
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
               id: matrix
@@ -97,7 +70,6 @@ jobs:
                   ref_arch: migration-from-bitnami
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
-
             - name: Split matrix into light and heavy
               id: split
               run: |
@@ -119,11 +91,6 @@ jobs:
                   } >> "$GITHUB_OUTPUT"
                   echo "Light distros: $(echo "$LIGHT" | jq -r '[.distro[].name] | join(", ")')"
                   echo "Heavy distros: $(echo "$HEAVY" | jq -r '[.distro[].name] | join(", ")')"
-
-    # =================================================================
-    # Run migration tests — light distros in parallel, then heavy sequentially.
-    # Test steps are in _migration_test_run.yml (reusable workflow).
-    # =================================================================
     migration-tests:
         needs:
             - triage
@@ -133,7 +100,6 @@ jobs:
         with:
             platform-matrix: ${{ needs.clusters-info.outputs.platform-matrix-light }}
         secrets: inherit
-
     migration-tests-heavy:
         needs:
             - triage
@@ -145,7 +111,6 @@ jobs:
             platform-matrix: ${{ needs.clusters-info.outputs.platform-matrix-heavy }}
             max-parallel: 1
         secrets: inherit
-
     report-success:
         name: Report success
         if: ${{ !failure() && !cancelled() }}
@@ -154,17 +119,12 @@ jobs:
             - migration-tests
             - migration-tests-heavy
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
               env:
                   GH_TOKEN: ${{ github.token }}
               uses: ./.github/actions/internal-apply-skip-label
-
-    # =================================================================
-    # Meta-analysis: compare warm reindex vs standard cutover
-    # =================================================================
     compare-warm-reindex:
         name: Compare warm reindex effectiveness
         runs-on: ubuntu-latest
@@ -174,12 +134,11 @@ jobs:
             - migration-tests-heavy
         steps:
             - name: Download all migration metrics
-              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
               with:
                   pattern: migration-metrics-*
                   merge-multiple: false
                   path: metrics
-
             - name: Analyze warm reindex effectiveness
               run: |
                   set -euo pipefail
@@ -264,7 +223,6 @@ jobs:
                           echo "> to produce a comparison. This typically happens on scheduled runs only."
                       } >> "$GITHUB_STEP_SUMMARY"
                   fi
-
     report-failures:
         name: Report failures
         if: needs.triage.outputs.should_skip == 'false' && (failure())
@@ -275,7 +233,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
@@ -283,3 +241,5 @@ jobs:
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
                   slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}
+
+# Scheduled trigger: 2026-05-27T22:36:49Z - Wednesday schedules 8.9
