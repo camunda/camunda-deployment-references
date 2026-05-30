@@ -2150,6 +2150,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "eu-west-2",
                 "timeouts": {
                   "create": "5m",
@@ -2189,6 +2190,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "eu-west-2",
                 "timeouts": {
                   "create": "5m",
@@ -2228,6 +2230,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "eu-west-2",
                 "timeouts": {
                   "create": "5m",
@@ -2267,6 +2270,7 @@
                 "egress_only_gateway_id": null,
                 "local_gateway_id": null,
                 "nat_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "eu-west-2",
                 "timeouts": {
                   "create": "5m",
