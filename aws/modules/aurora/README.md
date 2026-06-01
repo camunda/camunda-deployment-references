@@ -63,10 +63,10 @@ No modules.
 | <a name="input_instance_class"></a> [instance\_class](#input\_instance\_class) | The instance type of the Aurora instances | `string` | `"db.t3.medium"` | no |
 | <a name="input_num_instances"></a> [num\_instances](#input\_num\_instances) | Number of instances | `string` | `"1"` | no |
 | <a name="input_password"></a> [password](#input\_password) | The password for the postgres admin user. Important: secret value! | `string` | n/a | yes |
-| <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | The subnet IDs to create the cluster in. For easier usage we are passing through the subnet IDs from the AWS EKS Cluster module. | `list(string)` | n/a | yes |
+| <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | The subnet IDs to create the Aurora cluster in. Private subnets are recommended. Provide subnets from any networking source (the repo's reference architectures wire these from their respective VPC/EKS modules). | `list(string)` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to add to the resources | `map` | `{}` | no |
 | <a name="input_username"></a> [username](#input\_username) | The username for the postgres admin user. Important: secret value! | `string` | n/a | yes |
-| <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | The VPC ID to create the cluster in. For easier usage we are passing through the VPC ID from the AWS EKS Cluster module. | `any` | n/a | yes |
+| <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | The VPC ID to create the Aurora cluster in. Provide a VPC ID from any networking source (the repo's reference architectures wire this from their respective VPC/EKS modules). | `any` | n/a | yes |
 ## Outputs
 
 | Name | Description |

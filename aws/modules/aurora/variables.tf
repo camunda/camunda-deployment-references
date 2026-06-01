@@ -55,7 +55,7 @@ variable "tags" {
 
 variable "subnet_ids" {
   type        = list(string)
-  description = "The subnet IDs to create the cluster in. For easier usage we are passing through the subnet IDs from the AWS EKS Cluster module."
+  description = "The subnet IDs to create the Aurora cluster in. Private subnets are recommended. Provide subnets from any networking source (the repo's reference architectures wire these from their respective VPC/EKS modules)."
 }
 
 variable "cidr_blocks" {
@@ -65,7 +65,7 @@ variable "cidr_blocks" {
 
 # pass through from root
 variable "vpc_id" {
-  description = "The VPC ID to create the cluster in. For easier usage we are passing through the VPC ID from the AWS EKS Cluster module."
+  description = "The VPC ID to create the Aurora cluster in. Provide a VPC ID from any networking source (the repo's reference architectures wire this from their respective VPC/EKS modules)."
 }
 
 # Allows adding additional iam roles to grant access from Aurora to e.g. S3
