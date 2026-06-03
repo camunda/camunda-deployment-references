@@ -1,0 +1,376 @@
+---
+name: Internal — Workflow failure to agent fix
+description: |
+    DRAFT / PUBLIC PREVIEW — Opens (or de-duplicates) a GitHub issue describing a
+    failed CI run and hands it to a coding agent so a fix is drafted automatically
+    as a pull request. Two interchangeable backends are supported:
+
+    - `claude`  (default): runs the official `anthropics/claude-code-action` inside
+      this workflow. It authenticates with the GitHub App installation token passed
+      via `github-token` (no human PAT) plus an `anthropic-api-key` service
+      credential, and pins the model with `model`. Claude opens a draft PR itself.
+    - `copilot`: assigns the issue to the GitHub Copilot coding agent, which works
+      asynchronously and opens its own draft PR. The Copilot assignment APIs reject
+      server-to-server tokens, so this backend additionally requires a USER-to-server
+      token (`copilot-token`). Prefer `claude` to avoid distributing a human PAT.
+
+    Human review stays mandatory for both backends: the PR is opened in draft, its
+    workflow runs require maintainer approval, and it still goes through the normal
+    review + CI gates before merge. This action only bootstraps the loop and never
+    merges anything.
+
+inputs:
+    agent:
+        description: 'Backend to use: "claude" or "copilot".'
+        required: false
+        default: claude
+    model:
+        description: >
+            Model the agent should use. For `claude` this is the Anthropic model id
+            passed to `--model` (e.g. an Opus 4.x id). For `copilot` it is the
+            optional Copilot model identifier passed to the assignment API.
+        required: false
+        default: ''
+    github-token:
+        description: >
+            Token with `issues: write` used for search/create/comment and, for the
+            `claude` backend, handed to Claude to push its branch and open the PR.
+            A GitHub App installation token (from Vault) is recommended — no human
+            PAT needed.
+        required: true
+    anthropic-api-key:
+        description: Anthropic API key (required for the `claude` backend).
+        required: false
+        default: ''
+    copilot-token:
+        description: >
+            User-to-server token allowed to assign the Copilot coding agent
+            (required for the `copilot` backend). Leave empty for `claude`.
+        required: false
+        default: ''
+    workflow-name:
+        description: Display name of the failed workflow.
+        required: true
+    run-url:
+        description: html_url of the failed workflow run.
+        required: true
+    run-id:
+        description: Numeric id of the failed workflow run.
+        required: true
+    head-branch:
+        description: Branch the failed run was executed on.
+        required: true
+    head-sha:
+        description: Commit SHA the failed run was executed on.
+        required: true
+    base-ref:
+        description: Branch the agent should base its fix branch on.
+        required: false
+        default: ${{ github.event.repository.default_branch }}
+    labels:
+        description: Comma-separated labels to apply to the created issue.
+        required: false
+        default: ci-failure,automation
+    mention:
+        description: Team/handle to ping when no agent could pick up the issue (e.g. "@org/infraex").
+        required: false
+        default: ''
+
+outputs:
+    issue-number:
+        description: Number of the created (or already existing) issue.
+        value: ${{ steps.ensure-issue.outputs.issue-number }}
+    issue-url:
+        description: URL of the created (or already existing) issue.
+        value: ${{ steps.ensure-issue.outputs.issue-url }}
+    agent-dispatched:
+        description: '"true" when an agent was handed the issue.'
+        value: ${{ steps.dispatch.outputs.dispatched }}
+
+runs:
+    using: composite
+    steps:
+        # A stable, hidden marker so repeated failures of the same workflow on the
+        # same branch collapse into a single open issue instead of spamming a new
+        # one on every scheduled run.
+        - name: Compute dedupe marker
+          id: marker
+          shell: bash
+          env:
+              WORKFLOW_NAME: ${{ inputs.workflow-name }}
+              HEAD_BRANCH: ${{ inputs.head-branch }}
+          run: |
+              set -euo pipefail
+              slug=$(printf '%s|%s' "$WORKFLOW_NAME" "$HEAD_BRANCH" \
+                  | tr '[:upper:]' '[:lower:]' \
+                  | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')
+              echo "key=ci-failure:${slug}" | tee -a "$GITHUB_OUTPUT"
+              echo "marker=<!-- ${slug} -->" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Find existing open issue
+          id: find
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              MARKER_KEY: ${{ steps.marker.outputs.key }}
+          run: |
+              set -euo pipefail
+              # Search the hidden marker in the body of open, automation-labelled issues.
+              existing=$(gh issue list \
+                  --repo "$GITHUB_REPOSITORY" \
+                  --state open \
+                  --label automation \
+                  --search "\"$MARKER_KEY\" in:body" \
+                  --json number,url \
+                  --jq 'first | .number // empty')
+              if [ -n "${existing:-}" ]; then
+                url=$(gh issue view "$existing" --repo "$GITHUB_REPOSITORY" --json url --jq '.url')
+                echo "found=true"  | tee -a "$GITHUB_OUTPUT"
+                echo "number=$existing" | tee -a "$GITHUB_OUTPUT"
+                echo "url=$url"     | tee -a "$GITHUB_OUTPUT"
+              else
+                echo "found=false" | tee -a "$GITHUB_OUTPUT"
+              fi
+
+        # Existing issue -> just append the new occurrence so the timeline keeps a
+        # history of failures, but do NOT re-dispatch an agent (one is already on it).
+        - name: Comment on existing issue
+          if: steps.find.outputs.found == 'true'
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              ISSUE_NUMBER: ${{ steps.find.outputs.number }}
+              WORKFLOW_NAME: ${{ inputs.workflow-name }}
+              RUN_URL: ${{ inputs.run-url }}
+              HEAD_SHA: ${{ inputs.head-sha }}
+          run: |
+              set -euo pipefail
+              gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
+              "🔁 **${WORKFLOW_NAME}** failed again at \`${HEAD_SHA}\` — [run log](${RUN_URL})."
+
+        - name: Create issue
+          id: create
+          if: steps.find.outputs.found == 'false'
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              WORKFLOW_NAME: ${{ inputs.workflow-name }}
+              RUN_URL: ${{ inputs.run-url }}
+              HEAD_BRANCH: ${{ inputs.head-branch }}
+              HEAD_SHA: ${{ inputs.head-sha }}
+              LABELS: ${{ inputs.labels }}
+              MARKER: ${{ steps.marker.outputs.marker }}
+          run: |
+              set -euo pipefail
+
+              body_file="$(mktemp)"
+              cat > "$body_file" <<EOF
+              ${MARKER}
+
+              ## Automated CI failure report
+
+              The workflow **${WORKFLOW_NAME}** failed on branch \`${HEAD_BRANCH}\`.
+
+              | | |
+              |---|---|
+              | Workflow | ${WORKFLOW_NAME} |
+              | Branch | \`${HEAD_BRANCH}\` |
+              | Commit | \`${HEAD_SHA}\` |
+              | Run | ${RUN_URL} |
+
+              ### What is expected from the assigned coding agent
+
+              1. Open the failing run log above and identify the root cause of the failure.
+              2. Propose the **smallest** change that fixes the failure, following the
+                 repository conventions in \`AGENTS.md\` / \`docs/development.md\`.
+              3. Do **not** weaken or skip tests to make CI pass.
+              4. Open a **draft** pull request targeting \`${HEAD_BRANCH}\` and summarise
+                 the root cause + fix in the PR description.
+
+              > A human maintainer must review and approve the resulting pull request and
+              > its workflow runs before anything is merged. This issue only bootstraps the
+              > automated fix loop.
+              EOF
+
+              # Ensure labels exist (idempotent) so --label never fails the run.
+              IFS=',' read -ra _labels <<< "$LABELS"
+              for l in "${_labels[@]}"; do
+                l="$(echo "$l" | xargs)"
+                [ -z "$l" ] && continue
+                gh label create "$l" --repo "$GITHUB_REPOSITORY" --color BFD4F2 --force >/dev/null 2>&1 || true
+              done
+
+              url=$(gh issue create \
+                  --repo "$GITHUB_REPOSITORY" \
+                  --title "CI failure: ${WORKFLOW_NAME} on ${HEAD_BRANCH}" \
+                  --body-file "$body_file" \
+                  --label "$LABELS")
+              number=$(basename "$url")
+              echo "number=$number" | tee -a "$GITHUB_OUTPUT"
+              echo "url=$url"       | tee -a "$GITHUB_OUTPUT"
+
+        # ---------------------------------------------------------------------
+        # Backend: Copilot coding agent (assign the fresh issue).
+        # The assignment APIs require a USER-to-server token; GITHUB_TOKEN and
+        # GitHub App installation tokens are rejected.
+        # ---------------------------------------------------------------------
+        - name: Assign Copilot coding agent
+          id: assign-copilot
+          if: steps.find.outputs.found == 'false' && inputs.agent == 'copilot' && inputs.copilot-token != ''
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.copilot-token }}
+              ISSUE_NUMBER: ${{ steps.create.outputs.number }}
+              BASE_REF: ${{ inputs.base-ref }}
+              MODEL: ${{ inputs.model }}
+              GH_FEATURES: issues_copilot_assignment_api_support,coding_agent_model_selection
+          run: |
+              set -euo pipefail
+              owner="${GITHUB_REPOSITORY%/*}"
+              repo="${GITHUB_REPOSITORY#*/}"
+
+              bot_id=$(gh api graphql -f query='
+                query($owner:String!,$repo:String!){
+                  repository(owner:$owner,name:$repo){
+                    suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100){
+                      nodes{ login __typename ... on Bot{ id } ... on User{ id } }
+                    }
+                  }
+                }' -F owner="$owner" -F repo="$repo" \
+                --jq '.data.repository.suggestedActors.nodes[] | select(.login=="copilot-swe-agent") | .id')
+
+              if [ -z "${bot_id:-}" ]; then
+                echo "Copilot coding agent is not available in this repository; skipping assignment."
+                echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              repo_id=$(gh api graphql -f query='
+                query($owner:String!,$repo:String!){ repository(owner:$owner,name:$repo){ id } }' \
+                -F owner="$owner" -F repo="$repo" --jq '.data.repository.id')
+
+              issue_id=$(gh api graphql -f query='
+                query($owner:String!,$repo:String!,$num:Int!){
+                  repository(owner:$owner,name:$repo){ issue(number:$num){ id } }
+                }' -F owner="$owner" -F repo="$repo" -F num="$ISSUE_NUMBER" \
+                --jq '.data.repository.issue.id')
+
+              instructions="Fix the failing CI run linked in the issue. "
+              instructions+="Make the smallest change that addresses the root cause, "
+              instructions+="follow AGENTS.md and docs/development.md, and never weaken "
+              instructions+="or skip tests. Open the PR as a draft."
+
+              gh api graphql \
+                -H "GraphQL-Features: ${GH_FEATURES}" \
+                -f query='
+                mutation($issueId:ID!,$botId:ID!,$repoId:ID!,$baseRef:String!,$model:String!,$instructions:String!){
+                  replaceActorsForAssignable(input:{
+                    assignableId:$issueId,
+                    actorIds:[$botId],
+                    agentAssignment:{
+                      targetRepositoryId:$repoId,
+                      baseRef:$baseRef,
+                      customInstructions:$instructions,
+                      customAgent:"",
+                      model:$model
+                    }
+                  }){ assignable{ ... on Issue{ number } } }
+                }' \
+                -F issueId="$issue_id" -F botId="$bot_id" -F repoId="$repo_id" \
+                -F baseRef="$BASE_REF" -F model="$MODEL" -F instructions="$instructions" >/dev/null
+
+              echo "Assigned Copilot coding agent to issue #${ISSUE_NUMBER}."
+              echo "dispatched=true" | tee -a "$GITHUB_OUTPUT"
+
+        # ---------------------------------------------------------------------
+        # Backend: Claude coding agent (runs in-workflow, opens a draft PR).
+        # Authenticates with the GitHub App installation token (no human PAT)
+        # plus the Anthropic service key. The model is pinned via --model.
+        # ---------------------------------------------------------------------
+        # TODO [setup]: pin to a commit SHA (repo convention — see docs/ci.md);
+        # Renovate will then keep it updated. Left as a tag in this DRAFT.
+        - name: Run Claude coding agent
+          id: assign-claude
+          if: steps.find.outputs.found == 'false' && inputs.agent == 'claude' && inputs.anthropic-api-key != ''
+          uses: anthropics/claude-code-action@v1
+          with:
+              anthropic_api_key: ${{ inputs.anthropic-api-key }}
+              github_token: ${{ inputs.github-token }}
+              base_branch: ${{ inputs.base-ref }}
+              claude_args: ${{ inputs.model != '' && format('--model {0}', inputs.model) || '' }}
+              prompt: |
+                  REPO: ${{ github.repository }}
+                  ISSUE: #${{ steps.create.outputs.number }}
+                  FAILED WORKFLOW: ${{ inputs.workflow-name }}
+                  FAILED RUN: ${{ inputs.run-url }}
+                  COMMIT: ${{ inputs.head-sha }}
+                  BASE BRANCH: ${{ inputs.base-ref }}
+
+                  A scheduled CI run failed. Investigate the failing run linked above,
+                  find the root cause, and implement the SMALLEST change that fixes it.
+
+                  Requirements:
+                  - Follow the repository conventions in AGENTS.md and docs/development.md.
+                  - Never weaken, delete or skip tests just to make CI pass.
+                  - Open a DRAFT pull request that targets `${{ inputs.base-ref }}` and
+                    references issue #${{ steps.create.outputs.number }} (e.g. "Closes #N").
+                  - In the PR description, explain the root cause and the fix.
+                  - A human maintainer will review before anything is merged.
+
+        - name: Mark Claude as dispatched
+          id: claude-dispatched
+          if: steps.assign-claude.outcome == 'success' && steps.find.outputs.found == 'false' && inputs.agent == 'claude' && inputs.anthropic-api-key !=
+              ''
+          shell: bash
+          run: echo "dispatched=true" | tee -a "$GITHUB_OUTPUT"
+
+        # ---------------------------------------------------------------------
+        # Aggregate dispatch state across both backends.
+        # ---------------------------------------------------------------------
+        - name: Aggregate dispatch state
+          id: dispatch
+          shell: bash
+          env:
+              COPILOT_DISPATCHED: ${{ steps.assign-copilot.outputs.dispatched }}
+              CLAUDE_DISPATCHED: ${{ steps.claude-dispatched.outputs.dispatched }}
+          run: |
+              set -euo pipefail
+              if [ "${COPILOT_DISPATCHED:-}" = "true" ] || [ "${CLAUDE_DISPATCHED:-}" = "true" ]; then
+                echo "dispatched=true" | tee -a "$GITHUB_OUTPUT"
+              else
+                echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
+              fi
+
+        # No agent could pick the issue up (missing token/key or backend
+        # unavailable): keep a human in the loop by pinging the configured team.
+        - name: Ping team when no agent picked up the issue
+          if: steps.find.outputs.found == 'false' && steps.dispatch.outputs.dispatched != 'true' && inputs.mention != ''
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              ISSUE_NUMBER: ${{ steps.create.outputs.number }}
+              MENTION: ${{ inputs.mention }}
+              AGENT: ${{ inputs.agent }}
+          run: |
+              set -euo pipefail
+              gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
+              "${MENTION} the **${AGENT}** coding agent could not be dispatched for this CI failure — please triage manually."
+
+        - name: Expose issue reference
+          id: ensure-issue
+          shell: bash
+          env:
+              FOUND: ${{ steps.find.outputs.found }}
+              EXISTING_NUMBER: ${{ steps.find.outputs.number }}
+              EXISTING_URL: ${{ steps.find.outputs.url }}
+              NEW_NUMBER: ${{ steps.create.outputs.number }}
+              NEW_URL: ${{ steps.create.outputs.url }}
+          run: |
+              set -euo pipefail
+              if [ "$FOUND" = "true" ]; then
+                echo "issue-number=$EXISTING_NUMBER" | tee -a "$GITHUB_OUTPUT"
+                echo "issue-url=$EXISTING_URL"       | tee -a "$GITHUB_OUTPUT"
+              else
+                echo "issue-number=$NEW_NUMBER" | tee -a "$GITHUB_OUTPUT"
+                echo "issue-url=$NEW_URL"       | tee -a "$GITHUB_OUTPUT"
+              fi

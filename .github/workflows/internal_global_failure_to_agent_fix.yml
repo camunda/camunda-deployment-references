@@ -1,0 +1,167 @@
+---
+# DRAFT — Bootstraps an automated fix loop for failing scheduled CI runs.
+#
+# When one of the watched test workflows finishes with `failure` on a *scheduled*
+# run (either a real `schedule` event or a simulated schedule, i.e. a run whose
+# branch is prefixed `schedules/`), this workflow opens (or de-duplicates) a
+# GitHub issue describing the failure and hands it to a coding agent which drafts
+# a fix as a pull request. A human maintainer must review and approve everything
+# before any merge — this only starts the loop.
+#
+# Two interchangeable backends (see `internal-failure-to-agent-fix`):
+#   - claude  (default): runs anthropics/claude-code-action in-workflow using the
+#     GitHub App installation token (no human PAT) + an Anthropic service key.
+#   - copilot          : assigns the GitHub Copilot coding agent (requires a
+#     user-to-server PAT, since the assignment API rejects app/installation
+#     tokens).
+#
+# It runs on `workflow_run` (decoupled from the test workflows themselves) so a
+# single place owns the logic; opt a test workflow in by extending `workflows:`.
+name: Internal - Global - CI failure to agent fix
+
+on:
+    workflow_run:
+        # Opt a test workflow in by adding its display `name:` here.
+        workflows:
+            - Tests - Integration - AWS EKS Single Region
+            - Tests - Integration - Azure AKS Single Region
+            - Internal - OpenShift - Save OpenShift ACM Versions as an artifact
+        types:
+            - completed
+    workflow_dispatch:
+        inputs:
+            agent:
+                description: Coding agent backend to dispatch the fix to.
+                required: false
+                default: claude
+                type: choice
+                options:
+                    - claude
+                    - copilot
+            model:
+                description: >
+                    Model id for the agent (e.g. an Opus 4.x id for claude). Leave
+                    empty to use the agent's default.
+                required: false
+                default: ''
+                type: string
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.workflow_run.id || github.run_id }}
+    cancel-in-progress: false
+
+env:
+    # Default coding agent + model. `claude` needs no human PAT (App token + service
+    # key), so it is the default. Override per-run via workflow_dispatch inputs.
+    # TODO [setup]: set MODEL to the exact Opus 4.x model id you are entitled to
+    # (e.g. an Opus 4.7 / 4.8 identifier) once confirmed against Anthropic's model list.
+    DEFAULT_AGENT: claude
+    DEFAULT_MODEL: ''
+    REVIEWER_TEAM: '@camunda/infraex-medic'
+
+permissions:
+    contents: read
+    issues: write
+    id-token: write
+
+jobs:
+    open-fix-issue:
+        name: Open fix issue and dispatch agent
+        runs-on: ubuntu-latest
+        # Only react to *scheduled* failures: real `schedule` events or simulated
+        # schedules (branch prefixed `schedules/`, the repo's staggered-test
+        # convention). PR/push runs already have a human author, so we skip them.
+        # `workflow_dispatch` is always allowed for manual testing.
+        if: >-
+            github.event_name == 'workflow_dispatch' ||
+            (
+              github.event.workflow_run.conclusion == 'failure' &&
+              (
+                github.event.workflow_run.event == 'schedule' ||
+                startsWith(github.event.workflow_run.head_branch, 'schedules/')
+              )
+            )
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            # GitHub App installation token from Vault — used for issue operations
+            # and handed to Claude to push its branch / open the PR. No human PAT.
+            - name: Generate GitHub App token
+              id: app-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@75437e16ff99edfa0accbd05115905f1947f4ffc # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+
+            # Service credentials from Vault.
+            # - ANTHROPIC_API_KEY: required for the `claude` backend (service key,
+            #   not a human token).
+            # - COPILOT_AGENT_PAT: only needed for the `copilot` backend (user PAT).
+            # TODO [setup]: add these keys to the shared CI secret before enabling
+            # the corresponding backend.
+            - name: Import agent credentials
+              id: agent-creds
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common ANTHROPIC_API_KEY | ANTHROPIC_API_KEY;
+                      secret/data/products/infrastructure-experience/ci/common COPILOT_AGENT_PAT | COPILOT_AGENT_PAT;
+
+            - name: Resolve run context
+              id: ctx
+              env:
+                  EVENT_NAME: ${{ github.event_name }}
+                  # workflow_run fields (empty on workflow_dispatch).
+                  WR_NAME: ${{ github.event.workflow_run.name }}
+                  WR_URL: ${{ github.event.workflow_run.html_url }}
+                  WR_ID: ${{ github.event.workflow_run.id }}
+                  WR_BRANCH: ${{ github.event.workflow_run.head_branch }}
+                  WR_SHA: ${{ github.event.workflow_run.head_sha }}
+                  # Manual-dispatch fallbacks so the action always has inputs.
+                  DISPATCH_BRANCH: ${{ github.ref_name }}
+                  DISPATCH_SHA: ${{ github.sha }}
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+                    echo "workflow-name=Manual dispatch (${WR_NAME:-test})" | tee -a "$GITHUB_OUTPUT"
+                    echo "run-url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" | tee -a "$GITHUB_OUTPUT"
+                    echo "run-id=${GITHUB_RUN_ID}"      | tee -a "$GITHUB_OUTPUT"
+                    echo "head-branch=${DISPATCH_BRANCH}" | tee -a "$GITHUB_OUTPUT"
+                    echo "head-sha=${DISPATCH_SHA}"     | tee -a "$GITHUB_OUTPUT"
+                  else
+                    echo "workflow-name=${WR_NAME}" | tee -a "$GITHUB_OUTPUT"
+                    echo "run-url=${WR_URL}"        | tee -a "$GITHUB_OUTPUT"
+                    echo "run-id=${WR_ID}"          | tee -a "$GITHUB_OUTPUT"
+                    echo "head-branch=${WR_BRANCH}" | tee -a "$GITHUB_OUTPUT"
+                    echo "head-sha=${WR_SHA}"       | tee -a "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Open issue and dispatch coding agent
+              uses: ./.github/actions/internal-failure-to-agent-fix
+              with:
+                  agent: ${{ inputs.agent || env.DEFAULT_AGENT }}
+                  model: ${{ inputs.model || env.DEFAULT_MODEL }}
+                  github-token: ${{ steps.app-token.outputs.token }}
+                  anthropic-api-key: ${{ steps.agent-creds.outputs.ANTHROPIC_API_KEY }}
+                  copilot-token: ${{ steps.agent-creds.outputs.COPILOT_AGENT_PAT }}
+                  workflow-name: ${{ steps.ctx.outputs.workflow-name }}
+                  run-url: ${{ steps.ctx.outputs.run-url }}
+                  run-id: ${{ steps.ctx.outputs.run-id }}
+                  head-branch: ${{ steps.ctx.outputs.head-branch }}
+                  head-sha: ${{ steps.ctx.outputs.head-sha }}
+                  base-ref: ${{ steps.ctx.outputs.head-branch }}
+                  labels: ci-failure,automation
+                  mention: ${{ env.REVIEWER_TEAM }}

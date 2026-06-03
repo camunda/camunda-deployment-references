@@ -105,6 +105,25 @@ All reusable CI logic lives in `.github/actions/`. Each action has:
 - **Auto-labeling:** `.github/labeler.yml` assigns labels based on changed paths (e.g. `aws/`, `azure/`, `generic/`)
 - **Renovate:** `.github/renovate.json5` extends `github>camunda/infraex-common-config:default.json5`. This shared config governs scheduling (weekends only, except CVEs), grouping (minor+patch together), automerge, and custom regex managers for non-standard deps (ROSA, Helm chart versions). Update `baseBranchPatterns` when branches are added/removed.
 
+## Automated CI-failure → agent fix loop (DRAFT / public preview)
+
+In addition to the Slack alert (`report-failure-on-slack`), scheduled test failures can bootstrap an automated fix attempt:
+
+1. `internal_global_failure_to_agent_fix.yml` runs on `workflow_run: completed` for the workflows listed in its `workflows:` array, but only when `conclusion == failure` **and** the run was scheduled — either a real `schedule` event **or** a simulated schedule (branch prefixed `schedules/`, matching the staggered-test convention). PR/push runs already have a human author, so they are skipped. `workflow_dispatch` is available for manual testing.
+2. It calls the `internal-failure-to-agent-fix` action, which de-duplicates on a hidden per-workflow+branch marker (one open issue per recurring failure), creates an issue with the run context, and hands it to a coding agent.
+
+**Selectable backend** (`agent` input, default `claude`):
+- **`claude`** — runs `anthropics/claude-code-action` in-workflow. It authenticates with the **GitHub App installation token** generated from Vault (`generate-github-app-token-from-vault-secrets`) — **no human PAT** — plus an `ANTHROPIC_API_KEY` service key from Vault. The model is pinned via `--model` (set the `model` input / `DEFAULT_MODEL`, e.g. an Opus 4.x id). Claude opens the draft PR itself.
+- **`copilot`** — assigns the issue to the GitHub Copilot coding agent. The assignment APIs **reject server-to-server tokens** (the App installation token does **not** work), so this backend needs a dedicated user-to-server PAT (`COPILOT_AGENT_PAT` from Vault). Prefer `claude` to avoid distributing a human PAT.
+
+**Human review stays mandatory.** Both backends open their PR in draft, the PR's workflow runs require maintainer approval, and it goes through the normal review + CI gates before merge. The automation never merges anything.
+
+**Setup notes (`TODO [setup]`):**
+- Add `ANTHROPIC_API_KEY` (service key) to the shared CI secret in Vault for the `claude` backend; add `COPILOT_AGENT_PAT` (user PAT with read/write on issues, contents, pull-requests, actions) only if you enable the `copilot` backend.
+- Set `DEFAULT_MODEL` to the exact Opus 4.x model id once confirmed against Anthropic's model list.
+- Pin `anthropics/claude-code-action` to a commit SHA (Renovate then tracks it).
+- Opt a new test workflow in by adding its display `name:` to the workflow's `workflows:` list.
+
 ## Customer-Facing Repo
 
 `camunda-deployment-references` is a **customer-facing** repository. This means:
