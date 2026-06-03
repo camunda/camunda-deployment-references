@@ -30,7 +30,6 @@ on:
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-integration-tests/**
-            - generic/kubernetes/single-region/tests/integration/**
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/aws-kubernetes-ingress-setup/**
             - .github/actions/kubernetes-wildcard-certificate/**
@@ -874,18 +873,12 @@ jobs:
 
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
 
-            # TODO: re-enable once Helm chart schema aligns with the new Contour values
             - name: 🔍 Check for Helm deprecation warnings
               continue-on-error: true
               uses: ./.github/actions/internal-helm-deprecation-check
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  # global.opensearch.enabled is deprecated but still required for the legacy Operate
-                  # OpensearchConnector which gates awsEnabled on this flag (see values-domain.yml)
-                  # TODO: remove exclude-patterns and global.opensearch from values once the legacy Operate connector is removed from the Helm chart
-                  exclude-patterns: |
-                      global.opensearch.enabled
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
