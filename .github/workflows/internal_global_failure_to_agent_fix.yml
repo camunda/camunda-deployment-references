@@ -58,11 +58,16 @@ env:
     DEFAULT_AGENT: claude
     DEFAULT_MODEL: ''
     REVIEWER_TEAM: '@camunda/infraex-medic'
+    # Channel the `report-failure-on-slack` alerts are posted to (infraex alerts).
+    # The created issue is threaded onto the original alert in this channel.
+    SLACK_CHANNEL_ID: C076N4G1162
 
 permissions:
     contents: read
     issues: write
     id-token: write
+    # Read-only access so the claude backend can inspect the failing run/jobs.
+    actions: read
 
 jobs:
     open-fix-issue:
@@ -118,6 +123,7 @@ jobs:
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common ANTHROPIC_API_KEY | ANTHROPIC_API_KEY;
                       secret/data/products/infrastructure-experience/ci/common COPILOT_AGENT_PAT | COPILOT_AGENT_PAT;
+                      secret/data/products/infrastructure-experience/ci/common SLACK_BOT_TOKEN | SLACK_BOT_TOKEN;
 
             - name: Resolve run context
               id: ctx
@@ -165,3 +171,5 @@ jobs:
                   base-ref: ${{ steps.ctx.outputs.head-branch }}
                   labels: ci-failure,automation
                   mention: ${{ env.REVIEWER_TEAM }}
+                  slack-bot-token: ${{ steps.agent-creds.outputs.SLACK_BOT_TOKEN }}
+                  slack-channel-id: ${{ env.SLACK_CHANNEL_ID }}

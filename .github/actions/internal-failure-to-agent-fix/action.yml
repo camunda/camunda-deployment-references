@@ -75,6 +75,16 @@ inputs:
         description: Team/handle to ping when no agent could pick up the issue (e.g. "@org/infraex").
         required: false
         default: ''
+    slack-bot-token:
+        description: >
+            Slack bot token used to thread the created issue onto the original
+            failure alert. Leave empty to disable Slack threading.
+        required: false
+        default: ''
+    slack-channel-id:
+        description: Slack channel id the failure alert was posted to (required when threading).
+        required: false
+        default: ''
 
 outputs:
     issue-number:
@@ -255,7 +265,11 @@ runs:
                 }' -F owner="$owner" -F repo="$repo" -F num="$ISSUE_NUMBER" \
                 --jq '.data.repository.issue.id')
 
-              instructions="Fix the failing CI run linked in the issue. "
+              instructions="First decide if the failing CI run is FLAKY (a transient "
+              instructions+="infra/network/timeout issue unrelated to the commit) or a REAL "
+              instructions+="failure. If it looks flaky, do not change code: comment on the "
+              instructions+="issue explaining why and that maintainers should re-run it. "
+              instructions+="Otherwise fix the failing CI run linked in the issue. "
               instructions+="Make the smallest change that addresses the root cause, "
               instructions+="follow AGENTS.md and docs/development.md, and never weaken "
               instructions+="or skip tests. Open the PR as a draft."
@@ -297,25 +311,41 @@ runs:
               anthropic_api_key: ${{ inputs.anthropic-api-key }}
               github_token: ${{ inputs.github-token }}
               base_branch: ${{ inputs.base-ref }}
-              claude_args: ${{ inputs.model != '' && format('--model {0}', inputs.model) || '' }}
+              # `actions: read` lets Claude inspect the failing run/jobs; Bash is
+              # allowed so it can re-run a flaky run via the GitHub CLI.
+              additional_permissions: |
+                  actions: read
+              claude_args: ${{ format('--allowedTools Bash {0}', inputs.model != '' && format('--model {0}', inputs.model) || '') }}
               prompt: |
                   REPO: ${{ github.repository }}
                   ISSUE: #${{ steps.create.outputs.number }}
                   FAILED WORKFLOW: ${{ inputs.workflow-name }}
                   FAILED RUN: ${{ inputs.run-url }}
+                  FAILED RUN ID: ${{ inputs.run-id }}
                   COMMIT: ${{ inputs.head-sha }}
                   BASE BRANCH: ${{ inputs.base-ref }}
 
-                  A scheduled CI run failed. Investigate the failing run linked above,
-                  find the root cause, and implement the SMALLEST change that fixes it.
+                  A scheduled CI run failed. First investigate the failing run linked
+                  above and decide whether this is a FLAKY failure (a transient
+                  infrastructure / network / timeout problem unrelated to the code at
+                  COMMIT) or a REAL failure.
 
-                  Requirements:
+                  If it is FLAKY:
+                  - Do NOT open a pull request and do NOT change any code.
+                  - Re-run only the failed jobs:
+                    `gh run rerun ${{ inputs.run-id }} --repo ${{ github.repository }} --failed`
+                  - Post a comment on issue #${{ steps.create.outputs.number }} starting
+                    with "🔁 autofix:" that explains why the failure looked flaky and that
+                    a re-run was triggered, then stop.
+
+                  If it is a REAL failure, implement the SMALLEST change that fixes it:
                   - Follow the repository conventions in AGENTS.md and docs/development.md.
                   - Never weaken, delete or skip tests just to make CI pass.
                   - Open a DRAFT pull request that targets `${{ inputs.base-ref }}` and
                     references issue #${{ steps.create.outputs.number }} (e.g. "Closes #N").
                   - In the PR description, explain the root cause and the fix.
-                  - A human maintainer will review before anything is merged.
+
+                  A human maintainer will review before anything is merged.
 
         - name: Mark Claude as dispatched
           id: claude-dispatched
@@ -355,6 +385,41 @@ runs:
               set -euo pipefail
               gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
               "${MENTION} the **${AGENT}** coding agent could not be dispatched for this CI failure — please triage manually."
+
+        # ---------------------------------------------------------------------
+        # Thread the freshly created issue onto the original Slack failure alert
+        # so the alert reader sees what was opened and (later) whether it was
+        # resolved, without leaving the thread.
+        # ---------------------------------------------------------------------
+        - name: Reply to Slack alert with the created issue
+          id: slack-thread
+          if: steps.find.outputs.found == 'false' && inputs.slack-bot-token != '' && inputs.slack-channel-id != ''
+          uses: ./.github/actions/internal-slack-thread-reply
+          with:
+              slack-bot-token: ${{ inputs.slack-bot-token }}
+              channel-id: ${{ inputs.slack-channel-id }}
+              match-text: ${{ inputs.run-url }}
+              message: >-
+                  🤖 Auto-fix loop: opened ${{ steps.create.outputs.url }} and dispatched
+                  the ${{ inputs.agent }} coding agent to draft a fix (human review required).
+
+        # Persist the Slack thread coordinates inside the issue body (hidden marker)
+        # so the resolution handler can reply in the same thread when it is closed.
+        - name: Stamp Slack thread reference on the issue
+          if: steps.slack-thread.outputs.posted == 'true'
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              ISSUE_NUMBER: ${{ steps.create.outputs.number }}
+              CHANNEL_ID: ${{ inputs.slack-channel-id }}
+              THREAD_TS: ${{ steps.slack-thread.outputs.thread-ts }}
+          run: |
+              set -euo pipefail
+              body=$(gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')
+              marker="<!-- slack-thread: channel=${CHANNEL_ID} ts=${THREAD_TS} -->"
+              printf '%s\n\n%s\n' "$body" "$marker" > "$RUNNER_TEMP/issue-body.md"
+              gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+                  --body-file "$RUNNER_TEMP/issue-body.md"
 
         - name: Expose issue reference
           id: ensure-issue

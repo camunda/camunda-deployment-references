@@ -38,6 +38,8 @@ merges anything.
 | `base-ref` | <p>Branch the agent should base its fix branch on.</p> | `false` | `${{ github.event.repository.default_branch }}` |
 | `labels` | <p>Comma-separated labels to apply to the created issue.</p> | `false` | `ci-failure,automation` |
 | `mention` | <p>Team/handle to ping when no agent could pick up the issue (e.g. "@org/infraex").</p> | `false` | `""` |
+| `slack-bot-token` | <p>Slack bot token used to thread the created issue onto the original failure alert. Leave empty to disable Slack threading.</p> | `false` | `""` |
+| `slack-channel-id` | <p>Slack channel id the failure alert was posted to (required when threading).</p> | `false` | `""` |
 
 
 ## Outputs
@@ -132,6 +134,18 @@ This action is a `composite` action.
 
     mention:
     # Team/handle to ping when no agent could pick up the issue (e.g. "@org/infraex").
+    #
+    # Required: false
+    # Default: ""
+
+    slack-bot-token:
+    # Slack bot token used to thread the created issue onto the original failure alert. Leave empty to disable Slack threading.
+    #
+    # Required: false
+    # Default: ""
+
+    slack-channel-id:
+    # Slack channel id the failure alert was posted to (required when threading).
     #
     # Required: false
     # Default: ""
