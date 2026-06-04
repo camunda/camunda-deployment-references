@@ -50,11 +50,6 @@ orchestration:
             oidc:
                 redirectUrl: http://localhost:8080
 
-identityKeycloak:
-    enabled: false
-    postgresql:
-        enabled: false
-
 identity:
     enabled: true
     contextPath: /managementidentity
