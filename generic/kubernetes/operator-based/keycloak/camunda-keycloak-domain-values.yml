@@ -47,11 +47,6 @@ orchestration:
             oidc:
                 redirectUrl: https://${CAMUNDA_DOMAIN}
 
-identityKeycloak:
-    enabled: false
-    postgresql:
-        enabled: false
-
 identity:
     enabled: true
     contextPath: /managementidentity
