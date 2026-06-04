@@ -28,6 +28,3 @@ webModeler:
         mail:
             fromAddress: noreply@camunda.local
             fromName: Camunda Platform
-
-webModelerPostgresql:
-    enabled: false

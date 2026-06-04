@@ -95,12 +95,5 @@ webModeler:
                 existingSecretKey: smtp-password
             fromAddress: changeme@example.com
 
-webModelerPostgresql:
-    enabled: false
-
-# Disable Elasticsearch (not needed in RDBMS mode)
-elasticsearch:
-    enabled: false
-
 console:
     enabled: false # by default, console is not enabled

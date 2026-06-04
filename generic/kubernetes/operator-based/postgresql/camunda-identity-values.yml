@@ -20,6 +20,3 @@ identity:
         secret:
             existingSecret: pg-identity-secret
             existingSecretKey: password
-
-identityPostgresql:
-    enabled: false
