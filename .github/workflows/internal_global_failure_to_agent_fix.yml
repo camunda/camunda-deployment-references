@@ -77,8 +77,9 @@ env:
     # The created issue is threaded onto the original alert in this channel.
     SLACK_CHANNEL_ID: C076N4G1162
     # GitHub Models model used to analyze the failed logs. GitHub Models does not
-    # host Anthropic Opus, so this is the strongest available code model; bump it
-    # as the catalog evolves.
+    # host Anthropic Opus, and `actions/ai-inference` only serves part of the
+    # catalog, so this is the strongest widely-available chat model on that
+    # endpoint; bump it as the catalog evolves.
     ANALYZER_MODEL: openai/gpt-4o
     # Real, known-failing run used by the `push` demo path (Group A — chart 8.x
     # `identityKeycloak` removed, deterministic). Resolved to full context below.
