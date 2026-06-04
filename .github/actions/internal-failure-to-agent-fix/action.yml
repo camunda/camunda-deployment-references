@@ -568,6 +568,30 @@ runs:
                 echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
               fi
 
+        # The agent was assigned and will open a draft PR. GitHub gates every
+        # Actions workflow run on agent-authored PRs behind a manual "Approve and
+        # run workflows" click, and there is no API (REST or the web frontend
+        # endpoint) to grant it with a token — only a human with write access can.
+        # Ping the configured team so a maintainer approves the runs once the PR
+        # opens, otherwise the proposed fix never gets CI feedback.
+        - name: Ask team to approve the agent PR workflows
+          if: steps.find.outputs.found == 'false' && steps.dispatch.outputs.dispatched == 'true' && inputs.mention != ''
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              ISSUE_NUMBER: ${{ steps.create.outputs.number }}
+              MENTION: ${{ inputs.mention }}
+              AGENT: ${{ inputs.agent }}
+          run: |
+              set -euo pipefail
+              comment="${MENTION} the **${AGENT}** coding agent is drafting a fix and "
+              comment+="will open a draft PR. GitHub blocks Actions workflow runs on "
+              comment+="agent-authored PRs until a maintainer approves them, and this "
+              comment+="cannot be automated. Once the PR is open, please click "
+              comment+="**Approve and run workflows** in its merge box so CI can "
+              comment+="validate the fix."
+              gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$comment"
+
         # No agent could pick the issue up (missing token/key or backend
         # unavailable): keep a human in the loop by pinging the configured team.
         - name: Ping team when no agent picked up the issue
