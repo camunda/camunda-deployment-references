@@ -148,6 +148,11 @@ jobs:
                   roleId: ${{ secrets.VAULT_ROLE_ID }}
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
+                  # Agent credentials are TODO [setup] (not yet in Vault); the
+                  # analyzer + issue + Slack steps only need GITHUB_TOKEN, so don't
+                  # hard-fail the whole loop when an agent key is still missing —
+                  # each backend already guards on its key being non-empty.
+                  ignoreNotFound: true
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common ANTHROPIC_API_KEY | ANTHROPIC_API_KEY;
                       secret/data/products/infrastructure-experience/ci/common COPILOT_AGENT_PAT | COPILOT_AGENT_PAT;
