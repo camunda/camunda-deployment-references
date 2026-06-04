@@ -424,6 +424,7 @@ runs:
               BASE_REF: ${{ inputs.base-ref }}
               MODEL: ${{ inputs.model }}
               ANALYSIS: ${{ steps.analyze.outputs.response }}
+              REVIEWER: ${{ inputs.mention }}
               GH_FEATURES: issues_copilot_assignment_api_support,coding_agent_model_selection
           run: |
               set -euo pipefail
@@ -497,6 +498,14 @@ runs:
               instructions+="Make the smallest change that addresses the root cause, "
               instructions+="follow AGENTS.md and docs/development.md, and never weaken "
               instructions+="or skip tests. Open the PR as a draft."
+              if [ -n "${REVIEWER:-}" ]; then
+                # Strip a leading '@' so the org/team slug is usable for review requests.
+                reviewer_slug="${REVIEWER#@}"
+                instructions+=" Once the draft PR is open, request a review from the "
+                instructions+="${reviewer_slug} team on it (e.g. add ${reviewer_slug} as a "
+                instructions+="reviewer / \`gh pr edit <pr> --add-reviewer ${reviewer_slug}\`) "
+                instructions+="so a maintainer is notified."
+              fi
               if [ -n "${ANALYSIS:-}" ]; then
                 instructions+=" An automated (unverified) root-cause analysis of the "
                 instructions+="failing logs follows — treat it as a hint, not ground truth: "
