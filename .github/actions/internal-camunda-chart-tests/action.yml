@@ -374,6 +374,18 @@ runs:
                 fi
               done
 
+              # If the topology never returned valid JSON (e.g. persistent
+              # connectivity/auth issues), the downstream golden-diff section
+              # (yq/jq/delta) would hard-fail under `set -euo pipefail` before the
+              # readable assertions below run. Fall back to a safe minimal object
+              # and flag the failure so the step exits deterministically with
+              # clear messaging instead of crashing.
+              if ! echo "$check_zeebe_topology_output" | jq -e . >/dev/null 2>&1; then
+                echo "❌ Zeebe topology output is empty or not valid JSON after $topology_max_attempts attempts."
+                check_zeebe_topology_output="{}"
+                error_found=true
+              fi
+
               # Checks
               if [ "$check_zeebe_topology_all_healthy" = "true" ]; then
                 echo "✅ All partitions are healthy."
