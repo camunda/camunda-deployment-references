@@ -341,6 +341,18 @@ runs:
                 error_found=true
               fi
 
+              # Fail fast before the golden-file comparison when the basic
+              # topology assertions above already failed. The diff below runs
+              # `yq ... sub(...)` over version fields, which crashes under
+              # `set -euo pipefail` on empty/partial topologies or null
+              # `gatewayVersion`/broker `version` fields. Short-circuiting here
+              # surfaces the readable assertion messages instead of a raw yq
+              # parse/substitution error.
+              if [ "$error_found" = true ]; then
+                echo "❌ Topology checks failed; skipping golden-file comparison."
+                exit 1
+              fi
+
               echo "Comparing golden file of the zeebe topology output..."
 
               # Save the output to a temporary file
