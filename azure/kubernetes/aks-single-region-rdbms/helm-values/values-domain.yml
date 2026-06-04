@@ -86,9 +86,6 @@ webModeler:
             fromAddress: changeme@example.com
 
 
-webModelerPostgresql:
-    enabled: false
-
 # Optimize requires Elasticsearch and is not available in RDBMS mode
 optimize:
     enabled: false
@@ -129,10 +126,6 @@ orchestration:
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
-
-# Disable Elasticsearch (not needed in RDBMS mode)
-elasticsearch:
-    enabled: false
 
 console:
     enabled: false # by default, console is not enabled

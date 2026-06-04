@@ -65,9 +65,3 @@ webModeler:
                 existingSecret: webmodeler-secret
                 existingSecretKey: smtp-password
             fromAddress: changeme@example.com   # change this required value
-
-# WebModeler PostgreSQL is managed by the CNPG operator.
-# See generic/kubernetes/operator-based/postgresql/ for the CNPG cluster definitions
-# and camunda-webmodeler-values.yml for the corresponding Helm overlay.
-webModelerPostgresql:
-    enabled: false

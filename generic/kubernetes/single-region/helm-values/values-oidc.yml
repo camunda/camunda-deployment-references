@@ -104,9 +104,6 @@ identity:
         - name: IDENTITY_INITIAL_CLAIM_VALUE
           value: ${IDENTITY_INITIAL_USER_EMAIL}
 
-identityKeycloak:
-    enabled: false
-
 connectors:
     # ⚠️ AWS Cognito M2M Authentication Issue
     # Connectors uses M2M (Client Credentials) authentication to connect to Zeebe.

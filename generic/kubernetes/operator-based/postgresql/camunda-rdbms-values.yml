@@ -25,10 +25,6 @@ orchestration:
                     existingSecret: pg-camunda-secret
                     existingSecretKey: password
 
-# Disable Elasticsearch (not needed in RDBMS mode)
-elasticsearch:
-    enabled: false
-
 # Disable Optimize (requires Elasticsearch, not available in RDBMS mode)
 optimize:
     enabled: false

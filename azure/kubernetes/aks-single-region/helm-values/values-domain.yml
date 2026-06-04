@@ -85,9 +85,6 @@ webModeler:
             fromAddress: changeme@example.com
 
 
-webModelerPostgresql:
-    enabled: false
-
 optimize:
     enabled: true
     contextPath: /optimize
