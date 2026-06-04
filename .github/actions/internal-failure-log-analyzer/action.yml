@@ -93,10 +93,17 @@ runs:
                   logs/trimmed.log > logs/errors.log || true
               head -c 51200 logs/errors.log > logs/excerpt.log
 
+              # `head -c` cuts on a byte boundary, so the excerpt may not end in a
+              # newline — without one the closing heredoc delimiter would share a
+              # line with the last log byte and GitHub rejects the output. Force a
+              # trailing newline. Use a random delimiter so log content can never
+              # accidentally collide with it.
+              printf '\n' >> logs/excerpt.log
+              delim="__LOG_EOF_$(openssl rand -hex 8)__"
               {
-                echo 'log-excerpt<<__LOG_EOF__'
+                echo "log-excerpt<<${delim}"
                 cat logs/excerpt.log
-                echo '__LOG_EOF__'
+                echo "${delim}"
               } >> "$GITHUB_OUTPUT"
 
         - name: Analyze logs with GitHub Models
