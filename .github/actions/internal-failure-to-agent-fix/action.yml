@@ -423,15 +423,31 @@ runs:
               owner="${GITHUB_REPOSITORY%/*}"
               repo="${GITHUB_REPOSITORY#*/}"
 
-              bot_id=$(gh api graphql -f query='
+              # Discover the assignable Copilot actor. Run tolerantly: an expired or
+              # invalid token makes this query return an auth error, which we want to
+              # surface as a clean "rotate the token" signal (and Slack alert) rather
+              # than a hard, red step failure.
+              if ! actors=$(gh api graphql -f query='
                 query($owner:String!,$repo:String!){
                   repository(owner:$owner,name:$repo){
                     suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100){
                       nodes{ login __typename ... on Bot{ id } ... on User{ id } }
                     }
                   }
-                }' -F owner="$owner" -F repo="$repo" \
-                --jq '.data.repository.suggestedActors.nodes[] | select(.login=="copilot-swe-agent") | .id')
+                }' -F owner="$owner" -F repo="$repo" 2>"$RUNNER_TEMP/discover-err.txt"); then
+                echo "::warning::Could not query assignable actors for the Copilot coding agent."
+                sed 's/^/  /' "$RUNNER_TEMP/discover-err.txt" || true
+                echo "This typically means the 'copilot-token' (Vault key COPILOT_AGENT_PAT) is"
+                echo "expired, revoked or invalid. Rotate it. The issue is left open for manual"
+                echo "assignment."
+                echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
+                echo "reason=token-invalid" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              bot_id=$(printf '%s' "$actors" | jq -r \
+                '.data.repository.suggestedActors.nodes[] | select(.login=="copilot-swe-agent") | .id' \
+                | head -n1)
 
               if [ -z "${bot_id:-}" ]; then
                 echo "::warning::The Copilot coding agent did not appear as an assignable actor for the token in use."
@@ -442,6 +458,7 @@ runs:
                 echo "available to human users in the repo). Provide a user PAT via 'copilot-token'"
                 echo "(Vault key COPILOT_AGENT_PAT). The issue is left open for manual assignment."
                 echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
+                echo "reason=not-assignable" | tee -a "$GITHUB_OUTPUT"
                 exit 0
               fi
 
@@ -497,6 +514,13 @@ runs:
                 echo "the Copilot coding agent; provide one via 'copilot-token' (Vault key"
                 echo "COPILOT_AGENT_PAT). The issue is still open for manual triage/assignment."
                 echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
+                # An auth/permission error here usually means the token expired or lost
+                # entitlement between discovery and assignment; flag it for the alert.
+                if grep -qiE 'unauthorized|bad credentials|401|403|forbidden|expired' "$RUNNER_TEMP/assign-err.txt"; then
+                  echo "reason=token-invalid" | tee -a "$GITHUB_OUTPUT"
+                else
+                  echo "reason=assignment-rejected" | tee -a "$GITHUB_OUTPUT"
+                fi
               fi
 
         # ---------------------------------------------------------------------
@@ -592,6 +616,72 @@ runs:
               set -euo pipefail
               gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
               "${MENTION} the **${AGENT}** coding agent could not be dispatched for this CI failure — please triage manually."
+
+        # Loud, top-level Slack alert when the Copilot coding agent could not be
+        # assigned because its token is missing/expired/invalid (or lost
+        # entitlement). Unlike the threaded issue/analysis replies, this is posted
+        # as a standalone message so the on-call sees a credential problem even if
+        # the original failure alert has scrolled away. Fires only for the copilot
+        # backend, on a fresh issue, when dispatch did not happen.
+        - name: Alert Slack when the Copilot token is unusable
+          if: >-
+              steps.find.outputs.found == 'false' &&
+              inputs.agent == 'copilot' &&
+              steps.dispatch.outputs.dispatched != 'true' &&
+              inputs.slack-bot-token != '' &&
+              inputs.slack-channel-id != ''
+          shell: bash
+          env:
+              SLACK_BOT_TOKEN: ${{ inputs.slack-bot-token }}
+              CHANNEL_ID: ${{ inputs.slack-channel-id }}
+              MENTION: ${{ inputs.mention }}
+              REASON: ${{ steps.assign-copilot.outputs.reason }}
+              ISSUE_URL: ${{ steps.create.outputs.url }}
+              WORKFLOW_NAME: ${{ inputs.workflow-name }}
+          run: |
+              set -euo pipefail
+
+              case "$REASON" in
+                token-invalid)
+                  headline="🔑 *Copilot coding-agent token looks expired or invalid*"
+                  detail="The CI auto-fix loop could not authenticate to assign the Copilot coding agent."
+                  detail+=" Rotate the user PAT in Vault (\`COPILOT_AGENT_PAT\` at"
+                  detail+=" \`secret/data/products/infrastructure-experience/ci/common\`)." ;;
+                not-assignable)
+                  headline="🔑 *Copilot coding agent is not assignable with the current token*"
+                  detail="The token is not a user-to-server PAT entitled to the Copilot coding agent"
+                  detail+=" (an App installation token is not accepted)."
+                  detail+=" Provide/rotate \`COPILOT_AGENT_PAT\` in Vault." ;;
+                assignment-rejected)
+                  headline="⚠️ *Copilot coding-agent assignment was rejected*"
+                  detail="Authentication looked OK but GitHub rejected the assignment."
+                  detail+=" Check the run logs and the \`COPILOT_AGENT_PAT\` permissions"
+                  detail+=" (Actions, Contents, Issues, Pull requests: read/write)." ;;
+                *)
+                  headline="⚠️ *Copilot coding agent could not be dispatched*"
+                  detail="The auto-fix loop opened an issue but could not assign the Copilot coding agent."
+                  detail+=" Check \`COPILOT_AGENT_PAT\` in Vault and the run logs." ;;
+              esac
+
+              text="${MENTION:+${MENTION} }${headline}"
+              text=$(printf '%s\n%s\n\n• Workflow: *%s*\n• Issue (open for manual assignment): %s' \
+                "$text" "$detail" "$WORKFLOW_NAME" "$ISSUE_URL")
+
+              payload=$(jq -nc \
+                --arg channel "$CHANNEL_ID" \
+                --arg text "$text" \
+                '{channel:$channel, text:$text, unfurl_links:false}')
+
+              resp=$(curl -sS -X POST "https://slack.com/api/chat.postMessage" \
+                -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+                -H "Content-Type: application/json; charset=utf-8" \
+                --data "$payload")
+
+              if [ "$(echo "$resp" | jq -r '.ok')" != "true" ]; then
+                echo "::warning::Slack credential alert failed: $(echo "$resp" | jq -r '.error // "unknown"')"
+              else
+                echo "Posted Copilot-token alert to ${CHANNEL_ID}."
+              fi
 
         # ---------------------------------------------------------------------
         # Thread the freshly created issue onto the original Slack failure alert
