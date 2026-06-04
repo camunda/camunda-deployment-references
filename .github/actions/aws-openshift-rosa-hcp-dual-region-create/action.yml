@@ -345,7 +345,12 @@ runs:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
           run: |
-              terraform apply -no-color clusters.plan
+              set -uo pipefail
+
+              # Convergent apply with retry for transient ROSA HCP compute-node
+              # provisioning timeouts (see the shared helper for the rationale).
+              source "${{ github.workspace }}/.github/scripts/rosa-hcp-convergent-apply.sh"
+              rosa_hcp_convergent_apply clusters.plan terraform.tfvars
 
               export cluster_1_cluster_id="$(terraform output -raw cluster_1_cluster_id)"
               echo "cluster_1_cluster_id=$cluster_1_cluster_id" | tee -a "$GITHUB_OUTPUT"
