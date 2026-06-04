@@ -406,10 +406,13 @@ runs:
         # ---------------------------------------------------------------------
         - name: Assign Copilot coding agent
           id: assign-copilot
-          if: steps.find.outputs.found == 'false' && inputs.agent == 'copilot' && inputs.copilot-token != ''
+          if: steps.find.outputs.found == 'false' && inputs.agent == 'copilot'
           shell: bash
           env:
-              GH_TOKEN: ${{ inputs.copilot-token }}
+              # Prefer a user-to-server PAT; fall back to the GitHub App token so the
+              # assignment is at least attempted with the credentials at hand. If the
+              # endpoint rejects the token the step reports it without failing the run.
+              GH_TOKEN: ${{ inputs.copilot-token != '' && inputs.copilot-token || inputs.github-token }}
               ISSUE_NUMBER: ${{ steps.create.outputs.number }}
               BASE_REF: ${{ inputs.base-ref }}
               MODEL: ${{ inputs.model }}
@@ -460,7 +463,7 @@ runs:
                 instructions+="${ANALYSIS}"
               fi
 
-              gh api graphql \
+              if gh api graphql \
                 -H "GraphQL-Features: ${GH_FEATURES}" \
                 -f query='
                 mutation($issueId:ID!,$botId:ID!,$repoId:ID!,$baseRef:String!,$model:String!,$instructions:String!){
@@ -477,10 +480,18 @@ runs:
                   }){ assignable{ ... on Issue{ number } } }
                 }' \
                 -F issueId="$issue_id" -F botId="$bot_id" -F repoId="$repo_id" \
-                -F baseRef="$BASE_REF" -F model="$MODEL" -F instructions="$instructions" >/dev/null
-
-              echo "Assigned Copilot coding agent to issue #${ISSUE_NUMBER}."
-              echo "dispatched=true" | tee -a "$GITHUB_OUTPUT"
+                -F baseRef="$BASE_REF" -F model="$MODEL" -F instructions="$instructions" \
+                >/dev/null 2>"$RUNNER_TEMP/assign-err.txt"; then
+                echo "Assigned Copilot coding agent to issue #${ISSUE_NUMBER}."
+                echo "dispatched=true" | tee -a "$GITHUB_OUTPUT"
+              else
+                echo "::warning::Could not assign the Copilot coding agent to issue #${ISSUE_NUMBER}."
+                sed 's/^/  /' "$RUNNER_TEMP/assign-err.txt" || true
+                echo "The assignment API typically needs a user-to-server token entitled to"
+                echo "the Copilot coding agent; provide one via 'copilot-token' (Vault key"
+                echo "COPILOT_AGENT_PAT). The issue is still open for manual triage/assignment."
+                echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
+              fi
 
         # ---------------------------------------------------------------------
         # Backend: Claude coding agent (runs in-workflow, opens a draft PR).

@@ -48,7 +48,7 @@ on:
             agent:
                 description: Coding agent backend to dispatch the fix to.
                 required: false
-                default: claude
+                default: copilot
                 type: choice
                 options:
                     - claude
@@ -66,11 +66,14 @@ concurrency:
     cancel-in-progress: false
 
 env:
-    # Default coding agent + model. `claude` needs no human PAT (App token + service
-    # key), so it is the default. Override per-run via workflow_dispatch inputs.
-    # TODO [setup]: set MODEL to the exact Opus 4.x model id you are entitled to
-    # (e.g. an Opus 4.7 / 4.8 identifier) once confirmed against Anthropic's model list.
-    DEFAULT_AGENT: claude
+    # Default coding agent + model. `copilot` assigns the GitHub Copilot coding
+    # agent to the issue (the same action a maintainer performs by hand from the
+    # issue sidebar), so the demo exercises the real assignment path. Switch to
+    # `claude` to run anthropics/claude-code-action in-workflow instead. Override
+    # per-run via workflow_dispatch inputs.
+    # TODO [setup]: set MODEL to the exact model id you are entitled to once
+    # confirmed against the agent's model list.
+    DEFAULT_AGENT: copilot
     DEFAULT_MODEL: ''
     REVIEWER_TEAM: '@camunda/infraex-medic'
     # Channel the `report-failure-on-slack` alerts are posted to (infraex alerts).
@@ -196,8 +199,10 @@ jobs:
                   set -euo pipefail
                   if [ "$EVENT_NAME" = "push" ]; then
                     # Resolve the known-failing demo run into full context so the loop
-                    # runs end-to-end against a real failure.
-                    read -r name branch sha < <(gh run view "$DEMO_RUN_ID" \
+                    # runs end-to-end against a real failure. The workflow name
+                    # contains spaces, so split strictly on the TSV tab (default IFS
+                    # would shred the name into the branch/sha fields).
+                    IFS=$'\t' read -r name branch sha < <(gh run view "$DEMO_RUN_ID" \
                       --repo "$GITHUB_REPOSITORY" \
                       --json displayTitle,workflowName,headBranch,headSha \
                       --jq '[.workflowName, .headBranch, .headSha] | @tsv')
