@@ -334,10 +334,24 @@ runs:
 
               for attempt in $(seq 1 "$topology_max_attempts"); do
                 echo "⏳ Fetching Zeebe topology (attempt $attempt/$topology_max_attempts)..."
+                # Remove any topology file from a previous attempt so a failed
+                # fetch cannot be mistaken for a fresh result (or reuse a stale one).
+                rm -f zeebe-topology.json
                 eval "$topology_check_script" || true
-                check_zeebe_topology_output=$(<zeebe-topology.json)
+                # The script may not have produced the file (transient
+                # connectivity/auth issues). Guard the read so a missing file
+                # yields an empty topology and a retryable state instead of
+                # aborting the whole step under `set -euo pipefail`.
+                if [ -f zeebe-topology.json ]; then
+                  check_zeebe_topology_output=$(<zeebe-topology.json)
+                else
+                  check_zeebe_topology_output=""
+                fi
 
-                healthy_filter='try ([.brokers[]?.partitions[]?.health == "healthy"] | all) catch false'
+                # Require at least one observed partition health before reporting
+                # healthy: `[...] | all` is true on an empty array, which would
+                # otherwise report healthy while the cluster is still forming.
+                healthy_filter='try ([.brokers[]?.partitions[]?.health == "healthy"] | (length > 0 and all)) catch false'
                 check_zeebe_topology_all_healthy=$(echo "$check_zeebe_topology_output" | jq -r "$healthy_filter" 2>/dev/null || echo "false")
                 check_zeebe_topology_cluster_size=$(echo "$check_zeebe_topology_output" | jq -r '.clusterSize // empty' 2>/dev/null || echo "")
                 check_zeebe_topology_partitions_count=$(echo "$check_zeebe_topology_output" | jq -r '.partitionsCount // empty' 2>/dev/null || echo "")
@@ -351,8 +365,13 @@ runs:
 
                 echo "Topology not ready yet (size='${check_zeebe_topology_cluster_size:-<empty>}'," \
                   "partitions='${check_zeebe_topology_partitions_count:-<empty>}'," \
-                  "healthy='${check_zeebe_topology_all_healthy}'). Retrying in ${topology_retry_interval}s..."
-                sleep "$topology_retry_interval"
+                  "healthy='${check_zeebe_topology_all_healthy}')."
+                # Only sleep when another attempt will follow, to avoid an
+                # unnecessary delay after the final attempt.
+                if [ "$attempt" -lt "$topology_max_attempts" ]; then
+                  echo "Retrying in ${topology_retry_interval}s..."
+                  sleep "$topology_retry_interval"
+                fi
               done
 
               # Checks
