@@ -451,12 +451,14 @@ runs:
 
               if [ -z "${bot_id:-}" ]; then
                 echo "::warning::The Copilot coding agent did not appear as an assignable actor for the token in use."
-                echo "This usually means the token is NOT a user-to-server token entitled to the"
-                echo "Copilot coding agent: GitHub only exposes 'copilot-swe-agent' via"
-                echo "suggestedActors(CAN_BE_ASSIGNED) — and only accepts the assignment — for a"
-                echo "user token, not a GitHub App installation token (even when the agent IS"
-                echo "available to human users in the repo). Provide a user PAT via 'copilot-token'"
-                echo "(Vault key COPILOT_AGENT_PAT). The issue is left open for manual assignment."
+                echo "The token authenticated successfully, so it is not expired/invalid — GitHub"
+                echo "only lists 'copilot-swe-agent' in suggestedActors(CAN_BE_ASSIGNED) when the"
+                echo "Copilot cloud agent is enabled FOR THE TOKEN'S OWNER. Most likely the"
+                echo "COPILOT_AGENT_PAT belongs to an account without a paid Copilot seat that has"
+                echo "the coding agent enabled, or it is a GitHub App installation token (not"
+                echo "accepted). Also confirm the fine-grained PAT grants: Read metadata, and"
+                echo "Read+write actions, contents, issues and pull requests. The issue is left"
+                echo "open for manual assignment."
                 echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
                 echo "reason=not-assignable" | tee -a "$GITHUB_OUTPUT"
                 exit 0
@@ -649,9 +651,11 @@ runs:
                   detail+=" \`secret/data/products/infrastructure-experience/ci/common\`)." ;;
                 not-assignable)
                   headline="🔑 *Copilot coding agent is not assignable with the current token*"
-                  detail="The token is not a user-to-server PAT entitled to the Copilot coding agent"
-                  detail+=" (an App installation token is not accepted)."
-                  detail+=" Provide/rotate \`COPILOT_AGENT_PAT\` in Vault." ;;
+                  detail="The \`COPILOT_AGENT_PAT\` authenticated but GitHub does not expose the Copilot"
+                  detail+=" cloud agent to its owner. Make sure the token belongs to an account with a"
+                  detail+=" paid Copilot seat that has the coding agent enabled, and that the"
+                  detail+=" fine-grained PAT grants Read metadata + Read/write actions, contents,"
+                  detail+=" issues and pull requests." ;;
                 assignment-rejected)
                   headline="⚠️ *Copilot coding-agent assignment was rejected*"
                   detail="Authentication looked OK but GitHub rejected the assignment."

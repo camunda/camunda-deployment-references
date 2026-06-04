@@ -76,9 +76,15 @@ env:
     DEFAULT_AGENT: copilot
     DEFAULT_MODEL: ''
     REVIEWER_TEAM: '@camunda/infraex-medic'
-    # Channel the `report-failure-on-slack` alerts are posted to (infraex alerts).
-    # The created issue is threaded onto the original alert in this channel.
-    SLACK_CHANNEL_ID: C076N4G1162
+    # Slack channel for the threaded issue/analysis replies and the Copilot-token
+    # alert. Real schedule failures use the production infraex-alerts channel
+    # (`C076N4G1162`, where `report-failure-on-slack` posts); every other trigger
+    # (simulated schedules via `schedules/*`, plus the draft branch's
+    # push/workflow_dispatch demo) posts to infraex-test (`C07E4FF6YMB`) to avoid
+    # noise while the loop is still being exercised. Same convention as
+    # internal-helm-deprecation-check / aws_common_procedure_s3_bucket.
+    # TODO [setup]: drop the test-channel fallback once this leaves draft.
+    SLACK_CHANNEL_ID: ${{ github.event.workflow_run.event == 'schedule' && 'C076N4G1162' || 'C07E4FF6YMB' }}
     # GitHub Models model used to analyze the failed logs. GitHub Models does not
     # host Anthropic Opus, and `actions/ai-inference` only serves part of the
     # catalog, so this is the strongest widely-available chat model on that
