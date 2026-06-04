@@ -297,49 +297,10 @@ runs:
           run: |
               set -uo pipefail
 
-              # ROSA HCP compute-node provisioning is occasionally slow on the AWS
-              # side, which makes the rhcs provider's `wait_for_std_compute_nodes_complete`
-              # time out *after* the cluster itself has already been created. This is a
-              # transient infrastructure delay, not a configuration error.
-              #
-              # We retry such timeouts with a convergent apply: the cluster is already in
-              # the Terraform state, so a fresh plan + apply simply re-enters the wait on
-              # the existing cluster (it does not recreate anything). Any error that is NOT
-              # a known compute-node provisioning timeout fails fast on the first attempt.
-              max_attempts=3
-              # Patterns emitted by the rhcs provider when the post-create node wait times out.
-              transient_pattern='std compute nodes|compute nodes completion|waiting for (std )?compute|context deadline exceeded|timeout while waiting'
-
-              attempt=1
-              while true; do
-                if [ "${attempt}" -eq 1 ]; then
-                  # First attempt uses the plan produced by the previous step.
-                  terraform apply -no-color rosa.plan 2>&1 | tee apply.log
-                  rc="${PIPESTATUS[0]}"
-                else
-                  # The saved plan is stale once the state has partially advanced, so we
-                  # re-plan against the current state before re-applying.
-                  terraform plan -no-color -var-file=terraform.tfvars -out rosa.plan 2>&1 | tee plan.log
-                  terraform apply -no-color rosa.plan 2>&1 | tee apply.log
-                  rc="${PIPESTATUS[0]}"
-                fi
-
-                if [ "${rc}" -eq 0 ]; then
-                  echo "Terraform apply succeeded on attempt ${attempt}."
-                  break
-                fi
-
-                if [ "${attempt}" -lt "${max_attempts}" ] && grep -Eiq "${transient_pattern}" apply.log; then
-                  echo "::warning::ROSA HCP compute-node provisioning timed out on attempt ${attempt}/${max_attempts} (rc=${rc})."
-                  echo "::warning::The cluster exists in the Terraform state; re-planning and retrying the convergent apply."
-                  attempt=$((attempt + 1))
-                  sleep 60
-                  continue
-                fi
-
-                echo "::error::Terraform apply failed on attempt ${attempt} (rc=${rc}) and the error is not a known transient compute-node provisioning timeout. Failing."
-                exit "${rc}"
-              done
+              # Convergent apply with retry for transient ROSA HCP compute-node
+              # provisioning timeouts (see the shared helper for the rationale).
+              source "${{ github.workspace }}/.github/scripts/rosa-hcp-convergent-apply.sh"
+              rosa_hcp_convergent_apply rosa.plan terraform.tfvars
 
         - name: Export Terraform Outputs - Cluster
           id: terraform_outputs_cluster
