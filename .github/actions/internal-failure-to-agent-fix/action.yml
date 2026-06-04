@@ -434,7 +434,13 @@ runs:
                 --jq '.data.repository.suggestedActors.nodes[] | select(.login=="copilot-swe-agent") | .id')
 
               if [ -z "${bot_id:-}" ]; then
-                echo "Copilot coding agent is not available in this repository; skipping assignment."
+                echo "::warning::The Copilot coding agent did not appear as an assignable actor for the token in use."
+                echo "This usually means the token is NOT a user-to-server token entitled to the"
+                echo "Copilot coding agent: GitHub only exposes 'copilot-swe-agent' via"
+                echo "suggestedActors(CAN_BE_ASSIGNED) — and only accepts the assignment — for a"
+                echo "user token, not a GitHub App installation token (even when the agent IS"
+                echo "available to human users in the repo). Provide a user PAT via 'copilot-token'"
+                echo "(Vault key COPILOT_AGENT_PAT). The issue is left open for manual assignment."
                 echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
                 exit 0
               fi
