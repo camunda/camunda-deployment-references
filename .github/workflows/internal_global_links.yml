@@ -8,6 +8,7 @@ on:
     pull_request:
         paths:
             - .github/workflows/internal_global_links.yml
+            - '**/*.md'
 
 env:
     IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
