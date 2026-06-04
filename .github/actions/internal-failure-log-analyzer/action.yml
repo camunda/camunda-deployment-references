@@ -87,17 +87,23 @@ runs:
               sed -E 's/.*[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z[[:space:]]*//' \
                   logs/failed.log > logs/trimmed.log
 
-              # Keep only error-relevant lines with a little context, then cap size
-              # so the prompt stays small and cheap.
+              # Keep only error-relevant lines with a little context.
               grep -iC 5 -E 'error|fail|exception|timeout|denied|not found|panic|fatal' \
                   logs/trimmed.log > logs/errors.log || true
-              head -c 51200 logs/errors.log > logs/excerpt.log
 
-              # `head -c` cuts on a byte boundary, so the excerpt may not end in a
-              # newline — without one the closing heredoc delimiter would share a
-              # line with the last log byte and GitHub rejects the output. Force a
-              # trailing newline. Use a random delimiter so log content can never
-              # accidentally collide with it.
+              # GitHub Models caps the request body (~4000 input tokens for the
+              # default model), so the excerpt must stay small or the inference
+              # step 413s and — since composite-action steps can't be marked
+              # continue-on-error — aborts the whole loop. Keep the LAST ~8000
+              # bytes: the decisive error and stack usually sit at the very end of
+              # a failed job, while the head is mostly setup noise.
+              tail -c 8000 logs/errors.log > logs/excerpt.log
+
+              # `tail -c` cuts on a byte boundary, so the excerpt may not start or
+              # end on a line boundary — and without a trailing newline the closing
+              # heredoc delimiter would share a line with the last log byte and
+              # GitHub rejects the output. Force a trailing newline. Use a random
+              # delimiter so log content can never accidentally collide with it.
               printf '\n' >> logs/excerpt.log
               delim="__LOG_EOF_$(openssl rand -hex 8)__"
               {
