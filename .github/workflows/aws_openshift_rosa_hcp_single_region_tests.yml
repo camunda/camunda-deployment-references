@@ -75,8 +75,10 @@ env:
     # Docker Hub auth to avoid image pull rate limit.
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
-    # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: camunda-platform-8.7-12.10.0
+    # 12.8.5 is the last 8.7 tag that still ships test/integration/testsuites/vars/files/,
+    # which the internal-camunda-chart-tests action depends on. Newer tags (>=12.9.0) drop it,
+    # so do NOT bump this past 12.8.5 without updating the action.
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: camunda-platform-8.7-12.8.5
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Components that are not enabled by default in the doc, but enabled in our tests to have a better coverage
