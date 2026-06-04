@@ -109,6 +109,35 @@ inputs:
         description: Maximum tokens for the analysis model response.
         required: false
         default: '800'
+    group-across-branches:
+        description: >
+            When "true" (default), failures of the same workflow are treated as one
+            failure class and collapse into a single issue regardless of the branch
+            they happened on: subsequent branches are grouped with a comment instead
+            of opening a new issue. Set "false" to keep one issue per workflow+branch.
+        required: false
+        default: 'true'
+    classification-key:
+        description: >
+            Optional explicit signature used to classify/group failures. When set,
+            failures sharing this key collapse into the same issue (use it to group
+            by a job name or an error fingerprint rather than the workflow name).
+            Defaults to the workflow name.
+        required: false
+        default: ''
+    notify-bot-on-group:
+        description: >
+            When "true" (default), a grouping comment @-mentions the coding-agent bot
+            so it is notified of the new occurrence and can re-evaluate the issue.
+        required: false
+        default: 'true'
+    bot-handle:
+        description: >
+            Handle mentioned to re-engage the coding agent when a new occurrence is
+            grouped onto an existing issue. Defaults to "@copilot" for the copilot
+            backend and "@claude" for the claude backend.
+        required: false
+        default: ''
 
 outputs:
     issue-number:
@@ -120,6 +149,9 @@ outputs:
     agent-dispatched:
         description: '"true" when an agent was handed the issue.'
         value: ${{ steps.dispatch.outputs.dispatched }}
+    grouped:
+        description: '"true" when the failure was grouped onto an existing issue instead of opening a new one.'
+        value: ${{ steps.find.outputs.found }}
     analysis:
         description: Root-cause analysis produced for the failure ('' when disabled or unavailable).
         value: ${{ steps.analyze.outputs.response }}
@@ -127,22 +159,51 @@ outputs:
 runs:
     using: composite
     steps:
-        # A stable, hidden marker so repeated failures of the same workflow on the
-        # same branch collapse into a single open issue instead of spamming a new
-        # one on every scheduled run.
+        # A stable, hidden marker so repeated failures of the SAME class collapse
+        # into a single open issue instead of spamming a new one. The class is the
+        # workflow (or an explicit `classification-key`); by default it ignores the
+        # branch so the same failure hitting several branches groups together.
         - name: Compute dedupe marker
           id: marker
           shell: bash
           env:
               WORKFLOW_NAME: ${{ inputs.workflow-name }}
               HEAD_BRANCH: ${{ inputs.head-branch }}
+              CLASSIFICATION_KEY: ${{ inputs.classification-key }}
+              GROUP_ACROSS_BRANCHES: ${{ inputs.group-across-branches }}
+              AGENT: ${{ inputs.agent }}
+              BOT_HANDLE: ${{ inputs.bot-handle }}
           run: |
               set -euo pipefail
-              slug=$(printf '%s|%s' "$WORKFLOW_NAME" "$HEAD_BRANCH" \
-                  | tr '[:upper:]' '[:lower:]' \
-                  | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')
-              echo "key=ci-failure:${slug}" | tee -a "$GITHUB_OUTPUT"
-              echo "marker=<!-- ${slug} -->" | tee -a "$GITHUB_OUTPUT"
+
+              norm() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g'; }
+
+              # The classification signature: explicit key if given, else workflow.
+              sig="$(norm "${CLASSIFICATION_KEY:-$WORKFLOW_NAME}")"
+              branch_slug="$(norm "$HEAD_BRANCH")"
+
+              # Group key: workflow-class only (cross-branch) unless grouping is off.
+              if [ "${GROUP_ACROSS_BRANCHES}" = "true" ]; then
+                group_slug="$sig"
+              else
+                group_slug="${sig}--${branch_slug}"
+              fi
+
+              echo "sig=$sig"                 | tee -a "$GITHUB_OUTPUT"
+              echo "branch-slug=$branch_slug" | tee -a "$GITHUB_OUTPUT"
+              echo "key=ci-failure:${group_slug}"        | tee -a "$GITHUB_OUTPUT"
+              echo "marker=<!-- ci-failure:${group_slug} -->" | tee -a "$GITHUB_OUTPUT"
+
+              # Resolve the bot handle used to re-engage the agent on grouping.
+              handle="$BOT_HANDLE"
+              if [ -z "$handle" ]; then
+                case "$AGENT" in
+                  copilot) handle="@copilot" ;;
+                  claude)  handle="@claude" ;;
+                  *)       handle="" ;;
+                esac
+              fi
+              echo "bot-handle=$handle" | tee -a "$GITHUB_OUTPUT"
 
         - name: Find existing open issue
           id: find
@@ -169,9 +230,12 @@ runs:
                 echo "found=false" | tee -a "$GITHUB_OUTPUT"
               fi
 
-        # Existing issue -> just append the new occurrence so the timeline keeps a
-        # history of failures, but do NOT re-dispatch an agent (one is already on it).
-        - name: Comment on existing issue
+        # Existing issue -> group this occurrence onto it instead of opening a new
+        # one. Record the new branch/sha in the timeline, track the set of affected
+        # branches in a hidden body marker, and (optionally) @-mention the agent bot
+        # so it is notified of the new occurrence. Do NOT re-dispatch a fresh agent
+        # run — one is already assigned and the mention re-engages it.
+        - name: Group onto existing issue
           if: steps.find.outputs.found == 'true'
           shell: bash
           env:
@@ -179,11 +243,71 @@ runs:
               ISSUE_NUMBER: ${{ steps.find.outputs.number }}
               WORKFLOW_NAME: ${{ inputs.workflow-name }}
               RUN_URL: ${{ inputs.run-url }}
+              HEAD_BRANCH: ${{ inputs.head-branch }}
               HEAD_SHA: ${{ inputs.head-sha }}
+              NOTIFY_BOT: ${{ inputs.notify-bot-on-group }}
+              BOT_HANDLE: ${{ steps.marker.outputs.bot-handle }}
           run: |
               set -euo pipefail
-              gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
-              "🔁 **${WORKFLOW_NAME}** failed again at \`${HEAD_SHA}\` — [run log](${RUN_URL})."
+
+              # Read the current body to learn which branches are already tracked.
+              body=$(gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')
+
+              # Hidden marker that records the affected branches, e.g.
+              #   <!-- branches: main,release/8.7 -->
+              tracked=$(printf '%s\n' "$body" \
+                  | sed -nE 's/.*<!-- branches:[[:space:]]*([^>]*[^[:space:]>])[[:space:]]*-->.*/\1/p' \
+                  | head -n1)
+
+              is_new_branch=true
+              if [ -n "$tracked" ]; then
+                # Exact match against the comma-separated list.
+                case ",${tracked}," in
+                  *",${HEAD_BRANCH},"*) is_new_branch=false ;;
+                esac
+              fi
+
+              # Build the grouping comment.
+              comment_file="$(mktemp)"
+              if [ "$is_new_branch" = "true" ]; then
+                if [ -n "$tracked" ]; then
+                  updated="${tracked},${HEAD_BRANCH}"
+                else
+                  updated="$HEAD_BRANCH"
+                fi
+                count=$(printf '%s' "$updated" | tr ',' '\n' | grep -c .)
+                {
+                  printf '🌿 **%s** failed on a **new branch** \`%s\` at \`%s\` — [run log](%s).\n\n' \
+                    "$WORKFLOW_NAME" "$HEAD_BRANCH" "$HEAD_SHA" "$RUN_URL"
+                  printf 'This failure class now impacts **%s branch(es)**: %s.\n' \
+                    "$count" "$(printf '%s' "$updated" | sed 's/,/, /g')"
+                } > "$comment_file"
+
+                # Persist the updated branch set in the hidden marker (add or replace).
+                if [ -n "$tracked" ]; then
+                  printf '%s\n' "$body" \
+                    | sed -E "s|<!-- branches:[[:space:]]*[^>]*-->|<!-- branches: ${updated} -->|" \
+                    > "$RUNNER_TEMP/grouped-body.md"
+                else
+                  printf '%s\n\n<!-- branches: %s -->\n' "$body" "$updated" \
+                    > "$RUNNER_TEMP/grouped-body.md"
+                fi
+                gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+                    --body-file "$RUNNER_TEMP/grouped-body.md"
+              else
+                printf '🔁 **%s** failed again on \`%s\` at \`%s\` — [run log](%s).\n' \
+                  "$WORKFLOW_NAME" "$HEAD_BRANCH" "$HEAD_SHA" "$RUN_URL" > "$comment_file"
+              fi
+
+              # Notify the bot so it picks up the new occurrence (re-engages the
+              # already-assigned agent). Requires the agent to be configured to react
+              # to the mention — TODO [setup] for the claude backend.
+              if [ "$NOTIFY_BOT" = "true" ] && [ -n "$BOT_HANDLE" ]; then
+                printf '\n%s a new occurrence was grouped here — please re-check whether the open fix still covers it.\n' \
+                  "$BOT_HANDLE" >> "$comment_file"
+              fi
+
+              gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$comment_file"
 
         # Fetch the failed logs and run a GitHub Models analysis once, only when we
         # are about to open a fresh issue. The summary is reused in the issue body,
@@ -252,6 +376,11 @@ runs:
                   printf '\n</details>\n'
                 } >> "$body_file"
               fi
+
+              # Seed the hidden branch tracker so later failures of the same class on
+              # other branches are grouped here (and counted) instead of opening a new
+              # issue.
+              printf '\n<!-- branches: %s -->\n' "$HEAD_BRANCH" >> "$body_file"
 
               # Ensure labels exist (idempotent) so --label never fails the run.
               IFS=',' read -ra _labels <<< "$LABELS"

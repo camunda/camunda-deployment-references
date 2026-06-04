@@ -44,6 +44,10 @@ merges anything.
 | `models-token` | <p>Token entitled to GitHub Models (<code>models: read</code>) and to read the run logs (<code>actions: read</code>). The workflow <code>GITHUB_TOKEN</code> is enough. Required only when <code>enable-log-analysis</code> is "true".</p> | `false` | `""` |
 | `analyzer-model` | <p>GitHub Models model id used for the failure analysis. Defaults to the strongest available code model (Opus is not offered on GitHub Models).</p> | `false` | `openai/gpt-4o` |
 | `analyzer-max-tokens` | <p>Maximum tokens for the analysis model response.</p> | `false` | `800` |
+| `group-across-branches` | <p>When "true" (default), failures of the same workflow are treated as one failure class and collapse into a single issue regardless of the branch they happened on: subsequent branches are grouped with a comment instead of opening a new issue. Set "false" to keep one issue per workflow+branch.</p> | `false` | `true` |
+| `classification-key` | <p>Optional explicit signature used to classify/group failures. When set, failures sharing this key collapse into the same issue (use it to group by a job name or an error fingerprint rather than the workflow name). Defaults to the workflow name.</p> | `false` | `""` |
+| `notify-bot-on-group` | <p>When "true" (default), a grouping comment @-mentions the coding-agent bot so it is notified of the new occurrence and can re-evaluate the issue.</p> | `false` | `true` |
+| `bot-handle` | <p>Handle mentioned to re-engage the coding agent when a new occurrence is grouped onto an existing issue. Defaults to "@copilot" for the copilot backend and "@claude" for the claude backend.</p> | `false` | `""` |
 
 
 ## Outputs
@@ -53,6 +57,7 @@ merges anything.
 | `issue-number` | <p>Number of the created (or already existing) issue.</p> |
 | `issue-url` | <p>URL of the created (or already existing) issue.</p> |
 | `agent-dispatched` | <p>"true" when an agent was handed the issue.</p> |
+| `grouped` | <p>"true" when the failure was grouped onto an existing issue instead of opening a new one.</p> |
 | `analysis` | <p>Root-cause analysis produced for the failure ('' when disabled or unavailable).</p> |
 
 
@@ -178,4 +183,28 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 800
+
+    group-across-branches:
+    # When "true" (default), failures of the same workflow are treated as one failure class and collapse into a single issue regardless of the branch they happened on: subsequent branches are grouped with a comment instead of opening a new issue. Set "false" to keep one issue per workflow+branch.
+    #
+    # Required: false
+    # Default: true
+
+    classification-key:
+    # Optional explicit signature used to classify/group failures. When set, failures sharing this key collapse into the same issue (use it to group by a job name or an error fingerprint rather than the workflow name). Defaults to the workflow name.
+    #
+    # Required: false
+    # Default: ""
+
+    notify-bot-on-group:
+    # When "true" (default), a grouping comment @-mentions the coding-agent bot so it is notified of the new occurrence and can re-evaluate the issue.
+    #
+    # Required: false
+    # Default: true
+
+    bot-handle:
+    # Handle mentioned to re-engage the coding agent when a new occurrence is grouped onto an existing issue. Defaults to "@copilot" for the copilot backend and "@claude" for the claude backend.
+    #
+    # Required: false
+    # Default: ""
 ```

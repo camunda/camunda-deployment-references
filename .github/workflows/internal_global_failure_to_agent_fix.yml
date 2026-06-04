@@ -240,3 +240,7 @@ jobs:
                   enable-log-analysis: 'true'
                   models-token: ${{ github.token }}
                   analyzer-model: ${{ env.ANALYZER_MODEL }}
+                  # Group same-workflow failures across branches into one issue and
+                  # notify the assigned agent bot when a new occurrence is grouped.
+                  group-across-branches: 'true'
+                  notify-bot-on-group: 'true'
