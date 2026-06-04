@@ -17,5 +17,5 @@ exclude_path = [
 exclude = [
   "^file:",
   "https://developer.hashicorp.com/*", # vercel security check causing issues
-  "^http://keycloak-service:", # in-cluster example URL, only resolvable inside the cluster
+  "^https?://keycloak-service(:|/)", # in-cluster service hostname documented in smoke-test action, only resolvable inside the cluster
 ]
