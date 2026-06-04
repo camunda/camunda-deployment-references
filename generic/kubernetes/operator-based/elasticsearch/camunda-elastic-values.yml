@@ -37,7 +37,3 @@ optimize:
                 secret:
                     existingSecret: elasticsearch-es-elastic-user
                     existingSecretKey: elastic
-
-# Disable bundled Elasticsearch sub-chart (using ECK-managed instance)
-elasticsearch:
-    enabled: false
