@@ -104,7 +104,7 @@ inputs:
             GitHub Models model id used for the failure analysis. Defaults to the
             strongest available code model (Opus is not offered on GitHub Models).
         required: false
-        default: openai/gpt-5
+        default: openai/gpt-4o
     analyzer-max-tokens:
         description: Maximum tokens for the analysis model response.
         required: false

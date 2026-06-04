@@ -42,7 +42,7 @@ merges anything.
 | `slack-channel-id` | <p>Slack channel id the failure alert was posted to (required when threading).</p> | `false` | `""` |
 | `enable-log-analysis` | <p>When "true", fetch the failed run logs and run a GitHub Models analysis whose root-cause summary is embedded in the issue, handed to the agent and threaded onto the Slack alert. Set "false" to skip the AI analysis.</p> | `false` | `true` |
 | `models-token` | <p>Token entitled to GitHub Models (<code>models: read</code>) and to read the run logs (<code>actions: read</code>). The workflow <code>GITHUB_TOKEN</code> is enough. Required only when <code>enable-log-analysis</code> is "true".</p> | `false` | `""` |
-| `analyzer-model` | <p>GitHub Models model id used for the failure analysis. Defaults to the strongest available code model (Opus is not offered on GitHub Models).</p> | `false` | `openai/gpt-5` |
+| `analyzer-model` | <p>GitHub Models model id used for the failure analysis. Defaults to the strongest available code model (Opus is not offered on GitHub Models).</p> | `false` | `openai/gpt-4o` |
 | `analyzer-max-tokens` | <p>Maximum tokens for the analysis model response.</p> | `false` | `800` |
 
 
@@ -171,7 +171,7 @@ This action is a `composite` action.
     # GitHub Models model id used for the failure analysis. Defaults to the strongest available code model (Opus is not offered on GitHub Models).
     #
     # Required: false
-    # Default: openai/gpt-5
+    # Default: openai/gpt-4o
 
     analyzer-max-tokens:
     # Maximum tokens for the analysis model response.

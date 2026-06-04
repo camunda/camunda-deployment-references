@@ -79,7 +79,7 @@ env:
     # GitHub Models model used to analyze the failed logs. GitHub Models does not
     # host Anthropic Opus, so this is the strongest available code model; bump it
     # as the catalog evolves.
-    ANALYZER_MODEL: openai/gpt-5
+    ANALYZER_MODEL: openai/gpt-4o
     # Real, known-failing run used by the `push` demo path (Group A — chart 8.x
     # `identityKeycloak` removed, deterministic). Resolved to full context below.
     # TODO [setup]: drop this together with the `push:` trigger before merge.

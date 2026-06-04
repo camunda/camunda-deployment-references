@@ -15,8 +15,10 @@ description: |
     `GITHUB_TOKEN` is enough). No external AI service credential is required here:
     the coding agent's own key (Anthropic) is unrelated to this analysis step.
 
-    GitHub Models does not host Anthropic Opus, so the default is the strongest
-    available code model (`openai/gpt-5`); override `model` as the catalog evolves.
+    GitHub Models does not host Anthropic Opus, and the `actions/ai-inference`
+    endpoint only serves part of the catalog, so the default is the strongest
+    widely-available chat model on that endpoint (`openai/gpt-4o`); override
+    `model` as the catalog evolves.
 
 inputs:
     run-url:
@@ -30,9 +32,10 @@ inputs:
     model:
         description: >
             GitHub Models model id used for the analysis. Defaults to the strongest
-            available code model since Opus is not offered on GitHub Models.
+            chat model served by the ai-inference endpoint (Opus is not offered on
+            GitHub Models).
         required: false
-        default: openai/gpt-5
+        default: openai/gpt-4o
     max-tokens:
         description: Maximum tokens for the model response.
         required: false

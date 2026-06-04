@@ -16,8 +16,10 @@ job needs `models: read` and must pass a token entitled to it (the workflow
 `GITHUB_TOKEN` is enough). No external AI service credential is required here:
 the coding agent's own key (Anthropic) is unrelated to this analysis step.
 
-GitHub Models does not host Anthropic Opus, so the default is the strongest
-available code model (`openai/gpt-5`); override `model` as the catalog evolves.
+GitHub Models does not host Anthropic Opus, and the `actions/ai-inference`
+endpoint only serves part of the catalog, so the default is the strongest
+widely-available chat model on that endpoint (`openai/gpt-4o`); override
+`model` as the catalog evolves.
 
 
 ## Inputs
@@ -26,7 +28,7 @@ available code model (`openai/gpt-5`); override `model` as the catalog evolves.
 | --- | --- | --- | --- |
 | `run-url` | <p>html_url of the failed workflow run to analyze.</p> | `true` | `""` |
 | `gh-token` | <p>Token used both to download the run logs (needs <code>actions: read</code> on the run's repository) and to call GitHub Models (needs <code>models: read</code>).</p> | `true` | `""` |
-| `model` | <p>GitHub Models model id used for the analysis. Defaults to the strongest available code model since Opus is not offered on GitHub Models.</p> | `false` | `openai/gpt-5` |
+| `model` | <p>GitHub Models model id used for the analysis. Defaults to the strongest chat model served by the ai-inference endpoint (Opus is not offered on GitHub Models).</p> | `false` | `openai/gpt-4o` |
 | `max-tokens` | <p>Maximum tokens for the model response.</p> | `false` | `800` |
 
 
@@ -59,10 +61,10 @@ This action is a `composite` action.
     # Default: ""
 
     model:
-    # GitHub Models model id used for the analysis. Defaults to the strongest available code model since Opus is not offered on GitHub Models.
+    # GitHub Models model id used for the analysis. Defaults to the strongest chat model served by the ai-inference endpoint (Opus is not offered on GitHub Models).
     #
     # Required: false
-    # Default: openai/gpt-5
+    # Default: openai/gpt-4o
 
     max-tokens:
     # Maximum tokens for the model response.
