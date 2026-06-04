@@ -8,12 +8,14 @@
 # a fix as a pull request. A human maintainer must review and approve everything
 # before any merge — this only starts the loop.
 #
-# Two interchangeable backends (see `internal-failure-to-agent-fix`):
-#   - claude  (default): runs anthropics/claude-code-action in-workflow using the
-#     GitHub App installation token (no human PAT) + an Anthropic service key.
-#   - copilot          : assigns the GitHub Copilot coding agent (requires a
-#     user-to-server PAT, since the assignment API rejects app/installation
-#     tokens).
+# It assigns the issue to a coding-agent actor via the GitHub issue-assignment
+# API (see `internal-failure-to-agent-fix`). The same mechanism handles every
+# backend; pick one through the `agent` input:
+#   - anthropic (default) -> anthropic-code-agent
+#   - copilot             -> copilot-swe-agent
+#   - openai              -> openai-code-agent
+# The assignment API rejects app/installation tokens, so a user-to-server PAT
+# (Vault key COPILOT_AGENT_PAT) is used for the assignment.
 #
 # It runs on `workflow_run` (decoupled from the test workflows themselves) so a
 # single place owns the logic; opt a test workflow in by extending `workflows:`.
@@ -48,15 +50,16 @@ on:
             agent:
                 description: Coding agent backend to dispatch the fix to.
                 required: false
-                default: copilot
+                default: anthropic
                 type: choice
                 options:
-                    - claude
+                    - anthropic
                     - copilot
+                    - openai
             model:
                 description: >
-                    Model id for the agent (e.g. an Opus 4.x id for claude). Leave
-                    empty to use the agent's default.
+                    Optional model id passed to the assignment API. Leave empty to
+                    use the agent's default.
                 required: false
                 default: ''
                 type: string
@@ -66,17 +69,17 @@ concurrency:
     cancel-in-progress: false
 
 env:
-    # Default coding agent + model. `copilot` assigns the GitHub Copilot coding
-    # agent to the issue (the same action a maintainer performs by hand from the
-    # issue sidebar), so the demo exercises the real assignment path. Switch to
-    # `claude` to run anthropics/claude-code-action in-workflow instead. Override
+    # Default coding agent + model. The agent is assigned to the issue via the
+    # GitHub issue-assignment API (the same action a maintainer performs by hand
+    # from the issue sidebar). `anthropic` assigns `anthropic-code-agent`;
+    # `copilot` and `openai` assign their respective agents the same way. Override
     # per-run via workflow_dispatch inputs.
     # TODO [setup]: set MODEL to the exact model id you are entitled to once
     # confirmed against the agent's model list.
-    DEFAULT_AGENT: copilot
+    DEFAULT_AGENT: anthropic
     DEFAULT_MODEL: ''
     REVIEWER_TEAM: '@camunda/infraex-medic'
-    # Slack channel for the threaded issue/analysis replies and the Copilot-token
+    # Slack channel for the threaded issue/analysis replies and the agent-token
     # alert. Real schedule failures use the production infraex-alerts channel
     # (`C076N4G1162`, where `report-failure-on-slack` posts); every other trigger
     # (simulated schedules via `schedules/*`, plus the draft branch's
@@ -99,8 +102,7 @@ permissions:
     contents: read
     issues: write
     id-token: write
-    # Read-only access so the claude backend can inspect the failing run/jobs and
-    # the analyzer can download logs.
+    # Read-only access so the analyzer can download the failing run logs.
     actions: read
     # Lets the failure-log analyzer call GitHub Models.
     models: read
@@ -128,8 +130,8 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-            # GitHub App installation token from Vault — used for issue operations
-            # and handed to Claude to push its branch / open the PR. No human PAT.
+            # GitHub App installation token from Vault — used for the issue
+            # bookkeeping (search/create/comment). No human PAT.
             - name: Generate GitHub App token
               id: app-token
               uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@75437e16ff99edfa0accbd05115905f1947f4ffc # main
@@ -143,9 +145,11 @@ jobs:
                   vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   vault-url: ${{ secrets.VAULT_ADDR }}
 
-            # Slack token from Vault — present in the shared CI secret, required for
-            # threading the issue + analysis onto the original failure alert.
-            - name: Import Slack credentials
+            # Slack token + coding-agent PAT from Vault — both live in the shared CI
+            # secret. SLACK_BOT_TOKEN threads the issue + analysis onto the original
+            # failure alert; COPILOT_AGENT_PAT is the user-to-server token used to
+            # assign the coding agent (the assignment API rejects App tokens).
+            - name: Import Slack + agent credentials
               id: slack-creds
               uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
               with:
@@ -156,32 +160,6 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common SLACK_BOT_TOKEN | SLACK_BOT_TOKEN;
-
-            # Agent credentials from Vault.
-            # - ANTHROPIC_API_KEY: required for the `claude` backend (service key,
-            #   not a human token).
-            # - COPILOT_AGENT_PAT: only needed for the `copilot` backend (user PAT).
-            # These keys are TODO [setup] and not in Vault yet. They live under the
-            # *same* path as SLACK_BOT_TOKEN, so `vault-action` raises a per-key
-            # "No match data" error (which `ignoreNotFound`, a path-level 404 guard,
-            # does NOT suppress). Keep this step `continue-on-error` so the analyzer
-            # + issue + Slack steps still run; each backend is already gated on its
-            # key being non-empty, so a missing key just skips that agent.
-            # TODO [setup]: add the keys to Vault, then fold this back into the step
-            # above and drop `continue-on-error`.
-            - name: Import agent credentials
-              id: agent-creds
-              continue-on-error: true
-              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
-              with:
-                  url: ${{ secrets.VAULT_ADDR }}
-                  method: approle
-                  roleId: ${{ secrets.VAULT_ROLE_ID }}
-                  secretId: ${{ secrets.VAULT_SECRET_ID }}
-                  exportEnv: false
-                  ignoreNotFound: true
-                  secrets: |
-                      secret/data/products/infrastructure-experience/ci/common ANTHROPIC_API_KEY | ANTHROPIC_API_KEY;
                       secret/data/products/infrastructure-experience/ci/common COPILOT_AGENT_PAT | COPILOT_AGENT_PAT;
 
             - name: Resolve run context
@@ -237,8 +215,7 @@ jobs:
                   agent: ${{ inputs.agent || env.DEFAULT_AGENT }}
                   model: ${{ inputs.model || env.DEFAULT_MODEL }}
                   github-token: ${{ steps.app-token.outputs.token }}
-                  anthropic-api-key: ${{ steps.agent-creds.outputs.ANTHROPIC_API_KEY }}
-                  copilot-token: ${{ steps.agent-creds.outputs.COPILOT_AGENT_PAT }}
+                  agent-token: ${{ steps.slack-creds.outputs.COPILOT_AGENT_PAT }}
                   workflow-name: ${{ steps.ctx.outputs.workflow-name }}
                   run-url: ${{ steps.ctx.outputs.run-url }}
                   run-id: ${{ steps.ctx.outputs.run-id }}

@@ -3,33 +3,36 @@
 ## Description
 
 DRAFT / PUBLIC PREVIEW — Opens (or de-duplicates) a GitHub issue describing a
-failed CI run and hands it to a coding agent so a fix is drafted automatically
-as a pull request. Two interchangeable backends are supported:
+failed CI run and assigns it to a coding agent so a fix is drafted
+automatically as a draft pull request.
 
-- `claude`  (default): runs the official `anthropics/claude-code-action` inside
-  this workflow. It authenticates with the GitHub App installation token passed
-  via `github-token` (no human PAT) plus an `anthropic-api-key` service
-  credential, and pins the model with `model`. Claude opens a draft PR itself.
-- `copilot`: assigns the issue to the GitHub Copilot coding agent, which works
-  asynchronously and opens its own draft PR. The Copilot assignment APIs reject
-  server-to-server tokens, so this backend additionally requires a USER-to-server
-  token (`copilot-token`). Prefer `claude` to avoid distributing a human PAT.
+A single mechanism is used for every backend: the issue is assigned to a
+coding-agent actor via GitHub's issue-assignment API. Three agents are
+assignable this way and selected through `agent`:
 
-Human review stays mandatory for both backends: the PR is opened in draft, its
-workflow runs require maintainer approval, and it still goes through the normal
-review + CI gates before merge. This action only bootstraps the loop and never
-merges anything.
+- `anthropic` (default) → `anthropic-code-agent`
+- `copilot`             → `copilot-swe-agent`
+- `openai`              → `openai-code-agent`
+
+The assigned agent works asynchronously and opens its own draft PR. These
+assignment APIs reject server-to-server tokens, so a USER-to-server token
+(`agent-token`, a fine-grained PAT) is required for the assignment; the GitHub
+App installation token (`github-token`) is only used for the issue bookkeeping.
+
+Human review stays mandatory: the PR is opened in draft, its workflow runs
+require maintainer approval, and it still goes through the normal review + CI
+gates before merge. This action only bootstraps the loop and never merges
+anything.
 
 
 ## Inputs
 
 | name | description | required | default |
 | --- | --- | --- | --- |
-| `agent` | <p>Backend to use: "claude" or "copilot".</p> | `false` | `claude` |
-| `model` | <p>Model the agent should use. For <code>claude</code> this is the Anthropic model id passed to <code>--model</code> (e.g. an Opus 4.x id). For <code>copilot</code> it is the optional Copilot model identifier passed to the assignment API.</p> | `false` | `""` |
-| `github-token` | <p>Token with <code>issues: write</code> used for search/create/comment and, for the <code>claude</code> backend, handed to Claude to push its branch and open the PR. A GitHub App installation token (from Vault) is recommended — no human PAT needed.</p> | `true` | `""` |
-| `anthropic-api-key` | <p>Anthropic API key (required for the <code>claude</code> backend).</p> | `false` | `""` |
-| `copilot-token` | <p>User-to-server token allowed to assign the Copilot coding agent (required for the <code>copilot</code> backend). Leave empty for <code>claude</code>.</p> | `false` | `""` |
+| `agent` | <p>Coding agent to assign: "anthropic" (anthropic-code-agent, default), "copilot" (copilot-swe-agent) or "openai" (openai-code-agent). The full actor login is also accepted.</p> | `false` | `anthropic` |
+| `model` | <p>Optional model identifier passed to the assignment API (coding<em>agent</em>model_selection). Leave empty to use the agent default.</p> | `false` | `""` |
+| `github-token` | <p>Token with <code>issues: write</code> used to search/create/comment on the issue. A GitHub App installation token (from Vault) is recommended — no human PAT needed for the issue bookkeeping.</p> | `true` | `""` |
+| `agent-token` | <p>User-to-server token (fine-grained PAT) entitled to assign the coding agent. Required: the assignment API rejects GitHub App installation tokens. The token owner must have the coding agent enabled and the PAT must grant Read metadata + Read/write actions, contents, issues and pull requests.</p> | `true` | `""` |
 | `workflow-name` | <p>Display name of the failed workflow.</p> | `true` | `""` |
 | `run-url` | <p>html_url of the failed workflow run.</p> | `true` | `""` |
 | `run-id` | <p>Numeric id of the failed workflow run.</p> | `true` | `""` |
@@ -47,7 +50,7 @@ merges anything.
 | `group-across-branches` | <p>When "true" (default), failures of the same workflow are treated as one failure class and collapse into a single issue regardless of the branch they happened on: subsequent branches are grouped with a comment instead of opening a new issue. Set "false" to keep one issue per workflow+branch.</p> | `false` | `true` |
 | `classification-key` | <p>Optional explicit signature used to classify/group failures. When set, failures sharing this key collapse into the same issue (use it to group by a job name or an error fingerprint rather than the workflow name). Defaults to the workflow name.</p> | `false` | `""` |
 | `notify-bot-on-group` | <p>When "true" (default), a grouping comment @-mentions the coding-agent bot so it is notified of the new occurrence and can re-evaluate the issue.</p> | `false` | `true` |
-| `bot-handle` | <p>Handle mentioned to re-engage the coding agent when a new occurrence is grouped onto an existing issue. Defaults to "@copilot" for the copilot backend and "@claude" for the claude backend.</p> | `false` | `""` |
+| `bot-handle` | <p>Handle mentioned to re-engage the coding agent when a new occurrence is grouped onto an existing issue. Defaults to the assigned agent's handle ("@anthropic-code-agent", "@copilot" or "@openai-code-agent").</p> | `false` | `""` |
 
 
 ## Outputs
@@ -71,33 +74,27 @@ This action is a `composite` action.
 - uses: camunda/camunda-deployment-references/.github/actions/internal-failure-to-agent-fix@main
   with:
     agent:
-    # Backend to use: "claude" or "copilot".
+    # Coding agent to assign: "anthropic" (anthropic-code-agent, default), "copilot" (copilot-swe-agent) or "openai" (openai-code-agent). The full actor login is also accepted.
     #
     # Required: false
-    # Default: claude
+    # Default: anthropic
 
     model:
-    # Model the agent should use. For `claude` this is the Anthropic model id passed to `--model` (e.g. an Opus 4.x id). For `copilot` it is the optional Copilot model identifier passed to the assignment API.
+    # Optional model identifier passed to the assignment API (coding_agent_model_selection). Leave empty to use the agent default.
     #
     # Required: false
     # Default: ""
 
     github-token:
-    # Token with `issues: write` used for search/create/comment and, for the `claude` backend, handed to Claude to push its branch and open the PR. A GitHub App installation token (from Vault) is recommended — no human PAT needed.
+    # Token with `issues: write` used to search/create/comment on the issue. A GitHub App installation token (from Vault) is recommended — no human PAT needed for the issue bookkeeping.
     #
     # Required: true
     # Default: ""
 
-    anthropic-api-key:
-    # Anthropic API key (required for the `claude` backend).
+    agent-token:
+    # User-to-server token (fine-grained PAT) entitled to assign the coding agent. Required: the assignment API rejects GitHub App installation tokens. The token owner must have the coding agent enabled and the PAT must grant Read metadata + Read/write actions, contents, issues and pull requests.
     #
-    # Required: false
-    # Default: ""
-
-    copilot-token:
-    # User-to-server token allowed to assign the Copilot coding agent (required for the `copilot` backend). Leave empty for `claude`.
-    #
-    # Required: false
+    # Required: true
     # Default: ""
 
     workflow-name:
@@ -203,7 +200,7 @@ This action is a `composite` action.
     # Default: true
 
     bot-handle:
-    # Handle mentioned to re-engage the coding agent when a new occurrence is grouped onto an existing issue. Defaults to "@copilot" for the copilot backend and "@claude" for the claude backend.
+    # Handle mentioned to re-engage the coding agent when a new occurrence is grouped onto an existing issue. Defaults to the assigned agent's handle ("@anthropic-code-agent", "@copilot" or "@openai-code-agent").
     #
     # Required: false
     # Default: ""

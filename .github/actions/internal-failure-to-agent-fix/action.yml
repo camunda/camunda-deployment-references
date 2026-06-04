@@ -2,52 +2,55 @@
 name: Internal — Workflow failure to agent fix
 description: |
     DRAFT / PUBLIC PREVIEW — Opens (or de-duplicates) a GitHub issue describing a
-    failed CI run and hands it to a coding agent so a fix is drafted automatically
-    as a pull request. Two interchangeable backends are supported:
+    failed CI run and assigns it to a coding agent so a fix is drafted
+    automatically as a draft pull request.
 
-    - `claude`  (default): runs the official `anthropics/claude-code-action` inside
-      this workflow. It authenticates with the GitHub App installation token passed
-      via `github-token` (no human PAT) plus an `anthropic-api-key` service
-      credential, and pins the model with `model`. Claude opens a draft PR itself.
-    - `copilot`: assigns the issue to the GitHub Copilot coding agent, which works
-      asynchronously and opens its own draft PR. The Copilot assignment APIs reject
-      server-to-server tokens, so this backend additionally requires a USER-to-server
-      token (`copilot-token`). Prefer `claude` to avoid distributing a human PAT.
+    A single mechanism is used for every backend: the issue is assigned to a
+    coding-agent actor via GitHub's issue-assignment API. Three agents are
+    assignable this way and selected through `agent`:
 
-    Human review stays mandatory for both backends: the PR is opened in draft, its
-    workflow runs require maintainer approval, and it still goes through the normal
-    review + CI gates before merge. This action only bootstraps the loop and never
-    merges anything.
+    - `anthropic` (default) → `anthropic-code-agent`
+    - `copilot`             → `copilot-swe-agent`
+    - `openai`              → `openai-code-agent`
+
+    The assigned agent works asynchronously and opens its own draft PR. These
+    assignment APIs reject server-to-server tokens, so a USER-to-server token
+    (`agent-token`, a fine-grained PAT) is required for the assignment; the GitHub
+    App installation token (`github-token`) is only used for the issue bookkeeping.
+
+    Human review stays mandatory: the PR is opened in draft, its workflow runs
+    require maintainer approval, and it still goes through the normal review + CI
+    gates before merge. This action only bootstraps the loop and never merges
+    anything.
 
 inputs:
     agent:
-        description: 'Backend to use: "claude" or "copilot".'
+        description: >
+            Coding agent to assign: "anthropic" (anthropic-code-agent, default),
+            "copilot" (copilot-swe-agent) or "openai" (openai-code-agent). The full
+            actor login is also accepted.
         required: false
-        default: claude
+        default: anthropic
     model:
         description: >
-            Model the agent should use. For `claude` this is the Anthropic model id
-            passed to `--model` (e.g. an Opus 4.x id). For `copilot` it is the
-            optional Copilot model identifier passed to the assignment API.
+            Optional model identifier passed to the assignment API
+            (coding_agent_model_selection). Leave empty to use the agent default.
         required: false
         default: ''
     github-token:
         description: >
-            Token with `issues: write` used for search/create/comment and, for the
-            `claude` backend, handed to Claude to push its branch and open the PR.
+            Token with `issues: write` used to search/create/comment on the issue.
             A GitHub App installation token (from Vault) is recommended — no human
-            PAT needed.
+            PAT needed for the issue bookkeeping.
         required: true
-    anthropic-api-key:
-        description: Anthropic API key (required for the `claude` backend).
-        required: false
-        default: ''
-    copilot-token:
+    agent-token:
         description: >
-            User-to-server token allowed to assign the Copilot coding agent
-            (required for the `copilot` backend). Leave empty for `claude`.
-        required: false
-        default: ''
+            User-to-server token (fine-grained PAT) entitled to assign the coding
+            agent. Required: the assignment API rejects GitHub App installation
+            tokens. The token owner must have the coding agent enabled and the PAT
+            must grant Read metadata + Read/write actions, contents, issues and
+            pull requests.
+        required: true
     workflow-name:
         description: Display name of the failed workflow.
         required: true
@@ -134,8 +137,8 @@ inputs:
     bot-handle:
         description: >
             Handle mentioned to re-engage the coding agent when a new occurrence is
-            grouped onto an existing issue. Defaults to "@copilot" for the copilot
-            backend and "@claude" for the claude backend.
+            grouped onto an existing issue. Defaults to the assigned agent's handle
+            ("@anthropic-code-agent", "@copilot" or "@openai-code-agent").
         required: false
         default: ''
 
@@ -198,9 +201,10 @@ runs:
               handle="$BOT_HANDLE"
               if [ -z "$handle" ]; then
                 case "$AGENT" in
-                  copilot) handle="@copilot" ;;
-                  claude)  handle="@claude" ;;
-                  *)       handle="" ;;
+                  copilot|copilot-swe-agent)      handle="@copilot" ;;
+                  anthropic|anthropic-code-agent) handle="@anthropic-code-agent" ;;
+                  openai|openai-code-agent)       handle="@openai-code-agent" ;;
+                  *)                              handle="" ;;
                 esac
               fi
               echo "bot-handle=$handle" | tee -a "$GITHUB_OUTPUT"
@@ -301,7 +305,7 @@ runs:
 
               # Notify the bot so it picks up the new occurrence (re-engages the
               # already-assigned agent). Requires the agent to be configured to react
-              # to the mention — TODO [setup] for the claude backend.
+              # to the mention.
               if [ "$NOTIFY_BOT" = "true" ] && [ -n "$BOT_HANDLE" ]; then
                 printf '\n%s a new occurrence was grouped here — please re-check whether the open fix still covers it.\n' \
                   "$BOT_HANDLE" >> "$comment_file"
@@ -400,19 +404,22 @@ runs:
               echo "url=$url"       | tee -a "$GITHUB_OUTPUT"
 
         # ---------------------------------------------------------------------
-        # Backend: Copilot coding agent (assign the fresh issue).
-        # The assignment APIs require a USER-to-server token; GITHUB_TOKEN and
-        # GitHub App installation tokens are rejected.
+        # Assign the coding agent to the fresh issue. Every backend uses the same
+        # issue-assignment API; the agent actor is selected from `agent`. The API
+        # requires a USER-to-server token (agent-token); GITHUB_TOKEN and GitHub
+        # App installation tokens are rejected.
         # ---------------------------------------------------------------------
-        - name: Assign Copilot coding agent
-          id: assign-copilot
-          if: steps.find.outputs.found == 'false' && inputs.agent == 'copilot'
+        - name: Assign coding agent
+          id: assign
+          if: steps.find.outputs.found == 'false'
           shell: bash
           env:
-              # Prefer a user-to-server PAT; fall back to the GitHub App token so the
-              # assignment is at least attempted with the credentials at hand. If the
-              # endpoint rejects the token the step reports it without failing the run.
-              GH_TOKEN: ${{ inputs.copilot-token != '' && inputs.copilot-token || inputs.github-token }}
+              # Prefer the user-to-server PAT; fall back to the GitHub App token so
+              # the assignment is at least attempted with the credentials at hand. If
+              # the endpoint rejects the token the step reports it without failing the
+              # run.
+              GH_TOKEN: ${{ inputs.agent-token != '' && inputs.agent-token || inputs.github-token }}
+              AGENT: ${{ inputs.agent }}
               ISSUE_NUMBER: ${{ steps.create.outputs.number }}
               BASE_REF: ${{ inputs.base-ref }}
               MODEL: ${{ inputs.model }}
@@ -423,10 +430,19 @@ runs:
               owner="${GITHUB_REPOSITORY%/*}"
               repo="${GITHUB_REPOSITORY#*/}"
 
-              # Discover the assignable Copilot actor. Run tolerantly: an expired or
-              # invalid token makes this query return an auth error, which we want to
-              # surface as a clean "rotate the token" signal (and Slack alert) rather
-              # than a hard, red step failure.
+              # Map the friendly agent name to its assignable actor login.
+              case "$AGENT" in
+                copilot|copilot-swe-agent)      actor_login="copilot-swe-agent" ;;
+                anthropic|anthropic-code-agent) actor_login="anthropic-code-agent" ;;
+                openai|openai-code-agent)       actor_login="openai-code-agent" ;;
+                *)                              actor_login="$AGENT" ;;
+              esac
+              echo "Target coding-agent actor: ${actor_login}"
+
+              # Discover the assignable actor. Run tolerantly: an expired or invalid
+              # token makes this query return an auth error, which we want to surface
+              # as a clean "rotate the token" signal (and Slack alert) rather than a
+              # hard, red step failure.
               if ! actors=$(gh api graphql -f query='
                 query($owner:String!,$repo:String!){
                   repository(owner:$owner,name:$repo){
@@ -435,9 +451,9 @@ runs:
                     }
                   }
                 }' -F owner="$owner" -F repo="$repo" 2>"$RUNNER_TEMP/discover-err.txt"); then
-                echo "::warning::Could not query assignable actors for the Copilot coding agent."
+                echo "::warning::Could not query assignable actors for the coding agent."
                 sed 's/^/  /' "$RUNNER_TEMP/discover-err.txt" || true
-                echo "This typically means the 'copilot-token' (Vault key COPILOT_AGENT_PAT) is"
+                echo "This typically means the 'agent-token' (Vault key COPILOT_AGENT_PAT) is"
                 echo "expired, revoked or invalid. Rotate it. The issue is left open for manual"
                 echo "assignment."
                 echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
@@ -445,20 +461,19 @@ runs:
                 exit 0
               fi
 
-              bot_id=$(printf '%s' "$actors" | jq -r \
-                '.data.repository.suggestedActors.nodes[] | select(.login=="copilot-swe-agent") | .id' \
+              bot_id=$(printf '%s' "$actors" | jq -r --arg login "$actor_login" \
+                '.data.repository.suggestedActors.nodes[] | select(.login==$login) | .id' \
                 | head -n1)
 
               if [ -z "${bot_id:-}" ]; then
-                echo "::warning::The Copilot coding agent did not appear as an assignable actor for the token in use."
+                echo "::warning::The '${actor_login}' coding agent did not appear as an assignable actor for the token in use."
                 echo "The token authenticated successfully, so it is not expired/invalid — GitHub"
-                echo "only lists 'copilot-swe-agent' in suggestedActors(CAN_BE_ASSIGNED) when the"
-                echo "Copilot cloud agent is enabled FOR THE TOKEN'S OWNER. Most likely the"
-                echo "COPILOT_AGENT_PAT belongs to an account without a paid Copilot seat that has"
-                echo "the coding agent enabled, or it is a GitHub App installation token (not"
-                echo "accepted). Also confirm the fine-grained PAT grants: Read metadata, and"
-                echo "Read+write actions, contents, issues and pull requests. The issue is left"
-                echo "open for manual assignment."
+                echo "only lists the agent in suggestedActors(CAN_BE_ASSIGNED) when the coding"
+                echo "agent is enabled FOR THE TOKEN'S OWNER. Most likely the agent-token belongs"
+                echo "to an account that does not have this coding agent enabled, or it is a"
+                echo "GitHub App installation token (not accepted). Also confirm the fine-grained"
+                echo "PAT grants: Read metadata, and Read+write actions, contents, issues and"
+                echo "pull requests. The issue is left open for manual assignment."
                 echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
                 echo "reason=not-assignable" | tee -a "$GITHUB_OUTPUT"
                 exit 0
@@ -507,14 +522,14 @@ runs:
                 -F issueId="$issue_id" -F botId="$bot_id" -F repoId="$repo_id" \
                 -F baseRef="$BASE_REF" -F model="$MODEL" -F instructions="$instructions" \
                 >/dev/null 2>"$RUNNER_TEMP/assign-err.txt"; then
-                echo "Assigned Copilot coding agent to issue #${ISSUE_NUMBER}."
+                echo "Assigned the ${actor_login} coding agent to issue #${ISSUE_NUMBER}."
                 echo "dispatched=true" | tee -a "$GITHUB_OUTPUT"
               else
-                echo "::warning::Could not assign the Copilot coding agent to issue #${ISSUE_NUMBER}."
+                echo "::warning::Could not assign the ${actor_login} coding agent to issue #${ISSUE_NUMBER}."
                 sed 's/^/  /' "$RUNNER_TEMP/assign-err.txt" || true
-                echo "The assignment API typically needs a user-to-server token entitled to"
-                echo "the Copilot coding agent; provide one via 'copilot-token' (Vault key"
-                echo "COPILOT_AGENT_PAT). The issue is still open for manual triage/assignment."
+                echo "The assignment API needs a user-to-server token entitled to the coding"
+                echo "agent; provide one via 'agent-token' (Vault key COPILOT_AGENT_PAT). The"
+                echo "issue is still open for manual triage/assignment."
                 echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
                 # An auth/permission error here usually means the token expired or lost
                 # entitlement between discovery and assignment; flag it for the alert.
@@ -526,79 +541,16 @@ runs:
               fi
 
         # ---------------------------------------------------------------------
-        # Backend: Claude coding agent (runs in-workflow, opens a draft PR).
-        # Authenticates with the GitHub App installation token (no human PAT)
-        # plus the Anthropic service key. The model is pinned via --model.
-        # ---------------------------------------------------------------------
-        # TODO [setup]: pin to a commit SHA (repo convention — see docs/ci.md);
-        # Renovate will then keep it updated. Left as a tag in this DRAFT.
-        - name: Run Claude coding agent
-          id: assign-claude
-          if: steps.find.outputs.found == 'false' && inputs.agent == 'claude' && inputs.anthropic-api-key != ''
-          uses: anthropics/claude-code-action@v1
-          with:
-              anthropic_api_key: ${{ inputs.anthropic-api-key }}
-              github_token: ${{ inputs.github-token }}
-              base_branch: ${{ inputs.base-ref }}
-              # `actions: read` lets Claude inspect the failing run/jobs; Bash is
-              # allowed so it can re-run a flaky run via the GitHub CLI.
-              additional_permissions: |
-                  actions: read
-              claude_args: ${{ format('--allowedTools Bash {0}', inputs.model != '' && format('--model {0}', inputs.model) || '') }}
-              prompt: |
-                  REPO: ${{ github.repository }}
-                  ISSUE: #${{ steps.create.outputs.number }}
-                  FAILED WORKFLOW: ${{ inputs.workflow-name }}
-                  FAILED RUN: ${{ inputs.run-url }}
-                  FAILED RUN ID: ${{ inputs.run-id }}
-                  COMMIT: ${{ inputs.head-sha }}
-                  BASE BRANCH: ${{ inputs.base-ref }}
-
-                  AUTOMATED ROOT-CAUSE ANALYSIS (unverified hint, may be wrong — confirm
-                  against the real logs before acting):
-                  ${{ steps.analyze.outputs.response }}
-
-                  A scheduled CI run failed. First investigate the failing run linked
-                  above and decide whether this is a FLAKY failure (a transient
-                  infrastructure / network / timeout problem unrelated to the code at
-                  COMMIT) or a REAL failure.
-
-                  If it is FLAKY:
-                  - Do NOT open a pull request and do NOT change any code.
-                  - Re-run only the failed jobs:
-                    `gh run rerun ${{ inputs.run-id }} --repo ${{ github.repository }} --failed`
-                  - Post a comment on issue #${{ steps.create.outputs.number }} starting
-                    with "🔁 autofix:" that explains why the failure looked flaky and that
-                    a re-run was triggered, then stop.
-
-                  If it is a REAL failure, implement the SMALLEST change that fixes it:
-                  - Follow the repository conventions in AGENTS.md and docs/development.md.
-                  - Never weaken, delete or skip tests just to make CI pass.
-                  - Open a DRAFT pull request that targets `${{ inputs.base-ref }}` and
-                    references issue #${{ steps.create.outputs.number }} (e.g. "Closes #N").
-                  - In the PR description, explain the root cause and the fix.
-
-                  A human maintainer will review before anything is merged.
-
-        - name: Mark Claude as dispatched
-          id: claude-dispatched
-          if: steps.assign-claude.outcome == 'success' && steps.find.outputs.found == 'false' && inputs.agent == 'claude' && inputs.anthropic-api-key !=
-              ''
-          shell: bash
-          run: echo "dispatched=true" | tee -a "$GITHUB_OUTPUT"
-
-        # ---------------------------------------------------------------------
-        # Aggregate dispatch state across both backends.
+        # Surface the dispatch state under a stable output for downstream steps.
         # ---------------------------------------------------------------------
         - name: Aggregate dispatch state
           id: dispatch
           shell: bash
           env:
-              COPILOT_DISPATCHED: ${{ steps.assign-copilot.outputs.dispatched }}
-              CLAUDE_DISPATCHED: ${{ steps.claude-dispatched.outputs.dispatched }}
+              ASSIGN_DISPATCHED: ${{ steps.assign.outputs.dispatched }}
           run: |
               set -euo pipefail
-              if [ "${COPILOT_DISPATCHED:-}" = "true" ] || [ "${CLAUDE_DISPATCHED:-}" = "true" ]; then
+              if [ "${ASSIGN_DISPATCHED:-}" = "true" ]; then
                 echo "dispatched=true" | tee -a "$GITHUB_OUTPUT"
               else
                 echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
@@ -619,16 +571,15 @@ runs:
               gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
               "${MENTION} the **${AGENT}** coding agent could not be dispatched for this CI failure — please triage manually."
 
-        # Loud, top-level Slack alert when the Copilot coding agent could not be
-        # assigned because its token is missing/expired/invalid (or lost
-        # entitlement). Unlike the threaded issue/analysis replies, this is posted
-        # as a standalone message so the on-call sees a credential problem even if
-        # the original failure alert has scrolled away. Fires only for the copilot
-        # backend, on a fresh issue, when dispatch did not happen.
-        - name: Alert Slack when the Copilot token is unusable
+        # Loud, top-level Slack alert when the coding agent could not be assigned
+        # because its token is missing/expired/invalid (or lost entitlement).
+        # Unlike the threaded issue/analysis replies, this is posted as a standalone
+        # message so the on-call sees a credential problem even if the original
+        # failure alert has scrolled away. Fires on a fresh issue, when dispatch did
+        # not happen.
+        - name: Alert Slack when the agent token is unusable
           if: >-
               steps.find.outputs.found == 'false' &&
-              inputs.agent == 'copilot' &&
               steps.dispatch.outputs.dispatched != 'true' &&
               inputs.slack-bot-token != '' &&
               inputs.slack-channel-id != ''
@@ -637,7 +588,8 @@ runs:
               SLACK_BOT_TOKEN: ${{ inputs.slack-bot-token }}
               CHANNEL_ID: ${{ inputs.slack-channel-id }}
               MENTION: ${{ inputs.mention }}
-              REASON: ${{ steps.assign-copilot.outputs.reason }}
+              AGENT: ${{ inputs.agent }}
+              REASON: ${{ steps.assign.outputs.reason }}
               ISSUE_URL: ${{ steps.create.outputs.url }}
               WORKFLOW_NAME: ${{ inputs.workflow-name }}
           run: |
@@ -645,25 +597,25 @@ runs:
 
               case "$REASON" in
                 token-invalid)
-                  headline="🔑 *Copilot coding-agent token looks expired or invalid*"
-                  detail="The CI auto-fix loop could not authenticate to assign the Copilot coding agent."
+                  headline="🔑 *Coding-agent token looks expired or invalid*"
+                  detail="The CI auto-fix loop could not authenticate to assign the \`${AGENT}\` coding agent."
                   detail+=" Rotate the user PAT in Vault (\`COPILOT_AGENT_PAT\` at"
                   detail+=" \`secret/data/products/infrastructure-experience/ci/common\`)." ;;
                 not-assignable)
-                  headline="🔑 *Copilot coding agent is not assignable with the current token*"
-                  detail="The \`COPILOT_AGENT_PAT\` authenticated but GitHub does not expose the Copilot"
-                  detail+=" cloud agent to its owner. Make sure the token belongs to an account with a"
-                  detail+=" paid Copilot seat that has the coding agent enabled, and that the"
-                  detail+=" fine-grained PAT grants Read metadata + Read/write actions, contents,"
-                  detail+=" issues and pull requests." ;;
+                  headline="🔑 *Coding agent is not assignable with the current token*"
+                  detail="The \`COPILOT_AGENT_PAT\` authenticated but GitHub does not expose the"
+                  detail+=" \`${AGENT}\` coding agent to its owner. Make sure the token belongs to an"
+                  detail+=" account that has this coding agent enabled, and that the fine-grained PAT"
+                  detail+=" grants Read metadata + Read/write actions, contents, issues and pull"
+                  detail+=" requests." ;;
                 assignment-rejected)
-                  headline="⚠️ *Copilot coding-agent assignment was rejected*"
-                  detail="Authentication looked OK but GitHub rejected the assignment."
+                  headline="⚠️ *Coding-agent assignment was rejected*"
+                  detail="Authentication looked OK but GitHub rejected the \`${AGENT}\` assignment."
                   detail+=" Check the run logs and the \`COPILOT_AGENT_PAT\` permissions"
                   detail+=" (Actions, Contents, Issues, Pull requests: read/write)." ;;
                 *)
-                  headline="⚠️ *Copilot coding agent could not be dispatched*"
-                  detail="The auto-fix loop opened an issue but could not assign the Copilot coding agent."
+                  headline="⚠️ *Coding agent could not be dispatched*"
+                  detail="The auto-fix loop opened an issue but could not assign the \`${AGENT}\` coding agent."
                   detail+=" Check \`COPILOT_AGENT_PAT\` in Vault and the run logs." ;;
               esac
 
@@ -684,7 +636,7 @@ runs:
               if [ "$(echo "$resp" | jq -r '.ok')" != "true" ]; then
                 echo "::warning::Slack credential alert failed: $(echo "$resp" | jq -r '.error // "unknown"')"
               else
-                echo "Posted Copilot-token alert to ${CHANNEL_ID}."
+                echo "Posted agent-token alert to ${CHANNEL_ID}."
               fi
 
         # ---------------------------------------------------------------------
