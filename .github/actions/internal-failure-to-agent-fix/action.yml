@@ -506,6 +506,9 @@ runs:
                 instructions+="reviewer / \`gh pr edit <pr> --add-reviewer ${reviewer_slug}\`) "
                 instructions+="so a maintainer is notified."
               fi
+              instructions+=" Also request a review from GitHub Copilot on the PR "
+              instructions+="(add Copilot as a reviewer / \`gh pr edit <pr> "
+              instructions+="--add-reviewer copilot-pull-request-reviewer[bot]\`)."
               if [ -n "${ANALYSIS:-}" ]; then
                 instructions+=" An automated (unverified) root-cause analysis of the "
                 instructions+="failing logs follows — treat it as a hint, not ground truth: "
