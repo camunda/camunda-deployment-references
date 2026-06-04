@@ -42,8 +42,8 @@ inputs:
     keycloak-url:
         description: >
             In-cluster Keycloak base URL for OIDC auth.
-            Operator: http://keycloak-service:18080/auth
-            Bitnami: http://<release>-keycloak:80/auth
+            Operator: `http://keycloak-service:18080/auth`
+            Bitnami: `http://<release>-keycloak:80/auth`
         required: false
         default: ''
     # ── OIDC auth inputs ────────────────────────────────────────
