@@ -133,14 +133,10 @@ jobs:
                   vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   vault-url: ${{ secrets.VAULT_ADDR }}
 
-            # Service credentials from Vault.
-            # - ANTHROPIC_API_KEY: required for the `claude` backend (service key,
-            #   not a human token).
-            # - COPILOT_AGENT_PAT: only needed for the `copilot` backend (user PAT).
-            # TODO [setup]: add these keys to the shared CI secret before enabling
-            # the corresponding backend.
-            - name: Import agent credentials
-              id: agent-creds
+            # Slack token from Vault — present in the shared CI secret, required for
+            # threading the issue + analysis onto the original failure alert.
+            - name: Import Slack credentials
+              id: slack-creds
               uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
               with:
                   url: ${{ secrets.VAULT_ADDR }}
@@ -148,15 +144,35 @@ jobs:
                   roleId: ${{ secrets.VAULT_ROLE_ID }}
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
-                  # Agent credentials are TODO [setup] (not yet in Vault); the
-                  # analyzer + issue + Slack steps only need GITHUB_TOKEN, so don't
-                  # hard-fail the whole loop when an agent key is still missing —
-                  # each backend already guards on its key being non-empty.
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common SLACK_BOT_TOKEN | SLACK_BOT_TOKEN;
+
+            # Agent credentials from Vault.
+            # - ANTHROPIC_API_KEY: required for the `claude` backend (service key,
+            #   not a human token).
+            # - COPILOT_AGENT_PAT: only needed for the `copilot` backend (user PAT).
+            # These keys are TODO [setup] and not in Vault yet. They live under the
+            # *same* path as SLACK_BOT_TOKEN, so `vault-action` raises a per-key
+            # "No match data" error (which `ignoreNotFound`, a path-level 404 guard,
+            # does NOT suppress). Keep this step `continue-on-error` so the analyzer
+            # + issue + Slack steps still run; each backend is already gated on its
+            # key being non-empty, so a missing key just skips that agent.
+            # TODO [setup]: add the keys to Vault, then fold this back into the step
+            # above and drop `continue-on-error`.
+            - name: Import agent credentials
+              id: agent-creds
+              continue-on-error: true
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
                   ignoreNotFound: true
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common ANTHROPIC_API_KEY | ANTHROPIC_API_KEY;
                       secret/data/products/infrastructure-experience/ci/common COPILOT_AGENT_PAT | COPILOT_AGENT_PAT;
-                      secret/data/products/infrastructure-experience/ci/common SLACK_BOT_TOKEN | SLACK_BOT_TOKEN;
 
             - name: Resolve run context
               id: ctx
@@ -219,7 +235,7 @@ jobs:
                   base-ref: ${{ steps.ctx.outputs.head-branch }}
                   labels: ci-failure,automation
                   mention: ${{ env.REVIEWER_TEAM }}
-                  slack-bot-token: ${{ steps.agent-creds.outputs.SLACK_BOT_TOKEN }}
+                  slack-bot-token: ${{ steps.slack-creds.outputs.SLACK_BOT_TOKEN }}
                   slack-channel-id: ${{ env.SLACK_CHANNEL_ID }}
                   enable-log-analysis: 'true'
                   models-token: ${{ github.token }}
