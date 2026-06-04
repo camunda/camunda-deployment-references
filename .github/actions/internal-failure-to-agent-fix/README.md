@@ -40,6 +40,10 @@ merges anything.
 | `mention` | <p>Team/handle to ping when no agent could pick up the issue (e.g. "@org/infraex").</p> | `false` | `""` |
 | `slack-bot-token` | <p>Slack bot token used to thread the created issue onto the original failure alert. Leave empty to disable Slack threading.</p> | `false` | `""` |
 | `slack-channel-id` | <p>Slack channel id the failure alert was posted to (required when threading).</p> | `false` | `""` |
+| `enable-log-analysis` | <p>When "true", fetch the failed run logs and run a GitHub Models analysis whose root-cause summary is embedded in the issue, handed to the agent and threaded onto the Slack alert. Set "false" to skip the AI analysis.</p> | `false` | `true` |
+| `models-token` | <p>Token entitled to GitHub Models (<code>models: read</code>) and to read the run logs (<code>actions: read</code>). The workflow <code>GITHUB_TOKEN</code> is enough. Required only when <code>enable-log-analysis</code> is "true".</p> | `false` | `""` |
+| `analyzer-model` | <p>GitHub Models model id used for the failure analysis. Defaults to the strongest available code model (Opus is not offered on GitHub Models).</p> | `false` | `openai/gpt-5` |
+| `analyzer-max-tokens` | <p>Maximum tokens for the analysis model response.</p> | `false` | `800` |
 
 
 ## Outputs
@@ -49,6 +53,7 @@ merges anything.
 | `issue-number` | <p>Number of the created (or already existing) issue.</p> |
 | `issue-url` | <p>URL of the created (or already existing) issue.</p> |
 | `agent-dispatched` | <p>"true" when an agent was handed the issue.</p> |
+| `analysis` | <p>Root-cause analysis produced for the failure ('' when disabled or unavailable).</p> |
 
 
 ## Runs
@@ -149,4 +154,28 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ""
+
+    enable-log-analysis:
+    # When "true", fetch the failed run logs and run a GitHub Models analysis whose root-cause summary is embedded in the issue, handed to the agent and threaded onto the Slack alert. Set "false" to skip the AI analysis.
+    #
+    # Required: false
+    # Default: true
+
+    models-token:
+    # Token entitled to GitHub Models (`models: read`) and to read the run logs (`actions: read`). The workflow `GITHUB_TOKEN` is enough. Required only when `enable-log-analysis` is "true".
+    #
+    # Required: false
+    # Default: ""
+
+    analyzer-model:
+    # GitHub Models model id used for the failure analysis. Defaults to the strongest available code model (Opus is not offered on GitHub Models).
+    #
+    # Required: false
+    # Default: openai/gpt-5
+
+    analyzer-max-tokens:
+    # Maximum tokens for the analysis model response.
+    #
+    # Required: false
+    # Default: 800
 ```

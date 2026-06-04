@@ -1,0 +1,131 @@
+---
+name: Internal — Failure log analyzer
+description: |
+    DRAFT / PUBLIC PREVIEW — Fetches the failed-step logs of a GitHub Actions run
+    and asks a GitHub Models model to produce a concise root-cause analysis.
+
+    This mirrors `camunda/infraex-common-config`'s `gha-failure-log-analyzer`, but
+    returns the analysis as an output (`response`) instead of posting to Slack so
+    the caller can reuse it in several places — embed it in the auto-created
+    issue, hand it to the coding agent as a head start, and thread it onto the
+    Slack alert.
+
+    The model runs through `actions/ai-inference` (GitHub Models), so the caller's
+    job needs `models: read` and must pass a token entitled to it (the workflow
+    `GITHUB_TOKEN` is enough). No external AI service credential is required here:
+    the coding agent's own key (Anthropic) is unrelated to this analysis step.
+
+    GitHub Models does not host Anthropic Opus, so the default is the strongest
+    available code model (`openai/gpt-5`); override `model` as the catalog evolves.
+
+inputs:
+    run-url:
+        description: html_url of the failed workflow run to analyze.
+        required: true
+    gh-token:
+        description: >
+            Token used both to download the run logs (needs `actions: read` on the
+            run's repository) and to call GitHub Models (needs `models: read`).
+        required: true
+    model:
+        description: >
+            GitHub Models model id used for the analysis. Defaults to the strongest
+            available code model since Opus is not offered on GitHub Models.
+        required: false
+        default: openai/gpt-5
+    max-tokens:
+        description: Maximum tokens for the model response.
+        required: false
+        default: '800'
+
+outputs:
+    response:
+        description: The model's root-cause analysis (empty string when analysis could not run).
+        value: ${{ steps.analyze.outputs.response }}
+
+runs:
+    using: composite
+    steps:
+        - name: Parse GitHub Actions run URL
+          id: parse-url
+          shell: bash
+          env:
+              RUN_URL: ${{ inputs.run-url }}
+          run: |
+              set -euo pipefail
+              # Expected: https://github.com/<owner>/<repo>/actions/runs/<run_id>
+              if [[ ! "$RUN_URL" =~ ^https://github\.com/([^/]+)/([^/]+)/actions/runs/([0-9]+) ]]; then
+                echo "Error: invalid GitHub Actions run URL '$RUN_URL'." >&2
+                exit 1
+              fi
+              echo "owner=${BASH_REMATCH[1]}"  | tee -a "$GITHUB_OUTPUT"
+              echo "repo=${BASH_REMATCH[2]}"   | tee -a "$GITHUB_OUTPUT"
+              echo "run-id=${BASH_REMATCH[3]}" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Fetch and downsize failed logs
+          id: fetch-logs
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.gh-token }}
+              OWNER: ${{ steps.parse-url.outputs.owner }}
+              REPO: ${{ steps.parse-url.outputs.repo }}
+              RUN_ID: ${{ steps.parse-url.outputs.run-id }}
+          run: |
+              set -euo pipefail
+              mkdir -p logs
+
+              # The run is already complete (the caller reacts to a finished run),
+              # so we fetch the failed-step logs directly. Never fail the loop just
+              # because log retrieval hiccups — emit an empty file instead.
+              if ! gh run view "$RUN_ID" --repo "${OWNER}/${REPO}" --log-failed > logs/failed.log 2>logs/err.log; then
+                echo "Could not fetch failed logs for run ${RUN_ID}; continuing without analysis." >&2
+                cat logs/err.log >&2 || true
+                : > logs/failed.log
+              fi
+
+              # Strip ISO-8601 timestamps GitHub prefixes to every log line.
+              sed -E 's/.*[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z[[:space:]]*//' \
+                  logs/failed.log > logs/trimmed.log
+
+              # Keep only error-relevant lines with a little context, then cap size
+              # so the prompt stays small and cheap.
+              grep -iC 5 -E 'error|fail|exception|timeout|denied|not found|panic|fatal' \
+                  logs/trimmed.log > logs/errors.log || true
+              head -c 51200 logs/errors.log > logs/excerpt.log
+
+              {
+                echo 'log-excerpt<<__LOG_EOF__'
+                cat logs/excerpt.log
+                echo '__LOG_EOF__'
+              } >> "$GITHUB_OUTPUT"
+
+        - name: Analyze logs with GitHub Models
+          id: analyze
+          # TODO [setup]: keep this pinned (Renovate tracks it). v2.1.1 as vendored
+          # from infraex-common-config's gha-failure-log-analyzer.
+          uses: actions/ai-inference@a7805884c80886efc241e94a5351df715968a0ad # v2.1.1
+          with:
+              model: ${{ inputs.model }}
+              max-tokens: ${{ inputs.max-tokens }}
+              token: ${{ inputs.gh-token }}
+              prompt: |
+                  You are an expert GitHub Actions troubleshooting assistant analyzing a
+                  failed CI run in an infrastructure-as-code repository (Terraform, Helm,
+                  Kubernetes, shell). Analyze the failed-step logs below and provide:
+
+                  1. *Root cause*: the single most likely root cause of the failure.
+                  2. *Real vs flaky*: state clearly whether this looks like a REAL
+                     code/config bug or a FLAKY/transient infra issue (timeout, image
+                     pull, network, credential expiry), with a one-line justification.
+                  3. *Suggested fix*: the smallest concrete change or next step.
+
+                  Be concise (max ~12 lines). For markdown use only:
+                    bold *text*, italic _text_, code `text`, code block ```text```,
+                    ordered list `1. item`, unordered list `- item`, links [text](url).
+                  Use single asterisks for bold (never double). Never wrap the whole
+                  answer in a code block.
+
+                  If the logs are empty or contain no actionable error, say so in one line.
+
+                  Logs to analyze:
+                  ${{ steps.fetch-logs.outputs.log-excerpt }}

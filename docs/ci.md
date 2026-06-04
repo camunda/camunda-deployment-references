@@ -122,12 +122,18 @@ In addition to the Slack alert (`report-failure-on-slack`), scheduled test failu
 
 **Slack thread integration.** The failure alert is posted by `report-failure-on-slack` inside the test workflow (channel `SLACK_CHANNEL_ID`, default `C076N4G1162`). The watcher then threads the auto-created issue onto that same alert via the `internal-slack-thread-reply` action, which locates the parent message by the failed run URL in the alert text and replies in its thread. The Slack thread coordinates are stamped on the issue body as a hidden `<!-- slack-thread: channel=... ts=... -->` marker; when the issue is later closed, `internal_global_ci_failure_resolved.yml` reads that marker and posts a `✅ Resolved` reply in the same thread. A reader of the Slack alert therefore sees what failed, the issue that was opened, and whether it was resolved — all in one thread.
 
+**AI root-cause analysis.** Before the issue is opened, the `internal-failure-log-analyzer` action downloads the failed-step logs of the run, trims them to the error-relevant lines, and asks a [GitHub Models](https://github.com/marketplace/models) model (via `actions/ai-inference`, `models: read`) for a concise root-cause summary that also classifies the failure as *real* vs *flaky*. This mirrors `camunda/infraex-common-config`'s `gha-failure-log-analyzer`, but returns the summary as an output instead of only posting to Slack, so it is reused in three places: embedded in the issue body (collapsed `<details>`), handed to the coding agent as an unverified hint, and threaded onto the Slack alert. GitHub Models does not host Anthropic Opus, so the default analyzer model is the strongest available code model (`ANALYZER_MODEL`, default `openai/gpt-5`); the analysis uses the workflow `GITHUB_TOKEN` and needs no extra AI credential. Toggle it off with the action's `enable-log-analysis` input.
+
+**Exercising the loop from this PR.** `workflow_run` watchers only trigger from the default branch, so while this stays a draft the workflow also runs on `push` to `ci/ci-failure-agent-autofix` (when the loop's own files change). That push resolves the known-failing `DEMO_RUN_ID` into real run context and drives the **full** flow end-to-end: analyze → open issue → dispatch agent → Slack update. Remove the `push:` trigger and the `DEMO_RUN_ID` env before merge.
+
 **Setup notes (`TODO [setup]`):**
 - Add `ANTHROPIC_API_KEY` (service key) to the shared CI secret in Vault for the `claude` backend; add `COPILOT_AGENT_PAT` (user PAT with read/write on issues, contents, pull-requests, actions) only if you enable the `copilot` backend.
 - Ensure `SLACK_BOT_TOKEN` (scopes `conversations.history` + `chat:write`) is in the shared CI secret for the Slack threading + resolution replies.
 - Ensure the GitHub App installation token has `actions: write` so the `claude` backend can re-run flaky runs.
 - Set `DEFAULT_MODEL` to the exact Opus 4.x model id once confirmed against Anthropic's model list.
 - Pin `anthropics/claude-code-action` to a commit SHA (Renovate then tracks it).
+- Bump `ANALYZER_MODEL` if a stronger code model becomes available on GitHub Models.
+- Remove the `push:` trigger + `DEMO_RUN_ID` once the loop is validated and enabled on the default branch.
 - Opt a new test workflow in by adding its display `name:` to the workflow's `workflows:` list.
 
 ## Customer-Facing Repo

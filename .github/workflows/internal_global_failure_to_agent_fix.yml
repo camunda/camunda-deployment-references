@@ -28,6 +28,21 @@ on:
             - Internal - OpenShift - Save OpenShift ACM Versions as an artifact
         types:
             - completed
+    # Pushing the PR branch boots the FULL real flow (analyze → issue → agent →
+    # Slack) against a real, known-failing run so the loop can be exercised
+    # end-to-end while this stays a draft. `workflow_run` workflows only trigger
+    # from the default branch, so this `push` path is how the PR demonstrates
+    # itself. Remove this trigger before merge — see the `push`/DEMO handling in
+    # the `Resolve run context` step below.
+    # TODO [setup]: drop this `push:` block (and the DEMO_* env) once merged.
+    push:
+        branches:
+            - ci/ci-failure-agent-autofix
+        paths:
+            - .github/workflows/internal_global_failure_to_agent_fix.yml
+            - .github/actions/internal-failure-to-agent-fix/**
+            - .github/actions/internal-failure-log-analyzer/**
+            - .github/actions/internal-slack-thread-reply/**
     workflow_dispatch:
         inputs:
             agent:
@@ -61,13 +76,24 @@ env:
     # Channel the `report-failure-on-slack` alerts are posted to (infraex alerts).
     # The created issue is threaded onto the original alert in this channel.
     SLACK_CHANNEL_ID: C076N4G1162
+    # GitHub Models model used to analyze the failed logs. GitHub Models does not
+    # host Anthropic Opus, so this is the strongest available code model; bump it
+    # as the catalog evolves.
+    ANALYZER_MODEL: openai/gpt-5
+    # Real, known-failing run used by the `push` demo path (Group A — chart 8.x
+    # `identityKeycloak` removed, deterministic). Resolved to full context below.
+    # TODO [setup]: drop this together with the `push:` trigger before merge.
+    DEMO_RUN_ID: '26946226123'
 
 permissions:
     contents: read
     issues: write
     id-token: write
-    # Read-only access so the claude backend can inspect the failing run/jobs.
+    # Read-only access so the claude backend can inspect the failing run/jobs and
+    # the analyzer can download logs.
     actions: read
+    # Lets the failure-log analyzer call GitHub Models.
+    models: read
 
 jobs:
     open-fix-issue:
@@ -76,9 +102,11 @@ jobs:
         # Only react to *scheduled* failures: real `schedule` events or simulated
         # schedules (branch prefixed `schedules/`, the repo's staggered-test
         # convention). PR/push runs already have a human author, so we skip them.
-        # `workflow_dispatch` is always allowed for manual testing.
+        # `workflow_dispatch` is always allowed for manual testing, and `push` to
+        # the draft branch exercises the full loop against a known-failing run.
         if: >-
             github.event_name == 'workflow_dispatch' ||
+            github.event_name == 'push' ||
             (
               github.event.workflow_run.conclusion == 'failure' &&
               (
@@ -138,10 +166,25 @@ jobs:
                   # Manual-dispatch fallbacks so the action always has inputs.
                   DISPATCH_BRANCH: ${{ github.ref_name }}
                   DISPATCH_SHA: ${{ github.sha }}
+                  # Demo run resolved for the `push` path.
+                  DEMO_RUN_ID: ${{ env.DEMO_RUN_ID }}
+                  GH_TOKEN: ${{ steps.app-token.outputs.token }}
               shell: bash
               run: |
                   set -euo pipefail
-                  if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+                  if [ "$EVENT_NAME" = "push" ]; then
+                    # Resolve the known-failing demo run into full context so the loop
+                    # runs end-to-end against a real failure.
+                    read -r name branch sha < <(gh run view "$DEMO_RUN_ID" \
+                      --repo "$GITHUB_REPOSITORY" \
+                      --json displayTitle,workflowName,headBranch,headSha \
+                      --jq '[.workflowName, .headBranch, .headSha] | @tsv')
+                    echo "workflow-name=${name}" | tee -a "$GITHUB_OUTPUT"
+                    echo "run-url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${DEMO_RUN_ID}" | tee -a "$GITHUB_OUTPUT"
+                    echo "run-id=${DEMO_RUN_ID}" | tee -a "$GITHUB_OUTPUT"
+                    echo "head-branch=${branch}" | tee -a "$GITHUB_OUTPUT"
+                    echo "head-sha=${sha}"       | tee -a "$GITHUB_OUTPUT"
+                  elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
                     echo "workflow-name=Manual dispatch (${WR_NAME:-test})" | tee -a "$GITHUB_OUTPUT"
                     echo "run-url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" | tee -a "$GITHUB_OUTPUT"
                     echo "run-id=${GITHUB_RUN_ID}"      | tee -a "$GITHUB_OUTPUT"
@@ -173,3 +216,6 @@ jobs:
                   mention: ${{ env.REVIEWER_TEAM }}
                   slack-bot-token: ${{ steps.agent-creds.outputs.SLACK_BOT_TOKEN }}
                   slack-channel-id: ${{ env.SLACK_CHANNEL_ID }}
+                  enable-log-analysis: 'true'
+                  models-token: ${{ github.token }}
+                  analyzer-model: ${{ env.ANALYZER_MODEL }}

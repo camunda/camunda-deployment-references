@@ -85,6 +85,30 @@ inputs:
         description: Slack channel id the failure alert was posted to (required when threading).
         required: false
         default: ''
+    enable-log-analysis:
+        description: >
+            When "true", fetch the failed run logs and run a GitHub Models analysis
+            whose root-cause summary is embedded in the issue, handed to the agent
+            and threaded onto the Slack alert. Set "false" to skip the AI analysis.
+        required: false
+        default: 'true'
+    models-token:
+        description: >
+            Token entitled to GitHub Models (`models: read`) and to read the run
+            logs (`actions: read`). The workflow `GITHUB_TOKEN` is enough. Required
+            only when `enable-log-analysis` is "true".
+        required: false
+        default: ''
+    analyzer-model:
+        description: >
+            GitHub Models model id used for the failure analysis. Defaults to the
+            strongest available code model (Opus is not offered on GitHub Models).
+        required: false
+        default: openai/gpt-5
+    analyzer-max-tokens:
+        description: Maximum tokens for the analysis model response.
+        required: false
+        default: '800'
 
 outputs:
     issue-number:
@@ -96,6 +120,9 @@ outputs:
     agent-dispatched:
         description: '"true" when an agent was handed the issue.'
         value: ${{ steps.dispatch.outputs.dispatched }}
+    analysis:
+        description: Root-cause analysis produced for the failure ('' when disabled or unavailable).
+        value: ${{ steps.analyze.outputs.response }}
 
 runs:
     using: composite
@@ -158,6 +185,19 @@ runs:
               gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
               "🔁 **${WORKFLOW_NAME}** failed again at \`${HEAD_SHA}\` — [run log](${RUN_URL})."
 
+        # Fetch the failed logs and run a GitHub Models analysis once, only when we
+        # are about to open a fresh issue. The summary is reused in the issue body,
+        # the agent prompt and the Slack thread.
+        - name: Analyze failure logs
+          id: analyze
+          if: steps.find.outputs.found == 'false' && inputs.enable-log-analysis == 'true' && inputs.models-token != ''
+          uses: ./.github/actions/internal-failure-log-analyzer
+          with:
+              run-url: ${{ inputs.run-url }}
+              gh-token: ${{ inputs.models-token }}
+              model: ${{ inputs.analyzer-model }}
+              max-tokens: ${{ inputs.analyzer-max-tokens }}
+
         - name: Create issue
           id: create
           if: steps.find.outputs.found == 'false'
@@ -170,6 +210,7 @@ runs:
               HEAD_SHA: ${{ inputs.head-sha }}
               LABELS: ${{ inputs.labels }}
               MARKER: ${{ steps.marker.outputs.marker }}
+              ANALYSIS: ${{ steps.analyze.outputs.response }}
           run: |
               set -euo pipefail
 
@@ -202,6 +243,16 @@ runs:
               > automated fix loop.
               EOF
 
+              # Append the AI root-cause analysis when one was produced.
+              if [ -n "${ANALYSIS:-}" ]; then
+                {
+                  printf '\n'
+                  printf '<details><summary>🤖 AI root-cause analysis (auto-generated, verify before trusting)</summary>\n\n'
+                  printf '%s\n' "$ANALYSIS"
+                  printf '\n</details>\n'
+                } >> "$body_file"
+              fi
+
               # Ensure labels exist (idempotent) so --label never fails the run.
               IFS=',' read -ra _labels <<< "$LABELS"
               for l in "${_labels[@]}"; do
@@ -233,6 +284,7 @@ runs:
               ISSUE_NUMBER: ${{ steps.create.outputs.number }}
               BASE_REF: ${{ inputs.base-ref }}
               MODEL: ${{ inputs.model }}
+              ANALYSIS: ${{ steps.analyze.outputs.response }}
               GH_FEATURES: issues_copilot_assignment_api_support,coding_agent_model_selection
           run: |
               set -euo pipefail
@@ -273,6 +325,11 @@ runs:
               instructions+="Make the smallest change that addresses the root cause, "
               instructions+="follow AGENTS.md and docs/development.md, and never weaken "
               instructions+="or skip tests. Open the PR as a draft."
+              if [ -n "${ANALYSIS:-}" ]; then
+                instructions+=" An automated (unverified) root-cause analysis of the "
+                instructions+="failing logs follows — treat it as a hint, not ground truth: "
+                instructions+="${ANALYSIS}"
+              fi
 
               gh api graphql \
                 -H "GraphQL-Features: ${GH_FEATURES}" \
@@ -324,6 +381,10 @@ runs:
                   FAILED RUN ID: ${{ inputs.run-id }}
                   COMMIT: ${{ inputs.head-sha }}
                   BASE BRANCH: ${{ inputs.base-ref }}
+
+                  AUTOMATED ROOT-CAUSE ANALYSIS (unverified hint, may be wrong — confirm
+                  against the real logs before acting):
+                  ${{ steps.analyze.outputs.response }}
 
                   A scheduled CI run failed. First investigate the failing run linked
                   above and decide whether this is a FLAKY failure (a transient
@@ -402,6 +463,20 @@ runs:
               message: >-
                   🤖 Auto-fix loop: opened ${{ steps.create.outputs.url }} and dispatched
                   the ${{ inputs.agent }} coding agent to draft a fix (human review required).
+
+        # Post the AI root-cause analysis as a follow-up in the same Slack thread so
+        # alert readers get the gist without opening the issue.
+        - name: Thread the AI analysis onto the Slack alert
+          if: steps.slack-thread.outputs.posted == 'true' && steps.analyze.outputs.response != ''
+          uses: ./.github/actions/internal-slack-thread-reply
+          with:
+              slack-bot-token: ${{ inputs.slack-bot-token }}
+              channel-id: ${{ inputs.slack-channel-id }}
+              thread-ts: ${{ steps.slack-thread.outputs.thread-ts }}
+              message: |-
+                  🧠 _AI root-cause analysis (auto-generated, verify before trusting):_
+
+                  ${{ steps.analyze.outputs.response }}
 
         # Persist the Slack thread coordinates inside the issue body (hidden marker)
         # so the resolution handler can reply in the same thread when it is closed.
