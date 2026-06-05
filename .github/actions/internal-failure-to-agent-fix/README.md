@@ -50,7 +50,7 @@ anything.
 | `group-across-branches` | <p>When "true" (default), failures of the same workflow are treated as one failure class and collapse into a single issue regardless of the branch they happened on: subsequent branches are grouped with a comment instead of opening a new issue. Set "false" to keep one issue per workflow+branch.</p> | `false` | `true` |
 | `classification-key` | <p>Optional explicit signature used to classify/group failures. When set, failures sharing this key collapse into the same issue (use it to group by a job name or an error fingerprint rather than the workflow name). Defaults to the workflow name.</p> | `false` | `""` |
 | `notify-bot-on-group` | <p>When "true" (default), a grouping comment @-mentions the coding-agent bot so it is notified of the new occurrence and can re-evaluate the issue.</p> | `false` | `true` |
-| `bot-handle` | <p>Handle mentioned to re-engage the coding agent when a new occurrence is grouped onto an existing issue. Defaults to the assigned agent's handle ("@anthropic-code-agent", "@copilot" or "@openai-code-agent").</p> | `false` | `""` |
+| `bot-handle` | <p>Handle mentioned to re-engage the coding agent when a new occurrence is grouped onto an existing issue. By default the grouping step resolves the real bot assignee login from the issue (e.g. "@Claude"); this input is only the fallback used when no bot assignee is found yet ("@copilot", "@claude" or "@codex"). Note: the suggestedActors slug used to assign the agent ("anthropic-code-agent" etc.) is NOT a mentionable account.</p> | `false` | `""` |
 
 
 ## Outputs
@@ -200,7 +200,7 @@ This action is a `composite` action.
     # Default: true
 
     bot-handle:
-    # Handle mentioned to re-engage the coding agent when a new occurrence is grouped onto an existing issue. Defaults to the assigned agent's handle ("@anthropic-code-agent", "@copilot" or "@openai-code-agent").
+    # Handle mentioned to re-engage the coding agent when a new occurrence is grouped onto an existing issue. By default the grouping step resolves the real bot assignee login from the issue (e.g. "@Claude"); this input is only the fallback used when no bot assignee is found yet ("@copilot", "@claude" or "@codex"). Note: the suggestedActors slug used to assign the agent ("anthropic-code-agent" etc.) is NOT a mentionable account.
     #
     # Required: false
     # Default: ""

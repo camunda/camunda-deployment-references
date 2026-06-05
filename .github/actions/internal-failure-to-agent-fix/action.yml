@@ -137,8 +137,11 @@ inputs:
     bot-handle:
         description: >
             Handle mentioned to re-engage the coding agent when a new occurrence is
-            grouped onto an existing issue. Defaults to the assigned agent's handle
-            ("@anthropic-code-agent", "@copilot" or "@openai-code-agent").
+            grouped onto an existing issue. By default the grouping step resolves the
+            real bot assignee login from the issue (e.g. "@Claude"); this input is
+            only the fallback used when no bot assignee is found yet ("@copilot",
+            "@claude" or "@codex"). Note: the suggestedActors slug used to assign the
+            agent ("anthropic-code-agent" etc.) is NOT a mentionable account.
         required: false
         default: ''
 
@@ -198,12 +201,17 @@ runs:
               echo "marker=<!-- ci-failure:${group_slug} -->" | tee -a "$GITHUB_OUTPUT"
 
               # Resolve the bot handle used to re-engage the agent on grouping.
+              # Fallback mention handle, only used when the grouping step cannot
+              # resolve the real bot assignee login from the issue. These are the
+              # mentionable accounts the agents actually run under — NOT the
+              # suggestedActors slug used for assignment ("anthropic-code-agent"
+              # etc.), which is not a mentionable account.
               handle="$BOT_HANDLE"
               if [ -z "$handle" ]; then
                 case "$AGENT" in
                   copilot|copilot-swe-agent)      handle="@copilot" ;;
-                  anthropic|anthropic-code-agent) handle="@anthropic-code-agent" ;;
-                  openai|openai-code-agent)       handle="@openai-code-agent" ;;
+                  anthropic|anthropic-code-agent) handle="@claude" ;;
+                  openai|openai-code-agent)       handle="@codex" ;;
                   *)                              handle="" ;;
                 esac
               fi
@@ -306,9 +314,24 @@ runs:
               # Notify the bot so it picks up the new occurrence (re-engages the
               # already-assigned agent). Requires the agent to be configured to react
               # to the mention.
-              if [ "$NOTIFY_BOT" = "true" ] && [ -n "$BOT_HANDLE" ]; then
+              #
+              # The slug used to ASSIGN the agent (suggestedActors login, e.g.
+              # "anthropic-code-agent") is NOT a mentionable account: writing
+              # "@anthropic-code-agent" renders as plain text and notifies nobody.
+              # The agent actually runs under a dedicated bot account whose login is
+              # different (e.g. "Claude"). Resolve that real assignee login from the
+              # issue and mention it so the @-mention actually fires; fall back to the
+              # configured BOT_HANDLE only when no bot assignee is found yet.
+              mention_handle="$BOT_HANDLE"
+              bot_assignee=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}" \
+                  --jq '[.assignees[] | select(.type=="Bot") | .login] | first // empty' 2>/dev/null || true)
+              if [ -n "${bot_assignee:-}" ]; then
+                mention_handle="@${bot_assignee}"
+              fi
+
+              if [ "$NOTIFY_BOT" = "true" ] && [ -n "$mention_handle" ]; then
                 printf '\n%s a new occurrence was grouped here — please re-check whether the open fix still covers it.\n' \
-                  "$BOT_HANDLE" >> "$comment_file"
+                  "$mention_handle" >> "$comment_file"
               fi
 
               gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$comment_file"
