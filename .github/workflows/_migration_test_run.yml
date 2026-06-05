@@ -213,15 +213,33 @@ jobs:
 
                   # Pull all images on the host in parallel (each downloaded once).
                   printf '%s\n' "${IMAGES[@]}" \
-                      | xargs -P 6 -I {} sh -c 'docker pull --quiet "{}" || echo "::warning::pre-pull failed for {}"'
+                      | xargs -P 6 -I {} sh -c 'docker pull --quiet --platform linux/amd64 "{}" || echo "::warning::pre-pull failed for {}"'
 
-                  # Side-load every locally available image into the Kind cluster.
+                  # Side-load every locally available image into the Kind nodes.
+                  # `kind load docker-image` runs `ctr images import --all-platforms
+                  # --digests`, which fails on Docker's containerd image store: the
+                  # exported archive keeps a multi-platform image index whose
+                  # per-arch blobs were never pulled, so ctr aborts with
+                  # "content digest ... not found". Import the saved archive directly
+                  # without those flags to load just the pulled linux/amd64 platform.
+                  mapfile -t NODES < <(kind get nodes --name "${CLUSTER_NAME}")
                   for img in "${IMAGES[@]}"; do
-                      if docker image inspect "${img}" >/dev/null 2>&1; then
-                          echo "Loading ${img} into Kind..."
-                          kind load docker-image --name "${CLUSTER_NAME}" "${img}" \
-                              || echo "::warning::kind load failed for ${img}"
+                      if ! docker image inspect "${img}" >/dev/null 2>&1; then
+                          continue
                       fi
+                      echo "Loading ${img} into Kind..."
+                      archive="$(mktemp)"
+                      if ! docker save "${img}" -o "${archive}"; then
+                          echo "::warning::docker save failed for ${img}"
+                          rm -f "${archive}"
+                          continue
+                      fi
+                      for node in "${NODES[@]}"; do
+                          docker exec -i "${node}" ctr --namespace=k8s.io images import \
+                              --snapshotter=overlayfs - < "${archive}" \
+                              || echo "::warning::image import failed for ${img} on ${node}"
+                      done
+                      rm -f "${archive}"
                   done
 
                   echo "Pre-pull complete."
