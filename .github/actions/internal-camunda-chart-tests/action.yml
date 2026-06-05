@@ -454,19 +454,80 @@ runs:
                 source ./generic/kubernetes/single-region/procedure/export-verify-zeebe-domain.sh
               fi
 
-              # Execute the script and capture the output in a variable
-              eval "$topology_check_script"
-              check_zeebe_topology_output=$(<zeebe-topology.json)
-
-              # Checks
               error_found=false
-              check_zeebe_topology_all_healthy=$(echo "$check_zeebe_topology_output" | jq '[.brokers[].partitions[].health == "healthy"] | all')
-              check_zeebe_topology_cluster_size=$(echo "$check_zeebe_topology_output" | jq '.clusterSize')
-              check_zeebe_topology_partitions_count=$(echo "$check_zeebe_topology_output" | jq '.partitionsCount')
 
               golden_zeebe_topology_cluster_size=$(jq '.clusterSize' < "$reference_file")
               golden_zeebe_topology_partitions_count=$(jq '.partitionsCount' < "$reference_file")
 
+              # The Zeebe cluster can take a while to fully form after the Helm
+              # release reports ready. Retry fetching the topology until it
+              # reports the expected cluster size, partitions count and all
+              # partitions healthy, or until the retries are exhausted. This
+              # avoids asserting against an empty/partial topology, which
+              # previously crashed with "integer expression expected" and
+              # "cannot substitute with !!null".
+              topology_max_attempts=30
+              topology_retry_interval=10
+              check_zeebe_topology_output=""
+              check_zeebe_topology_all_healthy="false"
+              check_zeebe_topology_cluster_size=""
+              check_zeebe_topology_partitions_count=""
+
+              for attempt in $(seq 1 "$topology_max_attempts"); do
+                echo "⏳ Fetching Zeebe topology (attempt $attempt/$topology_max_attempts)..."
+                # Remove any topology file from a previous attempt so a failed
+                # fetch cannot be mistaken for a fresh result (or reuse a stale one).
+                rm -f zeebe-topology.json
+                eval "$topology_check_script" || true
+                # The script may not have produced the file (transient
+                # connectivity/auth issues). Guard the read so a missing file
+                # yields an empty topology and a retryable state instead of
+                # aborting the whole step under `set -euo pipefail`.
+                if [ -f zeebe-topology.json ]; then
+                  check_zeebe_topology_output=$(<zeebe-topology.json)
+                else
+                  check_zeebe_topology_output=""
+                fi
+
+                # Require at least one observed partition health before reporting
+                # healthy: `[...] | all` is true on an empty array, which would
+                # otherwise report healthy while the cluster is still forming.
+                healthy_filter='try ([.brokers[]?.partitions[]?.health == "healthy"] | (length > 0 and all)) catch false'
+                check_zeebe_topology_all_healthy=$(echo "$check_zeebe_topology_output" | jq -r "$healthy_filter" 2>/dev/null || echo "false")
+                check_zeebe_topology_cluster_size=$(echo "$check_zeebe_topology_output" | jq -r '.clusterSize // empty' 2>/dev/null || echo "")
+                check_zeebe_topology_partitions_count=$(echo "$check_zeebe_topology_output" | jq -r '.partitionsCount // empty' 2>/dev/null || echo "")
+
+                if [ "$check_zeebe_topology_all_healthy" = "true" ] \
+                  && [ "$check_zeebe_topology_cluster_size" = "$golden_zeebe_topology_cluster_size" ] \
+                  && [ "$check_zeebe_topology_partitions_count" = "$golden_zeebe_topology_partitions_count" ]; then
+                  echo "✅ Zeebe topology is ready."
+                  break
+                fi
+
+                echo "Topology not ready yet (size='${check_zeebe_topology_cluster_size:-<empty>}'," \
+                  "partitions='${check_zeebe_topology_partitions_count:-<empty>}'," \
+                  "healthy='${check_zeebe_topology_all_healthy}')."
+                # Only sleep when another attempt will follow, to avoid an
+                # unnecessary delay after the final attempt.
+                if [ "$attempt" -lt "$topology_max_attempts" ]; then
+                  echo "Retrying in ${topology_retry_interval}s..."
+                  sleep "$topology_retry_interval"
+                fi
+              done
+
+              # If the topology never returned valid JSON (e.g. persistent
+              # connectivity/auth issues), the downstream golden-diff section
+              # (yq/jq/delta) would hard-fail under `set -euo pipefail` before the
+              # readable assertions below run. Fall back to a safe minimal object
+              # and flag the failure so the step exits deterministically with
+              # clear messaging instead of crashing.
+              if ! echo "$check_zeebe_topology_output" | jq -e . >/dev/null 2>&1; then
+                echo "❌ Zeebe topology output is empty or not valid JSON after $topology_max_attempts attempts."
+                check_zeebe_topology_output="{}"
+                error_found=true
+              fi
+
+              # Checks
               if [ "$check_zeebe_topology_all_healthy" = "true" ]; then
                 echo "✅ All partitions are healthy."
               else
@@ -474,18 +535,30 @@ runs:
                 error_found=true
               fi
 
-              if [ "$check_zeebe_topology_cluster_size" -eq $golden_zeebe_topology_cluster_size ]; then
+              if [[ "$check_zeebe_topology_cluster_size" =~ ^[0-9]+$ ]] && [ "$check_zeebe_topology_cluster_size" -eq "$golden_zeebe_topology_cluster_size" ]; then
                 echo "✅ Cluster size is $check_zeebe_topology_cluster_size."
               else
-                echo "❌ Cluster size is not $golden_zeebe_topology_cluster_size."
+                echo "❌ Cluster size is not $golden_zeebe_topology_cluster_size (got '${check_zeebe_topology_cluster_size:-<empty>}')."
                 error_found=true
               fi
 
-              if [ "$check_zeebe_topology_partitions_count" -eq $golden_zeebe_topology_partitions_count ]; then
+              if [[ "$check_zeebe_topology_partitions_count" =~ ^[0-9]+$ ]] && [ "$check_zeebe_topology_partitions_count" -eq "$golden_zeebe_topology_partitions_count" ]; then
                 echo "✅ Partitions count is $check_zeebe_topology_partitions_count."
               else
-                echo "❌ Partitions count is not $golden_zeebe_topology_partitions_count."
+                echo "❌ Partitions count is not $golden_zeebe_topology_partitions_count (got '${check_zeebe_topology_partitions_count:-<empty>}')."
                 error_found=true
+              fi
+
+              # Fail fast before the golden-file comparison when the basic
+              # topology assertions above already failed. The diff below runs
+              # `yq ... sub(...)` over version fields, which crashes under
+              # `set -euo pipefail` on empty/partial topologies or null
+              # `gatewayVersion`/broker `version` fields. Short-circuiting here
+              # surfaces the readable assertion messages instead of a raw yq
+              # parse/substitution error.
+              if [ "$error_found" = true ]; then
+                echo "❌ Topology checks failed; skipping golden-file comparison."
+                exit 1
               fi
 
               echo "Comparing golden file of the zeebe topology output..."
