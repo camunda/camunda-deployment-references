@@ -817,6 +817,13 @@ validate_external_es_config() {
 
 # Validate custom helm values file exists when external targets are used.
 validate_custom_helm_values() {
+    # When SKIP_HELM_UPGRADE=true the scripts migrate data only and do not run
+    # the helm upgrade (the caller owns it), so a custom values file pointing
+    # Camunda at the external targets is not needed here.
+    if [[ "${SKIP_HELM_UPGRADE:-false}" == "true" ]]; then
+        return 0
+    fi
+
     if (is_external_pg || is_external_es) && [[ -z "${CUSTOM_HELM_VALUES_FILE:-}" ]]; then
         log_error "CUSTOM_HELM_VALUES_FILE must be set when using external targets"
         log_error "  This file should contain helm values to connect Camunda to your managed services"
