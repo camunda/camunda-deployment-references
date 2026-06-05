@@ -9,7 +9,7 @@ variable "openshift_version" {
   type        = string
   description = "The version of ROSA to be deployed"
   # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-  default = "4.21.15"
+  default = "4.21.16"
   validation {
     condition     = can(regex("^[0-9]*[0-9]+.[0-9]*[0-9]+.[0-9]*[0-9]+$", var.openshift_version))
     error_message = "openshift_version must be with structure <major>.<minor>.<patch> (for example 4.13.6)."
