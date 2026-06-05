@@ -369,6 +369,7 @@
               false,
               false
             ],
+            "release_policy": [],
             "rotation_policy": []
           },
           "type": "azurerm_key_vault_key",
@@ -382,6 +383,7 @@
             "key_type": "RSA",
             "name": "camunda-kek",
             "not_before_date": null,
+            "release_policy": [],
             "rotation_policy": [],
             "tags": null,
             "timeouts": null
