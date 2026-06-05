@@ -14,8 +14,10 @@
 # known compute-node provisioning timeout fails fast on the first attempt.
 #
 # This file only DEFINES the function; it intentionally does not enable `set -e`
-# at file scope so it can be sourced into a step that runs with `set -uo pipefail`
-# (the retry relies on inspecting non-zero exit codes itself).
+# at file scope. The function works whether or not the caller has `errexit`
+# enabled: it saves the caller's setting, disables `errexit` locally around the
+# Terraform commands (whose non-zero exit codes it deliberately inspects for the
+# retry), and restores the original setting on every return path.
 #
 # Usage:
 #   source .github/scripts/rosa-hcp-convergent-apply.sh
@@ -33,6 +35,17 @@ rosa_hcp_convergent_apply() {
   local var_file="${2:-terraform.tfvars}"
   local max_attempts="${3:-3}"
 
+  # Preserve the caller's errexit setting and disable it locally. The caller may
+  # run with `set -e` (most steps in this repo use `set -euo pipefail`), but we
+  # deliberately inspect non-zero Terraform exit codes to drive the retry, so we
+  # must not let the first failing `terraform ... | tee` pipeline abort the step
+  # before `rc` is captured. The original setting is restored on every return.
+  local errexit_was_set=0
+  case "$-" in
+    *e*) errexit_was_set=1 ;;
+  esac
+  set +e
+
   # Patterns emitted by the rhcs provider when the post-create node wait times out.
   local transient_pattern='std compute nodes|compute nodes completion|waiting for (std )?compute|context deadline exceeded|timeout while waiting'
 
@@ -45,14 +58,22 @@ rosa_hcp_convergent_apply() {
       rc="${PIPESTATUS[0]}"
     else
       # The saved plan is stale once the state has partially advanced, so we
-      # re-plan against the current state before re-applying.
+      # re-plan against the current state before re-applying. If the re-plan
+      # itself fails, abort before applying a stale/empty plan file.
       terraform plan -no-color -var-file="${var_file}" -out "${plan_file}" 2>&1 | tee plan.log
+      local plan_rc="${PIPESTATUS[0]}"
+      if [ "${plan_rc}" -ne 0 ]; then
+        echo "::error::Terraform re-plan failed on retry attempt ${attempt} (rc=${plan_rc}); aborting before apply to avoid using a stale plan."
+        [ "${errexit_was_set}" -eq 1 ] && set -e
+        return "${plan_rc}"
+      fi
       terraform apply -no-color "${plan_file}" 2>&1 | tee apply.log
       rc="${PIPESTATUS[0]}"
     fi
 
     if [ "${rc}" -eq 0 ]; then
       echo "Terraform apply succeeded on attempt ${attempt}."
+      [ "${errexit_was_set}" -eq 1 ] && set -e
       return 0
     fi
 
@@ -65,6 +86,7 @@ rosa_hcp_convergent_apply() {
     fi
 
     echo "::error::Terraform apply failed on attempt ${attempt} (rc=${rc}) and the error is not a known transient compute-node provisioning timeout. Failing."
+    [ "${errexit_was_set}" -eq 1 ] && set -e
     return "${rc}"
   done
 }
