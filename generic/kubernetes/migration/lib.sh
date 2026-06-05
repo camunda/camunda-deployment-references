@@ -1392,6 +1392,16 @@ deploy_keycloak() {
 # we must update the operator secret to match the restored DB credentials.
 # Also generates a Helm override file to set the correct adminUser.
 sync_keycloak_admin_credentials() {
+    # Operator-only reconcile: it updates the operator's "keycloak-initial-admin"
+    # secret and renders an admin override for the Helm upgrade. In external mode
+    # there is no operator secret, the external Keycloak's admin comes from the
+    # restored realm database, and the caller wires Camunda's admin credentials
+    # (and, with SKIP_HELM_UPGRADE, owns the upgrade and its values). So skip it.
+    if is_external_keycloak; then
+        log_info "External Keycloak — skipping operator admin-credential sync"
+        return 0
+    fi
+
     log_info "Syncing Keycloak admin credentials from Bitnami → operator ..."
 
     local release="${RELEASE:-${CAMUNDA_RELEASE_NAME:-camunda}}"
