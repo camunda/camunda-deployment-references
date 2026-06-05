@@ -1694,14 +1694,22 @@ get_bitnami_pg_password() {
 introspect_es() {
     log_info "Introspecting Elasticsearch ..."
 
-    local sts_name
-    sts_name=$(kubectl get statefulset -n "${NAMESPACE}" -o name 2>/dev/null \
-        | grep -E "elasticsearch" | head -1 | sed 's|statefulset.apps/||' || echo "")
+    # Detect the SOURCE (Bitnami/bundled) Elasticsearch StatefulSet. When the
+    # migration target is an in-cluster companion ES, both clusters coexist in
+    # the namespace, so prefer the release-prefixed bundled cluster
+    # (<release>-elasticsearch*) and never match the companion. Fall back to any
+    # ES StatefulSet for the classic single-cluster case.
+    local sts_name all_es
+    all_es=$(kubectl get statefulset -n "${NAMESPACE}" -o name 2>/dev/null \
+        | sed 's|statefulset.apps/||' | grep -E "elasticsearch" || true)
+    sts_name=$(echo "$all_es" | grep -E "^${CAMUNDA_RELEASE_NAME}-" | head -1)
+    [[ -z "$sts_name" ]] && sts_name=$(echo "$all_es" | head -1)
 
     if [[ -z "$sts_name" ]]; then
         log_error "No Elasticsearch StatefulSet found"
         return 1
     fi
+    log_info "Source Elasticsearch StatefulSet: ${sts_name}"
 
     local json
     json=$(kubectl get statefulset "${sts_name}" -n "${NAMESPACE}" -o json)
