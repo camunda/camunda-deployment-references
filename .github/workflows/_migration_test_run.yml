@@ -160,9 +160,77 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
+            # Pre-pull every source image once on the host and side-load it into the
+            # Kind nodes. Each Kind node runs its own containerd and pulls images
+            # independently, so without this the large application images (camunda
+            # ~480MB, elasticsearch ~740MB, optimize ~560MB, connectors ~530MB,
+            # keycloak ~460MB, ...) are fetched several times over the runner's
+            # shared egress bandwidth. Under that contention a single pull can stall
+            # long enough to never converge within the `helm install --wait` budget.
+            # Pulling once on the host and loading from the local cache gives the
+            # deployment a warm image cache and removes the redundant downloads.
+            - name: Pre-pull source images into Kind
+              timeout-minutes: 20
+              run: |
+                  set -euo pipefail
+
+                  echo "Adding Camunda Helm repository..."
+                  helm repo add camunda https://helm.camunda.io
+                  helm repo update
+
+                  # Authenticate the host Docker daemon to the image registries.
+                  echo "${{ steps.secrets.outputs.MACHINE_PWD }}" | docker login registry.camunda.cloud \
+                      --username "${{ steps.secrets.outputs.MACHINE_USR }}" --password-stdin
+                  echo "${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" | docker login index.docker.io \
+                      --username "${{ steps.secrets.outputs.DOCKERHUB_USER }}" --password-stdin
+
+                  TEMPLATE_ARGS=(
+                      --namespace "${{ env.CAMUNDA_NAMESPACE }}"
+                      --values generic/kubernetes/migration/tests/bitnami-values.yml
+                      --values generic/kubernetes/migration/tests/bitnami-values-identity-test.yml
+                  )
+                  if [[ "${{ matrix.distro.use_tls }}" == "true" ]]; then
+                      TEMPLATE_ARGS+=(--values generic/kubernetes/migration/tests/bitnami-values-domain.yml)
+                  fi
+
+                  CHART_VERSION="${{ env.CAMUNDA_HELM_CHART_VERSION }}"
+                  if [[ "${CHART_VERSION}" == *dev-latest* ]]; then
+                      CHART_REF="oci://registry.camunda.cloud/team-distribution/camunda-platform"
+                  else
+                      CHART_REF="camunda/camunda-platform"
+                  fi
+
+                  # Render the chart and collect the unique set of container images.
+                  mapfile -t IMAGES < <(
+                      helm template camunda "${CHART_REF}" --version "${CHART_VERSION}" "${TEMPLATE_ARGS[@]}" \
+                          | grep -oE 'image:[[:space:]]*"?[^"[:space:]]+"?' \
+                          | sed -E 's/image:[[:space:]]*//; s/"//g' \
+                          | sort -u
+                  )
+
+                  echo "Found ${#IMAGES[@]} images to pre-pull:"
+                  printf '  %s\n' "${IMAGES[@]}"
+
+                  # Pull all images on the host in parallel (each downloaded once).
+                  printf '%s\n' "${IMAGES[@]}" \
+                      | xargs -P 6 -I {} sh -c 'docker pull --quiet "{}" || echo "::warning::pre-pull failed for {}"'
+
+                  # Side-load every locally available image into the Kind cluster.
+                  for img in "${IMAGES[@]}"; do
+                      if docker image inspect "${img}" >/dev/null 2>&1; then
+                          echo "Loading ${img} into Kind..."
+                          kind load docker-image --name "${CLUSTER_NAME}" "${img}" \
+                              || echo "::warning::kind load failed for ${img}"
+                      fi
+                  done
+
+                  echo "Pre-pull complete."
+
             - name: Deploy Camunda with Bitnami sub-charts
-              # Helm install --timeout is 30m below; give the GHA step a bit
-              # more headroom (download images, helm post-install hooks).
+              # Images are pre-pulled and side-loaded into Kind by the previous step,
+              # so the deployment starts with a warm image cache and only needs time
+              # for the components to boot and pass their readiness probes.
+              # Helm install --timeout is 30m below; keep some GHA headroom on top.
               timeout-minutes: 35
               run: |
                   set -euo pipefail
