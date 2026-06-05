@@ -455,8 +455,16 @@ runs:
                 echo "::warning::Could not query assignable actors for the coding agent."
                 sed 's/^/  /' "$RUNNER_TEMP/discover-err.txt" || true
                 echo "This typically means the 'agent-token' (Vault key COPILOT_AGENT_PAT) is"
-                echo "expired, revoked or invalid. Rotate it. The issue is left open for manual"
-                echo "assignment."
+                echo "expired, revoked or invalid and must be regenerated:"
+                echo "  1. GitHub → Settings → Developer settings → Fine-grained personal access"
+                echo "     tokens, as the account that owns the PAT (must have the coding agent enabled)."
+                echo "  2. Regenerate a token for this repo with Metadata: Read-only and"
+                echo "     Actions/Contents/Issues/Pull requests: Read and write."
+                echo "  3. Store it in Vault at secret/data/products/infrastructure-experience/ci/common"
+                echo "     under key COPILOT_AGENT_PAT, then re-run the workflow."
+                echo "Why a user PAT: the assignment API rejects GitHub App installation tokens, so a"
+                echo "user-to-server fine-grained PAT is required. The issue is left open for manual"
+                echo "assignment in the meantime."
                 echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
                 echo "reason=token-invalid" | tee -a "$GITHUB_OUTPUT"
                 exit 0
@@ -650,28 +658,62 @@ runs:
           run: |
               set -euo pipefail
 
+              # Newline helper: $'...' does not expand variables, so keep the
+              # newline in its own var and build the message with normal quoting
+              # (Slack renders these \n as line breaks once JSON-encoded by jq).
+              nl=$'\n'
+              # Shared Vault coordinates for the user PAT, repeated in each hint.
+              vault_path="secret/data/products/infrastructure-experience/ci/common"
+
               case "$REASON" in
                 token-invalid)
+                  # The token no longer authenticates: it must be regenerated.
+                  # Spell out the exact rotation procedure AND why a user PAT is
+                  # required, so the on-call can fix it without prior context.
                   headline="🔑 *Coding-agent token looks expired or invalid*"
                   detail="The CI auto-fix loop could not authenticate to assign the \`${AGENT}\` coding agent."
-                  detail+=" Rotate the user PAT in Vault (\`COPILOT_AGENT_PAT\` at"
-                  detail+=" \`secret/data/products/infrastructure-experience/ci/common\`)." ;;
+                  detail+=" The \`COPILOT_AGENT_PAT\` is expired, revoked or invalid and must be regenerated."
+                  detail+="${nl}${nl}*How to regenerate it*"
+                  detail+="${nl}1. Sign in to GitHub as the service account that owns the PAT (a human"
+                  detail+=" account that has the coding agent enabled — see why below), then open"
+                  detail+=" Settings → Developer settings → Fine-grained personal access tokens."
+                  detail+="${nl}2. Regenerate (or recreate) a token scoped to this repository with"
+                  detail+=" Repository permissions: Metadata: Read-only; Actions, Contents, Issues and"
+                  detail+=" Pull requests: Read and write."
+                  detail+="${nl}3. Store the new value in Vault at \`${vault_path}\`, key \`COPILOT_AGENT_PAT\`."
+                  detail+="${nl}4. Re-run the failed workflow (or wait for the next failure) to dispatch the agent again."
+                  detail+="${nl}${nl}*Why a user PAT and not the GitHub App token:* the assignment API"
+                  detail+=" (\`replaceActorsForAssignable\`) rejects server-to-server / GitHub App"
+                  detail+=" installation tokens, so only a user-to-server fine-grained PAT owned by an"
+                  detail+=" account with the coding agent enabled is accepted. The App token"
+                  detail+=" (\`github-token\`) is kept for issue bookkeeping only." ;;
                 not-assignable)
+                  # The token is valid but the agent is not offered to its owner.
+                  # This is an entitlement problem, not an expiry — explain the
+                  # distinction and how to make the agent assignable.
                   headline="🔑 *Coding agent is not assignable with the current token*"
                   detail="The \`COPILOT_AGENT_PAT\` authenticated but GitHub does not expose the"
-                  detail+=" \`${AGENT}\` coding agent to its owner. Make sure the token belongs to an"
-                  detail+=" account that has this coding agent enabled, and that the fine-grained PAT"
-                  detail+=" grants Read metadata + Read/write actions, contents, issues and pull"
-                  detail+=" requests." ;;
+                  detail+=" \`${AGENT}\` coding agent to its owner."
+                  detail+="${nl}${nl}*How to fix*"
+                  detail+="${nl}1. Confirm the PAT belongs to an account that has the \`${AGENT}\` coding"
+                  detail+=" agent enabled for this org/repo (enable it in the account's Copilot settings)."
+                  detail+="${nl}2. Regenerate the fine-grained PAT with Repository permissions: Metadata:"
+                  detail+=" Read-only; Actions, Contents, Issues and Pull requests: Read and write, then"
+                  detail+=" store it in Vault at \`${vault_path}\`, key \`COPILOT_AGENT_PAT\`."
+                  detail+="${nl}${nl}*Why this differs from an expired token:* GitHub only lists the agent"
+                  detail+=" in \`suggestedActors(CAN_BE_ASSIGNED)\` when it is enabled for the token"
+                  detail+=" *owner*, so a valid-but-unentitled token authenticates yet still cannot assign." ;;
                 assignment-rejected)
                   headline="⚠️ *Coding-agent assignment was rejected*"
                   detail="Authentication looked OK but GitHub rejected the \`${AGENT}\` assignment."
                   detail+=" Check the run logs and the \`COPILOT_AGENT_PAT\` permissions"
-                  detail+=" (Actions, Contents, Issues, Pull requests: read/write)." ;;
+                  detail+=" (Metadata: Read-only; Actions, Contents, Issues, Pull requests: Read and write)."
+                  detail+=" If the permissions are correct, regenerate the PAT and store it in Vault at"
+                  detail+=" \`${vault_path}\`, key \`COPILOT_AGENT_PAT\`." ;;
                 *)
                   headline="⚠️ *Coding agent could not be dispatched*"
                   detail="The auto-fix loop opened an issue but could not assign the \`${AGENT}\` coding agent."
-                  detail+=" Check \`COPILOT_AGENT_PAT\` in Vault and the run logs." ;;
+                  detail+=" Check \`COPILOT_AGENT_PAT\` in Vault (\`${vault_path}\`) and the run logs." ;;
               esac
 
               text="${MENTION:+${MENTION} }${headline}"
