@@ -22,6 +22,13 @@ spec:
                 migration.camunda.io/type: restore
         spec:
             restartPolicy: Never
+            # Read the backup PVC as the non-root postgres image group (1001).
+            # Matches the fsGroup used by the backup job so the dump written
+            # there is group-readable on storage classes that don't pre-chown
+            # the mount (e.g. GKE pd.csi).
+            securityContext:
+                fsGroup: 1001
+                fsGroupChangePolicy: OnRootMismatch
             containers:
                 - name: restore
                   image: ${PG_IMAGE}

@@ -217,11 +217,21 @@ check_env() {
             # Compare major.minor of deployed version against expected version
             local deployed_major_minor="${deployed_app_version%.*}"
             if [[ "$deployed_major_minor" != "$expected_version" ]]; then
-                log_error "Deployed Camunda version ${deployed_app_version} (${deployed_major_minor}) does not match expected version ${expected_version} from .camunda-version"
-                log_error "These migration scripts are designed for Camunda ${expected_version}. Check that you are using the correct branch."
-                exit 1
+                if [[ "${SKIP_HELM_UPGRADE:-false}" == "true" ]]; then
+                    # Data-only migration: the deployed version is intentionally the
+                    # previous minor — the caller upgrades to ${expected_version}
+                    # after the data has moved onto the external backends. (This is
+                    # the only supported order when the target minor has dropped the
+                    # bundled Bitnami subcharts, so the source cannot be on it.)
+                    log_warn "Deployed Camunda version ${deployed_app_version} (${deployed_major_minor}) differs from ${expected_version}; allowed because SKIP_HELM_UPGRADE=true (caller performs the version upgrade)"
+                else
+                    log_error "Deployed Camunda version ${deployed_app_version} (${deployed_major_minor}) does not match expected version ${expected_version} from .camunda-version"
+                    log_error "These migration scripts are designed for Camunda ${expected_version}. Check that you are using the correct branch."
+                    exit 1
+                fi
+            else
+                log_info "Deployed Camunda version ${deployed_app_version} matches expected ${expected_version}"
             fi
-            log_info "Deployed Camunda version ${deployed_app_version} matches expected ${expected_version}"
         fi
     else
         log_warn ".camunda-version file not found at ${version_file} — skipping version pre-check"
