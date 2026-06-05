@@ -335,6 +335,17 @@ if [[ "${ESTIMATE_MODE}" == "true" ]]; then
     echo ""
     echo "No changes were made to the running application."
     echo "You can run the real cutover with:  ./3-cutover.sh"
+elif [[ "${SKIP_HELM_UPGRADE:-false}" == "true" ]]; then
+    # Data-only migration: the realm/databases have been migrated to the target
+    # backends, but the Helm upgrade is intentionally deferred to the caller
+    # (e.g. a CI harness that owns the chart upgrade to the next version).
+    section "Step 5/5: Helm upgrade — SKIPPED (SKIP_HELM_UPGRADE=true)"
+    save_state "PHASE_3_DURATION" "$(timer_elapsed)"
+    section "Data migration complete ($(timer_elapsed))"
+    echo ""
+    echo "Data has been migrated to the target backends."
+    echo "The Helm upgrade was skipped (SKIP_HELM_UPGRADE=true) — the caller is"
+    echo "responsible for upgrading Camunda to point at the new backends."
 else
 section "Step 5/5: Helm upgrade"
 

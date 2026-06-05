@@ -217,6 +217,14 @@ variables, and `PG_TARGET_MODE=external` (the external Keycloak serves the migra
 from the external Keycloak database). The scripts do not deploy or manage the Keycloak
 instance itself — only the realm database is migrated and Camunda is rewired to it.
 
+### Advanced: data-only cutover (`SKIP_HELM_UPGRADE`)
+
+Set `SKIP_HELM_UPGRADE=true` to run Phase 3 data migration (backup/restore +
+reindex) but skip the final `helm upgrade`. The caller then owns the chart
+upgrade. This is intended for CI harnesses that migrate Bitnami data onto
+external infrastructure and then perform an N→N+1 chart upgrade themselves
+(for example, the Camunda Helm test suites). Normal migrations leave it `false`.
+
 ## Detailed Phase Descriptions
 
 ### Phase 1: Deploy Targets (`1-deploy-targets.sh`)

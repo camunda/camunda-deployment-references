@@ -92,6 +92,13 @@ export ES_TARGET_MODE="${ES_TARGET_MODE:-operator}"
 # Requires PG_TARGET_MODE=external (the external Keycloak owns its database).
 export KEYCLOAK_TARGET_MODE="${KEYCLOAK_TARGET_MODE:-operator}"
 
+# Data-only cutover: when "true", Phase 3 migrates all data to the target
+# backends but SKIPS the final `helm upgrade`. The caller is then responsible
+# for upgrading Camunda to point at the new backends. Intended for CI harnesses
+# that own the chart upgrade (e.g. testing an N→N+1 chart upgrade onto migrated
+# external infrastructure). Normal migrations leave this "false".
+export SKIP_HELM_UPGRADE="${SKIP_HELM_UPGRADE:-false}"
+
 # ┌───────────────────────────────────────────────────────────────────────────┐
 # │  OPERATOR MODE  (PG_TARGET_MODE=operator / ES_TARGET_MODE=operator)     │
 # │  Skip this section if using "external" mode.                            │
