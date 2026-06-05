@@ -3,12 +3,21 @@ set -euo pipefail
 
 CLUSTERS=("$CLUSTER_0" "$CLUSTER_1")
 
+# The cross-cluster IPSec tunnel takes a few minutes to establish even after the
+# Submariner addons report Available=True. Poll until both clusters report an
+# established connection, up to a bounded timeout.
+TIMEOUT_SECONDS="${SUBCTL_VERIFY_TIMEOUT_SECONDS:-600}"
+POLL_INTERVAL_SECONDS="${SUBCTL_VERIFY_POLL_INTERVAL_SECONDS:-15}"
+deadline=$((SECONDS + TIMEOUT_SECONDS))
+
 # Check the status of both clusters
 while true; do
     all_connected=true
 
     for CLUSTER_NAME in "${CLUSTERS[@]}"; do
-        STATUS=$(subctl show all --contexts "$CLUSTER_NAME")
+        # `subctl show all` exits non-zero while no connection exists yet; tolerate
+        # that here so the retry loop is not aborted by `set -e` on the first poll.
+        STATUS=$(subctl show all --contexts "$CLUSTER_NAME" 2>&1 || true)
         echo "Status of Cluster ($CLUSTER_NAME):"
         echo "$STATUS"
 
@@ -26,5 +35,10 @@ while true; do
         exit 0
     fi
 
-    sleep 5
+    if [ "$SECONDS" -ge "$deadline" ]; then
+        echo "Submariner connections were not established within ${TIMEOUT_SECONDS}s." >&2
+        exit 1
+    fi
+
+    sleep "$POLL_INTERVAL_SECONDS"
 done
