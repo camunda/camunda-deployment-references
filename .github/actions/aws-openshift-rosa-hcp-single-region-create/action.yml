@@ -288,10 +288,11 @@ runs:
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
           run: |
-              set -uo pipefail
+              set -euo pipefail
 
               # Convergent apply with retry for transient ROSA HCP compute-node
               # provisioning timeouts (see the shared helper for the rationale).
+              # The helper manages `errexit` locally during its retries.
               source "${{ github.workspace }}/.github/scripts/rosa-hcp-convergent-apply.sh"
               rosa_hcp_convergent_apply rosa.plan terraform.tfvars
 
