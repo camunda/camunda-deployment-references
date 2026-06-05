@@ -2169,7 +2169,10 @@ wait_for_targets_ready() {
     fi
 
     # --- Keycloak CR ---
-    if [[ "${MIGRATE_KEYCLOAK:-false}" == "true" ]]; then
+    # Only the operator path has a Keycloak CR to wait on. In external mode the
+    # Keycloak instance is provided/owned by the caller (managed service or a
+    # companion release), so there is no CR here — skip the wait.
+    if [[ "${MIGRATE_KEYCLOAK:-false}" == "true" ]] && ! is_external_keycloak; then
         log_info "Waiting for Keycloak CR to be ready ..."
         while true; do
             local kc_ready
