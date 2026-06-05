@@ -85,7 +85,11 @@ rosa_hcp_convergent_apply() {
       continue
     fi
 
-    echo "::error::Terraform apply failed on attempt ${attempt} (rc=${rc}) and the error is not a known transient compute-node provisioning timeout. Failing."
+    if grep -Eiq "${transient_pattern}" apply.log; then
+      echo "::error::Terraform apply failed on attempt ${attempt} (rc=${rc}) with a transient ROSA HCP compute-node provisioning timeout, but the maximum number of attempts (${max_attempts}) was reached. Failing."
+    else
+      echo "::error::Terraform apply failed on attempt ${attempt} (rc=${rc}) and the error is not a known transient compute-node provisioning timeout. Failing."
+    fi
     [ "${errexit_was_set}" -eq 1 ] && set -e
     return "${rc}"
   done
