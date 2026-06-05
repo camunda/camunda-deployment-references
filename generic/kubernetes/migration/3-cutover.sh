@@ -161,16 +161,19 @@ do_final_pg_backup() {
     save_state "${component^^}_FINAL_BACKUP" "${component}-db-final.dump"
 }
 
+# The final backup reads the SOURCE database, so it honours the same
+# *_SOURCE_DB_NAME/_USER overrides as the Phase 2 initial backup (defaulting to
+# the target names). The restore below uses the target names.
 if [[ "${MIGRATE_IDENTITY}" == "true" ]]; then
-    do_final_pg_backup identity "${IDENTITY_DB_NAME}" "${IDENTITY_DB_USER}"
+    do_final_pg_backup identity "${IDENTITY_SOURCE_DB_NAME:-${IDENTITY_DB_NAME}}" "${IDENTITY_SOURCE_DB_USER:-${IDENTITY_DB_USER}}"
 fi
 
 if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-    do_final_pg_backup keycloak "${KEYCLOAK_DB_NAME}" "${KEYCLOAK_DB_USER}"
+    do_final_pg_backup keycloak "${KEYCLOAK_SOURCE_DB_NAME:-${KEYCLOAK_DB_NAME}}" "${KEYCLOAK_SOURCE_DB_USER:-${KEYCLOAK_DB_USER}}"
 fi
 
 if [[ "${MIGRATE_WEBMODELER}" == "true" ]]; then
-    do_final_pg_backup webmodeler "${WEBMODELER_DB_NAME}" "${WEBMODELER_DB_USER}"
+    do_final_pg_backup webmodeler "${WEBMODELER_SOURCE_DB_NAME:-${WEBMODELER_DB_NAME}}" "${WEBMODELER_SOURCE_DB_USER:-${WEBMODELER_DB_USER}}"
 fi
 
 if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
