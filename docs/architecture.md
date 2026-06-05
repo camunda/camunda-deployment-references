@@ -30,7 +30,7 @@ The official Camunda docs for these references live at:
 |-----------|----------|
 | `aws/`    | EKS (single/dual region, IRSA variant), ROSA HCP (single/dual region), ECS Fargate, EC2. Modules: `eks-cluster`, `aurora`, `opensearch`, `rosa-hcp`, `ecs`, `vpn` |
 | `azure/`  | AKS (single region, with RDBMS variant). Modules: `aks`, `network`, `kms`, `postgres-db` |
-| `generic/`| Cloud-agnostic Kubernetes (single/dual region), OpenShift, migration procedures, operator-based (CNPG, ECK, Keycloak), Debian bare metal |
+| `generic/`| Cloud-agnostic Kubernetes (single/dual region), OpenShift, operator-based (CNPG, ECK, Keycloak), Debian bare metal |
 | `local/`  | Kind (Kubernetes in Docker) for local development |
 
 ### Helm Values Patterns
