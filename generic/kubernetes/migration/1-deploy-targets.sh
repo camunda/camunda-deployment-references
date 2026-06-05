@@ -119,17 +119,24 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. Keycloak Operator
+# 3. Keycloak
 # ─────────────────────────────────────────────────────────────────────────────
 
 if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-    section "3/3 — Keycloak Operator"
-
-    if kubectl get keycloak keycloak -n "${NAMESPACE}" &>/dev/null; then
-        log_success "Keycloak CR already exists — skipping"
+    if is_external_keycloak; then
+        section "3/3 — Keycloak (external)"
+        log_info "KEYCLOAK_TARGET_MODE=external — Keycloak Operator deployment skipped"
+        log_info "  Expecting an external Keycloak at ${EXTERNAL_KEYCLOAK_PROTOCOL:-http}://${EXTERNAL_KEYCLOAK_HOST}:${EXTERNAL_KEYCLOAK_PORT:-80}${EXTERNAL_KEYCLOAK_CONTEXT_PATH:-/auth}"
+        log_info "  It must use the external Keycloak database (EXTERNAL_PG_KEYCLOAK_*) so the restored realm is served."
     else
-        deploy_keycloak
-        save_state "KEYCLOAK_OPERATOR_DEPLOYED" "true"
+        section "3/3 — Keycloak Operator"
+
+        if kubectl get keycloak keycloak -n "${NAMESPACE}" &>/dev/null; then
+            log_success "Keycloak CR already exists — skipping"
+        else
+            deploy_keycloak
+            save_state "KEYCLOAK_OPERATOR_DEPLOYED" "true"
+        fi
     fi
 fi
 

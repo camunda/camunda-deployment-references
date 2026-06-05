@@ -715,6 +715,63 @@ warn_customization() {
 
 is_external_pg() { [[ "${PG_TARGET_MODE:-operator}" == "external" ]]; }
 is_external_es() { [[ "${ES_TARGET_MODE:-operator}" == "external" ]]; }
+is_external_keycloak() { [[ "${KEYCLOAK_TARGET_MODE:-operator}" == "external" ]]; }
+
+# Validate external Keycloak configuration.
+# In external mode the scripts do not deploy Keycloak; Camunda is pointed at a
+# pre-existing instance whose realm lives in the external Keycloak database, so
+# the Keycloak PostgreSQL target must also be external.
+validate_external_keycloak_config() {
+    local errs=0
+
+    if [[ -z "${EXTERNAL_KEYCLOAK_HOST:-}" ]]; then
+        log_error "EXTERNAL_KEYCLOAK_HOST must be set when KEYCLOAK_TARGET_MODE=external"
+        errs=1
+    fi
+
+    if ! is_external_pg; then
+        log_error "KEYCLOAK_TARGET_MODE=external requires PG_TARGET_MODE=external"
+        log_error "  The external Keycloak must serve the migrated realm from the external Keycloak database."
+        errs=1
+    fi
+
+    if [[ -z "${EXTERNAL_KEYCLOAK_ADMIN_SECRET:-}" ]]; then
+        log_error "EXTERNAL_KEYCLOAK_ADMIN_SECRET must be set when KEYCLOAK_TARGET_MODE=external"
+        errs=1
+    elif ! kubectl get secret "${EXTERNAL_KEYCLOAK_ADMIN_SECRET}" -n "${NAMESPACE}" &>/dev/null; then
+        log_error "Secret '${EXTERNAL_KEYCLOAK_ADMIN_SECRET}' not found in namespace ${NAMESPACE}"
+        errs=1
+    fi
+
+    if [[ "$errs" -eq 0 ]]; then
+        log_success "  keycloak: external instance OK (${EXTERNAL_KEYCLOAK_PROTOCOL:-http}://${EXTERNAL_KEYCLOAK_HOST}:${EXTERNAL_KEYCLOAK_PORT:-80}${EXTERNAL_KEYCLOAK_CONTEXT_PATH:-/auth})"
+    fi
+    return "$errs"
+}
+
+# Generate Camunda Helm values that point at an EXTERNAL Keycloak instance.
+# Used during cutover instead of the operator keycloak values. Disables the
+# bundled Bitnami subchart and wires global.identity.keycloak.url at the
+# external endpoint. The admin user override (client tokens + adminUser) is
+# applied separately by sync_keycloak_admin_credentials.
+generate_external_keycloak_values() {
+    local out="${STATE_DIR}/keycloak-external-values.yml"
+    cat > "$out" <<EOF
+global:
+    identity:
+        keycloak:
+            internal: false
+            url:
+                protocol: ${EXTERNAL_KEYCLOAK_PROTOCOL:-http}
+                host: ${EXTERNAL_KEYCLOAK_HOST}
+                port: "${EXTERNAL_KEYCLOAK_PORT:-80}"
+            contextPath: ${EXTERNAL_KEYCLOAK_CONTEXT_PATH:-/auth}
+            realm: ${EXTERNAL_KEYCLOAK_REALM:-/realms/camunda-platform}
+identityKeycloak:
+    enabled: false
+EOF
+    echo "$out"
+}
 
 # Validate that external PG configuration is complete for a component.
 # Usage: validate_external_pg_config <component>
@@ -1133,8 +1190,11 @@ validate_target_resources() {
     local has_errors=0
 
     # --- External target configuration checks ---
-    if is_external_pg || is_external_es; then
+    if is_external_pg || is_external_es || is_external_keycloak; then
         log_info "External target configuration:"
+        if is_external_keycloak && [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
+            validate_external_keycloak_config || has_errors=1
+        fi
         if is_external_pg; then
             if [[ "${MIGRATE_IDENTITY}" == "true" ]]; then
                 validate_external_pg_config identity || has_errors=1
@@ -1338,17 +1398,23 @@ sync_keycloak_admin_credentials() {
     # The Bitnami Keycloak chart default admin user is "admin"
     local admin_user="admin"
 
-    # Update the operator secret to match the restored DB credentials
-    kubectl create secret generic "$operator_secret" \
-        -n "${NAMESPACE}" \
-        --from-literal=username="$admin_user" \
-        --from-literal=password="$admin_pass" \
-        --dry-run=client -o yaml \
-        | kubectl apply -f - >/dev/null
+    # Update the operator secret to match the restored DB credentials.
+    # Skipped in external mode: the external Keycloak owns its own admin (served
+    # from the restored realm DB); there is no operator "keycloak-initial-admin"
+    # secret to reconcile.
+    if ! is_external_keycloak; then
+        kubectl create secret generic "$operator_secret" \
+            -n "${NAMESPACE}" \
+            --from-literal=username="$admin_user" \
+            --from-literal=password="$admin_pass" \
+            --dry-run=client -o yaml \
+            | kubectl apply -f - >/dev/null
+        log_info "Updated ${operator_secret} secret (user=${admin_user})"
+    else
+        log_info "External Keycloak — skipping operator '${operator_secret}' secret reconcile"
+    fi
     unset admin_pass
     eval "$_xtrace" 2>/dev/null
-
-    log_info "Updated ${operator_secret} secret (user=${admin_user})"
 
     # Ensure the Bitnami secret has ALL keys that the operator chart references.
     # Bitnami generates some client tokens (optimize, admin) but NOT all

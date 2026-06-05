@@ -82,6 +82,16 @@ export ES_INDEX_PREFIXES="${ES_INDEX_PREFIXES:-zeebe-* operate-* tasklist-* opti
 export PG_TARGET_MODE="${PG_TARGET_MODE:-operator}"
 export ES_TARGET_MODE="${ES_TARGET_MODE:-operator}"
 
+# Keycloak target mode:
+#   "operator"  → Scripts deploy the Keycloak Operator + a Keycloak CR.
+#   "external"  → Scripts do NOT deploy Keycloak. An external Keycloak instance
+#                 (managed service, companion Helm release, standalone) must
+#                 already exist and be backed by the external Keycloak database
+#                 (EXTERNAL_PG_KEYCLOAK_*), so the restored realm is served by it.
+#                 Configure the "External Keycloak instance" subsection below.
+# Requires PG_TARGET_MODE=external (the external Keycloak owns its database).
+export KEYCLOAK_TARGET_MODE="${KEYCLOAK_TARGET_MODE:-operator}"
+
 # ┌───────────────────────────────────────────────────────────────────────────┐
 # │  OPERATOR MODE  (PG_TARGET_MODE=operator / ES_TARGET_MODE=operator)     │
 # │  Skip this section if using "external" mode.                            │
@@ -141,6 +151,21 @@ export CUSTOM_HELM_VALUES_FILE="${CUSTOM_HELM_VALUES_FILE:-}"
 # the external database instead of a CNPG cluster.
 # Provide a custom Keycloak CR file here (overrides automatic selection).
 export CUSTOM_KEYCLOAK_CONFIG_FILE="${CUSTOM_KEYCLOAK_CONFIG_FILE:-}"
+
+# ---[ External Keycloak instance ]--------------------------------------------
+# Used only when KEYCLOAK_TARGET_MODE=external. The scripts do not deploy
+# Keycloak; instead Camunda is pointed at this pre-existing external instance,
+# which must be backed by the external Keycloak database (EXTERNAL_PG_KEYCLOAK_*)
+# so the migrated realm is served. Mirrors global.identity.keycloak.url.* in the
+# Camunda Helm chart.
+export EXTERNAL_KEYCLOAK_PROTOCOL="${EXTERNAL_KEYCLOAK_PROTOCOL:-http}"
+export EXTERNAL_KEYCLOAK_HOST="${EXTERNAL_KEYCLOAK_HOST:-}"
+export EXTERNAL_KEYCLOAK_PORT="${EXTERNAL_KEYCLOAK_PORT:-80}"
+export EXTERNAL_KEYCLOAK_CONTEXT_PATH="${EXTERNAL_KEYCLOAK_CONTEXT_PATH:-/auth}"
+export EXTERNAL_KEYCLOAK_REALM="${EXTERNAL_KEYCLOAK_REALM:-/realms/camunda-platform}"
+# Secret (in NAMESPACE) holding the Keycloak admin credentials the restored
+# realm uses. Must contain a 'password' key; 'username' defaults to admin.
+export EXTERNAL_KEYCLOAK_ADMIN_SECRET="${EXTERNAL_KEYCLOAK_ADMIN_SECRET:-}"
 
 # =============================================================================
 echo "Migration config loaded:"

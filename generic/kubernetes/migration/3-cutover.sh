@@ -356,8 +356,11 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]] && ! is_external_es; then
 fi
 
 if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-    # Keycloak always uses the operator — values are always needed
-    if [[ -n "${CAMUNDA_DOMAIN:-}" && "${CAMUNDA_DOMAIN}" != "localhost" ]]; then
+    if is_external_keycloak; then
+        # External Keycloak: point Camunda at the pre-existing instance and
+        # disable the bundled Bitnami subchart.
+        HELM_VALUES_ARGS+=("$(generate_external_keycloak_values)")
+    elif [[ -n "${CAMUNDA_DOMAIN:-}" && "${CAMUNDA_DOMAIN}" != "localhost" ]]; then
         HELM_VALUES_ARGS+=("$(get_helm_values keycloak-domain)")
     else
         HELM_VALUES_ARGS+=("$(get_helm_values keycloak-no-domain)")

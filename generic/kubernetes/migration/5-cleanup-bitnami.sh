@@ -240,13 +240,17 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]] && ! is_external_es; then
 fi
 
 if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-    kc_ready=$(kubectl get keycloak keycloak -n "${NAMESPACE}" \
-        -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
-    if [[ "$kc_ready" == "True" ]]; then
-        log_success "Keycloak CR: Ready"
+    if is_external_keycloak; then
+        log_success "Keycloak: external instance (operator CR check skipped)"
     else
-        log_error "Keycloak CR: Not ready after cleanup"
-        ERRORS=$((ERRORS + 1))
+        kc_ready=$(kubectl get keycloak keycloak -n "${NAMESPACE}" \
+            -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
+        if [[ "$kc_ready" == "True" ]]; then
+            log_success "Keycloak CR: Ready"
+        else
+            log_error "Keycloak CR: Not ready after cleanup"
+            ERRORS=$((ERRORS + 1))
+        fi
     fi
 fi
 

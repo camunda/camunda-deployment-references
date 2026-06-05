@@ -165,6 +165,7 @@ Set any `MIGRATE_*` to `false` to skip a component (e.g. if it's not deployed or
 | ---------------------------- | --------------- | -------------------------------------------- |
 | `PG_TARGET_MODE`             | `operator`      | `operator`: deploy CNPG. `external`: skip deployment, migrate to pre-existing target |
 | `ES_TARGET_MODE`             | `operator`      | `operator`: deploy ECK. `external`: skip deployment, point to pre-existing target |
+| `KEYCLOAK_TARGET_MODE`       | `operator`      | `operator`: deploy the Keycloak Operator + CR. `external`: skip deployment, point Camunda at a pre-existing Keycloak. Requires `PG_TARGET_MODE=external` |
 
 **Operator mode** (when `*_TARGET_MODE=operator`):
 
@@ -188,7 +189,13 @@ Set any `MIGRATE_*` to `false` to skip a component (e.g. if it's not deployed or
 | `EXTERNAL_ES_PORT`              | `443`                    | Elasticsearch port                           |
 | `EXTERNAL_ES_SECRET`            | `external-es`            | K8s Secret containing the password           |
 | `CUSTOM_HELM_VALUES_FILE`       | (empty)                  | Helm values file for external connections    |
-| `CUSTOM_KEYCLOAK_CONFIG_FILE`   | (empty)                  | Custom Keycloak CR for external PG           |
+| `CUSTOM_KEYCLOAK_CONFIG_FILE`   | (empty)                  | Custom Keycloak CR for external PG (operator mode) |
+| `EXTERNAL_KEYCLOAK_PROTOCOL`    | `http`                   | External Keycloak protocol (`KEYCLOAK_TARGET_MODE=external`) |
+| `EXTERNAL_KEYCLOAK_HOST`        | (empty)                  | External Keycloak host                       |
+| `EXTERNAL_KEYCLOAK_PORT`        | `80`                     | External Keycloak port                       |
+| `EXTERNAL_KEYCLOAK_CONTEXT_PATH`| `/auth`                  | External Keycloak context path               |
+| `EXTERNAL_KEYCLOAK_REALM`       | `/realms/camunda-platform`| External Keycloak realm path                |
+| `EXTERNAL_KEYCLOAK_ADMIN_SECRET`| (empty)                  | K8s Secret with the Keycloak admin `password` |
 
 ### When to use `external` target mode
 
@@ -199,10 +206,16 @@ Set `PG_TARGET_MODE=external` or `ES_TARGET_MODE=external` when the migration **
 | Fresh cluster, no operators installed | `operator` (default) | Scripts install CNPG/ECK + create clusters |
 | Operators already installed by a platform team | `external` | Avoids overwriting the operator version (scripts apply a pinned version via `kubectl apply --server-side`) |
 | Target is a managed service (RDS, OpenSearch, …) | `external` | No operator needed — data migrates directly to the managed endpoint |
+| Keycloak runs as a managed/standalone/Helm instance (not the operator) | `KEYCLOAK_TARGET_MODE=external` | Migrates the realm into the external Keycloak database and points Camunda at the existing instance |
 
 When using `external` mode, you must also provide:
 - Connection details: `EXTERNAL_PG_*` or `EXTERNAL_ES_*` variables in `env.sh`
 - A `CUSTOM_HELM_VALUES_FILE` with Helm values pointing Camunda at the external targets
+
+When using `KEYCLOAK_TARGET_MODE=external`, you must also provide the `EXTERNAL_KEYCLOAK_*`
+variables, and `PG_TARGET_MODE=external` (the external Keycloak serves the migrated realm
+from the external Keycloak database). The scripts do not deploy or manage the Keycloak
+instance itself — only the realm database is migrated and Camunda is rewired to it.
 
 ## Detailed Phase Descriptions
 
