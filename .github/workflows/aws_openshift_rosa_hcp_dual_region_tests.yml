@@ -692,7 +692,10 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/openshift/dual-region
-              timeout-minutes: 10
+              # Cross-region Zeebe brokers stay 0/1 (Running, not Ready) until they
+              # form quorum over Submariner, which can take longer than 10 min on
+              # slow ROSA HCP runs and intermittently times out this step.
+              timeout-minutes: 20
               run: |
                   set -euo pipefail
 
