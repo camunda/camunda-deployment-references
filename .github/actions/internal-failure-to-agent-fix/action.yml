@@ -336,6 +336,37 @@ runs:
 
               gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$comment_file"
 
+              # Also post the same notice on the agent's draft PR. The agent watches
+              # its own PR more closely than the issue, so a comment there is the most
+              # reliable way to re-engage it on a new occurrence. Resolve the open PR
+              # that is linked to this issue (the agent opens one that "closes" it)
+              # via GraphQL closedByPullRequestsReferences, then mirror the comment.
+              if [ "$NOTIFY_BOT" = "true" ]; then
+                owner="${GITHUB_REPOSITORY%/*}"
+                repo="${GITHUB_REPOSITORY#*/}"
+                linked_pr=$(gh api graphql -f query='
+                  query($owner:String!,$repo:String!,$number:Int!){
+                    repository(owner:$owner,name:$repo){
+                      issue(number:$number){
+                        closedByPullRequestsReferences(first:10, includeClosedPrs:false){
+                          nodes{ number state }
+                        }
+                      }
+                    }
+                  }' -F owner="$owner" -F repo="$repo" -F number="$ISSUE_NUMBER" \
+                  --jq '[.data.repository.issue.closedByPullRequestsReferences.nodes[]
+                         | select(.state=="OPEN") | .number] | first // empty' 2>/dev/null || true)
+                if [ -n "${linked_pr:-}" ]; then
+                  if gh pr comment "$linked_pr" --repo "$GITHUB_REPOSITORY" --body-file "$comment_file"; then
+                    echo "Mirrored grouping notice onto PR #${linked_pr}."
+                  else
+                    echo "::warning::Could not comment on the linked PR #${linked_pr} (token permissions?)."
+                  fi
+                else
+                  echo "No open linked PR found for issue #${ISSUE_NUMBER}; commented on the issue only."
+                fi
+              fi
+
         # Fetch the failed logs and run a GitHub Models analysis once, only when we
         # are about to open a fresh issue. The summary is reused in the issue body,
         # the agent prompt and the Slack thread.
