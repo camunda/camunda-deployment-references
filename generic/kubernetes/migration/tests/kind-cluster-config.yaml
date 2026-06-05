@@ -15,6 +15,19 @@ networking:
     apiServerAddress: 127.0.0.1
     apiServerPort: 6443
 
+# Extend containerd's image-pull progress timeout (default 5m).
+# The migration test pulls many large Camunda/Bitnami images (camunda ~480MB,
+# optimize ~560MB, elasticsearch ~740MB, ...) across all Kind nodes at once.
+# Under the runner's shared egress bandwidth a single in-flight pull can make
+# no measurable progress for more than 5m, which makes containerd cancel it
+# ("httpReadSeeker: failed open: context canceled") and restart it from
+# scratch, so it never converges within the `helm install --wait` budget.
+# A generous deadline lets starved pulls finish once peers complete.
+containerdConfigPatches:
+    - |-
+      [plugins.'io.containerd.cri.v1.images']
+        image_pull_progress_timeout = '30m'
+
 nodes:
     - role: control-plane
       # renovate: datasource=docker depName=kindest/node

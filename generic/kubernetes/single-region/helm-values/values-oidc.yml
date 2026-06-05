@@ -57,7 +57,6 @@ global:
                 audience: ${IDENTITY_CLIENT_ID}
                 existingSecret: identity-secret-for-components
                 existingSecretKey: identity-client-secret
-                redirectUrl: https://${CAMUNDA_DOMAIN}/auth/login-callback
 
             optimize:
                 clientId: ${OPTIMIZE_CLIENT_ID}
