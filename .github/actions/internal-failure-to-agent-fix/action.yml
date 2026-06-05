@@ -252,6 +252,7 @@ runs:
           shell: bash
           env:
               GH_TOKEN: ${{ inputs.github-token }}
+              AGENT_TOKEN: ${{ inputs.agent-token }}
               ISSUE_NUMBER: ${{ steps.find.outputs.number }}
               WORKFLOW_NAME: ${{ inputs.workflow-name }}
               RUN_URL: ${{ inputs.run-url }}
@@ -261,6 +262,14 @@ runs:
               BOT_HANDLE: ${{ steps.marker.outputs.bot-handle }}
           run: |
               set -euo pipefail
+
+              # The bookkeeping calls (read body, edit the hidden marker, resolve the
+              # bot assignee / linked PR) use the GitHub App installation token
+              # (GH_TOKEN). The notification COMMENTS, however, are posted with the
+              # personal PAT (COMMENT_TOKEN): a mention authored by the App bot does
+              # not re-engage the coding agent, whereas a mention authored by a real
+              # user account does. Fall back to the App token only if no PAT is set.
+              COMMENT_TOKEN="${AGENT_TOKEN:-$GH_TOKEN}"
 
               # Read the current body to learn which branches are already tracked.
               body=$(gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')
@@ -334,7 +343,7 @@ runs:
                   "$mention_handle" >> "$comment_file"
               fi
 
-              gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$comment_file"
+              GH_TOKEN="$COMMENT_TOKEN" gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$comment_file"
 
               # Also post the same notice on the agent's draft PR. The agent watches
               # its own PR more closely than the issue, so a comment there is the most
@@ -357,7 +366,7 @@ runs:
                   --jq '[.data.repository.issue.closedByPullRequestsReferences.nodes[]
                          | select(.state=="OPEN") | .number] | first // empty' 2>/dev/null || true)
                 if [ -n "${linked_pr:-}" ]; then
-                  if gh pr comment "$linked_pr" --repo "$GITHUB_REPOSITORY" --body-file "$comment_file"; then
+                  if GH_TOKEN="$COMMENT_TOKEN" gh pr comment "$linked_pr" --repo "$GITHUB_REPOSITORY" --body-file "$comment_file"; then
                     echo "Mirrored grouping notice onto PR #${linked_pr}."
                   else
                     echo "::warning::Could not comment on the linked PR #${linked_pr} (token permissions?)."
