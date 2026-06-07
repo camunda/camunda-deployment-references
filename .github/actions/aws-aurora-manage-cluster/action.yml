@@ -117,7 +117,7 @@ runs:
           id: utility
           # see https://github.com/orgs/community/discussions/41927 it's not possible to optimize this yet
           # steps.uses  cannot access the github context.
-          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@465abb72f74b717f021c09f4a74594e776ac202c # main
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@ac80ef8df807ddcc98986858742309afd58768f3 # main
           with:
               awscli-version: ${{ inputs.awscli-version }}
               terraform-version: ${{ inputs.terraform-version }}
