@@ -33,7 +33,7 @@ jobs:
         steps:
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@0bdd5244414ef8e570fd279b2e97309fcd5ff313 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@429f6086781b955935e7071c953616ea16f2d3a6 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -45,7 +45,7 @@ jobs:
                   vault-url: ${{ secrets.VAULT_ADDR }}
 
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               with:
                   token: ${{ steps.generate-github-token.outputs.token }}
 
