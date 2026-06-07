@@ -17,14 +17,14 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.12
 
-awscli 2.34.58
+awscli 2.34.63
 
 delta 0.18.2
 
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
 eksctl 0.225.0
 
-golang 1.26.3
+golang 1.26.4
 
 # renovate: datasource=github-tags depName=fullstorydev/grpcurl
 grpcurl 1.9.3
