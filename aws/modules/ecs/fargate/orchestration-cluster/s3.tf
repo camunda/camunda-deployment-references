@@ -56,11 +56,6 @@ resource "aws_iam_policy" "s3_access" {
           "s3:GetBucketLocation"
         ]
         Resource = aws_s3_bucket.main.arn
-        Condition = {
-          StringEquals = {
-            "aws:RequestedRegion" = var.aws_region
-          }
-        }
       },
       {
         Sid    = "AllowS3ObjectAccess"
@@ -71,14 +66,6 @@ resource "aws_iam_policy" "s3_access" {
           "s3:DeleteObject"
         ]
         Resource = "${aws_s3_bucket.main.arn}/*"
-        Condition = {
-          StringEquals = {
-            "aws:RequestedRegion" = var.aws_region
-          }
-          Bool = {
-            "aws:SecureTransport" = "true"
-          }
-        }
       },
       {
         Sid    = "AllowKMSAccess"
@@ -90,11 +77,6 @@ resource "aws_iam_policy" "s3_access" {
           "kms:DescribeKey"
         ]
         Resource = aws_kms_key.s3.arn
-        Condition = {
-          StringEquals = {
-            "kms:ViaService" = "s3.${var.aws_region}.amazonaws.com"
-          }
-        }
       }
     ]
   })
