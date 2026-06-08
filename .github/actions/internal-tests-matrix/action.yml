@@ -62,7 +62,11 @@ runs:
                 echo "This PR is scheduled or coming from renovate, we test all scenarios without filtering."
                 platform_matrix="$(yq '.matrix' --indent=0 --output-format json "${{ inputs.ci_matrix_file }}")"
               else
-                platform_matrix="$(yq '(.matrix |= (.distro |= map(select(.schedule_only == null or .schedule_only == false)))) | .matrix' \
+                echo "This is a regular PR, we exclude schedule_only and weekly_schedule_only scenarios."
+                platform_matrix="$(yq '(.matrix |= (.distro |= map(select(
+                    (.schedule_only == null or .schedule_only == false)
+                    and (.weekly_schedule_only == null or .weekly_schedule_only == false)
+                  )))) | .matrix' \
                   --indent=0 --output-format json "${{ inputs.ci_matrix_file }}")"
               fi
 
