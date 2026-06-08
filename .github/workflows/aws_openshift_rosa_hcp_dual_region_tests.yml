@@ -76,10 +76,7 @@ env:
     CLUSTER_0_AWS_REGION: eu-west-2
     CLUSTER_1_AWS_REGION: eu-west-3
 
-    # TODO(debug): TEMPORARY - force-disabled so failed runs keep the ROSA clusters alive
-    #   for interactive tmate debugging of the stuck cross-region Zeebe quorum.
-    #   Restore to: ${{ github.event.inputs.delete_clusters || 'true' }} before merge.
-    CLEANUP_CLUSTERS: 'false'
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
@@ -124,10 +121,7 @@ jobs:
               id: matrix
               with:
                   ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
-                  # TODO(debug): TEMPORARY - pinned to a fixed cluster name (instead of the random
-                  #   hci-<uuid> suffix) so re-runs reuse the same Terraform state / clusters while
-                  #   iterating. Restore to: ${{ inputs.cluster_name }} before merge.
-                  cluster_name: ${{ inputs.cluster_name || 'hci-dbg' }}
+                  cluster_name: ${{ inputs.cluster_name }}
                   ref_arch: ${{ inputs.ref-arch }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
@@ -706,19 +700,6 @@ jobs:
                   set -euo pipefail
 
                   ./generic/openshift/dual-region/procedure/check-deployment-ready.sh
-
-            # TODO(debug): TEMPORARY tmate debugging step - REMOVE before merge.
-            #   Opens an interactive SSH session when the deployment never becomes healthy
-            #   (stuck cross-region Zeebe quorum / pending PVCs) so we can inspect the live
-            #   clusters. limit-access-to-actor: false disables the VPN/actor-restricted access
-            #   mode; restore it to true (or drop this step entirely) before merge.
-            - name: 🐛 tmate debugging session (on failure)
-              if: failure()
-              uses: mxschmitt/action-tmate@v3
-              timeout-minutes: 45
-              with:
-                  detached: false
-                  limit-access-to-actor: false
 
             - name: Set current Camunda version
               id: camunda-version
