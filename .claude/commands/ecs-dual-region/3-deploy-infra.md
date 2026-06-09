@@ -1,26 +1,34 @@
-# Deploy ECS Dual-Region Infrastructure (Step 2/5)
+# Deploy ECS Dual-Region Infrastructure (Step 3/6)
 
-Deploy the **infra** layer: VPCs, cross-region networking, Aurora Global / OpenSearch, ECS clusters, load balancers, KMS, S3, secrets, IAM. The Camunda app layer comes in step 3.
+Deploy the **infra** layer: Aurora Global / OpenSearch, ECS clusters, ALB/NLBs, KMS, S3, secrets, IAM. Consumes vpc outputs via `terraform_remote_state`. The Camunda app layer comes in step 4.
 
 ## Pre-Checks
 
-1. Verify infra tfvars exists and read the configuration:
+1. Verify the vpc state has been applied (step 2):
+```bash
+test -f aws/containers/ecs-dual-region-fargate/terraform/vpc/terraform.tfstate && echo OK
+```
+If missing, tell the user to run `/ecs-dual-region/2-deploy-vpc` first.
+
+2. Verify infra tfvars exists:
 ```bash
 cat aws/containers/ecs-dual-region-fargate/terraform/infra/terraform.tfvars
 ```
 If missing, tell the user to run `/ecs-dual-region/1-configure` first.
 
-2. Extract `aws_profile` from tfvars for CLI commands. If set, use `--profile <value>` on all AWS CLI commands. If null/empty, omit the flag.
+3. Extract `aws_profile` from tfvars for CLI commands. If set, use `--profile <value>` on all AWS CLI commands. If null/empty, omit the flag.
 
 ## Camunda Context
 
-This step deploys everything *except* the Camunda task definitions:
-- **2 VPCs** with private/public subnets across 3 AZs each
-- **Cross-region networking** (Transit Gateway or VPC Peering) for Raft consensus traffic
+This step deploys everything *except* the Camunda task definitions and the VPC/networking (which lives in step 2):
+
 - **Aurora Global Database** (if RDBMS) or **OpenSearch domains** (if OpenSearch) for secondary storage
 - **ECS clusters** with Fargate capacity providers in both regions (no services yet)
 - **Load balancers:** ALB (HTTP on port 80 → container 8080, management 9600), NLB external (gRPC 26500), NLB internal (Raft 26502)
-- **IAM roles, KMS keys, S3 backup buckets, Secrets Manager, Route 53 Resolver**
+- **IAM roles, KMS keys, S3 backup buckets, Secrets Manager**
+- **One-time `db_seed` task** (RDBMS only) that creates the `camunda` IAM DB user and grants
+
+VPC IDs, subnet IDs, CIDRs, peering/TGW IDs are read from `terraform/vpc/`'s state via `terraform_remote_state` (default path `../vpc/terraform.tfstate`).
 
 ## Steps
 
@@ -64,11 +72,12 @@ export ALB_ENDPOINT_1="<terraform output -raw region_1_alb_endpoint>"
 
 ## Troubleshooting
 
+- **`terraform_remote_state` reads empty outputs:** vpc state hasn't been applied yet, or `var.vpc_state_path` points at the wrong file. Run `/ecs-dual-region/2-deploy-vpc` and confirm `terraform/vpc/terraform.tfstate` exists with the expected outputs (`terraform -chdir=../vpc output`).
 - **Aurora creation timeout:** Aurora Global DB can take 15+ minutes. If Terraform times out, run `terraform apply` again — it will pick up where it left off.
-- **Insufficient capacity:** Some regions have limited Fargate capacity. Try a different AZ or region.
-- **Permission errors:** Ensure your AWS credentials have admin-level access or the specific permissions for ECS, RDS, EC2, ELB, IAM, KMS, S3, CloudWatch, and Route 53.
+- **Insufficient capacity:** Some regions have limited Fargate capacity. Try a different AZ or region (which means changing the vpc state too).
+- **Permission errors:** Ensure your AWS credentials have admin-level access or the specific permissions for ECS, RDS, EC2, ELB, IAM, KMS, S3, CloudWatch.
 - **DB seed task fails:** The one-time IAM DB user creation task runs as part of infra apply. Check CloudWatch log group `/ecs/<cluster_name>-r0-db-seed` if apply hangs after Aurora is ready.
 
 ## Success
 
-Tell the user: "Infrastructure deployed. Proceed with `/ecs-dual-region/3-deploy-camunda` to deploy the Camunda app layer."
+Tell the user: "Infrastructure deployed. Proceed with `/ecs-dual-region/4-deploy-camunda` to deploy the Camunda app layer."

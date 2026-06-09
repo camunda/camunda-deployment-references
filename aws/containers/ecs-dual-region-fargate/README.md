@@ -22,22 +22,53 @@ Cluster configuration: `cluster_size=8`, `replication_factor=4`, `partition_coun
 - S3 bucket for Terraform state
 - Camunda Docker image version 8.8+ (RDBMS secondary storage support)
 
+## Terraform layout
+
+Three independent states, deployed in order:
+
+```
+terraform/
+├── vpc/    ← VPCs, cross-region peering or Transit Gateway, optional Route 53 Resolver.
+│            Supports BYO-VPC: customers can supply existing VPCs/subnets via vars.
+├── infra/  ← Aurora Global, ECS clusters, ALB/NLBs, KMS, S3, secrets, IAM.
+│            Reads vpc outputs via terraform_remote_state.
+├── app/    ← Camunda task definitions + ECS services.
+│            Reads infra outputs via terraform_remote_state.
+└── clusters/  (legacy combined state, kept for back-compat — not used by current workflow)
+```
+
 ## Quick start
 
+Use the guided workflow (recommended): run `/ecs-dual-region/1-configure` … `/6-cleanup` in your Claude Code session.
+
+Or manually:
+
 ```bash
-# 1. Deploy infrastructure
-cd terraform/clusters
+# 1. Deploy VPC layer (~5 min greenfield, < 1 min BYO-VPC)
+cd terraform/vpc
 terraform init && terraform apply
 
-# 2. Export environment variables from terraform outputs
+# 2. Deploy infra layer (~15-20 min — Aurora Global is the bottleneck)
+cd ../infra
+terraform init && terraform apply
+
+# 3. Deploy Camunda app layer (~30s apply, ~20 min Raft quorum formation)
+cd ../app
+terraform init && terraform apply
+
+# 4. Export environment variables from terraform outputs
 source ../../procedure/export_environment_prerequisites.sh
 
-# 3. Verify cross-region DNS resolution
+# 5. Verify cross-region DNS resolution (if enable_cross_region_dns_resolver = true)
 ../../procedure/test_cross_region_dns.sh
 
-# 4. Verify dual-region health
+# 6. Verify dual-region health
 ../../procedure/verify_dual_region.sh
 ```
+
+### BYO-VPC
+
+Customers with existing VPCs can skip greenfield VPC creation by setting `byo_vpc = true` in `terraform/vpc/terraform.tfvars` and supplying VPC IDs, CIDRs, subnet IDs, and route table IDs. See `terraform/vpc/README.md` for the full contract — validation enforces it at plan time.
 
 ## Failover / Failback
 
@@ -61,14 +92,14 @@ After deployment, the Camunda REST API is available via the ALB endpoints on por
 
 ```bash
 # Get the ALB endpoint for region 0
-ALB_R0=$(cd terraform/clusters && terraform output -raw region_0_alb_endpoint)
+ALB_R0=$(cd terraform/app && terraform output -raw region_0_alb_endpoint)
 
 # Check Zeebe topology (no auth required — Identity/Keycloak is not included)
 curl -s "http://${ALB_R0}/v2/topology" | jq '.brokers | length'
 # Expected: 8 (4 brokers per region)
 
 # Retrieve the admin password (generated, stored in Secrets Manager)
-ADMIN_PASS=$(cd terraform/clusters && terraform output -raw admin_user_password)
+ADMIN_PASS=$(cd terraform/app && terraform output -raw admin_user_password)
 
 # Use admin credentials for Camunda internal authorization
 curl -s -u "admin:${ADMIN_PASS}" "http://${ALB_R0}/v2/topology" | jq '.'

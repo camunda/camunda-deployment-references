@@ -1,4 +1,4 @@
-# Verify ECS Dual-Region Deployment (Step 4/5)
+# Verify ECS Dual-Region Deployment (Step 5/6)
 
 Comprehensive health check of the dual-region Camunda deployment.
 
@@ -141,4 +141,4 @@ Present results as a table:
 
 ## Success
 
-Tell the user: "Deployment verified. To tear down, run `/ecs-dual-region/5-cleanup`"
+Tell the user: "Deployment verified. To tear down, run `/ecs-dual-region/6-cleanup`"

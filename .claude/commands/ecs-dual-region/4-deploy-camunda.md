@@ -1,4 +1,4 @@
-# Deploy Camunda on ECS Dual-Region (Step 3/5)
+# Deploy Camunda on ECS Dual-Region (Step 4/6)
 
 Apply the **app** Terraform layer (Camunda task definitions + ECS services), then monitor services reaching steady state and Zeebe Raft quorum formation.
 
@@ -13,7 +13,7 @@ cat aws/containers/ecs-dual-region-fargate/terraform/infra/terraform.tfvars
 ```bash
 test -f aws/containers/ecs-dual-region-fargate/terraform/infra/terraform.tfstate && echo OK
 ```
-If missing, run `/ecs-dual-region/2-deploy-infra` first.
+If missing, run `/ecs-dual-region/3-deploy-infra` first.
 
 3. Verify ECS clusters exist (created by infra):
 ```bash
@@ -111,4 +111,4 @@ Should return `8` (one leader per partition).
 
 ## Success
 
-Tell the user: "Camunda is running. Proceed with `/ecs-dual-region/4-verify`"
+Tell the user: "Camunda is running. Proceed with `/ecs-dual-region/5-verify`"

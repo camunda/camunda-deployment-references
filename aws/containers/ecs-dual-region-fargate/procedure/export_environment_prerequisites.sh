@@ -19,9 +19,11 @@ set -euo pipefail
 export REGION_0=${REGION_0:-eu-west-2}
 export REGION_1=${REGION_1:-eu-west-3}
 
-# Path to Terraform root (relative to this script)
+# Path to Terraform root (relative to this script). With the 3-state layout
+# (vpc/, infra/, app/), most outputs needed for environment setup live in
+# infra/. Override TF_DIR if using an alternate state location.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TF_DIR="${TF_DIR:-${SCRIPT_DIR}/../terraform/clusters}"
+TF_DIR="${TF_DIR:-${SCRIPT_DIR}/../terraform/infra}"
 
 ###############################################################################
 # Retrieve Terraform outputs                                                  #

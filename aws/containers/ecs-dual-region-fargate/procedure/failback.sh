@@ -114,7 +114,7 @@ if [ "${MEMBER_COUNT}" = "1" ]; then
 
     # Find region 0's cluster identifier from Terraform output
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    TF_DIR="${TF_DIR:-${SCRIPT_DIR}/../terraform/clusters}"
+    TF_DIR="${TF_DIR:-${SCRIPT_DIR}/../terraform/infra}"
     REGION_0_CLUSTER_ARN=$(terraform -chdir="${TF_DIR}" output -json | \
         jq -r '.aurora_primary_endpoint.value' | \
         sed 's/\..*$//' || echo "")
