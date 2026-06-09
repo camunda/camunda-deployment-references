@@ -5,7 +5,7 @@
 resource "aws_security_group" "camunda_ports_region_0" {
   name        = "${local.prefix_region_0}-camunda-ports"
   description = "Allow necessary Camunda ports within VPC and cross-region"
-  vpc_id      = module.vpc_region_0.vpc_id
+  vpc_id      = local.vpc.region_0_vpc_id
 
   # Local VPC Camunda ports
   dynamic "ingress" {
@@ -14,7 +14,7 @@ resource "aws_security_group" "camunda_ports_region_0" {
       from_port   = ingress.value
       to_port     = ingress.value
       protocol    = "TCP"
-      cidr_blocks = [local.owner.vpc_cidr_block]
+      cidr_blocks = [local.vpc.region_0_vpc_cidr]
       description = "Allow inbound on port ${ingress.value} from local VPC"
     }
   }
@@ -25,7 +25,7 @@ resource "aws_security_group" "camunda_ports_region_0" {
       from_port   = egress.value
       to_port     = egress.value
       protocol    = "TCP"
-      cidr_blocks = [local.owner.vpc_cidr_block]
+      cidr_blocks = [local.vpc.region_0_vpc_cidr]
       description = "Allow outbound on port ${egress.value} to local VPC"
     }
   }
@@ -35,7 +35,7 @@ resource "aws_security_group" "camunda_ports_region_0" {
     from_port   = 26502
     to_port     = 26502
     protocol    = "TCP"
-    cidr_blocks = [local.accepter.vpc_cidr_block]
+    cidr_blocks = [local.vpc.region_1_vpc_cidr]
     description = "Allow cross-region Raft traffic from region 1"
   }
 
@@ -43,7 +43,7 @@ resource "aws_security_group" "camunda_ports_region_0" {
     from_port   = 26502
     to_port     = 26502
     protocol    = "TCP"
-    cidr_blocks = [local.accepter.vpc_cidr_block]
+    cidr_blocks = [local.vpc.region_1_vpc_cidr]
     description = "Allow cross-region Raft traffic to region 1"
   }
 
@@ -52,7 +52,7 @@ resource "aws_security_group" "camunda_ports_region_0" {
     from_port   = 5432
     to_port     = 5432
     protocol    = "TCP"
-    cidr_blocks = [local.accepter.vpc_cidr_block]
+    cidr_blocks = [local.vpc.region_1_vpc_cidr]
     description = "Allow Aurora traffic to region 1"
   }
 
@@ -73,7 +73,7 @@ resource "aws_security_group" "camunda_ports_region_0" {
 resource "aws_security_group" "package_80_443_region_0" {
   name        = "${local.prefix_region_0}-package-80-443"
   description = "Allow remote HTTP/HTTPS for package updates"
-  vpc_id      = module.vpc_region_0.vpc_id
+  vpc_id      = local.vpc.region_0_vpc_id
 
   egress {
     from_port   = 80
@@ -99,14 +99,14 @@ resource "aws_security_group" "package_80_443_region_0" {
 resource "aws_security_group" "efs_region_0" {
   name        = "${local.prefix_region_0}-efs"
   description = "Security group for EFS"
-  vpc_id      = module.vpc_region_0.vpc_id
+  vpc_id      = local.vpc.region_0_vpc_id
 
   ingress {
     description = "NFS from ECS tasks"
     from_port   = 2049
     to_port     = 2049
     protocol    = "TCP"
-    cidr_blocks = [local.owner.vpc_cidr_block]
+    cidr_blocks = [local.vpc.region_0_vpc_cidr]
   }
 
   egress {
@@ -114,7 +114,7 @@ resource "aws_security_group" "efs_region_0" {
     from_port   = 2049
     to_port     = 2049
     protocol    = "TCP"
-    cidr_blocks = [local.owner.vpc_cidr_block]
+    cidr_blocks = [local.vpc.region_0_vpc_cidr]
   }
 
   tags = {
@@ -125,7 +125,7 @@ resource "aws_security_group" "efs_region_0" {
 resource "aws_security_group" "remote_access_region_0" {
   name        = "${local.prefix_region_0}-remote-access"
   description = "Allow remote access to LoadBalancers"
-  vpc_id      = module.vpc_region_0.vpc_id
+  vpc_id      = local.vpc.region_0_vpc_id
 
   ingress {
     from_port   = 80
@@ -172,50 +172,6 @@ resource "aws_security_group" "remote_access_region_0" {
   }
 }
 
-resource "aws_security_group" "dns_resolver_region_0" {
-  count = var.enable_cross_region_dns_resolver ? 1 : 0
-
-  name        = "${local.prefix_region_0}-dns-resolver"
-  description = "Security group for Route 53 Resolver endpoints"
-  vpc_id      = module.vpc_region_0.vpc_id
-
-  ingress {
-    from_port   = 53
-    to_port     = 53
-    protocol    = "tcp"
-    cidr_blocks = [local.owner.vpc_cidr_block, local.accepter.vpc_cidr_block]
-    description = "DNS TCP from both VPCs"
-  }
-
-  ingress {
-    from_port   = 53
-    to_port     = 53
-    protocol    = "udp"
-    cidr_blocks = [local.owner.vpc_cidr_block, local.accepter.vpc_cidr_block]
-    description = "DNS UDP from both VPCs"
-  }
-
-  egress {
-    from_port   = 53
-    to_port     = 53
-    protocol    = "tcp"
-    cidr_blocks = [local.owner.vpc_cidr_block, local.accepter.vpc_cidr_block]
-    description = "DNS TCP to both VPCs"
-  }
-
-  egress {
-    from_port   = 53
-    to_port     = 53
-    protocol    = "udp"
-    cidr_blocks = [local.owner.vpc_cidr_block, local.accepter.vpc_cidr_block]
-    description = "DNS UDP to both VPCs"
-  }
-
-  tags = {
-    Name = "${local.prefix_region_0}-dns-resolver"
-  }
-}
-
 ################################################################
 #              Region 1 Security Groups                        #
 ################################################################
@@ -225,7 +181,7 @@ resource "aws_security_group" "camunda_ports_region_1" {
 
   name        = "${local.prefix_region_1}-camunda-ports"
   description = "Allow necessary Camunda ports within VPC and cross-region"
-  vpc_id      = module.vpc_region_1.vpc_id
+  vpc_id      = local.vpc.region_1_vpc_id
 
   dynamic "ingress" {
     for_each = var.ports
@@ -233,7 +189,7 @@ resource "aws_security_group" "camunda_ports_region_1" {
       from_port   = ingress.value
       to_port     = ingress.value
       protocol    = "TCP"
-      cidr_blocks = [local.accepter.vpc_cidr_block]
+      cidr_blocks = [local.vpc.region_1_vpc_cidr]
       description = "Allow inbound on port ${ingress.value} from local VPC"
     }
   }
@@ -244,7 +200,7 @@ resource "aws_security_group" "camunda_ports_region_1" {
       from_port   = egress.value
       to_port     = egress.value
       protocol    = "TCP"
-      cidr_blocks = [local.accepter.vpc_cidr_block]
+      cidr_blocks = [local.vpc.region_1_vpc_cidr]
       description = "Allow outbound on port ${egress.value} to local VPC"
     }
   }
@@ -254,7 +210,7 @@ resource "aws_security_group" "camunda_ports_region_1" {
     from_port   = 26502
     to_port     = 26502
     protocol    = "TCP"
-    cidr_blocks = [local.owner.vpc_cidr_block]
+    cidr_blocks = [local.vpc.region_0_vpc_cidr]
     description = "Allow cross-region Raft traffic from region 0"
   }
 
@@ -262,7 +218,7 @@ resource "aws_security_group" "camunda_ports_region_1" {
     from_port   = 26502
     to_port     = 26502
     protocol    = "TCP"
-    cidr_blocks = [local.owner.vpc_cidr_block]
+    cidr_blocks = [local.vpc.region_0_vpc_cidr]
     description = "Allow cross-region Raft traffic to region 0"
   }
 
@@ -271,7 +227,7 @@ resource "aws_security_group" "camunda_ports_region_1" {
     from_port   = 5432
     to_port     = 5432
     protocol    = "TCP"
-    cidr_blocks = [local.owner.vpc_cidr_block]
+    cidr_blocks = [local.vpc.region_0_vpc_cidr]
     description = "Allow Aurora traffic to region 0 (Global DB writer)"
   }
 
@@ -294,7 +250,7 @@ resource "aws_security_group" "package_80_443_region_1" {
 
   name        = "${local.prefix_region_1}-package-80-443"
   description = "Allow remote HTTP/HTTPS for package updates"
-  vpc_id      = module.vpc_region_1.vpc_id
+  vpc_id      = local.vpc.region_1_vpc_id
 
   egress {
     from_port   = 80
@@ -322,14 +278,14 @@ resource "aws_security_group" "efs_region_1" {
 
   name        = "${local.prefix_region_1}-efs"
   description = "Security group for EFS"
-  vpc_id      = module.vpc_region_1.vpc_id
+  vpc_id      = local.vpc.region_1_vpc_id
 
   ingress {
     description = "NFS from ECS tasks"
     from_port   = 2049
     to_port     = 2049
     protocol    = "TCP"
-    cidr_blocks = [local.accepter.vpc_cidr_block]
+    cidr_blocks = [local.vpc.region_1_vpc_cidr]
   }
 
   egress {
@@ -337,7 +293,7 @@ resource "aws_security_group" "efs_region_1" {
     from_port   = 2049
     to_port     = 2049
     protocol    = "TCP"
-    cidr_blocks = [local.accepter.vpc_cidr_block]
+    cidr_blocks = [local.vpc.region_1_vpc_cidr]
   }
 
   tags = {
@@ -350,7 +306,7 @@ resource "aws_security_group" "remote_access_region_1" {
 
   name        = "${local.prefix_region_1}-remote-access"
   description = "Allow remote access to LoadBalancers"
-  vpc_id      = module.vpc_region_1.vpc_id
+  vpc_id      = local.vpc.region_1_vpc_id
 
   ingress {
     from_port   = 80
@@ -394,50 +350,5 @@ resource "aws_security_group" "remote_access_region_1" {
 
   tags = {
     Name = "${local.prefix_region_1}-remote-access"
-  }
-}
-
-resource "aws_security_group" "dns_resolver_region_1" {
-  count    = var.enable_cross_region_dns_resolver ? 1 : 0
-  provider = aws.accepter
-
-  name        = "${local.prefix_region_1}-dns-resolver"
-  description = "Security group for Route 53 Resolver endpoints"
-  vpc_id      = module.vpc_region_1.vpc_id
-
-  ingress {
-    from_port   = 53
-    to_port     = 53
-    protocol    = "tcp"
-    cidr_blocks = [local.owner.vpc_cidr_block, local.accepter.vpc_cidr_block]
-    description = "DNS TCP from both VPCs"
-  }
-
-  ingress {
-    from_port   = 53
-    to_port     = 53
-    protocol    = "udp"
-    cidr_blocks = [local.owner.vpc_cidr_block, local.accepter.vpc_cidr_block]
-    description = "DNS UDP from both VPCs"
-  }
-
-  egress {
-    from_port   = 53
-    to_port     = 53
-    protocol    = "tcp"
-    cidr_blocks = [local.owner.vpc_cidr_block, local.accepter.vpc_cidr_block]
-    description = "DNS TCP to both VPCs"
-  }
-
-  egress {
-    from_port   = 53
-    to_port     = 53
-    protocol    = "udp"
-    cidr_blocks = [local.owner.vpc_cidr_block, local.accepter.vpc_cidr_block]
-    description = "DNS UDP to both VPCs"
-  }
-
-  tags = {
-    Name = "${local.prefix_region_1}-dns-resolver"
   }
 }

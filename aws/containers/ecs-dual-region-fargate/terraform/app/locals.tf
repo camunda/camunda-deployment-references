@@ -20,7 +20,7 @@ locals {
     },
     {
       name  = "CAMUNDA_CLUSTER_PARTITIONING_SCHEME"
-      value = "REGION_AWARE"
+      value = "ZONE_AWARE"
     },
     # Increase SWIM probe timeout for cross-region latency (default 100ms is too tight for Transit Gateway)
     {
@@ -70,14 +70,14 @@ locals {
   # Region-specific: tells each broker which region it belongs to
   cluster_region_env_region_0 = [
     {
-      name  = "CAMUNDA_CLUSTER_REGION"
+      name  = "CAMUNDA_CLUSTER_ZONE"
       value = local.infra.region_0
     },
   ]
 
   cluster_region_env_region_1 = [
     {
-      name  = "CAMUNDA_CLUSTER_REGION"
+      name  = "CAMUNDA_CLUSTER_ZONE"
       value = local.infra.region_1
     },
   ]

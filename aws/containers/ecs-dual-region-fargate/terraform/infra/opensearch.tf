@@ -7,9 +7,9 @@ module "opensearch_region_0" {
   source = "../../../../modules/opensearch"
 
   domain_name = "${local.prefix_region_0}-opensearch"
-  vpc_id      = module.vpc_region_0.vpc_id
-  subnet_ids  = [module.vpc_region_0.private_subnets[0]]
-  cidr_blocks = [local.owner.vpc_cidr_block, local.accepter.vpc_cidr_block]
+  vpc_id      = local.vpc.region_0_vpc_id
+  subnet_ids  = [local.vpc.region_0_private_subnet_ids[0]]
+  cidr_blocks = [local.vpc.region_0_vpc_cidr, local.vpc.region_1_vpc_cidr]
 
   instance_type  = "t3.medium.search"
   instance_count = 1
@@ -36,9 +36,9 @@ module "opensearch_region_1" {
   }
 
   domain_name = "${local.prefix_region_1}-opensearch"
-  vpc_id      = module.vpc_region_1.vpc_id
-  subnet_ids  = [module.vpc_region_1.private_subnets[0]]
-  cidr_blocks = [local.owner.vpc_cidr_block, local.accepter.vpc_cidr_block]
+  vpc_id      = local.vpc.region_1_vpc_id
+  subnet_ids  = [local.vpc.region_1_private_subnet_ids[0]]
+  cidr_blocks = [local.vpc.region_0_vpc_cidr, local.vpc.region_1_vpc_cidr]
 
   instance_type  = "t3.medium.search"
   instance_count = 1

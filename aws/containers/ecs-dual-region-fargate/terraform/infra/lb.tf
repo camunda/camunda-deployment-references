@@ -11,7 +11,7 @@ resource "aws_lb" "alb_region_0" {
     aws_security_group.camunda_ports_region_0.id,
     aws_security_group.remote_access_region_0.id,
   ]
-  subnets = module.vpc_region_0.public_subnets
+  subnets = local.vpc.region_0_public_subnet_ids
 }
 
 resource "aws_lb_listener" "http_webapp_region_0" {
@@ -55,7 +55,7 @@ resource "aws_lb" "nlb_grpc_region_0" {
     aws_security_group.camunda_ports_region_0.id,
     aws_security_group.remote_access_region_0.id,
   ]
-  subnets = module.vpc_region_0.public_subnets
+  subnets = local.vpc.region_0_public_subnet_ids
 }
 
 # Internal NLB for cross-region Raft (region 0)
@@ -66,7 +66,7 @@ resource "aws_lb" "nlb_raft_region_0" {
   security_groups = [
     aws_security_group.camunda_ports_region_0.id,
   ]
-  subnets = module.vpc_region_0.private_subnets
+  subnets = local.vpc.region_0_private_subnet_ids
 }
 
 ################################################################
@@ -84,7 +84,7 @@ resource "aws_lb" "alb_region_1" {
     aws_security_group.camunda_ports_region_1.id,
     aws_security_group.remote_access_region_1.id,
   ]
-  subnets = module.vpc_region_1.public_subnets
+  subnets = local.vpc.region_1_public_subnet_ids
 }
 
 resource "aws_lb_listener" "http_webapp_region_1" {
@@ -134,7 +134,7 @@ resource "aws_lb" "nlb_grpc_region_1" {
     aws_security_group.camunda_ports_region_1.id,
     aws_security_group.remote_access_region_1.id,
   ]
-  subnets = module.vpc_region_1.public_subnets
+  subnets = local.vpc.region_1_public_subnet_ids
 }
 
 # Internal NLB for cross-region Raft (region 1)
@@ -147,5 +147,5 @@ resource "aws_lb" "nlb_raft_region_1" {
   security_groups = [
     aws_security_group.camunda_ports_region_1.id,
   ]
-  subnets = module.vpc_region_1.private_subnets
+  subnets = local.vpc.region_1_private_subnet_ids
 }

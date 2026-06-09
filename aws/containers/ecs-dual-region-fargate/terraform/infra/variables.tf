@@ -14,31 +14,14 @@ variable "region_1" {
   description = "AWS region for the secondary (accepter) cluster"
 }
 
-variable "region_0_cidr" {
-  type        = string
-  default     = "10.192.0.0/16"
-  description = "VPC CIDR block for region 0"
-}
-
-variable "region_1_cidr" {
-  type        = string
-  default     = "10.202.0.0/16"
-  description = "VPC CIDR block for region 1"
-}
-
 ################################################################
-#                    Networking Options                         #
+#                       VPC State Reference                     #
 ################################################################
 
-variable "networking_mode" {
+variable "vpc_state_path" {
   type        = string
-  default     = "transit_gateway"
-  description = "Cross-region networking: 'transit_gateway' or 'vpc_peering'"
-
-  validation {
-    condition     = contains(["transit_gateway", "vpc_peering"], var.networking_mode)
-    error_message = "Must be 'transit_gateway' or 'vpc_peering'."
-  }
+  default     = "../vpc/terraform.tfstate"
+  description = "Path to the vpc/ terraform state file (local backend) or S3 key. infra/ reads VPC IDs, subnet IDs, CIDRs, etc. from this state."
 }
 
 ################################################################
@@ -75,12 +58,6 @@ variable "default_tags" {
   type        = map(string)
   default     = {}
   description = "Default tags to apply to all resources"
-}
-
-variable "single_nat_gateway" {
-  type        = bool
-  default     = false
-  description = "If true, only one NAT gateway will be created per region to save on e.g. IPs, not good for HA"
 }
 
 ################################################################
@@ -152,21 +129,6 @@ variable "db_seed_run_id" {
   type        = string
   description = "Increment this value to force the DB seed task to re-run on the next apply (e.g. '1' → '2'). All SQL is idempotent so re-running is safe."
   default     = "1"
-}
-
-################################################################
-#                      DNS Options                              #
-################################################################
-
-variable "enable_cross_region_dns_resolver" {
-  type        = bool
-  default     = false
-  description = <<-EOT
-    Create Route 53 Resolver endpoints and forwarding rules for cross-region Cloud Map DNS.
-    Requires the IAM permission route53resolver:CreateResolverEndpoint on the calling principal.
-    Zeebe Raft and Connectors work without this because cross-region contact uses NLB DNS names.
-    Enable once the permission is granted if you need cross-region Service Connect name resolution.
-  EOT
 }
 
 ################################################################

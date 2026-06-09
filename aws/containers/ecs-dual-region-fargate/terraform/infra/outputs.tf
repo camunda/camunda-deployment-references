@@ -19,23 +19,28 @@ output "secondary_storage_type" {
 }
 
 ################################################################
-#                        VPC Outputs                           #
+#                        VPC Outputs (re-exported)             #
+#                                                                #
+# Re-exported from terraform/vpc/ remote state so that app/     #
+# consumers don't need to read a second state. Old names are    #
+# preserved for back-compat — internally these read from        #
+# local.vpc which is data.terraform_remote_state.vpc.outputs.   #
 ################################################################
 
 output "vpc_region_0_id" {
-  value = module.vpc_region_0.vpc_id
+  value = local.vpc.region_0_vpc_id
 }
 
 output "vpc_region_0_private_subnets" {
-  value = module.vpc_region_0.private_subnets
+  value = local.vpc.region_0_private_subnet_ids
 }
 
 output "vpc_region_1_id" {
-  value = module.vpc_region_1.vpc_id
+  value = local.vpc.region_1_vpc_id
 }
 
 output "vpc_region_1_private_subnets" {
-  value = module.vpc_region_1.private_subnets
+  value = local.vpc.region_1_private_subnet_ids
 }
 
 ################################################################

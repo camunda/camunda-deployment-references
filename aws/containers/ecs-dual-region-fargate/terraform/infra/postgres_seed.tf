@@ -109,7 +109,7 @@ resource "null_resource" "run_db_seed_task" {
         exit 0
       fi
 
-      NETWORK_CONF='{"awsvpcConfiguration":{"subnets":${jsonencode(module.vpc_region_0.private_subnets)},"securityGroups":${jsonencode([aws_security_group.camunda_ports_region_0.id, aws_security_group.package_80_443_region_0.id])},"assignPublicIp":"DISABLED"}}'
+      NETWORK_CONF='{"awsvpcConfiguration":{"subnets":${jsonencode(local.vpc.region_0_private_subnet_ids)},"securityGroups":${jsonencode([aws_security_group.camunda_ports_region_0.id, aws_security_group.package_80_443_region_0.id])},"assignPublicIp":"DISABLED"}}'
 
       echo "Running one-time DB seed task..."
       TASK_ARN=$(aws ecs run-task \

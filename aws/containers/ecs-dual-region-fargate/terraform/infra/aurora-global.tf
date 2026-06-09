@@ -24,16 +24,16 @@ module "aurora_global" {
 
   # Primary cluster (region 0 — writer)
   primary_cluster_name       = "${local.prefix_region_0}-camunda-db"
-  primary_vpc_id             = module.vpc_region_0.vpc_id
-  primary_subnet_ids         = module.vpc_region_0.private_subnets
-  primary_cidr_blocks        = [local.owner.vpc_cidr_block, local.accepter.vpc_cidr_block]
-  primary_availability_zones = module.vpc_region_0.azs
+  primary_vpc_id             = local.vpc.region_0_vpc_id
+  primary_subnet_ids         = local.vpc.region_0_private_subnet_ids
+  primary_cidr_blocks        = [local.vpc.region_0_vpc_cidr, local.vpc.region_1_vpc_cidr]
+  primary_availability_zones = local.region_0_azs
   primary_num_instances      = 1
 
   # Secondary cluster (region 1 — read replicas)
   secondary_cluster_name  = "${local.prefix_region_1}-camunda-db"
-  secondary_vpc_id        = module.vpc_region_1.vpc_id
-  secondary_subnet_ids    = module.vpc_region_1.private_subnets
-  secondary_cidr_blocks   = [local.owner.vpc_cidr_block, local.accepter.vpc_cidr_block]
+  secondary_vpc_id        = local.vpc.region_1_vpc_id
+  secondary_subnet_ids    = local.vpc.region_1_private_subnet_ids
+  secondary_cidr_blocks   = [local.vpc.region_0_vpc_cidr, local.vpc.region_1_vpc_cidr]
   secondary_num_instances = 1
 }
