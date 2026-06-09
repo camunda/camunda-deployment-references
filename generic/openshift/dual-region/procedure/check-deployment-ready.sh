@@ -35,6 +35,9 @@ namespace_ready() {
 # Restarts Zeebe broker pods that have been Running but not ready for too long.
 restart_stuck_brokers() {
   local context="$1" namespace="$2"
+  # Match broker pods for the configured Helm release (defaults to "camunda"),
+  # so the self-heal keeps working when CAMUNDA_RELEASE_NAME is customised.
+  local release="${CAMUNDA_RELEASE_NAME:-camunda}"
   local now pod started age count
   now="$(date -u +%s)"
 
@@ -58,9 +61,9 @@ restart_stuck_brokers() {
     BROKER_RESTARTS["$context/$pod"]=$(( count + 1 ));
   done < <(
     kubectl --context="$context" get pods -n "$namespace" -o json |
-      jq -r '
+      jq -r --arg re "^${release}-zeebe-[0-9]+$" '
         .items[]
-        | select(.metadata.name | test("^camunda-zeebe-[0-9]+$"))
+        | select(.metadata.name | test($re))
         | select(any(.status.containerStatuses[]?; .ready == false))
         | select(any(.status.containerStatuses[]?; .state.running.startedAt != null))
         | "\(.metadata.name) \([.status.containerStatuses[] | select(.state.running != null) | .state.running.startedAt] | min)"
