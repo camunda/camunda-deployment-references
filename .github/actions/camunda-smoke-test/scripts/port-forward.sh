@@ -48,7 +48,9 @@ STOP="${BASE}.stop"
 # kubectl child as a process group (setsid makes this PID the group lead).
 echo "$$" >"$PIDFILE"
 
-# Clear any stale sentinel from a previous run on the same runner.
+# Start each run with a clean log and no stale stop sentinel, so reused
+# (self-hosted) runners don't mix output from previous runs.
+: >"$LOG"
 rm -f "$STOP"
 
 restart=0
