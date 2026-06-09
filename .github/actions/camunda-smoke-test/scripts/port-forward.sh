@@ -17,7 +17,10 @@
 # Derived from <base>:
 #   <base>.log   kubectl + supervisor output
 #   <base>.pid   supervisor PID (also its process-group id, via setsid)
-#   <base>.stop  stop sentinel — `touch` it to make the supervisor exit
+#   <base>.stop  stop sentinel — `touch` it to stop restarting. The
+#                supervisor stops relaunching kubectl and exits once the
+#                running kubectl invocation ends; the cleanup step also
+#                kills the process group directly for prompt teardown.
 #
 # Example:
 #   port-forward.sh camunda svc/camunda-zeebe-gateway 8080:8080 \
@@ -26,6 +29,11 @@
 # Intentionally no `set -e`: a dropped port-forward must restart, not
 # abort the supervisor.
 set -uo pipefail
+
+if [[ "$#" -ne 4 ]]; then
+    echo "usage: port-forward.sh <namespace> <target> <ports> <base>" >&2
+    exit 2
+fi
 
 NS="$1"
 TARGET="$2"

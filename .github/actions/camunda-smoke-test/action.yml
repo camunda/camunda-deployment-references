@@ -141,15 +141,25 @@ runs:
               # step boundary and becomes its own process-group leader.
               mkdir -p /tmp/smoke-pf
               SUPERVISOR="${{ github.action_path }}/scripts/port-forward.sh"
+              # Clear any stale pid/stop/log left by an earlier job on this
+              # (self-hosted) runner, so the wait below can't be satisfied by a
+              # leftover PID and cleanup can't later kill an unrelated process.
+              rm -f /tmp/smoke-pf/zeebe.pid /tmp/smoke-pf/zeebe.stop /tmp/smoke-pf/zeebe.log
               setsid nohup bash "$SUPERVISOR" \
                   "$NS" "svc/${SVC}" 8080:8080 /tmp/smoke-pf/zeebe \
                   </dev/null >/dev/null 2>&1 &
               disown || true
-              # Wait for the supervisor to record its PID before continuing.
-              for _ in $(seq 1 10); do
+              # Wait for the supervisor to record its fresh PID before
+              # continuing; fail fast if it never starts.
+              for _ in $(seq 1 25); do
                   [[ -s /tmp/smoke-pf/zeebe.pid ]] && break
                   sleep 0.2
               done
+              if [[ ! -s /tmp/smoke-pf/zeebe.pid ]]; then
+                  echo "::error::Zeebe port-forward supervisor did not start (no PID written)"
+                  cat /tmp/smoke-pf/zeebe.log 2>/dev/null || true
+                  exit 1
+              fi
               echo "pf_zeebe_base=/tmp/smoke-pf/zeebe" >> "$GITHUB_OUTPUT"
 
               for i in $(seq 1 30); do
@@ -243,15 +253,24 @@ runs:
               # the composite-action step boundary.
               mkdir -p /tmp/smoke-pf
               SUPERVISOR="${{ github.action_path }}/scripts/port-forward.sh"
+              # Clear any stale pid/stop/log left by an earlier job on this
+              # (self-hosted) runner, so the wait below can't be satisfied by a
+              # leftover PID and cleanup can't later kill an unrelated process.
+              rm -f /tmp/smoke-pf/keycloak.pid /tmp/smoke-pf/keycloak.stop /tmp/smoke-pf/keycloak.log
               setsid nohup bash "$SUPERVISOR" \
                   "$NS" "svc/${KC_HOST}" "${LOCAL_KC_PORT}:${KC_REMOTE_PORT}" \
                   /tmp/smoke-pf/keycloak \
                   </dev/null >/dev/null 2>&1 &
               disown || true
-              for _ in $(seq 1 10); do
+              for _ in $(seq 1 25); do
                   [[ -s /tmp/smoke-pf/keycloak.pid ]] && break
                   sleep 0.2
               done
+              if [[ ! -s /tmp/smoke-pf/keycloak.pid ]]; then
+                  echo "::error::Keycloak port-forward supervisor did not start (no PID written)"
+                  cat /tmp/smoke-pf/keycloak.log 2>/dev/null || true
+                  exit 1
+              fi
               echo "pf_kc_base=/tmp/smoke-pf/keycloak" >> "$GITHUB_OUTPUT"
 
               for i in $(seq 1 30); do
