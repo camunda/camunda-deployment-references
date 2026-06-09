@@ -634,6 +634,13 @@ jobs:
               # form quorum over Submariner, which can take longer than 10 min on
               # slow ROSA HCP runs and intermittently times out this step.
               timeout-minutes: 20
+              env:
+                  # check-deployment-ready.sh restarts brokers stuck Running-but-not-Ready
+                  # for too long (Submariner DNS race). Keep that threshold above the
+                  # legitimate >10 min cross-region quorum window so converging brokers are
+                  # not restarted prematurely; 12 min still leaves room for one restart plus
+                  # recovery within the 20 min step budget.
+                  STUCK_BROKER_TIMEOUT_SECONDS: '720'
               run: |
                   set -euo pipefail
 
