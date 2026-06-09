@@ -133,17 +133,34 @@ runs:
               SVC="${RELEASE}-zeebe-gateway"
 
               echo "Starting port-forward to ${SVC}..."
-              # Detach from the step's bash via setsid + nohup so the PF
-              # survives the composite-action step boundary (otherwise the
-              # GHA runner reaps the child shell's process group between
-              # steps and the next step gets connection-refused on :8080).
+              # Run the forward through a resilient supervisor that restarts
+              # kubectl whenever its SPDY stream is reaped (managed LBs / CNIs
+              # drop idle port-forwards after ~30-60s, which otherwise leaves
+              # the next step with connection-refused / HTTP 000 on :8080).
+              # setsid + nohup detaches it so it survives the composite-action
+              # step boundary and becomes its own process-group leader.
               mkdir -p /tmp/smoke-pf
-              setsid nohup kubectl port-forward "svc/${SVC}" 8080:8080 \
-                  -n "$NS" </dev/null \
-                  >/tmp/smoke-pf/zeebe.log 2>&1 &
-              PF_PID=$!
-              disown "$PF_PID" || true
-              echo "pf_zeebe_pid=${PF_PID}" >> "$GITHUB_OUTPUT"
+              SUPERVISOR="${{ github.action_path }}/scripts/port-forward.sh"
+              # Clear any stale pid/stop/log left by an earlier job on this
+              # (self-hosted) runner, so the wait below can't be satisfied by a
+              # leftover PID and cleanup can't later kill an unrelated process.
+              rm -f /tmp/smoke-pf/zeebe.pid /tmp/smoke-pf/zeebe.stop /tmp/smoke-pf/zeebe.log
+              setsid nohup bash "$SUPERVISOR" \
+                  "$NS" "svc/${SVC}" 8080:8080 /tmp/smoke-pf/zeebe \
+                  </dev/null >/dev/null 2>&1 &
+              disown || true
+              # Wait for the supervisor to record its fresh PID before
+              # continuing; fail fast if it never starts.
+              for _ in $(seq 1 25); do
+                  [[ -s /tmp/smoke-pf/zeebe.pid ]] && break
+                  sleep 0.2
+              done
+              if [[ ! -s /tmp/smoke-pf/zeebe.pid ]]; then
+                  echo "::error::Zeebe port-forward supervisor did not start (no PID written)"
+                  cat /tmp/smoke-pf/zeebe.log 2>/dev/null || true
+                  exit 1
+              fi
+              echo "pf_zeebe_base=/tmp/smoke-pf/zeebe" >> "$GITHUB_OUTPUT"
 
               for i in $(seq 1 30); do
                   CODE=$(curl -s -o /dev/null \
@@ -231,16 +248,30 @@ runs:
               LOCAL_KC_PORT=18080
 
               echo "Port-forwarding ${KC_HOST}..."
-              # Same setsid/nohup detachment as the Zeebe PF above so the
-              # Keycloak forward survives the composite-action step boundary.
+              # Same resilient supervisor as the Zeebe forward above, so the
+              # Keycloak port-forward also survives SPDY-stream reaping and
+              # the composite-action step boundary.
               mkdir -p /tmp/smoke-pf
-              setsid nohup kubectl port-forward "svc/${KC_HOST}" \
-                  "${LOCAL_KC_PORT}:${KC_REMOTE_PORT}" \
-                  -n "$NS" </dev/null \
-                  >/tmp/smoke-pf/keycloak.log 2>&1 &
-              PF_KC_PID=$!
-              disown "$PF_KC_PID" || true
-              echo "pf_kc_pid=${PF_KC_PID}" >> "$GITHUB_OUTPUT"
+              SUPERVISOR="${{ github.action_path }}/scripts/port-forward.sh"
+              # Clear any stale pid/stop/log left by an earlier job on this
+              # (self-hosted) runner, so the wait below can't be satisfied by a
+              # leftover PID and cleanup can't later kill an unrelated process.
+              rm -f /tmp/smoke-pf/keycloak.pid /tmp/smoke-pf/keycloak.stop /tmp/smoke-pf/keycloak.log
+              setsid nohup bash "$SUPERVISOR" \
+                  "$NS" "svc/${KC_HOST}" "${LOCAL_KC_PORT}:${KC_REMOTE_PORT}" \
+                  /tmp/smoke-pf/keycloak \
+                  </dev/null >/dev/null 2>&1 &
+              disown || true
+              for _ in $(seq 1 25); do
+                  [[ -s /tmp/smoke-pf/keycloak.pid ]] && break
+                  sleep 0.2
+              done
+              if [[ ! -s /tmp/smoke-pf/keycloak.pid ]]; then
+                  echo "::error::Keycloak port-forward supervisor did not start (no PID written)"
+                  cat /tmp/smoke-pf/keycloak.log 2>/dev/null || true
+                  exit 1
+              fi
+              echo "pf_kc_base=/tmp/smoke-pf/keycloak" >> "$GITHUB_OUTPUT"
 
               for i in $(seq 1 30); do
                   CODE=$(curl -s -o /dev/null \
@@ -308,10 +339,19 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              for PID in \
-                  "${{ steps.port-forward.outputs.pf_zeebe_pid }}" \
-                  "${{ steps.oidc-setup.outputs.pf_kc_pid }}"; do
-                  if [[ -n "$PID" ]]; then
-                      kill "$PID" 2>/dev/null || true
+              for BASE in \
+                  "${{ steps.port-forward.outputs.pf_zeebe_base }}" \
+                  "${{ steps.oidc-setup.outputs.pf_kc_base }}"; do
+                  [[ -z "$BASE" ]] && continue
+                  # Drop the stop sentinel first so the supervisor does not
+                  # restart kubectl after we kill it.
+                  touch "${BASE}.stop" 2>/dev/null || true
+                  if [[ -s "${BASE}.pid" ]]; then
+                      SPID=$(cat "${BASE}.pid")
+                      # Kill the whole process group (setsid made the
+                      # supervisor the group leader) so its kubectl child
+                      # dies with it.
+                      kill -- "-${SPID}" 2>/dev/null || true
+                      kill "$SPID" 2>/dev/null || true
                   fi
               done
