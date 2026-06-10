@@ -652,13 +652,16 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 	}()
 	kubectlOptions.Logger = logger.Discard
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "exec", podName, "--", "pgrep", "java")
+	// The broker pod runs a wait-clusterset-dns init container alongside the
+	// orchestration container; pin kubectl exec to the app container so the
+	// "Defaulted container" notice does not pollute the captured output.
+	output, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "exec", podName, "-c", "orchestration", "--", "pgrep", "java")
 	if err != nil {
 		t.Fatalf("[ZEEBE BROKER ID] %s", err)
 		return -1
 	}
 
-	output, err = k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "exec", podName, "--", "cat", fmt.Sprintf("/proc/%s/environ", output))
+	output, err = k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "exec", podName, "-c", "orchestration", "--", "cat", fmt.Sprintf("/proc/%s/environ", output))
 	if err != nil {
 		t.Fatalf("[ZEEBE BROKER ID] %s", err)
 		return -1
