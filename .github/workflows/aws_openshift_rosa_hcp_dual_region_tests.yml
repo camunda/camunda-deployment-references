@@ -640,6 +640,7 @@ jobs:
                   # legitimate >10 min cross-region quorum window so converging brokers are
                   # not restarted prematurely; 12 min still leaves room for one restart plus
                   # recovery within the 20 min step budget.
+                  # Removable together with the self-heal once the wait-clusterset-dns gate is validated and the upstream Camunda fix lands.
                   STUCK_BROKER_TIMEOUT_SECONDS: '720'
               run: |
                   set -euo pipefail

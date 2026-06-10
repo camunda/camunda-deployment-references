@@ -17,6 +17,16 @@ set -euo pipefail
 #   than STUCK_BROKER_TIMEOUT_SECONDS is treated as hung and restarted, bounded
 #   by MAX_BROKER_RESTARTS attempts per pod.
 
+# TEMPORARY (defence-in-depth) — REMOVE once the cross-region DNS race is fixed.
+#   The primary fix is the wait-clusterset-dns initContainer (see
+#   helm-values/values-base.yml), which prevents the broker from ever observing
+#   the NXDOMAIN in the first place. This self-heal stays only as a backstop for
+#   the gate's fail-open paths (no resolver in image / gate gives up).
+#   Once the gate is validated in CI and the upstream Camunda fix lands (broker
+#   re-resolves its contact points on its own), this whole self-heal block
+#   (restart_stuck_brokers + STUCK_BROKER_TIMEOUT_SECONDS + MAX_BROKER_RESTARTS)
+#   can be deleted. Tracking issue: <Camunda issue link TBD>.
+
 # How long a broker may stay "Running but not ready" before we consider it hung.
 STUCK_BROKER_TIMEOUT_SECONDS="${STUCK_BROKER_TIMEOUT_SECONDS:-360}"
 # Maximum number of automatic restarts per broker pod.
