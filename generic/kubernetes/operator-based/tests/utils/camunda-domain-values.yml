@@ -4,7 +4,7 @@
 #
 # Variables substituted by envsubst:
 # - CAMUNDA_DOMAIN: Domain for Camunda components (e.g., lei-standard.camunda.ie)
-# - INGRESS_CLASS_NAME: Ingress controller class (nginx for EKS, openshift-default for OpenShift)
+# - INGRESS_CLASS_NAME: Ingress controller class (contour for EKS, openshift-default for OpenShift)
 
 global:
     # Ingress configuration for external access
@@ -45,6 +45,12 @@ orchestration:
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
+    # Tell Contour the gRPC upstream (port 26500) speaks cleartext HTTP/2 (h2c).
+    # Required for Zeebe gRPC through the Contour ingress; inert on OpenShift
+    # (routes handle gRPC) and ignored by controllers other than Contour.
+    service:
+        annotations:
+            projectcontour.io/upstream-protocol.h2c: '26500'
     security:
         authentication:
             oidc:

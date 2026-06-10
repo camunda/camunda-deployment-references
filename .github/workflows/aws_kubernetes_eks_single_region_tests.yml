@@ -30,7 +30,6 @@ on:
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-integration-tests/**
-            - generic/kubernetes/single-region/tests/integration/**
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/aws-kubernetes-ingress-setup/**
             - .github/actions/kubernetes-wildcard-certificate/**
@@ -637,6 +636,7 @@ jobs:
                   mail: ${{ env.MAIL_OVERWRITE }}
                   tld: ${{ env.TLD }}
                   ref-arch: ${{ matrix.scenario.name }}
+                  ingress-controller: contour
                   use-wildcard-cert: ${{ steps.cert-config.outputs.use-wildcard-cert }}
                   wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   wildcard-cert-secret-name: |
@@ -781,7 +781,7 @@ jobs:
               uses: ./.github/actions/kubernetes-keycloak-operator
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain' || 'no-domain' }}
+                  keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain-contour' || 'no-domain' }}
                   domain-name: ${{ env.CAMUNDA_DOMAIN }}
 
             - name: 🔐 Create OIDC secrets
