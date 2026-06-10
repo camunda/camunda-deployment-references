@@ -10,7 +10,7 @@ helm repo update
 # hardcoded tag to maintain. The generated values carry a literal ${BROKER_IMAGE}
 # placeholder (passed through the first envsubst via ${DOLLAR}); resolve it here.
 BROKER_IMAGE="$(helm show values \
-  oci://registry.camunda.cloud/team-distribution/camunda-platform \
+  camunda/camunda-platform \
   --version "$HELM_CHART_VERSION" \
   | yq -r '(.orchestration.image // .zeebe.image) | ([.registry, .repository] | map(. // "") | map(select(. != "")) | join("/")) + ":" + .tag')"
 export BROKER_IMAGE
