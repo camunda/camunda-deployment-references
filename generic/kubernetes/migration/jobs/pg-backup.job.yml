@@ -21,6 +21,14 @@ spec:
                 migration.camunda.io/type: backup
         spec:
             restartPolicy: Never
+            # Make the backup PVC writable by the non-root postgres image
+            # (UID/GID 1001 in the Bitnami/community images). Without an fsGroup
+            # the dynamically-provisioned volume is root-owned and `mkdir
+            # /backup/<component>` fails with EACCES on storage classes that
+            # don't pre-chown the mount (e.g. GKE pd.csi).
+            securityContext:
+                fsGroup: 1001
+                fsGroupChangePolicy: OnRootMismatch
             containers:
                 - name: backup
                   image: ${PG_IMAGE}

@@ -161,16 +161,19 @@ do_final_pg_backup() {
     save_state "${component^^}_FINAL_BACKUP" "${component}-db-final.dump"
 }
 
+# The final backup reads the SOURCE database, so it honours the same
+# *_SOURCE_DB_NAME/_USER overrides as the Phase 2 initial backup (defaulting to
+# the target names). The restore below uses the target names.
 if [[ "${MIGRATE_IDENTITY}" == "true" ]]; then
-    do_final_pg_backup identity "${IDENTITY_DB_NAME}" "${IDENTITY_DB_USER}"
+    do_final_pg_backup identity "${IDENTITY_SOURCE_DB_NAME:-${IDENTITY_DB_NAME}}" "${IDENTITY_SOURCE_DB_USER:-${IDENTITY_DB_USER}}"
 fi
 
 if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-    do_final_pg_backup keycloak "${KEYCLOAK_DB_NAME}" "${KEYCLOAK_DB_USER}"
+    do_final_pg_backup keycloak "${KEYCLOAK_SOURCE_DB_NAME:-${KEYCLOAK_DB_NAME}}" "${KEYCLOAK_SOURCE_DB_USER:-${KEYCLOAK_DB_USER}}"
 fi
 
 if [[ "${MIGRATE_WEBMODELER}" == "true" ]]; then
-    do_final_pg_backup webmodeler "${WEBMODELER_DB_NAME}" "${WEBMODELER_DB_USER}"
+    do_final_pg_backup webmodeler "${WEBMODELER_SOURCE_DB_NAME:-${WEBMODELER_DB_NAME}}" "${WEBMODELER_SOURCE_DB_USER:-${WEBMODELER_DB_USER}}"
 fi
 
 if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then
@@ -335,6 +338,26 @@ if [[ "${ESTIMATE_MODE}" == "true" ]]; then
     echo ""
     echo "No changes were made to the running application."
     echo "You can run the real cutover with:  ./3-cutover.sh"
+elif [[ "${SKIP_HELM_UPGRADE:-false}" == "true" ]]; then
+    # Data-only migration: the realm/databases have been migrated to the target
+    # backends, but the Helm upgrade is intentionally deferred to the caller
+    # (e.g. a CI harness that owns the chart upgrade to the next version).
+    section "Step 5/5: Helm upgrade — SKIPPED (SKIP_HELM_UPGRADE=true)"
+    save_state "PHASE_3_DURATION" "$(timer_elapsed)"
+    section "Data migration complete ($(timer_elapsed))"
+    echo ""
+    echo "Data has been migrated to the target backends."
+    echo "Camunda is still frozen (scaled to 0) and pointed at the OLD backends —"
+    echo "the caller is responsible for the Helm upgrade that switches Camunda to"
+    echo "the new backends and restarts the components."
+    echo ""
+    echo "Phase 3 is marked complete so ./4-validate.sh and ./5-cleanup-bitnami.sh"
+    echo "can run — but only AFTER the caller's Helm upgrade has switched Camunda over."
+    # Mark phase 3 complete even though the Helm upgrade is deferred: the data
+    # migration that phase 3 owns IS done, so the phase state machine must not
+    # stay stuck (otherwise require_phase blocks the later phases entirely).
+    run_hooks "post-phase-3"
+    complete_phase 3
 else
 section "Step 5/5: Helm upgrade"
 
@@ -356,7 +379,8 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]] && ! is_external_es; then
 fi
 
 if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-    # Keycloak always uses the operator — values are always needed
+    # External Keycloak is data-only (it implies SKIP_HELM_UPGRADE=true), so this
+    # helm-upgrade branch only ever runs for the operator-managed Keycloak.
     if [[ -n "${CAMUNDA_DOMAIN:-}" && "${CAMUNDA_DOMAIN}" != "localhost" ]]; then
         HELM_VALUES_ARGS+=("$(get_helm_values keycloak-domain)")
     else

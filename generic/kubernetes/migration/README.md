@@ -165,6 +165,7 @@ Set any `MIGRATE_*` to `false` to skip a component (e.g. if it's not deployed or
 | ---------------------------- | --------------- | -------------------------------------------- |
 | `PG_TARGET_MODE`             | `operator`      | `operator`: deploy CNPG. `external`: skip deployment, migrate to pre-existing target |
 | `ES_TARGET_MODE`             | `operator`      | `operator`: deploy ECK. `external`: skip deployment, point to pre-existing target |
+| `KEYCLOAK_TARGET_MODE`       | `operator`      | `operator`: deploy the Keycloak Operator + CR. `external`: skip deployment, point Camunda at a pre-existing Keycloak. Requires `PG_TARGET_MODE=external` |
 
 **Operator mode** (when `*_TARGET_MODE=operator`):
 
@@ -188,7 +189,18 @@ Set any `MIGRATE_*` to `false` to skip a component (e.g. if it's not deployed or
 | `EXTERNAL_ES_PORT`              | `443`                    | Elasticsearch port                           |
 | `EXTERNAL_ES_SECRET`            | `external-es`            | K8s Secret containing the password           |
 | `CUSTOM_HELM_VALUES_FILE`       | (empty)                  | Helm values file for external connections    |
-| `CUSTOM_KEYCLOAK_CONFIG_FILE`   | (empty)                  | Custom Keycloak CR for external PG           |
+| `CUSTOM_KEYCLOAK_CONFIG_FILE`   | (empty)                  | Custom Keycloak CR for external PG (operator mode) |
+| `EXTERNAL_KEYCLOAK_PROTOCOL`    | `http`                   | External Keycloak protocol (`KEYCLOAK_TARGET_MODE=external`) |
+| `EXTERNAL_KEYCLOAK_HOST`        | (empty)                  | External Keycloak host                       |
+| `EXTERNAL_KEYCLOAK_PORT`        | `80`                     | External Keycloak port                       |
+| `EXTERNAL_KEYCLOAK_CONTEXT_PATH`| `/auth`                  | External Keycloak context path               |
+| `EXTERNAL_KEYCLOAK_REALM`       | `/realms/camunda-platform`| External Keycloak realm path                |
+| `IDENTITY_SOURCE_DB_NAME`       | `identity`               | Bitnami source DB name for Identity (override when Bitnami uses a different name) |
+| `IDENTITY_SOURCE_DB_USER`       | `identity`               | Bitnami source DB user for Identity          |
+| `KEYCLOAK_SOURCE_DB_NAME`       | `keycloak`               | Bitnami source DB name for Keycloak. Bitnami default: `bitnami_keycloak` |
+| `KEYCLOAK_SOURCE_DB_USER`       | `keycloak`               | Bitnami source DB user for Keycloak. Bitnami default: `bn_keycloak` |
+| `WEBMODELER_SOURCE_DB_NAME`     | `webmodeler`             | Bitnami source DB name for WebModeler        |
+| `WEBMODELER_SOURCE_DB_USER`     | `webmodeler`             | Bitnami source DB user for WebModeler        |
 
 ### When to use `external` target mode
 
@@ -199,10 +211,35 @@ Set `PG_TARGET_MODE=external` or `ES_TARGET_MODE=external` when the migration **
 | Fresh cluster, no operators installed | `operator` (default) | Scripts install CNPG/ECK + create clusters |
 | Operators already installed by a platform team | `external` | Avoids overwriting the operator version (scripts apply a pinned version via `kubectl apply --server-side`) |
 | Target is a managed service (RDS, OpenSearch, …) | `external` | No operator needed — data migrates directly to the managed endpoint |
+| Keycloak runs as a managed/standalone/Helm instance (not the operator) | `KEYCLOAK_TARGET_MODE=external` | Migrates the realm into the external Keycloak database and points Camunda at the existing instance |
 
 When using `external` mode, you must also provide:
 - Connection details: `EXTERNAL_PG_*` or `EXTERNAL_ES_*` variables in `env.sh`
 - A `CUSTOM_HELM_VALUES_FILE` with Helm values pointing Camunda at the external targets
+
+When using `KEYCLOAK_TARGET_MODE=external`, you only set that one flag plus the
+`EXTERNAL_KEYCLOAK_*` connection variables. The two coupled settings are derived
+automatically when you `source env.sh` (a `[auto]` line is logged for each):
+- `PG_TARGET_MODE=external` — the external Keycloak serves the migrated realm from the external Keycloak database.
+- `SKIP_HELM_UPGRADE=true` — **external Keycloak mode is data-only**. The scripts migrate the realm database and then exit; the caller performs the Helm upgrade, wiring Camunda at the external Keycloak (`global.identity.keycloak.url` + auth credentials). The scripts do not wire Keycloak admin credentials into the Helm values.
+
+If your Bitnami installation uses non-standard database or user names (common with the Bitnami Keycloak chart, which defaults to `bitnami_keycloak`/`bn_keycloak`), set the `*_SOURCE_DB_NAME`/`*_SOURCE_DB_USER` overrides accordingly:
+
+```bash
+KEYCLOAK_SOURCE_DB_NAME=bitnami_keycloak
+KEYCLOAK_SOURCE_DB_USER=bn_keycloak
+```
+
+### Advanced: data-only cutover (`SKIP_HELM_UPGRADE`)
+
+Set `SKIP_HELM_UPGRADE=true` to run Phase 3 data migration (backup/restore +
+reindex) but skip the final `helm upgrade`. The caller then owns the chart
+upgrade. This is intended for CI harnesses that migrate Bitnami data onto
+external infrastructure and then perform an N→N+1 chart upgrade themselves
+(for example, the Camunda Helm test suites). Normal migrations leave it `false`.
+
+`KEYCLOAK_TARGET_MODE=external` implies `SKIP_HELM_UPGRADE=true` — it is derived
+automatically when you source `env.sh`, so you do not set it yourself (see above).
 
 ## Detailed Phase Descriptions
 
