@@ -1741,8 +1741,19 @@ backup_pg() {
     ensure_backup_pvc
     # shellcheck disable=SC2153
     export JOB_NAME="${COMPONENT}-pg-backup-${TIMESTAMP}"
+
+    # Keycloak's JGROUPS_PING is a transient JDBC_PING cluster-discovery table:
+    # its rows hold the SOURCE cluster's node addresses. Restoring them into a
+    # fresh Keycloak makes the target crash on startup with a duplicate-key on
+    # constraint_jgroups_ping. Exclude the DATA (keep the schema) so the target
+    # starts clean and re-registers its own membership.
+    export PG_DUMP_EXTRA_ARGS=""
+    if [[ "${COMPONENT}" == "keycloak" ]]; then
+        PG_DUMP_EXTRA_ARGS="--exclude-table-data=jgroups_ping"
+    fi
+
     # shellcheck disable=SC2016
-    local pg_varlist='${JOB_NAME} ${NAMESPACE} ${COMPONENT} ${PG_IMAGE} ${PG_HOST} ${PG_PORT} ${PG_DATABASE} ${PG_USERNAME} ${PG_SECRET_NAME} ${PG_SECRET_KEY} ${BACKUP_PVC} ${TIMESTAMP}'
+    local pg_varlist='${JOB_NAME} ${NAMESPACE} ${COMPONENT} ${PG_IMAGE} ${PG_HOST} ${PG_PORT} ${PG_DATABASE} ${PG_USERNAME} ${PG_SECRET_NAME} ${PG_SECRET_KEY} ${BACKUP_PVC} ${TIMESTAMP} ${PG_DUMP_EXTRA_ARGS}'
     run_job "${JOBS_DIR}/pg-backup.job.yml" "${JOB_NAME}" 1800 "$pg_varlist"
 }
 
