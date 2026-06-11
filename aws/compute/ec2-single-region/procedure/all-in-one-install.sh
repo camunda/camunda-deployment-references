@@ -105,7 +105,15 @@ for index in "${!IPS[@]}"; do
         push_distro_cache_to_node "${ip}"
     fi
 
-    ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" < "${CURRENT_DIR}/camunda-install.sh"
+    # Pipe the install script to the node. When the optional cache helper is loaded it prepends an
+    # opt-in export so the node consults the staged artifacts; otherwise only the script is sent and
+    # the node downloads from Artifactory as usual.
+    {
+        if declare -F distro_install_prelude >/dev/null; then
+            distro_install_prelude
+        fi
+        cat "${CURRENT_DIR}/camunda-install.sh"
+    } | ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}"
 
     echo "[INFO] Attempting to connect to ${ip} to configure the Camunda 8 environment."
 
