@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-helm repo add camunda https://helm.camunda.io
+# --force-update keeps this idempotent under `set -e` if the repo already exists.
+helm repo add camunda https://helm.camunda.io --force-update
 helm repo update
 
 # Resolve the broker image of the chart being installed so the cross-region
