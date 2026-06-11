@@ -1433,20 +1433,15 @@ sync_keycloak_admin_credentials() {
     local admin_user="admin"
 
     # Update the operator secret to match the restored DB credentials.
-    # Skipped in external mode: the external Keycloak owns its own admin (served
-    # from the restored realm DB); there is no operator "keycloak-initial-admin"
-    # secret to reconcile.
-    if ! is_external_keycloak; then
-        kubectl create secret generic "$operator_secret" \
-            -n "${NAMESPACE}" \
-            --from-literal=username="$admin_user" \
-            --from-literal=password="$admin_pass" \
-            --dry-run=client -o yaml \
-            | kubectl apply -f - >/dev/null
-        log_info "Updated ${operator_secret} secret (user=${admin_user})"
-    else
-        log_info "External Keycloak — skipping operator '${operator_secret}' secret reconcile"
-    fi
+    # (External mode already returned at the top of this function — it owns its
+    # admin via the restored realm DB and has no operator secret to reconcile.)
+    kubectl create secret generic "$operator_secret" \
+        -n "${NAMESPACE}" \
+        --from-literal=username="$admin_user" \
+        --from-literal=password="$admin_pass" \
+        --dry-run=client -o yaml \
+        | kubectl apply -f - >/dev/null
+    log_info "Updated ${operator_secret} secret (user=${admin_user})"
     unset admin_pass
     eval "$_xtrace" 2>/dev/null
 
