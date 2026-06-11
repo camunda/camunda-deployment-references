@@ -165,14 +165,25 @@ export CUSTOM_KEYCLOAK_CONFIG_FILE="${CUSTOM_KEYCLOAK_CONFIG_FILE:-}"
 # which must be backed by the external Keycloak database (EXTERNAL_PG_KEYCLOAK_*)
 # so the migrated realm is served. Mirrors global.identity.keycloak.url.* in the
 # Camunda Helm chart.
+# NOTE: KEYCLOAK_TARGET_MODE=external is data-only (requires SKIP_HELM_UPGRADE=true).
+# The caller owns the Helm upgrade and must wire Camunda's Keycloak auth credentials.
 export EXTERNAL_KEYCLOAK_PROTOCOL="${EXTERNAL_KEYCLOAK_PROTOCOL:-http}"
 export EXTERNAL_KEYCLOAK_HOST="${EXTERNAL_KEYCLOAK_HOST:-}"
 export EXTERNAL_KEYCLOAK_PORT="${EXTERNAL_KEYCLOAK_PORT:-80}"
 export EXTERNAL_KEYCLOAK_CONTEXT_PATH="${EXTERNAL_KEYCLOAK_CONTEXT_PATH:-/auth}"
 export EXTERNAL_KEYCLOAK_REALM="${EXTERNAL_KEYCLOAK_REALM:-/realms/camunda-platform}"
-# Secret (in NAMESPACE) holding the Keycloak admin credentials the restored
-# realm uses. Must contain a 'password' key; 'username' defaults to admin.
-export EXTERNAL_KEYCLOAK_ADMIN_SECRET="${EXTERNAL_KEYCLOAK_ADMIN_SECRET:-}"
+
+# ---[ Source DB name/user overrides ]-----------------------------------------
+# Bitnami uses non-standard database and user names that differ from the target
+# (e.g. bitnami_keycloak/bn_keycloak instead of keycloak/keycloak). These
+# overrides let the backup scripts connect to the correct source database without
+# changing the target schema names. Default to the target DB_NAME/DB_USER values.
+export IDENTITY_SOURCE_DB_NAME="${IDENTITY_SOURCE_DB_NAME:-${IDENTITY_DB_NAME}}"
+export IDENTITY_SOURCE_DB_USER="${IDENTITY_SOURCE_DB_USER:-${IDENTITY_DB_USER}}"
+export KEYCLOAK_SOURCE_DB_NAME="${KEYCLOAK_SOURCE_DB_NAME:-${KEYCLOAK_DB_NAME}}"
+export KEYCLOAK_SOURCE_DB_USER="${KEYCLOAK_SOURCE_DB_USER:-${KEYCLOAK_DB_USER}}"
+export WEBMODELER_SOURCE_DB_NAME="${WEBMODELER_SOURCE_DB_NAME:-${WEBMODELER_DB_NAME}}"
+export WEBMODELER_SOURCE_DB_USER="${WEBMODELER_SOURCE_DB_USER:-${WEBMODELER_DB_USER}}"
 
 # =============================================================================
 echo "Migration config loaded:"
@@ -191,4 +202,10 @@ if [[ "${ES_TARGET_MODE}" == "external" ]]; then
 else
     echo "  ES target:    operator"
 fi
+if [[ "${KEYCLOAK_TARGET_MODE}" == "external" ]]; then
+    echo "  KC target:    external (${EXTERNAL_KEYCLOAK_PROTOCOL:-http}://${EXTERNAL_KEYCLOAK_HOST:-<not set>}:${EXTERNAL_KEYCLOAK_PORT:-80})"
+else
+    echo "  KC target:    operator"
+fi
+echo "  Skip upgrade: ${SKIP_HELM_UPGRADE:-false}"
 echo ""

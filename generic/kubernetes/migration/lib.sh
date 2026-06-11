@@ -708,11 +708,18 @@ warn_customization() {
         echo "║  • ES data migration must be done manually (see README)                ║"
         echo "║  • You must provide CUSTOM_HELM_VALUES_FILE with ES connection info    ║"
         fi
-        if is_external_pg && [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
+        if is_external_pg && [[ "${MIGRATE_KEYCLOAK}" == "true" ]] && ! is_external_keycloak; then
         echo "║                                                                        ║"
         echo "║  Keycloak + external PG:                                               ║"
         echo "║  • Keycloak Operator IS still deployed (no managed KC service exists)   ║"
         echo "║  • Set CUSTOM_KEYCLOAK_CONFIG_FILE to a CR pointing to external PG     ║"
+        fi
+        if is_external_keycloak; then
+        echo "║                                                                        ║"
+        echo "║  KEYCLOAK_TARGET_MODE=external (data-only)                             ║"
+        echo "║  • Keycloak Operator will NOT be deployed                              ║"
+        echo "║  • Realm database is migrated to the external Keycloak PG instance     ║"
+        echo "║  • Caller must perform the Helm upgrade pointing at this Keycloak      ║"
         fi
         echo "╚══════════════════════════════════════════════════════════════════════════╝"
         echo ""
@@ -745,11 +752,11 @@ validate_external_keycloak_config() {
         errs=1
     fi
 
-    if [[ -z "${EXTERNAL_KEYCLOAK_ADMIN_SECRET:-}" ]]; then
-        log_error "EXTERNAL_KEYCLOAK_ADMIN_SECRET must be set when KEYCLOAK_TARGET_MODE=external"
-        errs=1
-    elif ! kubectl get secret "${EXTERNAL_KEYCLOAK_ADMIN_SECRET}" -n "${NAMESPACE}" &>/dev/null; then
-        log_error "Secret '${EXTERNAL_KEYCLOAK_ADMIN_SECRET}' not found in namespace ${NAMESPACE}"
+    if [[ "${SKIP_HELM_UPGRADE:-false}" != "true" ]]; then
+        log_error "KEYCLOAK_TARGET_MODE=external requires SKIP_HELM_UPGRADE=true"
+        log_error "  External Keycloak mode is data-only: the scripts migrate the realm database"
+        log_error "  and then exit. The caller must perform the Helm upgrade, wiring Camunda at"
+        log_error "  the external Keycloak (global.identity.keycloak.url + auth credentials)."
         errs=1
     fi
 
