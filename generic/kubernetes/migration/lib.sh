@@ -766,30 +766,6 @@ validate_external_keycloak_config() {
     return "$errs"
 }
 
-# Generate Camunda Helm values that point at an EXTERNAL Keycloak instance.
-# Used during cutover instead of the operator keycloak values. Disables the
-# bundled Bitnami subchart and wires global.identity.keycloak.url at the
-# external endpoint. The admin user override (client tokens + adminUser) is
-# applied separately by sync_keycloak_admin_credentials.
-generate_external_keycloak_values() {
-    local out="${STATE_DIR}/keycloak-external-values.yml"
-    cat > "$out" <<EOF
-global:
-    identity:
-        keycloak:
-            internal: false
-            url:
-                protocol: ${EXTERNAL_KEYCLOAK_PROTOCOL:-http}
-                host: ${EXTERNAL_KEYCLOAK_HOST}
-                port: "${EXTERNAL_KEYCLOAK_PORT:-80}"
-            contextPath: ${EXTERNAL_KEYCLOAK_CONTEXT_PATH:-/auth}
-            realm: ${EXTERNAL_KEYCLOAK_REALM:-/realms/camunda-platform}
-identityKeycloak:
-    enabled: false
-EOF
-    echo "$out"
-}
-
 # Validate that external PG configuration is complete for a component.
 # Usage: validate_external_pg_config <component>
 validate_external_pg_config() {

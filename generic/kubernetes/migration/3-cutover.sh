@@ -370,11 +370,9 @@ if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]] && ! is_external_es; then
 fi
 
 if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-    if is_external_keycloak; then
-        # External Keycloak: point Camunda at the pre-existing instance and
-        # disable the bundled Bitnami subchart.
-        HELM_VALUES_ARGS+=("$(generate_external_keycloak_values)")
-    elif [[ -n "${CAMUNDA_DOMAIN:-}" && "${CAMUNDA_DOMAIN}" != "localhost" ]]; then
+    # External Keycloak is data-only (it implies SKIP_HELM_UPGRADE=true), so this
+    # helm-upgrade branch only ever runs for the operator-managed Keycloak.
+    if [[ -n "${CAMUNDA_DOMAIN:-}" && "${CAMUNDA_DOMAIN}" != "localhost" ]]; then
         HELM_VALUES_ARGS+=("$(get_helm_values keycloak-domain)")
     else
         HELM_VALUES_ARGS+=("$(get_helm_values keycloak-no-domain)")
