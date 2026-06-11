@@ -1746,10 +1746,17 @@ backup_pg() {
     # its rows hold the SOURCE cluster's node addresses. Restoring them into a
     # fresh Keycloak makes the target crash on startup with a duplicate-key on
     # constraint_jgroups_ping. Exclude the DATA (keep the schema) so the target
-    # starts clean and re-registers its own membership.
+    # starts clean and re-registers its own membership. This applies to both
+    # Keycloak target modes (operator and external) — each restores the realm
+    # dump into a fresh Keycloak.
+    #
+    # PostgreSQL folds unquoted identifiers to lowercase, so the table is
+    # normally "jgroups_ping"; the uppercase spelling is passed too in case a
+    # build created it quoted. An exclude-table-data pattern that matches
+    # nothing is a harmless no-op (never an error, regardless of --strict-names).
     export PG_DUMP_EXTRA_ARGS=""
     if [[ "${COMPONENT}" == "keycloak" ]]; then
-        PG_DUMP_EXTRA_ARGS="--exclude-table-data=jgroups_ping"
+        PG_DUMP_EXTRA_ARGS="--exclude-table-data=jgroups_ping --exclude-table-data=JGROUPS_PING"
     fi
 
     # shellcheck disable=SC2016
