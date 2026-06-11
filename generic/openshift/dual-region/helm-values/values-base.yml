@@ -122,9 +122,28 @@ orchestration:
                 command -v getent >/dev/null 2>&1 || { echo "getent unavailable; skipping cross-region DNS gate."; exit 0; }
                 # Bounded wait (~12 min) so a genuine misconfiguration cannot deadlock the broker.
                 max=144
-                echo "Waiting for cross-region clusterset DNS to resolve all Zeebe contact points..."
+                # Brokers advertise and dial PER-POD clusterset names
+                # (<statefulset>-<ordinal>.<contact-point-host>), not just the
+                # per-region headless contact point. The headless name resolves as
+                # soon as the ServiceImport exists, so gating only on it lets a
+                # broker start before individual peer-pod records are published; it
+                # then hits NXDOMAIN dialing a peer (e.g. ...-zeebe-0) and hangs.
+                # Gate on every per-pod name instead. The Zeebe service name is the
+                # 2nd DNS label of the contact point and each pod is reachable at
+                # <service>-<ordinal>.<host>; brokers-per-region = clusterSize / regions.
+                brokers_per_region="${DOLLAR}{BROKERS_PER_REGION:-4}"
+                hosts=""
                 for ep in ${DOLLAR}(echo "${CAMUNDA_CLUSTER_INITIALCONTACTPOINTS}" | tr ',' ' '); do
-                  host=${DOLLAR}(echo "${DOLLAR}ep" | cut -d: -f1)
+                  cp_host=${DOLLAR}(echo "${DOLLAR}ep" | cut -d: -f1)
+                  svc=${DOLLAR}(echo "${DOLLAR}cp_host" | cut -d. -f2)
+                  n=0
+                  while [ "${DOLLAR}n" -lt "${DOLLAR}brokers_per_region" ]; do
+                    hosts="${DOLLAR}hosts ${DOLLAR}{svc}-${DOLLAR}{n}.${DOLLAR}{cp_host}"
+                    n=${DOLLAR}((n + 1))
+                  done
+                done
+                echo "Waiting for cross-region clusterset DNS to resolve all Zeebe broker pods..."
+                for host in ${DOLLAR}hosts; do
                   i=0
                   until getent hosts "${DOLLAR}host" >/dev/null 2>&1; do
                     i=${DOLLAR}((i + 1))
