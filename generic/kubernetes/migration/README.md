@@ -217,10 +217,11 @@ When using `external` mode, you must also provide:
 - Connection details: `EXTERNAL_PG_*` or `EXTERNAL_ES_*` variables in `env.sh`
 - A `CUSTOM_HELM_VALUES_FILE` with Helm values pointing Camunda at the external targets
 
-When using `KEYCLOAK_TARGET_MODE=external`, you must also provide:
-- `EXTERNAL_KEYCLOAK_*` connection variables
-- `PG_TARGET_MODE=external` (the external Keycloak serves the migrated realm from the external Keycloak database)
-- `SKIP_HELM_UPGRADE=true` — **external Keycloak mode is data-only**. The scripts migrate the realm database and then exit; the caller must perform the Helm upgrade, wiring Camunda at the external Keycloak (`global.identity.keycloak.url` + auth credentials). The scripts do not wire Keycloak admin credentials into the Helm values.
+When using `KEYCLOAK_TARGET_MODE=external`, you only set that one flag plus the
+`EXTERNAL_KEYCLOAK_*` connection variables. The two coupled settings are derived
+automatically when you `source env.sh` (a `[auto]` line is logged for each):
+- `PG_TARGET_MODE=external` — the external Keycloak serves the migrated realm from the external Keycloak database.
+- `SKIP_HELM_UPGRADE=true` — **external Keycloak mode is data-only**. The scripts migrate the realm database and then exit; the caller performs the Helm upgrade, wiring Camunda at the external Keycloak (`global.identity.keycloak.url` + auth credentials). The scripts do not wire Keycloak admin credentials into the Helm values.
 
 If your Bitnami installation uses non-standard database or user names (common with the Bitnami Keycloak chart, which defaults to `bitnami_keycloak`/`bn_keycloak`), set the `*_SOURCE_DB_NAME`/`*_SOURCE_DB_USER` overrides accordingly:
 
@@ -237,7 +238,8 @@ upgrade. This is intended for CI harnesses that migrate Bitnami data onto
 external infrastructure and then perform an N→N+1 chart upgrade themselves
 (for example, the Camunda Helm test suites). Normal migrations leave it `false`.
 
-`KEYCLOAK_TARGET_MODE=external` always requires `SKIP_HELM_UPGRADE=true` — see above.
+`KEYCLOAK_TARGET_MODE=external` implies `SKIP_HELM_UPGRADE=true` — it is derived
+automatically when you source `env.sh`, so you do not set it yourself (see above).
 
 ## Detailed Phase Descriptions
 

@@ -89,7 +89,8 @@ export ES_TARGET_MODE="${ES_TARGET_MODE:-operator}"
 #                 already exist and be backed by the external Keycloak database
 #                 (EXTERNAL_PG_KEYCLOAK_*), so the restored realm is served by it.
 #                 Configure the "External Keycloak instance" subsection below.
-# Requires PG_TARGET_MODE=external (the external Keycloak owns its database).
+# Set this alone — the two coupled settings below (PG_TARGET_MODE=external and
+# SKIP_HELM_UPGRADE=true) are derived automatically; you do not need to set them.
 export KEYCLOAK_TARGET_MODE="${KEYCLOAK_TARGET_MODE:-operator}"
 
 # Data-only cutover: when "true", Phase 3 migrates all data to the target
@@ -98,6 +99,22 @@ export KEYCLOAK_TARGET_MODE="${KEYCLOAK_TARGET_MODE:-operator}"
 # that own the chart upgrade (e.g. testing an N→N+1 chart upgrade onto migrated
 # external infrastructure). Normal migrations leave this "false".
 export SKIP_HELM_UPGRADE="${SKIP_HELM_UPGRADE:-false}"
+
+# ---[ Derived coupling for KEYCLOAK_TARGET_MODE=external ]---------------------
+# External Keycloak is data-only and serves its realm from the external Keycloak
+# database, so it strictly implies PG_TARGET_MODE=external and SKIP_HELM_UPGRADE=true.
+# Rather than make the customer set three vars in lock-step, derive the other two
+# from KEYCLOAK_TARGET_MODE and log loudly if we change a non-default value.
+if [[ "${KEYCLOAK_TARGET_MODE}" == "external" ]]; then
+    if [[ "${PG_TARGET_MODE}" != "external" ]]; then
+        echo "  [auto] KEYCLOAK_TARGET_MODE=external → setting PG_TARGET_MODE=external (realm DB must be external)"
+        export PG_TARGET_MODE="external"
+    fi
+    if [[ "${SKIP_HELM_UPGRADE}" != "true" ]]; then
+        echo "  [auto] KEYCLOAK_TARGET_MODE=external → setting SKIP_HELM_UPGRADE=true (data-only; caller owns the upgrade)"
+        export SKIP_HELM_UPGRADE="true"
+    fi
+fi
 
 # ┌───────────────────────────────────────────────────────────────────────────┐
 # │  OPERATOR MODE  (PG_TARGET_MODE=operator / ES_TARGET_MODE=operator)     │
