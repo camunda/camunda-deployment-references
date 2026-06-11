@@ -105,7 +105,7 @@ zeebe:
     # image pull. The image is not hardcoded: ${DOLLAR}{BROKER_IMAGE} is resolved at
     # deploy time by install-chart.sh from the chart being installed, so it always
     # matches the orchestration/zeebe image without manual maintenance.
-    # Tracking issue: <Camunda issue link TBD>.
+    # Tracking issue: https://github.com/camunda/camunda/issues/55038
     initContainers:
         - name: wait-clusterset-dns
           image: ${DOLLAR}{BROKER_IMAGE}
