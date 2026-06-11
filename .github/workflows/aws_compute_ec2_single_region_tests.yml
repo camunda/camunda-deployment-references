@@ -284,6 +284,11 @@ jobs:
                   CAMUNDA_CONNECTORS_PREVIOUS_VERSION: ${{ env.TESTS_CONNECTORS_PREVIOUS_VERSION }}
                   CAMUNDA_DISTRO_USER: ${{ steps.artifactory-credentials.outputs.ARTIFACTORY_USR }}
                   CAMUNDA_DISTRO_PASSWORD: ${{ steps.artifactory-credentials.outputs.ARTIFACTORY_PSW }}
+                  # Download the distribution + connectors bundle once on the runner and stage them
+                  # on every node, instead of each node (x3) re-downloading from Artifactory on every
+                  # install. The dir persists for the whole job, so re-installs (CloudWatch, upgrade)
+                  # reuse it too. This is the main lever to cut our Artifactory egress.
+                  CAMUNDA_DISTRO_CACHE_DIR: ${{ runner.temp }}/camunda-distro-cache
                   CAMUNDA_BASIC_AUTH_USER: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
                   CAMUNDA_BASIC_AUTH_PASSWORD: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
               run: |
