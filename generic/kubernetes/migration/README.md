@@ -477,3 +477,29 @@ aws route53 change-resource-record-sets \
         "ResourceRecords":[{"Value":"keycloak-service.camunda.svc.cluster.local"}]
     }}]}'
 ```
+
+## Troubleshooting
+
+### Migrated Keycloak crashes on startup (`constraint_jgroups_ping`)
+
+If the migrated Keycloak enters `CrashLoopBackOff` with a startup error such as:
+
+```text
+ERROR: Failed to start server in (production) mode
+JDBC exception executing SQL [INSERT INTO JGROUPS_PING values (?, ?, ?, ?, ?)]
+duplicate key value violates unique constraint "constraint_jgroups_ping"
+  Detail: Key (address)=(uuid://...0002) already exists.
+```
+
+the realm dump carried over rows from `JGROUPS_PING`, Keycloak's transient JDBC_PING
+cluster-discovery table. Those rows hold the source cluster's node addresses and
+collide with the target's own startup membership insert.
+
+The migration scripts handle this automatically: `backup_pg` excludes the
+`JGROUPS_PING` table **data** (keeping its schema) from the Keycloak realm dump, so
+the target starts clean and re-registers its own membership. This applies to both
+`KEYCLOAK_TARGET_MODE=operator` and `KEYCLOAK_TARGET_MODE=external`.
+
+If you hit this on a custom or older pipeline, exclude the table data from the dump
+(`pg_dump --exclude-table-data=jgroups_ping …`) or `TRUNCATE jgroups_ping` in the
+target database before starting Keycloak.
