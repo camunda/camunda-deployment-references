@@ -347,8 +347,17 @@ elif [[ "${SKIP_HELM_UPGRADE:-false}" == "true" ]]; then
     section "Data migration complete ($(timer_elapsed))"
     echo ""
     echo "Data has been migrated to the target backends."
-    echo "The Helm upgrade was skipped (SKIP_HELM_UPGRADE=true) — the caller is"
-    echo "responsible for upgrading Camunda to point at the new backends."
+    echo "Camunda is still frozen (scaled to 0) and pointed at the OLD backends —"
+    echo "the caller is responsible for the Helm upgrade that switches Camunda to"
+    echo "the new backends and restarts the components."
+    echo ""
+    echo "Phase 3 is marked complete so ./4-validate.sh and ./5-cleanup-bitnami.sh"
+    echo "can run — but only AFTER the caller's Helm upgrade has switched Camunda over."
+    # Mark phase 3 complete even though the Helm upgrade is deferred: the data
+    # migration that phase 3 owns IS done, so the phase state machine must not
+    # stay stuck (otherwise require_phase blocks the later phases entirely).
+    run_hooks "post-phase-3"
+    complete_phase 3
 else
 section "Step 5/5: Helm upgrade"
 
