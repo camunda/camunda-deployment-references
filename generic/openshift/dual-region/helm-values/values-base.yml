@@ -116,16 +116,16 @@ zeebe:
                 set -eu
                 # Fail open: if the image ships no resolver, do not block startup.
                 command -v getent >/dev/null 2>&1 || { echo "getent unavailable; skipping cross-region DNS gate."; exit 0; }
-                # Bounded wait (~12 min) so a genuine misconfiguration cannot deadlock the broker.
-                max=144
+                # Bounded TOTAL wait (~12 min) across all contact points, independent
+                # of how many there are, so a genuine misconfiguration can never stall
+                # startup past the deployment timeout (fail-open).
+                deadline=${DOLLAR}(( ${DOLLAR}(date +%s) + ${DOLLAR}{CLUSTERSET_DNS_TIMEOUT_SECONDS:-720} ))
                 echo "Waiting for cross-region clusterset DNS to resolve all Zeebe contact points..."
                 for ep in ${DOLLAR}(echo "${ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS}" | tr ',' ' '); do
                   host=${DOLLAR}(echo "${DOLLAR}ep" | cut -d: -f1)
-                  i=0
                   until getent hosts "${DOLLAR}host" >/dev/null 2>&1; do
-                    i=${DOLLAR}((i + 1))
-                    if [ "${DOLLAR}i" -ge "${DOLLAR}max" ]; then
-                      echo "  giving up on ${DOLLAR}host after ${DOLLAR}((max * 5))s; starting broker anyway (fail-open)."
+                    if [ "${DOLLAR}(date +%s)" -ge "${DOLLAR}deadline" ]; then
+                      echo "  giving up on ${DOLLAR}host (global ~12 min DNS budget exhausted); starting broker anyway (fail-open)."
                       break
                     fi
                     echo "  waiting for ${DOLLAR}host ..."
