@@ -32,14 +32,20 @@ if [[ -f "${CAMUNDA_DISTRO_CRED_FILE}" ]]; then
     rm -f "${CAMUNDA_DISTRO_CRED_FILE}"
 fi
 
-# Optional local artifact cache. When the orchestrator (all-in-one-install.sh) runs the
-# install across several nodes it can download the distribution and connectors bundle ONCE
-# and stage them here, so each node copies the files instead of re-downloading them from
-# Artifactory. For a plain (customer) run this directory does not exist and the curl path
-# below is used unchanged.
-CAMUNDA_DISTRO_CACHE_DIR=${CAMUNDA_DISTRO_CACHE_DIR:-"/tmp/.camunda-distro-cache"}
-CACHED_CAMUNDA_TARBALL="${CAMUNDA_DISTRO_CACHE_DIR}/camunda.tar.gz"
-CACHED_CONNECTORS_JAR="${CAMUNDA_DISTRO_CACHE_DIR}/connectors.jar"
+# Optional local artifact cache (opt-in). When CAMUNDA_DISTRO_CACHE_DIR is set and points to a
+# trusted directory containing the artifacts, this script copies them instead of downloading from
+# Artifactory. This is used by the CI orchestrator (it downloads once and stages the files on each
+# node), and can also be used for air-gapped / pre-downloaded installs.
+# It is OFF by default: a plain run downloads from Artifactory as before. We do NOT default to a
+# world-writable location (e.g. /tmp) so that a normal run never trusts artifacts it didn't fetch.
+# If you enable it, make sure the directory is only writable by a trusted user.
+CAMUNDA_DISTRO_CACHE_DIR=${CAMUNDA_DISTRO_CACHE_DIR:-""}
+CACHED_CAMUNDA_TARBALL=""
+CACHED_CONNECTORS_JAR=""
+if [[ -n "${CAMUNDA_DISTRO_CACHE_DIR}" ]]; then
+    CACHED_CAMUNDA_TARBALL="${CAMUNDA_DISTRO_CACHE_DIR}/camunda.tar.gz"
+    CACHED_CONNECTORS_JAR="${CAMUNDA_DISTRO_CACHE_DIR}/connectors.jar"
+fi
 
 CURL_AUTH_OPTS=()
 CURL_NETRC_FILE=""
