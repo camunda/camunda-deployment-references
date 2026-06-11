@@ -88,8 +88,21 @@ while true; do
   if namespace_ready "$CLUSTER_2_NAME" "$CAMUNDA_NAMESPACE_2"; then
     echo "OK: All pods are Running and Healthy in context: $CLUSTER_2_NAME, namespace: $CAMUNDA_NAMESPACE_2 - Installation completed!";
     echo "OK: All pods are healthy across both contexts.";
-    echo "Installation completed.";
-    exit 0;
+    # Confirm stability before handing off to the test phase: a broker can flap back
+    # to Running-but-not-Ready on a transient clusterset-DNS NXDOMAIN
+    # (camunda/camunda#55038) shortly after first becoming Ready. Require the cluster
+    # to stay healthy across a short settle window so the multi-region tests start
+    # against a stable topology; if it flaps, self-heal and keep polling.
+    settle="${STABILITY_SETTLE_SECONDS:-30}";
+    echo "Confirming stability over ${settle}s before completing...";
+    sleep "$settle";
+    if namespace_ready "$CLUSTER_1_NAME" "$CAMUNDA_NAMESPACE_1" && namespace_ready "$CLUSTER_2_NAME" "$CAMUNDA_NAMESPACE_2"; then
+      echo "Still healthy after the settle window. Installation completed.";
+      exit 0;
+    fi
+    echo "A broker flapped during the settle window; self-healing and re-checking.";
+    restart_stuck_brokers "$CLUSTER_1_NAME" "$CAMUNDA_NAMESPACE_1";
+    restart_stuck_brokers "$CLUSTER_2_NAME" "$CAMUNDA_NAMESPACE_2";
   else
     echo "Some pods are not Running or Healthy in context: $CLUSTER_2_NAME, namespace: $CAMUNDA_NAMESPACE_2";
     restart_stuck_brokers "$CLUSTER_2_NAME" "$CAMUNDA_NAMESPACE_2";
