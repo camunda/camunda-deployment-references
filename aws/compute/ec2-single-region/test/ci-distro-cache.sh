@@ -67,6 +67,12 @@ warm_distro_cache() {
         return 0
     fi
 
+    mkdir -p "${CAMUNDA_DISTRO_CACHE_DIR}" || { echo "[WARN] Cannot create ${CAMUNDA_DISTRO_CACHE_DIR}; skipping download cache."; return 0; }
+    local tarball="${CAMUNDA_DISTRO_CACHE_DIR}/camunda-zeebe-${camunda_version}.tar.gz"
+    local jar="${CAMUNDA_DISTRO_CACHE_DIR}/connectors-${connectors_version}.jar"
+
+    # Create the netrc only after the cache dir is ready, so we never leave credentials behind on an
+    # early return.
     local netrc_opt="" netrc_file=""
     if [[ -n "${CAMUNDA_DISTRO_USER}" && -n "${CAMUNDA_DISTRO_PASSWORD}" ]]; then
         netrc_file=$(mktemp)
@@ -74,10 +80,6 @@ warm_distro_cache() {
         printf 'machine artifacts.camunda.com login %s password %s\n' "${CAMUNDA_DISTRO_USER}" "${CAMUNDA_DISTRO_PASSWORD}" > "${netrc_file}"
         netrc_opt="--netrc-file ${netrc_file}"
     fi
-
-    mkdir -p "${CAMUNDA_DISTRO_CACHE_DIR}" || { echo "[WARN] Cannot create ${CAMUNDA_DISTRO_CACHE_DIR}; skipping download cache."; return 0; }
-    local tarball="${CAMUNDA_DISTRO_CACHE_DIR}/camunda-zeebe-${camunda_version}.tar.gz"
-    local jar="${CAMUNDA_DISTRO_CACHE_DIR}/connectors-${connectors_version}.jar"
 
     # --- Camunda distribution ---
     if [[ -f "${tarball}" ]]; then
@@ -88,15 +90,21 @@ warm_distro_cache() {
             local snap=""
             # shellcheck disable=SC2086
             snap=$(curl -sfL ${netrc_opt} "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${camunda_version}/maven-metadata.xml" | grep -A 1 "<extension>tar.gz</extension>" | grep "<value>" | sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//' || true)
-            camunda_url="https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${camunda_version}/camunda-zeebe-${snap}.tar.gz"
+            if [[ -n "${snap}" ]]; then
+                camunda_url="https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${camunda_version}/camunda-zeebe-${snap}.tar.gz"
+            else
+                echo "[WARN] Could not resolve a SNAPSHOT build for Camunda ${camunda_version}; nodes will download it individually."
+            fi
         else
             camunda_url="https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${camunda_version}/camunda-zeebe-${camunda_version}.tar.gz"
         fi
-        echo "[INFO] Caching Camunda distribution ${camunda_version} once for all nodes..."
-        # shellcheck disable=SC2086
-        if ! curl -fL ${netrc_opt} "${camunda_url}" -o "${tarball}"; then
-            echo "[WARN] Failed to cache Camunda distribution; nodes will download it individually."
-            rm -f "${tarball}"
+        if [[ -n "${camunda_url}" ]]; then
+            echo "[INFO] Caching Camunda distribution ${camunda_version} once for all nodes..."
+            # shellcheck disable=SC2086
+            if ! curl -fL ${netrc_opt} "${camunda_url}" -o "${tarball}"; then
+                echo "[WARN] Failed to cache Camunda distribution; nodes will download it individually."
+                rm -f "${tarball}"
+            fi
         fi
     fi
     [[ -f "${tarball}" ]] && CACHED_TARBALL_PATH="${tarball}"
@@ -110,15 +118,21 @@ warm_distro_cache() {
             local snap=""
             # shellcheck disable=SC2086
             snap=$(curl -sfL ${netrc_opt} "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${connectors_version}/maven-metadata.xml" | grep -A 1 "<extension>pom</extension>" | grep "<value>" | sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//' || true)
-            jar_url="https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${connectors_version}/connector-runtime-bundle-${snap}-with-dependencies.jar"
+            if [[ -n "${snap}" ]]; then
+                jar_url="https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${connectors_version}/connector-runtime-bundle-${snap}-with-dependencies.jar"
+            else
+                echo "[WARN] Could not resolve a SNAPSHOT build for connectors ${connectors_version}; nodes will download it individually."
+            fi
         else
             jar_url="https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${connectors_version}/connector-runtime-bundle-${connectors_version}-with-dependencies.jar"
         fi
-        echo "[INFO] Caching connectors bundle ${connectors_version} once for all nodes..."
-        # shellcheck disable=SC2086
-        if ! curl -fL ${netrc_opt} "${jar_url}" -o "${jar}"; then
-            echo "[WARN] Failed to cache connectors bundle; nodes will download it individually."
-            rm -f "${jar}"
+        if [[ -n "${jar_url}" ]]; then
+            echo "[INFO] Caching connectors bundle ${connectors_version} once for all nodes..."
+            # shellcheck disable=SC2086
+            if ! curl -fL ${netrc_opt} "${jar_url}" -o "${jar}"; then
+                echo "[WARN] Failed to cache connectors bundle; nodes will download it individually."
+                rm -f "${jar}"
+            fi
         fi
     fi
     [[ -f "${jar}" ]] && CACHED_JAR_PATH="${jar}"
@@ -166,5 +180,15 @@ EOF
         else
             echo "[WARN] Failed to stage cached connectors bundle on ${ip}; it will download individually."
         fi
+    fi
+}
+
+# Emit shell statements to prepend to the install script so the node opts in to the staged cache.
+# Caching is OFF by default in camunda-install.sh, so this is the explicit, trusted opt-in signal
+# (it travels over the authenticated SSH channel, not via a world-writable path). Empty unless the
+# cache is ready, keeping the default (download) path untouched.
+distro_install_prelude() {
+    if [[ "${DISTRO_CACHE_READY}" == "true" ]]; then
+        printf 'export CAMUNDA_DISTRO_CACHE_DIR=%q\n' "${REMOTE_DISTRO_CACHE_DIR}"
     fi
 }
