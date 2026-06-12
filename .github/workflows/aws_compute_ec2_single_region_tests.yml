@@ -312,6 +312,8 @@ jobs:
                       exit 0
                   fi
 
+                  # TODO: [release-duty] remove this SNAPSHOT upgrade-flake tolerance at 8.10 GA -- the
+                  # upgrade then runs GA -> GA and must fail loudly (this block would otherwise hide it).
                   # Tolerate ONLY the documented upstream flake: on a SNAPSHOT build the in-place
                   # upgrade (TestCamundaUpgrade) can fail because the daily Camunda SNAPSHOT artifact is
                   # broken upstream, independent of this repo (see TestCamundaUpgrade in
