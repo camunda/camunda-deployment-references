@@ -242,6 +242,19 @@ jobs:
                       rm -f "${archive}"
                   done
 
+                  # The pulled images now live inside each Kind node's own
+                  # containerd store (loaded via `ctr images import` above), so
+                  # the copies still held by the host (dind) Docker daemon are
+                  # redundant for the deployment — Kind never reads from the host
+                  # daemon. On the heavy benchmark these copies are several GB
+                  # that push the runner node toward DiskPressure (which evicts
+                  # pods and breaks the run). Drop them now that side-load is
+                  # done. `kindest/node` backs the running node containers, so
+                  # `docker image prune` keeps it.
+                  echo "Reclaiming host (dind) image cache after side-load..."
+                  docker image prune -af || true
+                  docker system df || true
+
                   echo "Pre-pull complete."
 
             - name: Deploy Camunda with Bitnami sub-charts
@@ -421,6 +434,25 @@ jobs:
 
                   echo "Data propagation complete"
 
+            # Disk consumed by the Kind nodes + images lives in the dind Docker
+            # daemon, so `docker system df` is the metric that tracks node
+            # DiskPressure (`df -h` is best-effort from the runner container).
+            # Logged at the data-generation and cutover boundaries so the heavy
+            # run's disk high-water mark can be measured and the runner volume
+            # sized accordingly.
+            - name: Report disk usage (after data generation)
+              if: always()
+              run: |
+                  set -euo pipefail
+                  {
+                    echo "### Disk usage — after data generation (scenario: ${BENCHMARK_SCENARIO:-light})"
+                    echo '```'
+                    docker system df || true
+                    echo ""
+                    df -h || true
+                    echo '```'
+                  } | tee -a "$GITHUB_STEP_SUMMARY"
+
             # =================================================================
             # STEP 2: Run Migration (4 phases)
             # =================================================================
@@ -527,6 +559,22 @@ jobs:
                   fi
 
                   ./3-cutover.sh --yes
+
+            # Peak disk: source (Bitnami) and target (ECK) Elasticsearch both
+            # hold the full data set at cutover, so this is the high-water mark
+            # used to size the dedicated runner volume.
+            - name: Report disk usage (after cutover)
+              if: always()
+              run: |
+                  set -euo pipefail
+                  {
+                    echo "### Disk usage — after cutover, peak: source + target ES (scenario: ${BENCHMARK_SCENARIO:-light})"
+                    echo '```'
+                    docker system df || true
+                    echo ""
+                    df -h || true
+                    echo '```'
+                  } | tee -a "$GITHUB_STEP_SUMMARY"
 
             - name: 🔍 Check for Helm deprecation warnings (after cutover)
               uses: ./.github/actions/internal-helm-deprecation-check
