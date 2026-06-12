@@ -5,10 +5,8 @@ CURRENT_DIR="$(dirname "$0")"
 
 source "${CURRENT_DIR}/helpers.sh"
 
-# Optional download-cache helpers. By default this is a no-op: every node downloads its own
-# artifacts directly (see camunda-install.sh). Our CI sets CAMUNDA_DISTRO_CACHE_LIB to a small
-# helper that downloads the distribution + connectors once and stages them on each node, so this
-# reference procedure stays free of any CI/caching plumbing.
+# Optional hook: if CAMUNDA_DISTRO_CACHE_LIB points to a shell library, source it. Unset by
+# default, so this is a no-op and each node downloads its own artifacts (see camunda-install.sh).
 if [[ -n "${CAMUNDA_DISTRO_CACHE_LIB:-}" && -f "${CAMUNDA_DISTRO_CACHE_LIB}" ]]; then
     # shellcheck source=/dev/null
     source "${CAMUNDA_DISTRO_CACHE_LIB}"
