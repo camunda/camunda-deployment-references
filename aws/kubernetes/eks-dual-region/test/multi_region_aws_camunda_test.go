@@ -1,7 +1,6 @@
 package test
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"strings"
@@ -576,22 +575,24 @@ func stopZeebeExporters(t *testing.T) {
 	var output string
 	var err error
 
-	// Partition distribution may take a while and results in a 500 error
+	// Partition distribution may take a while and results in a 500 error, and the
+	// gateway can be briefly unreachable while brokers restart, so retry on both
+	// connection errors and non-2xx responses instead of failing on the first one.
 	for i := 0; i < 10; i++ {
-		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", kubectlHelpers.ElasticsearchPodName, "--", "curl", "-i", "camunda-zeebe-gateway:9600/actuator/exporting/pause", "-XPOST")
-		if err != nil {
-			t.Fatalf("[ZEEBE EXPORTERS] Failed to pause exporters: %v", err)
-			return
-		}
-
-		if strings.Contains(output, "HTTP/1.1 20") {
+		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", kubectlHelpers.ElasticsearchPodName, "--", "curl", "-i", "--max-time", "15", "camunda-zeebe-gateway:9600/actuator/exporting/pause", "-XPOST")
+		if err == nil && strings.Contains(output, "HTTP/1.1 20") {
 			t.Log("[ZEEBE EXPORTERS] Output contains a 20x response")
 			break
 		}
-		t.Log("[ZEEBE EXPORTERS] Pausing exporters failed, retrying...")
+		if err != nil {
+			t.Logf("[ZEEBE EXPORTERS] Pause request failed (attempt %d/10), retrying: %v", i+1, err)
+		} else {
+			t.Log("[ZEEBE EXPORTERS] Pausing exporters failed, retrying...")
+		}
 		time.Sleep(30 * time.Second)
 	}
 
+	require.NoError(t, err, "[ZEEBE EXPORTERS] Failed to pause exporters")
 	require.Contains(t, output, "HTTP/1.1 20")
 	t.Logf("[ZEEBE EXPORTERS] Paused exporters: %s", output)
 }
@@ -602,22 +603,24 @@ func startZeebeExporters(t *testing.T) {
 	var output string
 	var err error
 
-	// Partition distribution may take a while and results in a 500 error
+	// Partition distribution may take a while and results in a 500 error, and the
+	// gateway can be briefly unreachable while brokers restart, so retry on both
+	// connection errors and non-2xx responses instead of failing on the first one.
 	for i := 0; i < 10; i++ {
-		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", kubectlHelpers.ElasticsearchPodName, "--", "curl", "-i", "camunda-zeebe-gateway:9600/actuator/exporting/resume", "-XPOST")
-		if err != nil {
-			t.Fatalf("[ZEEBE EXPORTERS] Failed to resume exporters: %v", err)
-			return
-		}
-
-		if strings.Contains(output, "HTTP/1.1 20") {
+		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", kubectlHelpers.ElasticsearchPodName, "--", "curl", "-i", "--max-time", "15", "camunda-zeebe-gateway:9600/actuator/exporting/resume", "-XPOST")
+		if err == nil && strings.Contains(output, "HTTP/1.1 20") {
 			t.Log("[ZEEBE EXPORTERS] Output contains a 20x response")
 			break
 		}
-		t.Log("[ZEEBE EXPORTERS] Resuming exporters failed, retrying...")
+		if err != nil {
+			t.Logf("[ZEEBE EXPORTERS] Resume request failed (attempt %d/10), retrying: %v", i+1, err)
+		} else {
+			t.Log("[ZEEBE EXPORTERS] Resuming exporters failed, retrying...")
+		}
 		time.Sleep(30 * time.Second)
 	}
 
+	require.NoError(t, err, "[ZEEBE EXPORTERS] Failed to resume exporters")
 	require.Contains(t, output, "HTTP/1.1 20")
 	t.Logf("[ZEEBE EXPORTERS] Resumed exporters: %s", output)
 }
@@ -653,22 +656,12 @@ func removeSecondaryBrokers(t *testing.T) {
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
-	defer closeFn()
-
-	// Redistribute to remaining brokers
-	res, body := helpers.HttpRequest(
-		t,
-		"PATCH",
-		fmt.Sprintf("http://%s/actuator/cluster?force=true", endpoint),
-		bytes.NewBuffer([]byte(`{"brokers":{"remove":[1,3,5,7]}}`)),
-	)
-	if res == nil {
-		t.Fatal("[FAILOVER] Failed to create request")
-		return
-	}
-
-	require.Equal(t, 202, res.StatusCode)
+	// Redistribute to remaining brokers. Each request uses its own short-lived
+	// port-forward (see GatewayManagementRequest) so a broker restarting during
+	// redistribution cannot break a long-lived tunnel.
+	status, body, err := kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "PATCH", "/actuator/cluster?force=true", []byte(`{"brokers":{"remove":[1,3,5,7]}}`))
+	require.NoError(t, err, "[FAILOVER] failed to request broker removal")
+	require.Equal(t, 202, status)
 	require.NotEmpty(t, body)
 	require.Contains(t, body, "plannedChanges")
 	require.Contains(t, body, "PARTITION_FORCE_RECONFIGURE")
@@ -676,26 +669,29 @@ func removeSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILOVER] Give the system some time to redistribute the partitions")
 	time.Sleep(5 * time.Second)
 
-	// Check that the removal of obsolete brokers was completed
-	for i := 0; i < 5; i++ {
-		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/cluster", endpoint), nil)
-		if res == nil {
-			t.Fatal("[FAILOVER] Failed to create request")
-			return
+	// Check that the removal of obsolete brokers was completed, tolerating
+	// transient connection drops while brokers restart.
+	var lastBody string
+	completed := false
+	for i := 0; i < 10; i++ {
+		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/cluster", nil)
+		if err != nil {
+			t.Logf("[FAILOVER] cluster status request failed (attempt %d/10), retrying: %v", i+1, err)
+			time.Sleep(15 * time.Second)
+			continue
 		}
-
-		if !strings.Contains(body, "pendingChange") {
+		if status == 200 && !strings.Contains(lastBody, "pendingChange") {
+			completed = true
 			break
 		}
 		t.Log("[FAILOVER] Broker removal not yet completed, retrying...")
 		time.Sleep(15 * time.Second)
 	}
 
-	require.Equal(t, 200, res.StatusCode)
-	require.NotEmpty(t, body)
-	require.Contains(t, body, "COMPLETED")
-	require.NotContains(t, body, "pendingChange")
-	require.NotContains(t, body, "PARTITION_FORCE_RECONFIGURE")
+	require.True(t, completed, "[FAILOVER] broker removal did not complete within the retry budget")
+	require.Contains(t, lastBody, "COMPLETED")
+	require.NotContains(t, lastBody, "pendingChange")
+	require.NotContains(t, lastBody, "PARTITION_FORCE_RECONFIGURE")
 }
 
 func disableElasticExportersToSecondary(t *testing.T) {
@@ -703,39 +699,34 @@ func disableElasticExportersToSecondary(t *testing.T) {
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
-	defer closeFn()
-
-	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/exporters/camundaregion1/disable", endpoint), nil)
-	if res == nil {
-		t.Fatal("[FAILOVER] Failed to create request")
-		return
-	}
-
-	require.Equal(t, 202, res.StatusCode)
+	status, body, err := kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "POST", "/actuator/exporters/camundaregion1/disable", nil)
+	require.NoError(t, err, "[FAILOVER] failed to request exporter disable")
+	require.Equal(t, 202, status)
 	require.NotEmpty(t, body)
 	require.Contains(t, body, "DISABLED")
 	require.Contains(t, body, "PARTITION_DISABLE_EXPORTER")
 
-	// Check that the exporter was disabled
-	for i := 0; i < 5; i++ {
-		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", endpoint), nil)
-		if res == nil {
-			t.Fatal("[FAILOVER] Failed to create request")
-			return
+	// Check that the exporter was disabled, tolerating transient connection drops.
+	var lastBody string
+	disabled := false
+	for i := 0; i < 10; i++ {
+		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/exporters", nil)
+		if err != nil {
+			t.Logf("[FAILOVER] exporters status request failed (attempt %d/10), retrying: %v", i+1, err)
+			time.Sleep(15 * time.Second)
+			continue
 		}
-
-		if strings.Contains(body, "{\"exporterId\":\"camundaregion1\",\"status\":\"DISABLED\"}") {
+		if status == 200 && strings.Contains(lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"DISABLED\"}") {
+			disabled = true
 			break
 		}
 		t.Log("[FAILOVER] Exporter not yet disabled, retrying...")
 		time.Sleep(15 * time.Second)
 	}
 
-	require.Equal(t, 200, res.StatusCode)
-	require.NotEmpty(t, body)
-	require.Contains(t, body, "{\"exporterId\":\"camundaregion0\",\"status\":\"ENABLED\"}")
-	require.Contains(t, body, "{\"exporterId\":\"camundaregion1\",\"status\":\"DISABLED\"}")
+	require.True(t, disabled, "[FAILOVER] exporter was not disabled within the retry budget")
+	require.Contains(t, lastBody, "{\"exporterId\":\"camundaregion0\",\"status\":\"ENABLED\"}")
+	require.Contains(t, lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"DISABLED\"}")
 }
 
 func enableElasticExportersToSecondary(t *testing.T) {
@@ -743,40 +734,35 @@ func enableElasticExportersToSecondary(t *testing.T) {
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
-	defer closeFn()
-
-	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/exporters/camundaregion1/enable", endpoint), bytes.NewBuffer([]byte(`{"initializeFrom":"camundaregion0"}`)))
-	if res == nil {
-		t.Fatal("[FAILBACK] Failed to create request")
-		return
-	}
-
-	require.Equal(t, 202, res.StatusCode)
+	status, body, err := kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "POST", "/actuator/exporters/camundaregion1/enable", []byte(`{"initializeFrom":"camundaregion0"}`))
+	require.NoError(t, err, "[FAILBACK] failed to request exporter enable")
+	require.Equal(t, 202, status)
 	require.NotEmpty(t, body)
 	require.Contains(t, body, "ENABLED")
 	require.Contains(t, body, "PARTITION_ENABLE_EXPORTER")
 
-	// Check that the exporter was enabled
-	// It can take a while until the exporter is fully enabled again
+	// Check that the exporter was enabled. It can take a while, and brokers may
+	// restart, so tolerate transient connection drops.
+	var lastBody string
+	enabled := false
 	for i := 0; i < 30; i++ {
-		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", endpoint), nil)
-		if res == nil {
-			t.Fatal("[FAILBACK] Failed to create request")
-			return
+		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/exporters", nil)
+		if err != nil {
+			t.Logf("[FAILBACK] exporters status request failed (attempt %d/30), retrying: %v", i+1, err)
+			time.Sleep(15 * time.Second)
+			continue
 		}
-
-		if strings.Contains(body, "{\"exporterId\":\"camundaregion1\",\"status\":\"ENABLED\"}") {
+		if status == 200 && strings.Contains(lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"ENABLED\"}") {
+			enabled = true
 			break
 		}
 		t.Log("[FAILBACK] Exporter not yet enabled, retrying...")
 		time.Sleep(15 * time.Second)
 	}
 
-	require.Equal(t, 200, res.StatusCode)
-	require.NotEmpty(t, body)
-	require.Contains(t, body, "{\"exporterId\":\"camundaregion0\",\"status\":\"ENABLED\"}")
-	require.Contains(t, body, "{\"exporterId\":\"camundaregion1\",\"status\":\"ENABLED\"}")
+	require.True(t, enabled, "[FAILBACK] exporter was not enabled within the retry budget")
+	require.Contains(t, lastBody, "{\"exporterId\":\"camundaregion0\",\"status\":\"ENABLED\"}")
+	require.Contains(t, lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"ENABLED\"}")
 }
 
 func addSecondaryBrokers(t *testing.T) {
