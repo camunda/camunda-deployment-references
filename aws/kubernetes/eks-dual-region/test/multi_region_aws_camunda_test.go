@@ -560,6 +560,13 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 			overallTimeout = d
 		}
 		kubectlHelpers.WaitForZeebeStatefulSetReadyWithSelfHeal(t, &cluster.KubectlNamespace, "camunda-zeebe", overallTimeout, 5*time.Minute, 15*time.Second)
+
+		// The primary StatefulSet being Ready does not guarantee the cross-region
+		// cluster has re-formed to the full broker count yet. Wait for the gateway
+		// topology to converge (all brokers, evenly split per region, partitions
+		// healthy) before the failback proceeds to steps that assume a converged
+		// cluster (e.g. CheckC8RunningProperly, stopZeebeExporters).
+		kubectlHelpers.WaitForClusterTopologyConverged(t, &cluster.KubectlNamespace, 8, primaryNamespace, secondaryNamespace, 24, 15*time.Second)
 	}
 }
 
