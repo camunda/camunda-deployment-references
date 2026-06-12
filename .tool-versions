@@ -37,7 +37,7 @@ jq 1.7.1
 just 1.51.0
 
 # renovate: datasource=github-tags depName=kubernetes-sigs/kind
-kind 0.31.0
+kind 0.32.0
 
 kubectl 1.36.1
 
@@ -58,6 +58,6 @@ terraform 1.15.4
 
 terraform-docs 0.24.0
 
-tflint 0.62.1
+tflint 0.63.1
 
 yq 4.53.2

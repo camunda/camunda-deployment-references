@@ -33,7 +33,7 @@ var (
 	// TODO: [release-duty] before the release, update this!
 	// TODO: [release-duty] adjust renovate comment to bump the major version
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "14.3.0")
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "14.4.0")
 	// TODO: [release-duty] before the release, switch back to "camunda/camunda-platform" (non-OCI)
 	remoteChartName = helpers.GetEnv("HELM_CHART_NAME", "oci://registry.camunda.cloud/team-distribution/camunda-platform")  // OCI registry
 	globalImageTag  = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                                                // allows overwriting the image tag via GHA of every Camunda image
