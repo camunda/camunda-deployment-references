@@ -781,45 +781,39 @@ func addSecondaryBrokers(t *testing.T) {
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
-	defer closeFn()
-
-	// Redistribute to new brokers
-	res, body := helpers.HttpRequest(
-		t,
-		"PATCH",
-		fmt.Sprintf("http://%s/actuator/cluster", endpoint),
-		bytes.NewBuffer([]byte(`{"brokers":{"add":[1,3,5,7]},"partitions":{"replicationFactor":4}}`)),
-	)
-	if res == nil {
-		t.Fatal("[FAILBACK] Failed to create request")
-		return
-	}
-
-	require.Equal(t, 202, res.StatusCode)
+	// Request the scaling change and poll for completion. Each request uses its
+	// own short-lived port-forward (see GatewayManagementRequest), because a broker
+	// pod restarting during partition redistribution tears down a long-lived tunnel
+	// and previously failed this step with an EOF on the status poll.
+	status, body, err := kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "PATCH", "/actuator/cluster", []byte(`{"brokers":{"add":[1,3,5,7]},"partitions":{"replicationFactor":4}}`))
+	require.NoError(t, err, "[FAILBACK] failed to request broker addition")
+	require.Equal(t, 202, status)
 	require.NotEmpty(t, body)
 	require.Contains(t, body, "\"id\":8,\"state\":\"ACTIVE\"")
 
-	// Check that the addition of new brokers was completed
-	// This can take a while
-	for i := 0; i < 20; i++ {
-		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/cluster", endpoint), nil)
-		if res == nil {
-			t.Fatal("[FAILBACK] Failed to create request")
-			return
+	// Check that the addition of new brokers was completed. This can take a while,
+	// and brokers restart during redistribution, so tolerate transient connection
+	// drops and retry instead of failing on the first dropped request.
+	var lastBody string
+	completed := false
+	for i := 0; i < 30; i++ {
+		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/cluster", nil)
+		if err != nil {
+			t.Logf("[FAILBACK] cluster status request failed (attempt %d/30), retrying: %v", i+1, err)
+			time.Sleep(15 * time.Second)
+			continue
 		}
-
-		if !strings.Contains(body, "pendingChange") {
+		if status == 200 && !strings.Contains(lastBody, "pendingChange") {
+			completed = true
 			break
 		}
 		t.Log("[FAILBACK] Broker addition not yet completed, retrying...")
 		time.Sleep(15 * time.Second)
 	}
 
-	require.Equal(t, 200, res.StatusCode)
-	require.NotEmpty(t, body)
-	require.Contains(t, body, "COMPLETED")
-	require.NotContains(t, body, "pendingChange")
+	require.True(t, completed, "[FAILBACK] broker addition did not complete within the retry budget")
+	require.Contains(t, lastBody, "COMPLETED")
+	require.NotContains(t, lastBody, "pendingChange")
 
 	// Check that the new brokers have become ready, now that they're integrated in the zeebe cluster again
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=300s", "statefulset/camunda-zeebe")
