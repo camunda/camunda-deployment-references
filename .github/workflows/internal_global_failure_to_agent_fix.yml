@@ -1,0 +1,235 @@
+---
+# DRAFT — Bootstraps an automated fix loop for failing scheduled CI runs.
+#
+# When one of the watched test workflows finishes with `failure` on a *scheduled*
+# run (either a real `schedule` event or a simulated schedule, i.e. a run whose
+# branch is prefixed `schedules/`), this workflow opens (or de-duplicates) a
+# GitHub issue describing the failure and hands it to a coding agent which drafts
+# a fix as a pull request. A human maintainer must review and approve everything
+# before any merge — this only starts the loop.
+#
+# It assigns the issue to a coding-agent actor via the GitHub issue-assignment
+# API (see `internal-failure-to-agent-fix`). The same mechanism handles every
+# backend; pick one through the `agent` input:
+#   - anthropic (default) -> anthropic-code-agent
+#   - copilot             -> copilot-swe-agent
+#   - openai              -> openai-code-agent
+# The assignment API rejects app/installation tokens, so a user-to-server PAT
+# (Vault key COPILOT_AGENT_PAT) is used for the assignment.
+#
+# It runs on `workflow_run` (decoupled from the test workflows themselves) so a
+# single place owns the logic; opt a test workflow in by extending `workflows:`.
+name: Internal - Global - CI failure to agent fix
+
+on:
+    workflow_run:
+        # Opt a test workflow in by adding its display `name:` here.
+        workflows:
+            - Tests - Integration - AWS EKS Single Region
+            - Tests - Integration - Azure AKS Single Region
+            - Internal - OpenShift - Save OpenShift ACM Versions as an artifact
+        types:
+            - completed
+    # Pushing the PR branch boots the FULL real flow (analyze → issue → agent →
+    # Slack) against a real, known-failing run so the loop can be exercised
+    # end-to-end while this stays a draft. `workflow_run` workflows only trigger
+    # from the default branch, so this `push` path is how the PR demonstrates
+    # itself. Remove this trigger before merge — see the `push`/DEMO handling in
+    # the `Resolve run context` step below.
+    # TODO [setup]: drop this `push:` block (and the DEMO_* env) once merged.
+    push:
+        branches:
+            - ci/ci-failure-agent-autofix
+        paths:
+            - .github/workflows/internal_global_failure_to_agent_fix.yml
+            - .github/actions/internal-failure-to-agent-fix/**
+            - .github/actions/internal-failure-log-analyzer/**
+            - .github/actions/internal-slack-thread-reply/**
+    workflow_dispatch:
+        inputs:
+            agent:
+                description: Coding agent backend to dispatch the fix to.
+                required: false
+                default: anthropic
+                type: choice
+                options:
+                    - anthropic
+                    - copilot
+                    - openai
+            model:
+                description: >
+                    Optional model id passed to the assignment API. Leave empty to
+                    use the agent's default.
+                required: false
+                default: ''
+                type: string
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.workflow_run.id || github.run_id }}
+    cancel-in-progress: false
+
+env:
+    # Default coding agent + model. The agent is assigned to the issue via the
+    # GitHub issue-assignment API (the same action a maintainer performs by hand
+    # from the issue sidebar). `anthropic` assigns `anthropic-code-agent`;
+    # `copilot` and `openai` assign their respective agents the same way. Override
+    # per-run via workflow_dispatch inputs.
+    # TODO [setup]: set MODEL to the exact model id you are entitled to once
+    # confirmed against the agent's model list.
+    DEFAULT_AGENT: anthropic
+    DEFAULT_MODEL: ''
+    REVIEWER_TEAM: '@camunda/infraex-medic'
+    # Slack channel for the threaded issue/analysis replies and the agent-token
+    # alert. Real schedule failures use the production infraex-alerts channel
+    # (`C076N4G1162`, where `report-failure-on-slack` posts); every other trigger
+    # (simulated schedules via `schedules/*`, plus the draft branch's
+    # push/workflow_dispatch demo) posts to infraex-test (`C07E4FF6YMB`) to avoid
+    # noise while the loop is still being exercised. Same convention as
+    # internal-helm-deprecation-check / aws_common_procedure_s3_bucket.
+    # TODO [setup]: drop the test-channel fallback once this leaves draft.
+    SLACK_CHANNEL_ID: ${{ github.event.workflow_run.event == 'schedule' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+    # GitHub Models model used to analyze the failed logs. GitHub Models does not
+    # host Anthropic Opus, and `actions/ai-inference` only serves part of the
+    # catalog, so this is the strongest widely-available chat model on that
+    # endpoint; bump it as the catalog evolves.
+    ANALYZER_MODEL: openai/gpt-4o
+    # Real, known-failing run used by the `push` demo path (Group A — chart 8.x
+    # `identityKeycloak` removed, deterministic). Resolved to full context below.
+    # TODO [setup]: drop this together with the `push:` trigger before merge.
+    DEMO_RUN_ID: '26946226123'
+
+permissions:
+    contents: read
+    issues: write
+    id-token: write
+    # Read-only access so the analyzer can download the failing run logs.
+    actions: read
+    # Lets the failure-log analyzer call GitHub Models.
+    models: read
+
+jobs:
+    open-fix-issue:
+        name: Open fix issue and dispatch agent
+        runs-on: ubuntu-latest
+        # Only react to *scheduled* failures: real `schedule` events or simulated
+        # schedules (branch prefixed `schedules/`, the repo's staggered-test
+        # convention). PR/push runs already have a human author, so we skip them.
+        # `workflow_dispatch` is always allowed for manual testing, and `push` to
+        # the draft branch exercises the full loop against a known-failing run.
+        if: >-
+            github.event_name == 'workflow_dispatch' ||
+            github.event_name == 'push' ||
+            (
+              github.event.workflow_run.conclusion == 'failure' &&
+              (
+                github.event.workflow_run.event == 'schedule' ||
+                startsWith(github.event.workflow_run.head_branch, 'schedules/')
+              )
+            )
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            # GitHub App installation token from Vault — used for the issue
+            # bookkeeping (search/create/comment). No human PAT.
+            - name: Generate GitHub App token
+              id: app-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@75437e16ff99edfa0accbd05115905f1947f4ffc # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+
+            # Slack token + coding-agent PAT from Vault — both live in the shared CI
+            # secret. SLACK_BOT_TOKEN threads the issue + analysis onto the original
+            # failure alert; COPILOT_AGENT_PAT is the user-to-server token used to
+            # assign the coding agent (the assignment API rejects App tokens).
+            - name: Import Slack + agent credentials
+              id: slack-creds
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common SLACK_BOT_TOKEN | SLACK_BOT_TOKEN;
+                      secret/data/products/infrastructure-experience/ci/common COPILOT_AGENT_PAT | COPILOT_AGENT_PAT;
+
+            - name: Resolve run context
+              id: ctx
+              env:
+                  EVENT_NAME: ${{ github.event_name }}
+                  # workflow_run fields (empty on workflow_dispatch).
+                  WR_NAME: ${{ github.event.workflow_run.name }}
+                  WR_URL: ${{ github.event.workflow_run.html_url }}
+                  WR_ID: ${{ github.event.workflow_run.id }}
+                  WR_BRANCH: ${{ github.event.workflow_run.head_branch }}
+                  WR_SHA: ${{ github.event.workflow_run.head_sha }}
+                  # Manual-dispatch fallbacks so the action always has inputs.
+                  DISPATCH_BRANCH: ${{ github.ref_name }}
+                  DISPATCH_SHA: ${{ github.sha }}
+                  # Demo run resolved for the `push` path.
+                  DEMO_RUN_ID: ${{ env.DEMO_RUN_ID }}
+                  GH_TOKEN: ${{ steps.app-token.outputs.token }}
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  if [ "$EVENT_NAME" = "push" ]; then
+                    # Resolve the known-failing demo run into full context so the loop
+                    # runs end-to-end against a real failure. The workflow name
+                    # contains spaces, so split strictly on the TSV tab (default IFS
+                    # would shred the name into the branch/sha fields).
+                    IFS=$'\t' read -r name branch sha < <(gh run view "$DEMO_RUN_ID" \
+                      --repo "$GITHUB_REPOSITORY" \
+                      --json displayTitle,workflowName,headBranch,headSha \
+                      --jq '[.workflowName, .headBranch, .headSha] | @tsv')
+                    echo "workflow-name=${name}" | tee -a "$GITHUB_OUTPUT"
+                    echo "run-url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${DEMO_RUN_ID}" | tee -a "$GITHUB_OUTPUT"
+                    echo "run-id=${DEMO_RUN_ID}" | tee -a "$GITHUB_OUTPUT"
+                    echo "head-branch=${branch}" | tee -a "$GITHUB_OUTPUT"
+                    echo "head-sha=${sha}"       | tee -a "$GITHUB_OUTPUT"
+                  elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+                    echo "workflow-name=Manual dispatch (${WR_NAME:-test})" | tee -a "$GITHUB_OUTPUT"
+                    echo "run-url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" | tee -a "$GITHUB_OUTPUT"
+                    echo "run-id=${GITHUB_RUN_ID}"      | tee -a "$GITHUB_OUTPUT"
+                    echo "head-branch=${DISPATCH_BRANCH}" | tee -a "$GITHUB_OUTPUT"
+                    echo "head-sha=${DISPATCH_SHA}"     | tee -a "$GITHUB_OUTPUT"
+                  else
+                    echo "workflow-name=${WR_NAME}" | tee -a "$GITHUB_OUTPUT"
+                    echo "run-url=${WR_URL}"        | tee -a "$GITHUB_OUTPUT"
+                    echo "run-id=${WR_ID}"          | tee -a "$GITHUB_OUTPUT"
+                    echo "head-branch=${WR_BRANCH}" | tee -a "$GITHUB_OUTPUT"
+                    echo "head-sha=${WR_SHA}"       | tee -a "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Open issue and dispatch coding agent
+              uses: ./.github/actions/internal-failure-to-agent-fix
+              with:
+                  agent: ${{ inputs.agent || env.DEFAULT_AGENT }}
+                  model: ${{ inputs.model || env.DEFAULT_MODEL }}
+                  github-token: ${{ steps.app-token.outputs.token }}
+                  agent-token: ${{ steps.slack-creds.outputs.COPILOT_AGENT_PAT }}
+                  workflow-name: ${{ steps.ctx.outputs.workflow-name }}
+                  run-url: ${{ steps.ctx.outputs.run-url }}
+                  run-id: ${{ steps.ctx.outputs.run-id }}
+                  head-branch: ${{ steps.ctx.outputs.head-branch }}
+                  head-sha: ${{ steps.ctx.outputs.head-sha }}
+                  base-ref: ${{ steps.ctx.outputs.head-branch }}
+                  labels: ci-failure,automation
+                  mention: ${{ env.REVIEWER_TEAM }}
+                  slack-bot-token: ${{ steps.slack-creds.outputs.SLACK_BOT_TOKEN }}
+                  slack-channel-id: ${{ env.SLACK_CHANNEL_ID }}
+                  enable-log-analysis: 'true'
+                  models-token: ${{ github.token }}
+                  analyzer-model: ${{ env.ANALYZER_MODEL }}
+                  # Group same-workflow failures across branches into one issue and
+                  # notify the assigned agent bot when a new occurrence is grouped.
+                  group-across-branches: 'true'
+                  notify-bot-on-group: 'true'
