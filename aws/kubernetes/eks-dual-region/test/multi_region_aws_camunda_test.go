@@ -545,7 +545,18 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 	// We are using instead elastic to become ready as the next steps depend on it, additionally as direct next step we check that the brokers have joined in again.
 	// We skip this for region 1 since only region 0 is part of the cluster at this point.
 	if region == 0 {
-		k8s.RunKubectl(t, &cluster.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
+		// TODO(camunda/camunda#55038): during failback a redeployed broker can
+		// re-hit the upstream startup hang (management port 9600 never opens, the
+		// pod stays 0/1 Running and never self-recovers) when the secondary
+		// region's clusterset DNS names are recreated. A plain rollout status would
+		// just time out, so use a self-healing wait that restarts any broker stuck
+		// Running-but-not-Ready, mirroring check-deployment-ready.sh (which does not
+		// run in this Go path). Remove once the upstream broker fix lands.
+		overallTimeout := 15 * time.Minute
+		if d, err := time.ParseDuration(timeout); err == nil && d > overallTimeout {
+			overallTimeout = d
+		}
+		kubectlHelpers.WaitForZeebeStatefulSetReadyWithSelfHeal(t, &cluster.KubectlNamespace, "camunda-zeebe", overallTimeout, 5*time.Minute, 15*time.Second)
 	}
 }
 
