@@ -144,3 +144,42 @@ resource "aws_lb_listener" "grpc_26500" {
     target_group_arn = aws_lb_target_group.main_26500.arn
   }
 }
+
+################################################################
+#              Internal NLB for cross-region Raft               #
+################################################################
+
+resource "aws_lb_target_group" "raft_26502" {
+  count = var.enable_internal_nlb_raft_listener ? 1 : 0
+
+  name        = "${substr(var.prefix, 0, 17)}-orc-tg-26502"
+  port        = 26502
+  protocol    = "TCP"
+  vpc_id      = var.vpc_id
+  target_type = "ip"
+
+  deregistration_delay = 30
+
+  health_check {
+    path                = local.health_check.path
+    port                = local.health_check.port
+    protocol            = local.health_check.protocol
+    timeout             = local.health_check.timeout
+    interval            = local.health_check.interval
+    healthy_threshold   = local.health_check.healthy_threshold
+    unhealthy_threshold = local.health_check.unhealthy_threshold
+  }
+}
+
+resource "aws_lb_listener" "raft_26502" {
+  count = var.enable_internal_nlb_raft_listener ? 1 : 0
+
+  load_balancer_arn = var.internal_nlb_arn
+  port              = "26502"
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.raft_26502[0].arn
+  }
+}

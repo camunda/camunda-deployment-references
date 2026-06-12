@@ -16,7 +16,7 @@
     "healthCheck": {
       "command": [
         "CMD-SHELL",
-        "wget --spider --quiet http://localhost:8080/connectors/actuator/health/readiness || exit 1"
+        "wget -qO- http://localhost:8080/connectors/actuator/health/readiness || exit 1"
       ],
       "interval": 30,
       "timeout": 5,
