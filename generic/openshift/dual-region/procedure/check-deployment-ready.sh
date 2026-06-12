@@ -2,6 +2,15 @@
 
 set -euo pipefail
 
+# This script tracks per-pod restart counts in a bash associative array
+# (declare -A), which requires bash >= 4. Fail fast with a clear message on older
+# shells (e.g. macOS ships bash 3.2) instead of a cryptic "declare: -A: invalid
+# option" later on.
+if (( BASH_VERSINFO[0] < 4 )); then
+  echo "ERROR: ${BASH_SOURCE[0]##*/} requires bash >= 4 (associative arrays); found bash ${BASH_VERSION}." >&2
+  exit 1
+fi
+
 # Wait until the dual-region Camunda deployment is healthy on both clusters.
 #
 # Self-healing rationale:
@@ -38,12 +47,14 @@ restart_stuck_brokers() {
   # Match broker pods for the configured Helm release (defaults to "camunda"),
   # so the self-heal keeps working when CAMUNDA_RELEASE_NAME is customised.
   local release="${CAMUNDA_RELEASE_NAME:-camunda}"
-  local now pod started age count
+  local now pod started_epoch age count
   now="$(date -u +%s)"
 
-  while read -r pod started; do
+  while read -r pod started_epoch; do
     [ -z "$pod" ] && continue
-    age=$(( now - $(date -u -d "$started" +%s) ))
+    # started_epoch is emitted by jq (fromdateiso8601) below, so we avoid the
+    # GNU-only `date -d <string>` parse and stay portable across BSD/macOS.
+    age=$(( now - started_epoch ))
 
     if [ "$age" -lt "$STUCK_BROKER_TIMEOUT_SECONDS" ]; then
       echo "  ↳ $pod is not ready yet (${age}s < ${STUCK_BROKER_TIMEOUT_SECONDS}s), still within startup grace period";
@@ -66,7 +77,7 @@ restart_stuck_brokers() {
         | select(.metadata.name | test($re))
         | select(any(.status.containerStatuses[]?; .ready == false))
         | select(any(.status.containerStatuses[]?; .state.running.startedAt != null))
-        | "\(.metadata.name) \([.status.containerStatuses[] | select(.state.running != null) | .state.running.startedAt] | min)"
+        | "\(.metadata.name) \([.status.containerStatuses[] | select(.state.running != null) | (.state.running.startedAt | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)] | min)"
       '
   )
 }

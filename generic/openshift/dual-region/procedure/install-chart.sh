@@ -10,10 +10,23 @@ helm repo update
 # same image as the broker — already pulled on the node, no extra pull, and no
 # hardcoded tag to maintain. The generated values carry a literal ${BROKER_IMAGE}
 # placeholder (passed through the first envsubst via ${DOLLAR}); resolve it here.
+# yq is required for this; fail fast with a clear message instead of a generic
+# "command not found" in the middle of the install flow.
+if ! command -v yq >/dev/null 2>&1; then
+  echo "ERROR: 'yq' is required to resolve the broker image for the cross-region DNS gate but was not found in PATH." >&2
+  exit 1
+fi
 BROKER_IMAGE="$(helm show values \
   camunda/camunda-platform \
   --version "$HELM_CHART_VERSION" \
   | yq -r '(.orchestration.image // .zeebe.image) | ([.registry, .repository] | map(. // "") | map(select(. != "")) | join("/")) + ":" + .tag')"
+# Guard against an empty/tag-less result (e.g. unexpected chart values shape) so we
+# never substitute an invalid image into the generated values and fail later with a
+# confusing Helm/Kubernetes error.
+if [ -z "$BROKER_IMAGE" ] || [ -z "${BROKER_IMAGE##*:}" ]; then
+  echo "ERROR: failed to resolve a valid broker image (registry/repository:tag) from the chart values (got '$BROKER_IMAGE')." >&2
+  exit 1
+fi
 export BROKER_IMAGE
 echo "Cross-region DNS-gate initContainer will reuse broker image: $BROKER_IMAGE"
 

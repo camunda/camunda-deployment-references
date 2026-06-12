@@ -132,7 +132,10 @@ orchestration:
                 # then hits NXDOMAIN dialing a peer (e.g. ...-zeebe-0) and hangs.
                 # Gate on every per-pod name instead. The Zeebe service name is the
                 # 2nd DNS label of the contact point and each pod is reachable at
-                # <service>-<ordinal>.<host>; brokers-per-region = clusterSize / regions.
+                # <service>-<ordinal>.<host>. brokers-per-region defaults to 4
+                # (clusterSize 8 / 2 regions); if you change orchestration.clusterSize
+                # or the number of regions, set BROKERS_PER_REGION to match so the
+                # gate waits on the correct per-pod names.
                 brokers_per_region="${DOLLAR}{BROKERS_PER_REGION:-4}"
                 hosts=""
                 for ep in ${DOLLAR}(echo "${CAMUNDA_CLUSTER_INITIALCONTACTPOINTS}" | tr ',' ' '); do
