@@ -151,7 +151,10 @@ warm_distro_cache() {
 push_distro_cache_to_node() {
     local ip="$1"
 
-    remote_cmd "rm -rf ${REMOTE_DISTRO_CACHE_DIR} && mkdir -p ${REMOTE_DISTRO_CACHE_DIR}" \
+    # Recreate the cache dir with an explicit, non-world-writable mode (don't rely on the remote
+    # umask): 0755 keeps it readable/traversable by the unprivileged camunda user that consumes it
+    # in camunda-install.sh, while preventing other local users from planting artifacts.
+    remote_cmd "rm -rf ${REMOTE_DISTRO_CACHE_DIR} && mkdir -p ${REMOTE_DISTRO_CACHE_DIR} && chmod 755 ${REMOTE_DISTRO_CACHE_DIR}" \
         || { echo "[WARN] Could not prepare cache dir on ${ip}; it will download individually."; return 0; }
 
     if [[ "${DISTRO_CACHE_READY}" != "true" ]]; then
@@ -166,6 +169,9 @@ EOF
         then
             remote_cmd "chmod 644 ${REMOTE_DISTRO_CACHE_DIR}/camunda.tar.gz" || true
         else
+            # Drop any partial upload so camunda-install.sh's existence check can't treat a truncated
+            # file as a valid cache hit; the node then downloads it itself.
+            remote_cmd "rm -f ${REMOTE_DISTRO_CACHE_DIR}/camunda.tar.gz" || true
             echo "[WARN] Failed to stage cached distribution on ${ip}; it will download individually."
         fi
     fi
@@ -178,6 +184,7 @@ EOF
         then
             remote_cmd "chmod 644 ${REMOTE_DISTRO_CACHE_DIR}/connectors.jar" || true
         else
+            remote_cmd "rm -f ${REMOTE_DISTRO_CACHE_DIR}/connectors.jar" || true
             echo "[WARN] Failed to stage cached connectors bundle on ${ip}; it will download individually."
         fi
     fi
