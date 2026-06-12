@@ -1191,8 +1191,10 @@ func GetClusterTopology(t *testing.T, kubectlOptions *k8s.KubectlOptions) Cluste
 }
 
 // WaitForZeebeStatefulSetReadyWithSelfHeal waits for every replica of the given
-// StatefulSet to become Ready, deleting any broker pod that stays
-// Running-but-not-Ready longer than stuckTimeout so the StatefulSet recreates it.
+// StatefulSet to become Ready, deleting any broker pod that this wait has seen
+// Running-but-not-Ready for at least stuckTimeout so the StatefulSet recreates it.
+// The threshold is measured from when this wait first observed the pod
+// Running-but-not-Ready, not from the pod/container start time.
 //
 // TODO(camunda/camunda#55038): remove once the broker no longer hangs
 // permanently when a configured cross-region peer is briefly unresolvable.
@@ -1230,7 +1232,7 @@ func WaitForZeebeStatefulSetReadyWithSelfHeal(t *testing.T, kubectlOptions *k8s.
 				continue
 			}
 			if now.Sub(notReadySince[pod]) >= stuckTimeout && restarts < maxSelfHealRestarts {
-				t.Logf("[SELF-HEAL WAIT] Broker %s stuck Running-but-not-Ready for >%s; deleting it so the StatefulSet recreates it (camunda/camunda#55038)", pod, stuckTimeout)
+				t.Logf("[SELF-HEAL WAIT] Broker %s has been Running-but-not-Ready for at least %s since first observed; deleting it so the StatefulSet recreates it (camunda/camunda#55038)", pod, stuckTimeout)
 				if err := k8s.RunKubectlE(t, kubectlOptions, "delete", "pod", pod, "--wait=false"); err != nil {
 					t.Logf("[SELF-HEAL WAIT] failed to delete pod %s: %v", pod, err)
 				} else {
@@ -1256,10 +1258,13 @@ func WaitForZeebeStatefulSetReadyWithSelfHeal(t *testing.T, kubectlOptions *k8s.
 
 // runKubectlOrEmpty runs a read-only kubectl command and returns its trimmed
 // output, or an empty string if the command fails (e.g. the resource does not
-// exist yet).
+// exist yet). The error is logged rather than returned so the caller's retry loop
+// stays simple while transient/auth/context failures remain visible in test output.
 func runKubectlOrEmpty(t *testing.T, kubectlOptions *k8s.KubectlOptions, args ...string) string {
+	t.Helper()
 	out, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, args...)
 	if err != nil {
+		t.Logf("[SELF-HEAL WAIT] kubectl %v failed (treating as empty): %v", args, err)
 		return ""
 	}
 	return out
