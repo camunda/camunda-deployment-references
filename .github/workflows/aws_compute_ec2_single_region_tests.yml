@@ -281,6 +281,15 @@ jobs:
                   CAMUNDA_CONNECTORS_PREVIOUS_VERSION: ${{ env.TESTS_CONNECTORS_PREVIOUS_VERSION }}
                   CAMUNDA_DISTRO_USER: ${{ steps.artifactory-credentials.outputs.ARTIFACTORY_USR }}
                   CAMUNDA_DISTRO_PASSWORD: ${{ steps.artifactory-credentials.outputs.ARTIFACTORY_PSW }}
+                  # Download the distribution + connectors bundle once and stage them on every node,
+                  # instead of each node (x3) re-downloading from Artifactory on every install. The
+                  # cache dir persists for the whole job, so re-installs (CloudWatch, upgrade) reuse
+                  # it too. This is the main lever to cut our Artifactory egress. The caching logic
+                  # lives in a CI-only helper (test/ci-distro-cache.sh) so the customer-facing
+                  # procedure scripts stay free of it; all-in-one-install.sh sources it only when
+                  # CAMUNDA_DISTRO_CACHE_LIB is set.
+                  CAMUNDA_DISTRO_CACHE_DIR: ${{ runner.temp }}/camunda-distro-cache
+                  CAMUNDA_DISTRO_CACHE_LIB: ${{ github.workspace }}/aws/compute/ec2-single-region/test/ci-distro-cache.sh
                   CAMUNDA_BASIC_AUTH_USER: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
                   CAMUNDA_BASIC_AUTH_PASSWORD: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
               run: |
