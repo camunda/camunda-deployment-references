@@ -2,6 +2,8 @@
 # PostgreSQL Backup Job (generic, parameterized by COMPONENT)
 # Required env vars: COMPONENT, JOB_NAME, PG_HOST, PG_PORT, PG_DATABASE,
 #   PG_USERNAME, PG_SECRET_NAME, PG_SECRET_KEY, PG_IMAGE, BACKUP_PVC, NAMESPACE, TIMESTAMP
+# Optional: PG_DUMP_EXTRA_ARGS — extra pg_dump flags (e.g. --exclude-table-data
+#   to drop transient tables that must not cross clusters; see lib.sh backup_pg).
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -21,6 +23,14 @@ spec:
                 migration.camunda.io/type: backup
         spec:
             restartPolicy: Never
+            # Make the backup PVC writable by the non-root postgres image
+            # (UID/GID 1001 in the Bitnami/community images). Without an fsGroup
+            # the dynamically-provisioned volume is root-owned and `mkdir
+            # /backup/<component>` fails with EACCES on storage classes that
+            # don't pre-chown the mount (e.g. GKE pd.csi).
+            securityContext:
+                fsGroup: 1001
+                fsGroupChangePolicy: OnRootMismatch
             containers:
                 - name: backup
                   image: ${PG_IMAGE}
@@ -57,7 +67,7 @@ spec:
                         echo ""
 
                         pg_dump -h "${PG_HOST}" -p "${PG_PORT}" -U "$PGUSER" \
-                          -d "${PG_DATABASE}" -F custom \
+                          -d "${PG_DATABASE}" -F custom ${PG_DUMP_EXTRA_ARGS} \
                           -f /backup/${COMPONENT}/${COMPONENT}-db-${TIMESTAMP}.dump
 
                         echo "Backup complete:"

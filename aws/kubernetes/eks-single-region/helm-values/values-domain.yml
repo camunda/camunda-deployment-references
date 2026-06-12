@@ -17,6 +17,7 @@ global:
 
     ingress:
         enabled: true
+        className: contour
         host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
@@ -102,12 +103,17 @@ orchestration:
     ingress:
         grpc:
             enabled: true
+            className: contour
             host: zeebe-${CAMUNDA_DOMAIN}
             tls:
                 enabled: true
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
+
+    service:
+        annotations:
+            projectcontour.io/upstream-protocol.h2c: '26500'
 
 
 console:

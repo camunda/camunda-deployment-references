@@ -226,15 +226,23 @@ fi
 # 4. Keycloak Operator
 # ─────────────────────────────────────────────────────────────────────────────
 if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-    section "Keycloak Operator"
-
-    kc_ready=$(kubectl get keycloak keycloak -n "${NAMESPACE}" \
-        -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
-    if [[ "$kc_ready" == "True" ]]; then
-        log_success "Keycloak CR: Ready"
+    if is_external_keycloak; then
+        section "Keycloak (external)"
+        # No operator CR to inspect — Keycloak is managed outside this chart.
+        # Camunda's connection to the external instance is exercised by the
+        # Identity/Orchestration readiness checks elsewhere in this script.
+        log_success "Keycloak: external instance at ${EXTERNAL_KEYCLOAK_PROTOCOL:-http}://${EXTERNAL_KEYCLOAK_HOST}:${EXTERNAL_KEYCLOAK_PORT:-80}${EXTERNAL_KEYCLOAK_CONTEXT_PATH:-/auth} (operator CR check skipped)"
     else
-        log_error "Keycloak CR: Not ready (${kc_ready})"
-        ERRORS=$((ERRORS + 1))
+        section "Keycloak Operator"
+
+        kc_ready=$(kubectl get keycloak keycloak -n "${NAMESPACE}" \
+            -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
+        if [[ "$kc_ready" == "True" ]]; then
+            log_success "Keycloak CR: Ready"
+        else
+            log_error "Keycloak CR: Not ready (${kc_ready})"
+            ERRORS=$((ERRORS + 1))
+        fi
     fi
 fi
 
