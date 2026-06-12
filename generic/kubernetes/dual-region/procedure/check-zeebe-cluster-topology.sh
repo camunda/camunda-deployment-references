@@ -15,7 +15,14 @@ trap cleanup EXIT
 sleep 2
 
 echo "📡 Fetching Zeebe cluster topology..."
-topology=$(curl -s -L -u "${ZEEBE_BASIC_AUTH_USER:-demo}:${ZEEBE_BASIC_AUTH_PASSWORD:-demo}" -X GET 'http://localhost:8080/v2/topology' -H 'Accept: application/json')
+# Camunda 8.8+ enforces authentication on the REST API (/v2/topology). In CI the
+# gateway is protected by a Vault-provisioned admin exported to the job
+# environment as CAMUNDA_BASIC_AUTH_USER/PASSWORD (see internal-camunda-ci-credentials),
+# so prefer those credentials; fall back to ZEEBE_BASIC_AUTH_* and finally the
+# chart demo:demo default for unprotected/local deployments.
+auth_user="${CAMUNDA_BASIC_AUTH_USER:-${ZEEBE_BASIC_AUTH_USER:-demo}}"
+auth_password="${CAMUNDA_BASIC_AUTH_PASSWORD:-${ZEEBE_BASIC_AUTH_PASSWORD:-demo}}"
+topology=$(curl -s -L -u "${auth_user}:${auth_password}" -X GET 'http://localhost:8080/v2/topology' -H 'Accept: application/json')
 echo "$topology" > zeebe-topology.json
 
 jq . zeebe-topology.json
