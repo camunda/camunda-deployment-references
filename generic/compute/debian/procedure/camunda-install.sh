@@ -37,8 +37,7 @@ fi
 
 # Optional local artifact cache (opt-in). When CAMUNDA_DISTRO_CACHE_DIR is set and points to a
 # trusted directory containing the artifacts, this script copies them instead of downloading from
-# Artifactory. This is used by the CI orchestrator (it downloads once and stages the files on each
-# node), and can also be used for air-gapped / pre-downloaded installs.
+# Artifactory -- useful for air-gapped or pre-downloaded installs.
 # It is OFF by default: a plain run downloads from Artifactory as before. We do NOT default to a
 # world-writable location (e.g. /tmp) so that a normal run never trusts artifacts it didn't fetch.
 # If you enable it, make sure the directory is only writable by a trusted user.
