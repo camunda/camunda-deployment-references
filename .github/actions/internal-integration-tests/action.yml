@@ -391,8 +391,13 @@ runs:
                       --data-urlencode "client_secret=${CLIENT_SECRET}" \
                       2>/dev/null | jq -r '.access_token // empty' || true)
                   [[ -n "$TOKEN" ]] && break
-                  echo "  attempt ${attempt}/12: M2M token not available yet (waiting 5s)"
-                  sleep 5
+                  # Don't log/sleep after the final attempt: the loop is about to
+                  # exit and the warning + graceful skip below handles the all-fail
+                  # path, so an extra "waiting 5s" message and delay are misleading.
+                  if [[ "$attempt" -lt 12 ]]; then
+                      echo "  attempt ${attempt}/12: M2M token not available yet (waiting 5s)"
+                      sleep 5
+                  fi
               done
               if [[ -z "$TOKEN" ]]; then
                   echo "::warning::Could not obtain M2M token for JWKS warmup; skipping"
