@@ -70,7 +70,12 @@ env:
     # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
     # TODO: [release-duty] Adjust the previous version to the previous stable release, 8.9 --> 8.8, for 8.8 would stick to 8.8
     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.10(\.(?<patch>\d+))?$
-    TESTS_CAMUNDA_VERSION: 8.10.0
+    # Pre-GA: the all-in-one installer ships 8.10.0-SNAPSHOT, so this must carry the
+    # "-SNAPSHOT" suffix. The upgrade test keys its pre-release gate (and the final
+    # version assertion) off this string; without the suffix the gate stays off and the
+    # 8.9 -> 8.10.0-SNAPSHOT upgrade is rejected (IncompatibleVersionException). Revert to
+    # the GA version at release time (see release-duty TODOs above).
+    TESTS_CAMUNDA_VERSION: 8.10.0-SNAPSHOT
     TESTS_CAMUNDA_PREVIOUS_VERSION: 8.9.0 # Version to be used for upgrade tests, not updated automatically
 
     # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.10(\.(?<patch>\d+))?$
