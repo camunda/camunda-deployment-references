@@ -1377,3 +1377,41 @@ func WaitForClusterTopologyConverged(t *testing.T, kubectlOptions *k8s.KubectlOp
 	}
 	t.Fatalf("[CONVERGE WAIT] cluster did not converge to %d healthy brokers (%d per region) after %d attempts", expectedBrokers, perRegion, maxRetries)
 }
+
+// GatewayManagementRequest issues a request against the Zeebe gateway management
+// API (port 9600), establishing a fresh, short-lived port-forward for the call.
+// A long-lived tunnel breaks when the broker pod it targets restarts — which
+// happens during partition redistribution on a broker-scaling change — so a
+// per-call tunnel (which re-selects a currently-ready pod) plus a non-fatal error
+// return lets callers retry instead of failing on a dropped connection.
+func GatewayManagementRequest(t *testing.T, kubectlOptions *k8s.KubectlOptions, method, path string, payload []byte) (int, string, error) {
+	t.Helper()
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, kubectlOptions, "camunda-zeebe-gateway", 0, 9600, 8, 15*time.Second)
+	defer closeFn()
+
+	var bodyReader io.Reader
+	if payload != nil {
+		bodyReader = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequest(method, fmt.Sprintf("http://%s%s", endpoint, path), bodyReader)
+	if err != nil {
+		return 0, "", err
+	}
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, "", err
+	}
+	defer resp.Body.Close()
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, "", err
+	}
+	return resp.StatusCode, string(b), nil
+}
