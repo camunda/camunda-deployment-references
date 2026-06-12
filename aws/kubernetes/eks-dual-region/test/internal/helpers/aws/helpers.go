@@ -308,9 +308,10 @@ func TestSetupTerraform(t *testing.T, terraformDir, clusterName, awsProfile, tfB
 			"aws_profile":           awsProfile,
 			"np_desired_node_count": np_desired_node_count,
 			"single_nat_gateway":    "true", // saving IPs for tests
-			// Disabling spot instances for now since tests have become very flakey
-			// "np_capacity_type":  "SPOT",
-			// "np_instance_types": []string{"m6i.xlarge", "m5.xlarge", "m5d.xlarge"},
+			// SPOT instances are cheaper with same performance for non production environments
+			"np_capacity_type": "SPOT",
+			// Multiple instance types are used to increase availability for SPOT instances
+			"np_instance_types": []string{"m6i.xlarge", "m5.xlarge", "m5d.xlarge"},
 		},
 		NoColor: true,
 	})
@@ -339,9 +340,10 @@ func TestTeardownTerraform(t *testing.T, terraformDir, clusterName, awsProfile, 
 		Vars: map[string]interface{}{
 			"cluster_name": clusterName,
 			"aws_profile":  awsProfile,
-			// Disabling spot instances for now since tests have become very flakey
-			// "np_capacity_type":  "SPOT",
-			// "np_instance_types": []string{"m6i.xlarge", "m5.xlarge", "m5d.xlarge"},
+			// SPOT instances are cheaper with same performance for non production environments
+			"np_capacity_type": "SPOT",
+			// Multiple instance types are used to increase availability for SPOT instances
+			"np_instance_types": []string{"m6i.xlarge", "m5.xlarge", "m5d.xlarge"},
 		},
 		NoColor: true,
 	})

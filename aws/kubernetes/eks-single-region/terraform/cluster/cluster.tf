@@ -24,8 +24,12 @@ module "eks_cluster" {
   cluster_node_ipv4_cidr    = "10.192.0.0/16"
 
   # Default node type for the Kubernetes cluster
-  np_instance_types     = ["m6i.xlarge"]
+  # Multiple instance types are used to increase availability for SPOT instances
+  np_instance_types     = ["m6i.xlarge", "m5.xlarge", "m5d.xlarge"]
   np_desired_node_count = 4
+
+  # SPOT instances are cheaper with same performance for non production environments
+  np_capacity_type = "SPOT"
 
   # Prevent the cluster to be accessed at all from the public Internet if true
   private_vpc        = false
