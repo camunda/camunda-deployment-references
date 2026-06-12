@@ -1189,3 +1189,112 @@ func GetClusterTopology(t *testing.T, kubectlOptions *k8s.KubectlOptions) Cluste
 
 	return clusterInfo
 }
+
+// WaitForZeebeStatefulSetReadyWithSelfHeal waits for every replica of the given
+// StatefulSet to become Ready, deleting any broker pod that stays
+// Running-but-not-Ready longer than stuckTimeout so the StatefulSet recreates it.
+//
+// TODO(camunda/camunda#55038): remove once the broker no longer hangs
+// permanently when a configured cross-region peer is briefly unresolvable.
+// During failback the secondary region's clusterset DNS names are torn down and
+// recreated, which can re-trigger the upstream startup hang on a broker that
+// already passed the wait-clusterset-dns init gate: the management port 9600
+// never opens, the pod stays 0/1 Running forever and never self-recovers, so a
+// plain `kubectl rollout status` would simply time out. The init container only
+// gates the *initial* startup and check-deployment-ready.sh (which carries the
+// same self-heal) does not run in this Go failback path, so mirror that self-heal
+// here to keep the failback deterministic.
+func WaitForZeebeStatefulSetReadyWithSelfHeal(t *testing.T, kubectlOptions *k8s.KubectlOptions, statefulSetName string, overallTimeout, stuckTimeout, pollInterval time.Duration) {
+	t.Helper()
+
+	const maxSelfHealRestarts = 6
+	deadline := time.Now().Add(overallTimeout)
+	notReadySince := map[string]time.Time{}
+	restarts := 0
+
+	for {
+		desired := strings.TrimSpace(runKubectlOrEmpty(t, kubectlOptions, "get", "statefulset", statefulSetName, "-o", "jsonpath={.spec.replicas}"))
+		ready := strings.TrimSpace(runKubectlOrEmpty(t, kubectlOptions, "get", "statefulset", statefulSetName, "-o", "jsonpath={.status.readyReplicas}"))
+		if desired != "" && desired != "0" && ready == desired {
+			t.Logf("[SELF-HEAL WAIT] StatefulSet %s is fully ready (%s/%s) after %d self-heal restart(s)", statefulSetName, ready, desired, restarts)
+			return
+		}
+		t.Logf("[SELF-HEAL WAIT] StatefulSet %s not ready yet (ready=%q desired=%q)", statefulSetName, ready, desired)
+
+		now := time.Now()
+		seen := map[string]bool{}
+		for _, pod := range runningNotReadyPods(t, kubectlOptions, statefulSetName) {
+			seen[pod] = true
+			if _, tracked := notReadySince[pod]; !tracked {
+				notReadySince[pod] = now
+				continue
+			}
+			if now.Sub(notReadySince[pod]) >= stuckTimeout && restarts < maxSelfHealRestarts {
+				t.Logf("[SELF-HEAL WAIT] Broker %s stuck Running-but-not-Ready for >%s; deleting it so the StatefulSet recreates it (camunda/camunda#55038)", pod, stuckTimeout)
+				if err := k8s.RunKubectlE(t, kubectlOptions, "delete", "pod", pod, "--wait=false"); err != nil {
+					t.Logf("[SELF-HEAL WAIT] failed to delete pod %s: %v", pod, err)
+				} else {
+					restarts++
+					delete(notReadySince, pod)
+				}
+			}
+		}
+		// Stop tracking pods that recovered or were already recreated.
+		for pod := range notReadySince {
+			if !seen[pod] {
+				delete(notReadySince, pod)
+			}
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatalf("[SELF-HEAL WAIT] StatefulSet %s did not become ready within %s (self-heal restarts performed: %d)", statefulSetName, overallTimeout, restarts)
+			return
+		}
+		time.Sleep(pollInterval)
+	}
+}
+
+// runKubectlOrEmpty runs a read-only kubectl command and returns its trimmed
+// output, or an empty string if the command fails (e.g. the resource does not
+// exist yet).
+func runKubectlOrEmpty(t *testing.T, kubectlOptions *k8s.KubectlOptions, args ...string) string {
+	out, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, args...)
+	if err != nil {
+		return ""
+	}
+	return out
+}
+
+// runningNotReadyPods returns the names of pods belonging to the given
+// StatefulSet (matched by the "<name>-" prefix) whose phase is Running but which
+// have at least one container reporting not-Ready. Pods still in their init phase
+// (the wait-clusterset-dns gate) report phase Pending and are intentionally
+// excluded, so only brokers that started but failed to become Ready are healed.
+func runningNotReadyPods(t *testing.T, kubectlOptions *k8s.KubectlOptions, statefulSetName string) []string {
+	const jsonPath = "jsonpath={range .items[*]}{.metadata.name}{\"|\"}{.status.phase}{\"|\"}{range .status.containerStatuses[*]}{.ready}{\",\"}{end}{\";\"}{end}"
+	out, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "pods", "-o", jsonPath)
+	if err != nil {
+		t.Logf("[SELF-HEAL WAIT] failed to list pods: %v", err)
+		return nil
+	}
+
+	var stuck []string
+	for _, entry := range strings.Split(out, ";") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		fields := strings.Split(entry, "|")
+		if len(fields) != 3 {
+			continue
+		}
+		name, phase, readiness := fields[0], fields[1], fields[2]
+		if !strings.HasPrefix(name, statefulSetName+"-") {
+			continue
+		}
+		if phase == "Running" && strings.Contains(readiness, "false") {
+			stuck = append(stuck, name)
+		}
+	}
+	return stuck
+}
