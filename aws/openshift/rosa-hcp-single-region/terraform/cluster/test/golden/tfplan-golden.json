@@ -376,6 +376,7 @@
                   "schema_version": 0,
                   "sensitive_values": {
                     "account_role_policies": {},
+                    "ocm_role_policies": {},
                     "operator_role_policies": {}
                   },
                   "type": "rhcs_hcp_policies"
@@ -1653,7 +1654,6 @@
                       null,
                       null
                     ],
-                    "channel_group": "stable",
                     "compute_machine_type": "m7i.xlarge",
                     "create_admin_user": null,
                     "destroy_timeout": null,
