@@ -652,13 +652,16 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 	}()
 	kubectlOptions.Logger = logger.Discard
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "exec", podName, "--", "pgrep", "java")
+	// The broker pod runs a wait-clusterset-dns init container alongside the
+	// orchestration container; pin kubectl exec to the app container so the
+	// "Defaulted container" notice does not pollute the captured output.
+	output, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "exec", podName, "-c", "orchestration", "--", "pgrep", "java")
 	if err != nil {
 		t.Fatalf("[ZEEBE BROKER ID] %s", err)
 		return -1
 	}
 
-	output, err = k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "exec", podName, "--", "cat", fmt.Sprintf("/proc/%s/environ", output))
+	output, err = k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "exec", podName, "-c", "orchestration", "--", "cat", fmt.Sprintf("/proc/%s/environ", output))
 	if err != nil {
 		t.Fatalf("[ZEEBE BROKER ID] %s", err)
 		return -1
@@ -1185,4 +1188,230 @@ func GetClusterTopology(t *testing.T, kubectlOptions *k8s.KubectlOptions) Cluste
 	require.NoError(t, err, "Failed to parse topology response")
 
 	return clusterInfo
+}
+
+// WaitForZeebeStatefulSetReadyWithSelfHeal waits for every replica of the given
+// StatefulSet to become Ready, deleting any broker pod that this wait has seen
+// Running-but-not-Ready for at least stuckTimeout so the StatefulSet recreates it.
+// The threshold is measured from when this wait first observed the pod
+// Running-but-not-Ready, not from the pod/container start time.
+//
+// TODO(camunda/camunda#55038): remove once the broker no longer hangs
+// permanently when a configured cross-region peer is briefly unresolvable.
+// During failback the secondary region's clusterset DNS names are torn down and
+// recreated, which can re-trigger the upstream startup hang on a broker that
+// already passed the wait-clusterset-dns init gate: the management port 9600
+// never opens, the pod stays 0/1 Running forever and never self-recovers, so a
+// plain `kubectl rollout status` would simply time out. The init container only
+// gates the *initial* startup and check-deployment-ready.sh (which carries the
+// same self-heal) does not run in this Go failback path, so mirror that self-heal
+// here to keep the failback deterministic.
+func WaitForZeebeStatefulSetReadyWithSelfHeal(t *testing.T, kubectlOptions *k8s.KubectlOptions, statefulSetName string, overallTimeout, stuckTimeout, pollInterval time.Duration) {
+	t.Helper()
+
+	const maxSelfHealRestarts = 6
+	deadline := time.Now().Add(overallTimeout)
+	notReadySince := map[string]time.Time{}
+	restarts := 0
+
+	for {
+		desired := strings.TrimSpace(runKubectlOrEmpty(t, kubectlOptions, "get", "statefulset", statefulSetName, "-o", "jsonpath={.spec.replicas}"))
+		ready := strings.TrimSpace(runKubectlOrEmpty(t, kubectlOptions, "get", "statefulset", statefulSetName, "-o", "jsonpath={.status.readyReplicas}"))
+		if desired != "" && desired != "0" && ready == desired {
+			t.Logf("[SELF-HEAL WAIT] StatefulSet %s is fully ready (%s/%s) after %d self-heal restart(s)", statefulSetName, ready, desired, restarts)
+			return
+		}
+		t.Logf("[SELF-HEAL WAIT] StatefulSet %s not ready yet (ready=%q desired=%q)", statefulSetName, ready, desired)
+
+		now := time.Now()
+		seen := map[string]bool{}
+		for _, pod := range runningNotReadyPods(t, kubectlOptions, statefulSetName) {
+			seen[pod] = true
+			if _, tracked := notReadySince[pod]; !tracked {
+				notReadySince[pod] = now
+				continue
+			}
+			if now.Sub(notReadySince[pod]) >= stuckTimeout && restarts < maxSelfHealRestarts {
+				t.Logf("[SELF-HEAL WAIT] Broker %s has been Running-but-not-Ready for at least %s since first observed; deleting it so the StatefulSet recreates it (camunda/camunda#55038)", pod, stuckTimeout)
+				if err := k8s.RunKubectlE(t, kubectlOptions, "delete", "pod", pod, "--wait=false"); err != nil {
+					t.Logf("[SELF-HEAL WAIT] failed to delete pod %s: %v", pod, err)
+				} else {
+					restarts++
+					delete(notReadySince, pod)
+				}
+			}
+		}
+		// Stop tracking pods that recovered or were already recreated.
+		for pod := range notReadySince {
+			if !seen[pod] {
+				delete(notReadySince, pod)
+			}
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatalf("[SELF-HEAL WAIT] StatefulSet %s did not become ready within %s (self-heal restarts performed: %d)", statefulSetName, overallTimeout, restarts)
+			return
+		}
+		time.Sleep(pollInterval)
+	}
+}
+
+// runKubectlOrEmpty runs a read-only kubectl command and returns its trimmed
+// output, or an empty string if the command fails (e.g. the resource does not
+// exist yet). The error is logged rather than returned so the caller's retry loop
+// stays simple while transient/auth/context failures remain visible in test output.
+func runKubectlOrEmpty(t *testing.T, kubectlOptions *k8s.KubectlOptions, args ...string) string {
+	t.Helper()
+	out, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, args...)
+	if err != nil {
+		t.Logf("[SELF-HEAL WAIT] kubectl %v failed (treating as empty): %v", args, err)
+		return ""
+	}
+	return out
+}
+
+// runningNotReadyPods returns the names of pods belonging to the given
+// StatefulSet (matched by the "<name>-" prefix) whose phase is Running but which
+// have at least one container reporting not-Ready. Pods still in their init phase
+// (the wait-clusterset-dns gate) report phase Pending and are intentionally
+// excluded, so only brokers that started but failed to become Ready are healed.
+func runningNotReadyPods(t *testing.T, kubectlOptions *k8s.KubectlOptions, statefulSetName string) []string {
+	const jsonPath = "jsonpath={range .items[*]}{.metadata.name}{\"|\"}{.status.phase}{\"|\"}{range .status.containerStatuses[*]}{.ready}{\",\"}{end}{\";\"}{end}"
+	out, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "pods", "-o", jsonPath)
+	if err != nil {
+		t.Logf("[SELF-HEAL WAIT] failed to list pods: %v", err)
+		return nil
+	}
+
+	var stuck []string
+	for _, entry := range strings.Split(out, ";") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		fields := strings.Split(entry, "|")
+		if len(fields) != 3 {
+			continue
+		}
+		name, phase, readiness := fields[0], fields[1], fields[2]
+		if !strings.HasPrefix(name, statefulSetName+"-") {
+			continue
+		}
+		if phase == "Running" && strings.Contains(readiness, "false") {
+			stuck = append(stuck, name)
+		}
+	}
+	return stuck
+}
+
+// WaitForClusterTopologyConverged polls the Zeebe gateway /v2/topology until the
+// cluster reports the expected number of brokers, evenly split across the two
+// regions, with every partition healthy — or fails after maxRetries.
+//
+// During failback the primary StatefulSet can report all its pods Ready (so
+// WaitForZeebeStatefulSetReadyWithSelfHeal returns) a few seconds before the
+// cross-region cluster has re-formed to the full broker count. Steps that assume
+// an already-converged cluster — CheckC8RunningProperly's single topology
+// assertion, or the exporter-pause gateway call — are otherwise racy. Waiting for
+// convergence here keeps the failback deterministic.
+func WaitForClusterTopologyConverged(t *testing.T, kubectlOptions *k8s.KubectlOptions, expectedBrokers int, namespace0, namespace1 string, maxRetries int, interval time.Duration) {
+	t.Helper()
+
+	perRegion := expectedBrokers / 2
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, kubectlOptions, "camunda-zeebe-gateway", 0, 8080, 5, 15*time.Second)
+	defer closeFn()
+	url := fmt.Sprintf("http://%s/v2/topology", endpoint)
+
+	for i := 0; i < maxRetries; i++ {
+		client := &http.Client{Timeout: 10 * time.Second}
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			t.Logf("[CONVERGE WAIT] request creation failed (attempt %d/%d): %v", i+1, maxRetries, err)
+			time.Sleep(interval)
+			continue
+		}
+		req.Header.Set("Authorization", basicAuthHeader())
+		req.Header.Set("Accept", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Logf("[CONVERGE WAIT] topology request failed (attempt %d/%d): %v", i+1, maxRetries, err)
+			time.Sleep(interval)
+			continue
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != 200 {
+			t.Logf("[CONVERGE WAIT] topology not ready (status %d, attempt %d/%d)", resp.StatusCode, i+1, maxRetries)
+			time.Sleep(interval)
+			continue
+		}
+
+		var topology ClusterInfo
+		if err := json.Unmarshal(body, &topology); err != nil {
+			t.Logf("[CONVERGE WAIT] failed to parse topology (attempt %d/%d): %v", i+1, maxRetries, err)
+			time.Sleep(interval)
+			continue
+		}
+
+		primary, secondary, unhealthy := 0, 0, 0
+		for _, b := range topology.Brokers {
+			if strings.Contains(b.Host, namespace0) {
+				primary++
+			} else if strings.Contains(b.Host, namespace1) {
+				secondary++
+			}
+			for _, p := range b.Partitions {
+				if p.Health != "healthy" {
+					unhealthy++
+				}
+			}
+		}
+
+		if len(topology.Brokers) == expectedBrokers && primary == perRegion && secondary == perRegion && unhealthy == 0 {
+			t.Logf("[CONVERGE WAIT] cluster converged: %d brokers (primary=%d, secondary=%d), all partitions healthy (attempt %d/%d)", len(topology.Brokers), primary, secondary, i+1, maxRetries)
+			return
+		}
+		t.Logf("[CONVERGE WAIT] not converged yet: brokers=%d (primary=%d, secondary=%d), unhealthy partitions=%d (attempt %d/%d)", len(topology.Brokers), primary, secondary, unhealthy, i+1, maxRetries)
+		time.Sleep(interval)
+	}
+	t.Fatalf("[CONVERGE WAIT] cluster did not converge to %d healthy brokers (%d per region) after %d attempts", expectedBrokers, perRegion, maxRetries)
+}
+
+// GatewayManagementRequest issues a request against the Zeebe gateway management
+// API (port 9600), establishing a fresh, short-lived port-forward for the call.
+// A long-lived tunnel breaks when the broker pod it targets restarts — which
+// happens during partition redistribution on a broker-scaling change — so a
+// per-call tunnel (which re-selects a currently-ready pod) plus a non-fatal error
+// return lets callers retry instead of failing on a dropped connection.
+func GatewayManagementRequest(t *testing.T, kubectlOptions *k8s.KubectlOptions, method, path string, payload []byte) (int, string, error) {
+	t.Helper()
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, kubectlOptions, "camunda-zeebe-gateway", 0, 9600, 8, 15*time.Second)
+	defer closeFn()
+
+	var bodyReader io.Reader
+	if payload != nil {
+		bodyReader = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequest(method, fmt.Sprintf("http://%s%s", endpoint, path), bodyReader)
+	if err != nil {
+		return 0, "", err
+	}
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, "", err
+	}
+	defer resp.Body.Close()
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, "", err
+	}
+	return resp.StatusCode, string(b), nil
 }
