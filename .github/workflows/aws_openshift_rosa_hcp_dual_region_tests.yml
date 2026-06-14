@@ -630,9 +630,14 @@ jobs:
                   ./generic/openshift/dual-region/procedure/verify-exported-services.sh
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/openshift/dual-region
-              # Cross-region Zeebe brokers stay 0/1 (Running, not Ready) until they
-              # form quorum over Submariner, which can take longer than 10 min on
-              # slow ROSA HCP runs and intermittently times out this step.
+              # Cross-region Zeebe brokers only become Ready once they resolve their
+              # peers over Submariner clusterset DNS and form quorum. The
+              # wait-clusterset-dns init container gates broker startup on that DNS
+              # (bounded to ~12 min total before failing open), and
+              # check-deployment-ready.sh restarts any broker left stuck
+              # Running-but-not-Ready (camunda/camunda#55038), so allow more than the
+              # default 10 min here to cover slow clusterset DNS propagation plus a
+              # self-heal restart.
               timeout-minutes: 20
               run: |
                   set -euo pipefail
