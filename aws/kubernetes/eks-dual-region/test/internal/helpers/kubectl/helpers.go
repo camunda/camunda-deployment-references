@@ -60,10 +60,44 @@ var (
 // getElasticsearchPassword retrieves the elastic user password from the ECK-generated secret.
 func getElasticsearchPassword(t *testing.T, kubectlOptions *k8s.KubectlOptions) string {
 	t.Helper()
-	secret := k8s.GetSecret(t, kubectlOptions, "elasticsearch-es-elastic-user")
-	password, ok := secret.Data["elastic"]
-	require.True(t, ok, "elastic key not found in elasticsearch-es-elastic-user secret")
-	return string(password)
+
+	// During failover/failback the cluster API server can briefly stall; bound each
+	// attempt and retry so a transient connection hang does not block for the kernel
+	// TCP timeout (~17 min) and fail the test on a single dropped connection.
+	type result struct {
+		pw  string
+		err error
+	}
+	for i := 0; i < 5; i++ {
+		done := make(chan result, 1)
+		go func() {
+			secret, err := k8s.GetSecretE(t, kubectlOptions, "elasticsearch-es-elastic-user")
+			if err != nil {
+				done <- result{err: err}
+				return
+			}
+			pw, ok := secret.Data["elastic"]
+			if !ok {
+				done <- result{err: fmt.Errorf("elastic key not found in elasticsearch-es-elastic-user secret")}
+				return
+			}
+			done <- result{pw: string(pw)}
+		}()
+
+		select {
+		case r := <-done:
+			if r.err == nil {
+				return r.pw
+			}
+			t.Logf("[ES PASSWORD] failed to read secret (attempt %d/5): %v", i+1, r.err)
+		case <-time.After(90 * time.Second):
+			t.Logf("[ES PASSWORD] reading secret timed out (attempt %d/5), retrying", i+1)
+		}
+		time.Sleep(10 * time.Second)
+	}
+
+	t.Fatalf("[ES PASSWORD] could not read elasticsearch-es-elastic-user secret after retries")
+	return ""
 }
 
 type Partition struct {
@@ -1318,64 +1352,67 @@ func WaitForClusterTopologyConverged(t *testing.T, kubectlOptions *k8s.KubectlOp
 	t.Helper()
 
 	perRegion := expectedBrokers / 2
-	endpoint, closeFn := NewServiceTunnelWithRetry(t, kubectlOptions, "camunda-zeebe-gateway", 0, 8080, 5, 15*time.Second)
-	defer closeFn()
-	url := fmt.Sprintf("http://%s/v2/topology", endpoint)
-
 	for i := 0; i < maxRetries; i++ {
-		client := &http.Client{Timeout: 10 * time.Second}
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			t.Logf("[CONVERGE WAIT] request creation failed (attempt %d/%d): %v", i+1, maxRetries, err)
-			time.Sleep(interval)
-			continue
-		}
-		req.Header.Set("Authorization", basicAuthHeader())
-		req.Header.Set("Accept", "application/json")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Logf("[CONVERGE WAIT] topology request failed (attempt %d/%d): %v", i+1, maxRetries, err)
-			time.Sleep(interval)
-			continue
-		}
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if resp.StatusCode != 200 {
-			t.Logf("[CONVERGE WAIT] topology not ready (status %d, attempt %d/%d)", resp.StatusCode, i+1, maxRetries)
-			time.Sleep(interval)
-			continue
-		}
-
-		var topology ClusterInfo
-		if err := json.Unmarshal(body, &topology); err != nil {
-			t.Logf("[CONVERGE WAIT] failed to parse topology (attempt %d/%d): %v", i+1, maxRetries, err)
-			time.Sleep(interval)
-			continue
-		}
-
-		primary, secondary, unhealthy := 0, 0, 0
-		for _, b := range topology.Brokers {
-			if strings.Contains(b.Host, namespace0) {
-				primary++
-			} else if strings.Contains(b.Host, namespace1) {
-				secondary++
-			}
-			for _, p := range b.Partitions {
-				if p.Health != "healthy" {
-					unhealthy++
-				}
-			}
-		}
-
-		if len(topology.Brokers) == expectedBrokers && primary == perRegion && secondary == perRegion && unhealthy == 0 {
-			t.Logf("[CONVERGE WAIT] cluster converged: %d brokers (primary=%d, secondary=%d), all partitions healthy (attempt %d/%d)", len(topology.Brokers), primary, secondary, i+1, maxRetries)
+		converged, summary := fetchTopologyConvergence(t, kubectlOptions, expectedBrokers, perRegion, namespace0, namespace1)
+		if converged {
+			t.Logf("[CONVERGE WAIT] cluster converged: %s (attempt %d/%d)", summary, i+1, maxRetries)
 			return
 		}
-		t.Logf("[CONVERGE WAIT] not converged yet: brokers=%d (primary=%d, secondary=%d), unhealthy partitions=%d (attempt %d/%d)", len(topology.Brokers), primary, secondary, unhealthy, i+1, maxRetries)
+		t.Logf("[CONVERGE WAIT] not converged yet: %s (attempt %d/%d)", summary, i+1, maxRetries)
 		time.Sleep(interval)
 	}
 	t.Fatalf("[CONVERGE WAIT] cluster did not converge to %d healthy brokers (%d per region) after %d attempts", expectedBrokers, perRegion, maxRetries)
+}
+
+// fetchTopologyConvergence opens a fresh short-lived port-forward (re-selecting a
+// currently-ready pod, so a broker restarting right after the redeploy cannot leave
+// a dead tunnel that fails every subsequent poll) and reports whether /v2/topology
+// shows the expected number of brokers, evenly split across regions, all healthy.
+func fetchTopologyConvergence(t *testing.T, kubectlOptions *k8s.KubectlOptions, expectedBrokers, perRegion int, namespace0, namespace1 string) (bool, string) {
+	t.Helper()
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, kubectlOptions, "camunda-zeebe-gateway", 0, 8080, 8, 15*time.Second)
+	defer closeFn()
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/v2/topology", endpoint), nil)
+	if err != nil {
+		return false, fmt.Sprintf("request creation failed: %v", err)
+	}
+	req.Header.Set("Authorization", basicAuthHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, fmt.Sprintf("request failed: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return false, fmt.Sprintf("status %d", resp.StatusCode)
+	}
+
+	var topology ClusterInfo
+	if err := json.Unmarshal(body, &topology); err != nil {
+		return false, fmt.Sprintf("parse error: %v", err)
+	}
+
+	primary, secondary, unhealthy := 0, 0, 0
+	for _, b := range topology.Brokers {
+		if strings.Contains(b.Host, namespace0) {
+			primary++
+		} else if strings.Contains(b.Host, namespace1) {
+			secondary++
+		}
+		for _, p := range b.Partitions {
+			if p.Health != "healthy" {
+				unhealthy++
+			}
+		}
+	}
+
+	summary := fmt.Sprintf("brokers=%d (primary=%d, secondary=%d), unhealthy partitions=%d", len(topology.Brokers), primary, secondary, unhealthy)
+	return len(topology.Brokers) == expectedBrokers && primary == perRegion && secondary == perRegion && unhealthy == 0, summary
 }
 
 // GatewayManagementRequest issues a request against the Zeebe gateway management
