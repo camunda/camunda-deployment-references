@@ -61,14 +61,17 @@ var (
 func getElasticsearchPassword(t *testing.T, kubectlOptions *k8s.KubectlOptions) string {
 	t.Helper()
 
-	// During failover/failback the cluster API server can briefly stall; bound each
-	// attempt and retry so a transient connection hang does not block for the kernel
-	// TCP timeout (~17 min) and fail the test on a single dropped connection.
+	// During failover/failback the cluster API server / etcd can stall for several
+	// minutes (observed on ROSA), making the secret read hang. Bound each attempt so
+	// a transient connection hang does not block for the kernel TCP timeout (~17 min),
+	// and retry with a generous budget so a multi-minute control-plane stall is ridden
+	// out instead of failing the post-failback verification.
 	type result struct {
 		pw  string
 		err error
 	}
-	for i := 0; i < 5; i++ {
+	const maxAttempts = 8
+	for i := 0; i < maxAttempts; i++ {
 		done := make(chan result, 1)
 		go func() {
 			secret, err := k8s.GetSecretE(t, kubectlOptions, "elasticsearch-es-elastic-user")
@@ -89,14 +92,14 @@ func getElasticsearchPassword(t *testing.T, kubectlOptions *k8s.KubectlOptions) 
 			if r.err == nil {
 				return r.pw
 			}
-			t.Logf("[ES PASSWORD] failed to read secret (attempt %d/5): %v", i+1, r.err)
-		case <-time.After(90 * time.Second):
-			t.Logf("[ES PASSWORD] reading secret timed out (attempt %d/5), retrying", i+1)
+			t.Logf("[ES PASSWORD] failed to read secret (attempt %d/%d): %v", i+1, maxAttempts, r.err)
+		case <-time.After(75 * time.Second):
+			t.Logf("[ES PASSWORD] reading secret timed out (attempt %d/%d), retrying", i+1, maxAttempts)
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(15 * time.Second)
 	}
 
-	t.Fatalf("[ES PASSWORD] could not read elasticsearch-es-elastic-user secret after retries")
+	t.Fatalf("[ES PASSWORD] could not read elasticsearch-es-elastic-user secret after %d attempts", maxAttempts)
 	return ""
 }
 
