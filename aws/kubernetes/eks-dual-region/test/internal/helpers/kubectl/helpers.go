@@ -140,12 +140,24 @@ type ElasticsearchClusterHealth struct {
 //	backoff: sleep duration between retries
 //
 // Returns: (endpoint string, close func())
+// runWithTimeout runs fn in a goroutine and returns its error, or a timeout error
+// if it does not finish within timeout. terratest's k8s.Get* calls and port-forward
+// setup have no client-side timeout, so a stalled cluster API server (observed on
+// ROSA) otherwise blocks on the kernel TCP read timeout (~17 min). A goroutine left
+// behind on timeout is harmless for a test process.
+func runWithTimeout(timeout time.Duration, fn func() error) error {
+	done := make(chan error, 1)
+	go func() { done <- fn() }()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(timeout):
+		return fmt.Errorf("operation timed out after %s", timeout)
+	}
+}
+
 func NewServiceTunnelWithRetry(t *testing.T, kubectlOptions *k8s.KubectlOptions, serviceName string, localPort, remotePort, maxRetries int, backoff time.Duration) (string, func()) {
 	t.Helper()
-
-	// Ensure service exists early (gives clearer error)
-	svc := k8s.GetService(t, kubectlOptions, serviceName)
-	require.Equal(t, serviceName, svc.Name)
 
 	if maxRetries < 1 {
 		maxRetries = 1
@@ -154,11 +166,47 @@ func NewServiceTunnelWithRetry(t *testing.T, kubectlOptions *k8s.KubectlOptions,
 		backoff = 5 * time.Second
 	}
 
-	tunnel := k8s.NewTunnel(kubectlOptions, k8s.ResourceTypeService, serviceName, localPort, remotePort)
-	var err error
+	// Ensure the service exists, bounding/retrying the API read so a stalled cluster
+	// API server fails fast and is retried instead of blocking the kernel TCP timeout.
+	serviceReady := false
 	for i := 0; i < maxRetries; i++ {
-		err = tunnel.ForwardPortE(t)
+		err := runWithTimeout(60*time.Second, func() error {
+			svc, e := k8s.GetServiceE(t, kubectlOptions, serviceName)
+			if e != nil {
+				return e
+			}
+			if svc.Name != serviceName {
+				return fmt.Errorf("unexpected service name %q", svc.Name)
+			}
+			return nil
+		})
 		if err == nil {
+			serviceReady = true
+			break
+		}
+		t.Logf("[TUNNEL] get service %s (ns %s) failed (attempt %d/%d): %v", serviceName, kubectlOptions.Namespace, i+1, maxRetries, err)
+		if i < maxRetries-1 {
+			time.Sleep(backoff)
+		}
+	}
+	if !serviceReady {
+		t.Fatalf("[TUNNEL] service %s (ns %s) not reachable after %d attempts", serviceName, kubectlOptions.Namespace, maxRetries)
+		return "", func() {}
+	}
+
+	// Establish the port-forward with a fresh tunnel per attempt (a hung attempt is
+	// abandoned rather than reused) and bound each attempt so it cannot block forever.
+	var endpoint string
+	cleanup := func() {}
+	established := false
+	for i := 0; i < maxRetries; i++ {
+		tunnel := k8s.NewTunnel(kubectlOptions, k8s.ResourceTypeService, serviceName, localPort, remotePort)
+		err := runWithTimeout(90*time.Second, func() error { return tunnel.ForwardPortE(t) })
+		if err == nil {
+			endpoint = tunnel.Endpoint()
+			tnl := tunnel
+			cleanup = func() { tnl.Close() }
+			established = true
 			break
 		}
 		t.Logf("[TUNNEL] port-forward attempt %d/%d failed for %s:%d -> %s: %v", i+1, maxRetries, serviceName, remotePort, kubectlOptions.Namespace, err)
@@ -166,13 +214,12 @@ func NewServiceTunnelWithRetry(t *testing.T, kubectlOptions *k8s.KubectlOptions,
 			time.Sleep(backoff)
 		}
 	}
-	if err != nil {
-		t.Fatalf("[TUNNEL] failed to establish port-forward after %d attempts: %v", maxRetries, err)
+	if !established {
+		t.Fatalf("[TUNNEL] failed to establish port-forward to %s after %d attempts", serviceName, maxRetries)
 		return "", func() {}
 	}
 
-	cleanup := func() { tunnel.Close() }
-	return tunnel.Endpoint(), cleanup
+	return endpoint, cleanup
 }
 
 func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, primary, secondary helpers.Cluster, kubeConfigPrimary, kubeConfigSecondary string) {
@@ -1192,9 +1239,6 @@ func WaitForGatewayAuthReady(t *testing.T, kubectlOptions *k8s.KubectlOptions, m
 // GetClusterTopology retrieves the current cluster topology information from the Zeebe gateway
 func GetClusterTopology(t *testing.T, kubectlOptions *k8s.KubectlOptions) ClusterInfo {
 	t.Helper()
-
-	service := k8s.GetService(t, kubectlOptions, "camunda-zeebe-gateway")
-	require.Equal(t, "camunda-zeebe-gateway", service.Name)
 
 	endpoint, closeFn := NewServiceTunnelWithRetry(t, kubectlOptions, "camunda-zeebe-gateway", 0, 8080, 5, 15*time.Second)
 	defer closeFn()

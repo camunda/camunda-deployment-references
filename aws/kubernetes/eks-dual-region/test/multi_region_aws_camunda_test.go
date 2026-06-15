@@ -653,8 +653,6 @@ func checkTheMathFailover_8_6_plus(t *testing.T) {
 
 func removeSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILOVER] Removing secondary brokers 🚀")
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
 	// Redistribute to remaining brokers. Each request uses its own short-lived
 	// port-forward (see GatewayManagementRequest) so a broker restarting during
@@ -696,8 +694,6 @@ func removeSecondaryBrokers(t *testing.T) {
 
 func disableElasticExportersToSecondary(t *testing.T) {
 	t.Log("[FAILOVER] Disabling Elasticsearch Exporters to secondary 🚀")
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
 	status, body, err := kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "POST", "/actuator/exporters/camundaregion1/disable", nil)
 	require.NoError(t, err, "[FAILOVER] failed to request exporter disable")
@@ -731,8 +727,6 @@ func disableElasticExportersToSecondary(t *testing.T) {
 
 func enableElasticExportersToSecondary(t *testing.T) {
 	t.Log("[FAILBACK] Enabling Elasticsearch Exporters to secondary 🚀")
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
 	status, body, err := kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "POST", "/actuator/exporters/camundaregion1/enable", []byte(`{"initializeFrom":"camundaregion0"}`))
 	require.NoError(t, err, "[FAILBACK] failed to request exporter enable")
@@ -767,8 +761,6 @@ func enableElasticExportersToSecondary(t *testing.T) {
 
 func addSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILBACK] Adding secondary brokers 🚀")
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
 	// Request the scaling change and poll for completion. Each request uses its
 	// own short-lived port-forward (see GatewayManagementRequest), because a broker
