@@ -657,7 +657,7 @@ func removeSecondaryBrokers(t *testing.T) {
 	// Redistribute to remaining brokers. Each request uses its own short-lived
 	// port-forward (see GatewayManagementRequest) so a broker restarting during
 	// redistribution cannot break a long-lived tunnel.
-	status, body, err := kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "PATCH", "/actuator/cluster?force=true", []byte(`{"brokers":{"remove":[1,3,5,7]}}`))
+	status, body, err := kubectlHelpers.GatewayManagementMutate(t, &primary.KubectlNamespace, "PATCH", "/actuator/cluster?force=true", []byte(`{"brokers":{"remove":[1,3,5,7]}}`), 8, 15*time.Second)
 	require.NoError(t, err, "[FAILOVER] failed to request broker removal")
 	require.Equal(t, 202, status)
 	require.NotEmpty(t, body)
@@ -700,7 +700,7 @@ func removeSecondaryBrokers(t *testing.T) {
 func disableElasticExportersToSecondary(t *testing.T) {
 	t.Log("[FAILOVER] Disabling Elasticsearch Exporters to secondary 🚀")
 
-	status, body, err := kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "POST", "/actuator/exporters/camundaregion1/disable", nil)
+	status, body, err := kubectlHelpers.GatewayManagementMutate(t, &primary.KubectlNamespace, "POST", "/actuator/exporters/camundaregion1/disable", nil, 8, 15*time.Second)
 	require.NoError(t, err, "[FAILOVER] failed to request exporter disable")
 	require.Equal(t, 202, status)
 	require.NotEmpty(t, body)
@@ -739,7 +739,7 @@ func disableElasticExportersToSecondary(t *testing.T) {
 func enableElasticExportersToSecondary(t *testing.T) {
 	t.Log("[FAILBACK] Enabling Elasticsearch Exporters to secondary 🚀")
 
-	status, body, err := kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "POST", "/actuator/exporters/camundaregion1/enable", []byte(`{"initializeFrom":"camundaregion0"}`))
+	status, body, err := kubectlHelpers.GatewayManagementMutate(t, &primary.KubectlNamespace, "POST", "/actuator/exporters/camundaregion1/enable", []byte(`{"initializeFrom":"camundaregion0"}`), 8, 15*time.Second)
 	require.NoError(t, err, "[FAILBACK] failed to request exporter enable")
 	require.Equal(t, 202, status)
 	require.NotEmpty(t, body)
@@ -782,7 +782,7 @@ func addSecondaryBrokers(t *testing.T) {
 	// own short-lived port-forward (see GatewayManagementRequest), because a broker
 	// pod restarting during partition redistribution tears down a long-lived tunnel
 	// and previously failed this step with an EOF on the status poll.
-	status, body, err := kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "PATCH", "/actuator/cluster", []byte(`{"brokers":{"add":[1,3,5,7]},"partitions":{"replicationFactor":4}}`))
+	status, body, err := kubectlHelpers.GatewayManagementMutate(t, &primary.KubectlNamespace, "PATCH", "/actuator/cluster", []byte(`{"brokers":{"add":[1,3,5,7]},"partitions":{"replicationFactor":4}}`), 8, 15*time.Second)
 	require.NoError(t, err, "[FAILBACK] failed to request broker addition")
 	require.Equal(t, 202, status)
 	require.NotEmpty(t, body)
