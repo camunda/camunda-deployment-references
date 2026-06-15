@@ -1549,3 +1549,31 @@ func GatewayManagementRequest(t *testing.T, kubectlOptions *k8s.KubectlOptions, 
 	}
 	return resp.StatusCode, string(b), nil
 }
+
+// GatewayManagementMutate issues a mutating gateway management request (a broker
+// scaling PATCH or an exporter enable/disable POST) and retries it on connection
+// errors and transient 5xx responses. While partitions are being redistributed
+// the gateway can briefly reject a mutating request with a 500 (the change is not
+// applied), so a single-shot call is racy and can fail the whole failover/failback
+// step on an intermittent server error. This retries with a backoff until the
+// request is accepted (202), a definitive non-transient (<500) status is returned
+// — which the caller then asserts on — or the retry budget is exhausted. It
+// returns the last status, body and error observed.
+func GatewayManagementMutate(t *testing.T, kubectlOptions *k8s.KubectlOptions, method, path string, payload []byte, maxRetries int, backoff time.Duration) (int, string, error) {
+	t.Helper()
+
+	var status int
+	var body string
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		status, body, err = GatewayManagementRequest(t, kubectlOptions, method, path, payload)
+		if err == nil && status < 500 {
+			// 202 (accepted) or a definitive client-side status: stop retrying and
+			// let the caller assert on the result.
+			return status, body, nil
+		}
+		t.Logf("[GATEWAY] mutating %s %s not accepted yet (attempt %d/%d): status=%d err=%v; retrying in %s", method, path, i+1, maxRetries, status, err, backoff)
+		time.Sleep(backoff)
+	}
+	return status, body, err
+}
