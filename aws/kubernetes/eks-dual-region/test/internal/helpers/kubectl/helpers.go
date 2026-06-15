@@ -1395,8 +1395,8 @@ func SelfHealStuckBrokers(t *testing.T, kubectlOptions *k8s.KubectlOptions, stat
 	t.Helper()
 
 	now := time.Now()
-	deleted := 0
 	seen := map[string]bool{}
+	stuckPod := ""
 	for _, pod := range runningNotReadyPods(t, kubectlOptions, statefulSetName) {
 		key := kubectlOptions.Namespace + "/" + pod
 		seen[key] = true
@@ -1404,17 +1404,28 @@ func SelfHealStuckBrokers(t *testing.T, kubectlOptions *k8s.KubectlOptions, stat
 			notReadySince[key] = now
 			continue
 		}
-		if now.Sub(notReadySince[key]) >= stuckTimeout && *restarts < maxRestarts {
-			t.Logf("[SELF-HEAL] Broker %s (ns %s) Running-but-not-Ready for >%s; deleting it so the StatefulSet recreates it (camunda/camunda#55038)", pod, kubectlOptions.Namespace, stuckTimeout)
-			if err := k8s.RunKubectlE(t, kubectlOptions, "delete", "pod", pod, "--wait=false"); err != nil {
-				t.Logf("[SELF-HEAL] failed to delete pod %s: %v", pod, err)
-			} else {
-				*restarts++
-				deleted++
-				delete(notReadySince, key)
-			}
+		// Pick only the first broker eligible for restart and delete one at a time.
+		// Restarting many brokers at once storms the cross-region clusterset DNS
+		// (Submariner/Lighthouse must re-aggregate every changed pod IP), which
+		// leaves peers NXDOMAIN ("resolved: null") and stalls cross-region
+		// operations; healing incrementally avoids that.
+		if stuckPod == "" && now.Sub(notReadySince[key]) >= stuckTimeout && *restarts < maxRestarts {
+			stuckPod = pod
 		}
 	}
+
+	deleted := 0
+	if stuckPod != "" {
+		t.Logf("[SELF-HEAL] Broker %s (ns %s) Running-but-not-Ready for >%s; deleting it so the StatefulSet recreates it (camunda/camunda#55038)", stuckPod, kubectlOptions.Namespace, stuckTimeout)
+		if err := k8s.RunKubectlE(t, kubectlOptions, "delete", "pod", stuckPod, "--wait=false"); err != nil {
+			t.Logf("[SELF-HEAL] failed to delete pod %s: %v", stuckPod, err)
+		} else {
+			*restarts++
+			deleted = 1
+			delete(notReadySince, kubectlOptions.Namespace+"/"+stuckPod)
+		}
+	}
+
 	// Stop tracking pods (in this namespace) that recovered or were recreated.
 	for key := range notReadySince {
 		if strings.HasPrefix(key, kubectlOptions.Namespace+"/") && !seen[key] {
