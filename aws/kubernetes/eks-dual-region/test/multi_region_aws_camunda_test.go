@@ -664,22 +664,26 @@ func removeSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILOVER] Give the system some time to redistribute the partitions")
 	time.Sleep(5 * time.Second)
 
-	// Check that the removal of obsolete brokers was completed, tolerating
-	// transient connection drops while brokers restart.
+	// Check that the removal of obsolete brokers was completed, tolerating transient
+	// connection drops while brokers restart and self-healing any broker that hangs
+	// on the clusterset-DNS race (camunda/camunda#55038) so the change can finish.
 	var lastBody string
 	completed := false
-	for i := 0; i < 10; i++ {
+	notReadySince := map[string]time.Time{}
+	brokerRestarts := 0
+	for i := 0; i < 20; i++ {
 		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/cluster", nil)
-		if err != nil {
-			t.Logf("[FAILOVER] cluster status request failed (attempt %d/10), retrying: %v", i+1, err)
-			time.Sleep(15 * time.Second)
-			continue
-		}
-		if status == 200 && !strings.Contains(lastBody, "pendingChange") {
+		if err == nil && status == 200 && !strings.Contains(lastBody, "pendingChange") {
 			completed = true
 			break
 		}
-		t.Log("[FAILOVER] Broker removal not yet completed, retrying...")
+		if err != nil {
+			t.Logf("[FAILOVER] cluster status request failed (attempt %d/20), retrying: %v", i+1, err)
+		} else {
+			t.Log("[FAILOVER] Broker removal not yet completed, retrying...")
+		}
+		kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
 		time.Sleep(15 * time.Second)
 	}
 
@@ -699,21 +703,26 @@ func disableElasticExportersToSecondary(t *testing.T) {
 	require.Contains(t, body, "DISABLED")
 	require.Contains(t, body, "PARTITION_DISABLE_EXPORTER")
 
-	// Check that the exporter was disabled, tolerating transient connection drops.
+	// Check that the exporter was disabled, tolerating transient connection drops and
+	// self-healing any broker that hangs on the clusterset-DNS race
+	// (camunda/camunda#55038) so the exporter change can finish.
 	var lastBody string
 	disabled := false
-	for i := 0; i < 10; i++ {
+	notReadySince := map[string]time.Time{}
+	brokerRestarts := 0
+	for i := 0; i < 20; i++ {
 		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/exporters", nil)
-		if err != nil {
-			t.Logf("[FAILOVER] exporters status request failed (attempt %d/10), retrying: %v", i+1, err)
-			time.Sleep(15 * time.Second)
-			continue
-		}
-		if status == 200 && strings.Contains(lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"DISABLED\"}") {
+		if err == nil && status == 200 && strings.Contains(lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"DISABLED\"}") {
 			disabled = true
 			break
 		}
-		t.Log("[FAILOVER] Exporter not yet disabled, retrying...")
+		if err != nil {
+			t.Logf("[FAILOVER] exporters status request failed (attempt %d/20), retrying: %v", i+1, err)
+		} else {
+			t.Log("[FAILOVER] Exporter not yet disabled, retrying...")
+		}
+		kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
 		time.Sleep(15 * time.Second)
 	}
 
@@ -733,21 +742,25 @@ func enableElasticExportersToSecondary(t *testing.T) {
 	require.Contains(t, body, "PARTITION_ENABLE_EXPORTER")
 
 	// Check that the exporter was enabled. It can take a while, and brokers may
-	// restart, so tolerate transient connection drops.
+	// restart, so tolerate transient connection drops and self-heal any broker that
+	// hangs on the clusterset-DNS race (camunda/camunda#55038).
 	var lastBody string
 	enabled := false
-	for i := 0; i < 30; i++ {
+	notReadySince := map[string]time.Time{}
+	brokerRestarts := 0
+	for i := 0; i < 40; i++ {
 		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/exporters", nil)
-		if err != nil {
-			t.Logf("[FAILBACK] exporters status request failed (attempt %d/30), retrying: %v", i+1, err)
-			time.Sleep(15 * time.Second)
-			continue
-		}
-		if status == 200 && strings.Contains(lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"ENABLED\"}") {
+		if err == nil && status == 200 && strings.Contains(lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"ENABLED\"}") {
 			enabled = true
 			break
 		}
-		t.Log("[FAILBACK] Exporter not yet enabled, retrying...")
+		if err != nil {
+			t.Logf("[FAILBACK] exporters status request failed (attempt %d/40), retrying: %v", i+1, err)
+		} else {
+			t.Log("[FAILBACK] Exporter not yet enabled, retrying...")
+		}
+		kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
 		time.Sleep(15 * time.Second)
 	}
 
