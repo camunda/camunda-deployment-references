@@ -779,21 +779,29 @@ func addSecondaryBrokers(t *testing.T) {
 
 	// Check that the addition of new brokers was completed. This can take a while,
 	// and brokers restart during redistribution, so tolerate transient connection
-	// drops and retry instead of failing on the first dropped request.
+	// drops and retry instead of failing on the first dropped request. A broker can
+	// also hang on the cross-region clusterset-DNS race while restarting
+	// (camunda/camunda#55038), which stalls the partition redistribution forever; so
+	// self-heal any broker left Running-but-not-Ready on either region so the
+	// StatefulSet recreates it through the DNS-gate init container and the scaling
+	// can finish.
 	var lastBody string
 	completed := false
-	for i := 0; i < 30; i++ {
+	notReadySince := map[string]time.Time{}
+	brokerRestarts := 0
+	for i := 0; i < 40; i++ {
 		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/cluster", nil)
-		if err != nil {
-			t.Logf("[FAILBACK] cluster status request failed (attempt %d/30), retrying: %v", i+1, err)
-			time.Sleep(15 * time.Second)
-			continue
-		}
-		if status == 200 && !strings.Contains(lastBody, "pendingChange") {
+		if err == nil && status == 200 && !strings.Contains(lastBody, "pendingChange") {
 			completed = true
 			break
 		}
-		t.Log("[FAILBACK] Broker addition not yet completed, retrying...")
+		if err != nil {
+			t.Logf("[FAILBACK] cluster status request failed (attempt %d/40), retrying: %v", i+1, err)
+		} else {
+			t.Log("[FAILBACK] Broker addition not yet completed, retrying...")
+		}
+		kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
 		time.Sleep(15 * time.Second)
 	}
 

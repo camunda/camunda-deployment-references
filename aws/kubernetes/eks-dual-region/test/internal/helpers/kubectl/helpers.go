@@ -1338,6 +1338,48 @@ func runningNotReadyPods(t *testing.T, kubectlOptions *k8s.KubectlOptions, state
 	return stuck
 }
 
+// SelfHealStuckBrokers deletes any pod of the given StatefulSet that has been
+// observed Running-but-not-Ready for at least stuckTimeout (e.g. a broker that hung
+// on the cross-region clusterset-DNS race during a restart, camunda/camunda#55038,
+// where the management port 9600 never opens), so the StatefulSet recreates it
+// through the wait-clusterset-dns init gate and an in-flight cluster operation can
+// finish. notReadySince tracks first-observed times across calls (keyed by
+// namespace/pod), and restarts is bounded by maxRestarts. It mirrors the self-heal
+// in check-deployment-ready.sh for code paths (broker scaling) that script does not
+// cover. Returns the number of pods it deleted in this call.
+func SelfHealStuckBrokers(t *testing.T, kubectlOptions *k8s.KubectlOptions, statefulSetName string, notReadySince map[string]time.Time, restarts *int, stuckTimeout time.Duration, maxRestarts int) int {
+	t.Helper()
+
+	now := time.Now()
+	deleted := 0
+	seen := map[string]bool{}
+	for _, pod := range runningNotReadyPods(t, kubectlOptions, statefulSetName) {
+		key := kubectlOptions.Namespace + "/" + pod
+		seen[key] = true
+		if _, tracked := notReadySince[key]; !tracked {
+			notReadySince[key] = now
+			continue
+		}
+		if now.Sub(notReadySince[key]) >= stuckTimeout && *restarts < maxRestarts {
+			t.Logf("[SELF-HEAL] Broker %s (ns %s) Running-but-not-Ready for >%s; deleting it so the StatefulSet recreates it (camunda/camunda#55038)", pod, kubectlOptions.Namespace, stuckTimeout)
+			if err := k8s.RunKubectlE(t, kubectlOptions, "delete", "pod", pod, "--wait=false"); err != nil {
+				t.Logf("[SELF-HEAL] failed to delete pod %s: %v", pod, err)
+			} else {
+				*restarts++
+				deleted++
+				delete(notReadySince, key)
+			}
+		}
+	}
+	// Stop tracking pods (in this namespace) that recovered or were recreated.
+	for key := range notReadySince {
+		if strings.HasPrefix(key, kubectlOptions.Namespace+"/") && !seen[key] {
+			delete(notReadySince, key)
+		}
+	}
+	return deleted
+}
+
 // WaitForClusterTopologyConverged polls the Zeebe gateway /v2/topology until the
 // cluster reports the expected number of brokers, evenly split across the two
 // regions, with every partition healthy — or fails after maxRetries.
