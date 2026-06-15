@@ -685,8 +685,9 @@ func removeSecondaryBrokers(t *testing.T) {
 		} else {
 			t.Log("[FAILOVER] Broker removal not yet completed, retrying...")
 		}
-		kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
-		kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		if kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6) == 0 {
+			kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		}
 		time.Sleep(15 * time.Second)
 	}
 
@@ -724,8 +725,9 @@ func disableElasticExportersToSecondary(t *testing.T) {
 		} else {
 			t.Log("[FAILOVER] Exporter not yet disabled, retrying...")
 		}
-		kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
-		kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		if kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6) == 0 {
+			kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		}
 		time.Sleep(15 * time.Second)
 	}
 
@@ -751,19 +753,20 @@ func enableElasticExportersToSecondary(t *testing.T) {
 	enabled := false
 	notReadySince := map[string]time.Time{}
 	brokerRestarts := 0
-	for i := 0; i < 40; i++ {
+	for i := 0; i < 60; i++ {
 		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/exporters", nil)
 		if err == nil && status == 200 && strings.Contains(lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"ENABLED\"}") {
 			enabled = true
 			break
 		}
 		if err != nil {
-			t.Logf("[FAILBACK] exporters status request failed (attempt %d/40), retrying: %v", i+1, err)
+			t.Logf("[FAILBACK] exporters status request failed (attempt %d/60), retrying: %v", i+1, err)
 		} else {
 			t.Log("[FAILBACK] Exporter not yet enabled, retrying...")
 		}
-		kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
-		kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		if kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6) == 0 {
+			kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		}
 		time.Sleep(15 * time.Second)
 	}
 
@@ -797,19 +800,20 @@ func addSecondaryBrokers(t *testing.T) {
 	completed := false
 	notReadySince := map[string]time.Time{}
 	brokerRestarts := 0
-	for i := 0; i < 40; i++ {
+	for i := 0; i < 60; i++ {
 		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/cluster", nil)
 		if err == nil && status == 200 && !strings.Contains(lastBody, "pendingChange") {
 			completed = true
 			break
 		}
 		if err != nil {
-			t.Logf("[FAILBACK] cluster status request failed (attempt %d/40), retrying: %v", i+1, err)
+			t.Logf("[FAILBACK] cluster status request failed (attempt %d/60), retrying: %v", i+1, err)
 		} else {
 			t.Log("[FAILBACK] Broker addition not yet completed, retrying...")
 		}
-		kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
-		kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		if kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6) == 0 {
+			kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		}
 		time.Sleep(15 * time.Second)
 	}
 
