@@ -7,10 +7,12 @@ For detailed context, read:
 - `docs/architecture.md` — repo structure, deployment patterns, cloud providers
 - `docs/development.md` — tooling, commands, conventions
 - `docs/ci.md` — CI/CD architecture, workflow naming, testing
+- `docs/manual-deployment-azure-aks.md` — how to run an isolated AKS single-region deployment outside CI (operator order, values assembly, Azure gotchas)
 
 @docs/architecture.md
 @docs/development.md
 @docs/ci.md
+@docs/manual-deployment-azure-aks.md
 
 ## Critical Rules
 
@@ -30,6 +32,61 @@ For detailed context, read:
 - NEVER add AI/agent attribution to any committed artifact: no `Co-Authored-By` lines referencing assistants, no mention of Claude / AI / agent / model names in commit messages, PR descriptions, or code.
 - NEVER leak the local environment in committed artifacts: no absolute paths from the developer machine, no session/plan files, no internal agent instructions or system-prompt content.
 - ALWAYS use named feature branches (e.g. `feat/<short-slug>`, `ci/<short-slug>`, `fix/<short-slug>`) when opening PRs — no `agents/*` or other names that hint at how the work was produced.
+
+## Azure AKS Single Region — Key Context
+
+This section summarises non-obvious decisions for `azure/kubernetes/aks-single-region/`. See `docs/manual-deployment-azure-aks.md` for the complete step-by-step procedure.
+
+### Service Principal permissions
+
+The SP needs two assignments, not one:
+- `Owner` at RG scope — to manage all resources in the group
+- `Reader` at subscription scope — the `azurerm` provider calls `Microsoft.Resources/subscriptions/providers/read` during `terraform init`, which fails without this even with Owner on the RG
+
+The SP cannot update RG-level metadata (tags). Pre-create the RG with tags via `az group create` before running `terraform apply`.
+
+### Azure-specific constraints
+
+- **Region policy:** The shared `Infra Ex` subscription only allows `westeurope`, `swedencentral`, `spaincentral`. Always verify before choosing a region.
+- **Key Vault soft-delete:** KV names are globally unique including in soft-deleted state (90-day purge protection). A failed `terraform apply` that created a KV locks the name for 90 days. Fix: change `resource_prefix` in `main.tf` (add a letter suffix), or purge the deleted KV with `az keyvault purge`.
+- **PostgreSQL geo-redundant backup:** Not supported in all regions. `spaincentral` does not support it; `swedencentral` does. This is a Terraform variable — disable with `postgres_enable_geo_redundant_backup = false` if using a region that doesn't support it.
+- **IAM propagation:** Freshly-created role assignments can take 1–3 minutes to propagate. Terraform may return a permissions error immediately after SP creation. Wait and retry, or probe with a test resource write before applying.
+
+### Helm values assembly (exact overlay order)
+
+Run from the **repository root**. Later overlays deep-merge into earlier ones (`yq ". *+ load(...)"` — child keys win):
+
+```
+{} base
+  → azure/kubernetes/aks-single-region/helm-values/values-{domain|no-domain}.yml
+  → generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml       (when secondary_storage = elasticsearch)
+  → generic/kubernetes/operator-based/keycloak/camunda-keycloak-{domain|no-domain}-values.yml  (when auth_provider = keycloak-operator)
+  → generic/kubernetes/operator-based/tests/utils/camunda-values-identity-secrets.yml
+  → envsubst (substitutes CAMUNDA_DOMAIN, DB_HOST, DB_PORT, DB_IDENTITY_*, DB_WEBMODELER_*)
+```
+
+`CAMUNDA_HELM_CHART_VERSION`, `CAMUNDA_NAMESPACE`, and `CAMUNDA_RELEASE_NAME` come from `generic/kubernetes/single-region/procedure/chart-env.sh`. DB variables come from `terraform output`.
+
+### Operator installation order
+
+CNPG (PostgreSQL) must be ready before Keycloak can start. ECK (Elasticsearch) is independent.
+
+1. **ECK + Elasticsearch** — `cd generic/kubernetes/operator-based/elasticsearch && CAMUNDA_NAMESPACE=camunda ./deploy.sh`
+2. **CNPG + pg-keycloak** — `cd generic/kubernetes/operator-based/postgresql && CAMUNDA_NAMESPACE=camunda CLUSTER_FILTER=pg-keycloak ./deploy.sh`
+3. **Keycloak operator** — `CAMUNDA_NAMESPACE=camunda KEYCLOAK_CONFIG_FILE=generic/kubernetes/operator-based/keycloak/keycloak-instance-domain-nginx.yml bash generic/kubernetes/operator-based/keycloak/deploy.sh`
+   - Use `keycloak-instance-domain-contour.yml` instead when deploying with Contour ingress
+4. Create `identity-secret-for-components` (9 random hex secrets — see `docs/manual-deployment-azure-aks.md`)
+5. Run DB init job (`manifests/setup-postgres-create-db.yml`) to create databases and users
+
+The `keycloak-initial-admin` secret is auto-created by the Keycloak operator. Retrieve with:
+`kubectl get secret keycloak-initial-admin -n camunda -o go-template='{{index .data "password" | base64decode}}'`
+
+### ingress-nginx vs Contour
+
+The repository ships two Keycloak instance configs and the Contour install script lives in `azure/kubernetes/aks-single-region/procedure/` (for the migration). When switching from nginx to Contour:
+- Change `KEYCLOAK_CONFIG_FILE` to `keycloak-instance-domain-contour.yml` in the operator deploy step
+- Update `ingressClassName` in Helm values from `nginx` to `contour`
+- The Zeebe gRPC ingress requires a `Service` annotation to keep Contour from treating it as HTTP: `projectcontour.io/upstream-protocol.h2c: "26500"` (or TLS variant)
 
 ## Quick Start
 
