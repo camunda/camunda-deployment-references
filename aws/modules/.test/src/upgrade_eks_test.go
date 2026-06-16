@@ -56,9 +56,9 @@ func (suite *UpgradeEKSTestSuite) SetupTest() {
 	// range and the upgrade always targets a creatable version.
 	// renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
 	latestKubeVersion := "1.34"
-	var errDecVersion error
-	suite.kubeVersion, errDecVersion = utils.DecrementMinorVersionTwoParts(latestKubeVersion)
-	suite.Require().NoErrorf(errDecVersion, "Failed to compute the start Kubernetes version")
+	startVersion, err := utils.DecrementMinorVersionTwoParts(latestKubeVersion)
+	suite.Require().NoErrorf(err, "failed to derive the start Kubernetes version from latest %q", latestKubeVersion)
+	suite.kubeVersion = startVersion
 	var errAbsPath error
 	suite.tfStateS3Bucket = utils.GetEnv("TF_STATE_BUCKET", fmt.Sprintf("tests-eks-tf-state-%s", suite.bucketRegion))
 	suite.tfDataDir, errAbsPath = filepath.Abs(fmt.Sprintf("../states/tf-data-%s", suite.clusterName))
