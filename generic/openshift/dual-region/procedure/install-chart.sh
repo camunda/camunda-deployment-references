@@ -20,10 +20,15 @@ BROKER_IMAGE="$(helm show values \
   camunda/camunda-platform \
   --version "$HELM_CHART_VERSION" \
   | yq -r '(.orchestration.image // .zeebe.image) | ([.registry, .repository] | map(. // "") | map(select(. != "")) | join("/")) + ":" + .tag')"
-# Guard against an empty/tag-less result (e.g. unexpected chart values shape) so we
-# never substitute an invalid image into the generated values and fail later with a
-# confusing Helm/Kubernetes error.
-if [ -z "$BROKER_IMAGE" ] || [ -z "${BROKER_IMAGE##*:}" ]; then
+# Guard against a malformed result (e.g. unexpected chart values shape) so we never
+# substitute an invalid image into the generated values and fail later with a confusing
+# Helm/Kubernetes error. Require a non-empty repository AND a non-empty, non-"null" tag
+# separated by a ':' — this rejects ":tag" (empty repo), "repo:" / "repo:null" and a
+# value with no ':' at all.
+broker_image_repo="${BROKER_IMAGE%:*}"
+broker_image_tag="${BROKER_IMAGE##*:}"
+if [ -z "$BROKER_IMAGE" ] || [ "$BROKER_IMAGE" = "$broker_image_tag" ] \
+  || [ -z "$broker_image_repo" ] || [ -z "$broker_image_tag" ] || [ "$broker_image_tag" = "null" ]; then
   echo "ERROR: failed to resolve a valid broker image (registry/repository:tag) from the chart values (got '$BROKER_IMAGE')." >&2
   exit 1
 fi
