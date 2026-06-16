@@ -574,6 +574,7 @@ func stopZeebeExporters(t *testing.T) {
 
 	var output string
 	var err error
+	paused := false
 
 	// Partition distribution may take a while and results in a 500 error, and the
 	// gateway can be briefly unreachable while brokers restart, so retry on both
@@ -582,6 +583,7 @@ func stopZeebeExporters(t *testing.T) {
 		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", kubectlHelpers.ElasticsearchPodName, "--", "curl", "-i", "--max-time", "15", "camunda-zeebe-gateway:9600/actuator/exporting/pause", "-XPOST")
 		if err == nil && strings.Contains(output, "HTTP/1.1 20") {
 			t.Log("[ZEEBE EXPORTERS] Output contains a 20x response")
+			paused = true
 			break
 		}
 		if err != nil {
@@ -592,8 +594,9 @@ func stopZeebeExporters(t *testing.T) {
 		time.Sleep(30 * time.Second)
 	}
 
-	require.NoError(t, err, "[ZEEBE EXPORTERS] Failed to pause exporters")
-	require.Contains(t, output, "HTTP/1.1 20")
+	// `curl -i` exits 0 even on a 4xx/5xx response, so a nil err alone does not imply
+	// success; assert on the actual 20x outcome, surfacing the last err and response.
+	require.True(t, paused, "[ZEEBE EXPORTERS] failed to pause exporters within retries (last err: %v, last response: %s)", err, output)
 	t.Logf("[ZEEBE EXPORTERS] Paused exporters: %s", output)
 }
 
@@ -602,6 +605,7 @@ func startZeebeExporters(t *testing.T) {
 
 	var output string
 	var err error
+	resumed := false
 
 	// Partition distribution may take a while and results in a 500 error, and the
 	// gateway can be briefly unreachable while brokers restart, so retry on both
@@ -610,6 +614,7 @@ func startZeebeExporters(t *testing.T) {
 		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", kubectlHelpers.ElasticsearchPodName, "--", "curl", "-i", "--max-time", "15", "camunda-zeebe-gateway:9600/actuator/exporting/resume", "-XPOST")
 		if err == nil && strings.Contains(output, "HTTP/1.1 20") {
 			t.Log("[ZEEBE EXPORTERS] Output contains a 20x response")
+			resumed = true
 			break
 		}
 		if err != nil {
@@ -620,8 +625,9 @@ func startZeebeExporters(t *testing.T) {
 		time.Sleep(30 * time.Second)
 	}
 
-	require.NoError(t, err, "[ZEEBE EXPORTERS] Failed to resume exporters")
-	require.Contains(t, output, "HTTP/1.1 20")
+	// `curl -i` exits 0 even on a 4xx/5xx response, so a nil err alone does not imply
+	// success; assert on the actual 20x outcome, surfacing the last err and response.
+	require.True(t, resumed, "[ZEEBE EXPORTERS] failed to resume exporters within retries (last err: %v, last response: %s)", err, output)
 	t.Logf("[ZEEBE EXPORTERS] Resumed exporters: %s", output)
 }
 

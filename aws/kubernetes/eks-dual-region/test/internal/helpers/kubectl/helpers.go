@@ -205,22 +205,32 @@ func startKubectlPortForward(t *testing.T, kubectlOptions *k8s.KubectlOptions, s
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	stdout, err := cmd.StdoutPipe()
+	// kubectl prints the "Forwarding from 127.0.0.1:<port> -> ..." readiness line to
+	// stdout, but route both stdout and stderr into one pipe and scan it so the port is
+	// detected regardless of which stream a given kubectl version writes it to, and so
+	// any error output is captured for diagnostics.
+	pipeR, pipeW, err := os.Pipe()
 	if err != nil {
 		return "", nil, err
 	}
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	cmd.Stdout = pipeW
+	cmd.Stderr = pipeW
 
 	if err := cmd.Start(); err != nil {
+		_ = pipeW.Close()
+		_ = pipeR.Close()
 		return "", nil, err
 	}
+	// The child holds its own copy of the write end; close the parent's copy so the
+	// reader sees EOF once the subprocess exits.
+	_ = pipeW.Close()
 
 	cleanup := func() {
 		if cmd.Process != nil {
 			_ = cmd.Process.Kill()
 		}
 		_ = cmd.Wait()
+		_ = pipeR.Close()
 	}
 
 	type portResult struct {
@@ -230,24 +240,28 @@ func startKubectlPortForward(t *testing.T, kubectlOptions *k8s.KubectlOptions, s
 	resultCh := make(chan portResult, 1)
 	go func() {
 		re := regexp.MustCompile(`Forwarding from (?:127\.0\.0\.1|\[::1\]):(\d+)`)
-		scanner := bufio.NewScanner(stdout)
+		scanner := bufio.NewScanner(pipeR)
 		found := false
+		var out strings.Builder
 		for scanner.Scan() {
+			line := scanner.Text()
+			out.WriteString(line)
+			out.WriteByte('\n')
 			if !found {
-				if m := re.FindStringSubmatch(scanner.Text()); m != nil {
+				if m := re.FindStringSubmatch(line); m != nil {
 					found = true
 					resultCh <- portResult{port: m[1]}
 				}
 			}
-			// Keep draining stdout after the port is found so the subprocess never
-			// blocks writing to a full pipe; the loop ends on EOF when cleanup kills it.
+			// Keep draining after the port is found so the subprocess never blocks
+			// writing to a full pipe; the loop ends on EOF when cleanup kills it.
 		}
 		if !found {
 			if scanErr := scanner.Err(); scanErr != nil {
 				resultCh <- portResult{err: scanErr}
 				return
 			}
-			resultCh <- portResult{err: fmt.Errorf("kubectl port-forward exited before forwarding: %s", strings.TrimSpace(stderr.String()))}
+			resultCh <- portResult{err: fmt.Errorf("kubectl port-forward exited before forwarding: %s", strings.TrimSpace(out.String()))}
 		}
 	}()
 
