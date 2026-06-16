@@ -1,6 +1,7 @@
 package kubectlHelpers
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -144,22 +146,6 @@ type ElasticsearchClusterHealth struct {
 //	backoff: sleep duration between retries
 //
 // Returns: (endpoint string, close func())
-// runWithTimeout runs fn in a goroutine and returns its error, or a timeout error
-// if it does not finish within timeout. terratest's k8s.Get* calls and port-forward
-// setup have no client-side timeout, so a stalled cluster API server (observed on
-// ROSA) otherwise blocks on the kernel TCP read timeout (~17 min). A goroutine left
-// behind on timeout is harmless for a test process.
-func runWithTimeout(timeout time.Duration, fn func() error) error {
-	done := make(chan error, 1)
-	go func() { done <- fn() }()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(timeout):
-		return fmt.Errorf("operation timed out after %s", timeout)
-	}
-}
-
 func NewServiceTunnelWithRetry(t *testing.T, kubectlOptions *k8s.KubectlOptions, serviceName string, localPort, remotePort, maxRetries int, backoff time.Duration) (string, func()) {
 	t.Helper()
 
@@ -170,60 +156,112 @@ func NewServiceTunnelWithRetry(t *testing.T, kubectlOptions *k8s.KubectlOptions,
 		backoff = 5 * time.Second
 	}
 
-	// Ensure the service exists, bounding/retrying the API read so a stalled cluster
-	// API server fails fast and is retried instead of blocking the kernel TCP timeout.
-	serviceReady := false
 	for i := 0; i < maxRetries; i++ {
-		err := runWithTimeout(60*time.Second, func() error {
-			svc, e := k8s.GetServiceE(t, kubectlOptions, serviceName)
-			if e != nil {
-				return e
-			}
-			if svc.Name != serviceName {
-				return fmt.Errorf("unexpected service name %q", svc.Name)
-			}
-			return nil
-		})
+		endpoint, cleanup, err := startKubectlPortForward(t, kubectlOptions, serviceName, localPort, remotePort, 60*time.Second)
 		if err == nil {
-			serviceReady = true
-			break
+			return endpoint, cleanup
 		}
-		t.Logf("[TUNNEL] get service %s (ns %s) failed (attempt %d/%d): %v", serviceName, kubectlOptions.Namespace, i+1, maxRetries, err)
+		t.Logf("[TUNNEL] kubectl port-forward to %s:%d (ns %s) failed (attempt %d/%d): %v", serviceName, remotePort, kubectlOptions.Namespace, i+1, maxRetries, err)
 		if i < maxRetries-1 {
 			time.Sleep(backoff)
 		}
 	}
-	if !serviceReady {
-		t.Fatalf("[TUNNEL] service %s (ns %s) not reachable after %d attempts", serviceName, kubectlOptions.Namespace, maxRetries)
-		return "", func() {}
+
+	t.Fatalf("[TUNNEL] failed to establish kubectl port-forward to %s after %d attempts", serviceName, maxRetries)
+	return "", func() {}
+}
+
+// startKubectlPortForward establishes a port-forward to a Service using the kubectl
+// binary (run as a subprocess) instead of terratest's client-go tunnel. terratest's
+// k8s.GetServiceE / Tunnel.ForwardPortE go through the client-go API client, whose
+// fresh per-call API discovery against OpenShift's large API surface intermittently
+// hangs for minutes on ROSA during failover/failback (a kubectl exec/get on the same
+// cluster keeps working at the same moment). The kubectl binary caches discovery, so
+// routing every tunnel through it removes that failure mode for all callers. A
+// localPort of 0 lets kubectl pick a free local port, which is parsed from its
+// output. Returns the local endpoint and a cleanup func that stops the subprocess.
+func startKubectlPortForward(t *testing.T, kubectlOptions *k8s.KubectlOptions, serviceName string, localPort, remotePort int, readyTimeout time.Duration) (string, func(), error) {
+	t.Helper()
+
+	var args []string
+	if kubectlOptions.ContextName != "" {
+		args = append(args, "--context", kubectlOptions.ContextName)
+	}
+	if kubectlOptions.ConfigPath != "" {
+		args = append(args, "--kubeconfig", kubectlOptions.ConfigPath)
+	}
+	if kubectlOptions.Namespace != "" {
+		args = append(args, "--namespace", kubectlOptions.Namespace)
+	}
+	portSpec := fmt.Sprintf("%d:%d", localPort, remotePort)
+	if localPort == 0 {
+		portSpec = fmt.Sprintf(":%d", remotePort)
+	}
+	args = append(args, "port-forward", "svc/"+serviceName, portSpec)
+
+	cmd := exec.Command("kubectl", args...)
+	cmd.Env = os.Environ()
+	for k, v := range kubectlOptions.Env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	// Establish the port-forward with a fresh tunnel per attempt (a hung attempt is
-	// abandoned rather than reused) and bound each attempt so it cannot block forever.
-	var endpoint string
-	cleanup := func() {}
-	established := false
-	for i := 0; i < maxRetries; i++ {
-		tunnel := k8s.NewTunnel(kubectlOptions, k8s.ResourceTypeService, serviceName, localPort, remotePort)
-		err := runWithTimeout(90*time.Second, func() error { return tunnel.ForwardPortE(t) })
-		if err == nil {
-			endpoint = tunnel.Endpoint()
-			tnl := tunnel
-			cleanup = func() { tnl.Close() }
-			established = true
-			break
-		}
-		t.Logf("[TUNNEL] port-forward attempt %d/%d failed for %s:%d -> %s: %v", i+1, maxRetries, serviceName, remotePort, kubectlOptions.Namespace, err)
-		if i < maxRetries-1 {
-			time.Sleep(backoff)
-		}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", nil, err
 	}
-	if !established {
-		t.Fatalf("[TUNNEL] failed to establish port-forward to %s after %d attempts", serviceName, maxRetries)
-		return "", func() {}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Start(); err != nil {
+		return "", nil, err
 	}
 
-	return endpoint, cleanup
+	cleanup := func() {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_ = cmd.Wait()
+	}
+
+	type portResult struct {
+		port string
+		err  error
+	}
+	resultCh := make(chan portResult, 1)
+	go func() {
+		re := regexp.MustCompile(`Forwarding from (?:127\.0\.0\.1|\[::1\]):(\d+)`)
+		scanner := bufio.NewScanner(stdout)
+		found := false
+		for scanner.Scan() {
+			if !found {
+				if m := re.FindStringSubmatch(scanner.Text()); m != nil {
+					found = true
+					resultCh <- portResult{port: m[1]}
+				}
+			}
+			// Keep draining stdout after the port is found so the subprocess never
+			// blocks writing to a full pipe; the loop ends on EOF when cleanup kills it.
+		}
+		if !found {
+			if scanErr := scanner.Err(); scanErr != nil {
+				resultCh <- portResult{err: scanErr}
+				return
+			}
+			resultCh <- portResult{err: fmt.Errorf("kubectl port-forward exited before forwarding: %s", strings.TrimSpace(stderr.String()))}
+		}
+	}()
+
+	select {
+	case r := <-resultCh:
+		if r.err != nil {
+			cleanup()
+			return "", nil, r.err
+		}
+		return fmt.Sprintf("127.0.0.1:%s", r.port), cleanup, nil
+	case <-time.After(readyTimeout):
+		cleanup()
+		return "", nil, fmt.Errorf("timed out after %s waiting for kubectl port-forward to %s:%d", readyTimeout, serviceName, remotePort)
+	}
 }
 
 func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, primary, secondary helpers.Cluster, kubeConfigPrimary, kubeConfigSecondary string) {
