@@ -11,6 +11,14 @@ if (( BASH_VERSINFO[0] < 4 )); then
   exit 1
 fi
 
+# restart_stuck_brokers relies on jq's fromdateiso8601 builtin (jq >= 1.6). Fail fast
+# with a clear message on an older jq instead of a cryptic "fromdateiso8601/0 is not
+# defined" mid-run.
+if ! jq -n '"1970-01-01T00:00:00Z" | fromdateiso8601' >/dev/null 2>&1; then
+  echo "ERROR: ${BASH_SOURCE[0]##*/} requires jq >= 1.6 (fromdateiso8601); found $(jq --version 2>&1 || echo 'jq not installed')." >&2
+  exit 1
+fi
+
 # Wait until the dual-region Camunda deployment is healthy on both clusters.
 #
 # Self-healing rationale:
