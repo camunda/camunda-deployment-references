@@ -244,17 +244,19 @@ func startKubectlPortForward(t *testing.T, kubectlOptions *k8s.KubectlOptions, s
 		found := false
 		var out strings.Builder
 		for scanner.Scan() {
+			if found {
+				// Drain remaining output without buffering it: the diagnostic buffer is
+				// only needed for a pre-forward failure, so this keeps memory bounded
+				// while still preventing the subprocess from blocking on a full pipe.
+				continue
+			}
 			line := scanner.Text()
 			out.WriteString(line)
 			out.WriteByte('\n')
-			if !found {
-				if m := re.FindStringSubmatch(line); m != nil {
-					found = true
-					resultCh <- portResult{port: m[1]}
-				}
+			if m := re.FindStringSubmatch(line); m != nil {
+				found = true
+				resultCh <- portResult{port: m[1]}
 			}
-			// Keep draining after the port is found so the subprocess never blocks
-			// writing to a full pipe; the loop ends on EOF when cleanup kills it.
 		}
 		if !found {
 			if scanErr := scanner.Err(); scanErr != nil {
