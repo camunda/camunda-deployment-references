@@ -31,6 +31,16 @@ STUCK_BROKER_TIMEOUT_SECONDS="${STUCK_BROKER_TIMEOUT_SECONDS:-360}"
 # Maximum number of automatic restarts per broker pod.
 MAX_BROKER_RESTARTS="${MAX_BROKER_RESTARTS:-3}"
 
+# Both knobs are consumed in integer comparisons (-lt / -ge) below, so reject a
+# non-integer override up-front with a clear message instead of a cryptic
+# "integer expression expected" failure mid-run.
+case "$STUCK_BROKER_TIMEOUT_SECONDS" in ''|*[!0-9]*)
+  echo "ERROR: STUCK_BROKER_TIMEOUT_SECONDS must be a non-negative integer (got '$STUCK_BROKER_TIMEOUT_SECONDS')." >&2; exit 1;;
+esac
+case "$MAX_BROKER_RESTARTS" in ''|*[!0-9]*)
+  echo "ERROR: MAX_BROKER_RESTARTS must be a non-negative integer (got '$MAX_BROKER_RESTARTS')." >&2; exit 1;;
+esac
+
 # Tracks how many times each "context/pod" has been auto-restarted.
 declare -A BROKER_RESTARTS
 
