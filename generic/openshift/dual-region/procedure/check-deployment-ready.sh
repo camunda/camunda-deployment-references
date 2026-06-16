@@ -37,7 +37,11 @@ declare -A BROKER_RESTARTS
 # Returns success when every pod in the namespace is Running and ready.
 namespace_ready() {
   local context="$1" namespace="$2"
-  [ "$(kubectl --context="$context" get pods -n "$namespace" --field-selector=status.phase!=Running -o name | wc -l)" -eq 0 ] &&
+  # A namespace with zero pods is NOT ready: the two checks below both evaluate to 0 on
+  # empty output, which would otherwise report a false "Installation completed" if the
+  # Helm install failed early or targeted an unexpected namespace/context.
+  [ "$(kubectl --context="$context" get pods -n "$namespace" -o name | wc -l)" -gt 0 ] &&
+    [ "$(kubectl --context="$context" get pods -n "$namespace" --field-selector=status.phase!=Running -o name | wc -l)" -eq 0 ] &&
     [ "$(kubectl --context="$context" get pods -n "$namespace" -o json | jq -r '.items[] | select(.status.containerStatuses[]?.ready == false)' | wc -l)" -eq 0 ]
 }
 
@@ -68,8 +72,13 @@ restart_stuck_brokers() {
     fi
 
     echo "  ⚠️  $pod has been Running but not ready for ${age}s (likely a hung startup over Submariner DNS); restarting it (attempt $((count + 1))/${MAX_BROKER_RESTARTS})";
-    kubectl --context="$context" delete pod "$pod" -n "$namespace" --wait=false || true;
-    BROKER_RESTARTS["$context/$pod"]=$(( count + 1 ));
+    # Only consume a restart attempt when the delete actually succeeds: a transient
+    # API error (or an already-gone pod) must not burn the MAX_BROKER_RESTARTS budget.
+    if kubectl --context="$context" delete pod "$pod" -n "$namespace" --wait=false; then
+      BROKER_RESTARTS["$context/$pod"]=$(( count + 1 ));
+    else
+      echo "  ↳ failed to delete $pod; will retry without consuming a restart attempt";
+    fi
   done < <(
     kubectl --context="$context" get pods -n "$namespace" -o json |
       jq -r --arg re "^${release}-zeebe-[0-9]+$" '
