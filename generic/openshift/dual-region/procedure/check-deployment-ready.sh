@@ -57,7 +57,7 @@ namespace_ready() {
   # Helm install failed early or targeted an unexpected namespace/context.
   [ "$(kubectl --context="$context" get pods -n "$namespace" -o name | wc -l)" -gt 0 ] &&
     [ "$(kubectl --context="$context" get pods -n "$namespace" --field-selector=status.phase!=Running -o name | wc -l)" -eq 0 ] &&
-    [ "$(kubectl --context="$context" get pods -n "$namespace" -o json | jq -r '.items[] | select(.status.containerStatuses[]?.ready == false)' | wc -l)" -eq 0 ]
+    [ "$(kubectl --context="$context" get pods -n "$namespace" -o json | jq -r '[.items[] | select(any(.status.containerStatuses[]?; .ready == false))] | length')" -eq 0 ]
 }
 
 # Restarts Zeebe broker pods that have been Running but not ready for too long.
