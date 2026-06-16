@@ -30,15 +30,20 @@ fi
 STUCK_BROKER_TIMEOUT_SECONDS="${STUCK_BROKER_TIMEOUT_SECONDS:-360}"
 # Maximum number of automatic restarts per broker pod.
 MAX_BROKER_RESTARTS="${MAX_BROKER_RESTARTS:-3}"
+# How long the cluster must stay healthy before handing off to the test phase.
+STABILITY_SETTLE_SECONDS="${STABILITY_SETTLE_SECONDS:-30}"
 
-# Both knobs are consumed in integer comparisons (-lt / -ge) below, so reject a
-# non-integer override up-front with a clear message instead of a cryptic
-# "integer expression expected" failure mid-run.
+# These knobs are consumed in integer comparisons (-lt / -ge) and as a `sleep`
+# duration below, so reject a non-integer override up-front with a clear message
+# instead of a cryptic "integer expression expected" / sleep failure mid-run.
 case "$STUCK_BROKER_TIMEOUT_SECONDS" in ''|*[!0-9]*)
   echo "ERROR: STUCK_BROKER_TIMEOUT_SECONDS must be a non-negative integer (got '$STUCK_BROKER_TIMEOUT_SECONDS')." >&2; exit 1;;
 esac
 case "$MAX_BROKER_RESTARTS" in ''|*[!0-9]*)
   echo "ERROR: MAX_BROKER_RESTARTS must be a non-negative integer (got '$MAX_BROKER_RESTARTS')." >&2; exit 1;;
+esac
+case "$STABILITY_SETTLE_SECONDS" in ''|*[!0-9]*)
+  echo "ERROR: STABILITY_SETTLE_SECONDS must be a non-negative integer (got '$STABILITY_SETTLE_SECONDS')." >&2; exit 1;;
 esac
 
 # Tracks how many times each "context/pod" has been auto-restarted.
@@ -94,9 +99,15 @@ restart_stuck_brokers() {
       jq -r --arg re "^${release}-zeebe-[0-9]+$" '
         .items[]
         | select(.metadata.name | test($re))
+        | select(.status.phase == "Running")
         | select(any(.status.containerStatuses[]?; .ready == false))
-        | select(any(.status.containerStatuses[]?; .state.running.startedAt != null))
-        | "\(.metadata.name) \([.status.containerStatuses[] | select(.state.running != null) | (.state.running.startedAt | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)] | min)"
+        # Measure how long the pod has been NOT READY from the Ready condition'"'"'s
+        # lastTransitionTime (when it most recently went not-ready), not the container
+        # start time -- otherwise a long-running broker that only just flapped to
+        # not-ready would look old enough to restart immediately.
+        | ([.status.conditions[]? | select(.type == "Ready") | .lastTransitionTime] | first) as $notready
+        | select($notready != null)
+        | "\(.metadata.name) \($notready | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)"
       '
   )
 }
@@ -123,7 +134,7 @@ while true; do
     # (camunda/camunda#55038) shortly after first becoming Ready. Require the cluster
     # to stay healthy across a short settle window so the multi-region tests start
     # against a stable topology; if it flaps, self-heal and keep polling.
-    settle="${STABILITY_SETTLE_SECONDS:-30}";
+    settle="$STABILITY_SETTLE_SECONDS";
     echo "Confirming stability over ${settle}s before completing...";
     sleep "$settle";
     if namespace_ready "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0" && namespace_ready "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1"; then
