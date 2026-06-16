@@ -72,8 +72,13 @@ restart_stuck_brokers() {
     fi
 
     echo "  ⚠️  $pod has been Running but not ready for ${age}s (likely a hung startup over Submariner DNS); restarting it (attempt $((count + 1))/${MAX_BROKER_RESTARTS})";
-    kubectl --context="$context" delete pod "$pod" -n "$namespace" --wait=false || true;
-    BROKER_RESTARTS["$context/$pod"]=$(( count + 1 ));
+    # Only consume a restart attempt when the delete actually succeeds: a transient
+    # API error (or an already-gone pod) must not burn the MAX_BROKER_RESTARTS budget.
+    if kubectl --context="$context" delete pod "$pod" -n "$namespace" --wait=false; then
+      BROKER_RESTARTS["$context/$pod"]=$(( count + 1 ));
+    else
+      echo "  ↳ failed to delete $pod; will retry without consuming a restart attempt";
+    fi
   done < <(
     kubectl --context="$context" get pods -n "$namespace" -o json |
       jq -r --arg re "^${release}-zeebe-[0-9]+$" '
