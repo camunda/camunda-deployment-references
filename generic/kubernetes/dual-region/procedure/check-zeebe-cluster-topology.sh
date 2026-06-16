@@ -30,6 +30,14 @@ else
   auth_user="demo"; auth_password="demo"
 fi
 
+# Under CI a missing credential pair is a configuration error: refuse to silently
+# fall back to demo:demo, which would mask a missing Vault-provisioned secret
+# (consistent with the repo's INC-5340 hardening).
+if [ "${CI:-}" = "true" ] && [ "$auth_user" = "demo" ]; then
+  echo "ERROR: no CAMUNDA_BASIC_AUTH_* / ZEEBE_BASIC_AUTH_* credentials provided under CI; refusing to fall back to demo:demo." >&2
+  exit 1
+fi
+
 # Pass the (Vault-provisioned) credentials to curl via a 0600 config file removed on
 # exit, instead of `-u user:password`, so the password is never exposed on the curl
 # command line via ps/proc on the runner.
