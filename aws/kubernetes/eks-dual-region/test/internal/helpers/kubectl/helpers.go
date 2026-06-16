@@ -1630,8 +1630,10 @@ func GatewayManagementMutate(t *testing.T, kubectlOptions *k8s.KubectlOptions, m
 			// let the caller assert on the result.
 			return status, body, nil
 		}
-		t.Logf("[GATEWAY] mutating %s %s not accepted yet (attempt %d/%d): status=%d err=%v; retrying in %s", method, path, i+1, maxRetries, status, err, backoff)
-		time.Sleep(backoff)
+		t.Logf("[GATEWAY] mutating %s %s not accepted (attempt %d/%d): status=%d err=%v", method, path, i+1, maxRetries, status, err)
+		if i < maxRetries-1 {
+			time.Sleep(backoff)
+		}
 	}
 	return status, body, err
 }
