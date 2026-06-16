@@ -37,7 +37,11 @@ declare -A BROKER_RESTARTS
 # Returns success when every pod in the namespace is Running and ready.
 namespace_ready() {
   local context="$1" namespace="$2"
-  [ "$(kubectl --context="$context" get pods -n "$namespace" --field-selector=status.phase!=Running -o name | wc -l)" -eq 0 ] &&
+  # A namespace with zero pods is NOT ready: the two checks below both evaluate to 0 on
+  # empty output, which would otherwise report a false "Installation completed" if the
+  # Helm install failed early or targeted an unexpected namespace/context.
+  [ "$(kubectl --context="$context" get pods -n "$namespace" -o name | wc -l)" -gt 0 ] &&
+    [ "$(kubectl --context="$context" get pods -n "$namespace" --field-selector=status.phase!=Running -o name | wc -l)" -eq 0 ] &&
     [ "$(kubectl --context="$context" get pods -n "$namespace" -o json | jq -r '.items[] | select(.status.containerStatuses[]?.ready == false)' | wc -l)" -eq 0 ]
 }
 
