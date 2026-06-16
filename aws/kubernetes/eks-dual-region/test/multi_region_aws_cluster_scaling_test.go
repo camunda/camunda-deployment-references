@@ -168,7 +168,7 @@ func waitForPodRunning(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName
 	t.Logf("[SCALING] Waiting for %s region pod %s to be Running", regionName, podName)
 	for retry := 0; retry < maxRetries; retry++ {
 		phase, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "pod", podName, "-o", "jsonpath={.status.phase}", "--request-timeout=30s")
-		if err == nil && phase == "Running" {
+		if err == nil && strings.TrimSpace(phase) == "Running" {
 			t.Logf("[SCALING] %s region pod %s is Running", regionName, podName)
 			return
 		}

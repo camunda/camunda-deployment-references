@@ -114,7 +114,7 @@ restart_stuck_brokers() {
 
 while true; do
   echo "Checking pods in context: $CLUSTER_0, namespace: $CAMUNDA_NAMESPACE_0";
-  kubectl --context="$CLUSTER_0" get pods -n "$CAMUNDA_NAMESPACE_0" --output=wide;
+  kubectl --context="$CLUSTER_0" get pods -n "$CAMUNDA_NAMESPACE_0" --output=wide || true;
   if namespace_ready "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0"; then
     echo "All pods are Running and Healthy in context: $CLUSTER_0, namespace: $CAMUNDA_NAMESPACE_0 - Installation completed!";
   else
@@ -125,7 +125,7 @@ while true; do
   fi
 
   echo "Checking pods in context: $CLUSTER_1, namespace: $CAMUNDA_NAMESPACE_1";
-  kubectl --context="$CLUSTER_1" get pods -n "$CAMUNDA_NAMESPACE_1" --output=wide;
+  kubectl --context="$CLUSTER_1" get pods -n "$CAMUNDA_NAMESPACE_1" --output=wide || true;
   if namespace_ready "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1"; then
     echo "OK: All pods are Running and Healthy in context: $CLUSTER_1, namespace: $CAMUNDA_NAMESPACE_1 - Installation completed!";
     echo "OK: All pods are healthy across both contexts.";
