@@ -41,14 +41,17 @@ fi
 # Pass the (Vault-provisioned) credentials to curl via a 0600 config file removed on
 # exit, instead of `-u user:password`, so the password is never exposed on the curl
 # command line via ps/proc on the runner.
-curl_cfg="$(mktemp)"
+curl_cfg="$(mktemp "${TMPDIR:-/tmp}/zeebe-topology-curl.XXXXXX")"
 chmod 600 "$curl_cfg"
 # Escape backslashes first, then double-quotes, so a credential containing either
 # character does not break the quoted curl-config value.
 esc_user=${auth_user//\\/\\\\}; esc_user=${esc_user//\"/\\\"}
 esc_password=${auth_password//\\/\\\\}; esc_password=${esc_password//\"/\\\"}
 printf 'user = "%s:%s"\n' "$esc_user" "$esc_password" > "$curl_cfg"
-topology=$(curl -s --show-error --fail -L --config "$curl_cfg" -X GET 'http://localhost:8080/v2/topology' -H 'Accept: application/json')
+if ! topology=$(curl -s --show-error --fail -L --config "$curl_cfg" -X GET 'http://localhost:8080/v2/topology' -H 'Accept: application/json'); then
+  echo "❌ Failed to fetch topology from /v2/topology (HTTP error or connection failure)." >&2
+  exit 1
+fi
 echo "$topology" > zeebe-topology.json
 
 jq . zeebe-topology.json
