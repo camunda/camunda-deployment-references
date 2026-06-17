@@ -12,10 +12,13 @@ C1="${CLUSTER_1:-${CLUSTER_2_NAME:-}}"
 for ctx in "$C0" "$C1"; do
   [ -z "$ctx" ] && continue
   echo "===== Submariner diagnostics for context: ${ctx} ====="
+  # subctl context flags vary across releases; select the context via the kubeconfig
+  # and let subctl use the current context (portable across subctl versions).
+  oc config use-context "$ctx" >/dev/null 2>&1
   echo "--- subctl show all ---"
-  subctl show all --contexts "$ctx" 2>&1
+  subctl show all 2>&1
   echo "--- subctl diagnose all ---"
-  subctl diagnose all --context "$ctx" 2>&1
+  subctl diagnose all 2>&1
   echo "--- submariner-operator pods ---"
   oc --context "$ctx" -n submariner-operator get pods -o wide 2>&1
   echo "--- submariner-gateway logs (last 200 lines) ---"
