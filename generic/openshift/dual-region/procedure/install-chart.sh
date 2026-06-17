@@ -16,6 +16,10 @@ if ! command -v yq >/dev/null 2>&1; then
   echo "ERROR: 'yq' is required to resolve the broker image for the cross-region DNS gate but was not found in PATH." >&2
   exit 1
 fi
+# TODO: [release-duty] before the release, switch the chart reference below from the
+# dev OCI registry (oci://registry.camunda.cloud/team-distribution/camunda-platform)
+# to the public chart `camunda/camunda-platform`, consistent with the install commands
+# at the bottom of this file.
 BROKER_IMAGE="$(helm show values \
   oci://registry.camunda.cloud/team-distribution/camunda-platform \
   --version "$HELM_CHART_VERSION" \
