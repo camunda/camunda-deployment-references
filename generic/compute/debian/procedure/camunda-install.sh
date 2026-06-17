@@ -11,7 +11,7 @@ set -euo pipefail
 # Executed on remote host, defaults should be set here or env vars preconfigured on remote host
 OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
 # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.9?(\.(?<patch>\d+))?$
-CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.9.6"}
+CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.9.8"}
 # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.9?(\.(?<patch>\d+))?$
 CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.9.5"}
 
@@ -30,6 +30,20 @@ if [[ -f "${CAMUNDA_DISTRO_CRED_FILE}" ]]; then
     CAMUNDA_DISTRO_USER=$(sed -n '1p' "${CAMUNDA_DISTRO_CRED_FILE}")
     CAMUNDA_DISTRO_PASSWORD=$(sed -n '2p' "${CAMUNDA_DISTRO_CRED_FILE}")
     rm -f "${CAMUNDA_DISTRO_CRED_FILE}"
+fi
+
+# Optional local artifact cache (opt-in). When CAMUNDA_DISTRO_CACHE_DIR is set and points to a
+# trusted directory containing the artifacts, this script copies them instead of downloading from
+# Artifactory -- useful for air-gapped or pre-downloaded installs.
+# It is OFF by default: a plain run downloads from Artifactory as before. We do NOT default to a
+# world-writable location (e.g. /tmp) so that a normal run never trusts artifacts it didn't fetch.
+# If you enable it, make sure the directory is only writable by a trusted user.
+CAMUNDA_DISTRO_CACHE_DIR=${CAMUNDA_DISTRO_CACHE_DIR:-""}
+CACHED_CAMUNDA_TARBALL=""
+CACHED_CONNECTORS_JAR=""
+if [[ -n "${CAMUNDA_DISTRO_CACHE_DIR}" ]]; then
+    CACHED_CAMUNDA_TARBALL="${CAMUNDA_DISTRO_CACHE_DIR}/camunda.tar.gz"
+    CACHED_CONNECTORS_JAR="${CAMUNDA_DISTRO_CACHE_DIR}/connectors.jar"
 fi
 
 CURL_AUTH_OPTS=()
@@ -90,7 +104,7 @@ fi
 
 sudo chown -R "${USERNAME}:${USERNAME}" "${MNT_DIR}/"
 
-if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
+if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" && ! -f "${CACHED_CAMUNDA_TARBALL}" ]]; then
     echo "[INFO] Fetching the latest snapshot version of Camunda ${CAMUNDA_VERSION}."
     CAMUNDA_SNAPSHOT_VERSION=$(curl -sfL "${CURL_AUTH_OPTS[@]}" "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>tar.gz</extension>" | \
         grep "<value>" | \
@@ -98,7 +112,7 @@ if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
     echo "[INFO] Latest snapshot version is ${CAMUNDA_SNAPSHOT_VERSION}."
 fi
 
-if [[ "${CAMUNDA_CONNECTORS_VERSION}" =~ "SNAPSHOT" ]]; then
+if [[ "${CAMUNDA_CONNECTORS_VERSION}" =~ "SNAPSHOT" && ! -f "${CACHED_CONNECTORS_JAR}" ]]; then
     echo "[INFO] Fetching the latest snapshot version of Camunda Connectors ${CAMUNDA_CONNECTORS_VERSION}."
     CONNECTORS_SNAPSHOT_VERSION=$(curl -sfL "${CURL_AUTH_OPTS[@]}" "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/maven-metadata.xml" | grep -A 1 "<extension>pom</extension>" | \
         grep "<value>" | \
@@ -127,7 +141,10 @@ fi
 
 # Install Camunda 8
 
-if [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
+if [[ -f "${CACHED_CAMUNDA_TARBALL}" ]]; then
+    echo "[INFO] Using pre-staged Camunda distribution from ${CACHED_CAMUNDA_TARBALL} (download cache)."
+    cp "${CACHED_CAMUNDA_TARBALL}" "${MNT_DIR}/camunda.tar.gz"
+elif [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
     # shellcheck disable=SC2086
     curl -fL ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_SNAPSHOT_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
 else
@@ -145,7 +162,10 @@ mkdir -p "${MNT_DIR}/connectors/"
 
 # --fail-with-body (instead of -f) keeps the response body on HTTP error so the
 # Artifactory error message (e.g. 401/403 JSON) is visible in CI logs.
-if [[ "${CAMUNDA_CONNECTORS_VERSION}" =~ "SNAPSHOT" ]]; then
+if [[ -f "${CACHED_CONNECTORS_JAR}" ]]; then
+    echo "[INFO] Using pre-staged connectors bundle from ${CACHED_CONNECTORS_JAR} (download cache)."
+    cp "${CACHED_CONNECTORS_JAR}" "${MNT_DIR}/connectors/connectors.jar"
+elif [[ "${CAMUNDA_CONNECTORS_VERSION}" =~ "SNAPSHOT" ]]; then
     # shellcheck disable=SC2086
     curl -L --fail-with-body --show-error -w "[INFO] connectors download: HTTP %{http_code} (%{size_download} bytes)\n" ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CONNECTORS_SNAPSHOT_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar" || { echo "[FAIL] connectors download failed; response body:"; cat "${MNT_DIR}/connectors/connectors.jar" 2>/dev/null | head -c 4096; echo; exit 1; }
 else
