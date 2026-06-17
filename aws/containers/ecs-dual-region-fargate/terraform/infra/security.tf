@@ -30,21 +30,23 @@ resource "aws_security_group" "camunda_ports_region_0" {
     }
   }
 
-  # Cross-region Raft traffic (port 26502) from region 1
+  # Cross-region Zeebe cluster traffic from region 1:
+  #   26500 gateway gRPC, 26501 broker command API (gateway -> remote partition
+  #   leader, broker -> broker), 26502 Raft/cluster
   ingress {
-    from_port   = 26502
+    from_port   = 26500
     to_port     = 26502
     protocol    = "TCP"
     cidr_blocks = [local.vpc.region_1_vpc_cidr]
-    description = "Allow cross-region Raft traffic from region 1"
+    description = "Allow cross-region Zeebe cluster traffic from region 1"
   }
 
   egress {
-    from_port   = 26502
+    from_port   = 26500
     to_port     = 26502
     protocol    = "TCP"
     cidr_blocks = [local.vpc.region_1_vpc_cidr]
-    description = "Allow cross-region Raft traffic to region 1"
+    description = "Allow cross-region Zeebe cluster traffic to region 1"
   }
 
   # Cross-region Aurora traffic (port 5432) for Aurora Global DB
@@ -205,21 +207,23 @@ resource "aws_security_group" "camunda_ports_region_1" {
     }
   }
 
-  # Cross-region Raft traffic from region 0
+  # Cross-region Zeebe cluster traffic from region 0:
+  #   26500 gateway gRPC, 26501 broker command API (gateway -> remote partition
+  #   leader, broker -> broker), 26502 Raft/cluster
   ingress {
-    from_port   = 26502
+    from_port   = 26500
     to_port     = 26502
     protocol    = "TCP"
     cidr_blocks = [local.vpc.region_0_vpc_cidr]
-    description = "Allow cross-region Raft traffic from region 0"
+    description = "Allow cross-region Zeebe cluster traffic from region 0"
   }
 
   egress {
-    from_port   = 26502
+    from_port   = 26500
     to_port     = 26502
     protocol    = "TCP"
     cidr_blocks = [local.vpc.region_0_vpc_cidr]
-    description = "Allow cross-region Raft traffic to region 0"
+    description = "Allow cross-region Zeebe cluster traffic to region 0"
   }
 
   # Cross-region Aurora traffic
