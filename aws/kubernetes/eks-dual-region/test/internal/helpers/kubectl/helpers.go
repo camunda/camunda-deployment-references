@@ -842,7 +842,9 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 		if err != nil {
 			lastErr = err
 			t.Logf("[ZEEBE BROKER ID] pgrep java on %s failed (attempt %d/%d): %v", podName, attempt, maxAttempts, err)
-			time.Sleep(5 * time.Second)
+			if attempt < maxAttempts {
+				time.Sleep(5 * time.Second)
+			}
 			continue
 		}
 
@@ -850,7 +852,9 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 		if err != nil {
 			lastErr = err
 			t.Logf("[ZEEBE BROKER ID] reading /proc/%s/environ on %s failed (attempt %d/%d): %v", pid, podName, attempt, maxAttempts, err)
-			time.Sleep(5 * time.Second)
+			if attempt < maxAttempts {
+				time.Sleep(5 * time.Second)
+			}
 			continue
 		}
 
