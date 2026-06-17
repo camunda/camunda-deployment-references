@@ -499,7 +499,11 @@ runs:
                 OS_COMPONENTS="${OS_COMPONENTS},optimize"
               fi
 
-              PG_COMPONENTS="identityKeycloak,identity"
+              # PostgreSQL components checked for IRSA. Camunda 8.10 (chart 15.x)
+              # dropped the bundled Bitnami subcharts: Keycloak now runs via the
+              # Keycloak operator backed by CloudNativePG (no Aurora/IRSA), so
+              # there is no identityKeycloak component to check here.
+              PG_COMPONENTS="identity"
 
               if [[ "${{ inputs.webmodeler-enabled }}" == "true" ]]; then
                 PG_COMPONENTS="${PG_COMPONENTS},webModeler"
