@@ -180,8 +180,8 @@ module "connectors_region_0" {
   vpc_id                               = local.infra.vpc_region_0_id
   vpc_private_subnets                  = local.infra.vpc_region_0_private_subnets
   aws_region                           = data.aws_region.region_0.id
-  image                                = var.camunda_image
-  registry_credentials_arn             = local.infra.registry_credentials_region_0_arn
+  image                                = var.connectors_image
+  registry_credentials_arn             = "" # connectors image is on docker.io (public); no registry creds needed and passing the registry.camunda.cloud creds confuses ECS
   s2s_cloudmap_namespace               = module.orchestration_cluster_region_0.s2s_cloudmap_namespace
   alb_listener_http_webapp_arn         = local.infra.alb_listener_http_webapp_region_0_arn
   enable_alb_http_webapp_listener_rule = true
@@ -239,9 +239,9 @@ module "connectors_region_0" {
     local.infra.rds_db_connect_policy_region_0_arn != null ? [local.infra.rds_db_connect_policy_region_0_arn] : [],
   )
   service_timeouts = {
-    create = "10m"
-    update = "10m"
-    delete = "10m"
+    create = "30m"
+    update = "30m"
+    delete = "15m"
   }
 }
 
@@ -261,8 +261,8 @@ module "connectors_region_1" {
   vpc_id                               = local.infra.vpc_region_1_id
   vpc_private_subnets                  = local.infra.vpc_region_1_private_subnets
   aws_region                           = data.aws_region.region_1.id
-  image                                = var.camunda_image
-  registry_credentials_arn             = local.infra.registry_credentials_region_1_arn
+  image                                = var.connectors_image
+  registry_credentials_arn             = "" # connectors image is on docker.io (public); no registry creds needed and passing the registry.camunda.cloud creds confuses ECS
   s2s_cloudmap_namespace               = module.orchestration_cluster_region_1.s2s_cloudmap_namespace
   alb_listener_http_webapp_arn         = local.infra.alb_listener_http_webapp_region_1_arn
   enable_alb_http_webapp_listener_rule = true
@@ -320,8 +320,8 @@ module "connectors_region_1" {
     local.infra.rds_db_connect_policy_region_1_arn != null ? [local.infra.rds_db_connect_policy_region_1_arn] : [],
   )
   service_timeouts = {
-    create = "10m"
-    update = "10m"
-    delete = "10m"
+    create = "30m"
+    update = "30m"
+    delete = "15m"
   }
 }
