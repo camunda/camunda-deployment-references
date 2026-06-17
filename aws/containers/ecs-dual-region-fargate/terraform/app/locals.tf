@@ -33,36 +33,36 @@ locals {
     },
     # Region 0 topology
     {
-      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_0_NAME"
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_0_NAME"
       value = local.infra.region_0
     },
     {
-      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_0_NUMBEROFREPLICAS"
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_0_NUMBEROFREPLICAS"
       value = tostring(local.replicas_per_region)
     },
     {
-      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_0_NUMBEROFBROKERS"
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_0_NUMBEROFBROKERS"
       value = tostring(local.brokers_per_region)
     },
     {
-      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_0_PRIORITY"
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_0_PRIORITY"
       value = "1000"
     },
     # Region 1 topology
     {
-      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_1_NAME"
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_1_NAME"
       value = local.infra.region_1
     },
     {
-      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_1_NUMBEROFREPLICAS"
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_1_NUMBEROFREPLICAS"
       value = tostring(local.replicas_per_region)
     },
     {
-      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_1_NUMBEROFBROKERS"
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_1_NUMBEROFBROKERS"
       value = tostring(local.brokers_per_region)
     },
     {
-      name  = "CAMUNDA_CLUSTER_PARTITIONING_REGIONAWARE_REGIONS_1_PRIORITY"
+      name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_1_PRIORITY"
       value = "500"
     },
   ]
