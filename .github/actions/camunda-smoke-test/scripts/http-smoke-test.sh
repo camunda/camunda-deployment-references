@@ -71,7 +71,7 @@ refresh_auth() {
 
 if [[ "$AUTH_MODE" == "basic" ]]; then
     if [[ -z "$BASIC_USER" || -z "$BASIC_PASSWORD" ]]; then
-        fail_test "basic auth requires SMOKE_BASIC_USER and SMOKE_BASIC_PASSWORD (refusing to fall back to demo:demo — see INC-5340)"
+        fail_test "basic auth requires SMOKE_BASIC_USER and SMOKE_BASIC_PASSWORD (refusing to fall back to demo:demo — see INC-5340)" # no-demo-credentials:ignore
         exit 1
     fi
     AUTH_ARGS=(-u "${BASIC_USER}:${BASIC_PASSWORD}")
