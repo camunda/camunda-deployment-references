@@ -118,7 +118,7 @@ if [[ "$CAMUNDA_MODE" == "domain" ]]; then
     echo "Probing: ${probe_url}"
 
     for attempt in $(seq 1 "$max_attempts"); do
-        if curl -fsS -k -o /dev/null \
+        if curl -fs -k -o /dev/null \
             --resolve "${CAMUNDA_DOMAIN}:443:127.0.0.1" \
             --connect-timeout 5 --max-time 10 "$probe_url"; then
             echo "✓ Keycloak OIDC issuer reachable through the ingress"
