@@ -3,6 +3,7 @@ package kubectlHelpers
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -783,6 +784,40 @@ func StatefulSetContains(t *testing.T, kubectlOptions *k8s.KubectlOptions, state
 	return val
 }
 
+// runKubectlExecWithTimeout runs `kubectl <opts> <args...>` under a hard timeout,
+// killing the kubectl process if it stalls. terratest's RunKubectlAndGetOutputE has no
+// timeout, so a `kubectl exec` into a momentarily unresponsive broker pod (e.g. stalled
+// cross-region over OpenShift/Submariner) can otherwise block on reading the subprocess
+// output until the whole test times out.
+func runKubectlExecWithTimeout(kubectlOptions *k8s.KubectlOptions, timeout time.Duration, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	var fullArgs []string
+	if kubectlOptions.ContextName != "" {
+		fullArgs = append(fullArgs, "--context", kubectlOptions.ContextName)
+	}
+	if kubectlOptions.ConfigPath != "" {
+		fullArgs = append(fullArgs, "--kubeconfig", kubectlOptions.ConfigPath)
+	}
+	if kubectlOptions.Namespace != "" {
+		fullArgs = append(fullArgs, "--namespace", kubectlOptions.Namespace)
+	}
+	fullArgs = append(fullArgs, args...)
+
+	cmd := exec.CommandContext(ctx, "kubectl", fullArgs...)
+	cmd.Env = os.Environ()
+	for k, v := range kubectlOptions.Env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return strings.TrimSpace(string(out)), fmt.Errorf("kubectl %s timed out after %s", strings.Join(args, " "), timeout)
+	}
+	return strings.TrimSpace(string(out)), err
+}
+
 func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName string) int {
 	t.Logf("[ZEEBE BROKER ID] Getting Zeebe Broker ID for pod %s", podName)
 
@@ -791,22 +826,39 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 	}()
 	kubectlOptions.Logger = logger.Discard
 
-	// The broker pod runs a wait-clusterset-dns init container alongside the
-	// orchestration container; pin kubectl exec to the app container so the
-	// "Defaulted container" notice does not pollute the captured output.
-	output, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "exec", podName, "-c", "orchestration", "--", "pgrep", "java")
-	if err != nil {
-		t.Fatalf("[ZEEBE BROKER ID] %s", err)
-		return -1
+	// Bound each `kubectl exec` and retry so an unresponsive broker pod (briefly stalled
+	// over OpenShift/Submariner) cannot block reading stdout until the whole test times
+	// out (camunda/camunda#55038-adjacent); a transient stall self-resolves across
+	// attempts instead of consuming the entire test budget.
+	const execTimeout = 30 * time.Second
+	const maxAttempts = 6
+
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		// The broker pod runs a wait-clusterset-dns init container alongside the
+		// orchestration container; pin kubectl exec to the app container so the
+		// "Defaulted container" notice does not pollute the captured output.
+		pid, err := runKubectlExecWithTimeout(kubectlOptions, execTimeout, "exec", podName, "-c", "orchestration", "--", "pgrep", "java")
+		if err != nil {
+			lastErr = err
+			t.Logf("[ZEEBE BROKER ID] pgrep java on %s failed (attempt %d/%d): %v", podName, attempt, maxAttempts, err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		environ, err := runKubectlExecWithTimeout(kubectlOptions, execTimeout, "exec", podName, "-c", "orchestration", "--", "cat", fmt.Sprintf("/proc/%s/environ", pid))
+		if err != nil {
+			lastErr = err
+			t.Logf("[ZEEBE BROKER ID] reading /proc/%s/environ on %s failed (attempt %d/%d): %v", pid, podName, attempt, maxAttempts, err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		return helpers.CutOutString(environ, "ORCHESTRATION_NODE_ID=[0-9]")
 	}
 
-	output, err = k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "exec", podName, "-c", "orchestration", "--", "cat", fmt.Sprintf("/proc/%s/environ", output))
-	if err != nil {
-		t.Fatalf("[ZEEBE BROKER ID] %s", err)
-		return -1
-	}
-
-	return helpers.CutOutString(output, "ORCHESTRATION_NODE_ID=[0-9]")
+	t.Fatalf("[ZEEBE BROKER ID] could not read broker id from %s after %d attempts: %v", podName, maxAttempts, lastErr)
+	return -1
 }
 
 func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, namespace1 string) {
