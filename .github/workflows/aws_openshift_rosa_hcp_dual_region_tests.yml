@@ -483,7 +483,7 @@ jobs:
 
             - name: 🔬🚨 Debug Submariner connectivity
               if: failure()
-              run: ./generic/openshift/dual-region/procedure/submariner/diagnose-submariner.sh
+              run: bash ./generic/openshift/dual-region/procedure/submariner/diagnose-submariner.sh || true
 
             - name: 🏗️ Retrieve exported Environment values from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
