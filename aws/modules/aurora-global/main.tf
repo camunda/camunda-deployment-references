@@ -203,9 +203,24 @@ resource "aws_rds_cluster" "secondary" {
   lifecycle {
     prevent_destroy = false
     # Prevent Terraform from detaching the secondary from the global cluster
-    # during updates. The AWS provider removes+re-adds global membership on
-    # any attribute change, but AWS rejects re-adding an existing cluster.
-    ignore_changes = [global_cluster_identifier]
+    # during updates. The provider treats these as configured-empty on every
+    # plan (Computed: true is not respected for ignore_changes-style drift),
+    # so any unrelated update would plan to clear them — which AWS translates
+    # into PromoteReadReplicaDBCluster, kicking the cluster out of the global.
+    #
+    # - replication_source_identifier: AWS populates it with the primary's ARN
+    #   on attach. Clearing it triggers a promote-out-of-global.
+    # - global_cluster_identifier: AWS removes+re-adds membership on change,
+    #   but rejects re-adding an existing cluster.
+    # - engine_version: Aurora applies minor-version upgrades on its own; let
+    #   the global writer drive the version so the secondary follows.
+    #
+    # Mirrors terraform-aws-modules/terraform-aws-rds-aurora.
+    ignore_changes = [
+      replication_source_identifier,
+      global_cluster_identifier,
+      engine_version,
+    ]
   }
 
   depends_on = [time_sleep.wait_for_primary]
