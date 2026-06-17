@@ -19,7 +19,7 @@ For non-Kubernetes (ECS Fargate, EC2):
 | `auth-mode` | <p>Authentication mode: oidc, basic, or none.</p> | `false` | `oidc` |
 | `namespace` | <p>Kubernetes namespace where Camunda is deployed. Used for kubectl port-forward and secret extraction.</p> | `false` | `camunda` |
 | `release-name` | <p>Helm release name for Camunda. Derives service names (e.g., <release>-zeebe-gateway).</p> | `false` | `camunda` |
-| `keycloak-url` | <p>In-cluster Keycloak base URL for OIDC auth. Operator: <code>http://keycloak-service:18080/auth</code> Bitnami: <code>http://&lt;release&gt;-keycloak:80/auth</code></p> | `false` | `""` |
+| `keycloak-url` | <p>In-cluster Keycloak base URL for OIDC auth (operator: <code>http://keycloak-service:18080/auth</code>).</p> | `false` | `""` |
 | `oidc-client-id` | <p>OIDC client ID for M2M authentication. If empty, auto-extracted from <release-name>-credentials secret (client ID defaults to 'orchestration').</p> | `false` | `""` |
 | `oidc-client-secret` | <p>OIDC client secret for M2M authentication. If empty, auto-extracted from <release-name>-credentials secret (key: identity-orchestration-client-token).</p> | `false` | `""` |
 | `oidc-token-url` | <p>OIDC token endpoint URL (e.g., https://<keycloak>/realms/camunda-platform/protocol/openid-connect/token). Required for non-Kubernetes deployments (ECS / EC2) when auth-mode=oidc. In Kubernetes mode this input is ignored — the URL is derived from the auto-port-forwarded Keycloak.</p> | `false` | `""` |
@@ -73,7 +73,7 @@ This action is a `composite` action.
     # Default: camunda
 
     keycloak-url:
-    # In-cluster Keycloak base URL for OIDC auth. Operator: `http://keycloak-service:18080/auth` Bitnami: `http://<release>-keycloak:80/auth`
+    # In-cluster Keycloak base URL for OIDC auth (operator: `http://keycloak-service:18080/auth`).
     #
     # Required: false
     # Default: ""

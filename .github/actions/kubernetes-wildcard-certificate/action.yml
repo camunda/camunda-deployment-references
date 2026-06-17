@@ -15,8 +15,8 @@ inputs:
         description: |
             Name(s) of the TLS secret(s) to create from the same wildcard certificate.
             Accepts a single name or a newline-separated list to provision multiple
-            identical TLS secrets (e.g. one for the Camunda ingress and one consumed
-            by the Bitnami Keycloak sub-chart) without burning Let's Encrypt quota.
+            identical TLS secrets (e.g. one for the Camunda ingress and one for a
+            separate component) without burning Let's Encrypt quota.
         required: false
         default: camunda-tls
     vault-addr:
