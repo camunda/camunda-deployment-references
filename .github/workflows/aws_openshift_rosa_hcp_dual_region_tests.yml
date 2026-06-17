@@ -692,7 +692,7 @@ jobs:
               run: |
                   set -euo pipefail
                   if [ -z "${CAMUNDA_BASIC_AUTH_USER:-}" ] || [ -z "${CAMUNDA_BASIC_AUTH_PASSWORD:-}" ]; then
-                    echo "::error::CAMUNDA_BASIC_AUTH_USER/PASSWORD not set; refusing to run the dual-region topology check against a demo:demo gateway (INC-5340)." >&2
+                    echo "::error::CAMUNDA_BASIC_AUTH_USER/PASSWORD not set; refusing to run the dual-region topology check against a default-auth gateway (INC-5340)." >&2
                     exit 1
                   fi
 
