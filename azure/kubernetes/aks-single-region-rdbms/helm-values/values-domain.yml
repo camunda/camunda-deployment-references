@@ -31,8 +31,6 @@ global:
     identity:
         auth:
             enabled: true
-            identity:
-                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
             console:
                 redirectUrl: https://${CAMUNDA_DOMAIN}/console
             webModeler:
@@ -72,7 +70,6 @@ webModeler:
 
     restapi:
         externalDatabase:
-            enabled: true
             url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_WEBMODELER_NAME}?sslmode=require
             user: ${DB_WEBMODELER_USERNAME}
             secret:

@@ -5,6 +5,13 @@ CURRENT_DIR="$(dirname "$0")"
 
 source "${CURRENT_DIR}/helpers.sh"
 
+# Optional hook: if CAMUNDA_DISTRO_CACHE_LIB points to a shell library, source it. Unset by
+# default, so this is a no-op and each node downloads its own artifacts (see camunda-install.sh).
+if [[ -n "${CAMUNDA_DISTRO_CACHE_LIB:-}" && -f "${CAMUNDA_DISTRO_CACHE_LIB}" ]]; then
+    # shellcheck source=/dev/null
+    source "${CAMUNDA_DISTRO_CACHE_LIB}"
+fi
+
 CLOUDWATCH_ENABLED=${CLOUDWATCH_ENABLED:-false}
 USERNAME=${USERNAME:-"camunda"}
 ADMIN_USERNAME=${ADMIN_USERNAME:-"ubuntu"}
@@ -68,6 +75,12 @@ done
 ips_list=${ips_list%,}
 total_ip_count=${#IPS[@]}
 
+# Optionally pre-download the artifacts once for all nodes (no-op unless the cache helper above is
+# loaded, i.e. in CI).
+if declare -F warm_distro_cache >/dev/null; then
+    warm_distro_cache
+fi
+
 # Loop over each IP address
 # We're using source to call up child scripts with the same variable context
 # The idea is to divide the logic into smaller scripts for better readability and maintainability
@@ -84,7 +97,21 @@ for index in "${!IPS[@]}"; do
             'cat > /tmp/.camunda-distro-credentials && chmod 600 /tmp/.camunda-distro-credentials'
     fi
 
-    ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" < "${CURRENT_DIR}/camunda-install.sh"
+    # Optionally stage the pre-downloaded artifacts on this node (no-op unless the cache helper is
+    # loaded). The install script then copies them instead of downloading.
+    if declare -F push_distro_cache_to_node >/dev/null; then
+        push_distro_cache_to_node "${ip}"
+    fi
+
+    # Pipe the install script to the node. When the optional cache helper is loaded it prepends an
+    # opt-in export so the node consults the staged artifacts; otherwise only the script is sent and
+    # the node downloads from Artifactory as usual.
+    {
+        if declare -F distro_install_prelude >/dev/null; then
+            distro_install_prelude
+        fi
+        cat "${CURRENT_DIR}/camunda-install.sh"
+    } | ssh -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}"
 
     echo "[INFO] Attempting to connect to ${ip} to configure the Camunda 8 environment."
 

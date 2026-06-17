@@ -16,8 +16,11 @@ inputs:
         default: 2.15.52
 
     terraform-version:
-        description: Version of Terraform to install
-        default: latest
+        description: |
+            Version of Terraform to install. Use an empty string or 'latest' to
+            read the version from the consumer repo's .tool-versions file
+            (falls back to 'latest' when neither is present).
+        default: ''
 
     s3-backend-bucket:
         description: Name of the S3 bucket to store Terraform state
@@ -66,12 +69,32 @@ outputs:
 runs:
     using: composite
     steps:
+        - name: Resolve Terraform version
+          id: resolve-terraform-version
+          shell: bash
+          run: |
+              set -euo pipefail
+              version="${{ inputs.terraform-version }}"
+              if [[ -z "$version" || "$version" == "latest" ]]; then
+                  if [[ -f "${GITHUB_WORKSPACE}/.tool-versions" ]]; then
+                      from_file=$(awk '$1=="terraform"{print $2; exit}' "${GITHUB_WORKSPACE}/.tool-versions" || true)
+                      if [[ -n "$from_file" ]]; then
+                          version="$from_file"
+                          echo "Using Terraform version from .tool-versions: $version"
+                      fi
+                  fi
+              fi
+              if [[ -z "$version" ]]; then
+                  version="latest"
+              fi
+              echo "version=$version" >> "$GITHUB_OUTPUT"
+
         - name: Install Terraform
-          uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4
+          uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
           with:
               cli_config_credentials_hostname: ${{ inputs.tf-cli-config-credentials-hostname }}
               cli_config_credentials_token: ${{ inputs.tf-cli-config-credentials-token }}
-              terraform_version: ${{ inputs.terraform-version }}
+              terraform_version: ${{ steps.resolve-terraform-version.outputs.version }}
               terraform_wrapper: ${{ inputs.tf-terraform-wrapper }}
 
         - name: Install AWS CLI

@@ -17,14 +17,14 @@ jobs:
         name: links-check
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
             - name: Get Current Date
               id: dateofday
               run: echo "DATEOFDAY=$(date +%Y-%m-%d)" >> "$GITHUB_ENV"
 
             - name: Restore lychee cache
-              uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+              uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
               with:
                   path: .lycheecache
                   key: cache-lychee-${{ env.DATEOFDAY }}
@@ -37,7 +37,7 @@ jobs:
                   token: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Cache links
-              uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+              uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
               with:
                   path: .lycheecache
                   key: cache-lychee-${{ env.DATEOFDAY }}
@@ -53,9 +53,12 @@ jobs:
 
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
               if: failure() && env.IS_SCHEDULE == 'true'
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

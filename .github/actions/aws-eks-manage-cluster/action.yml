@@ -99,7 +99,7 @@ runs:
           # see https://github.com/orgs/community/discussions/41927 it's not possible to optimize this yet
           # steps.uses  cannot access the github context.
           # uses: ${{ github.action_repository }}/aws-utility-action@${{ github.action_ref }}
-          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@ff6f06d42c835a595ab0eedd511e03ac4ff71e49 # main
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@f923f83ae5325eda8ab8d740da073f15d19a2fc3 # main
           with:
               awscli-version: ${{ inputs.awscli-version }}
               terraform-version: ${{ inputs.terraform-version }}
@@ -115,7 +115,7 @@ runs:
               tf-terraform-wrapper: ${{ inputs.tf-terraform-wrapper }}
 
         - name: Checkout Repository EKS modules
-          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+          uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}

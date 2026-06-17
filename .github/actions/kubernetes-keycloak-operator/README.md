@@ -11,7 +11,7 @@ Uses scripts from generic/kubernetes/operator-based/ for deployment.
 | name | description | required | default |
 | --- | --- | --- | --- |
 | `namespace` | <p>Kubernetes namespace for deployment</p> | `false` | `camunda` |
-| `keycloak-mode` | <p>Keycloak deployment mode:</p> <ul> <li>'domain': With ingress for domain access (nginx)</li> <li>'domain-openshift': With ingress for OpenShift router</li> <li>'no-domain': Without ingress (port-forward access)</li> </ul> | `false` | `no-domain` |
+| `keycloak-mode` | <p>Keycloak deployment mode:</p> <ul> <li>'domain': With ingress for domain access (nginx)</li> <li>'domain-contour': With ingress for domain access (Contour)</li> <li>'domain-openshift': With ingress for OpenShift router</li> <li>'no-domain': Without ingress (port-forward access)</li> </ul> | `false` | `no-domain` |
 | `domain-name` | <p>Domain name (required for domain mode)</p> | `false` | `""` |
 
 
@@ -42,6 +42,7 @@ This action is a `composite` action.
     keycloak-mode:
     # Keycloak deployment mode:
     # - 'domain': With ingress for domain access (nginx)
+    # - 'domain-contour': With ingress for domain access (Contour)
     # - 'domain-openshift': With ingress for OpenShift router
     # - 'no-domain': Without ingress (port-forward access)
     #

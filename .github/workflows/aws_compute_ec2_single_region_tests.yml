@@ -35,6 +35,7 @@ on:
             - .github/actions/aws-compute-ec2-single-region-create/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-generic-terraform-outputs/**
+            - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/workflows/aws_compute_ec2_single_region_tests.yml
             - .tool-versions
@@ -66,11 +67,11 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.9?(\.(?<patch>\d+))?$
-    TESTS_CAMUNDA_VERSION: 8.9.0
+    TESTS_CAMUNDA_VERSION: 8.9.8
     TESTS_CAMUNDA_PREVIOUS_VERSION: 8.8.0 # Version to be used for upgrade tests, not updated automatically
 
     # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.9?(\.(?<patch>\d+))?$
-    TESTS_CONNECTORS_VERSION: 8.9.0
+    TESTS_CONNECTORS_VERSION: 8.9.5
     TESTS_CONNECTORS_PREVIOUS_VERSION: 8.8.0 # Version to be used for upgrade tests, not updated automatically
 
 jobs:
@@ -79,7 +80,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -93,12 +94,12 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -122,10 +123,10 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -180,10 +181,10 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Install zbctl
               run: |
@@ -199,11 +200,8 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            # TODO: Temporary workaround using existing CI credentials for Artifactory authentication.
-            #   Long-term, this should use a dedicated read-only service account.
-            #   See: https://github.com/camunda/team-infrastructure-experience/issues/1053
-            - name: Import Secrets
-              id: secrets
+            - name: Import Artifactory credentials
+              id: artifactory-credentials
               uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
                   url: ${{ secrets.VAULT_ADDR }}
@@ -212,8 +210,28 @@ jobs:
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
                   secrets: |
-                      secret/data/products/infrastructure-experience/ci/common MACHINE_USR;
-                      secret/data/products/infrastructure-experience/ci/common MACHINE_PWD;
+                      secret/data/products/infrastructure-experience/ci/artifactory-ro ARTIFACTORY_USR;
+                      secret/data/products/infrastructure-experience/ci/artifactory-ro ARTIFACTORY_PSW;
+
+            - name: Import Camunda basic auth credentials
+              id: camunda-credentials
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID | CAMUNDA_BASIC_AUTH_USER;
+                      secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET | CAMUNDA_BASIC_AUTH_PASSWORD;
+
+            - name: Export Camunda basic auth credentials
+              run: |
+                  {
+                    echo "CAMUNDA_BASIC_AUTH_USER=${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}"
+                    echo "CAMUNDA_BASIC_AUTH_PASSWORD=${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}"
+                  } >> "$GITHUB_ENV"
 
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
@@ -261,8 +279,19 @@ jobs:
                   CAMUNDA_PREVIOUS_VERSION: ${{ env.TESTS_CAMUNDA_PREVIOUS_VERSION }}
                   CAMUNDA_CONNECTORS_VERSION: ${{ env.TESTS_CONNECTORS_VERSION }}
                   CAMUNDA_CONNECTORS_PREVIOUS_VERSION: ${{ env.TESTS_CONNECTORS_PREVIOUS_VERSION }}
-                  CAMUNDA_DISTRO_USER: ${{ steps.secrets.outputs.MACHINE_USR }}
-                  CAMUNDA_DISTRO_PASSWORD: ${{ steps.secrets.outputs.MACHINE_PWD }}
+                  CAMUNDA_DISTRO_USER: ${{ steps.artifactory-credentials.outputs.ARTIFACTORY_USR }}
+                  CAMUNDA_DISTRO_PASSWORD: ${{ steps.artifactory-credentials.outputs.ARTIFACTORY_PSW }}
+                  # Download the distribution + connectors bundle once and stage them on every node,
+                  # instead of each node (x3) re-downloading from Artifactory on every install. The
+                  # cache dir persists for the whole job, so re-installs (CloudWatch, upgrade) reuse
+                  # it too. This is the main lever to cut our Artifactory egress. The caching logic
+                  # lives in a CI-only helper (test/ci-distro-cache.sh) so the customer-facing
+                  # procedure scripts stay free of it; all-in-one-install.sh sources it only when
+                  # CAMUNDA_DISTRO_CACHE_LIB is set.
+                  CAMUNDA_DISTRO_CACHE_DIR: ${{ runner.temp }}/camunda-distro-cache
+                  CAMUNDA_DISTRO_CACHE_LIB: ${{ github.workspace }}/aws/compute/ec2-single-region/test/ci-distro-cache.sh
+                  CAMUNDA_BASIC_AUTH_USER: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
+                  CAMUNDA_BASIC_AUTH_PASSWORD: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
               run: |
                   set -euo pipefail
                   export PATH=$PATH:$(go env GOPATH)/bin
@@ -271,6 +300,19 @@ jobs:
                   go install gotest.tools/gotestsum@latest
                   # Run all tests except TestSetup and TestTeardown
                   go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m --skip 'TestSetup|TestTeardown'
+
+            - name: 🔥 Run Camunda Smoke Test
+              if: env.TESTS_ENABLED == 'true'
+              timeout-minutes: 15
+              uses: ./.github/actions/camunda-smoke-test
+              with:
+                  auth-mode: basic
+                  zeebe-rest-address: >-
+                      http://${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
+                  basic-auth-user: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
+                  basic-auth-password: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
+                  benchmark-duration: '300'
+
             # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
             - name: Filter logger.go from the test report (too large)
               if: always()
@@ -303,14 +345,14 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Configure AWS CLI
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -370,19 +412,20 @@ jobs:
                     echo "SNAPSHOT_ERROR=false" >> "$GITHUB_OUTPUT"
                   fi
             - name: Run test-summary
-              uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2
+              uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5 # v2
               with:
                   paths: /tmp/testreports/**/*.xml
 
     report-success:
         name: Report success
+        if: ${{ !failure() && !cancelled() }}
         runs-on: ubuntu-latest
         needs:
             - integration-tests
             - cleanup-clusters
             - test-report
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -393,16 +436,19 @@ jobs:
     report-failure:
         name: Report failure
         runs-on: ubuntu-latest
-        if: failure()
+        if: needs.triage.outputs.should_skip == 'false' && (failure())
         needs:
+            - triage
             - report-success
             - test-report
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

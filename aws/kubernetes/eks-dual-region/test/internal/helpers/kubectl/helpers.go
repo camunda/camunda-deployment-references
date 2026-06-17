@@ -2,6 +2,7 @@ package kubectlHelpers
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,9 +27,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// basicAuthDemoHeader is the precomputed base64 for credentials demo:demo -> echo -n 'demo:demo' | base64
-// Used only for test/demo authentication against the Camunda components.
-const basicAuthDemoHeader = "Basic ZGVtbzpkZW1v"
+// basicAuthHeader returns the Authorization header for the Camunda basic-auth
+// user. Sourced from CAMUNDA_BASIC_AUTH_USER and CAMUNDA_BASIC_AUTH_PASSWORD env
+// vars (set in CI by internal-camunda-ci-credentials).
+// It is evaluated lazily (not at package init) so test phases that never issue
+// authenticated requests — e.g. kubeconfig generation during cluster prepare and
+// cleanup — do not require these credentials. Panics if either is empty when an
+// authenticated request is actually made — the publicly reachable CI cluster
+// must never authenticate with demo:demo (see incident INC-5340).
+func basicAuthHeader() string {
+	user := os.Getenv("CAMUNDA_BASIC_AUTH_USER")
+	password := os.Getenv("CAMUNDA_BASIC_AUTH_PASSWORD")
+	if user == "" || password == "" {
+		panic("CAMUNDA_BASIC_AUTH_USER and CAMUNDA_BASIC_AUTH_PASSWORD must be set (see INC-5340)")
+	}
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+password))
+}
 
 var (
 	// ElasticsearchPodName is the ECK-managed Elasticsearch pod used for exec operations (backup, restore, health checks).
@@ -254,7 +268,7 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster, tenantId st
 			return
 		}
 		req.Header.Add("Content-Type", "application/json")
-		req.Header.Add("Authorization", basicAuthDemoHeader)
+		req.Header.Add("Authorization", basicAuthHeader())
 
 		res, err := client.Do(req)
 		if err != nil {
@@ -317,7 +331,7 @@ func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size
 			return
 		}
 		req.Header.Add("Content-Type", "application/json")
-		req.Header.Add("Authorization", basicAuthDemoHeader)
+		req.Header.Add("Authorization", basicAuthHeader())
 
 		res, err := client.Do(req)
 		if err != nil {
@@ -715,7 +729,7 @@ func StartProcessInstances(t *testing.T, kubectlOptions *k8s.KubectlOptions, pro
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
 				"Accept":        "application/json",
-				"Authorization": basicAuthDemoHeader,
+				"Authorization": basicAuthHeader(),
 			},
 			TlsConfig: nil,
 			Timeout:   30,
@@ -781,7 +795,7 @@ func DeployBpmnProcess(t *testing.T, kubectlOptions *k8s.KubectlOptions, bpmnFil
 		Headers: map[string]string{
 			"Content-Type":  writer.FormDataContentType(),
 			"Accept":        "application/json",
-			"Authorization": basicAuthDemoHeader,
+			"Authorization": basicAuthHeader(),
 		},
 		TlsConfig: nil,
 		Timeout:   30,
@@ -876,7 +890,7 @@ func CreateTenant(t *testing.T, cluster helpers.Cluster, tenantId, name, descrip
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", basicAuthDemoHeader)
+	req.Header.Add("Authorization", basicAuthHeader())
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -918,7 +932,7 @@ func AssignRoleToTenant(t *testing.T, cluster helpers.Cluster, tenantId, roleID 
 		return
 	}
 
-	req.Header.Add("Authorization", basicAuthDemoHeader)
+	req.Header.Add("Authorization", basicAuthHeader())
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -960,7 +974,7 @@ func CheckTenantExists(t *testing.T, cluster helpers.Cluster, tenantId string) {
 	}
 
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", basicAuthDemoHeader)
+	req.Header.Add("Authorization", basicAuthHeader())
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -1117,7 +1131,7 @@ func WaitForGatewayAuthReady(t *testing.T, kubectlOptions *k8s.KubectlOptions, m
 			time.Sleep(interval)
 			continue
 		}
-		req.Header.Set("Authorization", basicAuthDemoHeader)
+		req.Header.Set("Authorization", basicAuthHeader())
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -1153,7 +1167,7 @@ func GetClusterTopology(t *testing.T, kubectlOptions *k8s.KubectlOptions) Cluste
 		Method: "GET",
 		Url:    fmt.Sprintf("http://%s/v2/topology", endpoint),
 		Headers: map[string]string{
-			"Authorization": basicAuthDemoHeader,
+			"Authorization": basicAuthHeader(),
 			"Accept":        "application/json",
 		},
 		TlsConfig: nil,

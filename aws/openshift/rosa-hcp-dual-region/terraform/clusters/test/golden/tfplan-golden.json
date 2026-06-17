@@ -413,6 +413,7 @@
                   "schema_version": 0,
                   "sensitive_values": {
                     "account_role_policies": {},
+                    "ocm_role_policies": {},
                     "operator_role_policies": {}
                   },
                   "type": "rhcs_hcp_policies"
@@ -441,7 +442,8 @@
                       "account_iam_role_name": "[\"cluster-region-0-account-HCP-ROSA-Installer-Role\",\"cluster-region-0-account-HCP-ROSA-Support-Role\",\"cluster-region-0-account-HCP-ROSA-Worker-Role\"]",
                       "account_role_prefix": "cluster-region-0-account",
                       "path": "/",
-                      "shared_vpc_policy_attachments": "[]"
+                      "shared_vpc_policy_attachments": "[]",
+                      "trust_policy_external_id": null
                     }
                   }
                 }
@@ -1881,6 +1883,12 @@
         "module.rosa_cluster_0.module.vpc": {
           "resources": {
             "module.rosa_cluster_0.module.vpc.aws_eip.eip[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "eip",
@@ -1907,6 +1915,12 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_eip.eip[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "eip",
@@ -1933,6 +1947,12 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_eip.eip[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "eip",
@@ -1959,6 +1979,12 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_internet_gateway.internet_gateway": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "internet_gateway",
               "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1980,6 +2006,12 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_nat_gateway.public_nat_gateway[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "public_nat_gateway",
@@ -2008,6 +2040,12 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_nat_gateway.public_nat_gateway[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "public_nat_gateway",
@@ -2036,6 +2074,12 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_nat_gateway.public_nat_gateway[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "public_nat_gateway",
@@ -2088,6 +2132,7 @@
                 "egress_only_gateway_id": null,
                 "local_gateway_id": null,
                 "nat_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "us-east-1",
                 "timeouts": null,
                 "transit_gateway_id": null,
@@ -2120,6 +2165,7 @@
                 "egress_only_gateway_id": null,
                 "local_gateway_id": null,
                 "nat_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "us-east-1",
                 "timeouts": null,
                 "transit_gateway_id": null,
@@ -2153,6 +2199,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "us-east-1",
                 "timeouts": null,
                 "transit_gateway_id": null,
@@ -2186,6 +2233,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "us-east-1",
                 "timeouts": null,
                 "transit_gateway_id": null,
@@ -2219,6 +2267,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "us-east-1",
                 "timeouts": null,
                 "transit_gateway_id": null,
@@ -2787,6 +2836,13 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[0]": {
+              "identity": {
+                "account_id": null,
+                "region": null,
+                "route_table_id": null,
+                "vpc_endpoint_id": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private_vpc_endpoint_route_table_association",
@@ -2799,6 +2855,13 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[1]": {
+              "identity": {
+                "account_id": null,
+                "region": null,
+                "route_table_id": null,
+                "vpc_endpoint_id": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private_vpc_endpoint_route_table_association",
@@ -2811,6 +2874,13 @@
               }
             },
             "module.rosa_cluster_0.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[2]": {
+              "identity": {
+                "account_id": null,
+                "region": null,
+                "route_table_id": null,
+                "vpc_endpoint_id": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private_vpc_endpoint_route_table_association",
@@ -3256,6 +3326,7 @@
                   "schema_version": 0,
                   "sensitive_values": {
                     "account_role_policies": {},
+                    "ocm_role_policies": {},
                     "operator_role_policies": {}
                   },
                   "type": "rhcs_hcp_policies"
@@ -3284,7 +3355,8 @@
                       "account_iam_role_name": "[\"cluster-region-1-account-HCP-ROSA-Installer-Role\",\"cluster-region-1-account-HCP-ROSA-Support-Role\",\"cluster-region-1-account-HCP-ROSA-Worker-Role\"]",
                       "account_role_prefix": "cluster-region-1-account",
                       "path": "/",
-                      "shared_vpc_policy_attachments": "[]"
+                      "shared_vpc_policy_attachments": "[]",
+                      "trust_policy_external_id": null
                     }
                   }
                 }
@@ -4724,6 +4796,12 @@
         "module.rosa_cluster_1.module.vpc": {
           "resources": {
             "module.rosa_cluster_1.module.vpc.aws_eip.eip[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "eip",
@@ -4750,6 +4828,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_eip.eip[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "eip",
@@ -4776,6 +4860,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_eip.eip[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "eip",
@@ -4802,6 +4892,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_internet_gateway.internet_gateway": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "mode": "managed",
               "name": "internet_gateway",
               "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -4823,6 +4919,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_nat_gateway.public_nat_gateway[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "public_nat_gateway",
@@ -4851,6 +4953,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_nat_gateway.public_nat_gateway[1]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "public_nat_gateway",
@@ -4879,6 +4987,12 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_nat_gateway.public_nat_gateway[2]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "public_nat_gateway",
@@ -4931,6 +5045,7 @@
                 "egress_only_gateway_id": null,
                 "local_gateway_id": null,
                 "nat_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "us-east-2",
                 "timeouts": null,
                 "transit_gateway_id": null,
@@ -4963,6 +5078,7 @@
                 "egress_only_gateway_id": null,
                 "local_gateway_id": null,
                 "nat_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "us-east-2",
                 "timeouts": null,
                 "transit_gateway_id": null,
@@ -4996,6 +5112,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "us-east-2",
                 "timeouts": null,
                 "transit_gateway_id": null,
@@ -5029,6 +5146,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "us-east-2",
                 "timeouts": null,
                 "transit_gateway_id": null,
@@ -5062,6 +5180,7 @@
                 "egress_only_gateway_id": null,
                 "gateway_id": null,
                 "local_gateway_id": null,
+                "odb_network_arn": null,
                 "region": "us-east-2",
                 "timeouts": null,
                 "transit_gateway_id": null,
@@ -5630,6 +5749,13 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[0]": {
+              "identity": {
+                "account_id": null,
+                "region": null,
+                "route_table_id": null,
+                "vpc_endpoint_id": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "private_vpc_endpoint_route_table_association",
@@ -5642,6 +5768,13 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[1]": {
+              "identity": {
+                "account_id": null,
+                "region": null,
+                "route_table_id": null,
+                "vpc_endpoint_id": null
+              },
+              "identity_schema_version": 0,
               "index": 1,
               "mode": "managed",
               "name": "private_vpc_endpoint_route_table_association",
@@ -5654,6 +5787,13 @@
               }
             },
             "module.rosa_cluster_1.module.vpc.aws_vpc_endpoint_route_table_association.private_vpc_endpoint_route_table_association[2]": {
+              "identity": {
+                "account_id": null,
+                "region": null,
+                "route_table_id": null,
+                "vpc_endpoint_id": null
+              },
+              "identity_schema_version": 0,
               "index": 2,
               "mode": "managed",
               "name": "private_vpc_endpoint_route_table_association",

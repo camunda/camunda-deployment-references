@@ -32,6 +32,7 @@ global:
 
     ingress:
         enabled: true
+        className: contour
         host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
@@ -42,8 +43,6 @@ global:
     identity:
         auth:
             enabled: true
-            identity:
-                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
             console:
                 redirectUrl: https://${CAMUNDA_DOMAIN}/console
             webModeler:
@@ -138,12 +137,17 @@ orchestration:
     ingress:
         grpc:
             enabled: true
+            className: contour
             host: zeebe-${CAMUNDA_DOMAIN}
             tls:
                 enabled: true
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
+
+    service:
+        annotations:
+            projectcontour.io/upstream-protocol.h2c: '26500'
 
 console:
     enabled: false # by default, console is not enabled

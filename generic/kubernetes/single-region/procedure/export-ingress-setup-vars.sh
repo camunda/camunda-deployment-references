@@ -8,7 +8,9 @@ export MAIL=admin@camunda.example.com
 
 # renovate: datasource=helm depName=ingress-nginx registryUrl=https://kubernetes.github.io/ingress-nginx
 export INGRESS_HELM_CHART_VERSION="4.15.1"
+# renovate: datasource=helm depName=contour registryUrl=https://projectcontour.github.io/helm-charts/
+export CONTOUR_HELM_CHART_VERSION="0.4.0"
 # renovate: datasource=helm depName=external-dns registryUrl=https://kubernetes-sigs.github.io/external-dns/
 export EXTERNAL_DNS_HELM_CHART_VERSION="1.20.0"
 # renovate: datasource=helm depName=cert-manager registryUrl=https://charts.jetstack.io
-export CERT_MANAGER_HELM_CHART_VERSION="1.20.1"
+export CERT_MANAGER_HELM_CHART_VERSION="1.20.2"

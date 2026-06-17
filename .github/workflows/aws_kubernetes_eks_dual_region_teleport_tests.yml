@@ -67,7 +67,7 @@ env:
     TELEPORT: true
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 14.0.0
+    CAMUNDA_HELM_CHART_VERSION: 14.4.1
 
 jobs:
     triage:
@@ -75,7 +75,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -87,9 +87,9 @@ jobs:
             - triage
         steps:
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -102,7 +102,7 @@ jobs:
               uses: teleport-actions/setup@b638ff596557cc3959eb6b5287d5e58e0c8ac6a6 # v1
               with:
                   # renovate: datasource=custom.teleport-camunda depName=teleport
-                  version: 18.7.3
+                  version: 18.7.4
             - name: Authenticate with Teleport
               uses: teleport-actions/auth-k8s@0f46164469ae4fcd4d359d40e06bab17d4be17c9 # v2
               with:
@@ -301,6 +301,9 @@ jobs:
                   region-0-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region0/camunda-values.yml
                   region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
                   skip-cleanup: 'true'
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             ############# Debug failed pods ##############
             - name: Debug failed pods on cluster-0
@@ -348,11 +351,12 @@ jobs:
 
     report-success:
         name: Report success
+        if: ${{ !failure() && !cancelled() }}
         runs-on: ubuntu-latest
         needs:
             - integration-tests
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -362,16 +366,19 @@ jobs:
 
     report-failure:
         name: Report failures
-        if: failure()
+        if: needs.triage.outputs.should_skip == 'false' && (failure())
         runs-on: ubuntu-latest
         needs:
+            - triage
             - report-success
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

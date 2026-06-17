@@ -20,12 +20,12 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
-            - uses: camunda/camunda-deployment-references/.github/actions/aws-configure-cli@ff6f06d42c835a595ab0eedd511e03ac4ff71e49 # main
+            - uses: camunda/camunda-deployment-references/.github/actions/aws-configure-cli@f923f83ae5325eda8ab8d740da073f15d19a2fc3 # main
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
@@ -72,9 +72,12 @@ jobs:
 
             - name: Notify in Slack in case of failure
               id: slack-notification
-              if: failure() && github.event_name == 'schedule'
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              if: failure()
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ github.event_name == 'schedule' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ github.event_name == 'schedule' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ github.event_name == 'schedule' && 'false' || 'true' }}

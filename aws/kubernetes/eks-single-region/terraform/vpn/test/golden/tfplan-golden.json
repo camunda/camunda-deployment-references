@@ -26,6 +26,8 @@
             "certificate_authority_arn": null,
             "certificate_chain": null,
             "early_renewal_duration": null,
+            "private_key_wo": null,
+            "private_key_wo_version": null,
             "region": "eu-west-2",
             "tags": null,
             "validation_option": []
@@ -54,6 +56,8 @@
           "values": {
             "certificate_authority_arn": null,
             "early_renewal_duration": null,
+            "private_key_wo": null,
+            "private_key_wo_version": null,
             "region": "eu-west-2",
             "tags": null,
             "validation_option": []
@@ -139,7 +143,8 @@
             ],
             "security_group_ids": [],
             "tags": {},
-            "tags_all": {}
+            "tags_all": {},
+            "transit_gateway_configuration": []
           },
           "type": "aws_ec2_client_vpn_endpoint",
           "values": {

@@ -27,12 +27,6 @@ global:
 
             console:
                 redirectUrl: https://camunda.example.com/console
-                secret:
-                    existingSecret: camunda-credentials
-                    existingSecretKey: identity-console-client-token
-
-            identity:
-                redirectUrl: https://camunda.example.com/managementidentity
 
             optimize:
                 redirectUrl: https://camunda.example.com/optimize
@@ -53,8 +47,6 @@ global:
 
 connectors:
     enabled: true
-    inbound:
-        mode: disabled
     resources:
         requests:
             cpu: 100m

@@ -13,6 +13,7 @@ inputs:
         description: |
             Keycloak deployment mode:
             - 'domain': With ingress for domain access (nginx)
+            - 'domain-contour': With ingress for domain access (Contour)
             - 'domain-openshift': With ingress for OpenShift router
             - 'no-domain': Without ingress (port-forward access)
         required: false
@@ -60,6 +61,9 @@ runs:
                       ;;
                   "domain")
                       export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-nginx.yml"
+                      ;;
+                  "domain-contour")
+                      export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-contour.yml"
                       ;;
                   "domain-openshift")
                       export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-openshift.yml"

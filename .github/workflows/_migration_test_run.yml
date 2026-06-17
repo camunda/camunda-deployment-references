@@ -21,7 +21,7 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 14.0.0
+    CAMUNDA_HELM_CHART_VERSION: 14.4.1
     # NOTE: keep in sync with generic_kubernetes_migration_test.yml
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
             ES_RESTORE_TIMEOUT: ${{ (matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light') == 'heavy' && '5400' || '1800'
                 }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
             - name: Install build dependencies
               run: |
@@ -55,7 +55,7 @@ jobs:
                   sudo apt-get install -y -qq build-essential libssl-dev zlib1g-dev libffi-dev gettext-base
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
             - name: Import Secrets
               id: secrets
@@ -160,8 +160,109 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
+            # Pre-pull every source image once on the host and side-load it into the
+            # Kind nodes. Each Kind node runs its own containerd and pulls images
+            # independently, so without this the large application images (camunda
+            # ~480MB, elasticsearch ~740MB, optimize ~560MB, connectors ~530MB,
+            # keycloak ~460MB, ...) are fetched several times over the runner's
+            # shared egress bandwidth. Under that contention a single pull can stall
+            # long enough to never converge within the `helm install --wait` budget.
+            # Pulling once on the host and loading from the local cache gives the
+            # deployment a warm image cache and removes the redundant downloads.
+            - name: Pre-pull source images into Kind
+              timeout-minutes: 20
+              run: |
+                  set -euo pipefail
+
+                  echo "Adding Camunda Helm repository..."
+                  helm repo add camunda https://helm.camunda.io
+                  helm repo update
+
+                  # Authenticate the host Docker daemon to the image registries.
+                  echo "${{ steps.secrets.outputs.MACHINE_PWD }}" | docker login registry.camunda.cloud \
+                      --username "${{ steps.secrets.outputs.MACHINE_USR }}" --password-stdin
+                  echo "${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}" | docker login index.docker.io \
+                      --username "${{ steps.secrets.outputs.DOCKERHUB_USER }}" --password-stdin
+
+                  TEMPLATE_ARGS=(
+                      --namespace "${{ env.CAMUNDA_NAMESPACE }}"
+                      --values generic/kubernetes/migration/tests/bitnami-values.yml
+                      --values generic/kubernetes/migration/tests/bitnami-values-identity-test.yml
+                  )
+                  if [[ "${{ matrix.distro.use_tls }}" == "true" ]]; then
+                      TEMPLATE_ARGS+=(--values generic/kubernetes/migration/tests/bitnami-values-domain.yml)
+                  fi
+
+                  CHART_VERSION="${{ env.CAMUNDA_HELM_CHART_VERSION }}"
+                  if [[ "${CHART_VERSION}" == *dev-latest* ]]; then
+                      CHART_REF="oci://registry.camunda.cloud/team-distribution/camunda-platform"
+                  else
+                      CHART_REF="camunda/camunda-platform"
+                  fi
+
+                  # Render the chart and collect the unique set of container images.
+                  mapfile -t IMAGES < <(
+                      helm template camunda "${CHART_REF}" --version "${CHART_VERSION}" "${TEMPLATE_ARGS[@]}" \
+                          | grep -oE 'image:[[:space:]]*"?[^"[:space:]]+"?' \
+                          | sed -E 's/image:[[:space:]]*//; s/"//g' \
+                          | sort -u
+                  )
+
+                  echo "Found ${#IMAGES[@]} images to pre-pull:"
+                  printf '  %s\n' "${IMAGES[@]}"
+
+                  # Pull all images on the host in parallel (each downloaded once).
+                  printf '%s\n' "${IMAGES[@]}" \
+                      | xargs -P 6 -I {} sh -c 'docker pull --quiet --platform linux/amd64 "{}" || echo "::warning::pre-pull failed for {}"'
+
+                  # Side-load every locally available image into the Kind nodes.
+                  # `kind load docker-image` runs `ctr images import --all-platforms
+                  # --digests`, which fails on Docker's containerd image store: the
+                  # exported archive keeps a multi-platform image index whose
+                  # per-arch blobs were never pulled, so ctr aborts with
+                  # "content digest ... not found". Import the saved archive directly
+                  # without those flags to load just the pulled linux/amd64 platform.
+                  mapfile -t NODES < <(kind get nodes --name "${CLUSTER_NAME}")
+                  for img in "${IMAGES[@]}"; do
+                      if ! docker image inspect "${img}" >/dev/null 2>&1; then
+                          continue
+                      fi
+                      echo "Loading ${img} into Kind..."
+                      archive="$(mktemp)"
+                      if ! docker save "${img}" -o "${archive}"; then
+                          echo "::warning::docker save failed for ${img}"
+                          rm -f "${archive}"
+                          continue
+                      fi
+                      for node in "${NODES[@]}"; do
+                          docker exec -i "${node}" ctr --namespace=k8s.io images import \
+                              --snapshotter=overlayfs - < "${archive}" \
+                              || echo "::warning::image import failed for ${img} on ${node}"
+                      done
+                      rm -f "${archive}"
+                  done
+
+                  # The pulled images now live inside each Kind node's own
+                  # containerd store (loaded via `ctr images import` above), so
+                  # the copies still held by the host (dind) Docker daemon are
+                  # redundant for the deployment — Kind never reads from the host
+                  # daemon. On the heavy benchmark these copies are several GB
+                  # that push the runner node toward DiskPressure (which evicts
+                  # pods and breaks the run). Drop them now that side-load is
+                  # done. `kindest/node` backs the running node containers, so
+                  # `docker image prune` keeps it.
+                  echo "Reclaiming host (dind) image cache after side-load..."
+                  docker image prune -af || true
+                  docker system df || true
+
+                  echo "Pre-pull complete."
+
             - name: Deploy Camunda with Bitnami sub-charts
-              timeout-minutes: 10
+              # Images are pre-pulled and side-loaded into Kind by the previous step,
+              # so the deployment starts with a warm image cache and only needs time
+              # for the components to boot and pass their readiness probes.
+              # Helm install --timeout is 30m below; keep some GHA headroom on top.
+              timeout-minutes: 35
               run: |
                   set -euo pipefail
 
@@ -173,7 +274,7 @@ jobs:
                       --namespace "${{ env.CAMUNDA_NAMESPACE }}"
                       --values generic/kubernetes/migration/tests/bitnami-values.yml
                       --values generic/kubernetes/migration/tests/bitnami-values-identity-test.yml
-                      --timeout 20m
+                      --timeout 30m
                       --wait
                   )
 
@@ -210,6 +311,9 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   exclude-patterns: |
                       Bitnami-based subcharts are deprecated
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             # =================================================================
             # STEP 1.5: Generate Test Data for Migration Validation
@@ -330,6 +434,25 @@ jobs:
 
                   echo "Data propagation complete"
 
+            # Disk consumed by the Kind nodes + images lives in the dind Docker
+            # daemon, so `docker system df` is the metric that tracks node
+            # DiskPressure (`df -h` is best-effort from the runner container).
+            # Logged at the data-generation and cutover boundaries so the heavy
+            # run's disk high-water mark can be measured and the runner volume
+            # sized accordingly.
+            - name: Report disk usage (after data generation)
+              if: always()
+              run: |
+                  set -euo pipefail
+                  {
+                    echo "### Disk usage — after data generation (scenario: ${BENCHMARK_SCENARIO:-light})"
+                    echo '```'
+                    docker system df || true
+                    echo ""
+                    df -h || true
+                    echo '```'
+                  } | tee -a "$GITHUB_STEP_SUMMARY"
+
             # =================================================================
             # STEP 2: Run Migration (4 phases)
             # =================================================================
@@ -437,11 +560,30 @@ jobs:
 
                   ./3-cutover.sh --yes
 
+            # Peak disk: source (Bitnami) and target (ECK) Elasticsearch both
+            # hold the full data set at cutover, so this is the high-water mark
+            # used to size the dedicated runner volume.
+            - name: Report disk usage (after cutover)
+              if: always()
+              run: |
+                  set -euo pipefail
+                  {
+                    echo "### Disk usage — after cutover, peak: source + target ES (scenario: ${BENCHMARK_SCENARIO:-light})"
+                    echo '```'
+                    docker system df || true
+                    echo ""
+                    df -h || true
+                    echo '```'
+                  } | tee -a "$GITHUB_STEP_SUMMARY"
+
             - name: 🔍 Check for Helm deprecation warnings (after cutover)
               uses: ./.github/actions/internal-helm-deprecation-check
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             # --- Phase 4: Validate ---
             - name: Phase 4 - Validate migration
@@ -472,9 +614,13 @@ jobs:
                   export NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
                   export TEST_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
                   export TEST_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+                  # Empty in this workflow today (no internal-camunda-ci-credentials wired in);
+                  # kept here so the rendered job never falls back to demo:demo (INC-5340).
+                  export CAMUNDA_BASIC_AUTH_USER="${CAMUNDA_BASIC_AUTH_USER:-}"
+                  export CAMUNDA_BASIC_AUTH_PASSWORD="${CAMUNDA_BASIC_AUTH_PASSWORD:-}"
 
                   # shellcheck disable=SC2016
-                  envsubst '${NAMESPACE} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET}' \
+                  envsubst '${NAMESPACE} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET} ${CAMUNDA_BASIC_AUTH_USER} ${CAMUNDA_BASIC_AUTH_PASSWORD}' \
                       < generic/kubernetes/migration/tests/verify-test-data-job.yml \
                       | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
 
@@ -541,7 +687,6 @@ jobs:
               timeout-minutes: 15
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
-                  secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ''
@@ -553,8 +698,6 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
                   test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
-                  # Disable Venom/Helm chart tests, only run C8-SM-CHECKS
-                  enable-helm-chart-tests: 'false'
                   enable-zeebe-client-tests: 'false'
                   keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200
@@ -589,12 +732,14 @@ jobs:
                   export NAMESPACE="${{ env.CAMUNDA_NAMESPACE }}"
                   export TEST_CLIENT_ID="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}"
                   export TEST_CLIENT_SECRET="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}"
+                  export CAMUNDA_BASIC_AUTH_USER="${CAMUNDA_BASIC_AUTH_USER:-}"
+                  export CAMUNDA_BASIC_AUTH_PASSWORD="${CAMUNDA_BASIC_AUTH_PASSWORD:-}"
 
                   # Delete previous verify job from Phase 4
                   kubectl delete job verify-test-data -n "${{ env.CAMUNDA_NAMESPACE }}" --ignore-not-found=true
 
                   # shellcheck disable=SC2016
-                  envsubst '${NAMESPACE} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET}' \
+                  envsubst '${NAMESPACE} ${TEST_CLIENT_ID} ${TEST_CLIENT_SECRET} ${CAMUNDA_BASIC_AUTH_USER} ${CAMUNDA_BASIC_AUTH_PASSWORD}' \
                       < generic/kubernetes/migration/tests/verify-test-data-job.yml \
                       | kubectl apply -n "${{ env.CAMUNDA_NAMESPACE }}" -f -
 
@@ -624,7 +769,6 @@ jobs:
               timeout-minutes: 15
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
-                  secrets: ${{ toJSON(secrets) }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ''
@@ -636,7 +780,6 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-client-id: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_ID }}
                   test-client-secret: ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
-                  enable-helm-chart-tests: 'false'
                   enable-zeebe-client-tests: 'false'
                   keycloak-service-name: keycloak-service:18080
                   elasticsearch-service-name: elasticsearch-es-http:9200

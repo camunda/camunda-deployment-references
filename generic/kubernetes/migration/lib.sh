@@ -217,11 +217,21 @@ check_env() {
             # Compare major.minor of deployed version against expected version
             local deployed_major_minor="${deployed_app_version%.*}"
             if [[ "$deployed_major_minor" != "$expected_version" ]]; then
-                log_error "Deployed Camunda version ${deployed_app_version} (${deployed_major_minor}) does not match expected version ${expected_version} from .camunda-version"
-                log_error "These migration scripts are designed for Camunda ${expected_version}. Check that you are using the correct branch."
-                exit 1
+                if [[ "${SKIP_HELM_UPGRADE:-false}" == "true" ]]; then
+                    # Data-only migration: the deployed version is intentionally the
+                    # previous minor — the caller upgrades to ${expected_version}
+                    # after the data has moved onto the external backends. (This is
+                    # the only supported order when the target minor has dropped the
+                    # bundled Bitnami subcharts, so the source cannot be on it.)
+                    log_warn "Deployed Camunda version ${deployed_app_version} (${deployed_major_minor}) differs from ${expected_version}; allowed because SKIP_HELM_UPGRADE=true (caller performs the version upgrade)"
+                else
+                    log_error "Deployed Camunda version ${deployed_app_version} (${deployed_major_minor}) does not match expected version ${expected_version} from .camunda-version"
+                    log_error "These migration scripts are designed for Camunda ${expected_version}. Check that you are using the correct branch."
+                    exit 1
+                fi
+            else
+                log_info "Deployed Camunda version ${deployed_app_version} matches expected ${expected_version}"
             fi
-            log_info "Deployed Camunda version ${deployed_app_version} matches expected ${expected_version}"
         fi
     else
         log_warn ".camunda-version file not found at ${version_file} — skipping version pre-check"
@@ -698,11 +708,18 @@ warn_customization() {
         echo "║  • ES data migration must be done manually (see README)                ║"
         echo "║  • You must provide CUSTOM_HELM_VALUES_FILE with ES connection info    ║"
         fi
-        if is_external_pg && [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
+        if is_external_pg && [[ "${MIGRATE_KEYCLOAK}" == "true" ]] && ! is_external_keycloak; then
         echo "║                                                                        ║"
         echo "║  Keycloak + external PG:                                               ║"
         echo "║  • Keycloak Operator IS still deployed (no managed KC service exists)   ║"
         echo "║  • Set CUSTOM_KEYCLOAK_CONFIG_FILE to a CR pointing to external PG     ║"
+        fi
+        if is_external_keycloak; then
+        echo "║                                                                        ║"
+        echo "║  KEYCLOAK_TARGET_MODE=external (data-only)                             ║"
+        echo "║  • Keycloak Operator will NOT be deployed                              ║"
+        echo "║  • Realm database is migrated to the external Keycloak PG instance     ║"
+        echo "║  • Caller must perform the Helm upgrade pointing at this Keycloak      ║"
         fi
         echo "╚══════════════════════════════════════════════════════════════════════════╝"
         echo ""
@@ -715,6 +732,39 @@ warn_customization() {
 
 is_external_pg() { [[ "${PG_TARGET_MODE:-operator}" == "external" ]]; }
 is_external_es() { [[ "${ES_TARGET_MODE:-operator}" == "external" ]]; }
+is_external_keycloak() { [[ "${KEYCLOAK_TARGET_MODE:-operator}" == "external" ]]; }
+
+# Validate external Keycloak configuration.
+# In external mode the scripts do not deploy Keycloak; Camunda is pointed at a
+# pre-existing instance whose realm lives in the external Keycloak database, so
+# the Keycloak PostgreSQL target must also be external.
+validate_external_keycloak_config() {
+    local errs=0
+
+    if [[ -z "${EXTERNAL_KEYCLOAK_HOST:-}" ]]; then
+        log_error "EXTERNAL_KEYCLOAK_HOST must be set when KEYCLOAK_TARGET_MODE=external"
+        errs=1
+    fi
+
+    if ! is_external_pg; then
+        log_error "KEYCLOAK_TARGET_MODE=external requires PG_TARGET_MODE=external"
+        log_error "  The external Keycloak must serve the migrated realm from the external Keycloak database."
+        errs=1
+    fi
+
+    if [[ "${SKIP_HELM_UPGRADE:-false}" != "true" ]]; then
+        log_error "KEYCLOAK_TARGET_MODE=external requires SKIP_HELM_UPGRADE=true"
+        log_error "  External Keycloak mode is data-only: the scripts migrate the realm database"
+        log_error "  and then exit. The caller must perform the Helm upgrade, wiring Camunda at"
+        log_error "  the external Keycloak (global.identity.keycloak.url + auth credentials)."
+        errs=1
+    fi
+
+    if [[ "$errs" -eq 0 ]]; then
+        log_success "  keycloak: external instance OK (${EXTERNAL_KEYCLOAK_PROTOCOL:-http}://${EXTERNAL_KEYCLOAK_HOST}:${EXTERNAL_KEYCLOAK_PORT:-80}${EXTERNAL_KEYCLOAK_CONTEXT_PATH:-/auth})"
+    fi
+    return "$errs"
+}
 
 # Validate that external PG configuration is complete for a component.
 # Usage: validate_external_pg_config <component>
@@ -760,6 +810,13 @@ validate_external_es_config() {
 
 # Validate custom helm values file exists when external targets are used.
 validate_custom_helm_values() {
+    # When SKIP_HELM_UPGRADE=true the scripts migrate data only and do not run
+    # the helm upgrade (the caller owns it), so a custom values file pointing
+    # Camunda at the external targets is not needed here.
+    if [[ "${SKIP_HELM_UPGRADE:-false}" == "true" ]]; then
+        return 0
+    fi
+
     if (is_external_pg || is_external_es) && [[ -z "${CUSTOM_HELM_VALUES_FILE:-}" ]]; then
         log_error "CUSTOM_HELM_VALUES_FILE must be set when using external targets"
         log_error "  This file should contain helm values to connect Camunda to your managed services"
@@ -1133,8 +1190,11 @@ validate_target_resources() {
     local has_errors=0
 
     # --- External target configuration checks ---
-    if is_external_pg || is_external_es; then
+    if is_external_pg || is_external_es || is_external_keycloak; then
         log_info "External target configuration:"
+        if is_external_keycloak && [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
+            validate_external_keycloak_config || has_errors=1
+        fi
         if is_external_pg; then
             if [[ "${MIGRATE_IDENTITY}" == "true" ]]; then
                 validate_external_pg_config identity || has_errors=1
@@ -1315,6 +1375,16 @@ deploy_keycloak() {
 # we must update the operator secret to match the restored DB credentials.
 # Also generates a Helm override file to set the correct adminUser.
 sync_keycloak_admin_credentials() {
+    # Operator-only reconcile: it updates the operator's "keycloak-initial-admin"
+    # secret and renders an admin override for the Helm upgrade. In external mode
+    # there is no operator secret, the external Keycloak's admin comes from the
+    # restored realm database, and the caller wires Camunda's admin credentials
+    # (and, with SKIP_HELM_UPGRADE, owns the upgrade and its values). So skip it.
+    if is_external_keycloak; then
+        log_info "External Keycloak — skipping operator admin-credential sync"
+        return 0
+    fi
+
     log_info "Syncing Keycloak admin credentials from Bitnami → operator ..."
 
     local release="${RELEASE:-${CAMUNDA_RELEASE_NAME:-camunda}}"
@@ -1338,17 +1408,18 @@ sync_keycloak_admin_credentials() {
     # The Bitnami Keycloak chart default admin user is "admin"
     local admin_user="admin"
 
-    # Update the operator secret to match the restored DB credentials
+    # Update the operator secret to match the restored DB credentials.
+    # (External mode already returned at the top of this function — it owns its
+    # admin via the restored realm DB and has no operator secret to reconcile.)
     kubectl create secret generic "$operator_secret" \
         -n "${NAMESPACE}" \
         --from-literal=username="$admin_user" \
         --from-literal=password="$admin_pass" \
         --dry-run=client -o yaml \
         | kubectl apply -f - >/dev/null
+    log_info "Updated ${operator_secret} secret (user=${admin_user})"
     unset admin_pass
     eval "$_xtrace" 2>/dev/null
-
-    log_info "Updated ${operator_secret} secret (user=${admin_user})"
 
     # Ensure the Bitnami secret has ALL keys that the operator chart references.
     # Bitnami generates some client tokens (optimize, admin) but NOT all
@@ -1601,14 +1672,22 @@ get_bitnami_pg_password() {
 introspect_es() {
     log_info "Introspecting Elasticsearch ..."
 
-    local sts_name
-    sts_name=$(kubectl get statefulset -n "${NAMESPACE}" -o name 2>/dev/null \
-        | grep -E "elasticsearch" | head -1 | sed 's|statefulset.apps/||' || echo "")
+    # Detect the SOURCE (Bitnami/bundled) Elasticsearch StatefulSet. When the
+    # migration target is an in-cluster companion ES, both clusters coexist in
+    # the namespace, so prefer the release-prefixed bundled cluster
+    # (<release>-elasticsearch*) and never match the companion. Fall back to any
+    # ES StatefulSet for the classic single-cluster case.
+    local sts_name all_es
+    all_es=$(kubectl get statefulset -n "${NAMESPACE}" -o name 2>/dev/null \
+        | sed 's|statefulset.apps/||' | grep -E "elasticsearch" || true)
+    sts_name=$(echo "$all_es" | grep -E "^${CAMUNDA_RELEASE_NAME}-" | head -1)
+    [[ -z "$sts_name" ]] && sts_name=$(echo "$all_es" | head -1)
 
     if [[ -z "$sts_name" ]]; then
         log_error "No Elasticsearch StatefulSet found"
         return 1
     fi
+    log_info "Source Elasticsearch StatefulSet: ${sts_name}"
 
     local json
     json=$(kubectl get statefulset "${sts_name}" -n "${NAMESPACE}" -o json)
@@ -1662,8 +1741,26 @@ backup_pg() {
     ensure_backup_pvc
     # shellcheck disable=SC2153
     export JOB_NAME="${COMPONENT}-pg-backup-${TIMESTAMP}"
+
+    # Keycloak's JGROUPS_PING is a transient JDBC_PING cluster-discovery table:
+    # its rows hold the SOURCE cluster's node addresses. Restoring them into a
+    # fresh Keycloak makes the target crash on startup with a duplicate-key on
+    # constraint_jgroups_ping. Exclude the DATA (keep the schema) so the target
+    # starts clean and re-registers its own membership. This applies to both
+    # Keycloak target modes (operator and external) — each restores the realm
+    # dump into a fresh Keycloak.
+    #
+    # PostgreSQL folds unquoted identifiers to lowercase, so the table is
+    # normally "jgroups_ping"; the uppercase spelling is passed too in case a
+    # build created it quoted. An exclude-table-data pattern that matches
+    # nothing is a harmless no-op (never an error, regardless of --strict-names).
+    export PG_DUMP_EXTRA_ARGS=""
+    if [[ "${COMPONENT}" == "keycloak" ]]; then
+        PG_DUMP_EXTRA_ARGS="--exclude-table-data=jgroups_ping --exclude-table-data=JGROUPS_PING"
+    fi
+
     # shellcheck disable=SC2016
-    local pg_varlist='${JOB_NAME} ${NAMESPACE} ${COMPONENT} ${PG_IMAGE} ${PG_HOST} ${PG_PORT} ${PG_DATABASE} ${PG_USERNAME} ${PG_SECRET_NAME} ${PG_SECRET_KEY} ${BACKUP_PVC} ${TIMESTAMP}'
+    local pg_varlist='${JOB_NAME} ${NAMESPACE} ${COMPONENT} ${PG_IMAGE} ${PG_HOST} ${PG_PORT} ${PG_DATABASE} ${PG_USERNAME} ${PG_SECRET_NAME} ${PG_SECRET_KEY} ${BACKUP_PVC} ${TIMESTAMP} ${PG_DUMP_EXTRA_ARGS}'
     run_job "${JOBS_DIR}/pg-backup.job.yml" "${JOB_NAME}" 1800 "$pg_varlist"
 }
 
@@ -2086,7 +2183,10 @@ wait_for_targets_ready() {
     fi
 
     # --- Keycloak CR ---
-    if [[ "${MIGRATE_KEYCLOAK:-false}" == "true" ]]; then
+    # Only the operator path has a Keycloak CR to wait on. In external mode the
+    # Keycloak instance is provided/owned by the caller (managed service or a
+    # companion release), so there is no CR here — skip the wait.
+    if [[ "${MIGRATE_KEYCLOAK:-false}" == "true" ]] && ! is_external_keycloak; then
         log_info "Waiting for Keycloak CR to be ready ..."
         while true; do
             local kc_ready

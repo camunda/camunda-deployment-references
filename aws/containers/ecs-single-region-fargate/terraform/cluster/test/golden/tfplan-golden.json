@@ -2260,7 +2260,8 @@
                     ]
                   }
                 ],
-                "fsx_windows_file_server_volume_configuration": []
+                "fsx_windows_file_server_volume_configuration": [],
+                "s3files_volume_configuration": []
               }
             ]
           },
@@ -2305,7 +2306,8 @@
                 ],
                 "fsx_windows_file_server_volume_configuration": [],
                 "host_path": "",
-                "name": "camunda-volume"
+                "name": "camunda-volume",
+                "s3files_volume_configuration": []
               }
             ]
           }
@@ -3144,6 +3146,12 @@
     "module.postgresql": {
       "resources": {
         "module.postgresql.aws_db_subnet_group.this": {
+          "identity": {
+            "account_id": null,
+            "name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3510,6 +3518,12 @@
           }
         },
         "module.vpc.aws_eip.nat[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "nat",
@@ -3536,6 +3550,12 @@
           }
         },
         "module.vpc.aws_eip.nat[1]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 1,
           "mode": "managed",
           "name": "nat",
@@ -3562,6 +3582,12 @@
           }
         },
         "module.vpc.aws_eip.nat[2]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 2,
           "mode": "managed",
           "name": "nat",
@@ -3588,6 +3614,12 @@
           }
         },
         "module.vpc.aws_internet_gateway.this[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "this",
@@ -3610,6 +3642,12 @@
           }
         },
         "module.vpc.aws_nat_gateway.this[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "this",
@@ -3638,6 +3676,12 @@
           }
         },
         "module.vpc.aws_nat_gateway.this[1]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 1,
           "mode": "managed",
           "name": "this",
@@ -3666,6 +3710,12 @@
           }
         },
         "module.vpc.aws_nat_gateway.this[2]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 2,
           "mode": "managed",
           "name": "this",
@@ -3721,6 +3771,7 @@
             "egress_only_gateway_id": null,
             "gateway_id": null,
             "local_gateway_id": null,
+            "odb_network_arn": null,
             "region": "eu-west-2",
             "timeouts": {
               "create": "5m",
@@ -3760,6 +3811,7 @@
             "egress_only_gateway_id": null,
             "gateway_id": null,
             "local_gateway_id": null,
+            "odb_network_arn": null,
             "region": "eu-west-2",
             "timeouts": {
               "create": "5m",
@@ -3799,6 +3851,7 @@
             "egress_only_gateway_id": null,
             "gateway_id": null,
             "local_gateway_id": null,
+            "odb_network_arn": null,
             "region": "eu-west-2",
             "timeouts": {
               "create": "5m",
@@ -3838,6 +3891,7 @@
             "egress_only_gateway_id": null,
             "local_gateway_id": null,
             "nat_gateway_id": null,
+            "odb_network_arn": null,
             "region": "eu-west-2",
             "timeouts": {
               "create": "5m",
