@@ -483,6 +483,10 @@ jobs:
                   echo "Verifying subctl..."
                   ./verify-subctl.sh
 
+            - name: 🔬🚨 Debug Submariner connectivity
+              if: failure()
+              run: ./generic/openshift/dual-region/procedure/submariner/diagnose-submariner.sh
+
             - name: 🏗️ Retrieve exported Environment values from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
               with:
