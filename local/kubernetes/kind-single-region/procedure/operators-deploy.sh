@@ -114,10 +114,11 @@ if [[ "$CAMUNDA_MODE" == "domain" ]]; then
 
     probe_url="https://${CAMUNDA_DOMAIN}/auth/realms/master/.well-known/openid-configuration"
     max_attempts=60
+    probe_start=$SECONDS
     echo "Probing: ${probe_url}"
 
     for attempt in $(seq 1 "$max_attempts"); do
-        if curl -fsS -k -o /dev/null \
+        if curl -fs -k -o /dev/null \
             --resolve "${CAMUNDA_DOMAIN}:443:127.0.0.1" \
             --connect-timeout 5 --max-time 10 "$probe_url"; then
             echo "✓ Keycloak OIDC issuer reachable through the ingress"
@@ -125,7 +126,7 @@ if [[ "$CAMUNDA_MODE" == "domain" ]]; then
         fi
 
         if [[ "$attempt" -eq "$max_attempts" ]]; then
-            echo "ERROR: Keycloak not reachable through the ingress after ~$((max_attempts * 5))s." >&2
+            echo "ERROR: Keycloak not reachable through the ingress after ${max_attempts} attempts ($((SECONDS - probe_start))s)." >&2
             echo "       URL: ${probe_url}" >&2
             echo "       Deploying Camunda now would crash-loop on OIDC discovery" >&2
             echo "       (camunda/camunda-deployment-references#2686); aborting." >&2
