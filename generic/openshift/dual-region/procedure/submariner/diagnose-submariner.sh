@@ -33,7 +33,11 @@ done
 
 if [ -n "$C0" ]; then
   echo "===== ManagedClusterAddons (hub) ====="
-  oc --context "$C0" get managedclusteraddon -A -o wide 2>&1
+  oc --context "$C0" get managedclusteraddon -A 2>&1
+  # `-o wide` omits the status conditions; dump YAML so the addon conditions
+  # (which explain *why* an addon is Degraded / not Available) are captured.
+  echo "--- ManagedClusterAddon conditions ---"
+  oc --context "$C0" get managedclusteraddon -A -o yaml 2>&1
 fi
 
 # Best-effort diagnostics: never fail the `if: failure()` debug step that runs this.
