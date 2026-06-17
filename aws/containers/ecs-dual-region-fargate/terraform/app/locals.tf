@@ -150,6 +150,15 @@ locals {
 
   # Common env vars shared by both storage types (admin, connectors, backup)
   common_env_vars = [
+    # 8.10 requires the auth method to be set explicitly; the default (unset)
+    # leaves the gateway with no Spring Security filter chain, so /v2/* endpoints
+    # in the unified Orchestration Cluster REST API blow up with a null
+    # Authentication. The Helm chart sets this for you; raw container deployments
+    # like this one must set it themselves.
+    {
+      name  = "CAMUNDA_SECURITY_AUTHENTICATION_METHOD"
+      value = "basic"
+    },
     {
       name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_USERNAME"
       value = "admin"
