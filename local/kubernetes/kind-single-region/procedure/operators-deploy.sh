@@ -35,14 +35,10 @@ CAMUNDA_MODE=${CAMUNDA_MODE:-no-domain}
 CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN:-camunda.example.com}"
 export CAMUNDA_DOMAIN
 
-# Set CLUSTER_FILTER based on SECONDARY_STORAGE
-# When using Elasticsearch, only deploy PG clusters for Keycloak, Identity, and WebModeler
-# When using PostgreSQL (RDBMS mode), deploy all PG clusters including the Camunda database
-if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
-    CLUSTER_FILTER="pg-keycloak,pg-identity,pg-webmodeler"
-else
-    CLUSTER_FILTER=""
-fi
+# Both secondary-storage modes need the application PG clusters
+# (Keycloak, Identity, WebModeler). RDBMS (postgres) mode additionally needs the
+# orchestration cluster (pg-camunda), appended just before deployment below.
+CLUSTER_FILTER="pg-keycloak,pg-identity,pg-webmodeler"
 
 export CAMUNDA_NAMESPACE
 

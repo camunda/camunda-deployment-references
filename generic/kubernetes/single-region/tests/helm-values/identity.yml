@@ -40,6 +40,6 @@ orchestration:
     security:
         initialization:
             defaultRoles:
-                connectors:
+                admin:
                     clients:
                         - venom
