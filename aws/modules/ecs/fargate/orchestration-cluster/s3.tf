@@ -42,6 +42,17 @@ resource "aws_s3_bucket_public_access_block" "main" {
 }
 
 # IAM policy for S3 bucket access - attached to ECS task role
+#
+# Conditions explained:
+#   - aws:RequestedRegion pins S3 API calls to the bucket's region. Reliable
+#     because IAM evaluates this against the S3 endpoint the caller hits.
+#   - aws:SecureTransport forces TLS on object operations.
+#   - kms:ViaService uses StringLike "s3.*.amazonaws.com" rather than the
+#     bucket's specific regional endpoint. S3 sometimes routes KMS calls
+#     through unexpected regional endpoints (especially with bucket-key
+#     optimization enabled), which caused 403s when the condition pinned to
+#     one region. The wildcard still requires the call to come from S3 on
+#     the role's behalf, just without pinning to a region.
 resource "aws_iam_policy" "s3_access" {
   name = "${var.prefix}-s3-access-policy"
 
@@ -56,6 +67,11 @@ resource "aws_iam_policy" "s3_access" {
           "s3:GetBucketLocation"
         ]
         Resource = aws_s3_bucket.main.arn
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.aws_region
+          }
+        }
       },
       {
         Sid    = "AllowS3ObjectAccess"
@@ -66,6 +82,14 @@ resource "aws_iam_policy" "s3_access" {
           "s3:DeleteObject"
         ]
         Resource = "${aws_s3_bucket.main.arn}/*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.aws_region
+          }
+          Bool = {
+            "aws:SecureTransport" = "true"
+          }
+        }
       },
       {
         Sid    = "AllowKMSAccess"
@@ -77,6 +101,11 @@ resource "aws_iam_policy" "s3_access" {
           "kms:DescribeKey"
         ]
         Resource = aws_kms_key.s3.arn
+        Condition = {
+          StringLike = {
+            "kms:ViaService" = "s3.*.amazonaws.com"
+          }
+        }
       }
     ]
   })
