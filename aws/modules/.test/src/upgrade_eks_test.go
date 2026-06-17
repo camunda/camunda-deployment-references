@@ -49,7 +49,16 @@ func (suite *UpgradeEKSTestSuite) SetupTest() {
 	suite.tfBinaryName = utils.GetEnv("TESTS_TF_BINARY_NAME", "terraform")
 	suite.sugaredLogger.Infow("Terraform binary for the suite", "binary", suite.tfBinaryName)
 	suite.expectedNodes = 3
-	suite.kubeVersion = "1.29"
+	// The upgrade test creates the cluster one minor version below the latest EKS
+	// release and then upgrades it to that latest version. The latest version is
+	// tracked by Renovate (endoflife-date, in lockstep with the kubernetes_version
+	// module default) so the start version never drifts out of EKS's supported
+	// range and the upgrade always targets a creatable version.
+	// renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
+	latestKubeVersion := "1.34"
+	startVersion, err := utils.DecrementMinorVersionTwoParts(latestKubeVersion)
+	suite.Require().NoErrorf(err, "failed to derive the start Kubernetes version from latest %q", latestKubeVersion)
+	suite.kubeVersion = startVersion
 	var errAbsPath error
 	suite.tfStateS3Bucket = utils.GetEnv("TF_STATE_BUCKET", fmt.Sprintf("tests-eks-tf-state-%s", suite.bucketRegion))
 	suite.tfDataDir, errAbsPath = filepath.Abs(fmt.Sprintf("../states/tf-data-%s", suite.clusterName))
