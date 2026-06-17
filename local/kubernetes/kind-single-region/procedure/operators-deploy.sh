@@ -29,6 +29,12 @@ fi
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 CAMUNDA_MODE=${CAMUNDA_MODE:-no-domain}
 
+# Domain used for the ingress host and the OIDC issuer in domain mode.
+# Kept in sync with camunda-deploy-domain.sh and helm-values/values-domain.yml.
+# Exported so the Keycloak deploy.sh envsubst (issuer/hostname) picks it up.
+CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN:-camunda.example.com}"
+export CAMUNDA_DOMAIN
+
 # Set CLUSTER_FILTER based on SECONDARY_STORAGE
 # When using Elasticsearch, only deploy PG clusters for Keycloak, Identity, and WebModeler
 # When using PostgreSQL (RDBMS mode), deploy all PG clusters including the Camunda database
@@ -80,12 +86,57 @@ echo "=== Deploying Keycloak ==="
     cd "$OPERATOR_BASE/keycloak"
 
     if [[ "$CAMUNDA_MODE" == "domain" ]]; then
-        export CAMUNDA_DOMAIN="camunda.example.com"
         KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-contour.yml" ./deploy.sh
     else
         KEYCLOAK_CONFIG_FILE="keycloak-instance-no-domain.yml" ./deploy.sh
     fi
 )
+
+# 4. Domain mode: wait until Keycloak is actually reachable *through the Contour
+#    ingress* before returning (and therefore before Camunda is deployed).
+#
+#    The Keycloak CR reaching condition=Ready only means the pod is up; it does
+#    NOT guarantee that Contour has programmed the /auth route or that Envoy has
+#    a healthy upstream endpoint yet. If Camunda is deployed during that window,
+#    every component fails OIDC discovery against
+#    https://<domain>/auth/realms/camunda-platform with
+#    "503 Service Unavailable ... upstream connect error ... Connection refused"
+#    and crash-loops (camunda/camunda-deployment-references#2686).
+#
+#    We probe the realm-independent 'master' OIDC discovery document on purpose:
+#    the camunda-platform realm does not exist yet (Identity creates it at
+#    runtime, after the chart is installed), so gating on it would deadlock.
+#    Kind publishes Envoy on 127.0.0.1:443, so --resolve reaches the ingress
+#    without depending on /etc/hosts (which CI does not configure at this stage).
+if [[ "$CAMUNDA_MODE" == "domain" ]]; then
+    echo ""
+    echo "=== Waiting for Keycloak to be reachable through the ingress ==="
+
+    probe_url="https://${CAMUNDA_DOMAIN}/auth/realms/master/.well-known/openid-configuration"
+    max_attempts=60
+    probe_start=$SECONDS
+    echo "Probing: ${probe_url}"
+
+    for attempt in $(seq 1 "$max_attempts"); do
+        if curl -fsS -k -o /dev/null \
+            --resolve "${CAMUNDA_DOMAIN}:443:127.0.0.1" \
+            --connect-timeout 5 --max-time 10 "$probe_url"; then
+            echo "✓ Keycloak OIDC issuer reachable through the ingress"
+            break
+        fi
+
+        if [[ "$attempt" -eq "$max_attempts" ]]; then
+            echo "ERROR: Keycloak not reachable through the ingress after ${max_attempts} attempts ($((SECONDS - probe_start))s)." >&2
+            echo "       URL: ${probe_url}" >&2
+            echo "       Deploying Camunda now would crash-loop on OIDC discovery" >&2
+            echo "       (camunda/camunda-deployment-references#2686); aborting." >&2
+            exit 1
+        fi
+
+        echo "  attempt ${attempt}/${max_attempts}: not reachable yet (waiting 5s)"
+        sleep 5
+    done
+fi
 
 echo ""
 echo "✓ All operators deployed successfully"
