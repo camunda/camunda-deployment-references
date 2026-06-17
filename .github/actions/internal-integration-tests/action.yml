@@ -265,8 +265,8 @@ runs:
                       echo "pf_es_pid=${PF_ES_PID}" >> "$GITHUB_OUTPUT"
                       # ECK enables xpack.security by default; expose the
                       # generated 'elastic' user password so preflight probes
-                      # can authenticate. Bitnami chart leaves ES open, so the
-                      # secret simply won't exist there.
+                      # can authenticate. If the secret is absent (ES deployed
+                      # without ECK security), fall back to unauthenticated.
                       ES_USER=""
                       ES_PASS=""
                       if kubectl get secret elasticsearch-es-elastic-user -n "$NS" >/dev/null 2>&1; then

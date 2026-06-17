@@ -41,9 +41,8 @@ inputs:
         default: camunda
     keycloak-url:
         description: >
-            In-cluster Keycloak base URL for OIDC auth.
-            Operator: `http://keycloak-service:18080/auth`
-            Bitnami: `http://<release>-keycloak:80/auth`
+            In-cluster Keycloak base URL for OIDC auth
+            (operator: `http://keycloak-service:18080/auth`).
         required: false
         default: ''
     # ── OIDC auth inputs ────────────────────────────────────────
@@ -234,8 +233,8 @@ runs:
               KC_HOST_PORT=$(echo "$KC_URL" \
                   | sed 's|^http[s]*://||' | sed 's|/.*||')
               KC_HOST=$(echo "$KC_HOST_PORT" | cut -d: -f1)
-              # Default remote port to 80 (operator/bitnami in-cluster keycloak
-              # services typically expose http on 80 or 18080). When the URL
+              # Default remote port to 80 (in-cluster keycloak services
+              # typically expose http on 80 or 18080). When the URL
               # contains an explicit :port (e.g. keycloak-service:18080), keep it.
               if [[ "$KC_HOST_PORT" == *:* ]]; then
                   KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -d: -f2)
