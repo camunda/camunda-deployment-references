@@ -810,23 +810,48 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 }
 
 func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, namespace1 string) {
-	topology := GetClusterTopology(t, &primary.KubectlNamespace)
+	// Dual-region broker membership can transiently flap right after convergence: a
+	// broker may briefly drop out of (or not yet appear in) the gateway topology, so a
+	// single snapshot can momentarily read 7 instead of 8 brokers (see camunda/camunda#55038).
+	// Retry the snapshot until we observe a stable 8 brokers split 4/4 across both regions
+	// rather than failing on one racy reading; the final assertions still fail loudly if the
+	// cluster never stabilises within the budget.
+	const maxAttempts = 12
+	const interval = 10 * time.Second
 
-	require.Equal(t, 8, len(topology.Brokers))
-
+	var topology ClusterInfo
 	primaryCount := 0
 	secondaryCount := 0
 
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		topology = GetClusterTopology(t, &primary.KubectlNamespace)
+
+		primaryCount, secondaryCount = 0, 0
+		for _, broker := range topology.Brokers {
+			if strings.Contains(broker.Host, namespace0) {
+				primaryCount++
+			} else if strings.Contains(broker.Host, namespace1) {
+				secondaryCount++
+			}
+		}
+
+		if len(topology.Brokers) == 8 && primaryCount == 4 && secondaryCount == 4 {
+			break
+		}
+
+		t.Logf("[C8 CHECK] topology not stable yet: brokers=%d (primary=%d, secondary=%d) (attempt %d/%d)",
+			len(topology.Brokers), primaryCount, secondaryCount, attempt, maxAttempts)
+		if attempt < maxAttempts {
+			time.Sleep(interval)
+		}
+	}
+
 	t.Log("[C8 CHECK] Cluster status:")
 	for _, broker := range topology.Brokers {
-		if strings.Contains(broker.Host, namespace0) {
-			primaryCount++
-		} else if strings.Contains(broker.Host, namespace1) {
-			secondaryCount++
-		}
 		t.Logf("[C8 CHECK] Broker ID: %d, Address: %s, Partitions: %v\n", broker.NodeId, broker.Host, broker.Partitions)
 	}
 
+	require.Equal(t, 8, len(topology.Brokers))
 	require.Equal(t, 4, primaryCount)
 	require.Equal(t, 4, secondaryCount)
 }
