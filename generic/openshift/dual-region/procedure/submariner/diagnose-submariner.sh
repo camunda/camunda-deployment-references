@@ -26,5 +26,10 @@ for ctx in "$C0" "$C1"; do
   oc --context "$ctx" get nodes -l submariner.io/gateway=true -o wide 2>&1
 done
 
-echo "===== ManagedClusterAddons (hub) ====="
-oc --context "$C0" get managedclusteraddon -A -o wide 2>&1
+if [ -n "$C0" ]; then
+  echo "===== ManagedClusterAddons (hub) ====="
+  oc --context "$C0" get managedclusteraddon -A -o wide 2>&1
+fi
+
+# Best-effort diagnostics: never fail the `if: failure()` debug step that runs this.
+exit 0
