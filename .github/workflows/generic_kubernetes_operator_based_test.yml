@@ -518,7 +518,7 @@ jobs:
                       else
                           # EKS and other Kubernetes clusters use camunda.ie
                           BASE_DOMAIN="camunda.ie"
-                          INGRESS_CLASS_NAME="nginx"
+                          INGRESS_CLASS_NAME="contour"
                       fi
 
                       CAMUNDA_DOMAIN="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.$BASE_DOMAIN"
@@ -623,6 +623,7 @@ jobs:
                   mail: admin@camunda.ie
                   tld: camunda.ie
                   ref-arch: eks-single-region
+                  ingress-controller: contour
                   use-wildcard-cert: ${{ steps.cert-config.outputs.use-wildcard-cert }}
                   wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   wildcard-cert-secret-name: ${{ env.WILDCARD_TLS_SECRET_NAME }}
@@ -642,8 +643,8 @@ jobs:
                           echo "Using OpenShift route configuration"
                           KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-openshift.yml"
                       else
-                          echo "Using nginx ingress configuration"
-                          KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-nginx.yml"
+                          echo "Using Contour ingress configuration"
+                          KEYCLOAK_CONFIG_FILE="keycloak-instance-domain-contour.yml"
                       fi
                   else
                       echo "Using no-domain localhost configuration"

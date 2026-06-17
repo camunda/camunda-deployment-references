@@ -2,7 +2,7 @@
 
 ## Description
 
-Install and configure ingress-nginx, external-dns, and cert-manager for AWS EKS clusters
+Install and configure an ingress controller (ingress-nginx or Contour), external-dns, and cert-manager for AWS EKS clusters
 
 ## Inputs
 
@@ -14,6 +14,7 @@ Install and configure ingress-nginx, external-dns, and cert-manager for AWS EKS 
 | `mail` | <p>Email address for Let's Encrypt certificates</p> | `false` | `admin@camunda.ie` |
 | `tld` | <p>Top-level domain for the cluster</p> | `false` | `camunda.ie` |
 | `ref-arch` | <p>Reference architecture name (eks-single-region, eks-single-region-irsa)</p> | `false` | `eks-single-region` |
+| `ingress-controller` | <p>Which ingress controller to install. One of:</p> <ul> <li>'nginx'   (default) — installs ingress-nginx via Helm</li> <li>'contour' — installs Project Contour via the ref-arch's install-contour.sh</li> </ul> | `false` | `nginx` |
 | `use-wildcard-cert` | <p>Use wildcard certificate from Vault instead of ACME/Let's Encrypt. When true, ACME issuer is not installed and wildcard certificate is created from Vault.</p> | `false` | `false` |
 | `wildcard-cert-namespace` | <p>Namespace where the wildcard TLS certificate will be created (when use-wildcard-cert is true)</p> | `false` | `camunda` |
 | `wildcard-cert-secret-name` | <p>Name of the wildcard TLS secret to create (when use-wildcard-cert is true)</p> | `false` | `camunda-tls` |
@@ -66,6 +67,14 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: eks-single-region
+
+    ingress-controller:
+    # Which ingress controller to install. One of:
+    #   - 'nginx'   (default) — installs ingress-nginx via Helm
+    #   - 'contour' — installs Project Contour via the ref-arch's install-contour.sh
+    #
+    # Required: false
+    # Default: nginx
 
     use-wildcard-cert:
     # Use wildcard certificate from Vault instead of ACME/Let's Encrypt.
