@@ -19,15 +19,36 @@ func IncrementMinorVersionTwoParts(version string) (string, error) {
 	parts := strings.Split(version, ".")
 
 	if len(parts) != 2 {
-		return "", fmt.Errorf("invalid version format, expected 2 parts got %d", len(parts))
+		return "", fmt.Errorf("invalid version format %q, expected 2 parts, got %d", version, len(parts))
 	}
 
 	minor, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("invalid minor version in %q: %w", version, err)
 	}
 
 	newVersion := fmt.Sprintf("%s.%d", parts[0], minor+1)
+
+	return newVersion, nil
+}
+
+func DecrementMinorVersionTwoParts(version string) (string, error) {
+	parts := strings.Split(version, ".")
+
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid version format %q, expected 2 parts, got %d", version, len(parts))
+	}
+
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("invalid minor version in %q: %w", version, err)
+	}
+
+	if minor <= 0 {
+		return "", fmt.Errorf("cannot decrement minor version of %q: resulting minor version would be negative", version)
+	}
+
+	newVersion := fmt.Sprintf("%s.%d", parts[0], minor-1)
 
 	return newVersion, nil
 }
