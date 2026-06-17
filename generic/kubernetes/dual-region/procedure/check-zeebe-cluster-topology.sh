@@ -15,7 +15,16 @@ trap cleanup EXIT
 sleep 2
 
 echo "📡 Fetching Zeebe cluster topology..."
-topology=$(curl -s -L -u "${ZEEBE_BASIC_AUTH_USER:-demo}:${ZEEBE_BASIC_AUTH_PASSWORD:-demo}" -X GET 'http://localhost:8080/v2/topology' -H 'Accept: application/json')
+# Camunda 8.8+ enforces authentication on the REST API (/v2/topology). Provide the
+# gateway basic-auth credentials via CAMUNDA_BASIC_AUTH_USER / CAMUNDA_BASIC_AUTH_PASSWORD;
+# they default to the chart's demo:demo user for local/unprotected deployments.
+auth_user="${CAMUNDA_BASIC_AUTH_USER:-demo}"
+auth_password="${CAMUNDA_BASIC_AUTH_PASSWORD:-demo}"
+
+if ! topology=$(curl -s --show-error --fail -L -u "$auth_user:$auth_password" -X GET 'http://localhost:8080/v2/topology' -H 'Accept: application/json'); then
+  echo "❌ Failed to fetch topology from /v2/topology (HTTP error or connection failure)." >&2
+  exit 1
+fi
 echo "$topology" > zeebe-topology.json
 
 jq . zeebe-topology.json

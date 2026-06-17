@@ -215,6 +215,16 @@ runs:
               echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
 
+              # Make `terraform init` resilient to transient registry.terraform.io
+              # failures (502 responses and client timeouts while resolving and
+              # downloading modules) that otherwise abort cluster provisioning before
+              # the tests even run. TF_REGISTRY_DISCOVERY_RETRY retries client
+              # connection errors and 500-range responses; TF_REGISTRY_CLIENT_TIMEOUT
+              # raises the per-request timeout above the 10s default. Both are inherited
+              # by every terraform command in this action.
+              echo "TF_REGISTRY_DISCOVERY_RETRY=5" >> "$GITHUB_ENV"
+              echo "TF_REGISTRY_CLIENT_TIMEOUT=20" >> "$GITHUB_ENV"
+
         - name: Check if S3 bucket exists
           id: create-s3-bucket
           shell: bash
