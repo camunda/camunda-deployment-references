@@ -746,6 +746,20 @@ jobs:
                   CAMUNDA_VERSION=$(cat .camunda-version)
                   echo "CAMUNDA_VERSION=$CAMUNDA_VERSION" | tee -a "$GITHUB_OUTPUT"
 
+            # INC-5340: in CI the dual-region gateway is deployed with the
+            # Vault-provisioned basic-auth user (provisioned above), never the chart
+            # default demo:demo. Fail fast here if the credentials are missing rather
+            # than running the customer-facing topology check (which defaults to
+            # demo:demo for local use) against the CI gateway.
+            - name: Ensure CI basic-auth credentials are set (INC-5340)
+              if: env.TESTS_ENABLED == 'true'
+              run: |
+                  set -euo pipefail
+                  if [ -z "${CAMUNDA_BASIC_AUTH_USER:-}" ] || [ -z "${CAMUNDA_BASIC_AUTH_PASSWORD:-}" ]; then
+                    echo "::error::CAMUNDA_BASIC_AUTH_USER/PASSWORD not set; refusing to run the dual-region topology check against a demo:demo gateway (INC-5340)." >&2
+                    exit 1
+                  fi
+
             - name: 🧪 Run Zeebe client tests (dual-region topology)
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 30
