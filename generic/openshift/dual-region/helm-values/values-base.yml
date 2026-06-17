@@ -94,6 +94,45 @@ zeebe:
           value: 1s
         - name: ZEEBE_BROKER_NETWORK_ADVERTISEDHOST
           value: ${DOLLAR}(K8S_NAME).$ZEEBE_SERVICE_NAME
+    # TEMPORARY WORKAROUND — remove once the upstream Camunda fix is released.
+    # A Zeebe broker resolves its initialContactPoints only once at startup; if a
+    # cross-region "*.svc.clusterset.local" name is not yet published by Submariner
+    # Lighthouse at that moment (NXDOMAIN), the broker hangs forever (pod stays
+    # 0/1 Running, port 9600 never opens) instead of re-resolving. This init
+    # container gates broker startup until every initial contact point resolves,
+    # so the broker process never sees an NXDOMAIN.
+    # It reuses the broker image (already pulled on the node) to avoid an extra
+    # image pull. The image is not hardcoded: ${DOLLAR}{BROKER_IMAGE} is resolved at
+    # deploy time by install-chart.sh from the chart being installed, so it always
+    # matches the orchestration/zeebe image without manual maintenance.
+    # Tracking issue: https://github.com/camunda/camunda/issues/55038
+    initContainers:
+        - name: wait-clusterset-dns
+          image: ${DOLLAR}{BROKER_IMAGE}
+          command:
+              - /bin/sh
+              - -c
+              - |
+                set -eu
+                # Fail open: if the image ships no resolver, do not block startup.
+                command -v getent >/dev/null 2>&1 || { echo "getent unavailable; skipping cross-region DNS gate."; exit 0; }
+                # Bounded TOTAL wait (~12 min) across all contact points, independent
+                # of how many there are, so a genuine misconfiguration can never stall
+                # startup past the deployment timeout (fail-open).
+                deadline=${DOLLAR}(( ${DOLLAR}(date +%s) + ${DOLLAR}{CLUSTERSET_DNS_TIMEOUT_SECONDS:-720} ))
+                echo "Waiting for cross-region clusterset DNS to resolve all Zeebe contact points..."
+                for ep in ${DOLLAR}(echo "${ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS}" | tr ',' ' '); do
+                  host=${DOLLAR}(echo "${DOLLAR}ep" | cut -d: -f1)
+                  until getent hosts "${DOLLAR}host" >/dev/null 2>&1; do
+                    if [ "${DOLLAR}(date +%s)" -ge "${DOLLAR}deadline" ]; then
+                      echo "  giving up on ${DOLLAR}host (global ~12 min DNS budget exhausted); starting broker anyway (fail-open)."
+                      break
+                    fi
+                    echo "  waiting for ${DOLLAR}host ..."
+                    sleep 5
+                  done
+                done
+                echo "Cross-region DNS gate complete; starting broker."
     pvcSize: 1Gi
 
     resources:
