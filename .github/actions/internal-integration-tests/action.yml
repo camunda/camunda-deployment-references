@@ -389,7 +389,7 @@ runs:
                       --data-urlencode "grant_type=client_credentials" \
                       --data-urlencode "client_id=${CLIENT_ID}" \
                       --data-urlencode "client_secret=${CLIENT_SECRET}" \
-                      2>/dev/null | jq -r '.access_token // empty' || true)
+                      2>/dev/null | jq -r '.access_token // empty' 2>/dev/null || true)
                   [[ -n "$TOKEN" ]] && break
                   # Don't log/sleep after the final attempt: the loop is about to
                   # exit and the warning + graceful skip below handles the all-fail
