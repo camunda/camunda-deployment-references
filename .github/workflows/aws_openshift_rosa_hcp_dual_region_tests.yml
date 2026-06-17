@@ -668,6 +668,10 @@ jobs:
                       yq eval-all '. as $item ireduce ({}; . *+ $item)' \
                           "${region_values}" "${OVERLAY_FILE}" > "${region_values}.merged"
                       mv "${region_values}.merged" "${region_values}"
+                      # The merged file now carries the Vault basic-auth credentials, so
+                      # restrict it to 0600 (matching the internal-camunda-ci-credentials
+                      # overlay) instead of the default ~0644 workspace permissions.
+                      chmod 600 "${region_values}"
                   done
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
