@@ -473,7 +473,6 @@ runs:
           env:
               NAMESPACE: ${{ inputs.test-namespace }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
-              KEYCLOAK_SERVICE_NAME: ${{ inputs.keycloak-service-name }}
           run: |
               set -euo pipefail
 
@@ -500,19 +499,11 @@ runs:
                 OS_COMPONENTS="${OS_COMPONENTS},optimize"
               fi
 
+              # PostgreSQL components checked for IRSA. Camunda 8.10 (chart 15.x)
+              # dropped the bundled Bitnami subcharts: Keycloak now runs via the
+              # Keycloak operator backed by CloudNativePG (no Aurora/IRSA), so
+              # there is no identityKeycloak component to check here.
               PG_COMPONENTS="identity"
-
-              # The bundled identityKeycloak (Bitnami) subchart only backs Keycloak when no
-              # external/operator Keycloak is configured. With an operator-based Keycloak
-              # (keycloak-service-name set, e.g. "keycloak-service:18080"), identityKeycloak is
-              # disabled and never deployed, so its Helm values are absent and every
-              # identityKeycloak.* IRSA lookup fails (aws-irsa.sh exits 163). Only check it when
-              # the bundled subchart is actually part of the release.
-              if [[ -z "$KEYCLOAK_SERVICE_NAME" ]]; then
-                PG_COMPONENTS="identityKeycloak,${PG_COMPONENTS}"
-              else
-                echo "ℹ️ External/operator Keycloak detected ($KEYCLOAK_SERVICE_NAME); excluding bundled identityKeycloak from IRSA checks"
-              fi
 
               if [[ "${{ inputs.webmodeler-enabled }}" == "true" ]]; then
                 PG_COMPONENTS="${PG_COMPONENTS},webModeler"
