@@ -1,7 +1,8 @@
 #!/bin/bash
 # Best-effort diagnostics for the dual-region Submariner cross-cluster connection.
-# Dumps Submariner's own state (gateway pods, Gateway/Endpoint CRs, subctl diagnose)
-# to help understand why the cross-cluster tunnel did not establish. Never fails.
+# Dumps Submariner's own state (gateway pods, Gateway/Endpoint CRs, connections) to
+# help understand why the cross-cluster tunnel did not establish. Never fails and
+# never mutates the global kube context.
 set +e
 
 # Support both the 0-indexed (CLUSTER_0/CLUSTER_1) and 1-indexed
@@ -9,16 +10,17 @@ set +e
 C0="${CLUSTER_0:-${CLUSTER_1_NAME:-}}"
 C1="${CLUSTER_1:-${CLUSTER_2_NAME:-}}"
 
+have_subctl=false
+command -v subctl >/dev/null 2>&1 && have_subctl=true
+
 for ctx in "$C0" "$C1"; do
   [ -z "$ctx" ] && continue
   echo "===== Submariner diagnostics for context: ${ctx} ====="
-  # subctl context flags vary across releases; select the context via the kubeconfig
-  # and let subctl use the current context (portable across subctl versions).
-  oc config use-context "$ctx" >/dev/null 2>&1
-  echo "--- subctl show all ---"
-  subctl show all 2>&1
-  echo "--- subctl diagnose all ---"
-  subctl diagnose all 2>&1
+  if [ "$have_subctl" = true ]; then
+    echo "--- subctl show all ---"
+    # `--contexts` matches the repo's verify-subctl.sh (the working Submariner check).
+    subctl show all --contexts "$ctx" 2>&1
+  fi
   echo "--- submariner-operator pods ---"
   oc --context "$ctx" -n submariner-operator get pods -o wide 2>&1
   echo "--- submariner-gateway logs (last 200 lines) ---"
