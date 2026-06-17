@@ -71,7 +71,7 @@ echo "=== Deploying PostgreSQL (CloudNativePG) ==="
         CLUSTER_FILTER="${CLUSTER_FILTER:+$CLUSTER_FILTER,}pg-camunda"
     fi
 
-    CLUSTER_FILTER="$CLUSTER_FILTER" NAMESPACE="$CAMUNDA_NAMESPACE" ./deploy.sh
+    CLUSTER_FILTER="$CLUSTER_FILTER" ./deploy.sh
 )
 
 # 3. Deploy Keycloak via Keycloak operator
