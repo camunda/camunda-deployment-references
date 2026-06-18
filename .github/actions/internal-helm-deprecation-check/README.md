@@ -15,7 +15,8 @@ Findings are reported in an event-aware, non-blocking way:
     workflow/job/release/namespace combination).
   - schedule (real or simulated via a `schedules/*` head_ref): emitted
     as ::warning:: annotations and, when the Slack inputs are wired,
-    posted to Slack via the shared report-failure-on-slack action.
+    posted to Slack via the shared report-warning-on-slack action
+    (an advisory, non-failure notification).
     Simulated schedules are detected from the caller workflow's
     `IS_SCHEDULE` env var (set to `'true'` when
     `contains(github.head_ref, 'schedules/') || github.event_name == 'schedule'`).
