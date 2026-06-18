@@ -436,6 +436,58 @@ runs:
                   --run-url "${GH_SERVER_URL}/${GH_REPO}/actions/runs/${GH_RUN_ID}" \
                   --findings-file "${FINDINGS_FILE}"
 
+        - name: 🛠️ Ensure GitHub CLI is available for the Slack alert
+          # The report-failure-on-slack step below shells out to `gh` (silence
+          # check + failure-log-analyzer trigger). `gh` is preinstalled on
+          # GitHub-hosted runners but NOT on the self-hosted runners used by the
+          # deployment test jobs, so the step failed there with exit code 127.
+          # Install a pinned, checksum-verified `gh` only when the Slack alert
+          # will actually run and `gh` is missing; GitHub-hosted callers keep
+          # using their preinstalled CLI.
+          if: |
+              always()
+              && env.IS_SCHEDULE == 'true'
+              && steps.report-findings.outputs.findings-present == 'true'
+              && inputs.vault-addr != ''
+              && inputs.vault-role-id != ''
+              && inputs.vault-secret-id != ''
+          shell: bash
+          env:
+              # renovate: datasource=github-tags depName=cli/cli
+              GH_CLI_VERSION: v2.95.0
+          run: |
+              set -euo pipefail
+
+              if command -v gh >/dev/null 2>&1; then
+                  echo "GitHub CLI already available: $(gh --version | head -n1)"
+                  exit 0
+              fi
+
+              VERSION="${GH_CLI_VERSION#v}"
+              case "$(uname -m)" in
+                  x86_64) GH_ARCH="amd64" ;;
+                  aarch64 | arm64) GH_ARCH="arm64" ;;
+                  *) echo "::error::Unsupported architecture for GitHub CLI install: $(uname -m)"; exit 1 ;;
+              esac
+
+              TMP_DIR="$(mktemp -d)"
+              TARBALL="gh_${VERSION}_linux_${GH_ARCH}.tar.gz"
+              BASE_URL="https://github.com/cli/cli/releases/download/${GH_CLI_VERSION}"
+
+              echo "GitHub CLI not found; installing ${VERSION} (${GH_ARCH})..."
+              curl -fsSL --retry 5 --retry-delay 10 -o "${TMP_DIR}/${TARBALL}" "${BASE_URL}/${TARBALL}"
+              curl -fsSL --retry 5 --retry-delay 10 -o "${TMP_DIR}/checksums.txt" "${BASE_URL}/gh_${VERSION}_checksums.txt"
+
+              # Verify the download against the official checksums before trusting it.
+              (cd "${TMP_DIR}" && grep " ${TARBALL}$" checksums.txt | sha256sum -c -)
+
+              tar -xzf "${TMP_DIR}/${TARBALL}" -C "${TMP_DIR}"
+              GH_BIN_DIR="${TMP_DIR}/gh_${VERSION}_linux_${GH_ARCH}/bin"
+
+              # Expose gh to the subsequent report-failure-on-slack step.
+              echo "${GH_BIN_DIR}" >> "${GITHUB_PATH}"
+              echo "GitHub CLI installed: $("${GH_BIN_DIR}/gh" --version | head -n1)"
+
         - name: 🔔 Alert Slack on scheduled-run findings
           if: |
               always()
