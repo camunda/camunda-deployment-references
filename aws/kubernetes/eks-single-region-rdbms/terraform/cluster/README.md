@@ -6,27 +6,12 @@ Instructions can be found on the official documentation: https://docs.camunda.io
 - [AWS Elastic Kubernetes Service](https://aws.amazon.com/eks/)
 
 <!-- BEGIN_TF_DOCS -->
-## Requirements
-
-| Name | Version |
-| ---- | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 6.0 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | ~> 3.0 |
-
-## Providers
-
-| Name | Version |
-| ---- | ------- |
-| <a name="provider_random"></a> [random](#provider\_random) | 3.9.0 |
-
 ## Modules
 
 | Name | Source | Version |
 | ---- | ------ | ------- |
 | <a name="module_eks_cluster"></a> [eks\_cluster](#module\_eks\_cluster) | ../../../../modules/eks-cluster | n/a |
 | <a name="module_postgresql"></a> [postgresql](#module\_postgresql) | ../../../../modules/aurora | n/a |
-
 ## Resources
 
 | Name | Type |
@@ -35,13 +20,11 @@ Instructions can be found on the official documentation: https://docs.camunda.io
 | [random_password.identity_db](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.orchestration_db](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.webmodeler_db](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
-
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default tags to apply to all resources | `map(string)` | `{}` | no |
-
 ## Outputs
 
 | Name | Description |
