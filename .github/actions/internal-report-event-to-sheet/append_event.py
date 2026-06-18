@@ -22,7 +22,10 @@ import sys
 
 
 def _warn(message: str) -> None:
-    print(f"::warning title=report-event-to-sheet::{message}")
+    # Escape GitHub workflow-command metacharacters so a stray %, CR or LF in an
+    # exception message cannot break log parsing or inject a workflow command.
+    safe = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print(f"::warning title=report-event-to-sheet::{safe}")
 
 
 def _load_service_account(raw: str) -> dict:

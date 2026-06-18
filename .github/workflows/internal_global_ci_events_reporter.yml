@@ -107,15 +107,17 @@ jobs:
                   HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
                   CHECK_SUITE_ID: ${{ github.event.workflow_run.check_suite_id }}
               run: |
-                  set -euo pipefail
+                  set -uo pipefail
                   PATTERN='Unknown configuration keys detected|Deprecation warnings detected|Removed configuration keys detected'
                   found=no
                   title=""
+                  # Best-effort: a Checks API hiccup must not fail the reporter, so any
+                  # error is treated as "no warnings found".
                   CHECK_RUN_IDS=$(gh api "/repos/${REPO}/commits/${HEAD_SHA}/check-runs" --paginate \
-                      --jq ".check_runs[] | select(.check_suite.id == ${CHECK_SUITE_ID}) | .id")
+                      --jq ".check_runs[] | select(.check_suite.id == ${CHECK_SUITE_ID}) | .id" 2>/dev/null || true)
                   while IFS= read -r id; do
                       [[ -z "${id}" ]] && continue
-                      msg=$(gh api "/repos/${REPO}/check-runs/${id}/annotations" \
+                      msg=$(gh api "/repos/${REPO}/check-runs/${id}/annotations" --paginate \
                           --jq '.[].message' 2>/dev/null | grep -iE "${PATTERN}" | head -1 || true)
                       if [[ -n "${msg}" ]]; then
                           found=yes
@@ -125,7 +127,9 @@ jobs:
                   done <<< "${CHECK_RUN_IDS}"
                   {
                     echo "has_warning=${found}"
-                    echo "title=${title}"
+                    echo "title<<EOF_TITLE"
+                    echo "${title}"
+                    echo "EOF_TITLE"
                   } >> "${GITHUB_OUTPUT}"
 
             - name: Append warning event
