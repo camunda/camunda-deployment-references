@@ -16,7 +16,6 @@ on:
         workflows:
             - Tests - Integration - Azure Kubernetes AKS Single Region
             - Tests - Integration - Generic Operator based
-            - Tests - Integration - Generic Migration from Bitnami
             - Tests - Integration - AWS Kubernetes EKS Single Region (IRSA)
             - Tests - Integration - AWS Kubernetes EKS Dual Region
             - Tests - Integration - AWS OpenShift ROSA HCP Single Region
