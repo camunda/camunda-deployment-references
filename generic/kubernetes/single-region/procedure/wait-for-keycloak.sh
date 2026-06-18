@@ -10,8 +10,8 @@
 # the `camunda-platform` realm and (b) the public route converges (DNS + TLS
 # certificate + ingress). Until then the pods crash-loop, and Kubernetes backoff can
 # delay the next restart by several minutes, so a first deployment can look broken
-# for a while. This script blocks until the discovery endpoint returns HTTP 200,
-# then rolls the app workloads so they restart cleanly.
+# for a while. This script waits (up to a timeout) for the discovery endpoint to
+# return HTTP 200, then rolls the app workloads so they restart cleanly.
 #
 # It is safe to run right after the Helm install, and it FAILS OPEN: if the issuer
 # never answers within the timeout it warns and exits 0, so it never blocks a deploy.
@@ -33,7 +33,7 @@ issuer="${CAMUNDA_OIDC_ISSUER_URL:-https://${domain}/auth/realms/camunda-platfor
 discovery="${issuer%/}/.well-known/openid-configuration"
 timeout_seconds="${KEYCLOAK_WAIT_TIMEOUT_SECONDS:-600}"
 
-curl_opts=(--silent --output /dev/null --max-time 5)
+curl_opts=(--silent --show-error --output /dev/null --max-time 5)
 if [ "${KEYCLOAK_WAIT_INSECURE:-false}" = "true" ]; then
     curl_opts+=(--insecure)
 fi
@@ -46,6 +46,15 @@ warn() {
         echo "WARNING: $1"
     fi
 }
+
+# Fail open immediately if a required tool is missing, instead of spinning until
+# the deadline.
+for required in curl kubectl; do
+    if ! command -v "$required" >/dev/null 2>&1; then
+        warn "'$required' is not available; skipping the Keycloak readiness wait."
+        exit 0
+    fi
+done
 
 echo "Waiting for the Keycloak OIDC discovery document (up to ${timeout_seconds}s): ${discovery}"
 deadline=$(($(date +%s) + timeout_seconds))
