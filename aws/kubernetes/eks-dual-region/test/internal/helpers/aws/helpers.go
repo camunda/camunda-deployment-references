@@ -150,6 +150,17 @@ func CreateLoadBalancers(t *testing.T, source helpers.Cluster, k8sManifests stri
 	kubeResourcePath := fmt.Sprintf("%s/%s", k8sManifests, "internal-dns-lb.yml")
 
 	k8s.KubectlApply(t, &source.KubectlSystem, kubeResourcePath)
+
+	// Tag the internal-dns load balancer for the AWS MAP program. This NLB is
+	// provisioned by the in-tree AWS cloud provider from the Service object and
+	// does not inherit the Terraform provider default_tags carrying map-migrated.
+	// Annotating in the test harness (CI only) keeps the rendered procedure
+	// manifest free of Camunda's MAP id; the cloud provider then propagates the
+	// tag onto the load balancer. KubectlSystem already targets the kube-system
+	// namespace where internal-dns-lb lives.
+	k8s.RunKubectl(t, &source.KubectlSystem, "annotate", "service", "internal-dns-lb", "--overwrite",
+		"service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags=map-migrated=migARUADZHVWZ")
+
 	k8s.WaitUntilServiceAvailable(t, &source.KubectlSystem, "internal-dns-lb", 15, 6*time.Second)
 
 	host := k8s.GetService(t, &source.KubectlSystem, "internal-dns-lb")

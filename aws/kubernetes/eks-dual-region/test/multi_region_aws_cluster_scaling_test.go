@@ -1,7 +1,6 @@
 package test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -168,15 +167,15 @@ func waitForPodRunning(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName
 
 	t.Logf("[SCALING] Waiting for %s region pod %s to be Running", regionName, podName)
 	for retry := 0; retry < maxRetries; retry++ {
-		pod := k8s.GetPod(t, kubectlOptions, podName)
-		if pod.Status.Phase == "Running" {
+		phase, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "pod", podName, "-o", "jsonpath={.status.phase}", "--request-timeout=30s")
+		if err == nil && strings.TrimSpace(phase) == "Running" {
 			t.Logf("[SCALING] %s region pod %s is Running", regionName, podName)
 			return
 		}
 		if retry == maxRetries-1 {
-			t.Fatalf("[SCALING] %s region pod %s did not reach Running status (current: %s)", regionName, podName, pod.Status.Phase)
+			t.Fatalf("[SCALING] %s region pod %s did not reach Running status (current: %q, err: %v)", regionName, podName, phase, err)
 		}
-		t.Logf("[SCALING] %s region pod %s status: %s (attempt %d/%d)", regionName, podName, pod.Status.Phase, retry+1, maxRetries)
+		t.Logf("[SCALING] %s region pod %s status: %q (attempt %d/%d)", regionName, podName, phase, retry+1, maxRetries)
 		time.Sleep(retryInterval)
 	}
 }
@@ -187,29 +186,42 @@ func waitForScalingComplete(t *testing.T, operationName string, maxRetries int) 
 	t.Helper()
 	t.Logf("[SCALING] Waiting for %s to complete 🕐", operationName)
 
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, "camunda-zeebe-gateway", service.Name)
-
-	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
-	defer closeFn()
-
+	// Poll the gateway cluster topology until the scaling change is no longer pending,
+	// tolerating transient connection drops and self-healing any broker that hangs on
+	// the cross-region clusterset-DNS race during a restart (camunda/camunda#55038),
+	// which would otherwise stall the redistribution forever. Each request uses its own
+	// short-lived kubectl port-forward (see GatewayManagementRequest).
+	notReadySince := map[string]time.Time{}
+	brokerRestarts := 0
+	completed := false
+	var lastBody string
 	for i := 0; i < maxRetries; i++ {
-		res, body := helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/cluster", endpoint), nil)
-		require.NotNil(t, res, "Failed to query cluster status")
-		require.Equal(t, 200, res.StatusCode)
-
-		// Check if there's no pending change
-		if !strings.Contains(body, "pendingChange") {
-			t.Logf("[SCALING] %s completed successfully", operationName)
-			require.Contains(t, body, "COMPLETED", "Expected lastChange status to be COMPLETED")
-			return
+		status, body, err := kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/cluster", nil)
+		if err == nil && status == 200 {
+			lastBody = body
+			// Check if there's no pending change
+			if !strings.Contains(body, "pendingChange") {
+				t.Logf("[SCALING] %s completed successfully", operationName)
+				require.Contains(t, body, "COMPLETED", "Expected lastChange status to be COMPLETED")
+				completed = true
+				break
+			}
+			t.Logf("[SCALING] %s in progress... (attempt %d/%d)", operationName, i+1, maxRetries)
+		} else if err != nil {
+			t.Logf("[SCALING] %s status request failed (attempt %d/%d), retrying: %v", operationName, i+1, maxRetries, err)
+		} else {
+			t.Logf("[SCALING] %s unexpected status %d (attempt %d/%d), retrying", operationName, status, i+1, maxRetries)
 		}
 
-		t.Logf("[SCALING] %s in progress... (attempt %d/%d)", operationName, i+1, maxRetries)
+		// Self-heal a broker left Running-but-not-Ready on the clusterset-DNS race so
+		// the scaling change can progress; heal at most one region per iteration.
+		if kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6) == 0 {
+			kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
+		}
 		time.Sleep(15 * time.Second)
 	}
 
-	t.Fatalf("[SCALING] %s did not complete within the expected time", operationName)
+	require.True(t, completed, "[SCALING] %s did not complete within the expected time (last status body: %s)", operationName, lastBody)
 }
 
 // addNewBrokersToCluster sends API request to add new brokers to the cluster
@@ -261,25 +273,16 @@ func scaleUpBrokersAndPartitions(t *testing.T, brokersToAdd []int, partitionCoun
 func patchClusterTopology(t *testing.T, payload map[string]interface{}, operationName string) {
 	t.Helper()
 
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, "camunda-zeebe-gateway", service.Name)
-
-	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
-	defer closeFn()
-
 	payloadBytes, err := json.Marshal(payload)
 	require.NoError(t, err, "Failed to marshal payload")
 
-	// Now perform the actual scaling
+	// Issue the scaling change through the gateway, retrying on transient 5xx (the
+	// gateway can briefly reject a mutating request while partitions redistribute).
+	// The request uses a short-lived kubectl port-forward (see GatewayManagementMutate).
 	t.Logf("[SCALING] Executing %s", operationName)
-	res, body := helpers.HttpRequest(
-		t,
-		"PATCH",
-		fmt.Sprintf("http://%s/actuator/cluster", endpoint),
-		bytes.NewBuffer(payloadBytes),
-	)
-	require.NotNil(t, res, "Failed to create request")
-	require.Equal(t, 202, res.StatusCode, "Expected 202 Accepted status")
+	status, body, err := kubectlHelpers.GatewayManagementMutate(t, &primary.KubectlNamespace, "PATCH", "/actuator/cluster", payloadBytes, 8, 15*time.Second)
+	require.NoError(t, err, "Failed to request %s", operationName)
+	require.Equal(t, 202, status, "Expected 202 Accepted status")
 	require.NotEmpty(t, body)
 	require.Contains(t, body, "plannedChanges")
 	require.Contains(t, body, "changeId")
