@@ -33,7 +33,7 @@ issuer="${CAMUNDA_OIDC_ISSUER_URL:-https://${domain}/auth/realms/camunda-platfor
 discovery="${issuer%/}/.well-known/openid-configuration"
 timeout_seconds="${KEYCLOAK_WAIT_TIMEOUT_SECONDS:-600}"
 
-curl_opts=(--silent --show-error --output /dev/null --max-time 5)
+curl_opts=(--silent --output /dev/null --max-time 5)
 if [ "${KEYCLOAK_WAIT_INSECURE:-false}" = "true" ]; then
     curl_opts+=(--insecure)
 fi
@@ -46,6 +46,15 @@ warn() {
         echo "WARNING: $1"
     fi
 }
+
+# Fall back to the default if the timeout is not a positive integer, so a bad
+# value cannot break the arithmetic below or silently skip the wait.
+case "$timeout_seconds" in
+    '' | *[!0-9]*)
+        warn "KEYCLOAK_WAIT_TIMEOUT_SECONDS='${timeout_seconds}' is not a positive integer; using 600."
+        timeout_seconds=600
+        ;;
+esac
 
 # Fail open immediately if a required tool is missing, instead of spinning until
 # the deadline.
@@ -67,10 +76,15 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
         echo "Keycloak issuer is reachable (HTTP ${code}) after ${attempt} attempt(s)."
         echo "Restarting Camunda workloads to clear any first-start crash-loop backoff..."
         kubectl --namespace "$namespace" rollout restart "statefulset/${release}-zeebe" || true
-        # Connectors may be disabled in some scenarios; only restart it when present,
-        # and keep its errors visible (do not blanket-silence stderr).
-        if kubectl --namespace "$namespace" get "deployment/${release}-connectors" >/dev/null 2>&1; then
-            kubectl --namespace "$namespace" rollout restart "deployment/${release}-connectors" || true
+        # Connectors may be disabled in some scenarios; tolerate that specific case
+        # (NotFound) but surface any other error instead of silently swallowing it.
+        if connectors_out=$(kubectl --namespace "$namespace" rollout restart "deployment/${release}-connectors" 2>&1); then
+            printf '%s\n' "$connectors_out"
+        else
+            case "$connectors_out" in
+                *NotFound*) echo "Connectors deployment not present; skipping its restart." ;;
+                *) printf '%s\n' "$connectors_out" >&2 ;;
+            esac
         fi
         exit 0
     fi
