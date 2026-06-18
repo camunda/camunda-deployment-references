@@ -19,8 +19,11 @@ helm upgrade --install "camunda" camunda-platform \
 # Wait (bounded, fail-open) for the public Keycloak issuer, then restart the app
 # pods so they recover from the first-start crash-loop instead of waiting out the
 # backoff. On timeout it warns and continues. Reuses the shared readiness script
-# (also shipped to customers and used by CI).
-../../../generic/kubernetes/single-region/procedure/wait-for-keycloak.sh
+# (also shipped to customers and used by CI). Under CI the host may not trust the
+# mkcert CA (mkcert -install is best-effort), so skip TLS verification there only;
+# local runs keep it enabled.
+KEYCLOAK_WAIT_INSECURE="${GITHUB_ACTIONS:+true}" \
+    ../../../generic/kubernetes/single-region/procedure/wait-for-keycloak.sh
 
 echo ""
 echo "Camunda Platform deployed"
